@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
-	"sukyan/db"
-	"sukyan/lib"
-	"sukyan/pkg/fuzz"
-	"sukyan/pkg/http_utils"
-	"sukyan/pkg/payloads"
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/fuzz"
+	"github.com/pyneda/sukyan/pkg/http_utils"
+	"github.com/pyneda/sukyan/pkg/payloads"
 
 	"github.com/rs/zerolog/log"
 )

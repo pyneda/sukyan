@@ -2,7 +2,7 @@ package fuzz
 
 import (
 	"net/http"
-	"sukyan/pkg/payloads"
+	"github.com/pyneda/sukyan/pkg/payloads"
 )
 
 // FuzzResult used to return a result to be futher analyzed

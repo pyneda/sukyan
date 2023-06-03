@@ -2,7 +2,7 @@
 package cmd
 
 import (
-	"sukyan/db"
+	"github.com/pyneda/sukyan/db"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"

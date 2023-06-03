@@ -8,7 +8,7 @@ import (
 	"os"
 	"sync"
 	"time"
-	"sukyan/db"
+	"github.com/pyneda/sukyan/db"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"

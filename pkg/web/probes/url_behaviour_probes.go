@@ -1,7 +1,7 @@
 package probes
 
 import (
-	"sukyan/pkg/fuzz"
+	"github.com/pyneda/sukyan/pkg/fuzz"
 
 	"github.com/rs/zerolog/log"
 )

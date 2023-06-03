@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
-	"sukyan/db"
-	"sukyan/lib"
-	"sukyan/pkg/passive"
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/passive"
 
 	"github.com/go-rod/rod"
 	"github.com/rs/zerolog/log"

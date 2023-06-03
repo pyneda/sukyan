@@ -5,8 +5,8 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"sukyan/pkg/scope"
-	"sukyan/pkg/web"
+	"github.com/pyneda/sukyan/pkg/scope"
+	"github.com/pyneda/sukyan/pkg/web"
 
 	"github.com/go-rod/rod"
 	"github.com/rs/zerolog/log"

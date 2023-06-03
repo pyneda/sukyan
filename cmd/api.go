@@ -3,7 +3,7 @@ package cmd
 
 import (
 	"fmt"
-	"sukyan/api"
+	"github.com/pyneda/sukyan/api"
 
 	"github.com/spf13/cobra"
 )

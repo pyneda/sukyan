@@ -2,10 +2,10 @@ package active
 
 import (
 	"fmt"
-	"sukyan/db"
-	"sukyan/pkg/fuzz"
-	"sukyan/pkg/http_utils"
-	"sukyan/pkg/payloads"
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/fuzz"
+	"github.com/pyneda/sukyan/pkg/http_utils"
+	"github.com/pyneda/sukyan/pkg/payloads"
 
 	"github.com/rs/zerolog/log"
 )

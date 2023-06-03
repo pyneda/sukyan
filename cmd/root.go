@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"sukyan/lib"
+	"github.com/pyneda/sukyan/lib"
 
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"

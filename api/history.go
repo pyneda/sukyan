@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sukyan/db"
+	"github.com/pyneda/sukyan/db"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"

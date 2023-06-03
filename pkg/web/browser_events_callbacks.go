@@ -2,7 +2,7 @@ package web
 
 import (
 	"fmt"
-	"sukyan/db"
+	"github.com/pyneda/sukyan/db"
 
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/rs/zerolog/log"

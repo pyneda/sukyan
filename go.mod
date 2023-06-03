@@ -6,7 +6,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20210110162100-a92cc753f88e
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.6.3
-	github.com/go-rod/rod v0.91.1
+	github.com/go-rod/rod v0.113.1
 	github.com/jpillora/go-tld v1.1.1
 	github.com/mattn/go-colorable v0.1.8
 	github.com/mingrammer/commonregex v1.0.1
@@ -49,9 +49,11 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
-	github.com/ysmood/goob v0.3.0 // indirect
-	github.com/ysmood/gson v0.6.3 // indirect
-	github.com/ysmood/leakless v0.6.12 // indirect
+	github.com/ysmood/fetchup v0.2.3 // indirect
+	github.com/ysmood/goob v0.4.0 // indirect
+	github.com/ysmood/got v0.34.1 // indirect
+	github.com/ysmood/gson v0.7.3 // indirect
+	github.com/ysmood/leakless v0.8.0 // indirect
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e // indirect
 	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd // indirect
 	golang.org/x/text v0.3.3 // indirect

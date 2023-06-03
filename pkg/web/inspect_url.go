@@ -216,7 +216,7 @@ func InspectURL(url string) WebPage {
 	data.StatusCode = e.Response.Status
 	data.ResponseURL = e.Response.URL
 	data.RemoteIPAddress = e.Response.RemoteIPAddress
-	data.Port = e.Response.RemotePort
+	data.Port = *e.Response.RemotePort
 	data.MimeType = e.Response.MIMEType
 	data.SecurityState = string(e.Response.SecurityState)
 	// https://pkg.go.dev/github.com/go-rod/rod@v0.91.1/lib/proto#SecuritySecurityState

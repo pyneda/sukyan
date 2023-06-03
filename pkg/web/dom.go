@@ -21,7 +21,7 @@ func (a *PageDOMAudit) Run() {
 	logger := log.With().Str("url", a.URL).Logger()
 
 	document, err := proto.DOMGetDocument{
-		Depth: a.MaxDepth,
+		Depth: &a.MaxDepth,
 	}.Call(a.Page)
 	if err != nil {
 		logger.Warn().Msg("Could not get DOM document during DOM audit")
@@ -66,7 +66,7 @@ func (a *PageDOMAudit) InspectDOMNodes(nodes []*proto.DOMNode) {
 func (a *PageDOMAudit) InspectDOMNode(node *proto.DOMNode) {
 	// Interesting: https://chromedevtools.github.io/devtools-protocol/tot/DOM/#method-getNodeStackTraces
 	log.Info().Interface("node", node).Msg("Node detail info")
-	if node.ChildNodeCount > 0 {
+	if *node.ChildNodeCount > 0 {
 		a.InspectDOMNodes(node.Children)
 	}
 }

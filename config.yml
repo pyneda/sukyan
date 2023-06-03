@@ -1,0 +1,14 @@
+scan:
+  concurrency:
+    max_audits: 4
+    per_browser_audit: 4
+    per_http_audit: 16
+  crawl:
+    enabled: false
+  magic_words:
+  - "null"
+  - None
+  - Undefined
+  - Blank
+workspace:
+  id: 1

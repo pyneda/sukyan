@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"sukyan/pkg/web"
+	"github.com/pyneda/sukyan/pkg/web"
 
 	"github.com/spf13/cobra"
 )

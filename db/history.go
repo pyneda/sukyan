@@ -3,7 +3,7 @@ package db
 import (
 	"encoding/json"
 	"net/http"
-	"sukyan/pkg/http_utils"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"

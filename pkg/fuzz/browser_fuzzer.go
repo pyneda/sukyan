@@ -2,8 +2,8 @@ package fuzz
 
 import (
 	"sync"
-	"sukyan/db"
-	"sukyan/pkg/payloads"
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/payloads"
 
 	"github.com/rs/zerolog/log"
 )

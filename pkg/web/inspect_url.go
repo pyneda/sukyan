@@ -3,8 +3,8 @@ package web
 import (
 	"encoding/json"
 	"fmt"
-	"sukyan/db"
-	"sukyan/pkg/web/cookies"
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/web/cookies"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"

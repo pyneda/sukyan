@@ -3,9 +3,9 @@ package fuzz
 import (
 	"net/http"
 	"sync"
-	"sukyan/lib"
-	"sukyan/pkg/http_utils"
-	"sukyan/pkg/payloads"
+	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/http_utils"
+	"github.com/pyneda/sukyan/pkg/payloads"
 
 	"github.com/rs/zerolog/log"
 )

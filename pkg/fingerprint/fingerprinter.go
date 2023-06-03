@@ -1,6 +1,6 @@
 package fingerprint
 
-import "sukyan/db"
+import "github.com/pyneda/sukyan/db"
 
 type Fingerprinter struct {
 	fingerprints []FingerprintInterface

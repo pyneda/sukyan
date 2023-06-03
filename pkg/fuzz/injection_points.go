@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"sukyan/db"
-	"sukyan/lib"
-	"sukyan/pkg/web"
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/web"
 
 	"github.com/go-rod/rod"
 	"github.com/rs/zerolog/log"

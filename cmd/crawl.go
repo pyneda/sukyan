@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"sukyan/pkg/crawl"
+	"github.com/pyneda/sukyan/pkg/crawl"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"

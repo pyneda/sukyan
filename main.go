@@ -1,6 +1,6 @@
 package main
 
-import "sukyan/cmd"
+import "github.com/pyneda/sukyan/cmd"
 
 func main() {
 	cmd.Execute()

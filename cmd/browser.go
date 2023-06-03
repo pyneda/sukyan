@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"sukyan/pkg/manual"
+	"github.com/pyneda/sukyan/pkg/manual"
 
 	"github.com/spf13/cobra"
 )

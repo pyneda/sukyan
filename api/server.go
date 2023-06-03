@@ -2,7 +2,7 @@ package api
 
 import (
 	"net/http"
-	"sukyan/db"
+	"github.com/pyneda/sukyan/db"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

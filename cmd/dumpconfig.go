@@ -2,7 +2,7 @@
 package cmd
 
 import (
-	"sukyan/pkg/config"
+	"github.com/pyneda/sukyan/pkg/config"
 
 	"github.com/rs/zerolog/log"
 

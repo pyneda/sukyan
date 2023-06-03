@@ -2,8 +2,8 @@ package web
 
 import (
 	"net/url"
-	"sukyan/db"
-	"sukyan/pkg/web/cookies"
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/web/cookies"
 
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/rs/zerolog/log"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"sukyan/pkg/fuzz"
+	"github.com/pyneda/sukyan/pkg/fuzz"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"

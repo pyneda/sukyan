@@ -4,7 +4,7 @@ import (
 	//_ "embed"
 	"fmt"
 	"os"
-	"sukyan/lib"
+	"github.com/pyneda/sukyan/lib"
 
 	"github.com/spf13/cobra"
 )

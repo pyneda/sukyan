@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"github.com/pyneda/sukyan/pkg/scan"
+	"os"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"

@@ -3,12 +3,12 @@ package active
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"time"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/payloads"
 	"github.com/pyneda/sukyan/pkg/web"
+	"net/http"
+	"time"
 
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/rs/zerolog/log"

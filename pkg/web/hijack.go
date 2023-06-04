@@ -2,11 +2,11 @@ package web
 
 import (
 	"encoding/json"
-	"net/http"
-	"strings"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/passive"
+	"net/http"
+	"strings"
 
 	"github.com/go-rod/rod"
 	"github.com/rs/zerolog/log"

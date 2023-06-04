@@ -1,18 +1,16 @@
 package crawl
 
 import (
+	"github.com/pyneda/sukyan/pkg/scope"
+	"github.com/pyneda/sukyan/pkg/web"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
-	"github.com/pyneda/sukyan/pkg/scope"
-	"github.com/pyneda/sukyan/pkg/web"
 
 	"github.com/go-rod/rod"
 	"github.com/rs/zerolog/log"
 )
-
-
 
 // Crawler is used to crawl and inspect web pages
 type Crawler struct {

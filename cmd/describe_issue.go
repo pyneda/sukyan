@@ -1,10 +1,9 @@
-
 package cmd
 
 import (
 	"fmt"
-	"os"
 	"github.com/pyneda/sukyan/db"
+	"os"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"

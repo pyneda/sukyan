@@ -1,9 +1,9 @@
 package fuzz
 
 import (
-	"strings"
 	"github.com/pyneda/sukyan/pkg/payloads"
 	"github.com/pyneda/sukyan/pkg/web/cookies"
+	"strings"
 )
 
 // Interface

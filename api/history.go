@@ -1,10 +1,10 @@
 package api
 
 import (
+	"github.com/pyneda/sukyan/db"
 	"net/http"
 	"strconv"
 	"strings"
-	"github.com/pyneda/sukyan/db"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"

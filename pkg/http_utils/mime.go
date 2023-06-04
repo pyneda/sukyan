@@ -6,7 +6,7 @@ import "strings"
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types
 // https://gist.github.com/AshHeskes/6038140#gistcomment-3434363
 
-//var MimeTypes sync.Map
+// var MimeTypes sync.Map
 const (
 	MimeTypeImgGroup         = "image"
 	MimeTypeTextGroup        = "text"

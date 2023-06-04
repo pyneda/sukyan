@@ -2,11 +2,11 @@ package fuzz
 
 import (
 	"fmt"
-	"net/url"
-	"strings"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/web"
+	"net/url"
+	"strings"
 
 	"github.com/go-rod/rod"
 	"github.com/rs/zerolog/log"

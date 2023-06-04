@@ -2,11 +2,11 @@ package active
 
 import (
 	"fmt"
-	"strings"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 )

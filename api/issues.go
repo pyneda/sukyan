@@ -1,8 +1,8 @@
 package api
 
 import (
-	"net/http"
 	"github.com/pyneda/sukyan/db"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )

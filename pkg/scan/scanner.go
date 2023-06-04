@@ -1,13 +1,13 @@
 package scan
 
 import (
-	"regexp"
-	"time"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/active"
 	"github.com/pyneda/sukyan/pkg/crawl"
 	"github.com/pyneda/sukyan/pkg/scope"
 	"github.com/pyneda/sukyan/pkg/web"
+	"regexp"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )

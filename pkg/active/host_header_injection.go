@@ -2,13 +2,13 @@ package active
 
 import (
 	"fmt"
-	"net/http"
-	"sync"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
+	"net/http"
+	"sync"
 
 	"github.com/rs/zerolog/log"
 )

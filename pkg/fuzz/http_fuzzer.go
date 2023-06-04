@@ -1,11 +1,11 @@
 package fuzz
 
 import (
-	"net/http"
-	"sync"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
+	"net/http"
+	"sync"
 
 	"github.com/rs/zerolog/log"
 )

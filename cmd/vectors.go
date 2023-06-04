@@ -1,11 +1,10 @@
-
 package cmd
 
 import (
 	"fmt"
+	"github.com/pyneda/sukyan/pkg/fuzz"
 	"net/url"
 	"os"
-	"github.com/pyneda/sukyan/pkg/fuzz"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"

@@ -3,8 +3,8 @@ package cmd
 import (
 	//_ "embed"
 	"fmt"
-	"os"
 	"github.com/pyneda/sukyan/lib"
+	"os"
 
 	"github.com/spf13/cobra"
 )

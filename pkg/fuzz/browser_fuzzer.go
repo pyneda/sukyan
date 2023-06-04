@@ -1,9 +1,9 @@
 package fuzz
 
 import (
-	"sync"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/payloads"
+	"sync"
 
 	"github.com/rs/zerolog/log"
 )

@@ -1,9 +1,9 @@
 package web
 
 import (
-	"net/url"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/web/cookies"
+	"net/url"
 
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/rs/zerolog/log"

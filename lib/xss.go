@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/pyneda/sukyan/db"
 	"net/url"
 	"os"
 	"sync"
 	"time"
-	"github.com/pyneda/sukyan/db"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"

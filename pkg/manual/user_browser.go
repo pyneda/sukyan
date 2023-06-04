@@ -1,9 +1,9 @@
 package manual
 
 import (
-	"time"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/web"
+	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"

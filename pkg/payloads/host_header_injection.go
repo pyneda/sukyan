@@ -1,8 +1,8 @@
 package payloads
 
 import (
-	"regexp"
 	"github.com/pyneda/sukyan/lib"
+	"regexp"
 )
 
 type HostHeaderInjectionPayload struct {

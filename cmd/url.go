@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/pyneda/sukyan/pkg/web"
 	"net/url"
 	"os"
-	"github.com/pyneda/sukyan/pkg/web"
 
 	"github.com/spf13/cobra"
 )

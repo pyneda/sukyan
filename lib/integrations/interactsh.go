@@ -1,8 +1,6 @@
 package integrations
 
 import (
-	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/projectdiscovery/interactsh/pkg/client"

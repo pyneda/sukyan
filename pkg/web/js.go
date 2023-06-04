@@ -1,6 +1,6 @@
 package web
 
-const GetLinks = `getLinks();
+const GetLinks = `() => {
 function absolutePath(href) {
     try {
         var link = document.createElement("a");
@@ -21,4 +21,6 @@ function getLinks() {
         }
     }
     return array;
+}
+return getLinks();
 }`

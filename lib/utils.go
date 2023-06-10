@@ -17,7 +17,7 @@ import (
 const DefaultRandomStringsCharset = "abcdedfghijklmnopqrstABCDEFGHIJKLMNOP"
 
 // Need to refactor existing contains to SliceContains
-func contains(slice []string, item string) bool {
+func Contains(slice []string, item string) bool {
 	set := make(map[string]struct{}, len(slice))
 	for _, s := range slice {
 		set[s] = struct{}{}
@@ -55,7 +55,7 @@ func GetParametersToTest(path string, params []string, testAllParams bool) (para
 	}
 	for key := range query {
 
-		if contains(params, key) == true {
+		if Contains(params, key) == true {
 			continue
 		} else if testAllParams || len(params) == 0 {
 			// If provided by params[], we ignore as already added
@@ -156,3 +156,44 @@ func SetupCloseHandler() {
 		os.Exit(0)
 	}()
 }
+
+
+
+// GetURLWithoutQueryString returns the base URL from the given URL by removing the query string
+func GetURLWithoutQueryString(urlStr string) (string, error) {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return "", err
+	}
+	parsedURL.RawQuery = ""
+	return parsedURL.String(), nil
+}
+
+func IsRootURL(urlStr string) (bool, error) {
+	parsedURL, err := url.Parse(urlStr)
+	parsedURL.RawQuery = ""
+	if err != nil {
+		return false, err
+	}
+
+	isRoot := strings.Trim(parsedURL.Path, "/") == "" && parsedURL.RawQuery == ""
+
+	return isRoot, nil
+}
+
+// GetParentURL returns the parent URL for the given URL. If the given URL
+// is already a parent URL, the function returns true as the second return value.
+func GetParentURL(urlStr string) (string, bool, error) {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return "", false, err
+	}
+
+	parentURL := parsedURL
+	parentURL.Path = path.Dir(parsedURL.Path)
+
+	isParentURL := parentURL.Path == "." || parentURL.Path == "/"
+	
+	return parentURL.String(), isParentURL, nil
+}
+

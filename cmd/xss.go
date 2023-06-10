@@ -3,7 +3,7 @@ package cmd
 import (
 	//_ "embed"
 	"fmt"
-	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/active"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -40,7 +40,7 @@ sukyan xss [url]`,
 		}
 		fmt.Println("Checking XSS with payloads...")
 		for _, target := range targets {
-			lib.TestXSS(target, testParams, wordlist, urlEncode)
+			active.TestXSS(target, testParams, wordlist, urlEncode)
 		}
 
 	},

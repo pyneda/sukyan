@@ -1,7 +1,6 @@
 package scan
 
 import (
-	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/active"
 	"github.com/pyneda/sukyan/pkg/crawl"
 	"github.com/pyneda/sukyan/pkg/scope"
@@ -77,7 +76,7 @@ func (s *Scanner) ScanURL(webPage web.WebPage) {
 	var params []string
 	hasParams, _ := webPage.HasParameters()
 	if hasParams {
-		lib.TestXSS(webPage.URL, params, "default.txt", false)
+		active.TestXSS(webPage.URL, params, "default.txt", false)
 		// ssti := active.SSTIAudit{
 		// 	URL:              webPage.URL,
 		// 	Params:           params,

@@ -53,7 +53,7 @@ func TestGetParametersToTest(t *testing.T) {
 	all := GetParametersToTest("https://test.com/q?q=test&num=10&page=3&category=test", testParams, true)
 
 	for _, v := range testAllParams {
-		if contains(all, v) != true {
+		if Contains(all, v) != true {
 			t.Error()
 		}
 	}
@@ -61,7 +61,7 @@ func TestGetParametersToTest(t *testing.T) {
 	visible := GetParametersToTest("https://test.com/q?q=test&num=10&page=3&category=test", emptyParams, true)
 
 	for _, v := range testVisibleParams {
-		if contains(visible, v) != true {
+		if Contains(visible, v) != true {
 			t.Error()
 		}
 	}
@@ -100,4 +100,67 @@ func TestBuild404URL(t *testing.T) {
 		t.Error()
 	}
 	// log.Info().Str("original", original).Str("result", result).Msg("404 url")
+}
+
+func TestGetURLWithoutQueryString(t *testing.T) {
+	original := "https://test.com/xyz/?q=test"
+	result, err := GetURLWithoutQueryString(original)
+	if err != nil {
+		t.Error()
+	}
+	if "https://test.com/xyz" == result {
+		t.Error()
+	}
+
+}
+
+
+
+
+func TestGetParentURL(t *testing.T) {
+	testCases := []struct {
+		name       string
+		input      string
+		wantURL    string
+		wantIsRoot bool
+		wantErr    bool
+	}{
+		{
+			name:       "Normal URL",
+			input:      "https://gorm.io/docs/belongs_to.html",
+			wantURL:    "https://gorm.io/docs",
+			wantIsRoot: false,
+			wantErr:    false,
+		},
+		{
+			name:       "Root URL",
+			input:      "https://gorm.io/",
+			wantURL:    "https://gorm.io/",
+			wantIsRoot: true,
+			wantErr:    false,
+		},
+		{
+			name:       "Invalid URL",
+			input:      "://gorm.io/",
+			wantURL:    "",
+			wantIsRoot: false,
+			wantErr:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotURL, gotIsRoot, err := GetParentURL(tc.input)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("GetParentURL() error = %v, wantErr %v", err, tc.wantErr)
+				return
+			}
+			if gotURL != tc.wantURL {
+				t.Errorf("GetParentURL() gotURL = %v, want %v", gotURL, tc.wantURL)
+			}
+			if gotIsRoot != tc.wantIsRoot {
+				t.Errorf("GetParentURL() gotIsRoot = %v, want %v", gotIsRoot, tc.wantIsRoot)
+			}
+		})
+	}
 }

@@ -1,10 +1,11 @@
-package lib
+package active
 
 import (
 	"bufio"
 	"context"
 	"fmt"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"net/url"
 	"os"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// ParameterAuditItem struct
 
 // TestXSS : Tests xss
 func TestXSS(targetUrl string, params []string, wordlist string, urlEncode bool) error {
@@ -35,7 +35,7 @@ func TestXSS(targetUrl string, params []string, wordlist string, urlEncode bool)
 	for key, element := range query {
 		fmt.Println("Key: ", key, "=>", "Element", element)
 		if len(params) > 0 {
-			if contains(params, key) == true {
+			if lib.Contains(params, key) == true {
 				testQueryParams = append(testQueryParams, key)
 			}
 		} else {
@@ -57,7 +57,7 @@ func TestXSS(targetUrl string, params []string, wordlist string, urlEncode bool)
 	s := bufio.NewScanner(f)
 
 	// Create channel to transfer audit items to workers
-	auditItemsChannel := make(chan ParameterAuditItem)
+	auditItemsChannel := make(chan lib.ParameterAuditItem)
 	pendingChannel := make(chan int)
 	go XSSParameterAuditMonitor(pendingChannel, auditItemsChannel)
 	// Start 4 hard coded XSS audit workers
@@ -70,7 +70,7 @@ func TestXSS(targetUrl string, params []string, wordlist string, urlEncode bool)
 		// log.Printf("Testing payload: %s\n", s.Text())
 		log.Debug().Str("url", targetUrl).Str("payload", s.Text()).Msg("Testing payload on url parameters")
 		for _, tp := range testQueryParams {
-			auditItem := ParameterAuditItem{
+			auditItem := lib.ParameterAuditItem{
 				Parameter: tp,
 				URL:       targetUrl,
 				Payload:   s.Text(),
@@ -89,7 +89,7 @@ func TestXSS(targetUrl string, params []string, wordlist string, urlEncode bool)
 	return nil
 }
 
-func XSSParameterAuditMonitor(pendingChannel chan int, auditItemsChanell chan ParameterAuditItem) {
+func XSSParameterAuditMonitor(pendingChannel chan int, auditItemsChanell chan lib.ParameterAuditItem) {
 	count := 0
 	log.Debug().Msg("Crawl monitor started")
 	for c := range pendingChannel {
@@ -103,7 +103,7 @@ func XSSParameterAuditMonitor(pendingChannel chan int, auditItemsChanell chan Pa
 	}
 }
 
-func XSSParameterAuditWorker(auditItems chan ParameterAuditItem, pendingChannel chan int, wg *sync.WaitGroup) {
+func XSSParameterAuditWorker(auditItems chan lib.ParameterAuditItem, pendingChannel chan int, wg *sync.WaitGroup) {
 	for auditItem := range auditItems {
 		TestUrlParamWithAlertPayload(auditItem)
 		pendingChannel <- -1
@@ -112,11 +112,11 @@ func XSSParameterAuditWorker(auditItems chan ParameterAuditItem, pendingChannel 
 }
 
 // TestUrlParamWithAlertPayload opens a browser and sends a payload to a param and check if alert has opened
-func TestUrlParamWithAlertPayload(item ParameterAuditItem) error {
+func TestUrlParamWithAlertPayload(item lib.ParameterAuditItem) error {
 	log.Debug().Msg("Launching browser to connect to page")
 	browser := rod.New().MustConnect()
 	defer browser.MustClose()
-	testurl, err := BuildURLWithParam(item.URL, item.Parameter, item.Payload, item.URLEncode)
+	testurl, err := lib.BuildURLWithParam(item.URL, item.Parameter, item.Payload, item.URLEncode)
 	if err != nil {
 		return err
 	}

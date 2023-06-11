@@ -167,6 +167,7 @@ func TestUrlParamWithAlertPayload(item lib.ParameterAuditItem) error {
 				Response:      "Not implemented",
 				FalsePositive: false,
 				Confidence:    99,
+				Severity:      "High",
 			}
 			db.Connection.CreateIssue(xssIssue)
 

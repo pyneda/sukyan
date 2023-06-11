@@ -10,10 +10,10 @@ import (
 type Issue struct {
 	gorm.Model
 	Code           string
-	Title          string
+	Title          string `gorm:"index"`
 	Description    string
 	Cwe            int
-	URL            string
+	URL            string `gorm:"index"`
 	StatusCode     int
 	HTTPMethod     string
 	Payload        string
@@ -22,6 +22,9 @@ type Issue struct {
 	AdditionalInfo datatypes.JSON
 	FalsePositive  bool
 	Confidence     int
+	// enums seem to fail - review later
+	// Severity string `json:"severity" gorm:"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
+	Severity string `json:"severity" gorm:"index; default:'Unknown'"`
 	Note           string
 }
 

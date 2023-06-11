@@ -126,6 +126,7 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 			Response:      body,
 			FalsePositive: false,
 			Confidence:    75,
+			Severity:      "Medium",
 		}
 		log.Warn().Interface("issue", issue).Msg("New issue found")
 		db.Connection.CreateIssue(issue)

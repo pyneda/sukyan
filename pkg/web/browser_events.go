@@ -88,6 +88,7 @@ func RunOnPage(page *rod.Page) {
 				Payload:        "N/A",
 				Confidence:     80,
 				AdditionalInfo: jsonDetails,
+				Severity:       "Info",
 			}
 			db.Connection.CreateIssue(browserAuditIssue)
 			// }

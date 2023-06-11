@@ -3,6 +3,7 @@ package db
 import (
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
+	"strings"
 	"time"
 )
 
@@ -25,6 +26,7 @@ type OOBTest struct {
 
 // CreateOOBTest saves an OOBTest to the database
 func (d *DatabaseConnection) CreateOOBTest(item OOBTest) (OOBTest, error) {
+	item.InteractionFullID = strings.ToLower(item.InteractionFullID)
 	result := d.db.Create(&item)
 	if result.Error != nil {
 		log.Error().Err(result.Error).Interface("item", item).Msg("Failed to create OOBTest")
@@ -58,4 +60,16 @@ func (d *DatabaseConnection) CreateInteraction(item OOBInteraction) (OOBInteract
 		log.Error().Err(result.Error).Interface("interaction", item).Msg("Failed to create interaction")
 	}
 	return item, result.Error
+}
+
+func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteraction) (OOBTest, error) {
+	oobTest := OOBTest{}
+	result := d.db.Where(&OOBTest{InteractionFullID: interaction.FullID}).First(&oobTest)
+	if result.Error != nil {
+		log.Error().Err(result.Error).Interface("interaction", interaction).Msg("Failed to find OOBTest")
+	} else {
+		log.Info().Interface("oobTest", oobTest).Interface("interaction", interaction).Msg("Matched Interaction and OOBTest")
+		interaction.OOBTestID = int(oobTest.ID)
+		d.db.Save(&interaction)
+	}
 }

@@ -43,7 +43,7 @@ func TestXSS(targetUrl string, params []string, wordlist string, urlEncode bool)
 		}
 	}
 	//log.Printf("URL Params to test: %s\n", testQueryParams)
-	log.Info().Strs("params", testQueryParams).Str("url", targetUrl).Msg("testing url params")
+	log.Info().Strs("params", testQueryParams).Str("url", targetUrl).Msg("testing url params for XSS")
 	f, err := os.Open(wordlist)
 	if err != nil {
 		log.Fatal().Err(err)

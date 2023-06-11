@@ -2,6 +2,7 @@ package active
 
 import (
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/http_utils"
@@ -13,9 +14,7 @@ import (
 type SSRFAudit struct {
 	URL                        string
 	Concurrency                int
-	Params                     []string
-	PayloadsDepth              int
-	Platform                   string
+	ParamsToTest               []string
 	StopAfterSuccess           bool
 	OnlyCommonVulnerableParams bool
 	HeuristicRecords           []fuzz.HeuristicRecord
@@ -26,9 +25,15 @@ type SSRFAudit struct {
 // Run starts the audit
 func (a *SSRFAudit) Run() {
 	// Launching separatelly for each parameter since the payload should use a unique interaction URL
-	for _, param := range a.Params {
+	// Due to this, we have to get the parameters to test here, even though the fuzzer does it already
+	// Should probably rethink on how to handle oob better
+	params := lib.GetParametersToTest(a.URL, a.ParamsToTest, false)
+	log.Info().Int("params", len(params)).Msg("SSRFAudit starting to run")
+	for _, param := range params {
+		log.Warn().Str("param", param).Msg("Launching SSRFAudit against parameter")
 		a.RunAgainstParameter(param)
 	}
+	log.Info().Msg("SSRFAudit finished")
 
 }
 
@@ -44,12 +49,14 @@ func (a *SSRFAudit) RunAgainstParameter(parameter string) {
 	// Create a channel to communicate with the fuzzer
 	resultsChannel := make(chan fuzz.FuzzResult)
 	// Create a parameter fuzzer
+	parameters := []string{parameter}
 	fuzzer := fuzz.ParameterFuzzer{
 		Config: fuzz.FuzzerConfig{
 			URL:         a.URL,
 			Concurrency: a.Concurrency,
 		},
-		Params: []string{parameter},
+		Params:        parameters,
+		TestAllParams: false,
 	}
 	// Get expected responses for "verification"
 	a.ExpectedResponses = fuzzer.GetExpectedResponses()
@@ -72,7 +79,7 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 	// 	StatusCode: result.Response.StatusCode,
 	// }
 	if result.Err != nil {
-
+		log.Error().Err(result.Err).Str("url", result.URL).Msg("Error sending SSRF test request")
 	}
 	// Process the response
 	_, _, err := http_utils.ReadResponseBodyData(&result.Response)
@@ -88,4 +95,5 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 		Payload:           result.Payload.GetValue(),
 	}
 	db.Connection.CreateOOBTest(oobTest)
+	log.Info().Str("url", result.URL).Str("payload", result.Payload.GetValue()).Msg("SSRF payload sent")
 }

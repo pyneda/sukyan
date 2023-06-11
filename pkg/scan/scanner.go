@@ -40,9 +40,11 @@ type Scanner struct {
 // Run schedules the scan
 func (s *Scanner) Run() {
 	s.InteractionsManager = &integrations.InteractionsManager{
-		GetAsnInfo:      false,
-		PollingInterval: 10 * time.Second,
+		GetAsnInfo:            false,
+		PollingInterval:       10 * time.Second,
+		OnInteractionCallback: SaveInteractionCallback,
 	}
+	s.InteractionsManager.Start()
 	pagesToScan := []web.WebPage{}
 	if s.ShouldCrawl == true {
 		pagesToScan = s.Crawl()
@@ -52,7 +54,7 @@ func (s *Scanner) Run() {
 	for _, pageToScan := range pagesToScan {
 		s.ScanURL(pageToScan)
 	}
-	// Iterate over crawl results and
+	s.InteractionsManager.Stop()
 }
 
 // InitialChecks performs basic initial checks against scoped sites
@@ -79,20 +81,31 @@ func (s *Scanner) Crawl() []web.WebPage {
 
 // ScanURL performs different checks to a found url
 func (s *Scanner) ScanURL(webPage web.WebPage) {
-	var params []string
+	// TODO: Should get the parameters to test from user
+	var specificParamsToTest []string
+	// params = append(params, "url")
 	hasParams, _ := webPage.HasParameters()
+	log.Info().Interface("webPage", webPage).Msg("Scanning URL")
 	if hasParams {
-		active.TestXSS(webPage.URL, params, "default.txt", false)
+		ssrf := active.SSRFAudit{
+			URL:                 webPage.URL,
+			ParamsToTest:        specificParamsToTest,
+			Concurrency:         5,
+			StopAfterSuccess:    false,
+			InteractionsManager: s.InteractionsManager,
+		}
+		ssrf.Run()
+		active.TestXSS(webPage.URL, specificParamsToTest, "default.txt", false)
 		// ssti := active.SSTIAudit{
 		// 	URL:              webPage.URL,
-		// 	Params:           params,
+		// 	Params:           specificParamsToTest,
 		// 	Concurrency:      5,
 		// 	StopAfterSuccess: false,
 		// }
 		// ssti.Run()
 		// pathTraversal := active.PathTraversalAudit{
 		// 	URL:              webPage.URL,
-		// 	Params:           params,
+		// 	Params:           specificParamsToTest,
 		// 	Concurrency:      5,
 		// 	PayloadsDepth:    5,
 		// 	Platform:         "all",

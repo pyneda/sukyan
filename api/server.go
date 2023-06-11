@@ -29,6 +29,7 @@ func StartAPI() {
 	r.GET("/issues", FindIssues)
 	r.GET("/issues/grouped", FindIssuesGrouped)
 	r.GET("/history", FindHistory)
+	r.GET("/interactions", FindInteractions)
 
 	r.Run()
 }

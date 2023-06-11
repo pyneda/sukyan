@@ -2,7 +2,6 @@ package db
 
 import (
 	"github.com/rs/zerolog/log"
-	"gorm.io/gorm"
 	"strings"
 	"time"
 )
@@ -12,16 +11,14 @@ import (
 // }
 
 type OOBTest struct {
-	gorm.Model
-	TestName          string `json:"test_name"`
-	Target            string `json:"target"`
-	HistoryID         int
-	HistoryItem       History   `gorm:"foreignKey:HistoryID"`
-	InteractionDomain string    `json:"interaction_domain"`
-	InteractionFullID string    `json:"interaction_id"`
-	Payload           string    `json:"payload"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	BaseModel
+	TestName          string  `json:"test_name"`
+	Target            string  `json:"target"`
+	HistoryID         int     `json:"history_id"`
+	HistoryItem       History `gorm:"foreignKey:HistoryID" json:"-"`
+	InteractionDomain string  `json:"interaction_domain"`
+	InteractionFullID string  `json:"interaction_id"`
+	Payload           string  `json:"payload"`
 }
 
 // CreateOOBTest saves an OOBTest to the database
@@ -35,10 +32,9 @@ func (d *DatabaseConnection) CreateOOBTest(item OOBTest) (OOBTest, error) {
 }
 
 type OOBInteraction struct {
-	gorm.Model
-
-	OOBTestID int
-	OOBTest   OOBTest `gorm:"foreignKey:OOBTestID"`
+	BaseModel
+	OOBTestID int     `json:"oob_test_id"`
+	OOBTest   OOBTest `json:"oob_test" gorm:"foreignKey:OOBTestID"`
 
 	Protocol      string    `json:"protocol"`
 	FullID        string    `json:"full_id"`
@@ -48,9 +44,6 @@ type OOBInteraction struct {
 	RawResponse   string    `json:"raw_response"`
 	RemoteAddress string    `json:"remote_address"`
 	Timestamp     time.Time `json:"timestamp"`
-
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // CreateInteraction saves an issue to the database
@@ -76,12 +69,11 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 	return oobTest, result.Error
 }
 
-
 type InteractionsFilter struct {
-	QTypes  			[]string
-	Protocols      []string
-	FullIDs 			[]string
-	Pagination   Pagination
+	QTypes     []string
+	Protocols  []string
+	FullIDs    []string
+	Pagination Pagination
 }
 
 // ListInteractions Lists interactions
@@ -106,7 +98,6 @@ func (d *DatabaseConnection) ListInteractions(filter InteractionsFilter) (items 
 		err = d.db.Scopes(Paginate(&filter.Pagination)).Order("created_at desc").Find(&items).Error
 		d.db.Model(&OOBInteraction{}).Count(&count)
 	}
-
 
 	log.Info().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Msg("Getting interaction items")
 

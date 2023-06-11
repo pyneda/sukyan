@@ -86,6 +86,7 @@ func (f *ParameterFuzzer) Run(payloads []payloads.PayloadInterface, results chan
 	go func() {
 		// Communicate with workers to send them new fuzzing tasks
 		params := lib.GetParametersToTest(f.Config.URL, f.Params, f.TestAllParams)
+		log.Warn().Strs("params", params).Msg("Parameters to test in param fuzzer")
 		for _, param := range params {
 			for _, payload := range payloads {
 				fuzzURL, err := lib.BuildURLWithParam(f.Config.URL, param, payload.GetValue(), false)

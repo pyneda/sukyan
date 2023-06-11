@@ -20,7 +20,7 @@ func InitDb() DatabaseConnection {
 	if err != nil {
 		panic("failed to connect database")
 	}
-	db.AutoMigrate(&Issue{}, &History{})
+	db.AutoMigrate(&Issue{}, &History{}, &OOBTest{}, &OOBInteraction{})
 	// Get generic database object sql.DB to use its functions
 	sqlDB, err := db.DB()
 

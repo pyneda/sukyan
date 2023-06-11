@@ -72,4 +72,5 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 		interaction.OOBTestID = int(oobTest.ID)
 		d.db.Save(&interaction)
 	}
+	return oobTest, result.Error
 }

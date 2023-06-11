@@ -68,6 +68,7 @@ func InspectURL(url string) WebPage {
 				Description: dbIssueDescription,
 				Payload:     "N/A",
 				Confidence:  99,
+				Severity:    "Info",
 			}
 			db.Connection.CreateIssue(dbAddedIssue)
 		},
@@ -121,6 +122,7 @@ func InspectURL(url string) WebPage {
 				Payload:        "N/A",
 				Confidence:     80,
 				AdditionalInfo: jsonDetails,
+				Severity:       "Low",
 			}
 			db.Connection.CreateIssue(browserAuditIssue)
 			// }

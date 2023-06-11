@@ -64,6 +64,7 @@ func GetBrowserDatabaseCallbacks() (callbacks []interface{}) {
 			Description: dbIssueDescription,
 			Payload:     "N/A",
 			Confidence:  99,
+			Severity:    "Info",
 		}
 		db.Connection.CreateIssue(dbAddedIssue)
 	})

@@ -130,6 +130,7 @@ func (a *PathTraversalAudit) ProcessResult(result *fuzz.FuzzResult) {
 			Response:      body,
 			FalsePositive: false,
 			Confidence:    confidence,
+			Severity:      "High",
 		}
 		db.Connection.CreateIssue(issue)
 		log.Error().Str("payload", result.Payload.GetValue()).Strs("matches", matchedStrings).Strs("originalMatches", matchedStringsInExpectedResults).Int("confidence", confidence).Str("url", result.URL).Msg("New path traversal vulnerability added to database")

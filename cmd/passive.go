@@ -2,14 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"github.com/rs/zerolog/log"
+	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/passive"
+	"github.com/spf13/cobra"
 )
-
 
 var passiveHistoryID int
 

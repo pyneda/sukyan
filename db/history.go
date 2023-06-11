@@ -25,11 +25,11 @@ type History struct {
 	ContentType          string
 	Evaluated            bool
 	Note                 string
+	Source               string
 	// ResponseContentLength int64
 	//ResponseTimestamp
 	//RequestTimestamp
 }
-
 
 func (h *History) GetResponseHeadersAsMap() (map[string][]string, error) {
 	intermediateMap := make(map[string]interface{})

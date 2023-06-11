@@ -9,6 +9,7 @@ api/api.proto
 bin/
 sukyan
 testbed/
+tests/
 
 cmd/csti.go
 cmd/list_history_old.go
@@ -18,6 +19,7 @@ cmd/proxy.go
 pkg/fingerprint/README.md
 pkg/discovery/README.md
 pkg/crawl/README.md
+pkg/active/README.md
 pkg/proxy/*
 
 # Binaries for programs and plugins

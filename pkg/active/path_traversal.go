@@ -27,7 +27,7 @@ type PathTraversalAudit struct {
 // Run starts the audit
 func (a *PathTraversalAudit) Run() {
 	// Could allow to provide a fixed payload list + option to merge with generated or only use the list
-	generatedPayloads := GetPathTraversalPayloads(a.PayloadsDepth, a.Platform)
+	generatedPayloads := payloads.GetPathTraversalPayloads(a.PayloadsDepth, a.Platform)
 	log.Info().Int("payloads", len(generatedPayloads)).Msg("PathTraversalAudit starting to run")
 	var payloads []payloads.PayloadInterface
 	// Convert payloads to interface (really required?)

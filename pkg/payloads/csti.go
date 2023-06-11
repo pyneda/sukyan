@@ -3,6 +3,7 @@ package payloads
 import "regexp"
 
 type CSTIPayload struct {
+	BasePayload
 	Value    string
 	Platform string
 }

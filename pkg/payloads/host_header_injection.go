@@ -6,6 +6,7 @@ import (
 )
 
 type HostHeaderInjectionPayload struct {
+	BasePayload
 	Value string
 }
 

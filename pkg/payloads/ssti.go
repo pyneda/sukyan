@@ -10,6 +10,7 @@ type TemplateLanguageSyntax struct {
 
 // TemplateLanguagePayload Holds a payload and a regex pattern to verify it
 type TemplateLanguagePayload struct {
+	BasePayload
 	Value string
 	Regex string
 }

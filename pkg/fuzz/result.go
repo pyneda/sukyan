@@ -16,6 +16,9 @@ type FuzzResult struct {
 	// ResponseSize int
 }
 
+func (r FuzzResult) CreateHistoryFromFuzzResult() {
+}
+
 type ExpectedResponse struct {
 	Response http.Response
 	Body     string

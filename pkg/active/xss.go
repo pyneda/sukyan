@@ -16,7 +16,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-
 // TestXSS : Tests xss
 func TestXSS(targetUrl string, params []string, wordlist string, urlEncode bool) error {
 	parsedURL, err := url.ParseRequestURI(targetUrl)

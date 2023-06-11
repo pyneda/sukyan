@@ -5,9 +5,10 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/fuzz"
-	"github.com/pyneda/sukyan/pkg/http_utils"
+	// "github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
 	"net/http"
+	"net/http/httputil"
 	"sync"
 
 	"github.com/rs/zerolog/log"
@@ -117,22 +118,49 @@ func (a *HostHeaderInjectionAudit) monitor(auditItems chan hostHeaderInjectionAu
 
 func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 	// Just basic implementation, by now just check if the payload appended in the host header appears in the response, still should:
-	// - Check if response differs when the hear appears or not
-	// - Check with current request URL host
+	// - Check if response differs when the header appears or not
 	// - Use the data gathered in previous steps to compare with the current implementation results
+	// - Could use interactsh payloads
+	// - Could also probably send all headers at once
+	client := &http.Client{}
 	auditLog := log.With().Str("audit", "host-header-injection").Interface("auditItem", item).Str("url", a.URL).Logger()
-	response, err := http.Get(a.URL)
+	request, err := http.NewRequest("GET", a.URL, nil)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	request.Header.Add(item.header, item.payload.GetValue())
+	requestDump, _ := httputil.DumpRequestOut(request, true)
+
+	response, err := client.Do(request)
+
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error during request")
 		return
 	}
-	body, _, err := http_utils.ReadResponseBodyData(response)
+	responseDump, err := httputil.DumpResponse(response, true)
+	// body, _, err := http_utils.ReadResponseBodyData(response)
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error reading response body data")
 	}
-	isInBody, err := item.payload.MatchAgainstString(body)
-	if isInBody {
-		issueDescription := fmt.Sprintf("A host header injection vulnerability has been detected in %s. The audit test send the following payload `%s` to `%s` header and it has been verified is included back in the response", a.URL, item.payload.GetValue(), item.header)
+	isInResponse, err := item.payload.MatchAgainstString(string(responseDump))
+	// isInBody, err := item.payload.MatchAgainstString(body)
+	// isInHeaders := false
+	// for header, values := range response.Header {
+	// 	for _, value := range values {
+	// 		isIncluded, _ := item.payload.MatchAgainstString(value)
+	// 		if isIncluded {
+	// 			isInHeaders = true
+	// 			log.Info().Str("header", header).Str("value", value).Msg("Host header injection detected")
+	// 			break
+	// 		}
+	// 	}
+	// }
+	// if isInBody || isInHeaders {
+	if isInResponse {
+		issueDescription := fmt.Sprintf("A host header injection vulnerability has been detected in %s. The audit test send the following payload `%s` in `%s` header and it has been verified is included back in the response", a.URL, item.payload.GetValue(), item.header)
+
 		issue := db.Issue{
 			Title:         "Host Header Injection",
 			Description:   issueDescription,
@@ -142,8 +170,8 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 			URL:           a.URL,
 			StatusCode:    response.StatusCode,
 			HTTPMethod:    "GET",
-			Request:       "Not implemented",
-			Response:      body,
+			Request:       string(requestDump),
+			Response:      string(responseDump), // body,
 			FalsePositive: false,
 			Confidence:    75,
 			Severity:      "Medium",

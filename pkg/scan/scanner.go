@@ -116,7 +116,7 @@ func (s *Scanner) ScanURL(webPage web.WebPage) {
 	if s.AuditHeaders {
 		hostHeader := active.HostHeaderInjectionAudit{
 			URL:         webPage.URL,
-			Concurrency: 3,
+			Concurrency: 10,
 		}
 		hostHeader.Run()
 	}

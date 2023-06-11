@@ -22,10 +22,10 @@ func (p HostHeaderInjectionPayload) MatchAgainstString(text string) (bool, error
 
 func GetHostHeaderInjectionPayloads() (payloads []PayloadInterface) {
 	payloads = append(payloads, HostHeaderInjectionPayload{
-		Value: lib.GenerateRandomString(10) + ".com",
+		Value: lib.GenerateRandomLowercaseString(10) + ".com",
 	})
 	payloads = append(payloads, HostHeaderInjectionPayload{
-		Value: lib.GenerateRandomString(10) + "." + lib.GenerateRandomString(10) + ".com",
+		Value: lib.GenerateRandomLowercaseString(10) + "." + lib.GenerateRandomLowercaseString(10) + ".com",
 	})
 	return payloads
 }

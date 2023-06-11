@@ -107,6 +107,13 @@ func GenerateRandomString(length int) string {
 	return output.String()
 }
 
+func GenerateRandomLowercaseString(length int) string {
+	result := GenerateRandomString(length)
+	return strings.ToLower(result)
+}
+
+
+
 // Build404URL Adds a randomly generated path to the URL to fingerprint 404 errors
 func Build404URL(original string) (string, error) {
 	u, err := url.Parse(original)

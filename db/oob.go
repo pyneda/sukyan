@@ -34,7 +34,7 @@ func (d *DatabaseConnection) CreateOOBTest(item OOBTest) (OOBTest, error) {
 type OOBInteraction struct {
 	BaseModel
 	OOBTestID int     `json:"oob_test_id"`
-	OOBTest   OOBTest `json:"oob_test" gorm:"foreignKey:OOBTestID"`
+	OOBTest   OOBTest `json:"-" gorm:"foreignKey:OOBTestID"`
 
 	Protocol      string    `json:"protocol"`
 	FullID        string    `json:"full_id"`
@@ -47,7 +47,7 @@ type OOBInteraction struct {
 }
 
 // CreateInteraction saves an issue to the database
-func (d *DatabaseConnection) CreateInteraction(item OOBInteraction) (OOBInteraction, error) {
+func (d *DatabaseConnection) CreateInteraction(item *OOBInteraction) (*OOBInteraction, error) {
 	result := d.db.Create(&item)
 	if result.Error != nil {
 		log.Error().Err(result.Error).Interface("interaction", item).Msg("Failed to create interaction")

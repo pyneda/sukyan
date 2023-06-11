@@ -19,7 +19,7 @@ func SaveInteractionCallback(interaction *server.Interaction) {
 		RemoteAddress: interaction.RemoteAddress,
 		Timestamp:     interaction.Timestamp,
 	}
-	db.Connection.CreateInteraction(interactionToSave)
+	db.Connection.CreateInteraction(&interactionToSave)
 	select {
 	case <-time.After(5 * time.Second):
 		db.Connection.MatchInteractionWithOOBTest(interactionToSave)

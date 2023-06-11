@@ -1,4 +1,4 @@
-package active
+package payloads
 
 import (
 	"regexp"
@@ -9,6 +9,7 @@ import (
 
 // TemplateLanguagePayload Holds a payload and a regex pattern to verify it
 type PathTraversalPayload struct {
+	BasePayload
 	Value string
 	Regex string
 }

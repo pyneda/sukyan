@@ -201,6 +201,7 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		Evaluated:            false,
 		Method:               request.Method(),
 		Note:                 note,
+		Source:               "hijack",
 		// ResponseContentLength: response.ContentLength,
 
 	}

@@ -114,9 +114,6 @@ func TestGetURLWithoutQueryString(t *testing.T) {
 
 }
 
-
-
-
 func TestGetParentURL(t *testing.T) {
 	testCases := []struct {
 		name       string

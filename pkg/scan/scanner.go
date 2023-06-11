@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/active"
 	"github.com/pyneda/sukyan/pkg/crawl"
 	"github.com/pyneda/sukyan/pkg/scope"
@@ -33,10 +34,15 @@ type Scanner struct {
 	// https://chromedevtools.github.io/devtools-protocol/tot/Network/#method-setBypassServiceWorker
 	// Should bypass service worker?
 	BypassServiceWorker bool
+	InteractionsManager *integrations.InteractionsManager
 }
 
 // Run schedules the scan
 func (s *Scanner) Run() {
+	s.InteractionsManager = &integrations.InteractionsManager{
+		GetAsnInfo:      false,
+		PollingInterval: 10 * time.Second,
+	}
 	pagesToScan := []web.WebPage{}
 	if s.ShouldCrawl == true {
 		pagesToScan = s.Crawl()

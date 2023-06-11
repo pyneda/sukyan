@@ -1,11 +1,17 @@
 package integrations
 
 import (
+	"strings"
 	"time"
 
 	"github.com/projectdiscovery/interactsh/pkg/client"
 	"github.com/projectdiscovery/interactsh/pkg/server"
 )
+
+type InteractionDomain struct {
+	ID  string
+	URL string
+}
 
 type InteractionsManager struct {
 	client                *client.Client
@@ -24,8 +30,20 @@ func (i *InteractionsManager) Start() {
 	})
 }
 
-func (i *InteractionsManager) GetURL() string {
-	return i.client.URL()
+func (i *InteractionsManager) GetIdentifierFromURL(url string) string {
+	parts := strings.Split(url, ".")
+	if len(parts) > 1 {
+		return parts[0]
+	}
+	return ""
+}
+
+func (i *InteractionsManager) GetURL() InteractionDomain {
+	url := i.client.URL()
+	return InteractionDomain{
+		ID:  i.GetIdentifierFromURL(url),
+		URL: url,
+	}
 }
 
 func (i *InteractionsManager) Stop() {

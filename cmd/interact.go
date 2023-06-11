@@ -12,7 +12,7 @@ import (
 )
 
 func TestInteractionCallback(interaction *server.Interaction) {
-	fmt.Printf("Got Interaction: %v => %v => %v\n", interaction.Protocol, interaction.FullId, interaction.RemoteAddress)
+	fmt.Printf("Got Interaction: %v => %v => %v => %v\n", interaction.Protocol, interaction.FullId, interaction.UniqueID, interaction.RemoteAddress)
 }
 
 // interactCmd represents the interact command
@@ -33,7 +33,8 @@ to quickly create a Cobra application.`,
 			OnInteractionCallback: TestInteractionCallback,
 		}
 		manager.Start()
-		fmt.Println(manager.GetURL())
+		url := manager.GetURL()
+		fmt.Println(url.URL)
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
 		for range c {

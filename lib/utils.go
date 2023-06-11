@@ -157,8 +157,6 @@ func SetupCloseHandler() {
 	}()
 }
 
-
-
 // GetURLWithoutQueryString returns the base URL from the given URL by removing the query string
 func GetURLWithoutQueryString(urlStr string) (string, error) {
 	parsedURL, err := url.Parse(urlStr)
@@ -193,7 +191,6 @@ func GetParentURL(urlStr string) (string, bool, error) {
 	parentURL.Path = path.Dir(parsedURL.Path)
 
 	isParentURL := parentURL.Path == "." || parentURL.Path == "/"
-	
+
 	return parentURL.String(), isParentURL, nil
 }
-

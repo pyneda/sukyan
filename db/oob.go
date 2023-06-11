@@ -75,3 +75,40 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 	}
 	return oobTest, result.Error
 }
+
+
+type InteractionsFilter struct {
+	QTypes  			[]string
+	Protocols      []string
+	FullIDs 			[]string
+	Pagination   Pagination
+}
+
+// ListInteractions Lists interactions
+func (d *DatabaseConnection) ListInteractions(filter InteractionsFilter) (items []*OOBInteraction, count int64, err error) {
+	filterQuery := make(map[string]interface{})
+
+	if len(filter.QTypes) > 0 {
+		filterQuery["qtype"] = filter.QTypes
+	}
+	if len(filter.Protocols) > 0 {
+		filterQuery["protocol"] = filter.Protocols
+	}
+
+	if len(filter.FullIDs) > 0 {
+		filterQuery["full_id"] = filter.FullIDs
+	}
+	if filterQuery != nil && len(filterQuery) > 0 {
+		err = d.db.Scopes(Paginate(&filter.Pagination)).Where(filterQuery).Order("created_at desc").Find(&items).Error
+		d.db.Model(&OOBInteraction{}).Where(filterQuery).Count(&count)
+
+	} else {
+		err = d.db.Scopes(Paginate(&filter.Pagination)).Order("created_at desc").Find(&items).Error
+		d.db.Model(&OOBInteraction{}).Count(&count)
+	}
+
+
+	log.Info().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Msg("Getting interaction items")
+
+	return items, count, err
+}

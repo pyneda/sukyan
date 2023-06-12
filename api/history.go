@@ -11,7 +11,7 @@ import (
 )
 
 func FindHistory(c *gin.Context) {
-	unparsedPageSize := c.DefaultQuery("page-size", "50")
+	unparsedPageSize := c.DefaultQuery("page_size", "50")
 	unparsedPage := c.DefaultQuery("page", "1")
 	unparsedStatusCodes := c.Query("status")
 	var statusCodes []int
@@ -44,7 +44,6 @@ func FindHistory(c *gin.Context) {
 			}
 		}
 	}
-
 	issues, count, err := db.Connection.ListHistory(db.HistoryFilter{
 		Pagination: db.Pagination{
 			Page: page, PageSize: pageSize,

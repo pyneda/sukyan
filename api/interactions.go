@@ -11,7 +11,7 @@ import (
 )
 
 func FindInteractions(c *gin.Context) {
-	unparsedPageSize := c.DefaultQuery("page-size", "50")
+	unparsedPageSize := c.DefaultQuery("page_size", "50")
 	unparsedPage := c.DefaultQuery("page", "1")
 	unparsedProtocols := c.Query("protocols")
 	var protocols []string

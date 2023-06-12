@@ -106,7 +106,7 @@ func Hijack(config HijackConfig, browser *rod.Browser) {
 					Response:      history.ResponseBody,
 					Confidence:    90,
 					FalsePositive: false,
-					Severity:			"Info",
+					Severity:      "Info",
 				}
 				db.Connection.CreateIssue(issue)
 			} else {
@@ -127,7 +127,7 @@ func Hijack(config HijackConfig, browser *rod.Browser) {
 	go router.Run()
 }
 
-func CreateJavascriptSourcesAndSinksInformationalIssue(history db.History, jsSources []string, jsSinks []string, jquerySinks []string) {
+func CreateJavascriptSourcesAndSinksInformationalIssue(history *db.History, jsSources []string, jsSinks []string, jquerySinks []string) {
 	sourcesFound := len(jsSources) > 0
 	sinksFound := len(jsSinks) > 0 || len(jquerySinks) > 0
 	title := ""
@@ -183,7 +183,7 @@ func CreateJavascriptSourcesAndSinksInformationalIssue(history db.History, jsSou
 }
 
 // CreateHistoryFromHijack saves a history request from hijack request/response items.
-func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, note string) db.History {
+func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, note string) *db.History {
 	requestHeaders, err := json.Marshal(request.Headers())
 	if err != nil {
 		log.Error().Err(err).Msg("Error converting request headers to json")
@@ -207,7 +207,7 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		// ResponseContentLength: response.ContentLength,
 
 	}
-	createdHistory, _ := db.Connection.CreateHistory(history)
+	createdHistory, _ := db.Connection.CreateHistory(&history)
 	log.Debug().Interface("history", history).Msg("New history record created")
 	return createdHistory
 }

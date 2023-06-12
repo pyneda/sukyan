@@ -33,26 +33,26 @@ type hostHeaderInjectionAuditItem struct {
 // GetDefaultHeadersToTest returns the default headers that are tested in this audit
 func (a *HostHeaderInjectionAudit) GetDefaultHeadersToTest() (headers []string) {
 	return append(headers, []string{
-			"Host", 
-			"X-Forwarded-Host",
-			"X-Host",
-			"X-Forwarded-Server",
-			"X-HTTP-Host-Override",
-			"X-Original-URL",
-			"X-Rewrite-URL",
-			"X-Originating-IP",
-			"X-Remote-IP",
-			"X-Client-IP",
-			"X-Forwarded-For",
-			"X-Target-IP",
-			"X-Remote-Addr",
-			"Fowarded",
-			"True-Client-IP",
-			"Via",
-			"X-Real-IP",
-			"X-Azure-ClientIP",
-			"X-Azure-SocketIP",
-		}...)
+		"Host",
+		"X-Forwarded-Host",
+		"X-Host",
+		"X-Forwarded-Server",
+		"X-HTTP-Host-Override",
+		"X-Original-URL",
+		"X-Rewrite-URL",
+		"X-Originating-IP",
+		"X-Remote-IP",
+		"X-Client-IP",
+		"X-Forwarded-For",
+		"X-Target-IP",
+		"X-Remote-Addr",
+		"Fowarded",
+		"True-Client-IP",
+		"Via",
+		"X-Real-IP",
+		"X-Azure-ClientIP",
+		"X-Azure-SocketIP",
+	}...)
 }
 
 // GetHeadersToTest merges the default headers to test and the provided ExtraHeadersToTest
@@ -130,7 +130,7 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 		return
 	}
 
-	request.Header.Add(item.header, item.payload.GetValue())
+	request.Header.Set(item.header, item.payload.GetValue())
 	requestDump, _ := httputil.DumpRequestOut(request, true)
 
 	response, err := client.Do(request)

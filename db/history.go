@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"net/http"
+	"net/http/httputil"
 
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
@@ -21,6 +22,8 @@ type History struct {
 	ResponseHeaders      datatypes.JSON
 	ResponseBody         string
 	ResponseBodySize     int
+	RawRequest           string `json:"raw_request"`
+	RawResponse          string `json:"raw_response"`
 	Method               string
 	ContentType          string
 	Evaluated            bool
@@ -115,13 +118,13 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 
 	// Add pagination: https://gorm.io/docs/scopes.html#pagination
 
-	log.Info().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Msg("Getting history items")
+	log.Info().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Int("total_results", len(items)).Msg("Getting history items")
 
 	return items, count, err
 }
 
 // CreateHistory saves an history item to the database
-func (d *DatabaseConnection) CreateHistory(record History) (History, error) {
+func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
 	conditions, attrs := record.getCreateQueryData()
 
 	result := d.db.Where(conditions).Attrs(attrs).FirstOrCreate(&record)
@@ -131,7 +134,7 @@ func (d *DatabaseConnection) CreateHistory(record History) (History, error) {
 	return record, result.Error
 }
 
-func (d *DatabaseConnection) CreateHistoryFromHttpResponse(response *http.Response, bodyData http_utils.ResponseBodyData) (History, error) {
+func (d *DatabaseConnection) CreateHistoryFromHttpResponse(response *http.Response, bodyData http_utils.ResponseBodyData, source string) (*History, error) {
 	requestHeaders, err := json.Marshal(response.Request.Header)
 	if err != nil {
 		log.Error().Err(err).Msg("Error converting request headers to json")
@@ -140,10 +143,9 @@ func (d *DatabaseConnection) CreateHistoryFromHttpResponse(response *http.Respon
 	if err != nil {
 		log.Error().Err(err).Msg("Error converting response headers to json")
 	}
-	// body, bodySize, err := http_utils.ReadResponseBodyData(response)
-	// if err != nil {
-	// 	log.Error().Err(err).Msg("Error reading response body data")
-	// }
+	requestDump, _ := httputil.DumpRequestOut(response.Request, true)
+	responseDump, _ := httputil.DumpResponse(response, true)
+
 	record := History{
 		URL:            response.Request.URL.String(),
 		StatusCode:     response.StatusCode,
@@ -155,19 +157,13 @@ func (d *DatabaseConnection) CreateHistoryFromHttpResponse(response *http.Respon
 		Method:           response.Request.Method,
 		ContentType:      response.Header.Get("Content-Type"),
 		Evaluated:        false,
+		Source:           source,
+		RawRequest:       string(requestDump),
+		RawResponse:      string(responseDump),
 		// Note                 string
 	}
-	return d.CreateHistory(record)
+	return d.CreateHistory(&record)
 }
-
-// Old
-// func (d *DatabaseConnection) CreateHistory(record History) (History, error) {
-// 	result := d.db.Create(&record)
-// 	if result.Error != nil {
-// 		log.Error().Err(result.Error).Interface("history", record).Msg("Failed to create web history record")
-// 	}
-// 	return record, result.Error
-// }
 
 // GetHistory get a single history record by ID
 func (d *DatabaseConnection) GetHistory(id int) (history History, err error) {

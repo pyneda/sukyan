@@ -9,9 +9,10 @@ import (
 // Issue holds table for storing issues found
 type Issue struct {
 	gorm.Model
-	Code           string
+	Code           string `gorm:"index" json:"code"`
 	Title          string `gorm:"index"`
 	Description    string
+	Remediation    string
 	Cwe            int
 	URL            string `gorm:"index"`
 	StatusCode     int
@@ -25,7 +26,7 @@ type Issue struct {
 	// enums seem to fail - review later
 	// Severity string `json:"severity" gorm:"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
 	Severity string `json:"severity" gorm:"index; default:'Unknown'"`
-	Note           string
+	Note     string
 }
 
 // IssueFilter represents available issue filters

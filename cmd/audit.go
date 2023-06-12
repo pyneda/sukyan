@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/pyneda/sukyan/pkg/scan"
 	"os"
+	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -32,6 +33,8 @@ var auditCmd = &cobra.Command{
 		// 	ShouldCrawl:     true,
 		// }
 		auditCmdScanner.Run()
+		log.Info().Msg("Audit finished, waiting for 30 seconds for possible interactions...")
+		time.Sleep(30 * time.Second)
 	},
 }
 

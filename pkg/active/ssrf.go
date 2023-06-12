@@ -82,17 +82,26 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 		log.Error().Err(result.Err).Str("url", result.URL).Msg("Error sending SSRF test request")
 	}
 	// Process the response
-	_, _, err := http_utils.ReadResponseBodyData(&result.Response)
+	bodyData := http_utils.ReadResponseBodyDataAsStruct(&result.Response)
+
+	history, err := db.Connection.CreateHistoryFromHttpResponse(&result.Response, bodyData, "scanner")
+	var historyID uint
 	if err != nil {
-		log.Error().Err(err).Interface("result", result.URL).Msg("Error reading response body")
+		log.Error().Err(err).Msg("Error filling history from request data")
+		historyID = 0
+	} else {
+		db.Connection.CreateHistory(history)
+		historyID = history.ID
 	}
 	interactionData := result.Payload.GetInteractionData()
 	oobTest := db.OOBTest{
-		TestName:          "SSRF",
+		Code:              db.SSRFCode,
+		TestName:          "Server Side Request Forgery",
 		InteractionDomain: interactionData.InteractionDomain,
 		InteractionFullID: interactionData.InteractionFullID,
 		Target:            result.URL,
 		Payload:           result.Payload.GetValue(),
+		HistoryID:         historyID,
 	}
 	db.Connection.CreateOOBTest(oobTest)
 	log.Info().Str("url", result.URL).Str("payload", result.Payload.GetValue()).Msg("SSRF payload sent")

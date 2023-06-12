@@ -3,6 +3,7 @@ module github.com/pyneda/sukyan
 go 1.20
 
 require (
+	github.com/coreos/go-semver v0.3.0
 	github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.9.1
@@ -17,6 +18,7 @@ require (
 	github.com/rs/zerolog v1.29.1
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
+	golang.org/x/net v0.10.0
 	gorm.io/datatypes v1.2.0
 	gorm.io/driver/sqlite v1.5.1
 	gorm.io/gorm v1.25.1
@@ -124,7 +126,6 @@ require (
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/exp v0.0.0-20230315142452-642cacee5cc0 // indirect
 	golang.org/x/mod v0.9.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect

@@ -99,14 +99,14 @@ func (s *Scanner) ScanURL(webPage web.WebPage) {
 		// ssti := active.SSTIAudit{
 		// 	URL:              webPage.URL,
 		// 	Params:           specificParamsToTest,
-		// 	Concurrency:      5,
+		// 	Concurrency:      20,
 		// 	StopAfterSuccess: false,
 		// }
 		// ssti.Run()
 		// pathTraversal := active.PathTraversalAudit{
 		// 	URL:              webPage.URL,
 		// 	Params:           specificParamsToTest,
-		// 	Concurrency:      5,
+		// 	Concurrency:      20,
 		// 	PayloadsDepth:    5,
 		// 	Platform:         "all",
 		// 	StopAfterSuccess: false,
@@ -114,6 +114,12 @@ func (s *Scanner) ScanURL(webPage web.WebPage) {
 		// pathTraversal.Run()
 	}
 	if s.AuditHeaders {
+		log4shell := active.Log4ShellInjectionAudit{
+			URL:                 webPage.URL,
+			Concurrency:         10,
+			InteractionsManager: s.InteractionsManager,
+		}
+		log4shell.Run()
 		hostHeader := active.HostHeaderInjectionAudit{
 			URL:         webPage.URL,
 			Concurrency: 10,

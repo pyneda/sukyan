@@ -125,9 +125,10 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 
 // CreateHistory saves an history item to the database
 func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
-	conditions, attrs := record.getCreateQueryData()
+	// conditions, attrs := record.getCreateQueryData()
 
-	result := d.db.Where(conditions).Attrs(attrs).FirstOrCreate(&record)
+	// result := d.db.Where(conditions).Attrs(attrs).FirstOrCreate(&record)
+	result := d.db.FirstOrCreate(&record)
 	if result.Error != nil {
 		log.Error().Err(result.Error).Interface("history", record).Msg("Failed to create web history record")
 	}

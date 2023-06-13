@@ -71,10 +71,11 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 		issue.Payload = oobTest.Payload
 		issue.URL = oobTest.Target
 		if oobTest.HistoryID > 0 {
-			issue.StatusCode = interaction.OOBTest.HistoryItem.StatusCode
-			issue.HTTPMethod = interaction.OOBTest.HistoryItem.Method
-			issue.Request = interaction.OOBTest.HistoryItem.RawRequest
-			issue.Response = interaction.OOBTest.HistoryItem.RawResponse
+			history, _ := d.GetHistory(oobTest.HistoryID)
+			issue.StatusCode = history.StatusCode
+			issue.HTTPMethod = history.Method
+			issue.Request = history.RawRequest
+			issue.Response = history.RawResponse
 			issue.Confidence = 80
 		}
 		d.CreateIssue(*issue)

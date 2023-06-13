@@ -5,7 +5,6 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/fuzz"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
 	"github.com/rs/zerolog/log"
 )
@@ -81,10 +80,9 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 	if result.Err != nil {
 		log.Error().Err(result.Err).Str("url", result.URL).Msg("Error sending SSRF test request")
 	}
-	// Process the response
-	bodyData := http_utils.ReadResponseBodyDataAsStruct(&result.Response)
 
-	history, err := db.Connection.CreateHistoryFromHttpResponse(&result.Response, bodyData, "scanner")
+	history, err := db.Connection.ReadHttpResponseAndCreateHistory(&result.Response, "scanner")
+
 	var historyID uint
 	if err != nil {
 		log.Error().Err(err).Msg("Error filling history from request data")

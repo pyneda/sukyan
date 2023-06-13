@@ -1,10 +1,10 @@
 package http_utils
 
 import (
+	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"net/http"
-
-	"github.com/rs/zerolog/log"
+	"net/http/httputil"
 )
 
 type ResponseBodyData struct {
@@ -33,5 +33,29 @@ func ReadResponseBodyDataAsStruct(response *http.Response) ResponseBodyData {
 		Content: body,
 		Size:    size,
 		err:     err,
+	}
+}
+
+type FullResponseData struct {
+	Body     string
+	BodySize int
+	Raw      string
+	RawSize  int
+	err      error
+}
+
+// If it works, both ReadResponseBodyData and ReadResponseBodyDataAsStruct should be replaced by this
+func ReadFullResponse(response *http.Response) FullResponseData {
+	responseDump, err := httputil.DumpResponse(response, true)
+	bodyBytes, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Error().Err(err).Msg("Error reading response body")
+	}
+	defer response.Body.Close()
+	return FullResponseData{
+		Body:     string(bodyBytes),
+		BodySize: len(string(bodyBytes)),
+		Raw:      string(responseDump),
+		RawSize:  len(string(responseDump)),
 	}
 }

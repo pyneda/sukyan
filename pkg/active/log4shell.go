@@ -6,11 +6,10 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/fuzz"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
 	"github.com/rs/zerolog/log"
 	"net/http"
-	"net/http/httputil"
+	// "net/http/httputil"
 	"sync"
 )
 
@@ -34,81 +33,81 @@ func (a *Log4ShellInjectionAudit) GetDefaultHeadersToTest() (headers []string) {
 	return append(headers, []string{
 		"Accept",
 		"Accept-Charset",
-		// "Accept-Datetime",
-		// "Accept-Encoding",
-		// "Accept-Language",
-		// "Access-Control-Request-Headers",
-		// "Access-Control-Request-Method",
-		// "Authorization",
-		// "Authentication",
-		// "Bearer",
-		// "Cache-Control",
-		// "Cf-Connecting_ip",
-		// "Cf-Connecting-Ip",
-		// "Client-Ip",
-		// "Contact",
-		// "Content-Disposition",
-		// "Content-Encoding",
-		// "Content-Type",
-		// "Cookie",
-		// "Date",
-		// "Dnt",
-		// "Expect",
-		// "Forwarded",
-		// "Forwarded-For",
-		// "Forwarded-For-Ip",
-		// "Fowarded",
-		// "From",
-		// "Host",
-		// "Hostname",
-		// "IP",
-		// "IPaddress",
-		// "If-Modified-Since",
-		// "Location",
-		// "Max-Forwards",
-		// "Origin",
-		// "Originating-Ip",
-		// "Pragma",
-		// "Proxy-Authorization",
-		// "Range",
-		// "Referer",
-		// "TE",
-		// "True-Client-IP",
-		// "True-Client-Ip",
-		// "Upgrade-Insecure-Requests",
-		// "upgrade-insecure-requests",
-		// "User-Agent",
-		// "Username",
-		// "Via",
-		// "Warning",
+		"Accept-Datetime",
+		"Accept-Encoding",
+		"Accept-Language",
+		"Access-Control-Request-Headers",
+		"Access-Control-Request-Method",
+		"Authorization",
+		"Authentication",
+		"Bearer",
+		"Cache-Control",
+		"Cf-Connecting_ip",
+		"Cf-Connecting-Ip",
+		"Client-Ip",
+		"Contact",
+		"Content-Disposition",
+		"Content-Encoding",
+		"Content-Type",
+		"Cookie",
+		"Date",
+		"Dnt",
+		"Expect",
+		"Forwarded",
+		"Forwarded-For",
+		"Forwarded-For-Ip",
+		"Fowarded",
+		"From",
+		"Host",
+		"Hostname",
+		"IP",
+		"IPaddress",
+		"If-Modified-Since",
+		"Location",
+		"Max-Forwards",
+		"Origin",
+		"Originating-Ip",
+		"Pragma",
+		"Proxy-Authorization",
+		"Range",
+		"Referer",
+		"TE",
+		"True-Client-IP",
+		"True-Client-Ip",
+		"Upgrade-Insecure-Requests",
+		"upgrade-insecure-requests",
+		"User-Agent",
+		"Username",
+		"Via",
+		"Warning",
 		"X-Api-Version",
-		// "X-CSRF-Token",
-		// "X-Client-IP",
-		// "X-Client-Ip",
-		// "X-Druid-Comment",
-		// "X-Forwarded-For",
-		// "X-Forwarded-Host",
-		// "X-Forwarded-Proto",
-		// "X-Forwarded-Protocol",
-		// "X-Forwarded-Scheme",
-		// "X-Forwarded-Server",
-		// "X-HTTP-Host-Override",
-		// "X-Host",
-		// "X-Http-Method-Override",
-		// "X-Leakix",
-		// "X-Method-Override",
-		// "X-Original-URL",
-		// "X-Originating-IP",
-		// "X-Originating-Ip",
-		// "X-Real-IP",
-		// "X-Real-Ip",
-		// "X-Remote-Addr",
-		// "X-Remote-IP",
-		// "X-Remote-Ip",
-		// "X-Requested-With",
-		// "X-Rewrite-URL",
-		// "X-Target-IP",
-		// "X-Wap-Profile",
+		"X-CSRF-Token",
+		"X-Client-IP",
+		"X-Client-Ip",
+		"X-Druid-Comment",
+		"X-Forwarded-For",
+		"X-Forwarded-Host",
+		"X-Forwarded-Proto",
+		"X-Forwarded-Protocol",
+		"X-Forwarded-Scheme",
+		"X-Forwarded-Server",
+		"X-HTTP-Host-Override",
+		"X-Host",
+		"X-Http-Method-Override",
+		"X-Leakix",
+		"X-Method-Override",
+		"X-Original-URL",
+		"X-Originating-IP",
+		"X-Originating-Ip",
+		"X-Real-IP",
+		"X-Real-Ip",
+		"X-Remote-Addr",
+		"X-Remote-IP",
+		"X-Remote-Ip",
+		"X-Requested-With",
+		"X-Rewrite-URL",
+		"X-Target-IP",
+		"X-Wap-Profile",
 	}...)
 }
 
@@ -182,7 +181,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 	}
 
 	request.Header.Set(item.header, item.payload.GetValue())
-	requestDump, _ := httputil.DumpRequestOut(request, true)
+	// requestDump, _ := httputil.DumpRequestOut(request, true)
 
 	response, err := client.Do(request)
 
@@ -190,16 +189,12 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		auditLog.Error().Err(err).Msg("Error during request")
 		return
 	}
-	bodyData := http_utils.ReadResponseBodyDataAsStruct(response)
 
-	responseDump, err := httputil.DumpResponse(response, true)
-	if err != nil {
-		log.Error().Err(err).Msg("Error dumping response data")
-	}
-	// if bodyData.err != nil {
-	// 	auditLog.Error().Err(err).Msg("Error reading response body data")
-	// }
-	isInResponse, err := item.payload.MatchAgainstString(string(responseDump))
+	history, err := db.Connection.ReadHttpResponseAndCreateHistory(response, "scanner")
+
+	// log.Debug().Interface("history", history).Msg("New history record created")
+	isInResponse, err := item.payload.MatchAgainstString(string(history.RawResponse))
+
 	// This might be un-needed
 	if isInResponse {
 		issueDescription := fmt.Sprintf("While testing for Log4Shell to %s. The following payload `%s` has been sent in the `%s` header and it has been included back in the response.", a.URL, item.payload.GetValue(), item.header)
@@ -213,8 +208,8 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 			URL:           a.URL,
 			StatusCode:    response.StatusCode,
 			HTTPMethod:    "GET",
-			Request:       string(requestDump),
-			Response:      string(responseDump), // body,
+			Request:       history.RawRequest,
+			Response:      string(history.RawResponse), // body,
 			FalsePositive: false,
 			Confidence:    75,
 			Severity:      "Medium",
@@ -222,9 +217,6 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		log.Warn().Interface("issue", issue).Msg("New issue found")
 		db.Connection.CreateIssue(issue)
 	}
-
-	history, err := db.Connection.CreateHistoryFromHttpResponse(response, bodyData, "scanner")
-	log.Info().Interface("history", history).Msg("New history record created")
 	var historyID uint
 	if err != nil {
 		log.Error().Err(err).Msg("Error filling history from request data")

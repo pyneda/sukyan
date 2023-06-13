@@ -134,7 +134,7 @@ func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
 	return record, result.Error
 }
 
-func (d *DatabaseConnection) CreateHistoryFromHttpResponse(response *http.Response, bodyData http_utils.ResponseBodyData, source string) (*History, error) {
+func (d *DatabaseConnection) CreateHistoryFromHttpResponse(response *http.Response, responseData http_utils.FullResponseData, source string) (*History, error) {
 	requestHeaders, err := json.Marshal(response.Request.Header)
 	if err != nil {
 		log.Error().Err(err).Msg("Error converting request headers to json")
@@ -144,7 +144,6 @@ func (d *DatabaseConnection) CreateHistoryFromHttpResponse(response *http.Respon
 		log.Error().Err(err).Msg("Error converting response headers to json")
 	}
 	requestDump, _ := httputil.DumpRequestOut(response.Request, true)
-	responseDump, _ := httputil.DumpResponse(response, true)
 
 	record := History{
 		URL:            response.Request.URL.String(),
@@ -152,21 +151,26 @@ func (d *DatabaseConnection) CreateHistoryFromHttpResponse(response *http.Respon
 		RequestHeaders: datatypes.JSON(requestHeaders),
 		// RequestContentLength int64
 		ResponseHeaders:  datatypes.JSON(responseHeaders),
-		ResponseBody:     bodyData.Content,
-		ResponseBodySize: bodyData.Size,
+		ResponseBody:     responseData.Body,
+		ResponseBodySize: responseData.BodySize,
 		Method:           response.Request.Method,
 		ContentType:      response.Header.Get("Content-Type"),
 		Evaluated:        false,
 		Source:           source,
 		RawRequest:       string(requestDump),
-		RawResponse:      string(responseDump),
+		RawResponse:      string(responseData.Raw),
 		// Note                 string
 	}
 	return d.CreateHistory(&record)
 }
 
+func (d *DatabaseConnection) ReadHttpResponseAndCreateHistory(response *http.Response, source string) (*History, error) {
+	responseData := http_utils.ReadFullResponse(response)
+	return d.CreateHistoryFromHttpResponse(response, responseData, source)
+}
+
 // GetHistory get a single history record by ID
-func (d *DatabaseConnection) GetHistory(id int) (history History, err error) {
+func (d *DatabaseConnection) GetHistory(id uint) (history History, err error) {
 	err = d.db.First(&history, id).Error
 	return history, err
 }

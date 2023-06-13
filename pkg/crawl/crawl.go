@@ -146,20 +146,15 @@ func (c *Crawler) ProcessCrawledLinks(foundLinksChannel chan string, pendingPage
 	log.Debug().Msg("Process crawled links started")
 
 	for link := range foundLinksChannel {
-		log.Debug().Str("link", link).Msg("ProcessCrawledLinks received data from foundLinksChannel")
-		if c.Scope.IsInScope(link) { // Maybe not need to double check
-			if !processed[link] {
-				log.Debug().Str("link", link).Int("total_processed", len(processed)).Msg("Adding new in scope link  to pendingPagesChannel")
-				totalPendingPagesChannel <- 1
-				pendingPagesChannel <- link
-				processed[link] = true
-				log.Debug().Str("link", link).Int("total_processed", len(processed)).Msg("Added new in scope link  to pendingPagesChannel")
-			} else {
-				log.Debug().Str("link", link).Msg("Received an already processed link")
-			}
+		log.Info().Str("link", link).Msg("ProcessCrawledLinks received data from foundLinksChannel")
+		if !processed[link] {
+			log.Debug().Str("link", link).Int("total_processed", len(processed)).Msg("Adding new in scope link  to pendingPagesChannel")
+			totalPendingPagesChannel <- 1
+			pendingPagesChannel <- link
+			processed[link] = true
+			log.Debug().Str("link", link).Int("total_processed", len(processed)).Msg("Added new in scope link  to pendingPagesChannel")
 		} else {
-			log.Debug().Str("link", link).Msg("Crawler found link which is out of the current scope")
+			log.Debug().Str("link", link).Msg("Received an already processed link")
 		}
-
 	}
 }

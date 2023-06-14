@@ -190,7 +190,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		return
 	}
 
-	history, err := db.Connection.ReadHttpResponseAndCreateHistory(response, "scanner")
+	history, err := db.Connection.ReadHttpResponseAndCreateHistory(response, db.SourceScanner)
 
 	// log.Debug().Interface("history", history).Msg("New history record created")
 	isInResponse, err := item.payload.MatchAgainstString(string(history.RawResponse))
@@ -217,14 +217,14 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		log.Warn().Interface("issue", issue).Msg("New issue found")
 		db.Connection.CreateIssue(issue)
 	}
-	var historyID uint
-	if err != nil {
-		log.Error().Err(err).Msg("Error filling history from request data")
-		historyID = 0
-	} else {
-		db.Connection.CreateHistory(history)
-		historyID = history.ID
-	}
+	// var historyID uint
+	// if err != nil {
+	// 	log.Error().Err(err).Msg("Error filling history from request data")
+	// 	historyID = 0
+	// } else {
+	// 	db.Connection.CreateHistory(history)
+	// 	historyID = history.ID
+	// }
 	interactionData := item.payload.GetInteractionData()
 	insertionPoint := fmt.Sprintf("%s header", item.header)
 	oobTest := db.OOBTest{
@@ -234,7 +234,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		InteractionFullID: interactionData.InteractionFullID,
 		Target:            a.URL,
 		Payload:           item.payload.GetValue(),
-		HistoryID:         historyID,
+		HistoryID:         history.ID,
 		InsertionPoint:    insertionPoint,
 	}
 	db.Connection.CreateOOBTest(oobTest)

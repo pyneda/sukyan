@@ -16,12 +16,6 @@ var passiveHistoryID int
 var passiveCmd = &cobra.Command{
 	Use:   "passive",
 	Short: "Passive scan against a history item",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if passiveHistoryID == 0 {
 			fmt.Println("An ID needs to be provided")
@@ -32,7 +26,7 @@ to quickly create a Cobra application.`,
 			log.Panic().Err(err).Msg("Could not find a issue with the provided ID")
 			os.Exit(0)
 		}
-		passive.ScanHistoryItem(history)
+		passive.ScanHistoryItem(&history)
 
 	},
 }

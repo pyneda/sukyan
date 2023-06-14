@@ -87,6 +87,7 @@ type HistoryFilter struct {
 	StatusCodes  []int
 	Methods      []string
 	ContentTypes []string
+	Sources 		 []string
 	Pagination   Pagination
 }
 
@@ -100,6 +101,9 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 	}
 	if len(filter.Methods) > 0 {
 		filterQuery["method"] = filter.Methods
+	}
+	if len(filter.Sources) > 0 {
+		filterQuery["source"] = filter.Sources
 	}
 
 	if len(filter.ContentTypes) > 0 {
@@ -129,7 +133,8 @@ func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
 	// conditions, attrs := record.getCreateQueryData()
 
 	// result := d.db.Where(conditions).Attrs(attrs).FirstOrCreate(&record)
-	result := d.db.FirstOrCreate(&record)
+	record.ID = 0
+	result := d.db.Create(&record)
 	if result.Error != nil {
 		log.Error().Err(result.Error).Interface("history", record).Msg("Failed to create web history record")
 	}

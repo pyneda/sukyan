@@ -26,8 +26,10 @@ func FindHistory(c *gin.Context) {
 	unparsedPage := c.DefaultQuery("page", "1")
 	unparsedStatusCodes := c.Query("status")
 	unparsedHttpMethods := c.Query("methods")
+	unparsedSources := c.Query("sources")
 	var statusCodes []int
 	var httpMethods []string
+	var sources []string
 	log.Warn().Str("status", unparsedStatusCodes).Msg("status codes unparsed")
 
 	pageSize, err := strconv.Atoi(unparsedPageSize)
@@ -60,6 +62,16 @@ func FindHistory(c *gin.Context) {
 		}
 	}
 
+	if unparsedSources != "" {
+		for _, source := range strings.Split(unparsedSources, ",") {
+			if db.IsValidSource(source) {
+				sources = append(sources, source)
+			} else {
+				log.Warn().Str("source", source).Msg("Invalid filter source provided")
+			}
+		}
+	}
+
 	if unparsedHttpMethods != "" {
 		for _, method := range strings.Split(unparsedHttpMethods, ",") {
 			if IsValidFilterHTTPMethod(method) {
@@ -75,6 +87,7 @@ func FindHistory(c *gin.Context) {
 		},
 		StatusCodes: statusCodes,
 		Methods:     httpMethods,
+		Sources:		 sources,
 	})
 
 	if err != nil {

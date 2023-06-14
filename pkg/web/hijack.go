@@ -203,11 +203,12 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		Evaluated:            false,
 		Method:               request.Method(),
 		Note:                 note,
-		Source:               "hijack",
+		Source:               db.SourceHijack,
 		// ResponseContentLength: response.ContentLength,
 
 	}
 	createdHistory, _ := db.Connection.CreateHistory(&history)
 	log.Debug().Interface("history", history).Msg("New history record created")
+
 	return createdHistory
 }

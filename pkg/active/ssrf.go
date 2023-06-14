@@ -100,6 +100,8 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 		Target:            result.URL,
 		Payload:           result.Payload.GetValue(),
 		HistoryID:         historyID,
+		// This should be improved by providing it into the fuzz task/result
+		InsertionPoint:    "parameter",
 	}
 	db.Connection.CreateOOBTest(oobTest)
 	log.Info().Str("url", result.URL).Str("payload", result.Payload.GetValue()).Msg("SSRF payload sent")

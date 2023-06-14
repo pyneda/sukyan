@@ -10,11 +10,24 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+
+func IsValidFilterHTTPMethod(method string) bool {
+	switch method {
+	case "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "TRACE":
+		return true
+	default:
+		return false
+	}
+}
+
+
 func FindHistory(c *gin.Context) {
 	unparsedPageSize := c.DefaultQuery("page_size", "50")
 	unparsedPage := c.DefaultQuery("page", "1")
 	unparsedStatusCodes := c.Query("status")
+	unparsedHttpMethods := c.Query("methods")
 	var statusCodes []int
+	var httpMethods []string
 	log.Warn().Str("status", unparsedStatusCodes).Msg("status codes unparsed")
 
 	pageSize, err := strconv.Atoi(unparsedPageSize)
@@ -32,6 +45,8 @@ func FindHistory(c *gin.Context) {
 		return
 	}
 
+
+
 	if unparsedStatusCodes != "" {
 		for _, status := range strings.Split(unparsedStatusCodes, ",") {
 			statusInt, err := strconv.Atoi(status)
@@ -44,11 +59,22 @@ func FindHistory(c *gin.Context) {
 			}
 		}
 	}
+
+	if unparsedHttpMethods != "" {
+		for _, method := range strings.Split(unparsedHttpMethods, ",") {
+			if IsValidFilterHTTPMethod(method) {
+				httpMethods = append(httpMethods, method)
+			} else {
+				log.Warn().Str("method", method).Msg("Invalid filter HTTP method provided")
+			}
+		}
+	}
 	issues, count, err := db.Connection.ListHistory(db.HistoryFilter{
 		Pagination: db.Pagination{
 			Page: page, PageSize: pageSize,
 		},
 		StatusCodes: statusCodes,
+		Methods:     httpMethods,
 	})
 
 	if err != nil {

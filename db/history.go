@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
+
 // History holds table for storing requests history found
 type History struct {
 	// Similar schema: https://github.com/gilcrest/httplog

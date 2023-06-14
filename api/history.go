@@ -10,7 +10,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-
 func IsValidFilterHTTPMethod(method string) bool {
 	switch method {
 	case "GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS", "TRACE":
@@ -19,7 +18,6 @@ func IsValidFilterHTTPMethod(method string) bool {
 		return false
 	}
 }
-
 
 func FindHistory(c *gin.Context) {
 	unparsedPageSize := c.DefaultQuery("page_size", "50")
@@ -46,8 +44,6 @@ func FindHistory(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid page parameter"})
 		return
 	}
-
-
 
 	if unparsedStatusCodes != "" {
 		for _, status := range strings.Split(unparsedStatusCodes, ",") {
@@ -87,7 +83,7 @@ func FindHistory(c *gin.Context) {
 		},
 		StatusCodes: statusCodes,
 		Methods:     httpMethods,
-		Sources:		 sources,
+		Sources:     sources,
 	})
 
 	if err != nil {

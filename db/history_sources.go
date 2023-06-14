@@ -14,7 +14,6 @@ var Sources = []string{
 	SourceRepeater,
 }
 
-
 func IsValidSource(source string) bool {
 	for _, s := range Sources {
 		if s == source {

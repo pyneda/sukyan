@@ -3,7 +3,6 @@ package web
 import (
 	"encoding/json"
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"net/http"
 	"strings"
@@ -21,17 +20,6 @@ type HijackConfig struct {
 
 func Hijack(config HijackConfig, browser *rod.Browser) {
 	router := browser.HijackRequests()
-	// if config.AnalyzeJs {
-	// 	router.MustAdd("*.js", func(ctx *rod.Hijack) {
-	// 		ctx.MustLoadResponse()
-	// 		responseBody := ctx.Response.Body()
-	// 		jsSources := passive.FindJsSources(responseBody)
-	// 		jsSinks := passive.FindJsSinks(responseBody)
-	// 		jquerySinks := passive.FindJquerySinks(responseBody)
-	// 		CreateHistoryFromHijack(ctx.Request, ctx.Response, "Javascript file")
-	// 		log.Info().Str("url", ctx.Request.URL().String()).Strs("sources", jsSources).Strs("jsSinks", jsSinks).Strs("jquerySinks", jquerySinks).Msg("Hijacked JS file")
-	// 	})
-	// }
 	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "127.0.0.2"}
 
 	router.MustAdd("*", func(ctx *rod.Hijack) {
@@ -53,26 +41,13 @@ func Hijack(config HijackConfig, browser *rod.Browser) {
 		if mustSkip {
 			log.Debug().Str("url", ctx.Request.URL().String()).Msg("Skipping processing of hijacked response")
 		} else {
+			// Probably all this if/elses could be moved to the passive part
 			if strings.Contains(contentType, "text/html") {
-				responseBody := ctx.Response.Body()
 				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, "HTML Response")
-				jsSources := passive.FindJsSources(responseBody)
-				jsSinks := passive.FindJsSinks(responseBody)
-				jquerySinks := passive.FindJquerySinks(responseBody)
-				log.Info().Str("url", ctx.Request.URL().String()).Strs("sources", jsSources).Strs("jsSinks", jsSinks).Strs("jquerySinks", jquerySinks).Msg("Hijacked HTML response")
-				if len(jsSources) > 0 || len(jsSinks) > 0 || len(jquerySinks) > 0 {
-					CreateJavascriptSourcesAndSinksInformationalIssue(history, jsSources, jsSinks, jquerySinks)
-				}
+				passive.ScanHistoryItem(history)
 			} else if strings.Contains(contentType, "javascript") {
-				// responseBody := ctx.Response.Body()
-				// history := CreateHistoryFromHijack(ctx.Request, ctx.Response, "Javascript Response")
-				// jsSources := passive.FindJsSources(responseBody)
-				// jsSinks := passive.FindJsSinks(responseBody)
-				// jquerySinks := passive.FindJquerySinks(responseBody)
-				// log.Info().Str("url", ctx.Request.URL().String()).Strs("sources", jsSources).Strs("jsSinks", jsSinks).Strs("jquerySinks", jquerySinks).Msg("Hijacked Javascript response")
-				// if len(jsSources) > 0 || len(jsSinks) > 0 || len(jquerySinks) > 0 {
-				// 	CreateJavascriptSourcesAndSinksInformationalIssue(history, jsSources, jsSinks, jquerySinks)
-				// }
+				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, "Javascript Response")
+				passive.ScanHistoryItem(history)
 			} else if strings.Contains(contentType, "application/json") {
 				log.Info().Str("url", ctx.Request.URL().String()).Msg("Hijacked JSON response")
 				CreateHistoryFromHijack(ctx.Request, ctx.Response, "JSON Response")
@@ -110,76 +85,14 @@ func Hijack(config HijackConfig, browser *rod.Browser) {
 				}
 				db.Connection.CreateIssue(issue)
 			} else {
-				// responseBody := ctx.Response.Body()
-				// history := CreateHistoryFromHijack(ctx.Request, ctx.Response, "Non common response")
 				CreateHistoryFromHijack(ctx.Request, ctx.Response, "Non common response")
-				// jsSources := passive.FindJsSources(responseBody)
-				// jsSinks := passive.FindJsSinks(responseBody)
-				// jquerySinks := passive.FindJquerySinks(responseBody)
 				log.Info().Str("url", ctx.Request.URL().String()).Msg("Hijacked non common response")
-				// if len(jsSources) > 0 || len(jsSinks) > 0 || len(jquerySinks) > 0 {
-				// 	CreateJavascriptSourcesAndSinksInformationalIssue(history, jsSources, jsSinks, jquerySinks)
-				// }
+
 			}
 		}
 
 	})
 	go router.Run()
-}
-
-func CreateJavascriptSourcesAndSinksInformationalIssue(history *db.History, jsSources []string, jsSinks []string, jquerySinks []string) {
-	sourcesFound := len(jsSources) > 0
-	sinksFound := len(jsSinks) > 0 || len(jquerySinks) > 0
-	title := ""
-	description := ""
-
-	if sourcesFound && sinksFound {
-		title = "Potentially dangerous javascript sources and sinks detected"
-		sourcesText := lib.StringsSliceToText(jsSources)
-		description = description + "The following potentially dangerous sources have been identified:\n" + sourcesText + "\n\n"
-		if len(jsSinks) > 0 {
-			jsSinks := lib.StringsSliceToText(jsSinks)
-			description = description + "The following potentially dangerous JavaScript sinks have been identified:\n" + jsSinks + "\n\n"
-		}
-		if len(jquerySinks) > 0 {
-			jquerySinks := lib.StringsSliceToText(jquerySinks)
-			description = description + "The following potentially dangerous JQuery sinks have been identified:\n" + jquerySinks + "\n\n"
-		}
-	} else if sourcesFound {
-		title = "Potentially dangerous javascript sources detected"
-		sourcesText := lib.StringsSliceToText(jsSources)
-		description = description + "The following potentially dangerous sources have been identified:\n" + sourcesText + "\n\n"
-	} else {
-		title = "Potentially dangerous javascript sinks detected"
-		if len(jsSinks) > 0 {
-			jsSinks := lib.StringsSliceToText(jsSinks)
-			description = description + "The following potentially dangerous JavaScript sinks have been identified:\n" + jsSinks + "\n\n"
-		}
-		if len(jquerySinks) > 0 {
-			jquerySinks := lib.StringsSliceToText(jquerySinks)
-			description = description + "The following potentially dangerous JQuery sinks have been identified:\n" + jquerySinks + "\n\n"
-		}
-	}
-
-	description = description + "\n\nThis might need manual analysis."
-
-	issue := db.Issue{
-		Title:         title,
-		Description:   description,
-		Code:          "interesting-js",
-		Cwe:           79,
-		Payload:       "N/A",
-		URL:           history.URL,
-		StatusCode:    history.StatusCode,
-		HTTPMethod:    history.Method,
-		Request:       "Not implemented",
-		Response:      history.ResponseBody,
-		FalsePositive: false,
-		Confidence:    90,
-		Severity:      "Info",
-	}
-	db.Connection.CreateIssue(issue)
-	log.Warn().Str("title", issue.Title).Str("url", issue.URL).Str("description", issue.Description).Msg("Created dangerous-js issue")
 }
 
 // CreateHistoryFromHijack saves a history request from hijack request/response items.

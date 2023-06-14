@@ -11,7 +11,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 // History holds table for storing requests history found
 type History struct {
 	// Similar schema: https://github.com/gilcrest/httplog
@@ -87,7 +86,7 @@ type HistoryFilter struct {
 	StatusCodes  []int
 	Methods      []string
 	ContentTypes []string
-	Sources 		 []string
+	Sources      []string
 	Pagination   Pagination
 }
 

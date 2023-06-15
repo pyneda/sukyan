@@ -30,15 +30,6 @@ func ReadResponseBodyData(response *http.Response) (body string, size int, err e
 	return body, size, err
 }
 
-// ReadResponseBodyDataAsStruct same as ReadResponseBodyData, but returns the data as a struct.
-func ReadResponseBodyDataAsStruct(response *http.Response) ResponseBodyData {
-	body, size, err := ReadResponseBodyData(response)
-	return ResponseBodyData{
-		Content: body,
-		Size:    size,
-		err:     err,
-	}
-}
 
 type FullResponseData struct {
 	Body     string
@@ -48,7 +39,7 @@ type FullResponseData struct {
 	err      error
 }
 
-// If it works, both ReadResponseBodyData and ReadResponseBodyDataAsStruct should be replaced by this
+// ReadResponseBodyData should be replaced by this
 func ReadFullResponse(response *http.Response) FullResponseData {
 	responseDump, err := httputil.DumpResponse(response, true)
 	bodyBytes, err := ioutil.ReadAll(response.Body)

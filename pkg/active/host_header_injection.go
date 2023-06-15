@@ -140,7 +140,6 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 		return
 	}
 	responseDump, err := httputil.DumpResponse(response, true)
-	// body, _, err := http_utils.ReadResponseBodyData(response)
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error reading response body data")
 	}

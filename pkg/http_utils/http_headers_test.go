@@ -1,14 +1,12 @@
 package http_utils
 
 import (
-	"net/http"
-	"testing"
 	"encoding/json"
-	"reflect"
 	"github.com/pyneda/sukyan/db"
+	"net/http"
+	"reflect"
+	"testing"
 )
-
-
 
 func TestSetRequestHeadersFromHistoryItem(t *testing.T) {
 	request, _ := http.NewRequest("GET", "http://example.com", nil)

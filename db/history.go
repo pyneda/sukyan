@@ -136,8 +136,6 @@ func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
 	return record, result.Error
 }
 
-
-
 // GetHistory get a single history record by ID
 func (d *DatabaseConnection) GetHistory(id uint) (history History, err error) {
 	err = d.db.First(&history, id).Error

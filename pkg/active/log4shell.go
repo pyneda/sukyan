@@ -7,6 +7,7 @@ import (
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/payloads"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
 	"net/http"
 	// "net/http/httputil"
@@ -190,7 +191,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		return
 	}
 
-	history, err := db.Connection.ReadHttpResponseAndCreateHistory(response, db.SourceScanner)
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner)
 
 	// log.Debug().Interface("history", history).Msg("New history record created")
 	isInResponse, err := item.payload.MatchAgainstString(string(history.RawResponse))

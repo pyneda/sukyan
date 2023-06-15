@@ -5,6 +5,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
+	"gorm.io/datatypes"
+
+	"encoding/json"
+	"github.com/pyneda/sukyan/db"
 )
 
 type ResponseBodyData struct {
@@ -58,4 +62,40 @@ func ReadFullResponse(response *http.Response) FullResponseData {
 		Raw:      string(responseDump),
 		RawSize:  len(string(responseDump)),
 	}
+}
+
+func ReadHttpResponseAndCreateHistory(response *http.Response, source string) (*db.History, error) {
+	responseData := ReadFullResponse(response)
+	return CreateHistoryFromHttpResponse(response, responseData, source)
+}
+
+
+func CreateHistoryFromHttpResponse(response *http.Response, responseData FullResponseData, source string) (*db.History, error) {
+	requestHeaders, err := json.Marshal(response.Request.Header)
+	if err != nil {
+		log.Error().Err(err).Msg("Error converting request headers to json")
+	}
+	responseHeaders, err := json.Marshal(response.Header)
+	if err != nil {
+		log.Error().Err(err).Msg("Error converting response headers to json")
+	}
+	requestDump, _ := httputil.DumpRequestOut(response.Request, true)
+
+	record := db.History{
+		URL:            response.Request.URL.String(),
+		StatusCode:     response.StatusCode,
+		RequestHeaders: datatypes.JSON(requestHeaders),
+		// RequestContentLength int64
+		ResponseHeaders:  datatypes.JSON(responseHeaders),
+		ResponseBody:     responseData.Body,
+		ResponseBodySize: responseData.BodySize,
+		Method:           response.Request.Method,
+		ContentType:      response.Header.Get("Content-Type"),
+		Evaluated:        false,
+		Source:           source,
+		RawRequest:       string(requestDump),
+		RawResponse:      string(responseData.Raw),
+		// Note                 string
+	}
+	return db.Connection.CreateHistory(&record)
 }

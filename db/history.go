@@ -2,10 +2,6 @@ package db
 
 import (
 	"encoding/json"
-	"github.com/pyneda/sukyan/pkg/http_utils"
-	"net/http"
-	"net/http/httputil"
-
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -140,43 +136,17 @@ func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
 	return record, result.Error
 }
 
-func (d *DatabaseConnection) CreateHistoryFromHttpResponse(response *http.Response, responseData http_utils.FullResponseData, source string) (*History, error) {
-	requestHeaders, err := json.Marshal(response.Request.Header)
-	if err != nil {
-		log.Error().Err(err).Msg("Error converting request headers to json")
-	}
-	responseHeaders, err := json.Marshal(response.Header)
-	if err != nil {
-		log.Error().Err(err).Msg("Error converting response headers to json")
-	}
-	requestDump, _ := httputil.DumpRequestOut(response.Request, true)
 
-	record := History{
-		URL:            response.Request.URL.String(),
-		StatusCode:     response.StatusCode,
-		RequestHeaders: datatypes.JSON(requestHeaders),
-		// RequestContentLength int64
-		ResponseHeaders:  datatypes.JSON(responseHeaders),
-		ResponseBody:     responseData.Body,
-		ResponseBodySize: responseData.BodySize,
-		Method:           response.Request.Method,
-		ContentType:      response.Header.Get("Content-Type"),
-		Evaluated:        false,
-		Source:           source,
-		RawRequest:       string(requestDump),
-		RawResponse:      string(responseData.Raw),
-		// Note                 string
-	}
-	return d.CreateHistory(&record)
-}
-
-func (d *DatabaseConnection) ReadHttpResponseAndCreateHistory(response *http.Response, source string) (*History, error) {
-	responseData := http_utils.ReadFullResponse(response)
-	return d.CreateHistoryFromHttpResponse(response, responseData, source)
-}
 
 // GetHistory get a single history record by ID
 func (d *DatabaseConnection) GetHistory(id uint) (history History, err error) {
 	err = d.db.First(&history, id).Error
+	return history, err
+}
+
+// GetHistory get a single history record by URL
+func (d *DatabaseConnection) GetHistoryFromURL(urlString string) (history History, err error) {
+	// err = d.db.First(&history, id).Error
+	err = d.db.Where("url = ?", urlString).Order("created_at ASC").First(&history).Error
 	return history, err
 }

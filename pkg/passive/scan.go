@@ -15,7 +15,7 @@ func ScanHistoryItem(item *db.History) {
 	log.Info().Interface("fingerprints", fingerprints).Msg("Fingerprints found")
 	if strings.Contains(item.ContentType, "text/html") {
 		PassiveJavascriptScan(item)
-	} else if strings.Contains(item.ContentType, "text/javascript") {
+	} else if strings.Contains(item.ContentType, "javascript") {
 		PassiveJavascriptScan(item)
 	}
 

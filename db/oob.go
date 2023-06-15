@@ -67,7 +67,7 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 		log.Info().Interface("oobTest", oobTest).Interface("interaction", interaction).Msg("Matched Interaction and OOBTest")
 		interaction.OOBTestID = oobTest.ID
 		d.db.Save(&interaction)
-		issue := getIssueTemplateByCode(oobTest.Code)
+		issue := GetIssueTemplateByCode(oobTest.Code)
 		issue.Payload = oobTest.Payload
 		issue.URL = oobTest.Target
 		if oobTest.HistoryID > 0 {

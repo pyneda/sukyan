@@ -6,6 +6,7 @@ import (
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/payloads"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
 )
 
@@ -81,7 +82,7 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 		log.Error().Err(result.Err).Str("url", result.URL).Msg("Error sending SSRF test request")
 	}
 
-	history, _ := db.Connection.ReadHttpResponseAndCreateHistory(&result.Response, db.SourceScanner)
+	history, _ := http_utils.ReadHttpResponseAndCreateHistory(&result.Response, db.SourceScanner)
 
 	interactionData := result.Payload.GetInteractionData()
 	oobTest := db.OOBTest{

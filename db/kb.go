@@ -6,6 +6,7 @@ var (
 	OOBCommunicationsCode = "oob_communications"
 	OSCmdInjectionCode    = "os_cmd_injection"
 	BlindSQLInjectionCode = "blind_sql_injection"
+	HTTPMethodsCode       = "http_methods"
 )
 
 var issueTemplates = []Issue{
@@ -49,9 +50,17 @@ var issueTemplates = []Issue{
 		Cwe:         89,
 		Severity:    "High",
 	},
+	{
+		Code:        HTTPMethodsCode,
+		Title:       "HTTP Methods",
+		Description: "The application allows the use of potentially dangerous HTTP methods.",
+		Remediation: "Make sure the HTTP Methods are properly configured and only the necessary ones are allowed.",
+		Cwe:         20,
+		Severity:    "Low",
+	},
 }
 
-func getIssueTemplateByCode(code string) *Issue {
+func GetIssueTemplateByCode(code string) *Issue {
 	for _, issue := range issueTemplates {
 		if issue.Code == code {
 			return &issue

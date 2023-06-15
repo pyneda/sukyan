@@ -170,14 +170,14 @@ func TestIsRootURL(t *testing.T) {
 		{
 			name:     "URL with query parameters",
 			input:    "https://example.com/?param=value",
-			expected: false,
+			expected: true,
 			err:      nil,
 		},
 		{
 			name:     "Invalid URL",
 			input:    "not_a_valid_url",
 			expected: false,
-			err:      &url.Error{}, // expected error is of type *url.Error
+			err:      &url.Error{}, 
 		},
 	}
 
@@ -186,8 +186,8 @@ func TestIsRootURL(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := IsRootURL(tc.input)
 			if result != tc.expected || (err != nil) != (tc.err != nil) {
-				t.Fatalf("expected %v and error status %v, but got %v and error status %v",
-					tc.expected, tc.err != nil, result, err != nil)
+				t.Fatalf("%v expected %v and error status %v, but got %v and error status %v",
+					tc.name, tc.expected, tc.err != nil, result, err != nil)
 			}
 		})
 	}

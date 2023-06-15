@@ -1,8 +1,6 @@
 package lib
 
 import (
-	"net/url"
-	"reflect"
 	"testing"
 )
 

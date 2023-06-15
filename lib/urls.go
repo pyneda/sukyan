@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"fmt"
 
 	"github.com/rs/zerolog/log"
 )
@@ -93,11 +94,28 @@ func GetURLWithoutQueryString(urlStr string) (string, error) {
 func IsRootURL(urlStr string) (bool, error) {
 	parsedURL, err := url.Parse(urlStr)
 	parsedURL.RawQuery = ""
-	if err != nil {
-		return false, err
+	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return false, fmt.Errorf("invalid URL")
 	}
 
 	isRoot := strings.Trim(parsedURL.Path, "/") == "" && parsedURL.RawQuery == ""
 
 	return isRoot, nil
+}
+
+
+// GetParentURL returns the parent URL for the given URL. If the given URL
+// is already a parent URL, the function returns true as the second return value.
+func GetParentURL(urlStr string) (string, bool, error) {
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return "", false, err
+	}
+
+	parentURL := parsedURL
+	parentURL.Path = path.Dir(parsedURL.Path)
+
+	isParentURL := parentURL.Path == "." || parentURL.Path == "/"
+
+	return parentURL.String(), isParentURL, nil
 }

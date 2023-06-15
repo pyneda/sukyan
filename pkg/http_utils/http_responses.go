@@ -2,10 +2,10 @@ package http_utils
 
 import (
 	"github.com/rs/zerolog/log"
+	"gorm.io/datatypes"
 	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
-	"gorm.io/datatypes"
 
 	"encoding/json"
 	"github.com/pyneda/sukyan/db"
@@ -29,7 +29,6 @@ func ReadResponseBodyData(response *http.Response) (body string, size int, err e
 	body = string(bodyBytes)
 	return body, size, err
 }
-
 
 type FullResponseData struct {
 	Body     string
@@ -59,7 +58,6 @@ func ReadHttpResponseAndCreateHistory(response *http.Response, source string) (*
 	responseData := ReadFullResponse(response)
 	return CreateHistoryFromHttpResponse(response, responseData, source)
 }
-
 
 func CreateHistoryFromHttpResponse(response *http.Response, responseData FullResponseData, source string) (*db.History, error) {
 	requestHeaders, err := json.Marshal(response.Request.Header)

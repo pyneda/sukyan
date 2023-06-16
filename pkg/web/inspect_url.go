@@ -307,6 +307,7 @@ func GetButtons(p *rod.Page) {
 	for _, btn := range buttons {
 		data := btn.MustHTML()
 		fmt.Println(data)
+		btn.MustClick()
 	}
 	log.Info().Int("count", len(buttons)).Msg("Page buttons gathered")
 }
@@ -325,17 +326,20 @@ func GetForms(p *rod.Page) (forms []Form, err error) {
 		formData := Form{
 			html: formHTML,
 		}
-		// formButtons, err := form.Elements("button") // Should also get <input type="submit">
-		// if err != nil {
-		// 	fmt.Println("Could not find buttons for the form")
-		// } else {
-		// 	fmt.Println("The form has the following buttons", formButtons)
-		// }
 		forms = append(forms, formData)
+		AutoFillForm(form)
+		submit, err := form.Element("[type=submit]")
+		if err != nil {
+			log.Info().Interface("form", form).Msg("Could not find submit button")
+		} else {
+			log.Info().Interface("submit", submit).Msg("Submit button found, clicking it")
+			submit.MustClick()
+		}
 	}
 	log.Info().Int("count", len(forms)).Msg("Page forms gathered")
 	return forms, err
 }
+
 
 // GetIframes : Given a page, returns its iframes
 func GetIframes(p *rod.Page) (iframes []Iframe) {

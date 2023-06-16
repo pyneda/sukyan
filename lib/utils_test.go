@@ -19,7 +19,6 @@ func TestGenerateRandomString(t *testing.T) {
 	}
 }
 
-
 func TestContains(t *testing.T) {
 	tests := []struct {
 		name     string

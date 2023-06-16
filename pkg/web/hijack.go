@@ -10,6 +10,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
+	"fmt"
 )
 
 // HijackConfig represents a hijack configuration to apply when using the browser
@@ -95,6 +96,50 @@ func Hijack(config HijackConfig, browser *rod.Browser) {
 	go router.Run()
 }
 
+func DumpHijackRequest(req *rod.HijackRequest) string {
+    var dump strings.Builder
+
+    // Request Line
+    dump.WriteString(fmt.Sprintf("%s %s %s\n", req.Method(), req.URL(), "HTTP/1.1")) // Using HTTP/1.1 as a placeholder
+
+    // Headers
+    for k, v := range req.Headers() {
+        dump.WriteString(fmt.Sprintf("%s: %s\n", k, v))
+    }
+
+    // Body
+    body := req.Body()
+    if len(body) > 0 {
+        dump.WriteString("\n")
+        dump.WriteString(string(body))
+    }
+
+    return dump.String()
+}
+
+func DumpHijackResponse(res *rod.HijackResponse) string {
+	var dump strings.Builder
+
+	// Status Line
+	dump.WriteString(fmt.Sprintf("HTTP/1.1 %d %s\n", res.Payload().ResponseCode, http.StatusText(res.Payload().ResponseCode))) // Using HTTP/1.1 as a placeholder
+
+	// Headers
+	for k, values := range res.Headers() {
+		for _, v := range values {
+			dump.WriteString(fmt.Sprintf("%s: %s\n", k, v))
+		}
+	}
+
+	// Body
+	body := res.Body()
+	if len(body) > 0 {
+		dump.WriteString("\n")
+		dump.WriteString(string(body))
+	}
+
+	return dump.String()
+}
+
 // CreateHistoryFromHijack saves a history request from hijack request/response items.
 func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, note string) *db.History {
 	requestHeaders, err := json.Marshal(request.Headers())
@@ -105,6 +150,8 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 	if err != nil {
 		log.Error().Err(err).Msg("Error converting response headers to json")
 	}
+	rawRequest := DumpHijackRequest(request)
+	rawResponse := DumpHijackResponse(response)
 	history := db.History{
 		StatusCode:           response.Payload().ResponseCode,
 		URL:                  request.URL().String(),
@@ -117,6 +164,8 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		Method:               request.Method(),
 		Note:                 note,
 		Source:               db.SourceHijack,
+		RawRequest:					 rawRequest,
+		RawResponse:				 rawResponse,
 		// ResponseContentLength: response.ContentLength,
 
 	}

@@ -177,7 +177,7 @@ func TestIsRootURL(t *testing.T) {
 			name:     "Invalid URL",
 			input:    "not_a_valid_url",
 			expected: false,
-			err:      &url.Error{}, 
+			err:      &url.Error{},
 		},
 	}
 

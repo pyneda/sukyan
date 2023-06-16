@@ -1,11 +1,11 @@
 package lib
 
 import (
+	"fmt"
 	"math/rand"
 	"net/url"
 	"path"
 	"strings"
-	"fmt"
 
 	"github.com/rs/zerolog/log"
 )
@@ -102,7 +102,6 @@ func IsRootURL(urlStr string) (bool, error) {
 
 	return isRoot, nil
 }
-
 
 // GetParentURL returns the parent URL for the given URL. If the given URL
 // is already a parent URL, the function returns true as the second return value.

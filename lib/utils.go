@@ -56,7 +56,6 @@ func LocalFileExists(path string) bool {
 	return err == nil || os.IsExist(err)
 }
 
-
 // StringsSliceToText iterates a slice of strings to generate a text list, mainly for reporting
 func StringsSliceToText(items []string) string {
 	var sb strings.Builder

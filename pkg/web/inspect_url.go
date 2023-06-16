@@ -17,9 +17,6 @@ func InspectMultipleURLs(urls []string) (urlsData []WebPage) {
 	return urlsData
 }
 
-
-
-
 // InspectURL : Inspects an url
 func InspectURL(url string) WebPage {
 	browser := rod.New().MustConnect()

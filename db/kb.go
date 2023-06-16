@@ -7,6 +7,8 @@ var (
 	OSCmdInjectionCode    = "os_cmd_injection"
 	BlindSQLInjectionCode = "blind_sql_injection"
 	HTTPMethodsCode       = "http_methods"
+	MixedContentCode      = "mixed_content"
+	CorsCode              = "cors"
 )
 
 var issueTemplates = []Issue{
@@ -57,6 +59,22 @@ var issueTemplates = []Issue{
 		Remediation: "Make sure the HTTP Methods are properly configured and only the necessary ones are allowed.",
 		Cwe:         20,
 		Severity:    "Low",
+	},
+	{
+		Code:        CorsCode,
+		Title:       "Cross Origin Resource Sharing (CORS)",
+		Description: "The application has misconfigured Cross-Origin Resource Sharing (CORS) policies, potentially allowing unauthorized domains access to sensitive data.",
+		Remediation: "Ensure that the CORS policies are properly configured to only allow trusted domains to access resources. In many cases, it is advisable to use a whitelist approach where only specifically allowed domains are permitted access.",
+		Cwe:         942,
+		Severity:    "Medium",
+	},
+	{
+		Code:        MixedContentCode,
+		Title:       "Mixed Content",
+		Description: "The application serves both secure (HTTPS) and insecure (HTTP) content, which may lead to some content being vulnerable to man-in-the-middle attacks.",
+		Remediation: "Ensure all content is served over a secure connection. Use HTTPS for all resources and avoid linking to insecure (HTTP) resources.",
+		Cwe:         829,
+		Severity:    "Medium",
 	},
 }
 

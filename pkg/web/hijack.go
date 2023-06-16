@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"strings"
 
+	"fmt"
 	"github.com/go-rod/rod"
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
-	"fmt"
 )
 
 // HijackConfig represents a hijack configuration to apply when using the browser
@@ -97,24 +97,24 @@ func Hijack(config HijackConfig, browser *rod.Browser) {
 }
 
 func DumpHijackRequest(req *rod.HijackRequest) string {
-    var dump strings.Builder
+	var dump strings.Builder
 
-    // Request Line
-    dump.WriteString(fmt.Sprintf("%s %s %s\n", req.Method(), req.URL(), "HTTP/1.1")) // Using HTTP/1.1 as a placeholder
+	// Request Line
+	dump.WriteString(fmt.Sprintf("%s %s %s\n", req.Method(), req.URL(), "HTTP/1.1")) // Using HTTP/1.1 as a placeholder
 
-    // Headers
-    for k, v := range req.Headers() {
-        dump.WriteString(fmt.Sprintf("%s: %s\n", k, v))
-    }
+	// Headers
+	for k, v := range req.Headers() {
+		dump.WriteString(fmt.Sprintf("%s: %s\n", k, v))
+	}
 
-    // Body
-    body := req.Body()
-    if len(body) > 0 {
-        dump.WriteString("\n")
-        dump.WriteString(string(body))
-    }
+	// Body
+	body := req.Body()
+	if len(body) > 0 {
+		dump.WriteString("\n")
+		dump.WriteString(string(body))
+	}
 
-    return dump.String()
+	return dump.String()
 }
 
 func DumpHijackResponse(res *rod.HijackResponse) string {
@@ -164,8 +164,8 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		Method:               request.Method(),
 		Note:                 note,
 		Source:               db.SourceHijack,
-		RawRequest:					 rawRequest,
-		RawResponse:				 rawResponse,
+		RawRequest:           rawRequest,
+		RawResponse:          rawResponse,
 		// ResponseContentLength: response.ContentLength,
 
 	}

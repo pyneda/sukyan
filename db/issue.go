@@ -12,7 +12,7 @@ type Issue struct {
 	Code           string `gorm:"index" json:"code"`
 	Title          string `gorm:"index"`
 	Description    string
-	Details				 string
+	Details        string
 	Remediation    string
 	Cwe            int
 	URL            string `gorm:"index"`

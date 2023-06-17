@@ -23,7 +23,7 @@ func ScanHistoryItem(item *db.History) {
 	PrivateIPScan(item)
 	EmailAddressScan(item)
 	FileUploadScan(item)
-
+	SessionTokenInURLScan(item)
 }
 
 func PassiveJavascriptScan(item *db.History) {

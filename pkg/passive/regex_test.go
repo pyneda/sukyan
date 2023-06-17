@@ -147,3 +147,48 @@ func TestPrivateKeyRegexes(t *testing.T) {
 		}
 	}
 }
+
+func TestConnectionStringRegex(t *testing.T) {
+	testCases := []struct {
+		regex    *regexp.Regexp
+		input    string
+		expected bool
+	}{
+		{mongoDBConnectionStringRegex, "mongodb://user:password@localhost:27017/database", true},
+		{postgreSQLConnectionStringRegex, "postgres://user:password@localhost:5432/database", true},
+		{postGISConnectionStringRegex, "postgis://user:password@localhost:5432/database", true},
+		{mySQLConnectionStringRegex, "mysql://user:password@localhost:3306/database", true},
+		{msSQLConnectionStringRegex, "Server=localhost;Database=database;User ID=user;Password=password;", true},
+		{oracleConnectionStringRegex, "Data Source=localhost;User ID=user;Password=password;", true},
+		{sqliteConnectionStringRegex, "Data Source=/path/to/database.db;Version=3;", true},
+		{redisConnectionStringRegex, "redis://user:password@localhost:6379/0", true},
+		{rabbitMQConnectionStringRegex, "amqp://user:password@localhost:5672/vhost", true},
+		{cassandraConnectionStringRegex, "cassandra://user:password@localhost:9042/database", true},
+		{neo4jConnectionStringRegex, "bolt://user:password@localhost:7687", true},
+		{couchDBConnectionStringRegex, "couchdb://user:password@localhost:5984/database", true},
+		{influxDBConnectionStringRegex, "influxdb://user:password@localhost:8086/database", true},
+		{memcachedConnectionStringRegex, "memcached://user:password@localhost:11211", true},
+
+		{mongoDBConnectionStringRegex, "https://user:password@localhost:27017/database", false},
+		{postgreSQLConnectionStringRegex, "https://user:password@localhost:5432/database", false},
+		{postGISConnectionStringRegex, "https://user:password@localhost:5432/database", false},
+		{mySQLConnectionStringRegex, "https://user:password@localhost:3306/database", false},
+		{msSQLConnectionStringRegex, "Server=localhost;Database=database;Username=user;Password=password;", false},
+		{oracleConnectionStringRegex, "DataSource=localhost;User ID=user;Password=password;", false},
+		{sqliteConnectionStringRegex, "Data Source=/path/to/database.db;Version=;", false},
+		{redisConnectionStringRegex, "https://user:password@localhost:6379/0", false},
+		{rabbitMQConnectionStringRegex, "https://user:password@localhost:5672/vhost", false},
+		{cassandraConnectionStringRegex, "https://user:password@localhost:9042/database", false},
+		{neo4jConnectionStringRegex, "https://user:password@localhost:7687", false},
+		{couchDBConnectionStringRegex, "https://user:password@localhost:5984/database", false},
+		{influxDBConnectionStringRegex, "https://user:password@localhost:8086/database", false},
+		{memcachedConnectionStringRegex, "https://user:password@localhost:11211", false},
+	}
+
+	for _, tc := range testCases {
+		match := tc.regex.MatchString(tc.input)
+		if match != tc.expected {
+			t.Errorf("Regex: %v, Input: %s, Expected: %t, Got: %t", tc.regex, tc.input, tc.expected, match)
+		}
+	}
+}

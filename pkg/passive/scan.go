@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
-	"strings"
 	"regexp"
+	"strings"
 
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 )
@@ -26,6 +26,7 @@ func ScanHistoryItem(item *db.History) {
 	FileUploadScan(item)
 	SessionTokenInURLScan(item)
 	PrivateKeyScan(item)
+	DBConnectionStringScan(item)
 }
 
 func PassiveJavascriptScan(item *db.History) {
@@ -147,6 +148,44 @@ func PrivateKeyScan(item *db.History) {
 			}
 			discoveredKeys := sb.String()
 			db.CreateIssueFromHistoryAndTemplate(item, db.PrivateKeysCode, discoveredKeys, 90)
+		}
+	}
+}
+
+func DBConnectionStringScan(item *db.History) {
+	matchAgainst := item.RawResponse
+	if matchAgainst == "" {
+		matchAgainst = item.ResponseBody
+	}
+
+	connectionStringRegexes := []*regexp.Regexp{
+		mongoDBConnectionStringRegex,
+		postgreSQLConnectionStringRegex,
+		postGISConnectionStringRegex,
+		mySQLConnectionStringRegex,
+		msSQLConnectionStringRegex,
+		oracleConnectionStringRegex,
+		sqliteConnectionStringRegex,
+		redisConnectionStringRegex,
+		rabbitMQConnectionStringRegex,
+		cassandraConnectionStringRegex,
+		neo4jConnectionStringRegex,
+		couchDBConnectionStringRegex,
+		influxDBConnectionStringRegex,
+		memcachedConnectionStringRegex,
+	}
+
+	for _, regex := range connectionStringRegexes {
+		matches := regex.FindAllString(matchAgainst, -1)
+
+		if len(matches) > 0 {
+			var sb strings.Builder
+			sb.WriteString("Discovered database connection strings:")
+			for _, match := range matches {
+				sb.WriteString(fmt.Sprintf("\n - %s", match))
+			}
+			discoveredStrings := sb.String()
+			db.CreateIssueFromHistoryAndTemplate(item, db.DBConnectionStringsCode, discoveredStrings, 90)
 		}
 	}
 }

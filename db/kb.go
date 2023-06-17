@@ -20,6 +20,7 @@ var (
 	EmailAddressesCode                   = "email_addresses"
 	PrivateIPsCode                       = "private_ips"
 	PrivateKeysCode                      = "private_keys"
+	DBConnectionStringsCode              = "db_connection_strings"
 )
 
 var issueTemplates = []Issue{
@@ -141,6 +142,14 @@ var issueTemplates = []Issue{
 		Description: "The application exposes private keys, which can provide crucial information for potential attackers and expose the system to unauthorized access.",
 		Remediation: "Private keys must be kept confidential and should never be exposed or sent over insecure channels. If a private key has been exposed, it should be considered compromised and a new key pair should be generated.",
 		Cwe:         522,
+		Severity:    "High",
+	},
+	{
+		Code:        DBConnectionStringsCode,
+		Title:       "Database Connection Strings Detected",
+		Description: "The application exposes database connection strings, which can provide sensitive information about the database setup, including credentials.",
+		Remediation: "Avoid exposing database connection strings publicly to mitigate potential information leakage.",
+		Cwe:         200,
 		Severity:    "High",
 	},
 }

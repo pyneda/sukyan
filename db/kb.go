@@ -22,7 +22,7 @@ var (
 	PrivateKeysCode                      = "private_keys"
 	DBConnectionStringsCode              = "db_connection_strings"
 	SNIInjectionCode                     = "sni_injection"
-	PasswordInGetRequestCode						 = "password_in_get_request"
+	PasswordInGetRequestCode             = "password_in_get_request"
 )
 
 var issueTemplates = []Issue{
@@ -162,14 +162,14 @@ var issueTemplates = []Issue{
 		Cwe:         91,
 		Severity:    "Medium",
 	},
-{
-	Code:        PasswordInGetRequestCode,
-	Title:       "Password Submitted in GET Request",
-	Description: "The application sends password using GET method, which can lead to sensitive information being logged or leaked.",
-	Remediation: "Switch to POST method for submitting passwords or sensitive data, and make sure all such communications happen over a secure connection (HTTPS).",
-	Cwe:         319, 
-	Severity:    "Medium",
-},
+	{
+		Code:        PasswordInGetRequestCode,
+		Title:       "Password Submitted in GET Request",
+		Description: "The application sends password using GET method, which can lead to sensitive information being logged or leaked.",
+		Remediation: "Switch to POST method for submitting passwords or sensitive data, and make sure all such communications happen over a secure connection (HTTPS).",
+		Cwe:         319,
+		Severity:    "Medium",
+	},
 }
 
 func GetIssueTemplateByCode(code string) *Issue {

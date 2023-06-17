@@ -2,14 +2,14 @@ package active
 
 import (
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 
-	"github.com/rs/zerolog/log"
-	"net/http"
-	"net"
-	"strings"
 	"crypto/tls"
+	"github.com/rs/zerolog/log"
+	"net"
+	"net/http"
+	"strings"
 )
 
 // SNIAudit configuration

@@ -116,6 +116,13 @@ func (s *Scanner) ScanURL(webPage web.WebPage) {
 		// }
 		// pathTraversal.Run()
 	}
+
+	// NOTE: SNI scan should probably be just launched once per scan, not for every request.
+	sni := active.SNIAudit{
+		HistoryItem:         &historyItem,
+		InteractionsManager: s.InteractionsManager,
+	}
+	sni.Run()
 	methods := active.HTTPMethodsAudit{
 		HistoryItem: &historyItem,
 		Concurrency: 5,

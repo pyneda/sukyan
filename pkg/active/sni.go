@@ -1,40 +1,47 @@
 package active
 
 import (
-	"fmt"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
+	"github.com/pyneda/sukyan/lib/integrations"
+
 	"github.com/rs/zerolog/log"
 	"net/http"
-	"sync"
+	"net"
+	"strings"
+	"crypto/tls"
 )
 
 // SNIAudit configuration
 type SNIAudit struct {
-	HistoryItem *db.History
-	InteractionsManager        *integrations.InteractionsManager
+	HistoryItem         *db.History
+	InteractionsManager *integrations.InteractionsManager
 }
-
 
 // Run starts the audit
 func (a *SNIAudit) Run() {
-	auditLog := log.With().Str("audit", "httpMethods").Interface("auditItem", item).Str("url", a.HistoryItem.URL).Logger()
+	auditLog := log.With().Str("audit", "sni-injection").Str("url", a.HistoryItem.URL).Logger()
 
+	if !strings.HasPrefix(a.HistoryItem.URL, "https://") {
+		auditLog.Info().Msg("URL is not HTTPS, skipping audit")
+		return
+	}
+	auditLog.Info().Msg("Starting SNI Injection audit")
 	interactionData := a.InteractionsManager.GetURL()
 	transport := &http.Transport{
 		DialContext: (&net.Dialer{}).DialContext,
 		TLSClientConfig: &tls.Config{
-			ServerName: interactionData.InteractionDomain,
+			ServerName: interactionData.URL,
 		},
 	}
 	client := &http.Client{Transport: transport}
-	request, err := http.NewRequest(item.method, a.HistoryItem.URL, nil)
+	request, err := http_utils.BuildRequestFromHistoryItem(a.HistoryItem)
+
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error creating the request")
 		return
 	}
 
-	http_utils.SetRequestHeadersFromHistoryItem(request, a.HistoryItem)
 	response, err := client.Do(request)
 
 	if err != nil {
@@ -49,10 +56,10 @@ func (a *SNIAudit) Run() {
 	oobTest := db.OOBTest{
 		Code:              db.SNIInjectionCode,
 		TestName:          issueTemplate.Title,
-		InteractionDomain: interactionData.InteractionDomain,
-		InteractionFullID: interactionData.InteractionFullID,
-		Target:            a.URL,
-		Payload:           interactionData.InteractionDomain,
+		InteractionDomain: interactionData.URL,
+		InteractionFullID: interactionData.ID,
+		Target:            a.HistoryItem.URL,
+		Payload:           interactionData.URL,
 		HistoryID:         history.ID,
 		InsertionPoint:    "sni",
 	}

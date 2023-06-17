@@ -1,14 +1,24 @@
 package db
 
+import (
+	"github.com/rs/zerolog/log"
+)
+
 var (
-	SSRFCode              = "ssrf"
-	Log4ShellCode         = "log4shell"
-	OOBCommunicationsCode = "oob_communications"
-	OSCmdInjectionCode    = "os_cmd_injection"
-	BlindSQLInjectionCode = "blind_sql_injection"
-	HTTPMethodsCode       = "http_methods"
-	MixedContentCode      = "mixed_content"
-	CorsCode              = "cors"
+	SSRFCode                             = "ssrf"
+	Log4ShellCode                        = "log4shell"
+	OOBCommunicationsCode                = "oob_communications"
+	OSCmdInjectionCode                   = "os_cmd_injection"
+	BlindSQLInjectionCode                = "blind_sql_injection"
+	HTTPMethodsCode                      = "http_methods"
+	MixedContentCode                     = "mixed_content"
+	CorsCode                             = "cors"
+	PasswordFieldAutocompleteEnabledCode = "password_field_autocomplete_enabled"
+	SessionTokenInURLCode                = "session_token_in_url"
+	FileUploadDetectedCode               = "file_upload_detected"
+	DirectoryListingCode                 = "directory_listing"
+	EmailAddressesCode                   = "email_addresses"
+	PrivateIPsCode                       = "private_ips"
 )
 
 var issueTemplates = []Issue{
@@ -73,8 +83,56 @@ var issueTemplates = []Issue{
 		Title:       "Mixed Content",
 		Description: "The application serves both secure (HTTPS) and insecure (HTTP) content, which may lead to some content being vulnerable to man-in-the-middle attacks.",
 		Remediation: "Ensure all content is served over a secure connection. Use HTTPS for all resources and avoid linking to insecure (HTTP) resources.",
-		Cwe:         829,
+		Cwe:         16,
 		Severity:    "Medium",
+	},
+	{
+		Code:        PasswordFieldAutocompleteEnabledCode,
+		Title:       "Password Field Autocomplete Enabled",
+		Description: "The application's password fields have autocomplete enabled, which may pose a security risk by allowing password autofill on shared or public devices.",
+		Remediation: "Disable autocomplete on password fields to prevent passwords from being stored and auto-filled by the browser.",
+		Cwe:         200,
+		Severity:    "Low",
+	},
+	{
+		Code:        SessionTokenInURLCode,
+		Title:       "Session Token In URL",
+		Description: "The application includes session tokens in URLs, potentially exposing sensitive data and enabling session hijacking.",
+		Remediation: "Do not include session tokens in URLs. Instead, use secure cookies to manage sessions.",
+		Cwe:         200,
+		Severity:    "Medium",
+	},
+	{
+		Code:        FileUploadDetectedCode,
+		Title:       "File Upload Detected",
+		Description: "The application allows file uploads, which can expose it to various security vulnerabilities if not properly managed.",
+		Remediation: "Ensure that file upload functionality is secured, including validating/sanitizing uploaded files, setting proper file permissions, and storing files in a secure location.",
+		Cwe:         434,
+		Severity:    "Info",
+	},
+	{
+		Code:        DirectoryListingCode,
+		Title:       "Directory Listing Enabled",
+		Description: "The application allows directory listings, which could expose sensitive files or information to attackers.",
+		Remediation: "Disable directory listings to prevent unauthorized access to file listings.",
+		Cwe:         538,
+		Severity:    "Low",
+	},
+	{
+		Code:        EmailAddressesCode,
+		Title:       "Email Addresses Detected",
+		Description: "The application exposes email addresses, potentially making users or administrators targets for spam or phishing attacks.",
+		Remediation: "Avoid displaying email addresses publicly, or use techniques to obfuscate them to make it harder for automated tools to collect them.",
+		Cwe:         200,
+		Severity:    "Low",
+	},
+	{
+		Code:        PrivateIPsCode,
+		Title:       "Private IPs Detected",
+		Description: "The application exposes private IP addresses, which can provide useful information for potential attackers and expose the internal network structure.",
+		Remediation: "Avoid exposing private IP addresses publicly to mitigate potential information leakage.",
+		Cwe:         200,
+		Severity:    "Low",
 	},
 }
 
@@ -85,4 +143,16 @@ func GetIssueTemplateByCode(code string) *Issue {
 		}
 	}
 	return nil
+}
+
+func CreateIssueFromHistoryAndTemplate(history *History, code string, confidence int) {
+	issue := GetIssueTemplateByCode(code)
+	issue.URL = history.URL
+	issue.Request = history.RawRequest
+	issue.Response = history.RawResponse
+	issue.StatusCode = history.StatusCode
+	issue.HTTPMethod = history.Method
+	issue.Confidence = confidence
+	log.Warn().Interface("issue", issue).Msg("New issue found")
+	Connection.CreateIssue(*issue)
 }

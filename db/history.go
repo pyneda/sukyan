@@ -14,6 +14,8 @@ type History struct {
 	StatusCode           int
 	URL                  string
 	RequestHeaders       datatypes.JSON
+	RequestBody          string
+	RequestBodySize      int
 	RequestContentLength int64
 	ResponseHeaders      datatypes.JSON
 	ResponseBody         string

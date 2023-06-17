@@ -10,7 +10,6 @@ import (
 	"github.com/pyneda/sukyan/pkg/payloads"
 	"github.com/rs/zerolog/log"
 	"net/http"
-	// "net/http/httputil"
 	"sync"
 )
 
@@ -177,12 +176,11 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 	auditLog := log.With().Str("audit", "log4shell").Interface("auditItem", item).Str("url", a.URL).Logger()
 	request, err := http.NewRequest("GET", a.URL, nil)
 	if err != nil {
-		fmt.Println("Error:", err)
+		auditLog.Error().Err(err).Msg("Error creating the request")
 		return
 	}
 
 	request.Header.Set(item.header, item.payload.GetValue())
-	// requestDump, _ := httputil.DumpRequestOut(request, true)
 
 	response, err := client.Do(request)
 
@@ -193,7 +191,6 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 
 	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner)
 
-	// log.Debug().Interface("history", history).Msg("New history record created")
 	isInResponse, err := item.payload.MatchAgainstString(string(history.RawResponse))
 
 	// This might be un-needed
@@ -218,14 +215,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		log.Warn().Interface("issue", issue).Msg("New issue found")
 		db.Connection.CreateIssue(issue)
 	}
-	// var historyID uint
-	// if err != nil {
-	// 	log.Error().Err(err).Msg("Error filling history from request data")
-	// 	historyID = 0
-	// } else {
-	// 	db.Connection.CreateHistory(history)
-	// 	historyID = history.ID
-	// }
+
 	interactionData := item.payload.GetInteractionData()
 	insertionPoint := fmt.Sprintf("%s header", item.header)
 	oobTest := db.OOBTest{
@@ -239,5 +229,4 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		InsertionPoint:    insertionPoint,
 	}
 	db.Connection.CreateOOBTest(oobTest)
-	// log.Info().Str("url", a.URL).Str("payload", item.payload.GetValue()).Msg("Log4Shell payload sent")
 }

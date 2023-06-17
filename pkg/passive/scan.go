@@ -15,6 +15,7 @@ func ScanHistoryItem(item *db.History) {
 	log.Info().Interface("fingerprints", fingerprints).Msg("Fingerprints found")
 	if strings.Contains(item.ContentType, "text/html") {
 		PassiveJavascriptScan(item)
+		DirectoryListingScan(item)
 	} else if strings.Contains(item.ContentType, "javascript") {
 		PassiveJavascriptScan(item)
 	}
@@ -28,5 +29,25 @@ func PassiveJavascriptScan(item *db.History) {
 	log.Info().Str("url", item.URL).Strs("sources", jsSources).Strs("jsSinks", jsSinks).Strs("jquerySinks", jquerySinks).Msg("Hijacked HTML response")
 	if len(jsSources) > 0 || len(jsSinks) > 0 || len(jquerySinks) > 0 {
 		CreateJavascriptSourcesAndSinksInformationalIssue(item, jsSources, jsSinks, jquerySinks)
+	}
+}
+
+func DirectoryListingScan(item *db.History) {
+	matches := []string{
+		"Index of", 
+		"Parent Directory", 
+		"Directory Listing",
+		"Directory listing for",
+		"Directory: /",
+		"[To Parent Directory]",
+	}
+	isDirectoryListing := false
+	for _, match := range matches {
+		if strings.Contains(item.ResponseBody, match) {
+			isDirectoryListing = true
+		}
+	}
+	if isDirectoryListing {
+		db.CreateIssueFromHistoryAndTemplate(item, db.DirectoryListingCode, 90)
 	}
 }

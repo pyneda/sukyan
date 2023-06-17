@@ -2,6 +2,7 @@
 frontend/
 *.db
 *.log
+*.db-journal
 lib/db/
 NOTES.md
 ca.pem

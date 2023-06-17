@@ -19,6 +19,7 @@ var (
 	DirectoryListingCode                 = "directory_listing"
 	EmailAddressesCode                   = "email_addresses"
 	PrivateIPsCode                       = "private_ips"
+	PrivateKeysCode                      = "private_keys"
 )
 
 var issueTemplates = []Issue{
@@ -133,6 +134,14 @@ var issueTemplates = []Issue{
 		Remediation: "Avoid exposing private IP addresses publicly to mitigate potential information leakage.",
 		Cwe:         200,
 		Severity:    "Low",
+	},
+	{
+		Code:        PrivateKeysCode,
+		Title:       "Private Keys Detected",
+		Description: "The application exposes private keys, which can provide crucial information for potential attackers and expose the system to unauthorized access.",
+		Remediation: "Private keys must be kept confidential and should never be exposed or sent over insecure channels. If a private key has been exposed, it should be considered compromised and a new key pair should be generated.",
+		Cwe:         522,
+		Severity:    "High",
 	},
 }
 

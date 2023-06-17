@@ -5,6 +5,7 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"strings"
+	"regexp"
 
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 )
@@ -24,6 +25,7 @@ func ScanHistoryItem(item *db.History) {
 	EmailAddressScan(item)
 	FileUploadScan(item)
 	SessionTokenInURLScan(item)
+	PrivateKeyScan(item)
 }
 
 func PassiveJavascriptScan(item *db.History) {
@@ -119,5 +121,32 @@ func SessionTokenInURLScan(item *db.History) {
 		}
 		details := sb.String()
 		db.CreateIssueFromHistoryAndTemplate(item, db.SessionTokenInURLCode, details, 90)
+	}
+}
+
+func PrivateKeyScan(item *db.History) {
+	type KeyMatch struct {
+		Type  string
+		Regex *regexp.Regexp
+	}
+	keyMatches := []KeyMatch{
+		{"RSA", rsaPrivateKeyRegex},
+		{"DSA", dsaPrivateKeyRegex},
+		{"EC", ecPrivateKeyRegex},
+		{"OpenSSH", opensshPrivateKeyRegex},
+		{"PEM", pemPrivateKeyRegex},
+	}
+
+	for _, keyMatch := range keyMatches {
+		matches := keyMatch.Regex.FindAllString(item.ResponseBody, -1)
+		if len(matches) > 0 {
+			var sb strings.Builder
+			sb.WriteString(fmt.Sprintf("Discovered %s Private Key(s):", keyMatch.Type))
+			for _, match := range matches {
+				sb.WriteString(fmt.Sprintf("\n\n%s", match))
+			}
+			discoveredKeys := sb.String()
+			db.CreateIssueFromHistoryAndTemplate(item, db.PrivateKeysCode, discoveredKeys, 90)
+		}
 	}
 }

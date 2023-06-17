@@ -145,7 +145,7 @@ func GetIssueTemplateByCode(code string) *Issue {
 	return nil
 }
 
-func CreateIssueFromHistoryAndTemplate(history *History, code string, confidence int) {
+func CreateIssueFromHistoryAndTemplate(history *History, code string, details string, confidence int) {
 	issue := GetIssueTemplateByCode(code)
 	issue.URL = history.URL
 	issue.Request = history.RawRequest
@@ -153,6 +153,7 @@ func CreateIssueFromHistoryAndTemplate(history *History, code string, confidence
 	issue.StatusCode = history.StatusCode
 	issue.HTTPMethod = history.Method
 	issue.Confidence = confidence
+	issue.Details = details
 	log.Warn().Interface("issue", issue).Msg("New issue found")
 	Connection.CreateIssue(*issue)
 }

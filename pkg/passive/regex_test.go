@@ -37,7 +37,7 @@ func TestSessionTokenRegex(t *testing.T) {
 		{"https://example.com/", false},
 		{"https://example.com/?page=1&pagesize=10", false},
 		{"https://example.com/?csrf_token=asdfasf", false},
-		{"https://example.com/?session_token", false}, 
+		{"https://example.com/?session_token", false},
 		{"https://example.com/?session_token=", false},
 		{"https://example.com/?=abc123", false},
 	}
@@ -49,7 +49,6 @@ func TestSessionTokenRegex(t *testing.T) {
 		}
 	}
 }
-
 
 func TestEmailRegex(t *testing.T) {
 	testCases := []struct {
@@ -98,7 +97,6 @@ func TestPrivateIPRegex(t *testing.T) {
 		}
 	}
 }
-
 
 func TestFileUploadRegex(t *testing.T) {
 	testCases := []struct {

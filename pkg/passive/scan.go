@@ -104,7 +104,7 @@ var fileUploadRegex = regexp.MustCompile(`(?i)<input[^>]*type=["']?file["']?`)
 
 func FileUploadScan(item *db.History) {
 	// This is too simple, could also check the headers for content-type: multipart/form-data and other things
-	matches := emailRegex.FindAllString(matchAgainst, -1)
+	matches := emailRegex.FindAllString(item.ResponseBody, -1)
 	if len(matches) > 0 {
 		var sb strings.Builder
 		sb.WriteString("Discovered file upload inputs:")

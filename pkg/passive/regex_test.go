@@ -1,6 +1,7 @@
 package passive
 
 import (
+	"regexp"
 	"testing"
 )
 
@@ -117,6 +118,30 @@ func TestFileUploadRegex(t *testing.T) {
 
 	for _, tc := range testCases {
 		match := fileUploadRegex.MatchString(tc.input)
+		if match != tc.expected {
+			t.Errorf("Input: %s, Expected: %t, Got: %t", tc.input, tc.expected, match)
+		}
+	}
+}
+
+func TestPrivateKeyRegexes(t *testing.T) {
+	testCases := []struct {
+		regex    *regexp.Regexp
+		input    string
+		expected bool
+	}{
+		{rsaPrivateKeyRegex, "-----BEGIN RSA PRIVATE KEY-----\nMIIBOgIBAAJBAKqVkA==\n-----END RSA PRIVATE KEY-----", true},
+		{dsaPrivateKeyRegex, "-----BEGIN DSA PRIVATE KEY-----\nMIIBvAIBAAKBgQCqVkA==\n-----END DSA PRIVATE KEY-----", true},
+		{ecPrivateKeyRegex, "-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIKqVkA==\n-----END EC PRIVATE KEY-----", true},
+		{opensshPrivateKeyRegex, "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQ==\n-----END OPENSSH PRIVATE KEY-----", true},
+		{pemPrivateKeyRegex, "-----BEGIN PRIVATE KEY-----\nMIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEAqpWQA==\n-----END PRIVATE KEY-----", true},
+
+		// Negative cases
+		{rsaPrivateKeyRegex, "-----BEGIN RSA PUBLIC KEY-----\nMIIBOgIBAAJBAKqVkA==\n-----END RSA PUBLIC KEY-----", false},
+	}
+
+	for _, tc := range testCases {
+		match := tc.regex.MatchString(tc.input)
 		if match != tc.expected {
 			t.Errorf("Input: %s, Expected: %t, Got: %t", tc.input, tc.expected, match)
 		}

@@ -6,6 +6,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"regexp"
 	"strings"
+	"net/url"
 
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 )
@@ -27,6 +28,7 @@ func ScanHistoryItem(item *db.History) {
 	SessionTokenInURLScan(item)
 	PrivateKeyScan(item)
 	DBConnectionStringScan(item)
+	PasswordInGetRequestScan(item)
 }
 
 func PassiveJavascriptScan(item *db.History) {
@@ -187,5 +189,39 @@ func DBConnectionStringScan(item *db.History) {
 			discoveredStrings := sb.String()
 			db.CreateIssueFromHistoryAndTemplate(item, db.DBConnectionStringsCode, discoveredStrings, 90)
 		}
+	}
+}
+
+
+func PasswordInGetRequestScan(item *db.History) {
+	if item.Method != "GET" {
+		return
+	}
+	commonParameters := []string{
+		"password",
+		"pass",
+		"pwd",
+		"user_pass",
+		"passwd",
+		"passcode",
+		"pin",
+	}
+
+	u, err := url.Parse(item.URL)
+	if err != nil {
+		return
+	}
+	query := u.Query()
+
+	var passwordParams []string
+	for _, match := range commonParameters {
+		if value, ok := query[match]; ok {
+			passwordParams = append(passwordParams, fmt.Sprintf("Parameter: %s, Value: %s", match, value[0]))
+		}
+	}
+
+	if len(passwordParams) > 0 {
+		description := "Detected password in URL: " + strings.Join(passwordParams, "\n  - ")
+		db.CreateIssueFromHistoryAndTemplate(item, db.PasswordInGetRequestCode, description, 90)
 	}
 }

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
+	"net/url"
 	"regexp"
 	"strings"
-	"net/url"
 
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 )
@@ -191,7 +191,6 @@ func DBConnectionStringScan(item *db.History) {
 		}
 	}
 }
-
 
 func PasswordInGetRequestScan(item *db.History) {
 	if item.Method != "GET" {

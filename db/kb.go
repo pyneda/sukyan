@@ -21,6 +21,7 @@ var (
 	PrivateIPsCode                       = "private_ips"
 	PrivateKeysCode                      = "private_keys"
 	DBConnectionStringsCode              = "db_connection_strings"
+	SNIInjectionCode                     = "sni_injection"
 )
 
 var issueTemplates = []Issue{
@@ -151,6 +152,14 @@ var issueTemplates = []Issue{
 		Remediation: "Avoid exposing database connection strings publicly to mitigate potential information leakage.",
 		Cwe:         200,
 		Severity:    "High",
+	},
+	{
+		Code:        SNIInjectionCode,
+		Title:       "Server Name Indication (SNI) Injection",
+		Description: "The application is vulnerable to Server Name Indication (SNI) Injection. This vulnerability occurs when the application does not validate or incorrectly processes the SNI during the TLS handshake process. An attacker can exploit this to inject arbitrary data, induce abnormal behavior in applications, or conduct Server-Side Request Forgery (SSRF) attacks.",
+		Remediation: "Properly validate and sanitize the SNI during the TLS handshake process. Consider implementing additional security measures such as input validation, parameterized queries, or appropriate encoding to prevent injection attacks. Be wary of how your application handles SNI, especially if you are using a Web Application Server (WAS) or Ingress.",
+		Cwe:         91,
+		Severity:    "Medium",
 	},
 }
 

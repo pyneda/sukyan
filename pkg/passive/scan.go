@@ -1,11 +1,10 @@
 package passive
 
 import (
+	"fmt"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"strings"
-	"regexp"
-	"fmt"
 
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 )
@@ -39,8 +38,8 @@ func PassiveJavascriptScan(item *db.History) {
 
 func DirectoryListingScan(item *db.History) {
 	matches := []string{
-		"Index of", 
-		"Parent Directory", 
+		"Index of",
+		"Parent Directory",
 		"Directory Listing",
 		"Directory listing for",
 		"Directory: /",
@@ -57,16 +56,13 @@ func DirectoryListingScan(item *db.History) {
 	}
 }
 
-
-var privateIPRegex = regexp.MustCompile(`\b((10\.\d{1,3}\.\d{1,3}\.\d{1,3})|(172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})|(192\.168\.\d{1,3}\.\d{1,3})|(127\.0\.0\.1))\b`)
-
 func PrivateIPScan(item *db.History) {
 	matchAgainst := item.RawResponse
 	if matchAgainst == "" {
 		matchAgainst = item.ResponseBody
 	}
 	matches := privateIPRegex.FindAllString(matchAgainst, -1)
-	
+
 	if len(matches) > 0 {
 		var sb strings.Builder
 		sb.WriteString("Discovered Internal IP addresses:")
@@ -77,9 +73,6 @@ func PrivateIPScan(item *db.History) {
 		db.CreateIssueFromHistoryAndTemplate(item, db.PrivateIPsCode, discoveredIPs, 90)
 	}
 }
-
-
-var emailRegex = regexp.MustCompile(`\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b`)
 
 func EmailAddressScan(item *db.History) {
 	matchAgainst := item.RawResponse
@@ -99,12 +92,9 @@ func EmailAddressScan(item *db.History) {
 	}
 }
 
-
-var fileUploadRegex = regexp.MustCompile(`(?i)<input[^>]*type=["']?file["']?`)
-
 func FileUploadScan(item *db.History) {
 	// This is too simple, could also check the headers for content-type: multipart/form-data and other things
-	matches := emailRegex.FindAllString(item.ResponseBody, -1)
+	matches := fileUploadRegex.FindAllString(item.ResponseBody, -1)
 	if len(matches) > 0 {
 		var sb strings.Builder
 		sb.WriteString("Discovered file upload inputs:")
@@ -113,5 +103,21 @@ func FileUploadScan(item *db.History) {
 		}
 		details := sb.String()
 		db.CreateIssueFromHistoryAndTemplate(item, db.FileUploadDetectedCode, details, 90)
+	}
+}
+
+func SessionTokenInURLScan(item *db.History) {
+	matches := sessionTokenRegex.FindAllStringSubmatch(item.URL, -1)
+
+	if len(matches) > 0 {
+		var sb strings.Builder
+		sb.WriteString("Discovered session tokens in URL parameters:")
+		for _, match := range matches {
+			parameter := match[0]
+			value := match[1]
+			sb.WriteString(fmt.Sprintf("\n - Parameter: %s, Value: %s", parameter, value))
+		}
+		details := sb.String()
+		db.CreateIssueFromHistoryAndTemplate(item, db.SessionTokenInURLCode, details, 90)
 	}
 }

@@ -87,7 +87,7 @@ func Hijack(config HijackConfig, browser *rod.Browser) {
 				db.Connection.CreateIssue(issue)
 			} else {
 				CreateHistoryFromHijack(ctx.Request, ctx.Response, "Non common response")
-				log.Info().Str("url", ctx.Request.URL().String()).Msg("Hijacked non common response")
+				log.Info().Str("url", ctx.Request.URL().String()).Str("contentType", contentType).Msg("Hijacked non common response")
 
 			}
 		}

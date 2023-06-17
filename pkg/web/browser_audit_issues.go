@@ -52,8 +52,8 @@ func handleBrowserAuditIssues(url string, e *proto.AuditsIssueAdded) {
 				if e.Issue.Details.CorsIssueDetails.Location != nil {
 					description.WriteString("\nSource code location:")
 					description.WriteString("\n		- URL: " + string(e.Issue.Details.CorsIssueDetails.Location.URL))
-					description.WriteString("\n		- Line number: " + string(e.Issue.Details.CorsIssueDetails.Location.LineNumber))
-					description.WriteString("\n		- Column number: " + string(e.Issue.Details.CorsIssueDetails.Location.ColumnNumber))
+					description.WriteString("\n		- Line number: " + strconv.Itoa(e.Issue.Details.CorsIssueDetails.Location.LineNumber))
+					description.WriteString("\n		- Column number: " + strconv.Itoa(e.Issue.Details.CorsIssueDetails.Location.ColumnNumber))
 
 				}
 				if e.Issue.Details.CorsIssueDetails.InitiatorOrigin != "" {

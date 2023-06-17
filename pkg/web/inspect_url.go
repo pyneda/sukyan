@@ -172,7 +172,7 @@ func GetForms(p *rod.Page) (forms []Form, err error) {
 			log.Info().Interface("form", form).Msg("Could not find submit button")
 		} else {
 			log.Info().Interface("submit", submit).Msg("Submit button found, clicking it")
-			submit.MustClick()
+			submit.Click(proto.InputMouseButtonRight, 1)
 		}
 	}
 	log.Info().Int("count", len(forms)).Msg("Page forms gathered")

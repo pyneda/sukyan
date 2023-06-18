@@ -4,6 +4,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
+	"github.com/go-rod/rod/lib/proto"
 	"time"
 )
 
@@ -70,6 +71,24 @@ var predefinedNameValues = []InputNameValue{
 	{Name: "securityQuestion", Value: "What is your mother's maiden name?"},
 	{Name: "securityAnswer", Value: "DefaultAnswer"},
 }
+
+func SubmitForm(form *rod.Element) {
+		submit, err := form.Element("[type=submit]")
+		if err == nil {
+			log.Info().Interface("submit", submit).Msg("Submit button found, clicking it")
+			submit.Click(proto.InputMouseButtonRight, 1)
+			return
+		}
+		_, serr := form.Eval(`() => this.submit()`)
+		if serr == nil {
+			log.Info().Interface("form", form).Msg("Form submitted using javascript")
+			return
+		} else {
+			log.Error().Err(serr).Msg("Could not submit form")
+		}
+
+}
+
 
 func AutoFillForm(form *rod.Element) {
 	// Find all input elements within the form

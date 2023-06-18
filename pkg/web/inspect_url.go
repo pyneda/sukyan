@@ -167,17 +167,13 @@ func GetForms(p *rod.Page) (forms []Form, err error) {
 		}
 		forms = append(forms, formData)
 		AutoFillForm(form)
-		submit, err := form.Element("[type=submit]")
-		if err != nil {
-			log.Info().Interface("form", form).Msg("Could not find submit button")
-		} else {
-			log.Info().Interface("submit", submit).Msg("Submit button found, clicking it")
-			submit.Click(proto.InputMouseButtonRight, 1)
-		}
+		SubmitForm(form)
+
 	}
 	log.Info().Int("count", len(forms)).Msg("Page forms gathered")
 	return forms, err
 }
+
 
 // GetIframes : Given a page, returns its iframes
 func GetIframes(p *rod.Page) (iframes []Iframe) {

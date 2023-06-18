@@ -174,7 +174,6 @@ func GetForms(p *rod.Page) (forms []Form, err error) {
 	return forms, err
 }
 
-
 // GetIframes : Given a page, returns its iframes
 func GetIframes(p *rod.Page) (iframes []Iframe) {
 	iframes = []Iframe{}

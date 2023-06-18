@@ -29,7 +29,7 @@ func PrintHistoryTable(records []*History) {
 			formattedURL,
 			strconv.Itoa(record.StatusCode),
 			record.Method,
-			record.ContentType,
+			record.ResponseContentType,
 		})
 	}
 	table := tablewriter.NewWriter(os.Stdout)
@@ -88,7 +88,7 @@ func PrintHistory(history History) {
 	var sb strings.Builder
 	sb.WriteString("URL: " + history.URL)
 	sb.WriteString("\nMethod: " + history.Method)
-	sb.WriteString("\nContent Type: " + history.ContentType)
+	sb.WriteString("\nContent Type: " + history.ResponseContentType)
 	sb.WriteString("\nResponse Body:\n" + history.ResponseBody)
 	fmt.Print(sb.String())
 }

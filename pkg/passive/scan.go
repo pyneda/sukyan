@@ -16,10 +16,10 @@ func ScanHistoryItem(item *db.History) {
 	wappalyzerClient, _ := wappalyzer.New()
 	fingerprints := wappalyzerClient.Fingerprint(headers, []byte(item.ResponseBody))
 	log.Info().Interface("fingerprints", fingerprints).Msg("Fingerprints found")
-	if strings.Contains(item.ContentType, "text/html") {
+	if strings.Contains(item.ResponseContentType, "text/html") {
 		PassiveJavascriptScan(item)
 		DirectoryListingScan(item)
-	} else if strings.Contains(item.ContentType, "javascript") {
+	} else if strings.Contains(item.ResponseContentType, "javascript") {
 		PassiveJavascriptScan(item)
 	}
 	PrivateIPScan(item)

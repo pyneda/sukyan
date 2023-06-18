@@ -11,25 +11,24 @@ import (
 type History struct {
 	// Similar schema: https://github.com/gilcrest/httplog
 	gorm.Model
-	StatusCode           int
-	URL                  string
-	RequestHeaders       datatypes.JSON
-	RequestBody          string
-	RequestBodySize      int
-	RequestContentLength int64
-	ResponseHeaders      datatypes.JSON
-	ResponseBody         string
-	ResponseBodySize     int
-	RawRequest           string `json:"raw_request"`
-	RawResponse          string `json:"raw_response"`
-	Method               string
-	ContentType          string
-	Evaluated            bool
-	Note                 string
-	Source               string
-	// ResponseContentLength int64
-	//ResponseTimestamp
-	//RequestTimestamp
+	StatusCode           int            `json:"status_code"`
+	URL                  string         `gorm:"index"`
+	RequestHeaders       datatypes.JSON `json:"request_headers"`
+	RequestBody          string         `json:"request_body"`
+	RequestBodySize      int            `json:"request_body_size"`
+	RequestContentLength int64          `json:"request_content_length"`
+	ResponseHeaders      datatypes.JSON `json:"response_headers"`
+	ResponseBody         string         `json:"response_body"`
+	RequestContentType   string         `json:"request_content_type"`
+	ResponseBodySize     int            `json:"response_body_size"`
+	ResponseContentType  string         `json:"response_content_type"`
+	RawRequest           string         `json:"raw_request"`
+	RawResponse          string         `json:"raw_response"`
+	Method               string         `json:"method"`
+	ParametersCount      int            `json:"parameters_count"`
+	Evaluated            bool           `json:"evaluated"`
+	Note                 string         `json:"note"`
+	Source               string         `json:"source"`
 }
 
 func (h *History) GetResponseHeadersAsMap() (map[string][]string, error) {
@@ -62,11 +61,11 @@ func (h *History) GetResponseHeadersAsMap() (map[string][]string, error) {
 
 func (h *History) getCreateQueryData() (History, History) {
 	conditions := History{
-		URL:              h.URL,
-		StatusCode:       h.StatusCode,
-		Method:           h.Method,
-		ContentType:      h.ContentType,
-		ResponseBodySize: h.ResponseBodySize,
+		URL:                 h.URL,
+		StatusCode:          h.StatusCode,
+		Method:              h.Method,
+		ResponseContentType: h.ResponseContentType,
+		ResponseBodySize:    h.ResponseBodySize,
 	}
 	attrs := History{
 		RequestHeaders:       h.RequestHeaders,
@@ -81,11 +80,12 @@ func (h *History) getCreateQueryData() (History, History) {
 
 // HistoryFilter represents available history filters
 type HistoryFilter struct {
-	StatusCodes  []int
-	Methods      []string
-	ContentTypes []string
-	Sources      []string
-	Pagination   Pagination
+	StatusCodes          []int
+	Methods              []string
+	ResponseContentTypes []string
+	RequestContentTypes  []string
+	Sources              []string
+	Pagination           Pagination
 }
 
 // ListHistory Lists history
@@ -103,8 +103,12 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 		filterQuery["source"] = filter.Sources
 	}
 
-	if len(filter.ContentTypes) > 0 {
-		filterQuery["content_type"] = filter.ContentTypes
+	if len(filter.ResponseContentTypes) > 0 {
+		filterQuery["response_content_type"] = filter.ResponseContentTypes
+	}
+
+	if len(filter.RequestContentTypes) > 0 {
+		filterQuery["request_content_type"] = filter.RequestContentTypes
 	}
 	// Perform the query
 	if filterQuery != nil && len(filterQuery) > 0 {

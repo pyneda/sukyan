@@ -140,15 +140,17 @@ func GetPageAnchors(p *rod.Page) (anchors []string, err error) {
 // GetButtons Given a page, returns its forms
 func GetButtons(p *rod.Page) {
 	buttons, err := p.Elements("button")
-	if err != nil {
-		return
+	if err == nil {
+		for _, btn := range buttons {
+			btn.Click(proto.InputMouseButtonRight, 1)
+		}
 	}
-	for _, btn := range buttons {
-		data := btn.MustHTML()
-		fmt.Println(data)
-		btn.MustClick()
+	buttons2, err := p.Elements(`[type="button"]`)
+	if err == nil {
+		for _, btn := range buttons2 {
+			btn.Click(proto.InputMouseButtonRight, 1)
+		}
 	}
-	log.Info().Int("count", len(buttons)).Msg("Page buttons gathered")
 }
 
 // GetForms : Given a page, returns its forms

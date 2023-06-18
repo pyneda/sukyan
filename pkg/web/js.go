@@ -42,12 +42,13 @@ function getLinks() {
         }
     }
 
-    var urlAttrs = ['href', 'src', 'url', 'action', 'ping', 'background', 'cite', 'data', 'dynsrc', 'formaction', 'lowsrc', 'poster', 'longdesc', 'manifest', 'usemap'];
+    var urlAttrs = ['href', 'src', 'url', 'codebase', 'action', 'ping', 'background', 'cite', 'data', 'dynsrc', 'formaction', 'lowsrc', 'poster', 'longdesc', 'manifest', 'usemap'];
 
     urlAttrs.forEach(function(attr){
         var elements = document.querySelectorAll('[' + attr + ']');
         for (var i = 0; i < elements.length; i++) {
             var attrValue = elements[i].getAttribute(attr);
+            console.log(attrValue)
             if (attrValue && typeof attrValue === 'string') {
                 var absolute = absolutePath(attrValue);
                 array.push(absolute);
@@ -75,6 +76,13 @@ function getLinks() {
             });
         }
     }
+    
+
+    array = array.filter(item => item.startsWith("http")).map(item => {
+        let url = new URL(item);
+        url.hash = '';
+        return url.href;
+    });
 
     return [...new Set(array)];
 }

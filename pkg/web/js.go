@@ -11,6 +11,11 @@ function absolutePath(href) {
     }
     
 }
+function processSrcset(srcset) {
+    return srcset.split(',')
+        .map(s => s.trim().split(/\s+/)[0])
+        .filter(Boolean);
+}
 function getLinks() {
     var array = [];
     if (!document) return array;
@@ -36,7 +41,42 @@ function getLinks() {
             array.push(absolutePath(el.attributes.codebase.value));
         }
     }
-    return array;
+
+    var urlAttrs = ['href', 'src', 'url', 'action', 'ping', 'background', 'cite', 'data', 'dynsrc', 'formaction', 'lowsrc', 'poster', 'longdesc', 'manifest', 'usemap'];
+
+    urlAttrs.forEach(function(attr){
+        var elements = document.querySelectorAll('[' + attr + ']');
+        for (var i = 0; i < elements.length; i++) {
+            var attrValue = elements[i].getAttribute(attr);
+            if (attrValue && typeof attrValue === 'string') {
+                var absolute = absolutePath(attrValue);
+                array.push(absolute);
+            }
+        }
+    });
+
+    var svgElements = document.querySelectorAll('image');
+    for (var i = 0; i < svgElements.length; i++) {
+        var attrValue = svgElements[i].getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+        if (attrValue && typeof attrValue === 'string') {
+            var absolute = absolutePath(attrValue);
+            array.push(absolute);
+        }
+    }
+
+    var srcsetElements = document.querySelectorAll('[srcset]');
+    for (var i = 0; i < srcsetElements.length; i++) {
+        var attrValue = srcsetElements[i].getAttribute('srcset');
+        if (attrValue && typeof attrValue === 'string') {
+            var urls = processSrcset(attrValue);
+            urls.forEach(url => {
+                var absolute = absolutePath(url);
+                array.push(absolute);
+            });
+        }
+    }
+
+    return [...new Set(array)];
 }
 return getLinks();
 }`

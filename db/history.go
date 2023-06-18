@@ -4,15 +4,14 @@ import (
 	"encoding/json"
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 // History holds table for storing requests history found
 type History struct {
 	// Similar schema: https://github.com/gilcrest/httplog
 	BaseModel
-	StatusCode           int            `json:"status_code"`
-	URL                  string         `gorm:"index"`
+	StatusCode           int            `gorm:"index" json:"status_code"`
+	URL                  string         `gorm:"index" json:"url"`
 	RequestHeaders       datatypes.JSON `json:"request_headers"`
 	RequestBody          string         `json:"request_body"`
 	RequestBodySize      int            `json:"request_body_size"`
@@ -24,7 +23,7 @@ type History struct {
 	ResponseContentType  string         `json:"response_content_type"`
 	RawRequest           string         `json:"raw_request"`
 	RawResponse          string         `json:"raw_response"`
-	Method               string         `json:"method"`
+	Method               string         `gorm:"index" json:"method"`
 	ParametersCount      int            `json:"parameters_count"`
 	Evaluated            bool           `json:"evaluated"`
 	Note                 string         `json:"note"`

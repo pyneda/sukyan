@@ -10,7 +10,7 @@ import (
 // History holds table for storing requests history found
 type History struct {
 	// Similar schema: https://github.com/gilcrest/httplog
-	gorm.Model
+	BaseModel
 	StatusCode           int            `json:"status_code"`
 	URL                  string         `gorm:"index"`
 	RequestHeaders       datatypes.JSON `json:"request_headers"`

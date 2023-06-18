@@ -69,21 +69,25 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		log.Error().Err(err).Msg("Error converting response headers to json")
 	}
 	requestDump, _ := httputil.DumpRequestOut(response.Request, true)
+	requestBody, _ := ioutil.ReadAll(response.Request.Body)
+	defer response.Request.Body.Close()
 
 	record := db.History{
-		URL:            response.Request.URL.String(),
-		StatusCode:     response.StatusCode,
-		RequestHeaders: datatypes.JSON(requestHeaders),
-		// RequestContentLength int64
-		ResponseHeaders:  datatypes.JSON(responseHeaders),
-		ResponseBody:     responseData.Body,
-		ResponseBodySize: responseData.BodySize,
-		Method:           response.Request.Method,
-		ContentType:      response.Header.Get("Content-Type"),
-		Evaluated:        false,
-		Source:           source,
-		RawRequest:       string(requestDump),
-		RawResponse:      string(responseData.Raw),
+		URL:                 response.Request.URL.String(),
+		StatusCode:          response.StatusCode,
+		RequestHeaders:      datatypes.JSON(requestHeaders),
+		RequestBody:         string(requestBody),
+		RequestBodySize:     len(requestBody),
+		ResponseHeaders:     datatypes.JSON(responseHeaders),
+		ResponseBody:        responseData.Body,
+		ResponseBodySize:    responseData.BodySize,
+		Method:              response.Request.Method,
+		ResponseContentType: response.Header.Get("Content-Type"),
+		RequestContentType:  response.Request.Header.Get("Content-Type"),
+		Evaluated:           false,
+		Source:              source,
+		RawRequest:          string(requestDump),
+		RawResponse:         string(responseData.Raw),
 		// Note                 string
 	}
 	return db.Connection.CreateHistory(&record)

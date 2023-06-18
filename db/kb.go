@@ -167,8 +167,8 @@ var issueTemplates = []Issue{
 		Title:       "Password Submitted in GET Request",
 		Description: "The application sends password using GET method, which can lead to sensitive information being logged or leaked.",
 		Remediation: "Switch to POST method for submitting passwords or sensitive data, and make sure all such communications happen over a secure connection (HTTPS).",
-		Cwe:         319,
-		Severity:    "Medium",
+		Cwe:         598,
+		Severity:    "Low",
 	},
 }
 

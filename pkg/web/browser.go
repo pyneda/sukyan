@@ -7,7 +7,7 @@ import (
 )
 
 func getBrowserLauncher() *launcher.Launcher {
-	return launcher.New().Headless(false)
+	return launcher.New().Headless(true)
 }
 
 type BrowserManagerConfig struct {

@@ -366,6 +366,20 @@ func TestExtractAndAnalyzeURLS(t *testing.T) {
 			},
 			wantNonWeb: []string{},
 		},
+		// {
+		// 	name:             "JavaScript with URLs in comment",
+		// 	response:         `var url = "https://example.com"; // This is a comment http://example.com/test/javascript/misc/comment.found`,
+		// 	extractedFromURL: "https://example.com/page",
+		// 	wantWeb:          []string{"https://example.com", "http://example.com/test/javascript/misc/comment.found"},
+		// 	wantNonWeb:       []string{},
+		// },
+		{
+			name:             "JavaScript string variable",
+			response:         `var url = "https://example.com/aa/bb/cc/dd";`,
+			extractedFromURL: "https://example.com/page",
+			wantWeb:          []string{"https://example.com/aa/bb/cc/dd"},
+			wantNonWeb:       []string{},
+		},
 	}
 
 	for _, tt := range tests {

@@ -45,7 +45,6 @@ func (c *Crawler) Run() []web.WebPage {
 	totalPendingPagesChannel := make(chan int)
 	hijackResultsChannel := make(chan web.HijackResult)
 	c.processed = make(map[string]bool)
-
 	var wg sync.WaitGroup
 	// var to store crawl results
 	var crawledPagesResults = []web.WebPage{}
@@ -100,7 +99,7 @@ func (c *Crawler) CrawlPages(wg *sync.WaitGroup, foundLinksChannel chan string, 
 	for url := range pendingPagesChannel {
 		if c.Scope.IsInScope(url) && strings.HasPrefix(url, "http") {
 
-			log.Info().Str("url", url).Msg("Page crawl started")
+			log.Debug().Str("url", url).Msg("Page crawl started")
 			page := c.browserManager.NewPage()
 			// urlData := web.CrawlURL(url, page)
 
@@ -115,7 +114,7 @@ func (c *Crawler) CrawlPages(wg *sync.WaitGroup, foundLinksChannel chan string, 
 			}
 			// c.browserManager.FocusPageAndInteractWithpage(page)
 			lib.DoWorkWithTimeout(c.browserManager.InteractWithPage, []interface{}{page}, 5*time.Second)
-			log.Info().Int("anchors", len(urlData.Anchors)).Str("url", url).Msg("Crawler total anchors found")
+			log.Debug().Int("anchors", len(urlData.Anchors)).Str("url", url).Msg("Crawler total anchors found")
 			c.browserManager.ReleasePage(page)
 
 			// Add the found links to its channel
@@ -162,8 +161,6 @@ func (c Crawler) CrawlMonitor(pendingPagesChannel chan string, crawledPagesChann
 			close(hijackResultsChannel)
 			close(totalPendingPagesChannel)
 			close(crawledPagesChannel)
-		} else {
-			log.Warn().Int("count", count).Msg("Crawl monitor received from totalPendingPagesChannel")
 		}
 	}
 
@@ -171,7 +168,6 @@ func (c Crawler) CrawlMonitor(pendingPagesChannel chan string, crawledPagesChann
 
 // ProcessCrawledLinks receives crawler found links via a channel and adds them to crawl if they are in scope and have not been crawled previously
 func (c *Crawler) ProcessCrawledLinks(foundLinksChannel chan string, pendingPagesChannel chan string, totalPendingPagesChannel chan int) {
-	// processed := make(map[string]bool)
 	log.Debug().Msg("Process crawled links started")
 
 	for link := range foundLinksChannel {
@@ -189,7 +185,6 @@ func (c *Crawler) ProcessCrawledLinks(foundLinksChannel chan string, pendingPage
 }
 
 func (c *Crawler) ProcessHijackResults(foundLinksChannel chan string, pendingPagesChannel chan string, totalPendingPagesChannel chan int, hijackResultsChannel chan web.HijackResult) {
-	// processed := make(map[string]bool)
 	log.Info().Msg("Process hijack results started")
 
 	for result := range hijackResultsChannel {

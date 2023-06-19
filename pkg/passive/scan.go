@@ -7,8 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-
-	wappalyzer "github.com/projectdiscovery/wappalyzergo"
+	// wappalyzer "github.com/projectdiscovery/wappalyzergo"
 )
 
 func ContentTypesScan(item *db.History) {
@@ -40,10 +39,10 @@ func ContentTypesScan(item *db.History) {
 }
 
 func ScanHistoryItem(item *db.History) {
-	headers, _ := item.GetResponseHeadersAsMap()
-	wappalyzerClient, _ := wappalyzer.New()
-	fingerprints := wappalyzerClient.Fingerprint(headers, []byte(item.ResponseBody))
-	log.Info().Interface("fingerprints", fingerprints).Msg("Fingerprints found")
+	// headers, _ := item.GetResponseHeadersAsMap()
+	// wappalyzerClient, _ := wappalyzer.New()
+	// fingerprints := wappalyzerClient.Fingerprint(headers, []byte(item.ResponseBody))
+	// log.Info().Interface("fingerprints", fingerprints).Msg("Fingerprints found")
 	if strings.Contains(item.ResponseContentType, "text/html") {
 		PassiveJavascriptScan(item)
 		DirectoryListingScan(item)

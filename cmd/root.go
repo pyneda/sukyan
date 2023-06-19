@@ -82,6 +82,7 @@ func initConfig() {
 
 		// Search config in home directory with name ".sukyan" (without extension).
 		viper.AddConfigPath(home)
+		viper.SetConfigType("yaml")
 		viper.SetConfigName(".sukyan")
 	}
 

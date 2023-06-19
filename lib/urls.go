@@ -118,3 +118,24 @@ func GetParentURL(urlStr string) (string, bool, error) {
 
 	return parentURL.String(), isParentURL, nil
 }
+
+// CalculateURLDepth calculates the depth of a URL.
+// Returns -1 if the URL is invalid.
+func CalculateURLDepth(rawURL string) int {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return -1
+	}
+	path := parsedURL.Path
+	if path == "" || path == "/" {
+		return 0
+	}
+	segments := strings.Split(path, "/")
+	depth := 0
+	for _, segment := range segments {
+		if segment != "" {
+			depth++
+		}
+	}
+	return depth
+}

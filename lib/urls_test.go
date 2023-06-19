@@ -192,3 +192,67 @@ func TestIsRootURL(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateURLDepth(t *testing.T) {
+	cases := []struct {
+		url   string
+		depth int
+	}{
+		{"http://example.com", 0},
+		{"http://example.com/", 0},
+		{"http://example.com/path", 1},
+		{"http://example.com/path/", 1},
+		{"http://example.com/path/to", 2},
+		{"http://example.com/path/to/resource", 3},
+		{"https://example.com/path/to/resource", 3},
+		{"http://example.com/path/to/resource?id=42", 3},
+		{"http://example.com/path/to/resource?id=42#anchor", 3},
+		{"http://example.com/path/to/resource#anchor", 3},
+		{"http://example.com/path#anchor", 1},
+		{"http://example.com#anchor", 0},
+		{"ftp://example.com/path", 1},
+		{"http://example.com/path/to/resource?foo=bar#anchor", 3},
+		{"http://example.com/path//double", 3},
+		{"http://example.com/path/to///triple", 5},
+		{"http://example.com/path/with/empty//segments", 5},
+		{"http://example.com///", 0},
+		{"http://example.com", 0},
+		{"", -1},
+		{"http://", -1},
+		{"http://?id=42", -1},
+		{"http://#anchor", -1},
+		{"http://example.com/path/to/resource/with/many/segments", 6},
+		{"http://example.com//double/leading/slash", 4},
+		{"http://example.com/triple///leading/slash", 4},
+		{"http://example.com/quad////leading/slash", 4},
+		{"http://example.com/////leading/slash", 3},
+		{"http://example.com/path/with/query?param=value", 3},
+		{"http://example.com/path/with/query?param=value&otherParam=otherValue", 3},
+		{"http://example.com/path/with/query?param=value/looks/like/path", 3},
+		{"http://example.com/path/with/fragment#anchor", 3},
+		{"http://example.com/path/with/fragment#anchor/looks/like/path", 3},
+		{"http://example.com/path/with/empty//segments", 5},
+		{"http://example.com/path/with/empty//segments/and/query?param=value", 5},
+		{"http://example.com/path/with/empty//segments/and/fragment#anchor", 5},
+		{"http://example.com/path/with/empty//segments/and/fragment#anchor/looks/like/path", 5},
+		{"https://example.com/path/to/resource", 3},
+		{"ftp://example.com/path/to/resource", 3},
+		{"file:///path/to/resource", 3},
+		{"http://localhost/path/to/resource", 3},
+		{"http://192.168.0.1/path/to/resource", 3},
+		{"http://[2001:db8::1]/path/to/resource", 3},
+		{"http://example.com:8080/path/to/resource", 3},
+		{"http://example.com/path/to/resource/", 3},
+		{"http://example.com///path/to/resource", 3},
+		{"http://example.com/path///to/resource", 4},
+		{"http://example.com/path/to///resource", 4},
+		{"http://example.com/path/to/resource///", 3},
+	}
+
+	for _, c := range cases {
+		got := CalculateURLDepth(c.url)
+		if got != c.depth {
+			t.Errorf("CalculateURLDepth(%q) == %d, want %d", c.url, got, c.depth)
+		}
+	}
+}

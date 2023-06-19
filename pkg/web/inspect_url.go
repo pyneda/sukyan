@@ -2,12 +2,13 @@ package web
 
 import (
 	"fmt"
-	"github.com/pyneda/sukyan/pkg/web/cookies"
-
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/pyneda/sukyan/pkg/web/cookies"
 	"github.com/rs/zerolog/log"
 )
+
+// TODO: All of this should be deprecated, by now for crawling using CrawlURL
 
 func InspectMultipleURLs(urls []string) (urlsData []WebPage) {
 	for _, u := range urls {
@@ -20,9 +21,9 @@ func InspectMultipleURLs(urls []string) (urlsData []WebPage) {
 // InspectURL : Inspects an url
 func InspectURL(url string) WebPage {
 	browser := rod.New().MustConnect()
-
+	hijackResultsChannel := make(chan HijackResult)
 	// Hijack requests
-	Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, browser)
+	Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, browser, hijackResultsChannel)
 
 	page := browser.MustPage("")
 	IgnoreCertificateErrors(page)
@@ -85,7 +86,10 @@ func InspectURL(url string) WebPage {
 	// 	MaxDepth: 20,
 	// }
 	// domAudit.Run()
-
+	// for hijackResult := range hijackResultsChannel {
+	// 		data.Anchors = append(data.Anchors, hijackResult.DiscoveredURLs...)
+	// 		log.Info().Strs("hijacked ancrhos", hijackResult.DiscoveredURLs).Msg("Discovered URLs")
+	// }
 	browser.MustClose()
 
 	return data
@@ -102,28 +106,7 @@ func GetPageData(p *rod.Page, url string) WebPage {
 	} else {
 		data.Anchors = anchors
 	}
-
-	forms, err := GetForms(p)
-	if err != nil {
-		log.Error().Msg("Could not get page forms")
-	} else {
-		data.Forms = forms
-	}
-	// iframes := GetIframes(p)
-	// data.iframes = iframes
-	//GetButtons(page)
-	// GetInputs(p)
 	return data
-}
-
-// IgnoreCertificateErrors tells the browser to ignore certificate errors
-func IgnoreCertificateErrors(p *rod.Page) {
-	ignoreCertsError := proto.SecuritySetIgnoreCertificateErrors{Ignore: true}.Call(p)
-	if ignoreCertsError != nil {
-		log.Error().Err(ignoreCertsError).Msg("Could not handle SecuritySetIgnoreCertificateErrors")
-	} else {
-		log.Debug().Msg("Handled SecuritySetIgnoreCertificateErrors")
-	}
 }
 
 // GetPageAnchors find anchors on the given page
@@ -142,13 +125,15 @@ func GetButtons(p *rod.Page) {
 	buttons, err := p.Elements("button")
 	if err == nil {
 		for _, btn := range buttons {
-			btn.Click(proto.InputMouseButtonRight, 1)
+			p.Activate()
+			btn.Click(proto.InputMouseButtonLeft, 1)
 		}
 	}
 	buttons2, err := p.Elements(`[type="button"]`)
 	if err == nil {
 		for _, btn := range buttons2 {
-			btn.Click(proto.InputMouseButtonRight, 1)
+			p.Activate()
+			btn.Click(proto.InputMouseButtonLeft, 1)
 		}
 	}
 }
@@ -168,8 +153,9 @@ func GetForms(p *rod.Page) (forms []Form, err error) {
 			html: formHTML,
 		}
 		forms = append(forms, formData)
-		AutoFillForm(form)
-		SubmitForm(form)
+		p.Activate()
+		AutoFillForm(form, p)
+		SubmitForm(form, p)
 
 	}
 	log.Info().Int("count", len(forms)).Msg("Page forms gathered")

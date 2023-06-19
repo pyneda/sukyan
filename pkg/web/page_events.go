@@ -48,7 +48,7 @@ func ListenForPageEvents(url string, page *rod.Page) {
 		// 	log.Debug().Interface("parsed script data", e).Msg("Debugger script parsed")
 		// },
 		func(e *proto.AuditsIssueAdded) {
-			log.Warn().Interface("issue", e.Issue).Str("url", url).Msg("Received a new browser audits issue")
+			// log.Warn().Interface("issue", e.Issue).Str("url", url).Msg("Received a new browser audits issue")
 			handleBrowserAuditIssues(url, e)
 		},
 		func(e *proto.SecuritySecurityStateChanged) (stop bool) {

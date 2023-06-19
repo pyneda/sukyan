@@ -19,8 +19,9 @@ type PageLoader struct {
 func (l *PageLoader) GetPage() (*rod.Browser, *rod.Page, error) {
 	browser := rod.New().MustConnect()
 	// Should hijack if required
+	hijackResultsChannel := make(chan HijackResult)
 	if l.HijackEnabled {
-		Hijack(l.HijackConfig, browser)
+		Hijack(l.HijackConfig, browser, hijackResultsChannel)
 	}
 	page := browser.MustPage("")
 	if l.IgnoreCertCerrors == true {

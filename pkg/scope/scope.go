@@ -44,7 +44,7 @@ func (s *Scope) IsInScope(path string) bool {
 	u, err := tld.Parse(path)
 	if err != nil {
 		log.Error().Err(err).Str("url", path).Msg("Url to check if is in scope seems not valid. Assuming it is in scope, this should be reviewed.")
-		return true
+		return false
 	}
 	//host, _, _ := net.SplitHostPort(u.Host)
 	tld := fmt.Sprintf("%s.%s", u.Domain, u.TLD)

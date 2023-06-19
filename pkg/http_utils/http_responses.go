@@ -2,6 +2,7 @@ package http_utils
 
 import (
 	"github.com/rs/zerolog/log"
+
 	"gorm.io/datatypes"
 	"io/ioutil"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 
 	"encoding/json"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 )
 
 type ResponseBodyData struct {
@@ -74,6 +76,7 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 
 	record := db.History{
 		URL:                 response.Request.URL.String(),
+		Depth:               lib.CalculateURLDepth(response.Request.URL.String()),
 		StatusCode:          response.StatusCode,
 		RequestHeaders:      datatypes.JSON(requestHeaders),
 		RequestBody:         string(requestBody),

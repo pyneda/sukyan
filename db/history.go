@@ -12,6 +12,7 @@ type History struct {
 	BaseModel
 	StatusCode           int            `gorm:"index" json:"status_code"`
 	URL                  string         `gorm:"index" json:"url"`
+	Depth                int            `gorm:"index" json:"depth"`
 	RequestHeaders       datatypes.JSON `json:"request_headers"`
 	RequestBody          string         `json:"request_body"`
 	RequestBodySize      int            `json:"request_body_size"`

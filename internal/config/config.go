@@ -37,10 +37,7 @@ func SetDefaultConfig() {
 	viper.SetDefault("navigation.max_redirects", 10)
 	viper.SetDefault("navigation.headers", map[string]string{})
 	viper.SetDefault("navigation.cookies", map[string]string{})
-	viper.SetDefault("navigation.proxy_auth", "")
-	viper.SetDefault("navigation.proxy_type", "http")
-	viper.SetDefault("navigation.proxy_user", "")
-	viper.SetDefault("navigation.proxy_pass", "")
+	viper.SetDefault("navigation.proxy", "")
 
 	// Crawl
 	viper.SetDefault("crawl.max_depth", 10)
@@ -59,6 +56,25 @@ func SetDefaultConfig() {
 	viper.SetDefault("scan.passive.wappalyzer", false)
 	viper.SetDefault("scan.passive.retirejs", false)
 
+	// Forms
+	viper.SetDefault("forms.auto_fill", true)
+	viper.SetDefault("forms.auto_fill.types.text", "aa")
+	viper.SetDefault("forms.auto_fill.types.password", "password")
+	viper.SetDefault("forms.auto_fill.types.email", "")
+	viper.SetDefault("forms.auto_fill.types.number", "123")
+	viper.SetDefault("forms.auto_fill.types.search", "search")
+	viper.SetDefault("forms.auto_fill.types.tel", "1234567890")
+	viper.SetDefault("forms.auto_fill.types.url", "http://www.example.com")
+	viper.SetDefault("forms.auto_fill.types.week", "2023-W24")
+	viper.SetDefault("forms.auto_fill.types.color", "#ffffff")
+	viper.SetDefault("forms.auto_fill.types.checkbox", "true")
+	viper.SetDefault("forms.auto_fill.types.radio", "option1")
+	viper.SetDefault("forms.auto_fill.types.range", "50")
+	viper.SetDefault("forms.auto_fill.types.hidden", "defaultHidden")
+
+	viper.SetDefault("forms.auto_fill.names.username", "admin")
+	viper.SetDefault("forms.auto_fill.names.password", "password")
+	viper.SetDefault("forms.auto_fill.names.email", "example@example.com")
 	// API
 	viper.SetDefault("api.listen.host", "")
 	viper.SetDefault("api.listen.port", 8013)

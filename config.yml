@@ -3,19 +3,42 @@ api:
         host: ""
         port: 8013
 crawl:
-    headless: false
+    headless: true
     interaction:
         click_buttons: true
         submit_forms: true
         timeout: 5
     max_depth: 10
     pool_size: 4
+forms:
+    auto_fill:
+        names:
+            email: example@example.com
+            password: password
+            username: admin
+        types:
+            checkbox: "true"
+            color: '#ffffff'
+            email: ""
+            hidden: defaultHidden
+            number: "123"
+            password: password
+            radio: option1
+            range: "50"
+            search: search
+            tel: "1234567890"
+            text: aa
+            url: http://www.example.com
+            week: 2023-W24
 navigation:
     cookies: {}
     headers: {}
     max_redirects: 10
     max_retries: 3
-    proxy: ""
+    proxy_auth: ""
+    proxy_pass: ""
+    proxy_type: http
+    proxy_user: ""
     retry_delay: 5
     timeout: 15
     user_agent: ""

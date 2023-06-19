@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/passive"
+	"github.com/pyneda/sukyan/lib"
 	"net/http"
 	"strings"
 
@@ -158,9 +159,11 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 	}
 	rawRequest := DumpHijackRequest(request)
 	rawResponse := DumpHijackResponse(response)
+	historyUrl := request.URL().String()
 	history := db.History{
 		StatusCode:           response.Payload().ResponseCode,
-		URL:                  request.URL().String(),
+		URL:                  historyUrl,
+		Depth:                lib.CalculateURLDepth(historyUrl),
 		RequestHeaders:       datatypes.JSON(requestHeaders),
 		RequestContentLength: request.Req().ContentLength,
 		ResponseHeaders:      datatypes.JSON(responseHeaders),

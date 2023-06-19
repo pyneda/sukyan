@@ -2,10 +2,12 @@ package db
 
 import (
 	"database/sql"
+	"github.com/spf13/viper"
 	"log"
 	"os"
 	"time"
 
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -18,46 +20,57 @@ type DatabaseConnection struct {
 
 var Connection = InitDb()
 
-func InitDb() DatabaseConnection {
+func InitDb() *DatabaseConnection {
+	// Set up viper to read from the environment
+	viper.AutomaticEnv()
+
+	// Default to sqlite if no DATABASE_TYPE is set
+	dbType := viper.GetString("DATABASE_TYPE")
+	if dbType == "" {
+		dbType = "sqlite"
+	}
+
+	var dialector gorm.Dialector
+	if dbType == "sqlite" {
+		dialector = sqlite.Open("sukyan.db")
+	} else if dbType == "postgres" {
+		// Get the connection string from the environment variable
+		dsn := viper.GetString("POSTGRES_DSN")
+		if dsn == "" {
+			log.Fatalf("No Postgres DSN provided")
+		}
+		dialector = postgres.Open(dsn)
+	} else {
+		log.Fatalf("Unknown database type: %s", dbType)
+	}
+
 	newLogger := logger.New(
-		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
 		logger.Config{
-			SlowThreshold:             time.Second,   // Slow SQL threshold
-			LogLevel:                  logger.Silent, // Log level
-			IgnoreRecordNotFoundError: true,          // Ignore ErrRecordNotFound error for logger
-			ParameterizedQueries:      true,          // Don't include params in the SQL log
-			Colorful:                  false,         // Disable color
+			SlowThreshold:             time.Second,
+			LogLevel:                  logger.Silent,
+			IgnoreRecordNotFoundError: true,
+			ParameterizedQueries:      true,
+			Colorful:                  false,
 		},
 	)
-	db, err := gorm.Open(sqlite.Open("sukyan.db"), &gorm.Config{
+	db, err := gorm.Open(dialector, &gorm.Config{
 		Logger: newLogger,
 	})
 	if err != nil {
 		panic("failed to connect database")
 	}
 	db.AutoMigrate(&Issue{}, &History{}, &OOBTest{}, &OOBInteraction{})
-	// Get generic database object sql.DB to use its functions
 	sqlDB, err := db.DB()
-
-	// SetMaxIdleConns sets the maximum number of connections in the idle connection pool.
+	if err != nil {
+		panic("failed to get underlying sql.DB")
+	}
 	sqlDB.SetMaxIdleConns(10)
-
-	// SetMaxOpenConns sets the maximum number of open connections to the database.
-	sqlDB.SetMaxOpenConns(100)
-
-	// SetConnMaxLifetime sets the maximum amount of time a connection may be reused.
+	sqlDB.SetMaxOpenConns(80)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	return DatabaseConnection{
+	return &DatabaseConnection{
 		db:    db,
 		sqlDb: sqlDB,
 	}
 }
-
-// func GetDbConnection() {
-// 	db, err := gorm.Open(sqlite.Open("sukyan.db"), &gorm.Config{})
-// 	if err != nil {
-// 		panic("failed to connect database")
-// 	}
-// 	db.AutoMigrate(&Issue{})
-// }

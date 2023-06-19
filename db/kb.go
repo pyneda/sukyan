@@ -23,6 +23,7 @@ var (
 	DBConnectionStringsCode              = "db_connection_strings"
 	SNIInjectionCode                     = "sni_injection"
 	PasswordInGetRequestCode             = "password_in_get_request"
+	JavaSerializedObjectCode             = "java-serialized-object-detection"
 )
 
 var issueTemplates = []Issue{
@@ -169,6 +170,14 @@ var issueTemplates = []Issue{
 		Remediation: "Switch to POST method for submitting passwords or sensitive data, and make sure all such communications happen over a secure connection (HTTPS).",
 		Cwe:         598,
 		Severity:    "Low",
+	},
+	{
+		Code:        JavaSerializedObjectCode,
+		Title:       "Java serialized object resonse detected",
+		Description: "A java serialized object response has been detected, this would require further manual investigation to check for possible deserialization vulnerabilities",
+		Remediation: "N/A",
+		Cwe:         0,
+		Severity:    "Info",
 	},
 }
 

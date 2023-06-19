@@ -46,11 +46,12 @@ func CrawlURL(url string, page *rod.Page) WebPage {
 	}
 
 	// https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-globalLexicalScopeNames
-	globalScopeNames, err := proto.RuntimeGlobalLexicalScopeNames{}.Call(page)
-	if err != nil {
-		log.Info().Err(err).Msg("Could not get global scope names")
-	}
-	log.Info().Interface("names", globalScopeNames).Msg("Global scope names")
+	// globalScopeNames, err := proto.RuntimeGlobalLexicalScopeNames{}.Call(page)
+
+	// if err != nil {
+	// 	log.Info().Err(err).Msg("Could not get global scope names")
+	// }
+	// log.Info().Interface("names", globalScopeNames).Msg("Global scope names")
 
 	data := GetPageData(page, url)
 	return data

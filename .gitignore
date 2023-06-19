@@ -1,4 +1,6 @@
 docker-compose.yml
+Taskfile.yml
+
 frontend/
 *.db
 *.log

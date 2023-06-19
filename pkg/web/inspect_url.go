@@ -116,7 +116,7 @@ func GetPageAnchors(p *rod.Page) (anchors []string, err error) {
 	for _, link := range resp.Arr() {
 		anchors = append(anchors, link.String())
 	}
-	log.Info().Strs("anchors", anchors).Int("count", len(anchors)).Msg("Page anchors gathered")
+	// log.Info().Strs("anchors", anchors).Int("count", len(anchors)).Msg("Page anchors gathered")
 	return anchors, nil
 }
 

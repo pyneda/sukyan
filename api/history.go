@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 )
 
@@ -19,9 +19,9 @@ func IsValidFilterHTTPMethod(method string) bool {
 	}
 }
 
-func FindHistory(c *gin.Context) {
-	unparsedPageSize := c.DefaultQuery("page_size", "50")
-	unparsedPage := c.DefaultQuery("page", "1")
+func FindHistory(c *fiber.Ctx) error {
+	unparsedPageSize := c.Query("page_size", "50")
+	unparsedPage := c.Query("page", "1")
 	unparsedStatusCodes := c.Query("status")
 	unparsedHttpMethods := c.Query("methods")
 	unparsedSources := c.Query("sources")
@@ -33,25 +33,21 @@ func FindHistory(c *gin.Context) {
 	pageSize, err := strconv.Atoi(unparsedPageSize)
 	if err != nil {
 		log.Error().Err(err).Msg("Error parsing page size parameter query")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid page size parameter"})
-		return
-
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid page size parameter"})
 	}
 
 	page, err := strconv.Atoi(unparsedPage)
 	if err != nil {
 		log.Error().Err(err).Msg("Error parsing page parameter query")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid page parameter"})
-		return
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid page parameter"})
 	}
 
 	if unparsedStatusCodes != "" {
 		for _, status := range strings.Split(unparsedStatusCodes, ",") {
 			statusInt, err := strconv.Atoi(status)
 			if err != nil {
-				log.Error().Err(err).Msg("Error parsing page parameter query")
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid status parameter"})
-				return
+				log.Error().Err(err).Msg("Error parsing page status parameter query")
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid status parameter"})
 			} else {
 				statusCodes = append(statusCodes, statusInt)
 			}
@@ -88,8 +84,7 @@ func FindHistory(c *gin.Context) {
 
 	if err != nil {
 		// Should handle this better
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	c.JSON(http.StatusOK, gin.H{"data": issues, "count": count})
+	return c.Status(http.StatusOK).JSON(fiber.Map{"data": issues, "count": count})
 }

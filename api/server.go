@@ -2,34 +2,36 @@ package api
 
 import (
 	"github.com/pyneda/sukyan/db"
-	"net/http"
-
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
+	"github.com/gofiber/fiber/v2"
 )
 
 // StartAPI starts the api
 func StartAPI() {
 	db.InitDb()
-	r := gin.Default()
+	app := fiber.New(fiber.Config{
+    // Prefork:       true,
+    // CaseSensitive: true,
+    // StrictRouting: true,
+    ServerHeader:  "Sukyan",
+    AppName: "Sukyan API",
+})
+
 	// This allows all cors, should probably allow configure it via config and provide strict default
-	r.Use(cors.Default())
-	r.LoadHTMLGlob("templates/*")
+	// app.Use(cors.Default())
+	// app.LoadHTMLGlob("templates/*")
 
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"data": "API Running"})
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.SendString("API Running")
 	})
-	r.GET("/index", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "index.tmpl", gin.H{
-			"title": "Main website",
-		})
-	})
-	r.GET("/ui/issues", IssuesUI)
 
-	r.GET("/issues", FindIssues)
-	r.GET("/issues/grouped", FindIssuesGrouped)
-	r.GET("/history", FindHistory)
-	r.GET("/interactions", FindInteractions)
+	app.Get("/issues", FindIssues)
+	app.Get("/issues/grouped", FindIssuesGrouped)
+	app.Get("/history", FindHistory)
+	app.Get("/interactions", FindInteractions)
 
-	r.Run()
+	if err := app.Listen(":8080"); err != nil {
+			log.Warn().Err(err).Msg("Error starting server")
+	}
+	
 }

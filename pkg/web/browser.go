@@ -4,10 +4,17 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/spf13/viper"
 )
 
 func getBrowserLauncher() *launcher.Launcher {
-	return launcher.New().Headless(true)
+	options := launcher.New().Headless(viper.GetBool("crawl.headless"))
+	options = options.Append("disable-infobars", "")
+	options = options.Append("disable-extensions", "")
+	if viper.GetString("navigation.proxy") != "" {
+		options.Proxy(viper.GetString("navigation.proxy"))
+	}
+	return options
 }
 
 type BrowserManagerConfig struct {
@@ -70,9 +77,13 @@ func (b *BrowserManager) Start(hijack bool) {
 
 func (b *BrowserManager) NewPage() *rod.Page {
 	page := b.pool.Get(b.createPage)
+	// Set user-agent provided by browser manager config or config file
 	if b.config.UserAgent != "" {
 		_ = page.SetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Test"})
+	} else if viper.GetString("navigation.user_agent") != "" {
+		_ = page.SetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: viper.GetString("navigation.user_agent")})
 	}
+
 	return page
 }
 

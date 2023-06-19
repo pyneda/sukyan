@@ -1,14 +1,38 @@
+api:
+    listen:
+        host: ""
+        port: 8013
+crawl:
+    headless: false
+    interaction:
+        click_buttons: true
+        submit_forms: true
+        timeout: 5
+    max_depth: 10
+    pool_size: 4
+navigation:
+    cookies: {}
+    headers: {}
+    max_redirects: 10
+    max_retries: 3
+    proxy: ""
+    retry_delay: 5
+    timeout: 15
+    user_agent: ""
 scan:
-  concurrency:
-    max_audits: 4
-    per_browser_audit: 4
-    per_http_audit: 16
-  crawl:
-    enabled: false
-  magic_words:
-  - "null"
-  - None
-  - Undefined
-  - Blank
+    concurrency:
+        max_audits: 4
+        per_browser_audit: 4
+        per_http_audit: 16
+    crawl:
+        enabled: false
+    magic_words:
+        - "null"
+        - None
+        - Undefined
+        - Blank
+    passive:
+        retirejs: false
+        wappalyzer: false
 workspace:
-  id: 1
+    id: 1

@@ -28,9 +28,38 @@ func LoadConfig() {
 
 func SetDefaultConfig() {
 	viper.SetDefault("workspace.id", 1)
+
+	// Navigation
+	viper.SetDefault("navigation.user_agent", "")
+	viper.SetDefault("navigation.timeout", 15)
+	viper.SetDefault("navigation.max_retries", 3)
+	viper.SetDefault("navigation.retry_delay", 5)
+	viper.SetDefault("navigation.max_redirects", 10)
+	viper.SetDefault("navigation.headers", map[string]string{})
+	viper.SetDefault("navigation.cookies", map[string]string{})
+	viper.SetDefault("navigation.proxy_auth", "")
+	viper.SetDefault("navigation.proxy_type", "http")
+	viper.SetDefault("navigation.proxy_user", "")
+	viper.SetDefault("navigation.proxy_pass", "")
+
+	// Crawl
+	viper.SetDefault("crawl.max_depth", 10)
+	viper.SetDefault("crawl.pool_size", 4)
+	viper.SetDefault("crawl.headless", true)
+	viper.SetDefault("crawl.interaction.submit_forms", true)
+	viper.SetDefault("crawl.interaction.click_buttons", true)
+	viper.SetDefault("crawl.interaction.timeout", 5)
+
+	// Scan
 	viper.SetDefault("scan.magic_words", []string{"null", "None", "Undefined", "Blank"})
 	viper.SetDefault("scan.crawl.enabled", false)
 	viper.SetDefault("scan.concurrency.max_audits", 4)
 	viper.SetDefault("scan.concurrency.per_browser_audit", 4)
 	viper.SetDefault("scan.concurrency.per_http_audit", 16)
+	viper.SetDefault("scan.passive.wappalyzer", false)
+	viper.SetDefault("scan.passive.retirejs", false)
+
+	// API
+	viper.SetDefault("api.listen.host", "")
+	viper.SetDefault("api.listen.port", 8013)
 }

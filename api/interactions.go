@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 )
 
-func FindInteractions(c *gin.Context) {
-	unparsedPageSize := c.DefaultQuery("page_size", "50")
-	unparsedPage := c.DefaultQuery("page", "1")
+func FindInteractions(c *fiber.Ctx) error {
+	unparsedPageSize := c.Query("page_size", "50")
+	unparsedPage := c.Query("page", "1")
 	unparsedProtocols := c.Query("protocols")
 	var protocols []string
 	log.Warn().Str("protocols", unparsedProtocols).Msg("protocols unparsed")
@@ -20,27 +20,18 @@ func FindInteractions(c *gin.Context) {
 	pageSize, err := strconv.Atoi(unparsedPageSize)
 	if err != nil {
 		log.Error().Err(err).Msg("Error parsing page size parameter query")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid page size parameter"})
-		return
-
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid page size parameter"})
 	}
 
 	page, err := strconv.Atoi(unparsedPage)
 	if err != nil {
 		log.Error().Err(err).Msg("Error parsing page parameter query")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid page parameter"})
-		return
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid page parameter"})
 	}
 
 	if unparsedProtocols != "" {
 		for _, protocol := range strings.Split(unparsedProtocols, ",") {
-			if err != nil {
-				log.Error().Err(err).Msg("Error parsing page parameter query")
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid status parameter"})
-				return
-			} else {
-				protocols = append(protocols, protocol)
-			}
+			protocols = append(protocols, protocol)
 		}
 	}
 
@@ -53,8 +44,7 @@ func FindInteractions(c *gin.Context) {
 
 	if err != nil {
 		// Should handle this better
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	c.JSON(http.StatusOK, gin.H{"data": issues, "count": count})
+	return c.Status(http.StatusOK).JSON(fiber.Map{"data": issues, "count": count})
 }

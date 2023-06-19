@@ -4,36 +4,23 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v2"
 )
 
-func FindIssues(c *gin.Context) {
+func FindIssues(c *fiber.Ctx) error {
 	issues, count, err := db.Connection.ListIssues(db.IssueFilter{})
 	if err != nil {
 		// Should handle this better
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	c.JSON(http.StatusOK, gin.H{"data": issues, "count": count})
+	return c.Status(http.StatusOK).JSON(fiber.Map{"data": issues, "count": count})
 }
 
-func FindIssuesGrouped(c *gin.Context) {
+func FindIssuesGrouped(c *fiber.Ctx) error {
 	issues, err := db.Connection.ListIssuesGrouped(db.IssueFilter{})
 	if err != nil {
 		// Should handle this better
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	c.JSON(http.StatusOK, gin.H{"data": issues})
-}
-
-func IssuesUI(c *gin.Context) {
-	issues, count, err := db.Connection.ListIssues(db.IssueFilter{})
-	if err != nil {
-		// Should handle this better
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	}
-	c.HTML(http.StatusOK, "issues.tmpl", gin.H{
-		"title":  "Issues",
-		"count":  count,
-		"issues": issues,
-	})
+	return c.Status(http.StatusOK).JSON(fiber.Map{"data": issues})
 }

@@ -147,11 +147,3 @@ func AutoFillInput(input *rod.Element) {
 		input.MustInput(value)
 	}
 }
-
-
-func PressButtons(page *rod.Page) {
-	for _, button := range buttons {
-		log.Info().Str("button", button).Msg("Pressing button")
-		page.MustElement(button).MustClick()
-	}
-}

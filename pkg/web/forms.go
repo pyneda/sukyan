@@ -3,7 +3,7 @@ package web
 import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
-	"github.com/pyneda/sukyan/lib"
+	// "github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 	"time"
 )
@@ -72,14 +72,15 @@ var predefinedNameValues = []InputNameValue{
 	{Name: "securityAnswer", Value: "DefaultAnswer"},
 }
 
-func SubmitForm(form *rod.Element) {
+func SubmitForm(form *rod.Element, page *rod.Page) {
 	submit, err := form.Element("[type=submit]")
+	page.Activate()
 	if err == nil {
 		log.Info().Interface("submit", submit).Msg("Submit button found, clicking it")
-		submit.Click(proto.InputMouseButtonRight, 1)
+		submit.Timeout(5*time.Second).Click(proto.InputMouseButtonLeft, 1)
 		return
 	}
-	_, serr := form.Eval(`() => this.submit()`)
+	_, serr := form.Timeout(5 * time.Second).Eval(`() => this.submit()`)
 	if serr == nil {
 		log.Info().Interface("form", form).Msg("Form submitted using javascript")
 		return
@@ -89,7 +90,7 @@ func SubmitForm(form *rod.Element) {
 
 }
 
-func AutoFillForm(form *rod.Element) {
+func AutoFillForm(form *rod.Element, page *rod.Page) {
 	// Find all input elements within the form
 	inputs, err := form.Elements("input")
 	if err != nil {
@@ -99,25 +100,25 @@ func AutoFillForm(form *rod.Element) {
 
 	// Iterate over each input element
 	for _, input := range inputs {
-		AutoFillInput(input)
+		AutoFillInput(input, page)
 	}
 }
 
-func AutoFillInput(input *rod.Element) {
+func AutoFillInput(input *rod.Element, page *rod.Page) {
 	// Get the name and type of the input element
 	name, _ := input.Attribute("name")
 	typeAttr, _ := input.Attribute("type")
+	page.Activate()
 
 	// handle time inputs
-	if lib.SliceContains(timeInputs, *typeAttr) {
-		input.InputTime(time.Now().Add(24 * time.Hour))
-		return
-	}
-
-	if *typeAttr == "checkbox" && !input.MustProperty("checked").Bool() {
-		input.MustClick()
-		return
-	}
+	// if lib.SliceContains(timeInputs, *typeAttr) {
+	// 	input.InputTime(time.Now().Add(24 * time.Hour))
+	// 	return
+	// }
+	// if *typeAttr == "checkbox" && !input.MustProperty("checked").Bool() {
+	// 	input.Timeout(5*time.Second).Click(proto.InputMouseButtonLeft, 1)
+	// 	return
+	// }
 
 	// if typeAttr == "file" {
 	// 	input.MustSetFiles("/path/to/default/file")
@@ -144,6 +145,6 @@ func AutoFillInput(input *rod.Element) {
 
 	// If a predefined value was found, set the input value
 	if exists {
-		input.MustInput(value)
+		input.Timeout(5 * time.Second).Input(value)
 	}
 }

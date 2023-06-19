@@ -47,36 +47,7 @@ func RunOnPage(page *rod.Page) {
 			if err != nil {
 				log.Error().Err(err).Msg("Could not convert browser audit issue event details to JSON")
 			}
-			// Assume it is a Mixed Content Issue Details
-			// if e.Issue.Details.MixedContentIssueDetails != proto.AuditsMixedContentIssueDetails {
-			// 	// if e.Issue.Details.MixedContentIssueDetails.InsecureURL != "" {
 
-			// 	var description strings.Builder
-			// 	description.WriteString("A mixed content issue has been found in " + url + "\nThe insecure content loaded url comes from: " + e.Issue.Details.MixedContentIssueDetails.InsecureURL)
-			// 	if e.Issue.Details.MixedContentIssueDetails.Frame.FrameID != "" {
-			// 		description.WriteString("\nAffected frame: " + string(e.Issue.Details.MixedContentIssueDetails.Frame.FrameID))
-			// 	}
-			// 	if e.Issue.Details.MixedContentIssueDetails.ResourceType != "" {
-			// 		description.WriteString("\nResource type: " + string(e.Issue.Details.MixedContentIssueDetails.ResourceType))
-			// 	}
-			// 	if e.Issue.Details.MixedContentIssueDetails.ResolutionStatus != "" {
-			// 		description.WriteString("\nResolution status: " + string(e.Issue.Details.MixedContentIssueDetails.ResolutionStatus))
-			// 	}
-			// 	browserAuditIssue := db.Issue{
-			// 		Code:           string(e.Issue.Code),
-			// 		URL:            url,
-			// 		Title:          "Mixed Content Issue (Browser Audit)",
-			// 		Cwe:            1,
-			// 		StatusCode:     200,
-			// 		HTTPMethod:     "GET?",
-			// 		Description:    description.String(),
-			// 		Payload:        "N/A",
-			// 		Confidence:     80,
-			// 		AdditionalInfo: jsonDetails,
-			// 	}
-			// 	db.Connection.CreateIssue(browserAuditIssue)
-			// } else {
-			// Generic while dont have customized for every event type
 			browserAuditIssue := db.Issue{
 				Code:           "browser-audit-" + string(e.Issue.Code),
 				URL:            "url",

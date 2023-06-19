@@ -11,6 +11,34 @@ import (
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 )
 
+func ContentTypesScan(item *db.History) {
+	// TODO: Implementation
+	contentType := item.ResponseContentType
+	// if strings.Contains(contentType, "text/html") {
+	// } else if strings.Contains(contentType, "javascript") {
+	// } else if strings.Contains(contentType, "application/json") {
+	// 	log.Info().Str("url", ctx.Request.URL().String()).Msg("Hijacked JSON response")
+	// } else if strings.Contains(contentType, "application/ld+json") {
+	// 	log.Info().Str("url", ctx.Request.URL().String()).Msg("Hijacked JSON-LD response")
+	// } else if strings.Contains(contentType, "application/xml") {
+	// 	log.Info().Str("url", ctx.Request.URL().String()).Msg("Hijacked application/xml response")
+	// } else if strings.Contains(contentType, "text/xml") {
+	// 	log.Info().Str("url", ctx.Request.URL().String()).Msg("Hijacked text/xml response")
+	// } else if strings.Contains(contentType, "text/csv") {
+	// 	log.Warn().Str("url", ctx.Request.URL().String()).Msg("Hijacked CSV response")
+	// } else if strings.Contains(contentType, "text/css") {
+	// 	log.Info().Str("url", ctx.Request.URL().String()).Msg("Hijacked CSS response")
+	// } else if strings.Contains(contentType, "application/x-java-serialized-object") {
+	if strings.Contains(contentType, "application/x-java-serialized-object") {
+		log.Warn().Str("url", item.URL).Msg("Hijacked java serialized object response")
+		db.CreateIssueFromHistoryAndTemplate(item, db.JavaSerializedObjectCode, "The page responds using the `application/x-java-serialized-object` content type.", 90)
+	}
+	// } else {
+	// 	log.Info().Str("url", ctx.Request.URL().String()).Str("contentType", contentType).Msg("Hijacked non common response")
+
+	// }
+}
+
 func ScanHistoryItem(item *db.History) {
 	headers, _ := item.GetResponseHeadersAsMap()
 	wappalyzerClient, _ := wappalyzer.New()
@@ -22,6 +50,7 @@ func ScanHistoryItem(item *db.History) {
 	} else if strings.Contains(item.ResponseContentType, "javascript") {
 		PassiveJavascriptScan(item)
 	}
+
 	PrivateIPScan(item)
 	EmailAddressScan(item)
 	FileUploadScan(item)
@@ -29,13 +58,14 @@ func ScanHistoryItem(item *db.History) {
 	PrivateKeyScan(item)
 	DBConnectionStringScan(item)
 	PasswordInGetRequestScan(item)
+	ContentTypesScan(item)
 }
 
 func PassiveJavascriptScan(item *db.History) {
 	jsSources := FindJsSources(item.ResponseBody)
 	jsSinks := FindJsSinks(item.ResponseBody)
 	jquerySinks := FindJquerySinks(item.ResponseBody)
-	log.Info().Str("url", item.URL).Strs("sources", jsSources).Strs("jsSinks", jsSinks).Strs("jquerySinks", jquerySinks).Msg("Hijacked HTML response")
+	// log.Info().Str("url", item.URL).Strs("sources", jsSources).Strs("jsSinks", jsSinks).Strs("jquerySinks", jquerySinks).Msg("Hijacked HTML response")
 	if len(jsSources) > 0 || len(jsSinks) > 0 || len(jquerySinks) > 0 {
 		CreateJavascriptSourcesAndSinksInformationalIssue(item, jsSources, jsSinks, jquerySinks)
 	}

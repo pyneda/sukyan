@@ -54,6 +54,6 @@ func init() {
 	// is called directly, e.g.:
 	// crawlCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	crawlCmd.Flags().StringArrayVar(&startUrls, "url", nil, "Target start url(s)")
-	crawlCmd.Flags().IntVar(&pagesPoolSize, "pool-size", 10, "Page pool size")
+	crawlCmd.Flags().IntVar(&pagesPoolSize, "pool-size", 4, "Page pool size")
 	crawlCmd.Flags().IntVar(&depth, "depth", 5, "Max crawl depth")
 }

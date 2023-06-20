@@ -59,8 +59,7 @@ func init() {
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		// log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-		lib.ZeroConsoleAndFileLog("logs.log")
+		lib.ZeroConsoleAndFileLog()
 		if debugLogging {
 			zerolog.SetGlobalLevel(zerolog.DebugLevel)
 		} else {
@@ -84,6 +83,7 @@ func initConfig() {
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".sukyan")
+		
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

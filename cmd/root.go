@@ -83,7 +83,7 @@ func initConfig() {
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName(".sukyan")
-		
+
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

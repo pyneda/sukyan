@@ -65,6 +65,7 @@ func (b *BrowserManager) Start(hijack bool) {
 		ControlURL(controlURL).
 		MustConnect()
 
+	go b.browser.HandleAuth(viper.GetString("navigation.auth.basic.username"), viper.GetString("navigation.auth.basic.password"))()
 	poolSize := 4
 	if b.config.PoolSize > 0 {
 		poolSize = b.config.PoolSize

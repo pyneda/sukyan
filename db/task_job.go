@@ -1,21 +1,19 @@
 package db
 
 import (
-	"time"
 	"github.com/rs/zerolog/log"
+	"time"
 )
 
 type TaskJob struct {
 	BaseModel
-	Title string `json:"title"`
-	TaskID uint `json:"task_id"`
-	Task   Task `json:"-" gorm:"foreignKey:TaskID"`
+	Title  string `json:"title"`
+	TaskID uint   `json:"task_id"`
+	Task   Task   `json:"-" gorm:"foreignKey:TaskID"`
 
 	Status      string    `json:"status"`
 	CompletedAt time.Time `json:"completed_at"`
 }
-
-
 
 type TaskJobFilter struct {
 	Statuses    []string

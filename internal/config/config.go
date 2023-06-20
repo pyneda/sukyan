@@ -45,6 +45,8 @@ func SetDefaultConfig() {
 	viper.SetDefault("navigation.headers", map[string]string{})
 	viper.SetDefault("navigation.cookies", map[string]string{})
 	viper.SetDefault("navigation.proxy", "")
+	viper.SetDefault("navigation.auth.basic.username", "admin")
+	viper.SetDefault("navigation.auth.basic.password", "password")
 
 	// Crawl
 	viper.SetDefault("crawl.max_depth", 10)

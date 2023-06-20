@@ -19,8 +19,6 @@ func IsValidFilterHTTPMethod(method string) bool {
 	}
 }
 
-
-
 // FindHistory gets history with pagination and filtering options
 // @Summary Get history
 // @Description Get history with optional pagination and filtering by status codes, HTTP methods, and sources
@@ -103,14 +101,13 @@ func FindHistory(c *fiber.Ctx) error {
 }
 
 type HistorySummary struct {
-	ID               uint   `json:"id"`
-	Depth            int    `json:"depth"`
-	URL              string `json:"url"`
-	StatusCode       int    `json:"status_code"`
-	Method           string `json:"method"`
-	ParametersCount  int    `json:"parameters_count"`
+	ID              uint   `json:"id"`
+	Depth           int    `json:"depth"`
+	URL             string `json:"url"`
+	StatusCode      int    `json:"status_code"`
+	Method          string `json:"method"`
+	ParametersCount int    `json:"parameters_count"`
 }
-
 
 // @Summary Get children history
 // @Description Get all the other history items that have the same depth or more than the provided history ID and that start with the same URL
@@ -144,19 +141,18 @@ func GetChildren(c *fiber.Ctx) error {
 	childrenSummaries := make([]HistorySummary, len(children))
 	for i, child := range children {
 		childrenSummaries[i] = HistorySummary{
-			ID:               child.ID,
-			Depth:            child.Depth,
-			URL:              child.URL,
-			StatusCode:       child.StatusCode,
-			Method:           child.Method,
-			ParametersCount:  child.ParametersCount,
+			ID:              child.ID,
+			Depth:           child.Depth,
+			URL:             child.URL,
+			StatusCode:      child.StatusCode,
+			Method:          child.Method,
+			ParametersCount: child.ParametersCount,
 		}
 	}
 
 	// return the response
 	return c.Status(fiber.StatusOK).JSON(childrenSummaries)
 }
-
 
 // @Summary Gets all root history nodes
 // @Description Get all the root history items
@@ -177,16 +173,15 @@ func GetRootNodes(c *fiber.Ctx) error {
 	childrenSummaries := make([]HistorySummary, len(children))
 	for i, child := range children {
 		childrenSummaries[i] = HistorySummary{
-			ID:               child.ID,
-			Depth:            child.Depth,
-			URL:              child.URL,
-			StatusCode:       child.StatusCode,
-			Method:           child.Method,
-			ParametersCount:  child.ParametersCount,
+			ID:              child.ID,
+			Depth:           child.Depth,
+			URL:             child.URL,
+			StatusCode:      child.StatusCode,
+			Method:          child.Method,
+			ParametersCount: child.ParametersCount,
 		}
 	}
 
 	// return the response
 	return c.Status(fiber.StatusOK).JSON(childrenSummaries)
 }
-

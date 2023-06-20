@@ -1,16 +1,15 @@
 package db
 
 import (
-	"time"
 	"github.com/rs/zerolog/log"
+	"time"
 )
 
 type Task struct {
 	BaseModel
-	Status string `json:"status"`
+	Status    string    `json:"status"`
 	StartedAt time.Time `json:"started_at"`
 }
-
 
 type TaskFilter struct {
 	Statuses   []string

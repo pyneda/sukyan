@@ -2,13 +2,13 @@ package api
 
 import (
 	"fmt"
-	"github.com/gofiber/swagger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/swagger"
 	"github.com/pyneda/sukyan/db"
+	_ "github.com/pyneda/sukyan/docs"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-	_ "github.com/pyneda/sukyan/docs"
 )
 
 // StartAPI starts the api

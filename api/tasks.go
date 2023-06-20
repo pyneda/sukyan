@@ -2,10 +2,10 @@ package api
 
 import (
 	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"strconv"
 	"strings"
-	"github.com/rs/zerolog/log"
 
 	"github.com/gofiber/fiber/v2"
 )

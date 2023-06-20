@@ -40,7 +40,8 @@ func CrawlURL(url string, page *rod.Page) WebPage {
 	err := page.WaitLoad()
 
 	if err != nil {
-		log.Error().Err(err).Str("url", url).Msg("Error waiting for page complete load")
+		log.Error().Err(err).Str("url", url).Msg("Error waiting for page complete load while crawling")
+		return WebPage{}
 	} else {
 		log.Debug().Str("url", url).Msg("Page fully loaded on browser and ready to be analyzed")
 	}

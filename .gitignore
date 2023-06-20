@@ -1,10 +1,12 @@
 docker-compose.yml
 Taskfile.yml
 openapitools.yaml
+config.yml
 
 frontend/
 *.db
 *.log
+*.logs
 *.db-journal
 lib/db/
 NOTES.md

@@ -29,6 +29,13 @@ func LoadConfig() {
 func SetDefaultConfig() {
 	viper.SetDefault("workspace.id", 1)
 
+	// Logging
+	viper.SetDefault("logging.console.level", "info")
+	viper.SetDefault("logging.console.format", "pretty") // if it's not pretty, just outputs json
+	viper.SetDefault("logging.file.enabled", true)
+	viper.SetDefault("logging.file.path", "sukyan.log")
+	viper.SetDefault("logging.file.level", "info")
+
 	// Navigation
 	viper.SetDefault("navigation.user_agent", "")
 	viper.SetDefault("navigation.timeout", 15)

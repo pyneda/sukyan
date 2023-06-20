@@ -8,6 +8,7 @@ import (
 	"github.com/mattn/go-colorable"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -27,8 +28,12 @@ func ZeroConsoleLog() {
 }
 
 // ZeroConsoleAndFileLog
-func ZeroConsoleAndFileLog(filename string) {
+func ZeroConsoleAndFileLog() {
 	// zerolog.TimeFieldFormat = LogTimeFormat
+	filename := viper.GetString("logging.file.path")
+	if filename == "" {
+		filename = "sukyan.log"
+	}
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	sysType := runtime.GOOS
 
@@ -45,14 +50,25 @@ func ZeroConsoleAndFileLog(filename string) {
 		log.Error().Err(err).Msg("Error setting up log config")
 	}
 
-	var consoleLog zerolog.ConsoleWriter = zerolog.ConsoleWriter{Out: os.Stdout, NoColor: false, TimeFormat: LogTimeFormat}
-	if sysType == "windows" {
-		consoleLog = zerolog.ConsoleWriter{Out: colorable.NewColorableStdout(), TimeFormat: LogTimeFormat}
+	// var consoleLog zerolog.ConsoleWriter = zerolog.ConsoleWriter{Out: os.Stdout, NoColor: false, TimeFormat: LogTimeFormat}
+	// if sysType == "windows" {
+	// 	consoleLog = zerolog.ConsoleWriter{Out: colorable.NewColorableStdout(), TimeFormat: LogTimeFormat}
+	// }
+	var writers []io.Writer
+
+	if viper.GetString("logging.console.format") == "pretty" {
+		var consoleLog zerolog.ConsoleWriter = zerolog.ConsoleWriter{Out: os.Stdout, NoColor: false, TimeFormat: LogTimeFormat}
+		if sysType == "windows" {
+			consoleLog = zerolog.ConsoleWriter{Out: colorable.NewColorableStdout(), TimeFormat: LogTimeFormat}
+		}
+		writers = append(writers, consoleLog)
+	} else {
+		writers = append(writers, os.Stdout)
 	}
 
-	var writers []io.Writer
-	writers = append(writers, logFile)
-	writers = append(writers, consoleLog)
+	if viper.GetBool("logging.file.enabled") {
+		writers = append(writers, logFile)
+	}
 	mw := io.MultiWriter(writers...)
 
 	log.Logger = zerolog.New(mw).With().Timestamp().Logger()

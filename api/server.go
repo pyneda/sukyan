@@ -38,6 +38,9 @@ func StartAPI() {
 	app.Get("/issues", FindIssues)
 	app.Get("/issues/grouped", FindIssuesGrouped)
 	app.Get("/history", FindHistory)
+	app.Get("/api/history/:id/children", GetChildren)
+	app.Get("/api/history/root-nodes", GetRootNodes)
+
 	app.Get("/interactions", FindInteractions)
 	app.Get("/workspaces", FindWorkspaces)
 

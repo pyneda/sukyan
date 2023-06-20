@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
+	"errors"
 )
 
 // History holds table for storing requests history found
@@ -153,4 +155,62 @@ func (d *DatabaseConnection) GetHistoryFromURL(urlString string) (history Histor
 	// err = d.db.First(&history, id).Error
 	err = d.db.Where("url = ?", urlString).Order("created_at ASC").First(&history).Error
 	return history, err
+}
+
+
+func (d *DatabaseConnection) GetHistoryByID(id uint) (*History, error) {
+	var history History
+	err := d.db.First(&history, id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// you can handle 'record not found' error here if you want to
+			return nil, errors.New("record not found")
+		}
+		// other type of error
+		return nil, err
+	}
+
+	return &history, nil
+}
+
+
+type HistorySummary struct {
+	ID               uint   `json:"id"`
+	Depth            int    `json:"depth"`
+	URL              string `json:"url"`
+	StatusCode       int    `json:"status_code"`
+	Method           string `json:"method"`
+	ParametersCount  int    `json:"parameters_count"`
+}
+
+func (d *DatabaseConnection) GetChildrenHistories(parent *History) ( []*HistorySummary, error) {
+
+	var children []*HistorySummary
+	// Query database for histories that have the same base URL and a depth equal to or greater than the parent
+	err := d.db.Model(&History{}).
+		Select("MIN(id) as id, url, depth, method, status_code, parameters_count").
+
+    Where("depth >= ? AND depth <= ? AND url LIKE ?", parent.Depth, parent.Depth +1, parent.URL + "%").
+    Group("url, depth, method, status_code, parameters_count").
+
+    Scan(&children).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return children, nil
+}
+
+func (d *DatabaseConnection) GetRootHistoryNodes() ([]*HistorySummary, error) {
+	var rootChildren []*HistorySummary
+	err := d.db.Model(&History{}).
+		Select("MIN(id) as id, url, depth, method, status_code, parameters_count").
+		Where("depth = 0 AND url LIKE ?", "%/").
+		Group("url, depth, method, status_code, parameters_count").
+		Order("url, parameters_count desc").
+		Scan(&rootChildren).Error
+	if err != nil {
+		return nil, err
+	}
+	return rootChildren, nil
 }

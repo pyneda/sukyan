@@ -101,3 +101,92 @@ func FindHistory(c *fiber.Ctx) error {
 	}
 	return c.Status(http.StatusOK).JSON(fiber.Map{"data": items, "count": count})
 }
+
+type HistorySummary struct {
+	ID               uint   `json:"id"`
+	Depth            int    `json:"depth"`
+	URL              string `json:"url"`
+	StatusCode       int    `json:"status_code"`
+	Method           string `json:"method"`
+	ParametersCount  int    `json:"parameters_count"`
+}
+
+
+// @Summary Get children history
+// @Description Get all the other history items that have the same depth or more than the provided history ID and that start with the same URL
+// @Tags History
+// @Accept  json
+// @Produce  json
+// @Param id path int true "History ID"
+// @Success 200 {array} HistorySummary
+// @Failure 400,404 {object} string
+// @Router /api/history/{id}/children [get]
+func GetChildren(c *fiber.Ctx) error {
+	// get history id from path
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+	}
+
+	// retrieve the parent history item
+	parent, err := db.Connection.GetHistoryByID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "History not found"})
+	}
+
+	// retrieve all the children history items
+	children, err := db.Connection.GetChildrenHistories(parent)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// map to the HistorySummary type
+	childrenSummaries := make([]HistorySummary, len(children))
+	for i, child := range children {
+		childrenSummaries[i] = HistorySummary{
+			ID:               child.ID,
+			Depth:            child.Depth,
+			URL:              child.URL,
+			StatusCode:       child.StatusCode,
+			Method:           child.Method,
+			ParametersCount:  child.ParametersCount,
+		}
+	}
+
+	// return the response
+	return c.Status(fiber.StatusOK).JSON(childrenSummaries)
+}
+
+
+// @Summary Gets all root history nodes
+// @Description Get all the root history items
+// @Tags History
+// @Accept  json
+// @Produce  json
+// @Success 200 {array} HistorySummary
+// @Failure 400,404 {object} string
+// @Router /api/history/root-nodes [get]
+func GetRootNodes(c *fiber.Ctx) error {
+	// retrieve all the children history items
+	children, err := db.Connection.GetRootHistoryNodes()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// map to the HistorySummary type
+	childrenSummaries := make([]HistorySummary, len(children))
+	for i, child := range children {
+		childrenSummaries[i] = HistorySummary{
+			ID:               child.ID,
+			Depth:            child.Depth,
+			URL:              child.URL,
+			StatusCode:       child.StatusCode,
+			Method:           child.Method,
+			ParametersCount:  child.ParametersCount,
+		}
+	}
+
+	// return the response
+	return c.Status(fiber.StatusOK).JSON(childrenSummaries)
+}
+

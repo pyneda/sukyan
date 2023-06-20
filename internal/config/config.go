@@ -79,5 +79,6 @@ func SetDefaultConfig() {
 	viper.SetDefault("api.listen.host", "")
 	viper.SetDefault("api.listen.port", 8013)
 	viper.SetDefault("api.docs.enabled", false)
+	viper.SetDefault("api.docs.path", "/docs")
 
 }

@@ -1,0 +1,115 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/history": {
+            "get": {
+                "description": "Get history with optional pagination and filtering by status codes, HTTP methods, and sources",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "History"
+                ],
+                "summary": "Get history",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Size of each page",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of status codes to filter by",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of HTTP methods to filter by",
+                        "name": "methods",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of sources to filter by",
+                        "name": "sources",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/interactions": {
+            "get": {
+                "description": "Get interactions with optional pagination and protocols filter",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Interactions"
+                ],
+                "summary": "Get interactions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Size of each page",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of protocols to filter by",
+                        "name": "protocols",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/tasks/": {
+            "get": {
+                "description": "Allows to filter and search task jobs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "Search Task Jobs",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {}
+            }
+        }
+    }
+}

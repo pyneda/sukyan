@@ -60,7 +60,7 @@ func InitDb() *DatabaseConnection {
 	if err != nil {
 		panic("failed to connect database")
 	}
-	db.AutoMigrate(&Issue{}, &History{}, &OOBTest{}, &OOBInteraction{})
+	db.AutoMigrate(&Workspace{}, &Issue{}, &History{}, &OOBTest{}, &OOBInteraction{}, &Task{}, &TaskJob{})
 	sqlDB, err := db.DB()
 	if err != nil {
 		panic("failed to get underlying sql.DB")

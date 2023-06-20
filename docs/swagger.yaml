@@ -1,0 +1,78 @@
+info:
+  contact: {}
+paths:
+  /history:
+    get:
+      description: Get history with optional pagination and filtering by status codes,
+        HTTP methods, and sources
+      parameters:
+      - default: 50
+        description: Size of each page
+        in: query
+        name: page_size
+        type: integer
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Comma-separated list of status codes to filter by
+        in: query
+        name: status
+        type: string
+      - description: Comma-separated list of HTTP methods to filter by
+        in: query
+        name: methods
+        type: string
+      - description: Comma-separated list of sources to filter by
+        in: query
+        name: sources
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      summary: Get history
+      tags:
+      - History
+  /interactions:
+    get:
+      description: Get interactions with optional pagination and protocols filter
+      parameters:
+      - default: 50
+        description: Size of each page
+        in: query
+        name: page_size
+        type: integer
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Comma-separated list of protocols to filter by
+        in: query
+        name: protocols
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      summary: Get interactions
+      tags:
+      - Interactions
+  /tasks/:
+    get:
+      consumes:
+      - application/json
+      description: Allows to filter and search task jobs
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      summary: Search Task Jobs
+      tags:
+      - tasks
+swagger: "2.0"

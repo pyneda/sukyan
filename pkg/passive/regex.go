@@ -29,3 +29,35 @@ var influxDBConnectionStringRegex = regexp.MustCompile(`influxdb:\/\/[a-zA-Z0-9]
 var memcachedConnectionStringRegex = regexp.MustCompile(`memcached:\/\/[a-zA-Z0-9]+:[a-zA-Z0-9]+@[\w\.-]+(:\d+)?`)
 
 var urlRegex = regexp.MustCompile(`(?:"|')((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,}|(?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,}|[a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|/][^"|']{0,}|)|[a-zA-Z0-9_\-]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:\?[^"|']{0,}|))(?:"|')`)
+
+var S3BucketPattern = regexp.MustCompile(`((?:\w+://)?(?:([\w.-]+)\.s3[\w.-]*\.amazonaws\.com|s3(?:[\w.-]*\.amazonaws\.com(?:(?::\d+)?\\?/)*|://)([\w.-]+))(?:(?::\d+)?\\?/)?(?:.*?\?.*Expires=(\d+))?)`)
+var GoogleBucketPattern = regexp.MustCompile(`((?:\w+://)?(?:([\w.-]+)\.storage[\w-]*\.googleapis\.com|(?:(?:console\.cloud\.google\.com/storage/browser/|storage\.cloud\.google\.com|storage[\w-]*\.googleapis\.com)(?:(?::\d+)?\\?/)*|gs://)([\w.-]+))(?:(?::\d+)?\\?/([^\\s?'\"#]*))?(?:.*\?.*Expires=(\d+))?)`)
+var GcpFirebase = regexp.MustCompile(`([\w.-]+\.firebaseio\.com)`)
+var GcpFirestorePattern = regexp.MustCompile(`(firestore\.googleapis\.com.*)`)
+var AzureBucketPattern = regexp.MustCompile(`(([\w.-]+\.blob\.core\.windows\.net(?::\d+)?\\?/[\w.-]+)(?:.*?\?.*se=([\w%-]+))?)`)
+var AzureTablePattern = regexp.MustCompile(`(([\w.-]+\.table\.core\.windows\.net(?::\d+)?\\?/[\w.-]+)(?:.*?\?.*se=([\w%-]+))?)`)
+var AzureQueuePattern = regexp.MustCompile(`(([\w.-]+\.queue\.core\.windows\.net(?::\d+)?\\?/[\w.-]+)(?:.*?\?.*se=([\w%-]+))?)`)
+var AzureFilePattern = regexp.MustCompile(`(([\w.-]+\.file\.core\.windows\.net(?::\d+)?\\?/[\w.-]+)(?:.*?\?.*se=([\w%-]+))?)`)
+var AzureCosmosPattern = regexp.MustCompile(`(([\w.-]+\.documents\.azure\.com(?::\d+)?\\?/[\w.-]+)(?:.*?\?.*se=([\w%-]+))?)`)
+var CloudflareR2Pattern = regexp.MustCompile(`(?:\w+://)?([\w.-]+)\.r2\.dev(/.*)?`)
+
+var bucketsURlsPatternsMap = map[string]*regexp.Regexp{
+	"S3Bucket":     S3BucketPattern,
+	"GoogleBucket": GoogleBucketPattern,
+	"GcpFirebase":  GcpFirebase,
+	"GcpFirestore": GcpFirestorePattern,
+	"AzureBucket":  AzureBucketPattern,
+	"AzureTable":   AzureTablePattern,
+	"AzureQueue":   AzureQueuePattern,
+	"AzureFile":    AzureFilePattern,
+	"AzureCosmos":  AzureCosmosPattern,
+	"CloudflareR2": CloudflareR2Pattern,
+}
+
+var BucketInvalidURIPattern = regexp.MustCompile(`(?i)(<Code>InvalidURI</Code>|Code: InvalidURI|NoSuchKey)`)
+var BucketAccessDeniedPattern = regexp.MustCompile(`(?i)(<Code>AccessDenied</Code>|Code: AccessDenied)`)
+
+var bucketBodyPatternsMap = map[string]*regexp.Regexp{
+	"BucketInvalidURI":   BucketInvalidURIPattern,
+	"BucketAccessDenied": BucketAccessDeniedPattern,
+}

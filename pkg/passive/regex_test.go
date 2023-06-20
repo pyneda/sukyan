@@ -192,3 +192,68 @@ func TestConnectionStringRegex(t *testing.T) {
 		}
 	}
 }
+
+func TestBucketsURIspatternsMap(t *testing.T) {
+	tests := map[string]struct {
+		pattern *regexp.Regexp
+		urls    []string
+	}{
+		"S3Bucket":     {S3BucketPattern, []string{"https://bucket-name.s3.amazonaws.com/object-name", "bucket-name.s3.amazonaws.com/object-name", "s3.amazonaws.com/bucket-name/object-name"}},
+		"GoogleBucket": {GoogleBucketPattern, []string{"https://bucket-name.storage.googleapis.com/object-name", "console.cloud.google.com/storage/browser/bucket-name/object-name", "gs://bucket-name/object-name"}},
+		"GcpFirebase":  {GcpFirebase, []string{"https://firebase-project-id.firebaseio.com/data", "firebase-project-id.firebaseio.com/data", "firebase-project-id.firebaseio.com/data"}},
+		"GcpFirestore": {GcpFirestorePattern, []string{"https://firestore.googleapis.com/v1/projects/project-id/databases/(default)/documents/collection-id/document-id", "firestore.googleapis.com/v1/projects/project-id/databases/(default)/documents/collection-id/document-id", "firestore.googleapis.com/v1/projects/project-id/databases/(default)/documents/collection-id"}},
+		"AzureBucket":  {AzureBucketPattern, []string{"https://myaccount.blob.core.windows.net/mycontainer/myblob", "myaccount.blob.core.windows.net/mycontainer/myblob", "myaccount.blob.core.windows.net/mycontainer/myblob"}},
+		"AzureTable":   {AzureTablePattern, []string{"https://myaccount.table.core.windows.net/mytable", "myaccount.table.core.windows.net/mytable", "myaccount.table.core.windows.net/mytable"}},
+		"AzureQueue":   {AzureQueuePattern, []string{"https://myaccount.queue.core.windows.net/myqueue", "myaccount.queue.core.windows.net/myqueue", "myaccount.queue.core.windows.net/myqueue"}},
+		"AzureFile":    {AzureFilePattern, []string{"https://myaccount.file.core.windows.net/myshare/mydirectory/myfile", "myaccount.file.core.windows.net/myshare/mydirectory/myfile", "myaccount.file.core.windows.net/myshare/mydirectory"}},
+		"AzureCosmos":  {AzureCosmosPattern, []string{"https://myaccount.documents.azure.com/mycosmosdb", "myaccount.documents.azure.com/mycosmosdb", "myaccount.documents.azure.com/mycosmosdb"}},
+		"CloudflareR2": {CloudflareR2Pattern, []string{"https://bucket-name.r2.dev/object-name", "bucket-name.r2.dev/object-name", "<a href='test.r2.dev/bucket-name/object-name'>Test</a>"}},
+	}
+
+	for name, test := range tests {
+		for _, url := range test.urls {
+			match := test.pattern.MatchString(url)
+			if !match {
+				t.Errorf("Pattern %s did not match URL %s", name, url)
+			}
+		}
+	}
+}
+
+func TestBucketBodyPatterns(t *testing.T) {
+	invalidURITests := []struct {
+		input    string
+		expected bool
+	}{
+		{"<Code>InvalidURI</Code>", true},
+		{"Code: InvalidURI", true},
+		{"NoSuchKey", true},
+		{"<Code>SomeOtherCode</Code>", false},
+		{"Code: SomeOtherCode", false},
+	}
+
+	accessDeniedTests := []struct {
+		input    string
+		expected bool
+	}{
+		{"<Code>AccessDenied</Code>", true},
+		{"Code: AccessDenied", true},
+		{"<Code>InvalidURI</Code>", false},
+		{"Code: InvalidURI", false},
+		{"NoSuchKey", false},
+	}
+
+	for _, test := range invalidURITests {
+		match := BucketInvalidURIPattern.MatchString(test.input)
+		if match != test.expected {
+			t.Errorf("For BucketInvalidURIPattern, expected %v for input %s but got %v", test.expected, test.input, match)
+		}
+	}
+
+	for _, test := range accessDeniedTests {
+		match := BucketAccessDeniedPattern.MatchString(test.input)
+		if match != test.expected {
+			t.Errorf("For BucketAccessDeniedPattern, expected %v for input %s but got %v", test.expected, test.input, match)
+		}
+	}
+}

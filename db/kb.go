@@ -23,7 +23,8 @@ var (
 	DBConnectionStringsCode              = "db_connection_strings"
 	SNIInjectionCode                     = "sni_injection"
 	PasswordInGetRequestCode             = "password_in_get_request"
-	JavaSerializedObjectCode             = "java-serialized-object-detection"
+	JavaSerializedObjectCode             = "java_serialized_object_detected"
+	StorageBucketDetectedCode            = "storage_bucket_detected"
 )
 
 var issueTemplates = []Issue{
@@ -177,6 +178,14 @@ var issueTemplates = []Issue{
 		Description: "A java serialized object response has been detected, this would require further manual investigation to check for possible deserialization vulnerabilities",
 		Remediation: "N/A",
 		Cwe:         0,
+		Severity:    "Info",
+	},
+	{
+		Code:        StorageBucketDetectedCode,
+		Title:       "Storage Bucket Detected",
+		Description: "The application exposes storage bucket URLs or errors in the response. This can provide sensitive information about the storage setup.",
+		Remediation: "Avoid exposing storage bucket URLs or error messages publicly to mitigate potential information leakage. Make sure to handle errors gracefully and avoid revealing any sensitive information in error messages. It's recommended to manually review any detected storage buckets to verify if they are exposing sensitive information.",
+		Cwe:         200,
 		Severity:    "Info",
 	},
 }

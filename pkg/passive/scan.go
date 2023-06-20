@@ -49,7 +49,7 @@ func ScanHistoryItem(item *db.History) {
 	} else if strings.Contains(item.ResponseContentType, "javascript") {
 		PassiveJavascriptScan(item)
 	}
-
+	StorageBucketDetectionScan(item)
 	PrivateIPScan(item)
 	EmailAddressScan(item)
 	FileUploadScan(item)
@@ -252,4 +252,40 @@ func PasswordInGetRequestScan(item *db.History) {
 		description := "Detected password in URL: " + strings.Join(passwordParams, "\n  - ")
 		db.CreateIssueFromHistoryAndTemplate(item, db.PasswordInGetRequestCode, description, 90)
 	}
+}
+
+func StorageBucketDetectionScan(item *db.History) {
+	matchAgainst := item.RawResponse
+	if matchAgainst == "" {
+		matchAgainst = item.ResponseBody
+	}
+	var sb strings.Builder
+
+	// Detect buckets in URLs.
+	for patternName, pattern := range bucketsURlsPatternsMap {
+		matches := pattern.FindAllString(matchAgainst, -1)
+
+		if len(matches) > 0 {
+			sb.WriteString(fmt.Sprintf("Discovered %s bucket URLs:", patternName))
+			for _, match := range matches {
+				sb.WriteString(fmt.Sprintf("\n - %s", match))
+			}
+
+		}
+	}
+
+	// Detect bucket errors in body.
+	for patternName, pattern := range bucketBodyPatternsMap {
+		matches := pattern.FindAllString(matchAgainst, -1)
+
+		if len(matches) > 0 {
+			sb.WriteString(fmt.Sprintf("\nDiscovered %s bucket errors:", patternName))
+			for _, match := range matches {
+				sb.WriteString(fmt.Sprintf("\n - %s", match))
+			}
+		}
+	}
+
+	details := sb.String()
+	db.CreateIssueFromHistoryAndTemplate(item, db.StorageBucketDetectedCode, details, 90)
 }

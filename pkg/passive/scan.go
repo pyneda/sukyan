@@ -260,12 +260,14 @@ func StorageBucketDetectionScan(item *db.History) {
 		matchAgainst = item.ResponseBody
 	}
 	var sb strings.Builder
+	matched := false
 
 	// Detect buckets in URLs.
 	for patternName, pattern := range bucketsURlsPatternsMap {
 		matches := pattern.FindAllString(matchAgainst, -1)
 
 		if len(matches) > 0 {
+			matched = true
 			sb.WriteString(fmt.Sprintf("Discovered %s bucket URLs:", patternName))
 			for _, match := range matches {
 				sb.WriteString(fmt.Sprintf("\n - %s", match))
@@ -279,6 +281,7 @@ func StorageBucketDetectionScan(item *db.History) {
 		matches := pattern.FindAllString(matchAgainst, -1)
 
 		if len(matches) > 0 {
+			matched = true
 			sb.WriteString(fmt.Sprintf("\nDiscovered %s bucket errors:", patternName))
 			for _, match := range matches {
 				sb.WriteString(fmt.Sprintf("\n - %s", match))
@@ -287,5 +290,8 @@ func StorageBucketDetectionScan(item *db.History) {
 	}
 
 	details := sb.String()
-	db.CreateIssueFromHistoryAndTemplate(item, db.StorageBucketDetectedCode, details, 90)
+
+	if matched {
+		db.CreateIssueFromHistoryAndTemplate(item, db.StorageBucketDetectedCode, details, 90)
+	}
 }

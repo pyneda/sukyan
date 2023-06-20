@@ -2,6 +2,9 @@ api:
     listen:
         host: ""
         port: 8013
+    docs:
+        enabled: true
+        path: /docs
 crawl:
     headless: true
     interaction:

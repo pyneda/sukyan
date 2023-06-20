@@ -33,7 +33,7 @@ func StartAPI() {
 		return c.SendString("API Running")
 	})
 	if viper.GetBool("api.docs.enabled") {
-		app.Get("/docs/*", swagger.HandlerDefault)
+		app.Get(fmt.Sprintf("%v/*", viper.GetString("api.docs.path")), swagger.HandlerDefault)
 	}
 	app.Get("/issues", FindIssues)
 	app.Get("/issues/grouped", FindIssuesGrouped)

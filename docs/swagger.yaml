@@ -1,6 +1,79 @@
+definitions:
+  api.HistorySummary:
+    properties:
+      depth:
+        type: integer
+      id:
+        type: integer
+      method:
+        type: string
+      parameters_count:
+        type: integer
+      status_code:
+        type: integer
+      url:
+        type: string
+    type: object
 info:
   contact: {}
 paths:
+  /api/history/{id}/children:
+    get:
+      consumes:
+      - application/json
+      description: Get all the other history items that have the same depth or more
+        than the provided history ID and that start with the same URL
+      parameters:
+      - description: History ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.HistorySummary'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: Get children history
+      tags:
+      - History
+  /api/history/root-nodes:
+    get:
+      consumes:
+      - application/json
+      description: Get all the root history items
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.HistorySummary'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: Gets all root history nodes
+      tags:
+      - History
   /history:
     get:
       description: Get history with optional pagination and filtering by status codes,

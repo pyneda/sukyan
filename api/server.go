@@ -2,11 +2,13 @@ package api
 
 import (
 	"fmt"
+	"github.com/gofiber/swagger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
+	_ "github.com/pyneda/sukyan/docs"
 )
 
 // StartAPI starts the api
@@ -30,11 +32,14 @@ func StartAPI() {
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("API Running")
 	})
-
+	if viper.GetBool("api.docs.enabled") {
+		app.Get("/docs/*", swagger.HandlerDefault)
+	}
 	app.Get("/issues", FindIssues)
 	app.Get("/issues/grouped", FindIssuesGrouped)
 	app.Get("/history", FindHistory)
 	app.Get("/interactions", FindInteractions)
+	app.Get("/workspaces", FindWorkspaces)
 
 	listen_addres := fmt.Sprintf("%v:%v", viper.Get("api.listen.host"), viper.Get("api.listen.port"))
 	if err := app.Listen(listen_addres); err != nil {

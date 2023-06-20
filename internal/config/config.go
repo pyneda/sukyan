@@ -78,4 +78,6 @@ func SetDefaultConfig() {
 	// API
 	viper.SetDefault("api.listen.host", "")
 	viper.SetDefault("api.listen.port", 8013)
+	viper.SetDefault("api.docs.enabled", false)
+
 }

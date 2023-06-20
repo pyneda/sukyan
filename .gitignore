@@ -1,5 +1,6 @@
 docker-compose.yml
 Taskfile.yml
+openapitools.yaml
 
 frontend/
 *.db
@@ -13,6 +14,7 @@ bin/
 sukyan
 testbed/
 tests/
+api-clients/
 
 cmd/csti.go
 cmd/list_history_old.go

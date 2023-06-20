@@ -19,6 +19,19 @@ func IsValidFilterHTTPMethod(method string) bool {
 	}
 }
 
+
+
+// FindHistory gets history with pagination and filtering options
+// @Summary Get history
+// @Description Get history with optional pagination and filtering by status codes, HTTP methods, and sources
+// @Tags History
+// @Produce json
+// @Param page_size query integer false "Size of each page" default(50)
+// @Param page query integer false "Page number" default(1)
+// @Param status query string false "Comma-separated list of status codes to filter by"
+// @Param methods query string false "Comma-separated list of HTTP methods to filter by"
+// @Param sources query string false "Comma-separated list of sources to filter by"
+// @Router /history [get]
 func FindHistory(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")
@@ -73,7 +86,7 @@ func FindHistory(c *fiber.Ctx) error {
 			}
 		}
 	}
-	issues, count, err := db.Connection.ListHistory(db.HistoryFilter{
+	items, count, err := db.Connection.ListHistory(db.HistoryFilter{
 		Pagination: db.Pagination{
 			Page: page, PageSize: pageSize,
 		},
@@ -86,5 +99,5 @@ func FindHistory(c *fiber.Ctx) error {
 		// Should handle this better
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
-	return c.Status(http.StatusOK).JSON(fiber.Map{"data": issues, "count": count})
+	return c.Status(http.StatusOK).JSON(fiber.Map{"data": items, "count": count})
 }

@@ -10,6 +10,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// FindInteractions gets interactions with pagination and filtering options
+// @Summary Get interactions
+// @Description Get interactions with optional pagination and protocols filter
+// @Tags Interactions
+// @Produce json
+// @Param page_size query integer false "Size of each page" default(50)
+// @Param page query integer false "Page number" default(1)
+// @Param protocols query string false "Comma-separated list of protocols to filter by"
+// @Router /interactions [get]
 func FindInteractions(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")

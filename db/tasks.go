@@ -16,6 +16,14 @@ type TaskFilter struct {
 	Pagination Pagination
 }
 
+func (d *DatabaseConnection) CreateTask(task *Task) (*Task, error) {
+	result := d.db.Create(&task)
+	if result.Error != nil {
+		log.Error().Err(result.Error).Interface("task", task).Msg("Task creation failed")
+	}
+	return task, result.Error
+}
+
 func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count int64, err error) {
 	filterQuery := make(map[string]interface{})
 

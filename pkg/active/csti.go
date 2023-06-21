@@ -63,6 +63,7 @@ func (a *CSTIAudit) processAuditItem(item CSTIAuditItem) (issues []db.Issue, err
 	pageLoader := web.PageLoader{
 		IgnoreCertCerrors: true,
 		HijackEnabled:     false,
+		Source:            db.SourceScanner,
 	}
 	browser, page, err := pageLoader.GetPage()
 	defer browser.MustClose()

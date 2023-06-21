@@ -31,22 +31,22 @@ type BrowserManager struct {
 	focusChan            chan *rod.Page
 }
 
-func NewBrowserManager(config BrowserManagerConfig) *BrowserManager {
+func NewBrowserManager(config BrowserManagerConfig, source string) *BrowserManager {
 	manager := BrowserManager{
 		config:    config,
 		focusChan: make(chan *rod.Page, 1), // buffered channel to allow one page to be focused at a time
 	}
-	manager.Start(false)
+	manager.Start(false, source)
 
 	return &manager
 }
 
-func NewHijackedBrowserManager(config BrowserManagerConfig, hijackResultsChannel chan HijackResult) *BrowserManager {
+func NewHijackedBrowserManager(config BrowserManagerConfig, source string, hijackResultsChannel chan HijackResult) *BrowserManager {
 	manager := BrowserManager{
 		config:               config,
 		HijackResultsChannel: hijackResultsChannel,
 	}
-	manager.Start(true)
+	manager.Start(true, source)
 
 	return &manager
 }
@@ -58,7 +58,7 @@ func (b *BrowserManager) InteractWithPage(p *rod.Page) {
 	// <-b.focusChan  // receive from channel, unblocking the next function that wants to focus
 }
 
-func (b *BrowserManager) Start(hijack bool) {
+func (b *BrowserManager) Start(hijack bool, source string) {
 	l := getBrowserLauncher()
 	controlURL := l.MustLaunch()
 	b.browser = rod.New().
@@ -71,7 +71,7 @@ func (b *BrowserManager) Start(hijack bool) {
 		poolSize = b.config.PoolSize
 	}
 	if hijack {
-		Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, b.browser, b.HijackResultsChannel)
+		Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, b.browser, source, b.HijackResultsChannel)
 	}
 	b.pool = rod.NewPagePool(poolSize)
 }

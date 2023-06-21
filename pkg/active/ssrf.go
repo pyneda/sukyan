@@ -83,7 +83,10 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 	}
 
 	history, _ := http_utils.ReadHttpResponseAndCreateHistory(&result.Response, db.SourceScanner)
-
+	historyID := uint(0)
+	if history != nil {
+		historyID = history.ID
+	}
 	interactionData := result.Payload.GetInteractionData()
 	oobTest := db.OOBTest{
 		Code:              db.SSRFCode,
@@ -92,7 +95,7 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 		InteractionFullID: interactionData.InteractionFullID,
 		Target:            result.URL,
 		Payload:           result.Payload.GetValue(),
-		HistoryID:         history.ID,
+		HistoryID:         &historyID,
 		// This should be improved by providing it into the fuzz task/result
 		InsertionPoint: "parameter",
 	}

@@ -36,6 +36,11 @@ func SetDefaultConfig() {
 	viper.SetDefault("logging.file.path", "sukyan.log")
 	viper.SetDefault("logging.file.level", "info")
 
+	// Storage
+	viper.SetDefault("history.responses.ignored.max_size", 2*3000)
+	viper.SetDefault("history.responses.ignored.extensions", []string{".jpg", ".webp"})
+	viper.SetDefault("history.responses.ignored.content_types", []string{"video", "audio", "image"})
+
 	// Navigation
 	viper.SetDefault("navigation.user_agent", "")
 	viper.SetDefault("navigation.timeout", 15)

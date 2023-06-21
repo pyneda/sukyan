@@ -58,7 +58,7 @@ func ScanHistoryItem(item *db.History) {
 		headers, _ := item.GetResponseHeadersAsMap()
 		wappalyzerClient, _ := wappalyzer.New()
 		fingerprints := wappalyzerClient.Fingerprint(headers, []byte(item.ResponseBody))
-		log.Info().Interface("fingerprints", fingerprints).Msg("Fingerprints found")
+		log.Info().Interface("fingerprints", fingerprints).Str("url", item.URL).Msg("Fingerprints found")
 	}
 
 	if strings.Contains(item.ResponseContentType, "text/html") {

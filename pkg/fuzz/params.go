@@ -132,7 +132,9 @@ func (f *ParameterFuzzer) Worker(wg *sync.WaitGroup, pendingTasks chan parameter
 		result.URL = task.url
 		result.Err = err
 		result.Payload = task.payload
-		result.Response = *response
+		if err != nil && response != nil {
+			result.Response = *response
+		}
 		results <- result
 		totalPendingChannel <- -1
 	}

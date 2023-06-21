@@ -15,7 +15,7 @@ type OOBTest struct {
 	Code              IssueCode `json:"code"`
 	TestName          string    `json:"test_name"`
 	Target            string    `json:"target"`
-	HistoryID         uint      `json:"history_id"`
+	HistoryID         *uint     `json:"history_id"`
 	HistoryItem       History   `gorm:"foreignKey:HistoryID" json:"-"`
 	InteractionDomain string    `json:"interaction_domain"`
 	InteractionFullID string    `json:"interaction_id"`
@@ -35,7 +35,7 @@ func (d *DatabaseConnection) CreateOOBTest(item OOBTest) (OOBTest, error) {
 
 type OOBInteraction struct {
 	BaseModel
-	OOBTestID uint    `json:"oob_test_id"`
+	OOBTestID *uint   `json:"oob_test_id"`
 	OOBTest   OOBTest `json:"-" gorm:"foreignKey:OOBTestID"`
 
 	Protocol      string    `json:"protocol"`
@@ -65,13 +65,13 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 		log.Error().Err(result.Error).Interface("interaction", interaction).Msg("Failed to find OOBTest")
 	} else {
 		log.Info().Interface("oobTest", oobTest).Interface("interaction", interaction).Msg("Matched Interaction and OOBTest")
-		interaction.OOBTestID = oobTest.ID
+		interaction.OOBTestID = &oobTest.ID
 		d.db.Save(&interaction)
 		issue := GetIssueTemplateByCode(oobTest.Code)
 		issue.Payload = oobTest.Payload
 		issue.URL = oobTest.Target
-		if oobTest.HistoryID > 0 {
-			history, _ := d.GetHistory(oobTest.HistoryID)
+		if oobTest.HistoryID != nil && *oobTest.HistoryID > 0 {
+			history, _ := d.GetHistory(*oobTest.HistoryID)
 			issue.StatusCode = history.StatusCode
 			issue.HTTPMethod = history.Method
 			issue.Request = history.RawRequest

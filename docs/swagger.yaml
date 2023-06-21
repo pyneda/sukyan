@@ -14,6 +14,15 @@ definitions:
       url:
         type: string
     type: object
+  api.PassiveScanInput:
+    properties:
+      items:
+        items:
+          type: integer
+        type: array
+    required:
+    - items
+    type: object
 info:
   contact: {}
 paths:
@@ -74,6 +83,64 @@ paths:
       summary: Gets all root history nodes
       tags:
       - History
+  /api/scan/active:
+    post:
+      consumes:
+      - application/json
+      description: Receives a list of items and schedules them for active scanning
+      parameters:
+      - description: List of items
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.PassiveScanInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Submit items for active scanning
+      tags:
+      - Scan
+  /api/scan/passive:
+    post:
+      consumes:
+      - application/json
+      description: Receives a list of items and schedules them for passive scanning
+      parameters:
+      - description: List of items
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.PassiveScanInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Submit items for passive scanning
+      tags:
+      - Scan
   /history:
     get:
       description: Get history with optional pagination and filtering by status codes,

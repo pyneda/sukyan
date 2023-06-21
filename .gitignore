@@ -2,6 +2,8 @@ docker-compose.yml
 Taskfile.yml
 openapitools.yaml
 config.yml
+generators
+
 
 frontend/
 *.db

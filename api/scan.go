@@ -22,7 +22,7 @@ var validate = validator.New()
 // @Param input body PassiveScanInput true "List of items"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]string
-// @Router /api/scan/passive [post]
+// @Router /api/v1/scan/passive [post]
 func PassiveScanHandler(c *fiber.Ctx) error {
 	input := new(PassiveScanInput)
 
@@ -57,12 +57,9 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 	})
 }
 
-
-
 type ActiveScanInput struct {
 	Items []uint `json:"items" validate:"required,dive,min=0"`
 }
-
 
 // ActiveScanHandler godoc
 // @Summary Submit items for active scanning
@@ -73,7 +70,7 @@ type ActiveScanInput struct {
 // @Param input body PassiveScanInput true "List of items"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} map[string]string
-// @Router /api/scan/active [post]
+// @Router /api/v1/scan/active [post]
 func ActiveScanHandler(c *fiber.Ctx) error {
 	input := new(ActiveScanInput)
 

@@ -13,11 +13,11 @@ import (
 
 // @Summary Search Task Jobs
 // @Description Allows to filter and search task jobs
-// @Tags tasks
+// @Tags Tasks
 // @Accept  json
 // @Produce  json
 // @Param id path int true "Task ID"
-// @Router /tasks/ [get]
+// @Router /api/v1/tasks/jobs [get]
 func FindTaskJobs(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")

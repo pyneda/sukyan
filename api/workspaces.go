@@ -7,6 +7,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// FindWorkspaces godoc
+// @Summary List all workspaces
+// @Description Retrieves all workspaces with a count
+// @Tags Workspaces
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/workspaces [get]
 func FindWorkspaces(c *fiber.Ctx) error {
 	items, count, err := db.Connection.ListWorkspaces()
 	if err != nil {

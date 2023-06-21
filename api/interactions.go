@@ -18,7 +18,7 @@ import (
 // @Param page_size query integer false "Size of each page" default(50)
 // @Param page query integer false "Page number" default(1)
 // @Param protocols query string false "Comma-separated list of protocols to filter by"
-// @Router /interactions [get]
+// @Router /api/v1/interactions [get]
 func FindInteractions(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")

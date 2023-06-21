@@ -26,122 +26,7 @@ definitions:
 info:
   contact: {}
 paths:
-  /api/history/{id}/children:
-    get:
-      consumes:
-      - application/json
-      description: Get all the other history items that have the same depth or more
-        than the provided history ID and that start with the same URL
-      parameters:
-      - description: History ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/api.HistorySummary'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            type: string
-        "404":
-          description: Not Found
-          schema:
-            type: string
-      summary: Get children history
-      tags:
-      - History
-  /api/history/root-nodes:
-    get:
-      consumes:
-      - application/json
-      description: Get all the root history items
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/api.HistorySummary'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            type: string
-        "404":
-          description: Not Found
-          schema:
-            type: string
-      summary: Gets all root history nodes
-      tags:
-      - History
-  /api/scan/active:
-    post:
-      consumes:
-      - application/json
-      description: Receives a list of items and schedules them for active scanning
-      parameters:
-      - description: List of items
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/api.PassiveScanInput'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Submit items for active scanning
-      tags:
-      - Scan
-  /api/scan/passive:
-    post:
-      consumes:
-      - application/json
-      description: Receives a list of items and schedules them for passive scanning
-      parameters:
-      - description: List of items
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/api.PassiveScanInput'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Submit items for passive scanning
-      tags:
-      - Scan
-  /history:
+  /api/v1/history:
     get:
       description: Get history with optional pagination and filtering by status codes,
         HTTP methods, and sources
@@ -174,7 +59,64 @@ paths:
       summary: Get history
       tags:
       - History
-  /interactions:
+  /api/v1/history/{id}/children:
+    get:
+      consumes:
+      - application/json
+      description: Get all the other history items that have the same depth or more
+        than the provided history ID and that start with the same URL
+      parameters:
+      - description: History ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.HistorySummary'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: Get children history
+      tags:
+      - History
+  /api/v1/history/root-nodes:
+    get:
+      consumes:
+      - application/json
+      description: Get all the root history items
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.HistorySummary'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            type: string
+      summary: Gets all root history nodes
+      tags:
+      - History
+  /api/v1/interactions:
     get:
       description: Get interactions with optional pagination and protocols filter
       parameters:
@@ -198,7 +140,146 @@ paths:
       summary: Get interactions
       tags:
       - Interactions
-  /tasks/:
+  /api/v1/issues:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves all issues with a count
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List all issues
+      tags:
+      - Issues
+  /api/v1/issues/grouped:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves all issues grouped
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List all issues grouped
+      tags:
+      - Issues
+  /api/v1/scan/active:
+    post:
+      consumes:
+      - application/json
+      description: Receives a list of items and schedules them for active scanning
+      parameters:
+      - description: List of items
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.PassiveScanInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Submit items for active scanning
+      tags:
+      - Scan
+  /api/v1/scan/passive:
+    post:
+      consumes:
+      - application/json
+      description: Receives a list of items and schedules them for passive scanning
+      parameters:
+      - description: List of items
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.PassiveScanInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Submit items for passive scanning
+      tags:
+      - Scan
+  /api/v1/tasks:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves tasks based on pagination and status filters
+      parameters:
+      - default: 50
+        description: Number of items per page
+        in: query
+        name: page_size
+        type: integer
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Comma-separated list of statuses to filter
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List tasks with pagination and filtering
+      tags:
+      - Tasks
+  /api/v1/tasks/jobs:
     get:
       consumes:
       - application/json
@@ -214,5 +295,27 @@ paths:
       responses: {}
       summary: Search Task Jobs
       tags:
-      - tasks
+      - Tasks
+  /api/v1/workspaces:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves all workspaces with a count
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List all workspaces
+      tags:
+      - Workspaces
 swagger: "2.0"

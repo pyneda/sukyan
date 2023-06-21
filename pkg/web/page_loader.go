@@ -14,14 +14,16 @@ type PageLoader struct {
 	IgnoreCertCerrors bool
 	// https://go-rod.github.io/#/emulation?id=locale-and-timezone
 	Timezone string
+	Source   string
 }
 
 func (l *PageLoader) GetPage() (*rod.Browser, *rod.Page, error) {
 	browser := rod.New().MustConnect()
 	// Should hijack if required
+
 	hijackResultsChannel := make(chan HijackResult)
 	if l.HijackEnabled {
-		Hijack(l.HijackConfig, browser, hijackResultsChannel)
+		Hijack(l.HijackConfig, browser, l.Source, hijackResultsChannel)
 	}
 	page := browser.MustPage("")
 	if l.IgnoreCertCerrors == true {

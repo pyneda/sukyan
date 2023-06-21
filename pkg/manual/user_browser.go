@@ -26,7 +26,7 @@ func (b *UserBrowser) Launch() {
 	}
 	hijackResultsChannel := make(chan web.HijackResult)
 
-	web.Hijack(hc, browser, hijackResultsChannel)
+	web.Hijack(hc, browser, "Browser", hijackResultsChannel)
 	var page *rod.Page
 	if b.LaunchURL != "" {
 		page = browser.MustPage(b.LaunchURL)

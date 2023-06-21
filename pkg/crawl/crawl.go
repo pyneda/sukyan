@@ -56,6 +56,7 @@ func (c *Crawler) Run() []web.WebPage {
 		web.BrowserManagerConfig{
 			PoolSize: c.PagesPoolSize,
 		},
+		"Crawler",
 		hijackResultsChannel,
 	)
 

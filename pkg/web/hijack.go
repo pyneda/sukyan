@@ -25,7 +25,7 @@ type HijackResult struct {
 	DiscoveredURLs []string
 }
 
-func Hijack(config HijackConfig, browser *rod.Browser, resultsChannel chan HijackResult) {
+func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult) {
 	router := browser.HijackRequests()
 	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "127.0.0.2"}
 
@@ -49,7 +49,7 @@ func Hijack(config HijackConfig, browser *rod.Browser, resultsChannel chan Hijac
 			log.Debug().Str("url", ctx.Request.URL().String()).Msg("Skipping processing of hijacked response")
 		} else {
 			go func() {
-				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, "Create history from hijack")
+				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack")
 				passive.ScanHistoryItem(history)
 				linksFound := passive.ExtractAndAnalyzeURLS(history.RawResponse, history.URL)
 				hijackResult := HijackResult{
@@ -66,42 +66,6 @@ func Hijack(config HijackConfig, browser *rod.Browser, resultsChannel chan Hijac
 	})
 	go router.Run()
 }
-
-// func Hijack(config HijackConfig, browser *rod.Browser) {
-// 	router := browser.HijackRequests()
-// 	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "127.0.0.2"}
-
-// 	router.MustAdd("*", func(ctx *rod.Hijack) {
-
-// 		// ctx.MustLoadResponse()
-// 		err := ctx.LoadResponse(http.DefaultClient, true)
-
-// 		if err != nil {
-// 			log.Error().Err(err).Str("url", ctx.Request.URL().String()).Msg("Error loading hijacked response")
-// 		}
-
-// 		contentType := ctx.Response.Headers().Get("Content-Type")
-// 		mustSkip := false
-// 		for _, skipWord := range ignoreKeywords {
-// 			if strings.Contains(ctx.Request.URL().Host, skipWord) == true {
-// 				mustSkip = true
-// 			}
-// 		}
-// 		if mustSkip {
-// 			log.Debug().Str("url", ctx.Request.URL().String()).Msg("Skipping processing of hijacked response")
-// 		} else {
-// 			history := CreateHistoryFromHijack(ctx.Request, ctx.Response, "Create history from hijack")
-// 			passive.ScanHistoryItem(history)
-// 			linksFound := passive.ExtractAndAnalyzeURLS(history.RawResponse, history.URL)
-// 			hijackResult := HijackResult{
-// 				History: history,
-// 				DiscoveredURLs: linksFound.Web,
-// 			}
-// 		}
-
-// 	})
-// 	go router.Run()
-// }
 
 func DumpHijackRequest(req *rod.HijackRequest) string {
 	var dump strings.Builder
@@ -148,7 +112,7 @@ func DumpHijackResponse(res *rod.HijackResponse) string {
 }
 
 // CreateHistoryFromHijack saves a history request from hijack request/response items.
-func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, note string) *db.History {
+func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string) *db.History {
 	requestHeaders, err := json.Marshal(request.Headers())
 	if err != nil {
 		log.Error().Err(err).Msg("Error converting request headers to json")
@@ -173,7 +137,7 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		Evaluated:            false,
 		Method:               request.Method(),
 		Note:                 note,
-		Source:               db.SourceHijack,
+		Source:               source,
 		RawRequest:           rawRequest,
 		RawResponse:          rawResponse,
 		// ResponseContentLength: response.ContentLength,

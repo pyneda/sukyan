@@ -22,8 +22,9 @@ func InspectMultipleURLs(urls []string) (urlsData []WebPage) {
 func InspectURL(url string) WebPage {
 	browser := rod.New().MustConnect()
 	hijackResultsChannel := make(chan HijackResult)
-	// Hijack requests
-	Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, browser, hijackResultsChannel)
+
+	// The source should be reviewed & this function should be deprecated anyways
+	Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, browser, "Scanner", hijackResultsChannel)
 
 	page := browser.MustPage("")
 	IgnoreCertificateErrors(page)

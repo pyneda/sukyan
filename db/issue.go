@@ -9,8 +9,8 @@ import (
 // Issue holds table for storing issues found
 type Issue struct {
 	gorm.Model
-	Code           string `gorm:"index" json:"code"`
-	Title          string `gorm:"index"`
+	Code           IssueCode `gorm:"index" json:"code"`
+	Title          string    `gorm:"index"`
 	Description    string
 	Details        string
 	Remediation    string

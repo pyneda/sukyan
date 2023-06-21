@@ -70,22 +70,24 @@ func handleBrowserAuditIssues(url string, e *proto.AuditsIssueAdded) {
 		browserAuditIssue.Confidence = 80
 		db.Connection.CreateIssue(*browserAuditIssue)
 
-	} else {
-		// Generic while dont have customized for every event type
-		browserAuditIssue := db.Issue{
-			Code:           "browser-audit-" + string(e.Issue.Code),
-			URL:            url,
-			Title:          "Browser audit issue (classification needed)",
-			Cwe:            1,
-			StatusCode:     200,
-			HTTPMethod:     "GET?",
-			Description:    string(jsonDetails),
-			Payload:        "N/A",
-			Confidence:     80,
-			AdditionalInfo: jsonDetails,
-			Severity:       "Low",
-		}
-		db.Connection.CreateIssue(browserAuditIssue)
-
 	}
+	// TODO: Might not want to create issues for these. Should review we catch all relevant ones.
+	// else {
+	// 	// Generic while dont have customized for every event type
+	// 	browserAuditIssue := db.Issue{
+	// 		Code:           "browser-audit-" + string(e.Issue.Code),
+	// 		URL:            url,
+	// 		Title:          "Browser audit issue (classification needed)",
+	// 		Cwe:            1,
+	// 		StatusCode:     200,
+	// 		HTTPMethod:     "GET?",
+	// 		Description:    string(jsonDetails),
+	// 		Payload:        "N/A",
+	// 		Confidence:     80,
+	// 		AdditionalInfo: jsonDetails,
+	// 		Severity:       "Low",
+	// 	}
+	// 	db.Connection.CreateIssue(browserAuditIssue)
+
+	// }
 }

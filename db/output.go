@@ -53,7 +53,7 @@ func PrintIssueTable(records []*Issue) {
 		}
 		tableData = append(tableData, []string{
 			strconv.FormatUint(uint64(record.ID), 10),
-			record.Code,
+			string(record.Code),
 			record.Title,
 			formattedURL,
 			record.HTTPMethod,
@@ -70,7 +70,7 @@ func PrintIssueTable(records []*Issue) {
 // PrintIssue prints an issue record
 func PrintIssue(issue Issue) {
 	var sb strings.Builder
-	sb.WriteString("Title: " + issue.Title + "\nCode: " + issue.Code + "\n")
+	sb.WriteString("Title: " + issue.Title + "\nCode: " + string(issue.Code) + "\n")
 	sb.WriteString("Description: " + issue.Description)
 	if issue.Note != "" {
 		sb.WriteString("Note: " + issue.Note)

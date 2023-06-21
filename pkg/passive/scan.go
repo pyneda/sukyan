@@ -7,7 +7,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	// wappalyzer "github.com/projectdiscovery/wappalyzergo"
+	wappalyzer "github.com/projectdiscovery/wappalyzergo"
+	"github.com/spf13/viper"
 )
 
 func ContentTypesScan(item *db.History) {
@@ -38,16 +39,36 @@ func ContentTypesScan(item *db.History) {
 	// }
 }
 
+func ScanHistoryItemHeaders(item *db.History) {
+	checks := getHeaderChecks()
+	headers, _ := item.GetResponseHeadersAsMap()
+
+	for _, check := range checks {
+		match, issueCode, description := check.Check(headers)
+		if match {
+			db.CreateIssueFromHistoryAndTemplate(item, issueCode, description, 90)
+		}
+	}
+
+}
+
 func ScanHistoryItem(item *db.History) {
-	// headers, _ := item.GetResponseHeadersAsMap()
-	// wappalyzerClient, _ := wappalyzer.New()
-	// fingerprints := wappalyzerClient.Fingerprint(headers, []byte(item.ResponseBody))
-	// log.Info().Interface("fingerprints", fingerprints).Msg("Fingerprints found")
+	if viper.GetBool("passive.wappalyzer") {
+	headers, _ := item.GetResponseHeadersAsMap()
+	wappalyzerClient, _ := wappalyzer.New()
+	fingerprints := wappalyzerClient.Fingerprint(headers, []byte(item.ResponseBody))
+	log.Info().Interface("fingerprints", fingerprints).Msg("Fingerprints found")
+	}
+
 	if strings.Contains(item.ResponseContentType, "text/html") {
-		PassiveJavascriptScan(item)
+		if viper.GetBool("passive.js.enabled") {
+			PassiveJavascriptScan(item)
+		}
 		DirectoryListingScan(item)
 	} else if strings.Contains(item.ResponseContentType, "javascript") {
-		PassiveJavascriptScan(item)
+		if viper.GetBool("passive.js.enabled") {
+			PassiveJavascriptScan(item)
+		}
 	}
 	StorageBucketDetectionScan(item)
 	PrivateIPScan(item)
@@ -58,6 +79,9 @@ func ScanHistoryItem(item *db.History) {
 	DBConnectionStringScan(item)
 	PasswordInGetRequestScan(item)
 	ContentTypesScan(item)
+	if viper.GetBool("passive.headers.checks.enabled") {
+		ScanHistoryItemHeaders(item)
+	}
 }
 
 func PassiveJavascriptScan(item *db.History) {

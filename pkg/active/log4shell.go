@@ -225,7 +225,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		InteractionFullID: interactionData.InteractionFullID,
 		Target:            a.URL,
 		Payload:           item.payload.GetValue(),
-		HistoryID:         history.ID,
+		HistoryID:         &history.ID,
 		InsertionPoint:    insertionPoint,
 	}
 	db.Connection.CreateOOBTest(oobTest)

@@ -3,6 +3,7 @@ package http_utils
 import (
 	"github.com/rs/zerolog/log"
 
+	"errors"
 	"gorm.io/datatypes"
 	"io/ioutil"
 	"net/http"
@@ -41,27 +42,52 @@ type FullResponseData struct {
 }
 
 // ReadResponseBodyData should be replaced by this
-func ReadFullResponse(response *http.Response) FullResponseData {
+func ReadFullResponse(response *http.Response) (FullResponseData, error) {
+	// Ensure response and response.Body are not nil
+	if response == nil {
+		return FullResponseData{}, errors.New("response is nil")
+	}
+	if response.Body == nil {
+		return FullResponseData{}, errors.New("response.Body is nil")
+	}
+	defer response.Body.Close()
+
 	responseDump, err := httputil.DumpResponse(response, true)
+	if err != nil {
+		log.Error().Err(err).Msg("Error dumping response")
+		return FullResponseData{}, err
+	}
+
 	bodyBytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		log.Error().Err(err).Msg("Error reading response body")
+		return FullResponseData{}, err
 	}
-	defer response.Body.Close()
+
 	return FullResponseData{
 		Body:     string(bodyBytes),
-		BodySize: len(string(bodyBytes)),
+		BodySize: len(bodyBytes),
 		Raw:      string(responseDump),
-		RawSize:  len(string(responseDump)),
-	}
+		RawSize:  len(responseDump),
+	}, nil
 }
 
 func ReadHttpResponseAndCreateHistory(response *http.Response, source string) (*db.History, error) {
-	responseData := ReadFullResponse(response)
+	if response == nil || response.Request == nil {
+		return nil, errors.New("response or request is nil")
+	}
+	responseData, err := ReadFullResponse(response)
+	if err != nil {
+		log.Error().Err(err).Msg("Error reading response body")
+	}
 	return CreateHistoryFromHttpResponse(response, responseData, source)
 }
 
 func CreateHistoryFromHttpResponse(response *http.Response, responseData FullResponseData, source string) (*db.History, error) {
+	if response == nil || response.Request == nil {
+		return nil, errors.New("response or request is nil")
+	}
+
 	requestHeaders, err := json.Marshal(response.Request.Header)
 	if err != nil {
 		log.Error().Err(err).Msg("Error converting request headers to json")
@@ -71,8 +97,12 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		log.Error().Err(err).Msg("Error converting response headers to json")
 	}
 	requestDump, _ := httputil.DumpRequestOut(response.Request, true)
-	requestBody, _ := ioutil.ReadAll(response.Request.Body)
-	defer response.Request.Body.Close()
+
+	var requestBody []byte
+	if response.Request.Body != nil {
+		requestBody, _ = ioutil.ReadAll(response.Request.Body)
+		defer response.Request.Body.Close()
+	}
 
 	record := db.History{
 		URL:                 response.Request.URL.String(),

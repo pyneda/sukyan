@@ -137,6 +137,7 @@ func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
 
 	// result := d.db.Where(conditions).Attrs(attrs).FirstOrCreate(&record)
 	record.ID = 0
+	enhanceHistoryItem(record)
 	result := d.db.Create(&record)
 	if result.Error != nil {
 		log.Error().Err(result.Error).Interface("history", record).Msg("Failed to create web history record")

@@ -60,7 +60,7 @@ func (a *SNIAudit) Run() {
 		InteractionFullID: interactionData.ID,
 		Target:            a.HistoryItem.URL,
 		Payload:           interactionData.URL,
-		HistoryID:         history.ID,
+		HistoryID:         &history.ID,
 		InsertionPoint:    "sni",
 	}
 	db.Connection.CreateOOBTest(oobTest)

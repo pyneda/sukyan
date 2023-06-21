@@ -291,6 +291,6 @@ func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details
 	issue.HTTPMethod = history.Method
 	issue.Confidence = confidence
 	issue.Details = details
-	log.Warn().Interface("issue", issue).Msg("New issue found")
+	log.Warn().Str("issue", issue.Title).Str("url", history.URL).Msg("New issue found")
 	Connection.CreateIssue(*issue)
 }

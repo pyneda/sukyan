@@ -210,3 +210,17 @@ func (d *DatabaseConnection) GetRootHistoryNodes() ([]*HistorySummary, error) {
 	}
 	return rootChildren, nil
 }
+
+// GetHistoriesByID retrieves a list of history records by their IDs
+func (d *DatabaseConnection) GetHistoriesByID(ids []uint) ([]History, error) {
+	var histories []History
+	err := d.db.Where("id IN ?", ids).Find(&histories).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("records not found")
+		}
+		return nil, err
+	}
+
+	return histories, nil
+}

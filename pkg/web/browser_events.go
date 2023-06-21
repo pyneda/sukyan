@@ -1,8 +1,8 @@
 package web
 
 import (
-	"encoding/json"
-	"github.com/pyneda/sukyan/db"
+	// "encoding/json"
+	// "github.com/pyneda/sukyan/db"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
@@ -43,25 +43,25 @@ func RunOnPage(page *rod.Page) {
 		},
 		func(e *proto.AuditsIssueAdded) {
 			log.Warn().Interface("issue", e.Issue).Msg("Received a new browser audits issue")
-			jsonDetails, err := json.Marshal(e.Issue.Details)
-			if err != nil {
-				log.Error().Err(err).Msg("Could not convert browser audit issue event details to JSON")
-			}
+			// jsonDetails, err := json.Marshal(e.Issue.Details)
+			// if err != nil {
+			// 	log.Error().Err(err).Msg("Could not convert browser audit issue event details to JSON")
+			// }
 
-			browserAuditIssue := db.Issue{
-				Code:           "browser-audit-" + string(e.Issue.Code),
-				URL:            "url",
-				Title:          "Browser audit issue (classification needed)",
-				Cwe:            1,
-				StatusCode:     200,
-				HTTPMethod:     "GET?",
-				Description:    string(jsonDetails),
-				Payload:        "N/A",
-				Confidence:     80,
-				AdditionalInfo: jsonDetails,
-				Severity:       "Info",
-			}
-			db.Connection.CreateIssue(browserAuditIssue)
+			// browserAuditIssue := db.Issue{
+			// 	Code:           "browser-audit-" + string(e.Issue.Code),
+			// 	URL:            "url",
+			// 	Title:          "Browser audit issue (classification needed)",
+			// 	Cwe:            1,
+			// 	StatusCode:     200,
+			// 	HTTPMethod:     "GET?",
+			// 	Description:    string(jsonDetails),
+			// 	Payload:        "N/A",
+			// 	Confidence:     80,
+			// 	AdditionalInfo: jsonDetails,
+			// 	Severity:       "Info",
+			// }
+			// db.Connection.CreateIssue(browserAuditIssue)
 			// }
 
 		},

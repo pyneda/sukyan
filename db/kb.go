@@ -4,27 +4,38 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type IssueCode string
+
 var (
-	SSRFCode                             = "ssrf"
-	Log4ShellCode                        = "log4shell"
-	OOBCommunicationsCode                = "oob_communications"
-	OSCmdInjectionCode                   = "os_cmd_injection"
-	BlindSQLInjectionCode                = "blind_sql_injection"
-	HTTPMethodsCode                      = "http_methods"
-	MixedContentCode                     = "mixed_content"
-	CorsCode                             = "cors"
-	PasswordFieldAutocompleteEnabledCode = "password_field_autocomplete_enabled"
-	SessionTokenInURLCode                = "session_token_in_url"
-	FileUploadDetectedCode               = "file_upload_detected"
-	DirectoryListingCode                 = "directory_listing"
-	EmailAddressesCode                   = "email_addresses"
-	PrivateIPsCode                       = "private_ips"
-	PrivateKeysCode                      = "private_keys"
-	DBConnectionStringsCode              = "db_connection_strings"
-	SNIInjectionCode                     = "sni_injection"
-	PasswordInGetRequestCode             = "password_in_get_request"
-	JavaSerializedObjectCode             = "java_serialized_object_detected"
-	StorageBucketDetectedCode            = "storage_bucket_detected"
+	SSRFCode                             IssueCode = "ssrf"
+	Log4ShellCode                        IssueCode = "log4shell"
+	OOBCommunicationsCode                IssueCode = "oob_communications"
+	OSCmdInjectionCode                   IssueCode = "os_cmd_injection"
+	BlindSQLInjectionCode                IssueCode = "blind_sql_injection"
+	HTTPMethodsCode                      IssueCode = "http_methods"
+	MixedContentCode                     IssueCode = "mixed_content"
+	CorsCode                             IssueCode = "cors"
+	PasswordFieldAutocompleteEnabledCode IssueCode = "password_field_autocomplete_enabled"
+	SessionTokenInURLCode                IssueCode = "session_token_in_url"
+	FileUploadDetectedCode               IssueCode = "file_upload_detected"
+	DirectoryListingCode                 IssueCode = "directory_listing"
+	EmailAddressesCode                   IssueCode = "email_addresses"
+	PrivateIPsCode                       IssueCode = "private_ips"
+	PrivateKeysCode                      IssueCode = "private_keys"
+	DBConnectionStringsCode              IssueCode = "db_connection_strings"
+	SNIInjectionCode                     IssueCode = "sni_injection"
+	PasswordInGetRequestCode             IssueCode = "password_in_get_request"
+	JavaSerializedObjectCode             IssueCode = "java_serialized_object_detected"
+	StorageBucketDetectedCode            IssueCode = "storage_bucket_detected"
+	XPoweredByHeaderCode                 IssueCode = "x_powered_by_header"
+	XASPVersionHeaderCode                IssueCode = "x_asp_version_header"
+	ServerHeaderCode                     IssueCode = "server_header"
+	ContentTypeHeaderCode                IssueCode = "content_type_header"
+	CacheControlHeaderCode               IssueCode = "cache_control_header"
+	StrictTransportSecurityHeaderCode    IssueCode = "strict_transport_security_header"
+	XFrameOptionsHeaderCode              IssueCode = "x_frame_options_header"
+	XXSSProtectionHeaderCode             IssueCode = "x_xss_protection_header"
+	AspNetMvcHeaderCode                  IssueCode = "asp_net_mvc_header"
 )
 
 var issueTemplates = []Issue{
@@ -188,9 +199,81 @@ var issueTemplates = []Issue{
 		Cwe:         200,
 		Severity:    "Info",
 	},
+	{
+		Code:        XPoweredByHeaderCode,
+		Title:       "X-Powered-By Header Disclosure",
+		Description: "The application discloses the technology it's using through the X-Powered-By header, potentially aiding attackers in crafting specific exploits.",
+		Remediation: "Remove the 'X-Powered-By' header or configure your technology to stop disclosing this information.",
+		Cwe:         200,
+		Severity:    "Low",
+	},
+	{
+		Code:        XASPVersionHeaderCode,
+		Title:       "X-AspNet-Version Header Disclosure",
+		Description: "The application discloses the ASP.NET version it's using through the X-AspNet-Version header, potentially aiding attackers in crafting specific exploits.",
+		Remediation: "Remove the 'X-AspNet-Version' header or configure your ASP.NET application to stop disclosing this information.",
+		Cwe:         200,
+		Severity:    "Low",
+	},
+	{
+		Code:        ServerHeaderCode,
+		Title:       "Server Header Disclosure",
+		Description: "The application discloses the server it's using through the Server header, potentially aiding attackers in crafting specific exploits.",
+		Remediation: "Remove the 'Server' header or configure your server to stop disclosing this information.",
+		Cwe:         200, // Information Exposure
+		Severity:    "Low",
+	},
+	{
+		Code:        ContentTypeHeaderCode,
+		Title:       "Content Type Header Missing or Incorrect",
+		Description: "The application does not correctly specify the content type of the response, potentially leading to security vulnerabilities such as MIME sniffing attacks.",
+		Remediation: "Always specify a correct 'Content-Type' header in the response. Use 'X-Content-Type-Options: nosniff' to prevent the browser from MIME-sniffing a response away from the declared content-type.",
+		Cwe:         16,
+		Severity:    "Medium",
+	},
+	{
+		Code:        CacheControlHeaderCode,
+		Title:       "Cache Control Header Misconfiguration",
+		Description: "The application's response can be cached, potentially leading to information disclosure or stale content.",
+		Remediation: "Configure your application's headers to prevent sensitive information from being cached. You can set 'Cache-Control: no-store' or 'Cache-Control: private' as needed.",
+		Cwe:         524, // Information Exposure Through Caching
+		Severity:    "Low",
+	},
+	{
+		Code:        StrictTransportSecurityHeaderCode,
+		Title:       "Strict-Transport-Security Header Misconfiguration",
+		Description: "The application's HTTP Strict Transport Security (HSTS) policy is misconfigured, potentially leading to man-in-the-middle attacks.",
+		Remediation: "Configure your application's headers to properly set the HSTS policy, including 'max-age' and optionally 'includeSubDomains' and 'preload'.",
+		Cwe:         523, // Unprotected Transport of Credentials
+		Severity:    "Low",
+	},
+	{
+		Code:        XFrameOptionsHeaderCode,
+		Title:       "X-Frame-Options Header Missing or Incorrect",
+		Description: "The application does not correctly specify the X-Frame-Options header, potentially leading to clickjacking attacks.",
+		Remediation: "Always specify a correct 'X-Frame-Options' header in the response. Recommended values are 'DENY' or 'SAMEORIGIN'.",
+		Cwe:         346, // Origin Validation Error
+		Severity:    "Low",
+	},
+	{
+		Code:        XXSSProtectionHeaderCode,
+		Title:       "X-XSS-Protection Header Missing or Incorrect",
+		Description: "The application does not correctly specify the X-XSS-Protection header, potentially leading to cross-site scripting attacks.",
+		Remediation: "Always specify 'X-XSS-Protection: 1; mode=block' in the response header to enable XSS filtering on the client side.",
+		Cwe:         79, // Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')
+		Severity:    "Info",
+	},
+	Issue{
+		Code:        AspNetMvcHeaderCode,
+		Title:       "ASP.NET MVC Header Disclosure",
+		Description: "The application discloses the use of ASP.NET MVC. This could aid an attacker in crafting ASP.NET MVC-specific exploits.",
+		Remediation: "Configure ASP.NET MVC to stop disclosing this information through headers.",
+		Cwe:         200, // Information Exposure
+		Severity:    "Low",
+	},
 }
 
-func GetIssueTemplateByCode(code string) *Issue {
+func GetIssueTemplateByCode(code IssueCode) *Issue {
 	for _, issue := range issueTemplates {
 		if issue.Code == code {
 			return &issue
@@ -199,7 +282,7 @@ func GetIssueTemplateByCode(code string) *Issue {
 	return nil
 }
 
-func CreateIssueFromHistoryAndTemplate(history *History, code string, details string, confidence int) {
+func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int) {
 	issue := GetIssueTemplateByCode(code)
 	issue.URL = history.URL
 	issue.Request = history.RawRequest

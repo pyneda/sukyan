@@ -62,8 +62,12 @@ func SetDefaultConfig() {
 	viper.SetDefault("scan.concurrency.max_audits", 4)
 	viper.SetDefault("scan.concurrency.per_browser_audit", 4)
 	viper.SetDefault("scan.concurrency.per_http_audit", 16)
-	viper.SetDefault("scan.passive.wappalyzer", false)
-	viper.SetDefault("scan.passive.retirejs", false)
+
+	// Passive
+	viper.SetDefault("passive.wappalyzer", false)
+	viper.SetDefault("passive.retirejs", false)
+	viper.SetDefault("passive.headers.checks.enabled", true)
+	viper.SetDefault("passive.js.enabled", true)
 
 	// Forms
 	viper.SetDefault("forms.auto_fill", true)

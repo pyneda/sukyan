@@ -12,15 +12,15 @@ import (
 
 type OOBTest struct {
 	BaseModel
-	Code              string  `json:"code"`
-	TestName          string  `json:"test_name"`
-	Target            string  `json:"target"`
-	HistoryID         uint    `json:"history_id"`
-	HistoryItem       History `gorm:"foreignKey:HistoryID" json:"-"`
-	InteractionDomain string  `json:"interaction_domain"`
-	InteractionFullID string  `json:"interaction_id"`
-	Payload           string  `json:"payload"`
-	InsertionPoint    string  `json:"insertion_point"`
+	Code              IssueCode `json:"code"`
+	TestName          string    `json:"test_name"`
+	Target            string    `json:"target"`
+	HistoryID         uint      `json:"history_id"`
+	HistoryItem       History   `gorm:"foreignKey:HistoryID" json:"-"`
+	InteractionDomain string    `json:"interaction_domain"`
+	InteractionFullID string    `json:"interaction_id"`
+	Payload           string    `json:"payload"`
+	InsertionPoint    string    `json:"insertion_point"`
 }
 
 // CreateOOBTest saves an OOBTest to the database

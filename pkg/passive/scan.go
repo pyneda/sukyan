@@ -2,13 +2,13 @@ package passive
 
 import (
 	"fmt"
+	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 	"net/url"
 	"regexp"
 	"strings"
-	wappalyzer "github.com/projectdiscovery/wappalyzergo"
-	"github.com/spf13/viper"
 )
 
 func ContentTypesScan(item *db.History) {
@@ -44,20 +44,21 @@ func ScanHistoryItemHeaders(item *db.History) {
 	headers, _ := item.GetResponseHeadersAsMap()
 
 	for _, check := range checks {
-		match, issueCode, description := check.Check(headers)
-		if match {
-			db.CreateIssueFromHistoryAndTemplate(item, issueCode, description, 90)
+		result := check.Check(headers)
+		for _, r := range result {
+			if r.Matched {
+				db.CreateIssueFromHistoryAndTemplate(item, r.IssueCode, r.Description, 90)
+			}
 		}
 	}
-
 }
 
 func ScanHistoryItem(item *db.History) {
 	if viper.GetBool("passive.wappalyzer") {
-	headers, _ := item.GetResponseHeadersAsMap()
-	wappalyzerClient, _ := wappalyzer.New()
-	fingerprints := wappalyzerClient.Fingerprint(headers, []byte(item.ResponseBody))
-	log.Info().Interface("fingerprints", fingerprints).Msg("Fingerprints found")
+		headers, _ := item.GetResponseHeadersAsMap()
+		wappalyzerClient, _ := wappalyzer.New()
+		fingerprints := wappalyzerClient.Fingerprint(headers, []byte(item.ResponseBody))
+		log.Info().Interface("fingerprints", fingerprints).Msg("Fingerprints found")
 	}
 
 	if strings.Contains(item.ResponseContentType, "text/html") {

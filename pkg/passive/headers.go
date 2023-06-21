@@ -10,6 +10,12 @@ import (
 type MatcherType string
 type MatcherCondition string
 
+type MatchResult struct {
+	IssueCode   db.IssueCode
+	Matched     bool
+	Description string
+}
+
 const (
 	Exists      MatcherType      = "exists"
 	Regex       MatcherType      = "regex"
@@ -29,13 +35,19 @@ type HeaderCheckMatcher struct {
 	CustomIssueCode db.IssueCode
 }
 
-type HeaderCheck struct {
-	Headers        []string
-	Matchers       []HeaderCheckMatcher
-	MatchCondition MatcherCondition
-	IssueCode      db.IssueCode
-}
+func (m *HeaderCheckMatcher) CheckMatcher(headerName string, headerValues []string) []MatchResult {
+	var matchResults []MatchResult
 
+	for _, headerValue := range headerValues {
+		match := m.Match(headerValue)
+		if match {
+			description := fmt.Sprintf("Header '%s' with value '%s' matches the condition '%s' %s.\n", headerName, headerValue, m.MatcherType, m.Value)
+			matchResults = append(matchResults, MatchResult{IssueCode: m.CustomIssueCode, Matched: true, Description: description})
+		}
+	}
+
+	return matchResults
+}
 func (m *HeaderCheckMatcher) Match(headerValue string) bool {
 	switch m.MatcherType {
 	case Exists:
@@ -60,49 +72,44 @@ func (m *HeaderCheckMatcher) Match(headerValue string) bool {
 	}
 }
 
-func (c *HeaderCheck) Check(headers map[string][]string) (bool, db.IssueCode, string) {
-	var sb strings.Builder
-	var matchFound bool
-	var issueCode db.IssueCode
+type HeaderCheck struct {
+	Headers        []string
+	Matchers       []HeaderCheckMatcher
+	MatchCondition MatcherCondition
+	IssueCode      db.IssueCode
+}
+
+func (c *HeaderCheck) Check(headers map[string][]string) []MatchResult {
+	var matchResults []MatchResult
 
 	for _, headerName := range c.Headers {
 		headerValues, exists := headers[headerName]
 
 		if !exists {
-			// sb.WriteString(fmt.Sprintf("Header '%s' does not exist.\n", headerName))
 			continue
 		}
 
-		for _, matcher := range c.Matchers {
-			for _, headerValue := range headerValues {
-				match := matcher.Match(headerValue)
-				if match {
-					sb.WriteString(fmt.Sprintf("Header '%s' with value '%s' matches the condition '%s' %s.\n", headerName, headerValue, matcher.MatcherType, matcher.Value))
-					if matcher.CustomIssueCode != "" {
-						issueCode = matcher.CustomIssueCode
-					} else {
-						issueCode = c.IssueCode
-					}
-					if c.MatchCondition == Or {
-						return true, issueCode, sb.String()
-					}
-					matchFound = true
-				} else {
-					if c.MatchCondition == And {
-						return false, issueCode, sb.String()
-					}
+		results := c.CheckHeader(headerName, headerValues)
+		matchResults = append(matchResults, results...)
+	}
+
+	return matchResults
+}
+
+func (c *HeaderCheck) CheckHeader(headerName string, headerValues []string) []MatchResult {
+	var matchResults []MatchResult
+	for _, matcher := range c.Matchers {
+		results := matcher.CheckMatcher(headerName, headerValues)
+		for _, result := range results {
+			if result.Matched {
+				if result.IssueCode == "" {
+					result.IssueCode = c.IssueCode
 				}
+				matchResults = append(matchResults, result)
 			}
 		}
 	}
-
-	if matchFound && c.MatchCondition == And {
-		return true, issueCode, sb.String()
-	} else if !matchFound && c.MatchCondition == Or {
-		return false, issueCode, sb.String()
-	} else {
-		return false, issueCode, sb.String()
-	}
+	return matchResults
 }
 
 var headerMatchAny = HeaderCheckMatcher{

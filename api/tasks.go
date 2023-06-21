@@ -10,6 +10,18 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// FindTasks godoc
+// @Summary List tasks with pagination and filtering
+// @Description Retrieves tasks based on pagination and status filters
+// @Tags Tasks
+// @Accept  json
+// @Produce  json
+// @Param page_size query int false "Number of items per page" default(50)
+// @Param page query int false "Page number" default(1)
+// @Param status query string false "Comma-separated list of statuses to filter"
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} map[string]string
+// @Router /api/v1/tasks [get]
 func FindTasks(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")

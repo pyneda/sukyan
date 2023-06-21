@@ -54,17 +54,20 @@ func StartAPI() {
 	if viper.GetBool("api.docs.enabled") {
 		app.Get(fmt.Sprintf("%v/*", viper.GetString("api.docs.path")), swagger.HandlerDefault)
 	}
-	app.Get("/issues", FindIssues)
-	app.Get("/issues/grouped", FindIssuesGrouped)
-	app.Get("/history", FindHistory)
-	app.Get("/api/history/:id/children", GetChildren)
-	app.Get("/api/history/root-nodes", GetRootNodes)
 
-	app.Get("/interactions", FindInteractions)
-	app.Get("/workspaces", FindWorkspaces)
+	api := app.Group("/api/v1")
+	api.Get("/history", FindHistory)
+	api.Get("/issues", FindIssues)
+	api.Get("/issues/grouped", FindIssuesGrouped)
+	api.Get("/history/:id/children", GetChildren)
+	api.Get("/history/root-nodes", GetRootNodes)
+	api.Get("/workspaces", FindWorkspaces)
+	api.Get("/interactions", FindInteractions)
+	api.Get("/tasks", FindTasks)
+	api.Get("/tasks/jobs", FindTaskJobs)
 
 	// Make a group for all scan endpoints which require the scan engine
-	scan_app := app.Group("/api/scan")
+	scan_app := api.Group("/scan")
 	scan_app.Use(func(c *fiber.Ctx) error {
 		c.Locals("engine", engine)
 		return c.Next()

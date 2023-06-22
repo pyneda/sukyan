@@ -33,6 +33,7 @@ func (b *UserBrowser) Launch() {
 	} else {
 		page = browser.MustPage("")
 	}
+	web.ListenForWebSocketEvents(page)
 	log.Info().Interface("url", page).Msg("Browser loaded")
 	lib.SetupCloseHandler()
 	for {

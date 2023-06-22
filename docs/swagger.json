@@ -89,6 +89,70 @@
                 }
             }
         },
+        "/api/v1/history/websocket/connections": {
+            "get": {
+                "description": "Get WebSocket connections with optional pagination",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "History WebSocket"
+                ],
+                "summary": "Get WebSocket connections",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Size of each page",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
+        "/api/v1/history/websocket/messages": {
+            "get": {
+                "description": "Get WebSocket messages with optional pagination and filtering by connection id",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "History WebSocket"
+                ],
+                "summary": "Get WebSocket messages",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Size of each page",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter messages by WebSocket connection ID",
+                        "name": "connection_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {}
+            }
+        },
         "/api/v1/history/{id}/children": {
             "get": {
                 "description": "Get all the other history items that have the same depth or more than the provided history ID and that start with the same URL",

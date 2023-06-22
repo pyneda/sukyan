@@ -36,6 +36,8 @@ var (
 	XFrameOptionsHeaderCode              IssueCode = "x_frame_options_header"
 	XXSSProtectionHeaderCode             IssueCode = "x_xss_protection_header"
 	AspNetMvcHeaderCode                  IssueCode = "asp_net_mvc_header"
+	JwtDetectedCode                      IssueCode = "jwt_detected"
+	WebSocketDetectedCode                IssueCode = "websocket_detected"
 )
 
 var issueTemplates = []Issue{
@@ -263,13 +265,29 @@ var issueTemplates = []Issue{
 		Cwe:         79, // Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')
 		Severity:    "Info",
 	},
-	Issue{
+	{
 		Code:        AspNetMvcHeaderCode,
 		Title:       "ASP.NET MVC Header Disclosure",
 		Description: "The application discloses the use of ASP.NET MVC. This could aid an attacker in crafting ASP.NET MVC-specific exploits.",
 		Remediation: "Configure ASP.NET MVC to stop disclosing this information through headers.",
 		Cwe:         200, // Information Exposure
 		Severity:    "Low",
+	},
+	{
+		Code:        JwtDetectedCode,
+		Title:       "JSON Web Token (JWT) Detected",
+		Description: "The application appears to use JSON Web Tokens (JWT). If not properly secured, JWTs can lead to various security issues, including token-based authentication vulnerabilities and identity spoofing.",
+		Remediation: "Ensure that JWTs are used securely. Implement proper validation and handling mechanisms. Consider using additional safeguards such as Token Binding, and never expose sensitive information in the payload of the JWT. Always verify the signature of incoming JWTs to confirm they were issued by your system.",
+		Cwe:         347, // Improper Verification of Cryptographic Signature
+		Severity:    "Info",
+	},
+	{
+		Code:        WebSocketDetectedCode,
+		Title:       "WebSockets in Use",
+		Description: "The application appears to be using WebSockets. This could potentially lead to real-time interaction, data streaming, or possibly real-time vulnerability exploitation if not properly secured.",
+		Remediation: "Ensure that the WebSocket connection is secure (wss://) and that appropriate authentication, authorization, and validation measures are in place for any data transmitted over the WebSocket.",
+		Cwe:         749, // Exposed Dangerous Method or Function
+		Severity:    "Info",
 	},
 }
 

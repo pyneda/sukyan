@@ -51,7 +51,7 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 			go func() {
 				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack")
 				passive.ScanHistoryItem(history)
-				linksFound := passive.ExtractAndAnalyzeURLS(history.RawResponse, history.URL)
+				linksFound := passive.ExtractAndAnalyzeURLS(string(history.RawResponse), history.URL)
 				hijackResult := HijackResult{
 					History:        history,
 					DiscoveredURLs: linksFound.Web,
@@ -131,15 +131,15 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		RequestHeaders:       datatypes.JSON(requestHeaders),
 		RequestContentLength: request.Req().ContentLength,
 		ResponseHeaders:      datatypes.JSON(responseHeaders),
-		ResponseBody:         response.Body(),
+		ResponseBody:         []byte(response.Body()),
 		ResponseContentType:  response.Headers().Get("Content-Type"),
 		RequestContentType:   request.Req().Header.Get("Content-Type"),
 		Evaluated:            false,
 		Method:               request.Method(),
 		Note:                 note,
 		Source:               source,
-		RawRequest:           rawRequest,
-		RawResponse:          rawResponse,
+		RawRequest:           []byte(rawRequest),
+		RawResponse:          []byte(rawResponse),
 		// ResponseContentLength: response.ContentLength,
 
 	}

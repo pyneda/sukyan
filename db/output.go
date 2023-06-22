@@ -77,8 +77,8 @@ func PrintIssue(issue Issue) {
 	}
 	sb.WriteString("Details: \n- URL: " + issue.URL + "\n- Method: " + issue.HTTPMethod + "\n- Payload: " + issue.Payload + "\n- Status code: " + strconv.FormatInt(int64(issue.StatusCode), 10))
 	sb.WriteString("\n- Confidence: " + strconv.FormatInt(int64(issue.Confidence), 10) + "%\n- False positive: " + strconv.FormatBool(issue.FalsePositive))
-	sb.WriteString("\nRequest: \n" + issue.Request)
-	sb.WriteString("\nResponse: \n" + issue.Response)
+	sb.WriteString("\nRequest: \n" + string(issue.Request))
+	sb.WriteString("\nResponse: \n" + string(issue.Response))
 	sb.WriteString("\n")
 	fmt.Print(sb.String())
 }
@@ -89,6 +89,6 @@ func PrintHistory(history History) {
 	sb.WriteString("URL: " + history.URL)
 	sb.WriteString("\nMethod: " + history.Method)
 	sb.WriteString("\nContent Type: " + history.ResponseContentType)
-	sb.WriteString("\nResponse Body:\n" + history.ResponseBody)
+	sb.WriteString("\nResponse Body:\n" + string(history.ResponseBody))
 	fmt.Print(sb.String())
 }

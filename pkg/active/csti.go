@@ -92,16 +92,16 @@ func (a *CSTIAudit) processAuditItem(item CSTIAuditItem) (issues []db.Issue, err
 			log.Warn().Str("browser_url", e.URL).Str("type", string(e.Type)).Str("dialog_text", e.Message).Bool("has_browser_handler", e.HasBrowserHandler).Msg("CSTI verified via alert box")
 			issueDescription := fmt.Sprintf("A CSTI has been detected affecting  `%s`. The POC verified that appending the following payload %s an alert dialog of type %s that has been triggered with text `%s`\n", item.injectionPoint.GetTitle(), item.payload.GetValue(), e.Type, e.Message)
 			cstiIssue := db.Issue{
-				Title:         "Client Side Template Injection (CSTI)",
-				Description:   issueDescription,
-				Code:          "csti",
-				Cwe:           79,
-				Payload:       item.payload.GetValue(),
-				URL:           testURL,
-				StatusCode:    200,
-				HTTPMethod:    "GET",
-				Request:       "Not implemented",
-				Response:      "Not implemented",
+				Title:       "Client Side Template Injection (CSTI)",
+				Description: issueDescription,
+				Code:        "csti",
+				Cwe:         79,
+				Payload:     item.payload.GetValue(),
+				URL:         testURL,
+				StatusCode:  200,
+				HTTPMethod:  "GET",
+				// Request:       "Not implemented",
+				// Response:      "Not implemented",
 				FalsePositive: false,
 				Confidence:    99,
 			}

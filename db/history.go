@@ -16,16 +16,16 @@ type History struct {
 	URL                  string         `gorm:"index" json:"url"`
 	Depth                int            `gorm:"index" json:"depth"`
 	RequestHeaders       datatypes.JSON `json:"request_headers"`
-	RequestBody          string         `json:"request_body"`
+	RequestBody          []byte         `json:"request_body"`
 	RequestBodySize      int            `json:"request_body_size"`
 	RequestContentLength int64          `json:"request_content_length"`
 	ResponseHeaders      datatypes.JSON `json:"response_headers"`
-	ResponseBody         string         `json:"response_body"`
+	ResponseBody         []byte         `json:"response_body"`
 	RequestContentType   string         `json:"request_content_type"`
 	ResponseBodySize     int            `json:"response_body_size"`
 	ResponseContentType  string         `json:"response_content_type"`
-	RawRequest           string         `json:"raw_request"`
-	RawResponse          string         `json:"raw_response"`
+	RawRequest           []byte         `json:"raw_request"`
+	RawResponse          []byte         `json:"raw_response"`
 	Method               string         `gorm:"index" json:"method"`
 	ParametersCount      int            `json:"parameters_count"`
 	Evaluated            bool           `json:"evaluated"`

@@ -73,10 +73,11 @@ func (a *PathTraversalAudit) ProcessResult(result *fuzz.FuzzResult) {
 
 	}
 	// Process the response
-	body, bodySize, err := http_utils.ReadResponseBodyData(&result.Response)
+	bodyBytes, bodySize, err := http_utils.ReadResponseBodyData(&result.Response)
 	if err != nil {
 		log.Error().Err(err).Interface("record", record).Msg("Error reading response body")
 	}
+	body := string(bodyBytes)
 	record.BodySize = bodySize
 	// Check if some of the grep strings is in the response body (always, not just on 200)
 	for _, grepString := range grepStrings {
@@ -126,8 +127,8 @@ func (a *PathTraversalAudit) ProcessResult(result *fuzz.FuzzResult) {
 			URL:           result.URL,
 			StatusCode:    result.Response.StatusCode,
 			HTTPMethod:    "GET",
-			Request:       "Not implemented",
-			Response:      body,
+			Request:       []byte("not implemented"),
+			Response:      []byte(body),
 			FalsePositive: false,
 			Confidence:    confidence,
 			Severity:      "High",

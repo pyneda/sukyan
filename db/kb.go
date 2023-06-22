@@ -285,8 +285,8 @@ func GetIssueTemplateByCode(code IssueCode) *Issue {
 func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int) {
 	issue := GetIssueTemplateByCode(code)
 	issue.URL = history.URL
-	issue.Request = history.RawRequest
-	issue.Response = history.RawResponse
+	// issue.Request = history.RawRequest
+	// issue.Response = history.RawResponse
 	issue.StatusCode = history.StatusCode
 	issue.HTTPMethod = history.Method
 	issue.Confidence = confidence

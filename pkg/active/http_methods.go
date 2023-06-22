@@ -108,7 +108,7 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 		issue.Title = fmt.Sprintf("%s: %s", issue.Title, history.Method)
 		issue.URL = history.URL
 		issue.Request = history.RawRequest
-		issue.Response = history.RawResponse
+		issue.Response = []byte(history.RawResponse)
 		issue.StatusCode = history.StatusCode
 		issue.HTTPMethod = history.Method
 		issue.Confidence = 80

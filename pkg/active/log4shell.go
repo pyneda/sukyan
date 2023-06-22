@@ -207,7 +207,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 			StatusCode:    response.StatusCode,
 			HTTPMethod:    "GET",
 			Request:       history.RawRequest,
-			Response:      string(history.RawResponse), // body,
+			Response:      []byte(history.RawResponse), // body,
 			FalsePositive: false,
 			Confidence:    75,
 			Severity:      "Medium",

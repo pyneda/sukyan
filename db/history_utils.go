@@ -36,7 +36,7 @@ func enhanceHistoryItem(record *History) {
 	// Remove response body according to the viper configuration
 	for _, extension := range ignoredExtensions {
 		if strings.HasSuffix(record.URL, extension) {
-			record.ResponseBody = ""
+			record.ResponseBody = []byte("")
 			record.Note = "Response body was removed due to ignored file extension: " + extension
 			log.Debug().Interface("history", record).Msg("Response body was removed due to ignored file extension")
 			return
@@ -45,7 +45,7 @@ func enhanceHistoryItem(record *History) {
 
 	for _, contentType := range ignoredContentTypes {
 		if strings.Contains(record.ResponseContentType, contentType) {
-			record.ResponseBody = ""
+			record.ResponseBody = []byte("")
 			record.Note = "Response body was removed due to ignored content type: " + contentType
 			log.Debug().Interface("history", record).Msg("Response body was removed due to ignored content type")
 			return
@@ -54,7 +54,7 @@ func enhanceHistoryItem(record *History) {
 
 	if record.ResponseBodySize > maxSize {
 		log.Debug().Interface("history", record).Int("size", record.ResponseBodySize).Msg("Response body was removed due to exceeding max size limit.")
-		record.ResponseBody = ""
+		record.ResponseBody = []byte("")
 		record.Note = "Response body was removed due to exceeding max size limit."
 	}
 }

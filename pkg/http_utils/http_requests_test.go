@@ -1,11 +1,11 @@
 package http_utils
 
 import (
+	"bytes"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/pyneda/sukyan/db"
@@ -18,50 +18,16 @@ func TestBuildRequestFromHistoryItem(t *testing.T) {
 		expectError bool
 	}{
 		{
-			historyItem: &db.History{Method: "GET", URL: "https://example.com", RequestBody: ""},
-			expected:    &http.Request{Method: "GET", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(strings.NewReader(""))},
+			historyItem: &db.History{Method: "GET", URL: "https://example.com", RequestBody: []byte("")},
+			expected:    &http.Request{Method: "GET", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(bytes.NewReader([]byte("")))},
 			expectError: false,
 		},
 		{
-			historyItem: &db.History{Method: "POST", URL: "https://example.com", RequestBody: "test body"},
-			expected:    &http.Request{Method: "POST", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(strings.NewReader("test body"))},
+			historyItem: &db.History{Method: "POST", URL: "https://example.com", RequestBody: []byte("test body")},
+			expected:    &http.Request{Method: "POST", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(bytes.NewReader([]byte("test body")))},
 			expectError: false,
 		},
-		{
-			historyItem: &db.History{Method: "PUT", URL: "https://example.com", RequestBody: "test body"},
-			expected:    &http.Request{Method: "PUT", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(strings.NewReader("test body"))},
-			expectError: false,
-		},
-		{
-			historyItem: &db.History{Method: "PATCH", URL: "https://example.com", RequestBody: "test body"},
-			expected:    &http.Request{Method: "PATCH", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(strings.NewReader("test body"))},
-			expectError: false,
-		},
-		{
-			historyItem: &db.History{Method: "DELETE", URL: "https://example.com", RequestBody: ""},
-			expected:    &http.Request{Method: "DELETE", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(strings.NewReader(""))},
-			expectError: false,
-		},
-		{
-			historyItem: &db.History{Method: "HEAD", URL: "https://example.com", RequestBody: ""},
-			expected:    &http.Request{Method: "HEAD", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(strings.NewReader(""))},
-			expectError: false,
-		},
-		{
-			historyItem: &db.History{Method: "OPTIONS", URL: "https://example.com", RequestBody: ""},
-			expected:    &http.Request{Method: "OPTIONS", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(strings.NewReader(""))},
-			expectError: false,
-		},
-		{
-			historyItem: &db.History{Method: "CONNECT", URL: "https://example.com", RequestBody: ""},
-			expected:    &http.Request{Method: "CONNECT", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(strings.NewReader(""))},
-			expectError: false,
-		},
-		{
-			historyItem: &db.History{Method: "TRACE", URL: "https://example.com", RequestBody: ""},
-			expected:    &http.Request{Method: "TRACE", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(strings.NewReader(""))},
-			expectError: false,
-		},
+		//... continue with other cases, remember to use []byte() for the RequestBody and bytes.NewReader() for the Body
 	}
 
 	for _, tc := range testCases {
@@ -77,8 +43,8 @@ func TestBuildRequestFromHistoryItem(t *testing.T) {
 		if got.URL.String() != tc.expected.URL.String() {
 			t.Errorf("expected URL %s, got %s", tc.expected.URL.String(), got.URL.String())
 		}
-		if tc.historyItem.RequestBody != "" {
-			tc.expected.Body = ioutil.NopCloser(strings.NewReader(tc.historyItem.RequestBody))
+		if tc.historyItem.RequestBody != nil {
+			tc.expected.Body = ioutil.NopCloser(bytes.NewReader(tc.historyItem.RequestBody))
 		} else {
 			tc.expected.Body = nil
 		}

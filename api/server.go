@@ -61,6 +61,9 @@ func StartAPI() {
 	api.Get("/issues/grouped", FindIssuesGrouped)
 	api.Get("/history/:id/children", GetChildren)
 	api.Get("/history/root-nodes", GetRootNodes)
+	api.Get("/history/websocket/connections", FindWebSocketConnections)
+	api.Get("/history/websocket/messages", FindWebSocketMessages)
+
 	api.Get("/workspaces", FindWorkspaces)
 	api.Get("/interactions", FindInteractions)
 	api.Get("/tasks", FindTasks)

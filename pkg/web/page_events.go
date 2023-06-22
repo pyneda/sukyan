@@ -103,4 +103,5 @@ func ListenForPageEvents(url string, page *rod.Page) {
 	// 	log.Warn().Str("source", string(e.Source)).Str("origin", e.Origin).Str("realm", e.Realm).Str("scheme", e.Scheme).Msg("Network auth challange received")
 	// }
 	)()
+	ListenForWebSocketEvents(page)
 }

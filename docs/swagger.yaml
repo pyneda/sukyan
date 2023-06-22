@@ -116,6 +116,51 @@ paths:
       summary: Gets all root history nodes
       tags:
       - History
+  /api/v1/history/websocket/connections:
+    get:
+      description: Get WebSocket connections with optional pagination
+      parameters:
+      - default: 50
+        description: Size of each page
+        in: query
+        name: page_size
+        type: integer
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      produces:
+      - application/json
+      responses: {}
+      summary: Get WebSocket connections
+      tags:
+      - History WebSocket
+  /api/v1/history/websocket/messages:
+    get:
+      description: Get WebSocket messages with optional pagination and filtering by
+        connection id
+      parameters:
+      - default: 50
+        description: Size of each page
+        in: query
+        name: page_size
+        type: integer
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Filter messages by WebSocket connection ID
+        in: query
+        name: connection_id
+        type: string
+      produces:
+      - application/json
+      responses: {}
+      summary: Get WebSocket messages
+      tags:
+      - History WebSocket
   /api/v1/interactions:
     get:
       description: Get interactions with optional pagination and protocols filter

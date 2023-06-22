@@ -1,6 +1,7 @@
 package http_utils
 
 import (
+	"bytes"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"io"
@@ -13,8 +14,8 @@ func BuildRequestFromHistoryItem(historyItem *db.History) (*http.Request, error)
 	var body io.Reader
 	method := strings.ToUpper(historyItem.Method)
 
-	if historyItem.RequestBody != "" {
-		body = strings.NewReader(historyItem.RequestBody)
+	if historyItem.RequestBody != nil {
+		body = bytes.NewReader(historyItem.RequestBody)
 	}
 
 	request, err := http.NewRequest(method, historyItem.URL, body)

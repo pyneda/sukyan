@@ -19,8 +19,8 @@ type Issue struct {
 	StatusCode     int
 	HTTPMethod     string
 	Payload        string
-	Request        string
-	Response       string
+	Request        []byte
+	Response       []byte
 	AdditionalInfo datatypes.JSON
 	FalsePositive  bool
 	Confidence     int

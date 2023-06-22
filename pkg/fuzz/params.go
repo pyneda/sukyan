@@ -38,7 +38,7 @@ func (f *ParameterFuzzer) GetExpectedResponses() (expectedResponses ExpectedResp
 		Err:      err,
 	}
 	baseBody, baseSize, err := http_utils.ReadResponseBodyData(base)
-	baseExpectedResponse.Body = baseBody
+	baseExpectedResponse.Body = string(baseBody)
 	baseExpectedResponse.BodySize = baseSize
 	expectedResponses.Base = baseExpectedResponse
 	if base.StatusCode != 200 {
@@ -56,7 +56,7 @@ func (f *ParameterFuzzer) GetExpectedResponses() (expectedResponses ExpectedResp
 			Err:      err,
 		}
 		baseBody, baseSize, err := http_utils.ReadResponseBodyData(base)
-		baseExpectedResponse.Body = baseBody
+		baseExpectedResponse.Body = string(baseBody)
 		baseExpectedResponse.BodySize = baseSize
 		expectedResponses.NotFound = notFoundExpectedResponse
 		if notFound.StatusCode != 404 {

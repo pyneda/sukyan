@@ -70,10 +70,11 @@ func (a *SSTIAudit) ProcessResult(result *fuzz.FuzzResult) {
 
 	}
 	// Process the response
-	body, bodySize, err := http_utils.ReadResponseBodyData(&result.Response)
+	bodyBytes, bodySize, err := http_utils.ReadResponseBodyData(&result.Response)
 	if err != nil {
 		log.Error().Err(err).Interface("record", record).Msg("Error reading response body")
 	}
+	body := string(bodyBytes)
 	record.BodySize = bodySize
 	// record.Matched = result.Payload.Re
 	isInResponse, err := result.Payload.MatchAgainstString(body)
@@ -109,8 +110,8 @@ func (a *SSTIAudit) ProcessResult(result *fuzz.FuzzResult) {
 			URL:           result.URL,
 			StatusCode:    result.Response.StatusCode,
 			HTTPMethod:    "GET",
-			Request:       "Not implemented",
-			Response:      body,
+			Request:       []byte("not implemented"),
+			Response:      []byte(body),
 			FalsePositive: false,
 			Confidence:    confidence,
 			Severity:      "High",

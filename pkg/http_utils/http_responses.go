@@ -21,7 +21,7 @@ type ResponseBodyData struct {
 }
 
 // ReadResponseBodyData reads an http response body and returns it as string + its length as bytes
-func ReadResponseBodyData(response *http.Response) (body string, size int, err error) {
+func ReadResponseBodyData(response *http.Response) (body []byte, size int, err error) {
 	bodyBytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		log.Error().Err(err).Msg("Error reading response body")
@@ -29,16 +29,17 @@ func ReadResponseBodyData(response *http.Response) (body string, size int, err e
 	defer response.Body.Close()
 
 	size = len(bodyBytes) // Should check if its better to do the len on bytes or when converted to string
-	body = string(bodyBytes)
+	body = bodyBytes
 	return body, size, err
 }
 
 type FullResponseData struct {
-	Body     string
-	BodySize int
-	Raw      string
-	RawSize  int
-	err      error
+	Body      []byte
+	BodySize  int
+	Raw       []byte
+	RawString string
+	RawSize   int
+	err       error
 }
 
 // ReadResponseBodyData should be replaced by this
@@ -65,10 +66,11 @@ func ReadFullResponse(response *http.Response) (FullResponseData, error) {
 	}
 
 	return FullResponseData{
-		Body:     string(bodyBytes),
-		BodySize: len(bodyBytes),
-		Raw:      string(responseDump),
-		RawSize:  len(responseDump),
+		Body:      bodyBytes,
+		BodySize:  len(bodyBytes),
+		Raw:       responseDump,
+		RawString: string(responseDump),
+		RawSize:   len(responseDump),
 	}, nil
 }
 
@@ -109,7 +111,7 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		Depth:               lib.CalculateURLDepth(response.Request.URL.String()),
 		StatusCode:          response.StatusCode,
 		RequestHeaders:      datatypes.JSON(requestHeaders),
-		RequestBody:         string(requestBody),
+		RequestBody:         requestBody,
 		RequestBodySize:     len(requestBody),
 		ResponseHeaders:     datatypes.JSON(responseHeaders),
 		ResponseBody:        responseData.Body,
@@ -119,8 +121,8 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		RequestContentType:  response.Request.Header.Get("Content-Type"),
 		Evaluated:           false,
 		Source:              source,
-		RawRequest:          string(requestDump),
-		RawResponse:         string(responseData.Raw),
+		RawRequest:          requestDump,
+		RawResponse:         responseData.Raw,
 		// Note                 string
 	}
 	return db.Connection.CreateHistory(&record)

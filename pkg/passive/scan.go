@@ -73,6 +73,7 @@ func ScanHistoryItem(item *db.History) {
 	}
 	StorageBucketDetectionScan(item)
 	PrivateIPScan(item)
+	JwtDetectionScan(item)
 	EmailAddressScan(item)
 	FileUploadScan(item)
 	SessionTokenInURLScan(item)
@@ -165,6 +166,20 @@ func FileUploadScan(item *db.History) {
 		}
 		details := sb.String()
 		db.CreateIssueFromHistoryAndTemplate(item, db.FileUploadDetectedCode, details, 90)
+	}
+}
+
+func JwtDetectionScan(item *db.History) {
+	// Scans the history item for JWT patterns in the response body
+	matches := jwtRegex.FindAllString(string(item.ResponseBody), -1)
+	if len(matches) > 0 {
+		var sb strings.Builder
+		sb.WriteString("Detected potential JWTs:")
+		for _, match := range matches {
+			sb.WriteString(fmt.Sprintf("\n - %s", match))
+		}
+		details := sb.String()
+		db.CreateIssueFromHistoryAndTemplate(item, db.JwtDetectedCode, details, 90)
 	}
 }
 

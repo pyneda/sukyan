@@ -257,3 +257,28 @@ func TestBucketBodyPatterns(t *testing.T) {
 		}
 	}
 }
+
+func TestJWTRegex(t *testing.T) {
+	cases := []struct {
+		token       string
+		shouldMatch bool
+	}{
+		{"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c", true},
+		{"Invalid.JWT.Token", false},
+		{"AnotherInvalidJWTToken", false},
+		{"ThisIsNot.JWT.Token", false},
+		{"NoDotsHere", false},
+		{"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9", false},
+		{"JWT.WithoutSignature", false},
+		{"..", false},
+		{"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c", true},
+		{"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c", false},
+	}
+
+	for _, c := range cases {
+		got := jwtRegex.MatchString(c.token)
+		if got != c.shouldMatch {
+			t.Errorf("jwtRegex.MatchString(%q) == %v, want %v", c.token, got, c.shouldMatch)
+		}
+	}
+}

@@ -4,10 +4,9 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/pyneda/sukyan/db"
-	"time"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-
+	"time"
 )
 
 type CrawledPageResut struct {
@@ -41,7 +40,7 @@ func CrawlURL(url string, page *rod.Page) WebPage {
 	}
 
 	// wait()
-	navigationTimeout := time.Duration(viper.GetInt("navigation.timeout")) 
+	navigationTimeout := time.Duration(viper.GetInt("navigation.timeout"))
 	err := page.Timeout(navigationTimeout * time.Second).WaitLoad()
 
 	if err != nil {

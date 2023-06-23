@@ -24,7 +24,6 @@ func FindInteractions(c *fiber.Ctx) error {
 	unparsedPage := c.Query("page", "1")
 	unparsedProtocols := c.Query("protocols")
 	var protocols []string
-	log.Warn().Str("protocols", unparsedProtocols).Msg("protocols unparsed")
 
 	pageSize, err := strconv.Atoi(unparsedPageSize)
 	if err != nil {

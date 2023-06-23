@@ -3,24 +3,25 @@ package web
 import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/pyneda/sukyan/lib"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-
 )
 
 func InteractWithPage(p *rod.Page) {
 	if viper.GetBool("crawl.interaction.submit_forms") {
 		GetAndSubmitForms(p)
 	}
-	// if viper.GetBool("crawl.interaction.click_buttons") {
-	// 	GetAndClickButtons(p)
-	// }
+	if viper.GetBool("crawl.interaction.click_buttons") {
+		GetAndClickButtons(p)
+	}
 }
 
 // GetForms : Given a page, returns its forms
 func GetAndSubmitForms(p *rod.Page) (err error) {
 	formElements, err := p.Elements("form")
 	if err != nil {
-		return
+		return err
 	}
 	for _, form := range formElements {
 		p.Activate()
@@ -32,18 +33,37 @@ func GetAndSubmitForms(p *rod.Page) (err error) {
 }
 
 func GetAndClickButtons(p *rod.Page) {
-	buttons, err := p.Elements("button")
+	getAndClickElements("button", p)
+	// getAndClickElements("input[type=submit]", p)
+	// getAndClickElements("input[type=button]", p)
+	// getAndClickElements("a", p)
+	log.Debug().Msg("Finished clicking all elements")
+
+}
+
+func getAndClickElements(selector string, p *rod.Page) {
+	var clickedButtons []string
+	p.Activate()
+	elements, err := p.Elements(selector)
+
 	if err == nil {
-		for _, btn := range buttons {
-			p.Activate()
-			btn.Click(proto.InputMouseButtonLeft, 1)
+		for _, btn := range elements {
+			xpath, err := btn.GetXPath(true)
+			if err != nil {
+				continue
+			}
+
+			if !lib.SliceContains(clickedButtons, xpath) {
+				err = btn.Click(proto.InputMouseButtonLeft, 1)
+				if err != nil {
+					log.Error().Err(err).Str("xpath", xpath).Str("selector", selector).Msg("Error clicking element")
+				} else {
+					log.Info().Str("xpath", xpath).Str("selector", selector).Msg("Clicked button")
+					clickedButtons = append(clickedButtons, xpath)
+
+				}
+			}
 		}
 	}
-	buttons2, err := p.Elements(`[type="button"]`)
-	if err == nil {
-		for _, btn := range buttons2 {
-			p.Activate()
-			btn.Click(proto.InputMouseButtonLeft, 1)
-		}
-	}
+	log.Debug().Int("total", len(clickedButtons)).Str("selector", selector).Msg("Finished clicking elements")
 }

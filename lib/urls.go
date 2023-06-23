@@ -139,3 +139,15 @@ func CalculateURLDepth(rawURL string) int {
 	}
 	return depth
 }
+
+// GetBaseURL extracts the base URL from a URL string.
+func GetBaseURL(urlStr string) (string, error) {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return "", err
+	}
+
+	baseURL := u.Scheme + "://" + u.Host
+
+	return baseURL, nil
+}

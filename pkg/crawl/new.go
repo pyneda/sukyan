@@ -84,14 +84,10 @@ func (c *Crawler2) Run() {
 		if err != nil {
 			continue
 		}
-		urls := []string{
-			baseURL + "/robots.txt",
-			baseURL + "/sitemap.xml",
-		}
 
-		for _, u := range urls {
+		for _, u := range viper.GetStringSlice("crawl.common_files") {
 			c.wg.Add(1)
-			go c.crawlPage(&CrawlItem{url: u, depth: lib.CalculateURLDepth(u)})
+			go c.crawlPage(&CrawlItem{url: baseURL + u, depth: lib.CalculateURLDepth(u)})
 		}
 	}
 
@@ -117,7 +113,7 @@ func (c *Crawler2) shouldCrawl(item *CrawlItem) bool {
 	if c.scope.IsInScope(item.url) && c.isAllowedCrawlDepth(item) {
 		if value, ok := c.pages.Load(item.url); ok {
 			if value.(*CrawlItem).visited {
-				log.Info().Str("url", item.url).Msg("Skipping page because it has been crawled before")
+				log.Debug().Str("url", item.url).Msg("Skipping page because it has been crawled before")
 				return false // If this page has been crawled before, skip it
 			}
 		}
@@ -151,15 +147,18 @@ func (c *Crawler2) crawlPage(item *CrawlItem) {
 	url := item.url
 
 	page := c.browser.NewPage()
+	defer c.browser.ReleasePage(page)
 
 	urlData := web.CrawlURL(url, page)
+	if urlData.IsError {
+		return // If there was an error crawling the page, skip it
+	}
 
 	interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout"))
 	lib.DoWorkWithTimeout(c.browser.InteractWithPage, []interface{}{page}, interactionTimeout*time.Second)
-	c.browser.ReleasePage(page)
 
 	// Recursively crawl to links
-	for _, link := range urlData.Anchors {
+	for _, link := range urlData.DiscoveredURLs {
 		if c.shouldCrawl(&CrawlItem{url: link, depth: lib.CalculateURLDepth(link)}) {
 			c.wg.Add(1)
 			go c.crawlPage(&CrawlItem{url: link, depth: lib.CalculateURLDepth(link)})

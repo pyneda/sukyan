@@ -12,6 +12,21 @@ import (
 func ListenForPageEvents(url string, page *rod.Page) {
 
 	go page.EachEvent(
+		func(e *proto.PageJavascriptDialogOpening) (stop bool) {
+			// Here we could make configurable if we want to accept or not the dialog
+			// And could even allow to receive a callback function
+			log.Warn().Interface("event", e).Msg("Received PageJavascriptDialogOpening event (alert, prompt, confirm)")
+			err := proto.PageHandleJavaScriptDialog{
+				Accept: true,
+				// PromptText: "",
+			}.Call(page)
+			if err != nil {
+				log.Error().Err(err).Msg("Could not handle javascript dialog")
+			} else {
+				log.Debug().Msg("Handled javascript dialog")
+			}
+			return true
+		},
 		func(e *proto.BackgroundServiceBackgroundServiceEventReceived) {
 			log.Warn().Interface("event", e).Msg("Received background service event")
 		},

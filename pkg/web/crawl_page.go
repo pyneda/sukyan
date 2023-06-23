@@ -4,7 +4,10 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/pyneda/sukyan/db"
+	"time"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
+
 )
 
 type CrawledPageResut struct {
@@ -28,20 +31,22 @@ func CrawlURL(url string, page *rod.Page) WebPage {
 	ListenForPageEvents(url, page)
 
 	// Requesting page
-	var e proto.NetworkResponseReceived
-	// https://github.com/go-rod/rod/issues/213
-	wait := page.WaitEvent(&e)
+	// var e proto.NetworkResponseReceived
+	// // https://github.com/go-rod/rod/issues/213
+	// wait := page.WaitEvent(&e)
 	navigateError := page.Navigate(url)
 	if navigateError != nil {
 		log.Error().Err(navigateError).Str("url", url).Msg("Error navigating to page")
+		return WebPage{URL: url, Anchors: []string{}}
 	}
 
-	wait()
-	err := page.WaitLoad()
+	// wait()
+	navigationTimeout := time.Duration(viper.GetInt("navigation.timeout")) 
+	err := page.Timeout(navigationTimeout * time.Second).WaitLoad()
 
 	if err != nil {
 		log.Error().Err(err).Str("url", url).Msg("Error waiting for page complete load while crawling")
-		return WebPage{}
+		return WebPage{URL: url, Anchors: []string{}}
 	} else {
 		log.Debug().Str("url", url).Msg("Page fully loaded on browser and ready to be analyzed")
 	}

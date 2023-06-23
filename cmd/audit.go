@@ -44,6 +44,6 @@ func init() {
 	auditCmd.Flags().BoolVar(&auditCmdScanner.AuditHeaders, "audit-headers", true, "Audit HTTP headers")
 	auditCmd.Flags().BoolVar(&auditCmdScanner.DiscoverParams, "param-discovery", true, "Enables parameter discovery (Not implemented yet)")
 	auditCmd.Flags().BoolVar(&auditCmdScanner.ShouldCrawl, "crawl", false, "Enables the crawler")
-	auditCmd.Flags().IntVar(&auditCmdScanner.PagesPoolSize, "pool-size", 10, "Page pool size (not used)")
+	auditCmd.Flags().IntVar(&auditCmdScanner.PagesPoolSize, "pool-size", 4, "Page pool size (not used)")
 	auditCmd.Flags().IntVar(&auditCmdScanner.Depth, "depth", 5, "Max crawl depth")
 }

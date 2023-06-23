@@ -78,6 +78,7 @@ func (b *BrowserManager) Start(hijack bool, source string) {
 
 func (b *BrowserManager) NewPage() *rod.Page {
 	page := b.pool.Get(b.createPage)
+	// page.HandleDialog()
 	// Set user-agent provided by browser manager config or config file
 	if b.config.UserAgent != "" {
 		_ = page.SetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Test"})

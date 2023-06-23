@@ -7,6 +7,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/rs/zerolog/log"
+	"github.com/go-rod/rod/lib/input"
 )
 
 func ListenForPageEvents(url string, page *rod.Page) {
@@ -16,13 +17,15 @@ func ListenForPageEvents(url string, page *rod.Page) {
 			// Here we could make configurable if we want to accept or not the dialog
 			// And could even allow to receive a callback function
 			log.Warn().Interface("event", e).Msg("Received PageJavascriptDialogOpening event (alert, prompt, confirm)")
-			page.Activate()
+
 			err := proto.PageHandleJavaScriptDialog{
 				Accept: true,
-				// PromptText: "",
+				PromptText: "",
 			}.Call(page)
 			if err != nil {
 				log.Error().Err(err).Msg("Could not handle javascript dialog")
+				// page.Activate()
+				page.KeyActions().Press(input.Enter).Type(input.Enter).Do()
 			} else {
 				log.Debug().Msg("Handled javascript dialog")
 			}

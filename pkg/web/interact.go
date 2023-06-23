@@ -43,10 +43,11 @@ func GetAndClickButtons(p *rod.Page) {
 
 func getAndClickElements(selector string, p *rod.Page) {
 	var clickedButtons []string
-	p.Activate()
 	elements, err := p.Elements(selector)
 
 	if err == nil {
+		p.Activate()
+
 		for _, btn := range elements {
 			xpath, err := btn.GetXPath(true)
 			if err != nil {
@@ -54,6 +55,7 @@ func getAndClickElements(selector string, p *rod.Page) {
 			}
 
 			if !lib.SliceContains(clickedButtons, xpath) {
+				// p.HandleDialog()
 				err = btn.Click(proto.InputMouseButtonLeft, 1)
 				if err != nil {
 					log.Error().Err(err).Str("xpath", xpath).Str("selector", selector).Msg("Error clicking element")

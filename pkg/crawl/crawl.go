@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"github.com/spf13/viper"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -107,14 +108,25 @@ func (c *Crawler) CrawlPages(wg *sync.WaitGroup, foundLinksChannel chan string, 
 			result, err := lib.DoWorkWithTimeout(web.CrawlURL, []interface{}{url, page}, 5*time.Second)
 			if err != nil {
 				log.Error().Err(err).Str("url", url).Msg("Timeout error crawling page")
+				crawledPagesChannel <- web.WebPage{URL: url, Anchors: []string{}}
+				totalCrawledPages++
+				totalPendingPagesChannel <- -1
+				c.browserManager.ReleasePage(page)
+				continue
 			}
 
-			urlData, ok := result.(web.WebPage) //Cating
+			urlData, ok := result.(web.WebPage) //Casting
 			if !ok {
 				log.Error().Err(err).Str("url", url).Msg("Failed to cast result to web.Webpage")
+				crawledPagesChannel <- web.WebPage{URL: url, Anchors: []string{}}
+				totalCrawledPages++
+				totalPendingPagesChannel <- -1
+				c.browserManager.ReleasePage(page)
+				continue
 			}
-			// c.browserManager.FocusPageAndInteractWithpage(page)
-			lib.DoWorkWithTimeout(c.browserManager.InteractWithPage, []interface{}{page}, 5*time.Second)
+			// c.browserManager.InteractWithPage(page)
+			interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout")) 
+			lib.DoWorkWithTimeout(c.browserManager.InteractWithPage, []interface{}{page}, interactionTimeout*time.Second)
 			log.Debug().Int("anchors", len(urlData.Anchors)).Str("url", url).Msg("Crawler total anchors found")
 			c.browserManager.ReleasePage(page)
 

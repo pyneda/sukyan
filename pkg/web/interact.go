@@ -3,11 +3,17 @@ package web
 import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/spf13/viper"
+
 )
 
 func InteractWithPage(p *rod.Page) {
-	GetAndSubmitForms(p)
-	// GetAndClickButtons(p)
+	if viper.GetBool("crawl.interaction.submit_forms") {
+		GetAndSubmitForms(p)
+	}
+	// if viper.GetBool("crawl.interaction.click_buttons") {
+	// 	GetAndClickButtons(p)
+	// }
 }
 
 // GetForms : Given a page, returns its forms
@@ -19,7 +25,6 @@ func GetAndSubmitForms(p *rod.Page) (err error) {
 	for _, form := range formElements {
 		p.Activate()
 		AutoFillForm(form, p)
-		p.Activate()
 		SubmitForm(form, p)
 
 	}

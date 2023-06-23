@@ -74,6 +74,14 @@ func SetDefaultConfig() {
 	viper.SetDefault("scan.insertion_points.parameters", true)
 	viper.SetDefault("scan.insertion_points.body", true)
 	viper.SetDefault("scan.insertion_points.urlpath", true)
+	viper.SetDefault("scan.insertion_points.cookies", true)
+	viper.SetDefault("scan.insertion_points.json", true)
+	viper.SetDefault("scan.insertion_points.xml", true)
+
+	viper.SetDefault("scan.oob.enabled", true)
+	viper.SetDefault("scan.oob.poll_interval", 10)
+	viper.SetDefault("scan.oob.wait_after_scan", 30)
+	viper.SetDefault("scan.oob.asn_info", false)
 
 	// Passive
 	viper.SetDefault("passive.wappalyzer", false)

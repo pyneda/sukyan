@@ -112,7 +112,8 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 		issue.StatusCode = history.StatusCode
 		issue.HTTPMethod = history.Method
 		issue.Confidence = 80
-		log.Warn().Interface("issue", issue).Msg("New issue found")
 		db.Connection.CreateIssue(*issue)
+		log.Warn().Str("issue", issue.Title).Str("url", history.URL).Msg("New issue found")
+
 	}
 }

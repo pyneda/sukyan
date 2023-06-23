@@ -3,7 +3,9 @@ package scan
 import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/crawl"
 	"github.com/pyneda/sukyan/pkg/passive"
+	"github.com/rs/zerolog/log"
 
 	"sync"
 )
@@ -42,6 +44,31 @@ func NewScanEngine(maxConcurrentPassiveScans, maxConcurrentActiveScans int, inte
 		resumeCh:                  make(chan struct{}),
 	}
 }
+
+// func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType) {
+//     s.wg.Add(1)
+//     switch scanJobType {
+//     case ScanJobTypePassive:
+//         go func(item *db.History) {
+//             defer s.wg.Done()
+//             s.schedulePassiveScan(item)
+//         }(item)
+//     case ScanJobTypeActive:
+//         go func(item *db.History) {
+//             defer s.wg.Done()
+//             s.scheduleActiveScan(item)
+//         }(item)
+//     case ScanJobTypeAll:
+//         go func(item *db.History) {
+//             defer s.wg.Done()
+//             s.schedulePassiveScan(item)
+//         }(item)
+//         go func(item *db.History) {
+//             defer s.wg.Done()
+//             s.scheduleActiveScan(item)
+//         }(item)
+//     }
+// }
 
 func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType) {
 	switch scanJobType {
@@ -109,4 +136,21 @@ func (s *ScanEngine) schedulePassiveScan(item *db.History) {
 
 func (s *ScanEngine) scheduleActiveScan(item *db.History) {
 	ActiveScanHistoryItem(item, s.InteractionsManager)
+}
+
+func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, pagesPoolSize int, waitCompletion bool) {
+	crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize)
+	historyItems := crawler.Run()
+	log.Info().Int("count", len(historyItems)).Msg("Crawling finished, scheduling active scans")
+	for _, historyItem := range historyItems {
+		if historyItem.StatusCode == 404 {
+			continue
+		}
+		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeActive)
+	}
+	log.Info().Msg("Active scans scheduled")
+	if waitCompletion {
+		s.wg.Wait()
+		log.Info().Msg("Active scans finished")
+	}
 }

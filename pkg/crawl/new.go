@@ -1,6 +1,7 @@
 package crawl
 
 import (
+	"github.com/pyneda/sukyan/db"
 	"sync"
 
 	"github.com/pyneda/sukyan/lib"
@@ -52,15 +53,20 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 	}
 }
 
-func (c *Crawler2) Run() {
+func (c *Crawler2) Run() []*db.History {
 	log.Info().Msg("Starting crawler")
 	c.CreateScopeFromProvidedUrls()
 	// Spawn a goroutine to listen to hijack results and schedule new pages for crawling
+	var inScopeHistoryItems []*db.History
 	go func() {
 		for hijackResult := range c.hijackChan {
 			if hijackResult.History.Method != "GET" {
 				item := &CrawlItem{url: hijackResult.History.URL, depth: lib.CalculateURLDepth(hijackResult.History.URL), visited: true, isError: false}
 				c.pages.Store(item.url, item)
+			}
+			// Process the history item
+			if c.scope.IsInScope(hijackResult.History.URL) {
+				inScopeHistoryItems = append(inScopeHistoryItems, hijackResult.History)
 			}
 			for _, url := range hijackResult.DiscoveredURLs {
 				// Calculate the depth of the URL
@@ -93,6 +99,7 @@ func (c *Crawler2) Run() {
 
 	c.wg.Wait()
 	log.Info().Msg("Finished crawling")
+	return inScopeHistoryItems
 }
 
 // CreateScopeFromProvidedUrls creates scope items given the received urls

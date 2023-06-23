@@ -19,10 +19,10 @@ import (
 func StartAPI() {
 	log.Info().Msg("Initializing...")
 	db.InitDb()
-
+	oobPollingInterval := time.Duration(viper.GetInt("scan.oob.poll_interval"))
 	interactionsManager := &integrations.InteractionsManager{
 		GetAsnInfo:            false,
-		PollingInterval:       10 * time.Second,
+		PollingInterval:       oobPollingInterval * time.Second,
 		OnInteractionCallback: scan.SaveInteractionCallback,
 	}
 	interactionsManager.Start()

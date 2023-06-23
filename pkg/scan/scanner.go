@@ -40,9 +40,10 @@ type Scanner struct {
 
 // Run schedules the scan
 func (s *Scanner) Run() {
+	oobPollingInterval := time.Duration(viper.GetInt("scan.oob.poll_interval"))
 	s.InteractionsManager = &integrations.InteractionsManager{
 		GetAsnInfo:            false,
-		PollingInterval:       10 * time.Second,
+		PollingInterval:       oobPollingInterval * time.Second,
 		OnInteractionCallback: SaveInteractionCallback,
 	}
 	s.InteractionsManager.Start()

@@ -212,8 +212,9 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 			Confidence:    75,
 			Severity:      "Medium",
 		}
-		log.Warn().Interface("issue", issue).Msg("New issue found")
 		db.Connection.CreateIssue(issue)
+
+		log.Warn().Str("issue", issue.Title).Str("url", history.URL).Msg("New issue found")
 	}
 
 	interactionData := item.payload.GetInteractionData()

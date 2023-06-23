@@ -14,7 +14,7 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	var specificParamsToTest []string
 	p := web.WebPage{URL: item.URL}
 	hasParams, _ := p.HasParameters()
-	log.Info().Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Msg("Scanning history item")
+	log.Info().Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Msg("Starting to scan history item")
 	if hasParams && viper.GetBool("scan.insertion_points.parameters") {
 		ssrf := active.SSRFAudit{
 			URL:                 item.URL,

@@ -5,6 +5,7 @@ import (
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/scan"
 
+	"github.com/spf13/viper"
 	"os"
 	"time"
 

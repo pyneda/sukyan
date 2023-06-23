@@ -7,10 +7,10 @@ import (
 	"github.com/pyneda/sukyan/pkg/crawl"
 	"github.com/pyneda/sukyan/pkg/scope"
 	"github.com/pyneda/sukyan/pkg/web"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 	"regexp"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 // Scanner is used to schedule web scans

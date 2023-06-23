@@ -44,6 +44,7 @@ func SetDefaultConfig() {
 	// Navigation
 	viper.SetDefault("navigation.user_agent", "")
 	viper.SetDefault("navigation.timeout", 10)
+
 	viper.SetDefault("navigation.max_retries", 3)
 	viper.SetDefault("navigation.retry_delay", 5)
 	viper.SetDefault("navigation.max_redirects", 10)
@@ -57,9 +58,11 @@ func SetDefaultConfig() {
 	viper.SetDefault("crawl.max_depth", 10)
 	viper.SetDefault("crawl.pool_size", 4)
 	viper.SetDefault("crawl.headless", true)
+	viper.SetDefault("crawl.page.timeout", 5)
 	viper.SetDefault("crawl.interaction.submit_forms", true)
 	viper.SetDefault("crawl.interaction.click_buttons", true)
 	viper.SetDefault("crawl.interaction.timeout", 5)
+	viper.SetDefault("crawl.common.files", []string{"/robots.txt", "/sitemap.xml"})
 
 	// Scan
 	viper.SetDefault("scan.magic_words", []string{"null", "None", "Undefined", "Blank"})

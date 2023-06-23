@@ -13,9 +13,10 @@ type CrawledPageResut struct {
 	URL            string
 	History        *db.History
 	DiscoveredURLs []string
+	IsError        bool
 }
 
-func CrawlURL(url string, page *rod.Page) WebPage {
+func CrawlURL(url string, page *rod.Page) CrawledPageResut {
 
 	IgnoreCertificateErrors(page)
 	// Enabling audits, security, etc
@@ -33,19 +34,20 @@ func CrawlURL(url string, page *rod.Page) WebPage {
 	// var e proto.NetworkResponseReceived
 	// // https://github.com/go-rod/rod/issues/213
 	// wait := page.WaitEvent(&e)
-	navigateError := page.Navigate(url)
+	navigationTimeout := time.Duration(viper.GetInt("navigation.timeout"))
+	navigateError := page.Timeout(navigationTimeout * time.Second).Navigate(url)
 	if navigateError != nil {
 		log.Error().Err(navigateError).Str("url", url).Msg("Error navigating to page")
-		return WebPage{URL: url, Anchors: []string{}}
+		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
 	}
 
 	// wait()
-	navigationTimeout := time.Duration(viper.GetInt("navigation.timeout"))
 	err := page.Timeout(navigationTimeout * time.Second).WaitLoad()
 
 	if err != nil {
 		log.Error().Err(err).Str("url", url).Msg("Error waiting for page complete load while crawling")
-		return WebPage{URL: url, Anchors: []string{}}
+		// here, even though the page has not complete loading, we could still try to get some data
+		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
 	} else {
 		log.Debug().Str("url", url).Msg("Page fully loaded on browser and ready to be analyzed")
 	}
@@ -58,6 +60,11 @@ func CrawlURL(url string, page *rod.Page) WebPage {
 	// }
 	// log.Info().Interface("names", globalScopeNames).Msg("Global scope names")
 
-	data := GetPageData(page, url)
-	return data
+	// data := GetPageData(page, url)
+	anchors, err := GetPageAnchors(page)
+	if err != nil {
+		log.Error().Msg("Could not get page anchors")
+		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: false}
+	}
+	return CrawledPageResut{URL: url, DiscoveredURLs: anchors, IsError: false}
 }

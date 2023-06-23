@@ -16,6 +16,7 @@ func ListenForPageEvents(url string, page *rod.Page) {
 			// Here we could make configurable if we want to accept or not the dialog
 			// And could even allow to receive a callback function
 			log.Warn().Interface("event", e).Msg("Received PageJavascriptDialogOpening event (alert, prompt, confirm)")
+			page.Activate()
 			err := proto.PageHandleJavaScriptDialog{
 				Accept: true,
 				// PromptText: "",

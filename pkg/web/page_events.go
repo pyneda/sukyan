@@ -5,9 +5,9 @@ import (
 	"github.com/pyneda/sukyan/db"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/rs/zerolog/log"
-	"github.com/go-rod/rod/lib/input"
 )
 
 func ListenForPageEvents(url string, page *rod.Page) {
@@ -19,7 +19,7 @@ func ListenForPageEvents(url string, page *rod.Page) {
 			log.Warn().Interface("event", e).Msg("Received PageJavascriptDialogOpening event (alert, prompt, confirm)")
 
 			err := proto.PageHandleJavaScriptDialog{
-				Accept: true,
+				Accept:     true,
 				PromptText: "",
 			}.Call(page)
 			if err != nil {

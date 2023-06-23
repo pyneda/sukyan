@@ -175,7 +175,7 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 			Confidence:    75,
 			Severity:      "Medium",
 		}
-		log.Warn().Interface("issue", issue).Msg("New issue found")
+		log.Warn().Str("issue", issue.Title).Str("url", a.URL).Msg("New issue found")
 		db.Connection.CreateIssue(issue)
 	}
 }

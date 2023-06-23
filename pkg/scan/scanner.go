@@ -76,6 +76,8 @@ func (s *Scanner) Crawl() []web.WebPage {
 		PagesPoolSize: s.PagesPoolSize,
 		PageTimeout:   s.PageTimeout,
 	}
+	// crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize)
+
 	log.Info().Interface("config", c).Msg("Starting crawl")
 	return c.Run()
 }

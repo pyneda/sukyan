@@ -37,7 +37,7 @@ func SetDefaultConfig() {
 	viper.SetDefault("logging.file.level", "info")
 
 	// Storage
-	viper.SetDefault("history.responses.ignored.max_size", 2*3000)
+	viper.SetDefault("history.responses.ignored.max_size", 2000)
 	viper.SetDefault("history.responses.ignored.extensions", []string{".jpg", ".webp"})
 	viper.SetDefault("history.responses.ignored.content_types", []string{"video", "audio", "image"})
 
@@ -77,6 +77,10 @@ func SetDefaultConfig() {
 	viper.SetDefault("passive.retirejs", false)
 	viper.SetDefault("passive.headers.checks.enabled", true)
 	viper.SetDefault("passive.js.enabled", true)
+
+	// Reporting
+	viper.SetDefault("reporting.issues.max_repeated_per_host", 20)
+	viper.SetDefault("reporting.issues.", 10)
 
 	// Forms
 	viper.SetDefault("forms.auto_fill", true)

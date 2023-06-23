@@ -86,6 +86,8 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 	historyID := uint(0)
 	if history != nil {
 		historyID = history.ID
+	} else {
+		log.Warn().Str("url", result.URL).Msg("Could not create history from SSRF test request")
 	}
 	interactionData := result.Payload.GetInteractionData()
 	oobTest := db.OOBTest{

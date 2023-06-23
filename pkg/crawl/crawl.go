@@ -4,10 +4,10 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/scope"
 	"github.com/pyneda/sukyan/pkg/web"
+	"github.com/spf13/viper"
 	"regexp"
 	"strings"
 	"sync"
-	"github.com/spf13/viper"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -88,7 +88,7 @@ func (c *Crawler) Run() []web.WebPage {
 		wg.Add(1)
 		go c.CrawlPages(&wg, foundLinksChannel, pendingPagesChannel, crawledPagesChannel, totalPendingPagesChannel)
 	}
-
+	log.Info().Msg("Waiting for all crawling goroutines to finish")
 	wg.Wait()
 	return crawledPagesResults
 }
@@ -125,7 +125,7 @@ func (c *Crawler) CrawlPages(wg *sync.WaitGroup, foundLinksChannel chan string, 
 				continue
 			}
 			// c.browserManager.InteractWithPage(page)
-			interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout")) 
+			interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout"))
 			lib.DoWorkWithTimeout(c.browserManager.InteractWithPage, []interface{}{page}, interactionTimeout*time.Second)
 			log.Debug().Int("anchors", len(urlData.Anchors)).Str("url", url).Msg("Crawler total anchors found")
 			c.browserManager.ReleasePage(page)
@@ -187,9 +187,9 @@ func (c *Crawler) ProcessCrawledLinks(foundLinksChannel chan string, pendingPage
 		// log.Info().Str("link", link).Msg("ProcessCrawledLinks received data from foundLinksChannel")
 		if !c.processed[link] {
 			log.Debug().Str("link", link).Int("total_processed", len(c.processed)).Msg("Adding new in scope link  to pendingPagesChannel")
+			c.processed[link] = true
 			totalPendingPagesChannel <- 1
 			pendingPagesChannel <- link
-			c.processed[link] = true
 			log.Debug().Str("link", link).Int("total_processed", len(c.processed)).Msg("Added new in scope link  to pendingPagesChannel")
 		} else {
 			log.Debug().Str("link", link).Msg("Received an already processed link")

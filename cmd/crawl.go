@@ -31,12 +31,13 @@ to quickly create a Cobra application.`,
 			os.Exit(1)
 		}
 		log.Info().Strs("startUrls", startUrls).Int("count", len(startUrls)).Msg("Creating and scheduling the crawler")
-		crawler := crawl.Crawler{
-			StartUrls:       startUrls,
-			Depth:           depth,
-			MaxPagesToCrawl: maxPagesToCrawl,
-			PagesPoolSize:   pagesPoolSize,
-		}
+		// crawler := crawl.Crawler{
+		// 	StartUrls:       startUrls,
+		// 	Depth:           depth,
+		// 	MaxPagesToCrawl: maxPagesToCrawl,
+		// 	PagesPoolSize:   pagesPoolSize,
+		// }
+		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize)
 		crawler.Run()
 	},
 }
@@ -55,5 +56,5 @@ func init() {
 	// crawlCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	crawlCmd.Flags().StringArrayVar(&startUrls, "url", nil, "Target start url(s)")
 	crawlCmd.Flags().IntVar(&pagesPoolSize, "pool-size", 4, "Page pool size")
-	crawlCmd.Flags().IntVar(&depth, "depth", 5, "Max crawl depth")
+	crawlCmd.Flags().IntVar(&depth, "depth", 0, "Max crawl depth")
 }

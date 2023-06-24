@@ -107,12 +107,12 @@ func (d *DatabaseConnection) GetOrCreateJWTFromTokenAndHistory(jwtToken string, 
 }
 
 type JwtFilters struct {
-	Algorithm string `json:"algorithm" validate:"omitempty,oneof=HS256 HS384 HS512"` // Example validation rule for algorithm
+	Algorithm string `json:"algorithm" validate:"omitempty,oneof=HS256 HS384 HS512 RS256 RS384 RS512 ES256 ES384 ES512"`
 	Issuer    string `json:"issuer"`
 	Subject   string `json:"subject"`
 	Audience  string `json:"audience"`
-	SortBy    string `json:"sort_by" validate:"omitempty,oneof=token header issuer subject audience expiration issued_at"` // Example validation rule for sort_by
-	SortOrder string `json:"sort_order" validate:"omitempty,oneof=asc desc"`                                               // Example validation rule for sort_order
+	SortBy    string `json:"sort_by" validate:"omitempty,oneof=token header issuer id algorithm subject audience expiration issued_at"` // Example validation rule for sort_by
+	SortOrder string `json:"sort_order" validate:"omitempty,oneof=asc desc"`                                                            // Example validation rule for sort_order
 }
 
 func (d *DatabaseConnection) ListJsonWebTokens(filters JwtFilters) ([]*JsonWebToken, error) {

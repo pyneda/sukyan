@@ -68,6 +68,7 @@ func StartAPI() {
 	api.Get("/interactions", FindInteractions)
 	api.Get("/tasks", FindTasks)
 	api.Get("/tasks/jobs", FindTaskJobs)
+	api.Post("/tokens/jwts", JwtListHandler)
 
 	// Make a group for all scan endpoints which require the scan engine
 	scan_app := api.Group("/scan")

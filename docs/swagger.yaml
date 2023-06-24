@@ -1,4 +1,11 @@
 definitions:
+  api.ErrorResponse:
+    properties:
+      error:
+        type: string
+      message:
+        type: string
+    type: object
   api.HistorySummary:
     properties:
       depth:
@@ -22,6 +29,39 @@ definitions:
         type: array
     required:
     - items
+    type: object
+  db.JwtFilters:
+    properties:
+      algorithm:
+        description: Example validation rule for algorithm
+        enum:
+        - HS256
+        - HS384
+        - HS512
+        type: string
+      audience:
+        type: string
+      issuer:
+        type: string
+      sort_by:
+        description: Example validation rule for sort_by
+        enum:
+        - token
+        - header
+        - issuer
+        - subject
+        - audience
+        - expiration
+        - issued_at
+        type: string
+      sort_order:
+        description: Example validation rule for sort_order
+        enum:
+        - asc
+        - desc
+        type: string
+      subject:
+        type: string
     type: object
 info:
   contact: {}
@@ -341,6 +381,38 @@ paths:
       summary: Search Task Jobs
       tags:
       - Tasks
+  /api/v1/tokens/jwts:
+    post:
+      consumes:
+      - application/json
+      description: Retrieves a list of JWTs with optional filtering and sorting options
+      parameters:
+      - description: Filtering and sorting options
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/db.JwtFilters'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: List JWTs with filtering and sorting
+      tags:
+      - JWT
   /api/v1/workspaces:
     get:
       consumes:

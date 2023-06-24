@@ -481,6 +481,55 @@ const docTemplate = `{
                 "responses": {}
             }
         },
+        "/api/v1/tokens/jwts": {
+            "post": {
+                "description": "Retrieves a list of JWTs with optional filtering and sorting options",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "JWT"
+                ],
+                "summary": "List JWTs with filtering and sorting",
+                "parameters": [
+                    {
+                        "description": "Filtering and sorting options",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/db.JwtFilters"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workspaces": {
             "get": {
                 "description": "Retrieves all workspaces with a count",
@@ -516,6 +565,17 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "api.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
         "api.HistorySummary": {
             "type": "object",
             "properties": {
@@ -550,6 +610,50 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                }
+            }
+        },
+        "db.JwtFilters": {
+            "type": "object",
+            "properties": {
+                "algorithm": {
+                    "description": "Example validation rule for algorithm",
+                    "type": "string",
+                    "enum": [
+                        "HS256",
+                        "HS384",
+                        "HS512"
+                    ]
+                },
+                "audience": {
+                    "type": "string"
+                },
+                "issuer": {
+                    "type": "string"
+                },
+                "sort_by": {
+                    "description": "Example validation rule for sort_by",
+                    "type": "string",
+                    "enum": [
+                        "token",
+                        "header",
+                        "issuer",
+                        "subject",
+                        "audience",
+                        "expiration",
+                        "issued_at"
+                    ]
+                },
+                "sort_order": {
+                    "description": "Example validation rule for sort_order",
+                    "type": "string",
+                    "enum": [
+                        "asc",
+                        "desc"
+                    ]
+                },
+                "subject": {
+                    "type": "string"
                 }
             }
         }

@@ -170,15 +170,53 @@ func FileUploadScan(item *db.History) {
 }
 
 func JwtDetectionScan(item *db.History) {
-	// Scans the history item for JWT patterns in the response body
+
+	// Check ResponseBody
 	matches := jwtRegex.FindAllString(string(item.ResponseBody), -1)
 	if len(matches) > 0 {
 		var sb strings.Builder
-		sb.WriteString("Detected potential JWTs:")
+		sb.WriteString("Detected potential JWTs in response body:")
+		log.Info().Strs("matches", matches).Msg("Found JWTs")
 		for _, match := range matches {
 			sb.WriteString(fmt.Sprintf("\n - %s", match))
+			db.Connection.GetOrCreateJWTFromTokenAndHistory(match, item.ID)
 		}
 		details := sb.String()
+		db.CreateIssueFromHistoryAndTemplate(item, db.JwtDetectedCode, details, 90)
+	}
+	// Check RequestHeaders
+	req, err := item.GetRequestHeadersAsMap()
+	if err == nil {
+		checkHeadersForJwt(item, req)
+	}
+
+	// Check ResponseHeaders
+	res, err := item.GetResponseHeadersAsMap()
+	if err == nil {
+		checkHeadersForJwt(item, res)
+	}
+}
+
+func checkHeadersForJwt(item *db.History, headers map[string][]string) {
+	var sb strings.Builder
+
+	for key, values := range headers {
+		for _, value := range values {
+			matches := jwtRegex.FindAllString(value, -1)
+			if len(matches) > 0 {
+				log.Info().Strs("matches", matches).Msg("Found JWTs in headers")
+
+				sb.WriteString(fmt.Sprintf("Detected potential JWTs in %s header:", key))
+				for _, match := range matches {
+					sb.WriteString(fmt.Sprintf("\n - %s", match))
+					db.Connection.GetOrCreateJWTFromTokenAndHistory(match, item.ID)
+				}
+
+			}
+		}
+	}
+	details := sb.String()
+	if details != "" {
 		db.CreateIssueFromHistoryAndTemplate(item, db.JwtDetectedCode, details, 90)
 	}
 }

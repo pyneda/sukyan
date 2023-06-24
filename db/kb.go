@@ -38,6 +38,10 @@ var (
 	AspNetMvcHeaderCode                  IssueCode = "asp_net_mvc_header"
 	JwtDetectedCode                      IssueCode = "jwt_detected"
 	WebSocketDetectedCode                IssueCode = "websocket_detected"
+	ApacheStrutsDevModeCode              IssueCode = "apache_struts_dev_mode"
+	ApacheTapestryExceptionCode          IssueCode = "apache_tapestry_exception"
+	GrailsExceptionCode                  IssueCode = "grails_exception"
+	DjangoDebugExceptionCode             IssueCode = "django_debug_exception"
 )
 
 var issueTemplates = []Issue{
@@ -288,6 +292,38 @@ var issueTemplates = []Issue{
 		Remediation: "Ensure that the WebSocket connection is secure (wss://) and that appropriate authentication, authorization, and validation measures are in place for any data transmitted over the WebSocket.",
 		Cwe:         749, // Exposed Dangerous Method or Function
 		Severity:    "Info",
+	},
+	{
+		Code:        ApacheStrutsDevModeCode,
+		Title:       "Apache Struts Dev Mode Detected",
+		Description: "The application is running in Apache Struts development mode, which could expose sensitive information or debugging data.",
+		Remediation: "Ensure the application is running in production mode to prevent the exposure of sensitive information.",
+		Cwe:         215, // Information Exposure Through Debug Information
+		Severity:    "Medium",
+	},
+	{
+		Code:        ApacheTapestryExceptionCode,
+		Title:       "Apache Tapestry Exception Detected",
+		Description: "The application exposes Apache Tapestry exceptions, potentially revealing sensitive information or system details.",
+		Remediation: "Configure the application to not expose detailed error messages to end users.",
+		Cwe:         209, // Information Exposure Through an Error Message
+		Severity:    "Medium",
+	},
+	{
+		Code:        GrailsExceptionCode,
+		Title:       "Grails Runtime Exception Detected",
+		Description: "The application exposes Grails runtime exceptions, which could provide an attacker with valuable system information.",
+		Remediation: "Configure the application to not expose detailed error messages to end users.",
+		Cwe:         209, // Information Exposure Through an Error Message
+		Severity:    "Medium",
+	},
+	{
+		Code:        DjangoDebugExceptionCode,
+		Title:       "Django Debug Page Exception Detected",
+		Description: "The application is running in Django's debug mode, which could expose sensitive information or debugging data.",
+		Remediation: "Ensure the application is running in production mode to prevent the exposure of sensitive information.",
+		Cwe:         215, // Information Exposure Through Debug Information
+		Severity:    "Medium",
 	},
 }
 

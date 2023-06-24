@@ -4,6 +4,7 @@ import (
 	"fmt"
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 	"net/url"
@@ -81,6 +82,12 @@ func ScanHistoryItem(item *db.History) {
 	DBConnectionStringScan(item)
 	PasswordInGetRequestScan(item)
 	ContentTypesScan(item)
+	WebSocketUsageScan(item)
+	ApacheStrutsDevModeScan(item)
+	ApacheTapestryExceptionScan(item)
+	GrailsExceptionScan(item)
+	DjangoDebugPageExceptionScan(item)
+
 	if viper.GetBool("passive.headers.checks.enabled") {
 		ScanHistoryItemHeaders(item)
 	}
@@ -374,5 +381,64 @@ func StorageBucketDetectionScan(item *db.History) {
 
 	if matched {
 		db.CreateIssueFromHistoryAndTemplate(item, db.StorageBucketDetectedCode, details, 90)
+	}
+}
+
+func WebSocketUsageScan(item *db.History) {
+	headers, err := item.GetResponseHeadersAsMap()
+	if err != nil {
+		return
+	}
+	if item.StatusCode == 101 && lib.SliceContains(headers["Upgrade"], "websocket") {
+		details := fmt.Sprintf("WebSockets in use detected at %s", item.URL)
+		db.CreateIssueFromHistoryAndTemplate(item, db.WebSocketDetectedCode, details, 90)
+	}
+}
+
+func ApacheStrutsDevModeScan(item *db.History) {
+	strutsDevMode := "<title>Struts Problem Report</title>"
+	matchAgainst := string(item.RawResponse)
+	if matchAgainst == "" {
+		matchAgainst = string(item.ResponseBody)
+	}
+	if strings.Contains(matchAgainst, strutsDevMode) {
+		details := fmt.Sprintf("Apache Struts Dev Mode Detected in response for %s", item.URL)
+		db.CreateIssueFromHistoryAndTemplate(item, db.ApacheStrutsDevModeCode, details, 90)
+	}
+}
+
+func ApacheTapestryExceptionScan(item *db.History) {
+	tapestryException := "<h1 class=\"t-exception-report\">An unexpected application exception has occurred.</h1>"
+	matchAgainst := string(item.RawResponse)
+	if matchAgainst == "" {
+		matchAgainst = string(item.ResponseBody)
+	}
+	if strings.Contains(matchAgainst, tapestryException) {
+		details := fmt.Sprintf("Apache Tapestry Exception Detected in response for %s", item.URL)
+		db.CreateIssueFromHistoryAndTemplate(item, db.ApacheTapestryExceptionCode, details, 90)
+	}
+}
+
+func GrailsExceptionScan(item *db.History) {
+	grailsException := "<h1>Grails Runtime Exception</h1>"
+	matchAgainst := string(item.RawResponse)
+	if matchAgainst == "" {
+		matchAgainst = string(item.ResponseBody)
+	}
+	if strings.Contains(matchAgainst, grailsException) {
+		details := fmt.Sprintf("Grails Runtime Exception Detected in response for %s", item.URL)
+		db.CreateIssueFromHistoryAndTemplate(item, db.GrailsExceptionCode, details, 90)
+	}
+}
+
+func DjangoDebugPageExceptionScan(item *db.History) {
+	djangoDebugException := "You're seeing this error because you have <code>DEBUG = True</code> in your Django settings file."
+	matchAgainst := string(item.RawResponse)
+	if matchAgainst == "" {
+		matchAgainst = string(item.ResponseBody)
+	}
+	if strings.Contains(matchAgainst, djangoDebugException) {
+		details := fmt.Sprintf("Django Debug Page Exception Detected in response for %s", item.URL)
+		db.CreateIssueFromHistoryAndTemplate(item, db.DjangoDebugExceptionCode, details, 90)
 	}
 }

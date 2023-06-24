@@ -31,6 +31,7 @@ type History struct {
 	Evaluated            bool           `json:"evaluated"`
 	Note                 string         `json:"note"`
 	Source               string         `json:"source"`
+	JsonWebTokens        []JsonWebToken `gorm:"many2many:json_web_token_histories" json:"json_web_tokens"`
 }
 
 func (h *History) GetResponseHeadersAsMap() (map[string][]string, error) {
@@ -52,6 +53,38 @@ func (h *History) GetResponseHeadersAsMap() (map[string][]string, error) {
 					log.Warn().Interface("value", itemStr).Msg("value not a string")
 				}
 			}
+		case string:
+			stringMap[key] = append(stringMap[key], v)
+		default:
+			log.Warn().Interface("value", v).Msg("value not a []string")
+
+		}
+	}
+
+	return stringMap, nil
+}
+
+func (h *History) GetRequestHeadersAsMap() (map[string][]string, error) {
+	intermediateMap := make(map[string]interface{})
+	err := json.Unmarshal([]byte(h.RequestHeaders), &intermediateMap)
+	if err != nil {
+		return nil, err
+	}
+
+	stringMap := make(map[string][]string)
+	for key, value := range intermediateMap {
+		switch v := value.(type) {
+		case []interface{}:
+			for _, item := range v {
+				switch itemStr := item.(type) {
+				case string:
+					stringMap[key] = append(stringMap[key], itemStr)
+				default:
+					log.Warn().Interface("value", itemStr).Msg("value not a string")
+				}
+			}
+		case string:
+			stringMap[key] = append(stringMap[key], v)
 		default:
 			log.Warn().Interface("value", v).Msg("value not a []string")
 

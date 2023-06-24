@@ -76,7 +76,7 @@ func (c *Crawler2) Run() []*db.History {
 				if depth <= c.maxDepth {
 					c.wg.Add(1)
 					go c.crawlPage(&CrawlItem{url: url, depth: depth})
-					log.Info().Str("url", url).Msg("Scheduled page to crawl from hijack result")
+					log.Debug().Str("url", url).Msg("Scheduled page to crawl from hijack result")
 				}
 			}
 		}

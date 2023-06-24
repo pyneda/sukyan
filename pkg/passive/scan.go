@@ -63,12 +63,12 @@ func ScanHistoryItem(item *db.History) {
 	}
 
 	if strings.Contains(item.ResponseContentType, "text/html") {
-		if viper.GetBool("passive.js.enabled") {
+		if viper.GetBool("passive.checks.js.enabled") {
 			PassiveJavascriptScan(item)
 		}
 		DirectoryListingScan(item)
 	} else if strings.Contains(item.ResponseContentType, "javascript") {
-		if viper.GetBool("passive.js.enabled") {
+		if viper.GetBool("passive.checks.js.enabled") {
 			PassiveJavascriptScan(item)
 		}
 	}
@@ -83,24 +83,17 @@ func ScanHistoryItem(item *db.History) {
 	PasswordInGetRequestScan(item)
 	ContentTypesScan(item)
 	WebSocketUsageScan(item)
-	ApacheStrutsDevModeScan(item)
-	ApacheTapestryExceptionScan(item)
-	GrailsExceptionScan(item)
-	DjangoDebugPageExceptionScan(item)
 
-	if viper.GetBool("passive.headers.checks.enabled") {
-		ScanHistoryItemHeaders(item)
+	if viper.GetBool("passive.checks.exceptions.enabled") {
+		ExceptionsScan(item)
 	}
-}
 
-func PassiveJavascriptScan(item *db.History) {
-	bodyStr := string(item.ResponseBody)
-	jsSources := FindJsSources(bodyStr)
-	jsSinks := FindJsSinks(bodyStr)
-	jquerySinks := FindJquerySinks(bodyStr)
-	// log.Info().Str("url", item.URL).Strs("sources", jsSources).Strs("jsSinks", jsSinks).Strs("jquerySinks", jquerySinks).Msg("Hijacked HTML response")
-	if len(jsSources) > 0 || len(jsSinks) > 0 || len(jquerySinks) > 0 {
-		CreateJavascriptSourcesAndSinksInformationalIssue(item, jsSources, jsSinks, jquerySinks)
+	if viper.GetBool("passive.checks.missconfigurations.enabled") {
+		MissconfigurationScan(item)
+	}
+
+	if viper.GetBool("passive.checks.headers.enabled") {
+		ScanHistoryItemHeaders(item)
 	}
 }
 
@@ -392,53 +385,5 @@ func WebSocketUsageScan(item *db.History) {
 	if item.StatusCode == 101 && lib.SliceContains(headers["Upgrade"], "websocket") {
 		details := fmt.Sprintf("WebSockets in use detected at %s", item.URL)
 		db.CreateIssueFromHistoryAndTemplate(item, db.WebSocketDetectedCode, details, 90)
-	}
-}
-
-func ApacheStrutsDevModeScan(item *db.History) {
-	strutsDevMode := "<title>Struts Problem Report</title>"
-	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
-	if strings.Contains(matchAgainst, strutsDevMode) {
-		details := fmt.Sprintf("Apache Struts Dev Mode Detected in response for %s", item.URL)
-		db.CreateIssueFromHistoryAndTemplate(item, db.ApacheStrutsDevModeCode, details, 90)
-	}
-}
-
-func ApacheTapestryExceptionScan(item *db.History) {
-	tapestryException := "<h1 class=\"t-exception-report\">An unexpected application exception has occurred.</h1>"
-	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
-	if strings.Contains(matchAgainst, tapestryException) {
-		details := fmt.Sprintf("Apache Tapestry Exception Detected in response for %s", item.URL)
-		db.CreateIssueFromHistoryAndTemplate(item, db.ApacheTapestryExceptionCode, details, 90)
-	}
-}
-
-func GrailsExceptionScan(item *db.History) {
-	grailsException := "<h1>Grails Runtime Exception</h1>"
-	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
-	if strings.Contains(matchAgainst, grailsException) {
-		details := fmt.Sprintf("Grails Runtime Exception Detected in response for %s", item.URL)
-		db.CreateIssueFromHistoryAndTemplate(item, db.GrailsExceptionCode, details, 90)
-	}
-}
-
-func DjangoDebugPageExceptionScan(item *db.History) {
-	djangoDebugException := "You're seeing this error because you have <code>DEBUG = True</code> in your Django settings file."
-	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
-	if strings.Contains(matchAgainst, djangoDebugException) {
-		details := fmt.Sprintf("Django Debug Page Exception Detected in response for %s", item.URL)
-		db.CreateIssueFromHistoryAndTemplate(item, db.DjangoDebugExceptionCode, details, 90)
 	}
 }

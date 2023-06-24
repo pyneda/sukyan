@@ -1,6 +1,9 @@
 package passive
 
-import "regexp"
+import (
+	"github.com/pyneda/sukyan/db"
+	"regexp"
+)
 
 // 1. Outdated libraries matching could be based on retirejs dataset.
 // For usage implementation can see:
@@ -29,17 +32,28 @@ func match(text string, regex *regexp.Regexp) []string {
 	return parsed
 }
 
-// FindJsSources searches for common javascript sources
-func FindJsSources(text string) []string {
+// findJsSources searches for common javascript sources
+func findJsSources(text string) []string {
 	return match(text, CommonJsSourcesRegex)
 }
 
-// FindJsSinks searches for common javascript sinks
-func FindJsSinks(text string) []string {
+// findJsSinks searches for common javascript sinks
+func findJsSinks(text string) []string {
 	return match(text, CommonJsSinksRegex)
 }
 
-// FindJquerySinks searches for common jquery sinks
-func FindJquerySinks(text string) []string {
+// findJquerySinks searches for common jquery sinks
+func findJquerySinks(text string) []string {
 	return match(text, CommonJquerySinksRegex)
+}
+
+func PassiveJavascriptScan(item *db.History) {
+	bodyStr := string(item.ResponseBody)
+	jsSources := findJsSources(bodyStr)
+	jsSinks := findJsSinks(bodyStr)
+	jquerySinks := findJquerySinks(bodyStr)
+	// log.Info().Str("url", item.URL).Strs("sources", jsSources).Strs("jsSinks", jsSinks).Strs("jquerySinks", jquerySinks).Msg("Hijacked HTML response")
+	if len(jsSources) > 0 || len(jsSinks) > 0 || len(jquerySinks) > 0 {
+		CreateJavascriptSourcesAndSinksInformationalIssue(item, jsSources, jsSinks, jquerySinks)
+	}
 }

@@ -86,8 +86,10 @@ func SetDefaultConfig() {
 	// Passive
 	viper.SetDefault("passive.wappalyzer", false)
 	viper.SetDefault("passive.retirejs", false)
-	viper.SetDefault("passive.headers.checks.enabled", true)
-	viper.SetDefault("passive.js.enabled", true)
+	viper.SetDefault("passive.checks.headers.enabled", true)
+	viper.SetDefault("passive.checks.js.enabled", true)
+	viper.SetDefault("passive.checks.missconfigurations.enabled", true)
+	viper.SetDefault("passive.checks.exceptions.enabled", true)
 
 	// Reporting
 	viper.SetDefault("reporting.issues.max_repeated_per_host", 20)

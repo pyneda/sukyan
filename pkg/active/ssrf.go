@@ -59,7 +59,7 @@ func (a *SSRFAudit) RunAgainstParameter(parameter string) {
 		TestAllParams: false,
 	}
 	// Get expected responses for "verification"
-	a.ExpectedResponses = fuzzer.GetExpectedResponses()
+	// a.ExpectedResponses = fuzzer.GetExpectedResponses()
 
 	// Schedule the fuzzer
 	fuzzer.Run(payloads, resultsChannel)
@@ -82,13 +82,16 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 		log.Error().Err(result.Err).Str("url", result.URL).Msg("Error sending SSRF test request")
 	}
 
-	history, _ := http_utils.ReadHttpResponseAndCreateHistory(&result.Response, db.SourceScanner)
-	historyID := uint(0)
-	if history != nil {
-		historyID = history.ID
-	} else {
-		log.Warn().Str("url", result.URL).Msg("Could not create history from SSRF test request")
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(&result.Response, db.SourceScanner)
+	if err != nil {
+		log.Error().Err(err).Str("url", result.URL).Msg("Error creating history from SSRF test request")
 	}
+	// historyID := uint(0)
+	// if history != nil {
+	// 	historyID = history.ID
+	// } else {
+	// 	log.Warn().Str("url", result.URL).Msg("Could not create history from SSRF test request")
+	// }
 	interactionData := result.Payload.GetInteractionData()
 	oobTest := db.OOBTest{
 		Code:              db.SSRFCode,
@@ -97,7 +100,7 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 		InteractionFullID: interactionData.InteractionFullID,
 		Target:            result.URL,
 		Payload:           result.Payload.GetValue(),
-		HistoryID:         &historyID,
+		HistoryID:         &history.ID,
 		// This should be improved by providing it into the fuzz task/result
 		InsertionPoint: "parameter",
 	}

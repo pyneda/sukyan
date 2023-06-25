@@ -42,6 +42,8 @@ var (
 	ApacheTapestryExceptionCode          IssueCode = "apache_tapestry_exception"
 	GrailsExceptionCode                  IssueCode = "grails_exception"
 	DjangoDebugExceptionCode             IssueCode = "django_debug_exception"
+	JavaServerHeaderCode                 IssueCode = "java_server_header"
+	JettyServerHeaderCode                IssueCode = "jetty_server_header"
 )
 
 var issueTemplates = []Issue{
@@ -324,6 +326,22 @@ var issueTemplates = []Issue{
 		Remediation: "Ensure the application is running in production mode to prevent the exposure of sensitive information.",
 		Cwe:         215, // Information Exposure Through Debug Information
 		Severity:    "Medium",
+	},
+	{
+		Code:        JavaServerHeaderCode,
+		Title:       "Java Version Detected",
+		Description: "The application's server response header discloses the version of Java in use. This could potentially provide valuable information to an attacker seeking to exploit a known vulnerability in the disclosed Java version.",
+		Remediation: "Configure your server to not disclose software version information in its response headers. Alternatively, ensure your software versions are regularly updated to the latest versions, mitigating the risk of known vulnerabilities.",
+		Cwe:         200, // CWE-200: Information Exposure
+		Severity:    "Low",
+	},
+	{
+		Code:        JettyServerHeaderCode,
+		Title:       "Jetty Version Detected",
+		Description: "The application's server response header discloses the version of Jetty in use. An attacker can exploit this information to target known vulnerabilities in the disclosed Jetty version.",
+		Remediation: "Configure your server to not disclose software version information in its response headers. Alternatively, regularly update your Jetty version to the latest one to reduce the risk of known vulnerabilities.",
+		Cwe:         200, // CWE-200: Information Exposure
+		Severity:    "Low",
 	},
 }
 

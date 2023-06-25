@@ -32,9 +32,21 @@ var xAspNetVersionHeaderCheck = HeaderCheck{
 }
 
 var serverHeaderCheck = HeaderCheck{
-	Headers:        []string{"Server"},
-	Matchers:       []HeaderCheckMatcher{headerMatchAny},
-	MatchCondition: And,
+	Headers: []string{"Server"},
+	Matchers: []HeaderCheckMatcher{
+		{
+			MatcherType:     Regex,
+			Value:           "Jetty\\.([\\d\\.]+)",
+			CustomIssueCode: db.JettyServerHeaderCode,
+		},
+		{
+			MatcherType:     Regex,
+			Value:           "java\\/([\\d\\.\\_]+)",
+			CustomIssueCode: db.JavaServerHeaderCode,
+		},
+		headerMatchAny,
+	},
+	MatchCondition: Or,
 	IssueCode:      db.ServerHeaderCode,
 }
 

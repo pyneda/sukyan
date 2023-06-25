@@ -42,6 +42,7 @@ func (f *HttpFuzzer) checkConfig() {
 // GetExpectedResponses attempts to gather common url response, for differential evaluation. Needs to be improved a lot
 func (f *HttpFuzzer) GetExpectedResponses() (expectedResponses ExpectedResponses) {
 	// Get base response
+	// NOTE: THis should be reviewed and updated in case it's really needed
 	base, err := http.Get(f.Config.URL)
 	baseExpectedResponse := ExpectedResponse{
 		Response: *base,
@@ -142,6 +143,8 @@ func (f *HttpFuzzer) Worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 		result.Err = err
 		result.Payload = task.payload
 		result.Response = *response
+		log.Info().Str("url", task.url).Interface("result", result).Msg("Fuzz result")
+
 		results <- result
 		totalPendingChannel <- -1
 	}

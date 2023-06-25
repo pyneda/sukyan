@@ -24,7 +24,7 @@ type ResponseBodyData struct {
 func ReadResponseBodyData(response *http.Response) (body []byte, size int, err error) {
 	bodyBytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Error().Err(err).Msg("Error reading response body")
+		log.Error().Err(err).Msg("Error reading response body in ReadResponseBodyData")
 	}
 	defer response.Body.Close()
 
@@ -61,7 +61,7 @@ func ReadFullResponse(response *http.Response) (FullResponseData, error) {
 
 	bodyBytes, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Error().Err(err).Msg("Error reading response body")
+		log.Error().Err(err).Msg("Error reading response body in ReadFullResponse")
 		return FullResponseData{}, err
 	}
 
@@ -80,7 +80,7 @@ func ReadHttpResponseAndCreateHistory(response *http.Response, source string) (*
 	}
 	responseData, err := ReadFullResponse(response)
 	if err != nil {
-		log.Error().Err(err).Msg("Error reading response body")
+		log.Error().Err(err).Msg("Error reading response body in ReadHttpResponseAndCreateHistory")
 	}
 	return CreateHistoryFromHttpResponse(response, responseData, source)
 }

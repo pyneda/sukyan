@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -49,43 +50,17 @@ func createRequestFromCookie(history *db.History, builder InsertionPointBuilder)
 	updatedCookies := make([]string, len(existingCookies))
 
 	for i, cookieStr := range existingCookies {
-		cookies := parseCookies(cookieStr)
+		cookies := http_utils.ParseCookies(cookieStr)
 		for _, cookie := range cookies {
 			if cookie.Name == builder.Point.Name {
 				cookie.Value = builder.Payload
 			}
 		}
-		updatedCookies[i] = joinCookies(cookies)
+		updatedCookies[i] = http_utils.JoinCookies(cookies)
 	}
 
 	headers["Cookie"] = updatedCookies
 	return headers, nil
-}
-
-// parseCookies is a helper function to parse multiple cookies from a string
-func parseCookies(cookieStr string) []*http.Cookie {
-	cookies := []*http.Cookie{}
-	parts := strings.Split(cookieStr, ";")
-	for _, part := range parts {
-		pair := strings.SplitN(strings.TrimSpace(part), "=", 2)
-		if len(pair) == 2 {
-			cookie := &http.Cookie{
-				Name:  pair[0],
-				Value: pair[1],
-			}
-			cookies = append(cookies, cookie)
-		}
-	}
-	return cookies
-}
-
-// joinCookies is a helper function to join cookies into a string
-func joinCookies(cookies []*http.Cookie) string {
-	cookieStrings := make([]string, len(cookies))
-	for i, cookie := range cookies {
-		cookieStrings[i] = cookie.Name + "=" + cookie.Value
-	}
-	return strings.Join(cookieStrings, "; ")
 }
 
 func createRequestFromBody(history *db.History, builders []InsertionPointBuilder) (io.Reader, string, error) {

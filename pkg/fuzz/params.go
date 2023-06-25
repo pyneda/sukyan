@@ -125,14 +125,15 @@ func (f *ParameterFuzzer) Monitor(pendingTasks chan parameterFuzzerTask, results
 // Worker makes the request and processes the result
 func (f *ParameterFuzzer) Worker(wg *sync.WaitGroup, pendingTasks chan parameterFuzzerTask, results chan FuzzResult, totalPendingChannel chan int) {
 	for task := range pendingTasks {
-		// make the request and store in result and then pass it fiz results channel
 		log.Debug().Interface("task", task).Msg("New fuzzer task received by parameter worker")
 		var result FuzzResult
 		response, err := http.Get(task.url)
 		result.URL = task.url
 		result.Err = err
 		result.Payload = task.payload
-		if err != nil && response != nil {
+		if err != nil {
+			log.Error().Err(err).Str("url", task.url).Msg("Error making GET request")
+		} else {
 			result.Response = *response
 		}
 		results <- result

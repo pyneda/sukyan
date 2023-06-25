@@ -93,7 +93,7 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 	}
 
 	http_utils.SetRequestHeadersFromHistoryItem(request, a.HistoryItem)
-	log.Warn().Interface("request", request.Header).Msg("Request headers")
+	// log.Warn().Interface("request", request.Header).Msg("Request headers")
 	response, err := client.Do(request)
 
 	if err != nil {

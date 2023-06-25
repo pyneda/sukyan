@@ -1,7 +1,8 @@
 package fuzz
 
 import (
-	"github.com/pyneda/sukyan/lib"
+	"bytes"
+	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
 	"net/http"
@@ -18,113 +19,65 @@ import (
 // - Concurrency (consider per host rate limit)
 // - Use proxy
 type HttpFuzzer struct {
-	Config          FuzzerConfig
-	RequestTimeout  uint16
-	InjectionPoints []*InjectionPoint
-	// To delete
-	Params        []string
-	TestAllParams bool
+	Concurrency int
+	client      *http.Client
 }
 
 type HttpFuzzerTask struct {
-	url            string
-	InjectionPoint *InjectionPoint
+	history        *db.History
+	injectionPoint *InjectionPoint
 	payload        payloads.PayloadInterface
 }
 
 func (f *HttpFuzzer) checkConfig() {
-	if f.Config.Concurrency == 0 {
+	if f.Concurrency == 0 {
 		log.Info().Interface("fuzzer", f).Msg("Concurrency is not set, setting 4 as default")
-		f.Config.Concurrency = 4
+		f.Concurrency = 4
 	}
-}
-
-// GetExpectedResponses attempts to gather common url response, for differential evaluation. Needs to be improved a lot
-func (f *HttpFuzzer) GetExpectedResponses() (expectedResponses ExpectedResponses) {
-	// Get base response
-	// NOTE: THis should be reviewed and updated in case it's really needed
-	base, err := http.Get(f.Config.URL)
-	baseExpectedResponse := ExpectedResponse{
-		Response: *base,
-		Err:      err,
+	if f.client == nil {
+		f.client = http_utils.CreateHttpClient()
 	}
-	baseBody, baseSize, err := http_utils.ReadResponseBodyData(base)
-	baseExpectedResponse.Body = string(baseBody)
-	baseExpectedResponse.BodySize = baseSize
-	expectedResponses.Base = baseExpectedResponse
-	if base.StatusCode != 200 {
-		log.Warn().Int("status", base.StatusCode).Msg("Base url to fuzz does not response with 200, will test anyways")
-	}
-
-	// Attempt to get a 404
-	notFoundURL, err := lib.Build404URL(f.Config.URL)
-	if err != nil {
-		log.Error().Err(err).Str("url", f.Config.URL).Msg("There was an error building a url to gather a 404 response")
-	} else {
-		notFound, err := http.Get(notFoundURL)
-		notFoundExpectedResponse := ExpectedResponse{
-			Response: *notFound,
-			Err:      err,
-		}
-		baseBody, baseSize, err := http_utils.ReadResponseBodyData(base)
-		baseExpectedResponse.Body = string(baseBody)
-		baseExpectedResponse.BodySize = baseSize
-		expectedResponses.NotFound = notFoundExpectedResponse
-		if notFound.StatusCode != 404 {
-			log.Warn().Str("original", f.Config.URL).Str("tested", notFoundURL).Msg("Gathered a non 404 status code attempting to fingerprint not found pages")
-		}
-
-	}
-	// Get
-	return expectedResponses
 }
 
 // Run starts the fuzzing job
-// func (f *HttpFuzzer) Run(payloads []string, results chan FuzzResult) {
-func (f *HttpFuzzer) Run(payloads []payloads.PayloadInterface, results chan FuzzResult) {
+func (f *HttpFuzzer) Run(history *db.History, payloads []payloads.PayloadInterface, injectionPoints []*InjectionPoint, results chan FuzzResult) {
 	var wg sync.WaitGroup
+	// TODO: The concurrency implementation should be reviewed, the WaitGroup is not being waited
+	f.checkConfig()
 	// Declare the channels
 	totalPendingChannel := make(chan int)
 	pendingTasks := make(chan HttpFuzzerTask)
 
-	go f.Monitor(pendingTasks, results, totalPendingChannel)
+	go f.monitor(pendingTasks, results, totalPendingChannel)
 	// Schedule workers
-	for i := 0; i < f.Config.Concurrency; i++ {
+	for i := 0; i < f.Concurrency; i++ {
 		wg.Add(1)
-		go f.Worker(&wg, pendingTasks, results, totalPendingChannel)
+		go f.worker(&wg, pendingTasks, results, totalPendingChannel)
 	}
 
 	go func() {
-		// Communicate with workers to send them new fuzzing tasks
-		params := lib.GetParametersToTest(f.Config.URL, f.Params, f.TestAllParams)
-		for _, param := range params {
+		// Should review if the old insertion points it's worth to reuse or a need one needs to be implemented and handle the insertion points here.
+		for _, injectionPoint := range injectionPoints {
 			for _, payload := range payloads {
-				fuzzURL, err := lib.BuildURLWithParam(f.Config.URL, param, payload.GetValue(), false)
-				if err != nil {
-					log.Error().Err(err).Str("param", param).Str("payload", payload.GetValue()).Str("url", f.Config.URL).Msg("Error building url to fuzz")
-				} else {
-					task := HttpFuzzerTask{
-						url:     fuzzURL,
-						payload: payload,
-					}
-					pendingTasks <- task
-					totalPendingChannel <- 1
+				task := HttpFuzzerTask{
+					history:        history,
+					payload:        payload,
+					injectionPoint: injectionPoint,
 				}
-
+				pendingTasks <- task
+				totalPendingChannel <- 1
 			}
 		}
 	}()
 }
 
-// Monitor checks when the job has finished
-func (f *HttpFuzzer) Monitor(pendingTasks chan HttpFuzzerTask, results chan FuzzResult, totalPendingChannel chan int) {
+// monitor checks when the job has finished
+func (f *HttpFuzzer) monitor(pendingTasks chan HttpFuzzerTask, results chan FuzzResult, totalPendingChannel chan int) {
 	count := 0
 	for c := range totalPendingChannel {
-		log.Debug().Int("count", count).Int("received", c).Msg("Monitor received data from totalPendingChannel")
 		count += c
 		if count == 0 {
-			// Close the channels
-			log.Debug().Msg("CrawlMonitor closing all the communication channels")
+			log.Debug().Msg("HttpFuzzer monitor closing all the communication channels")
 			close(pendingTasks)
 			close(totalPendingChannel)
 			close(results)
@@ -132,19 +85,21 @@ func (f *HttpFuzzer) Monitor(pendingTasks chan HttpFuzzerTask, results chan Fuzz
 	}
 }
 
-// Worker makes the request and processes the result
-func (f *HttpFuzzer) Worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask, results chan FuzzResult, totalPendingChannel chan int) {
+// worker makes the request and processes the result
+func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask, results chan FuzzResult, totalPendingChannel chan int) {
 	for task := range pendingTasks {
 		// make the request and store in result and then pass it fiz results channel
 		log.Debug().Interface("task", task).Msg("New fuzzer task received by parameter worker")
 		var result FuzzResult
-		response, err := http.Get(task.url)
-		result.URL = task.url
+		reqBody := bytes.NewReader(task.history.RequestBody)
+		req, _ := http.NewRequest(task.history.Method, task.history.URL, reqBody)
+		response, err := f.client.Do(req)
+		// Could probably already create the history here and pass it to the result
+
+		result.URL = task.history.URL // This should either be removed or be the URL with the payload
 		result.Err = err
 		result.Payload = task.payload
 		result.Response = *response
-		log.Info().Str("url", task.url).Interface("result", result).Msg("Fuzz result")
-
 		results <- result
 		totalPendingChannel <- -1
 	}

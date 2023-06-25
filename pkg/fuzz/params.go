@@ -15,6 +15,7 @@ type ParameterFuzzer struct {
 	Config        FuzzerConfig
 	Params        []string
 	TestAllParams bool
+	client        *http.Client
 }
 
 type parameterFuzzerTask struct {
@@ -26,6 +27,9 @@ func (f *ParameterFuzzer) checkConfig() {
 	if f.Config.Concurrency == 0 {
 		log.Info().Interface("fuzzer", f).Msg("Concurrency is not set, setting 4 as default")
 		f.Config.Concurrency = 4
+	}
+	if f.client == nil {
+		f.client = http_utils.CreateHttpClient()
 	}
 }
 
@@ -72,6 +76,7 @@ func (f *ParameterFuzzer) GetExpectedResponses() (expectedResponses ExpectedResp
 // func (f *ParameterFuzzer) Run(payloads []string, results chan FuzzResult) {
 func (f *ParameterFuzzer) Run(payloads []payloads.PayloadInterface, results chan FuzzResult) {
 	var wg sync.WaitGroup
+	f.checkConfig()
 	// Declare the channels
 	totalPendingChannel := make(chan int)
 	pendingTasks := make(chan parameterFuzzerTask)
@@ -127,7 +132,12 @@ func (f *ParameterFuzzer) Worker(wg *sync.WaitGroup, pendingTasks chan parameter
 	for task := range pendingTasks {
 		log.Debug().Interface("task", task).Msg("New fuzzer task received by parameter worker")
 		var result FuzzResult
-		response, err := http.Get(task.url)
+		req, _ := http.NewRequest("GET", task.url, nil)
+		// if err != nil {
+		// 	log.Error().Err(err).Str("url", task.url).Msg("Error creating GET request")
+		// 	return
+		// }
+		response, err := f.client.Do(req)
 		result.URL = task.url
 		result.Err = err
 		result.Payload = task.payload

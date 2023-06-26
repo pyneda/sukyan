@@ -1,7 +1,6 @@
 package fuzz
 
 import (
-	"bytes"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
@@ -12,12 +11,8 @@ import (
 )
 
 // HttpFuzzer is a reimplementation of the initial ParameterFuzzer which:
-// - Should be easy configurable (consider callbacks)
-// - Should allow all HTTP Methods
-// - Allow all (or most) injection points ()
-// - It's main use is for tests which do not require a browser
-// - Concurrency (consider per host rate limit)
-// - Use proxy
+// - Is based on a Http history and supports all HTTP methods
+// - Supports multiple insertion points (URL, Header, Body, Cookie)
 type HttpFuzzer struct {
 	Concurrency int
 	client      *http.Client
@@ -25,7 +20,7 @@ type HttpFuzzer struct {
 
 type HttpFuzzerTask struct {
 	history        *db.History
-	injectionPoint *InjectionPoint
+	insertionPoint *InsertionPoint
 	payload        payloads.PayloadInterface
 }
 
@@ -40,7 +35,7 @@ func (f *HttpFuzzer) checkConfig() {
 }
 
 // Run starts the fuzzing job
-func (f *HttpFuzzer) Run(history *db.History, payloads []payloads.PayloadInterface, injectionPoints []*InjectionPoint, results chan FuzzResult) {
+func (f *HttpFuzzer) Run(history *db.History, payloads []payloads.PayloadInterface, insertionPoints []*InsertionPoint, results chan FuzzResult) {
 	var wg sync.WaitGroup
 	// TODO: The concurrency implementation should be reviewed, the WaitGroup is not being waited
 	f.checkConfig()
@@ -56,13 +51,13 @@ func (f *HttpFuzzer) Run(history *db.History, payloads []payloads.PayloadInterfa
 	}
 
 	go func() {
-		// Should review if the old insertion points it's worth to reuse or a need one needs to be implemented and handle the insertion points here.
-		for _, injectionPoint := range injectionPoints {
+		// By now, just one insertion point is supported even though the CreateRequestFromInsertionPoints function supports multiple
+		for _, insertionPoint := range insertionPoints {
 			for _, payload := range payloads {
 				task := HttpFuzzerTask{
 					history:        history,
 					payload:        payload,
-					injectionPoint: injectionPoint,
+					insertionPoint: insertionPoint,
 				}
 				pendingTasks <- task
 				totalPendingChannel <- 1
@@ -91,15 +86,25 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 		// make the request and store in result and then pass it fiz results channel
 		log.Debug().Interface("task", task).Msg("New fuzzer task received by parameter worker")
 		var result FuzzResult
-		reqBody := bytes.NewReader(task.history.RequestBody)
-		req, _ := http.NewRequest(task.history.Method, task.history.URL, reqBody)
-		response, err := f.client.Do(req)
-		// Could probably already create the history here and pass it to the result
+		builders := []InsertionPointBuilder{
+			InsertionPointBuilder{
+				Point:   *task.insertionPoint,
+				Payload: task.payload.GetValue(),
+			},
+		}
+		req, err := CreateRequestFromInsertionPoints(task.history, builders)
+		if err != nil {
+			log.Error().Err(err).Str("param", task.insertionPoint.Name).Str("payload", task.payload.GetValue()).Str("url", task.history.URL).Msg("Error building request from insertion points")
+			result.Err = err
 
-		result.URL = task.history.URL // This should either be removed or be the URL with the payload
-		result.Err = err
+		} else {
+			response, err := f.client.Do(req)
+			result.Err = err
+			result.URL = response.Request.URL.String()
+			result.Response = *response
+		}
 		result.Payload = task.payload
-		result.Response = *response
+
 		results <- result
 		totalPendingChannel <- -1
 	}

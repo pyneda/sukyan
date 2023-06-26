@@ -20,6 +20,7 @@ require (
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
 	github.com/swaggo/swag v1.16.1
+	gopkg.in/yaml.v2 v2.4.0
 	gorm.io/datatypes v1.2.0
 	gorm.io/driver/postgres v1.5.0
 	gorm.io/driver/sqlite v1.5.1

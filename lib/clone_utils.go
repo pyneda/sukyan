@@ -1,6 +1,8 @@
 package lib
 
 import (
+	"bytes"
+	"encoding/gob"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -60,4 +62,12 @@ func CloneMultipartFileHeader(fh *multipart.FileHeader) *multipart.FileHeader {
 	*fh2 = *fh
 	fh2.Header = textproto.MIMEHeader(http.Header(fh.Header).Clone())
 	return fh2
+}
+
+func DeepCopy(src, dest interface{}) error {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(src); err != nil {
+		return err
+	}
+	return gob.NewDecoder(bytes.NewBuffer(buf.Bytes())).Decode(dest)
 }

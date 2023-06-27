@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/pyneda/sukyan/lib"
+	"github.com/rs/zerolog/log"
 	"text/template"
 )
 
@@ -16,20 +17,47 @@ type PayloadGenerator struct {
 	Categories         []string           `yaml:"categories"`
 }
 
-type Payload struct {
-	IssueCode        string            `yaml:"issue_code"`
-	Value            string            `yaml:"value"`
-	Vars             []PayloadVariable `yaml:"vars,omitempty"`
-	DetectionMethods []DetectionMethod `yaml:"detection_methods"`
-	Categories       []string          `yaml:"categories"`
+func (generator *PayloadGenerator) BuildPayloads() ([]Payload, error) {
+	var payloads []Payload
+	for _, tmpl := range generator.Templates {
+		vars, _ := GenerateVars(generator.Vars)
+		result, err := ApplyVarsToText(tmpl, vars)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to apply vars to template %s", tmpl)
+			return nil, fmt.Errorf("failed to apply vars to template: %v", err)
+		}
+		vars["payload"] = result
+		var processedDetectionMethods []DetectionMethod
+		err = lib.DeepCopy(generator.DetectionMethods, &processedDetectionMethods)
+		if err != nil {
+			return nil, fmt.Errorf("failed to copy detection methods: %v", err)
+		}
+		err = ApplyVarsToDetectionMethods(processedDetectionMethods, vars)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply vars to detection methods: %v", err)
+		}
+		var processedPayloadVars []PayloadVariable
+		for k, v := range vars {
+			processedPayloadVars = append(processedPayloadVars, PayloadVariable{
+				Name:  k,
+				Value: v,
+			})
+		}
+
+		payloads = append(payloads, Payload{
+			IssueCode:        generator.IssueCode,
+			Value:            result,
+			Vars:             processedPayloadVars,
+			DetectionMethods: processedDetectionMethods,
+			Categories:       generator.Categories,
+		})
+	}
+	return payloads, nil
 }
 
 func GenerateVars(variables []PayloadVariable) (map[string]string, error) {
 	vars := make(map[string]string)
-	funcs := template.FuncMap{
-		"generateInteractionUrl": generateInteractionUrl,
-		"genRandInt":             genRandInt,
-	}
+	funcs := getTemplateFuncs()
 
 	for _, v := range variables {
 		t, err := template.New("").Funcs(funcs).Parse(v.Value)
@@ -50,11 +78,7 @@ func GenerateVars(variables []PayloadVariable) (map[string]string, error) {
 }
 
 func ApplyVarsToText(text string, vars map[string]string) (string, error) {
-	funcs := template.FuncMap{
-		"generateInteractionUrl": generateInteractionUrl,
-		"genRandInt":             genRandInt,
-	}
-
+	funcs := getTemplateFuncs()
 	t, err := template.New("").Funcs(funcs).Parse(text)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse template: %v", err)
@@ -134,42 +158,4 @@ func ApplyVarsToDetectionMethods(methods []DetectionMethod, vars map[string]stri
 		}
 	}
 	return nil
-}
-
-func BuildPayloads(generator *PayloadGenerator) ([]Payload, error) {
-	var payloads []Payload
-	for _, tmpl := range generator.Templates {
-		vars, _ := GenerateVars(generator.Vars)
-		result, err := ApplyVarsToText(tmpl, vars)
-		if err != nil {
-			fmt.Println("Error executing template:", err)
-			return nil, fmt.Errorf("failed to apply vars to template: %v", err)
-		}
-		vars["payload"] = result
-		var processedDetectionMethods []DetectionMethod
-		err = lib.DeepCopy(generator.DetectionMethods, &processedDetectionMethods)
-		if err != nil {
-			return nil, fmt.Errorf("failed to copy detection methods: %v", err)
-		}
-		err = ApplyVarsToDetectionMethods(processedDetectionMethods, vars)
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply vars to detection methods: %v", err)
-		}
-		var processedPayloadVars []PayloadVariable
-		for k, v := range vars {
-			processedPayloadVars = append(processedPayloadVars, PayloadVariable{
-				Name:  k,
-				Value: v,
-			})
-		}
-
-		payloads = append(payloads, Payload{
-			IssueCode:        generator.IssueCode,
-			Value:            result,
-			Vars:             processedPayloadVars,
-			DetectionMethods: processedDetectionMethods,
-			Categories:       generator.Categories,
-		})
-	}
-	return payloads, nil
 }

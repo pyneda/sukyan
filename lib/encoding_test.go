@@ -1,11 +1,11 @@
-package payloads
+package lib
 
 import (
 	"testing"
 )
 
 func TestBase64Encode(t *testing.T) {
-	if EncodeBase64("test") != "dGVzdA==" {
+	if Base64Encode("test") != "dGVzdA==" {
 		t.Error()
 	}
 }

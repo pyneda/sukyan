@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func PrintGeneratedPayload(payload *Payload) {
+func (payload *Payload) Print() {
 	fmt.Printf("Payload:\n")
 	fmt.Println(payload.Value)
 	fmt.Println("\nDetection Methods:")

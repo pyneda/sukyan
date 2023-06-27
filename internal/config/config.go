@@ -83,6 +83,9 @@ func SetDefaultConfig() {
 	viper.SetDefault("scan.oob.wait_after_scan", 30)
 	viper.SetDefault("scan.oob.asn_info", false)
 
+	// Generators
+	viper.SetDefault("generators.directory", "/etc/sukyan/generators")
+
 	// Passive
 	viper.SetDefault("passive.wappalyzer", false)
 	viper.SetDefault("passive.retirejs", false)

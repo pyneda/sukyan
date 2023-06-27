@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // DefaultRandomStringsCharset Default charset used for random string generation
@@ -76,4 +77,10 @@ func SetupCloseHandler() {
 		fmt.Println("\r- Ctrl+C pressed in Terminal")
 		os.Exit(0)
 	}()
+}
+
+// GenerateRandInt generates a random integer between min and max
+func GenerateRandInt(min, max int) int {
+	rand.Seed(time.Now().UnixNano())
+	return rand.Intn(max-min+1) + min
 }

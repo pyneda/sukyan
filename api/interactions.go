@@ -39,9 +39,7 @@ func FindInteractions(c *fiber.Ctx) error {
 	}
 
 	if unparsedProtocols != "" {
-		for _, protocol := range strings.Split(unparsedProtocols, ",") {
-			protocols = append(protocols, protocol)
-		}
+		protocols = append(protocols, strings.Split(unparsedProtocols, ",")...)
 	}
 
 	issues, count, err := db.Connection.ListInteractions(db.InteractionsFilter{

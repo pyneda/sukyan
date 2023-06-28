@@ -38,7 +38,7 @@ func (i *URLInspector) InspectForm(form *rod.Element) {
 	// should try to guess if its common functionality
 
 	log.Info().Interface("form", formData).Msg("Inspecting form")
-	if i.SubmitForms == true {
+	// if i.SubmitForms == true {
 
-	}
+	// }
 }

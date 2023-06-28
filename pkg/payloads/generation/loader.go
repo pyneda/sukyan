@@ -3,7 +3,7 @@ package generation
 import (
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -11,7 +11,7 @@ import (
 // loadGenerator reads an individual file and map it into an instance of PayloadGenerator
 func loadGenerator(filePath string) (*PayloadGenerator, error) {
 	var pg PayloadGenerator
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func loadGenerator(filePath string) (*PayloadGenerator, error) {
 
 // LoadGenerators handle reading all YAML files in a directory and parsing them into PayloadGenerator instances
 func LoadGenerators(dir string) ([]*PayloadGenerator, error) {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}

@@ -60,7 +60,10 @@ func InitDb() *DatabaseConnection {
 	if err != nil {
 		panic("failed to connect database")
 	}
-	db.AutoMigrate(&Workspace{}, &Issue{}, &History{}, &OOBTest{}, &OOBInteraction{}, &Task{}, &TaskJob{}, &WebSocketConnection{}, &WebSocketMessage{}, &JsonWebToken{})
+	migrateError := db.AutoMigrate(&Workspace{}, &Issue{}, &History{}, &OOBTest{}, &OOBInteraction{}, &Task{}, &TaskJob{}, &WebSocketConnection{}, &WebSocketMessage{}, &JsonWebToken{})
+	if migrateError != nil {
+		panic("failed to migrate database")
+	}
 	sqlDB, err := db.DB()
 	if err != nil {
 		panic("failed to get underlying sql.DB")

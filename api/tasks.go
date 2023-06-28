@@ -41,9 +41,7 @@ func FindTasks(c *fiber.Ctx) error {
 	}
 
 	if unparsedStatuses != "" {
-		for _, status := range strings.Split(unparsedStatuses, ",") {
-			statuses = append(statuses, status)
-		}
+		statuses = append(statuses, strings.Split(unparsedStatuses, ",")...)
 	}
 
 	tasks, count, err := db.Connection.ListTasks(db.TaskFilter{

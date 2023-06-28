@@ -74,9 +74,7 @@ func GetSensibleDataFromText(text string) (findings []SensibleData) {
 			Value: guid,
 		})
 	}
-	for _, finding := range GetHashesFromText(text) {
-		findings = append(findings, finding)
-	}
+	findings = append(findings, GetHashesFromText(text)...)
 
 	return findings
 }

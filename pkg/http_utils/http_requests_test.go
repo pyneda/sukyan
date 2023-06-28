@@ -2,7 +2,7 @@ package http_utils
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -19,12 +19,12 @@ func TestBuildRequestFromHistoryItem(t *testing.T) {
 	}{
 		{
 			historyItem: &db.History{Method: "GET", URL: "https://example.com", RequestBody: []byte("")},
-			expected:    &http.Request{Method: "GET", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(bytes.NewReader([]byte("")))},
+			expected:    &http.Request{Method: "GET", URL: mustParseURL("https://example.com"), Body: io.NopCloser(bytes.NewReader([]byte("")))},
 			expectError: false,
 		},
 		{
 			historyItem: &db.History{Method: "POST", URL: "https://example.com", RequestBody: []byte("test body")},
-			expected:    &http.Request{Method: "POST", URL: mustParseURL("https://example.com"), Body: ioutil.NopCloser(bytes.NewReader([]byte("test body")))},
+			expected:    &http.Request{Method: "POST", URL: mustParseURL("https://example.com"), Body: io.NopCloser(bytes.NewReader([]byte("test body")))},
 			expectError: false,
 		},
 		//... continue with other cases, remember to use []byte() for the RequestBody and bytes.NewReader() for the Body
@@ -44,15 +44,15 @@ func TestBuildRequestFromHistoryItem(t *testing.T) {
 			t.Errorf("expected URL %s, got %s", tc.expected.URL.String(), got.URL.String())
 		}
 		if tc.historyItem.RequestBody != nil {
-			tc.expected.Body = ioutil.NopCloser(bytes.NewReader(tc.historyItem.RequestBody))
+			tc.expected.Body = io.NopCloser(bytes.NewReader(tc.historyItem.RequestBody))
 		} else {
 			tc.expected.Body = nil
 		}
 		if got.Body != nil && tc.expected.Body != nil {
-			gotBody, _ := ioutil.ReadAll(got.Body)
+			gotBody, _ := io.ReadAll(got.Body)
 			got.Body.Close()
 
-			expectedBody, _ := ioutil.ReadAll(tc.expected.Body)
+			expectedBody, _ := io.ReadAll(tc.expected.Body)
 			tc.expected.Body.Close()
 
 			if string(gotBody) != string(expectedBody) {

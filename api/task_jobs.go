@@ -48,9 +48,7 @@ func FindTaskJobs(c *fiber.Ctx) error {
 	}
 
 	if unparsedStatuses != "" {
-		for _, status := range strings.Split(unparsedStatuses, ",") {
-			statuses = append(statuses, status)
-		}
+		statuses = append(statuses, strings.Split(unparsedStatuses, ",")...)
 	}
 
 	if unparsedTitles != "" {

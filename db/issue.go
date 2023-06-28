@@ -51,12 +51,19 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 	return issues, count, err
 }
 
+type GroupedIssue struct {
+	Title    string `json:"title"`
+	Code     string `json:"code"`
+	Count    int    `json:"count"`
+	Severity string `json:"severity"`
+}
+
 // ListIssues Lists issues
-func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) (issues []*Issue, err error) {
+func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) (issues []*GroupedIssue, err error) {
 	if len(filter.Codes) > 0 {
-		err = d.db.Select("title,code,url").Where("code IN ?", filter.Codes).Group("title").Find(&issues).Error
+		err = d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Where("code IN ?", filter.Codes).Group("title,severity,code").Find(&issues).Error
 	} else {
-		err = d.db.Select("title,code,url").Group("title").Find(&issues).Error
+		err = d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Group("title,severity,code").Find(&issues).Error
 	}
 	return issues, err
 }

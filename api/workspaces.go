@@ -13,8 +13,8 @@ import (
 // @Tags Workspaces
 // @Accept  json
 // @Produce  json
-// @Success 200 {object} map[string]interface{}
-// @Failure 500 {object} map[string]string
+// @Success 200 {array} db.Workspace
+// @Failure 500 {object} ErrorResponse
 // @Router /api/v1/workspaces [get]
 func FindWorkspaces(c *fiber.Ctx) error {
 	items, count, err := db.Connection.ListWorkspaces()

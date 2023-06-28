@@ -19,8 +19,8 @@ import (
 // @Param page_size query int false "Number of items per page" default(50)
 // @Param page query int false "Page number" default(1)
 // @Param status query string false "Comma-separated list of statuses to filter"
-// @Success 200 {object} map[string]interface{}
-// @Failure 500 {object} map[string]string
+// @Success 200 {array} db.Task
+// @Failure 500 {object} ErrorResponse
 // @Router /api/v1/tasks [get]
 func FindTasks(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")

@@ -40,7 +40,7 @@ func getGenerator() generation.PayloadGenerator {
 		Vars: []generation.PayloadVariable{
 			{
 				Name:  "oob_address",
-				Value: "{{generateInteractionUrl}}",
+				Value: "{{genInteractionAddress}}",
 			},
 			{
 				Name:  "test",

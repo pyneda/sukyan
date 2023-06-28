@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/rs/zerolog/log"
 	"text/template"
 )
@@ -17,10 +18,14 @@ type PayloadGenerator struct {
 	Categories         []string           `yaml:"categories"`
 }
 
-func (generator *PayloadGenerator) BuildPayloads() ([]Payload, error) {
+func (generator *PayloadGenerator) BuildPayloads(interactionsManager integrations.InteractionsManager) ([]Payload, error) {
 	var payloads []Payload
 	for _, tmpl := range generator.Templates {
-		vars, _ := GenerateVars(generator.Vars)
+		vars, interactionDomain, err := GenerateVars(generator.Vars, interactionsManager)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to generate vars")
+			continue
+		}
 		result, err := ApplyVarsToText(tmpl, vars)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to apply vars to template %s", tmpl)
@@ -45,41 +50,44 @@ func (generator *PayloadGenerator) BuildPayloads() ([]Payload, error) {
 		}
 
 		payloads = append(payloads, Payload{
-			IssueCode:        generator.IssueCode,
-			Value:            result,
-			Vars:             processedPayloadVars,
-			DetectionMethods: processedDetectionMethods,
-			Categories:       generator.Categories,
+			IssueCode:         generator.IssueCode,
+			Value:             result,
+			Vars:              processedPayloadVars,
+			DetectionMethods:  processedDetectionMethods,
+			Categories:        generator.Categories,
+			InteractionDomain: interactionDomain,
 		})
 	}
 	return payloads, nil
 }
 
-func GenerateVars(variables []PayloadVariable) (map[string]string, error) {
+func GenerateVars(variables []PayloadVariable, interactionsManager integrations.InteractionsManager) (map[string]string, integrations.InteractionDomain, error) {
 	vars := make(map[string]string)
-	funcs := getTemplateFuncs()
+	renderer := &TemplateRenderer{
+		interactionsManager: interactionsManager,
+	}
 
 	for _, v := range variables {
-		t, err := template.New("").Funcs(funcs).Parse(v.Value)
+		t, err := template.New("").Funcs(renderer.getTemplateFuncs()).Parse(v.Value)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse template: %v", err)
+			return nil, integrations.InteractionDomain{}, fmt.Errorf("failed to parse template: %v", err)
 		}
 
 		var buf bytes.Buffer
 		err = t.Execute(&buf, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to execute template: %v", err)
+			return nil, integrations.InteractionDomain{}, fmt.Errorf("failed to execute template: %v", err)
 		}
 
 		vars[v.Name] = buf.String()
 	}
 
-	return vars, nil
+	return vars, renderer.interactionDomain, nil
 }
 
 func ApplyVarsToText(text string, vars map[string]string) (string, error) {
-	funcs := getTemplateFuncs()
-	t, err := template.New("").Funcs(funcs).Parse(text)
+	t, err := template.New("").Parse(text)
+
 	if err != nil {
 		return "", fmt.Errorf("failed to parse template: %v", err)
 	}

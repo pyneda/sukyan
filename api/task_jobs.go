@@ -17,6 +17,13 @@ import (
 // @Accept  json
 // @Produce  json
 // @Param id path int true "Task ID"
+// @Param page_size query int false "Number of items per page" default(50)
+// @Param page query int false "Page number" default(1)
+// @Param status query string false "Comma-separated list of statuses to filter"
+// @Param title query string false "Comma-separated list of titles to filter"
+// @Param completed_at query string false "Completed at date to filter"
+// @Success 200 {array} db.TaskJob
+// @Failure 500 {object} ErrorResponse
 // @Router /api/v1/tasks/jobs [get]
 func FindTaskJobs(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")

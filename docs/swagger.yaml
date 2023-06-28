@@ -1,4 +1,9 @@
 definitions:
+  api.ActionResponse:
+    properties:
+      message:
+        type: string
+    type: object
   api.ErrorResponse:
     properties:
       error:
@@ -30,14 +35,30 @@ definitions:
     required:
     - items
     type: object
+  db.GroupedIssue:
+    properties:
+      code:
+        type: string
+      count:
+        type: integer
+      severity:
+        type: string
+      title:
+        type: string
+    type: object
   db.JwtFilters:
     properties:
       algorithm:
-        description: Example validation rule for algorithm
         enum:
         - HS256
         - HS384
         - HS512
+        - RS256
+        - RS384
+        - RS512
+        - ES256
+        - ES384
+        - ES512
         type: string
       audience:
         type: string
@@ -49,6 +70,8 @@ definitions:
         - token
         - header
         - issuer
+        - id
+        - algorithm
         - subject
         - audience
         - expiration
@@ -61,6 +84,83 @@ definitions:
         - desc
         type: string
       subject:
+        type: string
+    type: object
+  db.MessageDirection:
+    enum:
+    - sent
+    - received
+    type: string
+    x-enum-varnames:
+    - MessageSent
+    - MessageReceived
+  db.Task:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      started_at:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  db.TaskJob:
+    properties:
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      status:
+        type: string
+      task_id:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  db.WebSocketMessage:
+    properties:
+      connection_id:
+        type: integer
+      created_at:
+        type: string
+      direction:
+        allOf:
+        - $ref: '#/definitions/db.MessageDirection'
+        description: direction of the message
+      id:
+        type: integer
+      mask:
+        type: boolean
+      opcode:
+        type: number
+      payload_data:
+        type: string
+      timestamp:
+        description: timestamp for when the message was sent/received
+        type: string
+      updated_at:
+        type: string
+    type: object
+  db.Workspace:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      title:
+        type: string
+      updated_at:
         type: string
     type: object
 info:
@@ -95,7 +195,11 @@ paths:
         type: string
       produces:
       - application/json
-      responses: {}
+      responses:
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Get history
       tags:
       - History
@@ -123,11 +227,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            type: string
+            $ref: '#/definitions/api.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            type: string
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Get children history
       tags:
       - History
@@ -148,11 +252,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            type: string
+            $ref: '#/definitions/api.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            type: string
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Gets all root history nodes
       tags:
       - History
@@ -172,7 +276,11 @@ paths:
         type: integer
       produces:
       - application/json
-      responses: {}
+      responses:
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Get WebSocket connections
       tags:
       - History WebSocket
@@ -197,7 +305,17 @@ paths:
         type: string
       produces:
       - application/json
-      responses: {}
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.WebSocketMessage'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Get WebSocket messages
       tags:
       - History WebSocket
@@ -221,7 +339,11 @@ paths:
         type: string
       produces:
       - application/json
-      responses: {}
+      responses:
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Get interactions
       tags:
       - Interactions
@@ -241,9 +363,7 @@ paths:
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
       summary: List all issues
       tags:
       - Issues
@@ -258,14 +378,13 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            items:
+              $ref: '#/definitions/db.GroupedIssue'
+            type: array
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
       summary: List all issues grouped
       tags:
       - Issues
@@ -287,14 +406,11 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/api.ActionResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Submit items for active scanning
       tags:
       - Scan
@@ -316,14 +432,11 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/api.ActionResponse'
         "400":
           description: Bad Request
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Submit items for passive scanning
       tags:
       - Scan
@@ -353,14 +466,13 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            items:
+              $ref: '#/definitions/db.Task'
+            type: array
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
       summary: List tasks with pagination and filtering
       tags:
       - Tasks
@@ -375,9 +487,41 @@ paths:
         name: id
         required: true
         type: integer
+      - default: 50
+        description: Number of items per page
+        in: query
+        name: page_size
+        type: integer
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Comma-separated list of statuses to filter
+        in: query
+        name: status
+        type: string
+      - description: Comma-separated list of titles to filter
+        in: query
+        name: title
+        type: string
+      - description: Completed at date to filter
+        in: query
+        name: completed_at
+        type: string
       produces:
       - application/json
-      responses: {}
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.TaskJob'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Search Task Jobs
       tags:
       - Tasks
@@ -396,12 +540,6 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              type: object
-            type: array
         "400":
           description: Bad Request
           schema:
@@ -424,14 +562,13 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            items:
+              $ref: '#/definitions/db.Workspace'
+            type: array
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
       summary: List all workspaces
       tags:
       - Workspaces

@@ -16,7 +16,6 @@ import (
 // @Accept  json
 // @Produce  json
 // @Param input body db.JwtFilters true "Filtering and sorting options"
-// @Success 200 {array} interface{}
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /api/v1/tokens/jwts [post]

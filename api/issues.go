@@ -14,7 +14,7 @@ import (
 // @Accept  json
 // @Produce  json
 // @Success 200 {object} map[string]interface{}
-// @Failure 500 {object} map[string]string
+// @Failure 500 {object} ErrorResponse
 // @Router /api/v1/issues [get]
 func FindIssues(c *fiber.Ctx) error {
 	issues, count, err := db.Connection.ListIssues(db.IssueFilter{})
@@ -31,8 +31,8 @@ func FindIssues(c *fiber.Ctx) error {
 // @Tags Issues
 // @Accept  json
 // @Produce  json
-// @Success 200 {object} map[string]interface{}
-// @Failure 500 {object} map[string]string
+// @Success 200 {array} db.GroupedIssue
+// @Failure 500 {object} ErrorResponse
 // @Router /api/v1/issues/grouped [get]
 func FindIssuesGrouped(c *fiber.Ctx) error {
 	issues, err := db.Connection.ListIssuesGrouped(db.IssueFilter{})

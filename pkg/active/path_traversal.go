@@ -70,7 +70,7 @@ func (a *PathTraversalAudit) ProcessResult(result *fuzz.FuzzResult) {
 		StatusCode: result.Response.StatusCode,
 	}
 	if result.Err != nil {
-
+		log.Error().Err(result.Err).Str("url", result.URL).Msg("Error in result")
 	}
 	// Process the response
 	bodyBytes, bodySize, err := http_utils.ReadResponseBodyData(&result.Response)

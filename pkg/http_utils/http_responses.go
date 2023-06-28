@@ -5,7 +5,7 @@ import (
 
 	"errors"
 	"gorm.io/datatypes"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httputil"
 
@@ -22,7 +22,7 @@ type ResponseBodyData struct {
 
 // ReadResponseBodyData reads an http response body and returns it as string + its length as bytes
 func ReadResponseBodyData(response *http.Response) (body []byte, size int, err error) {
-	bodyBytes, err := ioutil.ReadAll(response.Body)
+	bodyBytes, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Error().Err(err).Msg("Error reading response body in ReadResponseBodyData")
 	}
@@ -59,7 +59,7 @@ func ReadFullResponse(response *http.Response) (FullResponseData, error) {
 		return FullResponseData{}, err
 	}
 
-	bodyBytes, err := ioutil.ReadAll(response.Body)
+	bodyBytes, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Error().Err(err).Msg("Error reading response body in ReadFullResponse")
 		return FullResponseData{}, err
@@ -102,7 +102,7 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 
 	var requestBody []byte
 	if response.Request.Body != nil {
-		requestBody, _ = ioutil.ReadAll(response.Request.Body)
+		requestBody, _ = io.ReadAll(response.Request.Body)
 		defer response.Request.Body.Close()
 	}
 

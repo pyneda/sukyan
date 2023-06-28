@@ -67,7 +67,7 @@ func (a *SSTIAudit) ProcessResult(result *fuzz.FuzzResult) {
 		StatusCode: result.Response.StatusCode,
 	}
 	if result.Err != nil {
-
+		log.Error().Err(result.Err).Msg("Error in SSTI fuzz result")
 	}
 	// Process the response
 	bodyBytes, bodySize, err := http_utils.ReadResponseBodyData(&result.Response)

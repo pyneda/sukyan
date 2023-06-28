@@ -60,19 +60,19 @@ func (c *MimeTypeChecker) GetMimeTypeFromContentTypeString(contentType string) M
 
 func (c *MimeTypeChecker) getMimeTypeGroupFromContentString(contentType string) string {
 	switch {
-	case strings.HasPrefix(contentType, MimeTypeApplicationGroup) == true:
+	case strings.HasPrefix(contentType, MimeTypeApplicationGroup):
 		return MimeTypeApplicationGroup
-	case strings.HasPrefix(contentType, MimeTypeAudioGroup) == true:
+	case strings.HasPrefix(contentType, MimeTypeAudioGroup):
 		return MimeTypeAudioGroup
-	case strings.HasPrefix(contentType, MimeTypeFontGroup) == true:
+	case strings.HasPrefix(contentType, MimeTypeFontGroup):
 		return MimeTypeFontGroup
-	case strings.HasPrefix(contentType, MimeTypeImgGroup) == true:
+	case strings.HasPrefix(contentType, MimeTypeImgGroup):
 		return MimeTypeImgGroup
-	case strings.HasPrefix(contentType, MimeTypeTextGroup) == true:
+	case strings.HasPrefix(contentType, MimeTypeTextGroup):
 		return MimeTypeTextGroup
-	case strings.HasPrefix(contentType, MimeTypeVideoGroup) == true:
+	case strings.HasPrefix(contentType, MimeTypeVideoGroup):
 		return MimeTypeVideoGroup
-	case strings.HasPrefix(contentType, MimeTypeModelGroup) == true:
+	case strings.HasPrefix(contentType, MimeTypeModelGroup):
 		return MimeTypeModelGroup
 	default:
 		return "unknown"

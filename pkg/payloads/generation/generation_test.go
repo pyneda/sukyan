@@ -1,8 +1,10 @@
 package generation
 
 import (
+	"github.com/pyneda/sukyan/lib/integrations"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGenerateVars(t *testing.T) {
@@ -17,7 +19,7 @@ func TestGenerateVars(t *testing.T) {
 			input: []PayloadVariable{
 				{
 					Name:  "var1",
-					Value: "{{generateInteractionUrl}}",
+					Value: "{{genInteractionAddress}}",
 				},
 				{
 					Name:  "var2",
@@ -50,10 +52,14 @@ func TestGenerateVars(t *testing.T) {
 			},
 		},
 	}
-
+	manager := integrations.InteractionsManager{
+		GetAsnInfo:      false,
+		PollingInterval: time.Duration(60 * time.Second),
+	}
+	manager.Start()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := GenerateVars(tc.input)
+			got, _, err := GenerateVars(tc.input, manager)
 			if (err != nil) != tc.expectError {
 				t.Errorf("GenerateVars() error = %v, expectError %v", err, tc.expectError)
 				return
@@ -86,9 +92,10 @@ func TestApplyVarsToText(t *testing.T) {
 	}{
 		{
 			name: "Valid vars",
-			text: "Hello, {{.Name}}. Your ID is {{genRandInt 1 1}}.",
+			text: "Hello, {{.Name}}. Your ID is {{.ID}}.",
 			vars: map[string]string{
 				"Name": "John",
+				"ID":   "1",
 			},
 			expectError: false,
 			expectText:  "Hello, John. Your ID is 1.",

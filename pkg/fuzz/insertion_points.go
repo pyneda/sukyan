@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 	"mime"
 	"mime/multipart"
 	"net/url"
@@ -191,23 +192,26 @@ func GetInsertionPoints(history *db.History) ([]InsertionPoint, error) {
 	points = append(points, urlPoints...)
 
 	// Convert datatypes.JSON to http.Header equivalent
-	headers, err := history.GetRequestHeadersAsMap()
-	if err != nil {
-		log.Error().Err(err).Interface("headers", history.RequestHeaders).Msg("Error getting request headers as map")
-	} else {
-		// Headers
-		headerPoints, err := handleHeaders(headers)
+	if viper.GetBool("scan.insertion_points.headers") {
+		headers, err := history.GetRequestHeadersAsMap()
 		if err != nil {
-			return nil, err
+			log.Error().Err(err).Interface("headers", history.RequestHeaders).Msg("Error getting request headers as map")
+		} else {
+			// Headers
+			headerPoints, err := handleHeaders(headers)
+			if err != nil {
+				return nil, err
+			}
+			points = append(points, headerPoints...)
+			if viper.GetBool("scan.insertion_points.cookies") {
+				// Cookies
+				cookiePoints, err := handleCookies(headers)
+				if err != nil {
+					return nil, err
+				}
+				points = append(points, cookiePoints...)
+			}
 		}
-		points = append(points, headerPoints...)
-
-		// Cookies
-		cookiePoints, err := handleCookies(headers)
-		if err != nil {
-			return nil, err
-		}
-		points = append(points, cookiePoints...)
 	}
 
 	// Body parameters

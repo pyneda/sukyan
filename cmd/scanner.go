@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
 
 	"github.com/spf13/viper"
@@ -28,6 +29,11 @@ var scanCmd = &cobra.Command{
 			log.Error().Msg("At least one crawl starting url should be provided")
 			os.Exit(1)
 		}
+		generators, err := generation.LoadGenerators(viper.GetString("generators.directory"))
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to load generators")
+			os.Exit(1)
+		}
 		oobPollingInterval := time.Duration(viper.GetInt("scan.oob.poll_interval"))
 		log.Info().Strs("urls", startURLs).Int("count", len(startURLs)).Msg("Starting the audit")
 		interactionsManager := &integrations.InteractionsManager{
@@ -36,12 +42,12 @@ var scanCmd = &cobra.Command{
 			OnInteractionCallback: scan.SaveInteractionCallback,
 		}
 		interactionsManager.Start()
-		engine := scan.NewScanEngine(100, 30, interactionsManager)
+		engine := scan.NewScanEngine(generators, 100, 30, interactionsManager)
 		engine.Start()
+
 		engine.CrawlAndAudit(startURLs, 0, crawlDepth, pagesPoolSize, true)
-		log.Info().Msg("Audit finished, waiting for 30 seconds for possible interactions...")
 		oobWait := time.Duration(viper.GetInt("scan.oob.wait_after_scan"))
-		log.Info().Msgf("Waiting %d seconds for possible interactions...", oobWait)
+		log.Info().Msgf("Audit finished, waiting %d seconds for possible interactions...", oobWait)
 		time.Sleep(oobWait * time.Second)
 		engine.Stop()
 		interactionsManager.Stop()

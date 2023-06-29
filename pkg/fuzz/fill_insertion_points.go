@@ -98,6 +98,7 @@ func createRequestFromBody(history *db.History, builders []InsertionPointBuilder
 		writer.Close()
 		return &b, writer.FormDataContentType(), nil
 	default:
+		// TODO: Support other content types
 		return nil, "", errors.New("unsupported Content-Type for body")
 	}
 }
@@ -185,9 +186,9 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 	}
 
 	requestBody, contentType, err = createRequestFromBody(history, bodyBuilders)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	if err != nil {
+		return nil, err
+	}
 	if urlStr == "" {
 		urlStr = history.URL
 	}

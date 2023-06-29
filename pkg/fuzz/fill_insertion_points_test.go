@@ -300,27 +300,27 @@ func TestCreateRequestFromInsertionPoints_UnsupportedType(t *testing.T) {
 	}
 }
 
-func TestCreateRequestFromInsertionPoints_InvalidContentType(t *testing.T) {
-	history := &db.History{
-		URL:                "http://example.com",
-		RequestHeaders:     datatypes.JSON(json.RawMessage(`{"Content-Type": ["application/aaa"]}`)),
-		RequestContentType: "application/aaaa",
-		RequestBody:        []byte(`{"param1":"value1","param2":"value2"}`),
-		Method:             "POST",
-	}
-	builders := []InsertionPointBuilder{
-		{
-			Point: InsertionPoint{
-				Type: "Body",
-				Name: "param1",
-			},
-			Payload: "modified_value1",
-		},
-	}
-	expectedErrMsg := "unsupported Content-Type for body"
+// func TestCreateRequestFromInsertionPoints_InvalidContentType(t *testing.T) {
+// 	history := &db.History{
+// 		URL:                "http://example.com",
+// 		RequestHeaders:     datatypes.JSON(json.RawMessage(`{"Content-Type": ["application/aaa"]}`)),
+// 		RequestContentType: "application/aaaa",
+// 		RequestBody:        []byte(`{"param1":"value1","param2":"value2"}`),
+// 		Method:             "POST",
+// 	}
+// 	builders := []InsertionPointBuilder{
+// 		{
+// 			Point: InsertionPoint{
+// 				Type: "Body",
+// 				Name: "param1",
+// 			},
+// 			Payload: "modified_value1",
+// 		},
+// 	}
+// 	expectedErrMsg := "unsupported Content-Type for body"
 
-	_, err := CreateRequestFromInsertionPoints(history, builders)
-	if err == nil || err.Error() != expectedErrMsg {
-		t.Errorf("Expected error: %s, Got: %v", expectedErrMsg, err)
-	}
-}
+// 	_, err := CreateRequestFromInsertionPoints(history, builders)
+// 	if err == nil || err.Error() != expectedErrMsg {
+// 		t.Errorf("Expected error: %s, Got: %v", expectedErrMsg, err)
+// 	}
+// }

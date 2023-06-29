@@ -4,17 +4,27 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/active"
+	"github.com/pyneda/sukyan/pkg/fuzz"
+	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/web"
+
 	"github.com/spf13/viper"
 
 	"github.com/rs/zerolog/log"
 )
 
-func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager) {
+func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator) {
+	log.Info().Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Msg("Starting to scan history item")
+	fuzzer := fuzz.HttpFuzzer{
+		Concurrency:         10,
+		InteractionsManager: interactionsManager,
+	}
+	insertionPoints, _ := fuzz.GetInsertionPoints(item)
+	fuzzer.Run(item, payloadGenerators, insertionPoints)
+
 	var specificParamsToTest []string
 	p := web.WebPage{URL: item.URL}
 	hasParams, _ := p.HasParameters()
-	log.Info().Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Msg("Starting to scan history item")
 	if hasParams && viper.GetBool("scan.insertion_points.parameters") {
 		ssrf := active.SSRFAudit{
 			URL:                 item.URL,

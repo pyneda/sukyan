@@ -5,6 +5,7 @@ import (
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/crawl"
 	"github.com/pyneda/sukyan/pkg/passive"
+	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/rs/zerolog/log"
 
 	"sync"
@@ -23,6 +24,7 @@ type ScanEngine struct {
 	MaxConcurrentPassiveScans int
 	MaxConcurrentActiveScans  int
 	InteractionsManager       *integrations.InteractionsManager
+	payloadGenerators         []*generation.PayloadGenerator
 	passiveScanCh             chan *db.History
 	activeScanCh              chan *db.History
 	wg                        sync.WaitGroup
@@ -32,7 +34,7 @@ type ScanEngine struct {
 	isPaused                  bool
 }
 
-func NewScanEngine(maxConcurrentPassiveScans, maxConcurrentActiveScans int, interactionsManager *integrations.InteractionsManager) *ScanEngine {
+func NewScanEngine(payloadGenerators []*generation.PayloadGenerator, maxConcurrentPassiveScans, maxConcurrentActiveScans int, interactionsManager *integrations.InteractionsManager) *ScanEngine {
 	return &ScanEngine{
 		MaxConcurrentPassiveScans: maxConcurrentPassiveScans,
 		MaxConcurrentActiveScans:  maxConcurrentActiveScans,
@@ -42,33 +44,9 @@ func NewScanEngine(maxConcurrentPassiveScans, maxConcurrentActiveScans int, inte
 		stopCh:                    make(chan struct{}),
 		pauseCh:                   make(chan struct{}),
 		resumeCh:                  make(chan struct{}),
+		payloadGenerators:         payloadGenerators,
 	}
 }
-
-// func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType) {
-//     s.wg.Add(1)
-//     switch scanJobType {
-//     case ScanJobTypePassive:
-//         go func(item *db.History) {
-//             defer s.wg.Done()
-//             s.schedulePassiveScan(item)
-//         }(item)
-//     case ScanJobTypeActive:
-//         go func(item *db.History) {
-//             defer s.wg.Done()
-//             s.scheduleActiveScan(item)
-//         }(item)
-//     case ScanJobTypeAll:
-//         go func(item *db.History) {
-//             defer s.wg.Done()
-//             s.schedulePassiveScan(item)
-//         }(item)
-//         go func(item *db.History) {
-//             defer s.wg.Done()
-//             s.scheduleActiveScan(item)
-//         }(item)
-//     }
-// }
 
 func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType) {
 	switch scanJobType {
@@ -135,14 +113,15 @@ func (s *ScanEngine) schedulePassiveScan(item *db.History) {
 }
 
 func (s *ScanEngine) scheduleActiveScan(item *db.History) {
-	ActiveScanHistoryItem(item, s.InteractionsManager)
+	ActiveScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators)
 }
 
 func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, pagesPoolSize int, waitCompletion bool) {
 	crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize)
 	historyItems := crawler.Run()
-	log.Info().Int("count", len(historyItems)).Msg("Crawling finished, scheduling active scans")
-	for _, historyItem := range historyItems {
+	uniqueHistoryItems := removeDuplicateHistoryItems(historyItems)
+	log.Info().Int("count", len(uniqueHistoryItems)).Msg("Crawling finished, scheduling active scans")
+	for _, historyItem := range uniqueHistoryItems {
 		if historyItem.StatusCode == 404 {
 			continue
 		}

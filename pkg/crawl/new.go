@@ -126,7 +126,7 @@ func (c *Crawler2) shouldCrawl(item *CrawlItem) bool {
 		}
 		return true
 	}
-	log.Info().Str("url", item.url).Int("depth", item.depth).Msg("Skipping page because either exceeds the max depth or is not in scope")
+	log.Debug().Str("url", item.url).Int("depth", item.depth).Msg("Skipping page because either exceeds the max depth or is not in scope")
 	return false
 }
 

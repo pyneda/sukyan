@@ -52,9 +52,7 @@ func FindTaskJobs(c *fiber.Ctx) error {
 	}
 
 	if unparsedTitles != "" {
-		for _, title := range strings.Split(unparsedTitles, ",") {
-			titles = append(titles, title)
-		}
+		titles = append(titles, strings.Split(unparsedTitles, ",")...)
 	}
 
 	if unparsedCompletedAt != "" {

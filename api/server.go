@@ -7,7 +7,9 @@ import (
 	"github.com/gofiber/swagger"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
+	"os"
 	"time"
 
 	_ "github.com/pyneda/sukyan/docs"
@@ -19,6 +21,11 @@ import (
 func StartAPI() {
 	log.Info().Msg("Initializing...")
 	db.InitDb()
+	generators, err := generation.LoadGenerators(viper.GetString("generators.directory"))
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to load generators")
+		os.Exit(1)
+	}
 	oobPollingInterval := time.Duration(viper.GetInt("scan.oob.poll_interval"))
 	interactionsManager := &integrations.InteractionsManager{
 		GetAsnInfo:            false,
@@ -27,7 +34,7 @@ func StartAPI() {
 	}
 	interactionsManager.Start()
 
-	engine := scan.NewScanEngine(100, 100, interactionsManager)
+	engine := scan.NewScanEngine(generators, 100, 100, interactionsManager)
 	engine.Start()
 
 	log.Info().Msg("Initialized everything. Starting the API...")

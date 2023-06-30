@@ -50,12 +50,13 @@ func (generator *PayloadGenerator) BuildPayloads(interactionsManager integration
 		}
 
 		payloads = append(payloads, Payload{
-			IssueCode:         generator.IssueCode,
-			Value:             result,
-			Vars:              processedPayloadVars,
-			DetectionMethods:  processedDetectionMethods,
-			Categories:        generator.Categories,
-			InteractionDomain: interactionDomain,
+			IssueCode:          generator.IssueCode,
+			Value:              result,
+			Vars:               processedPayloadVars,
+			DetectionCondition: generator.DetectionCondition,
+			DetectionMethods:   processedDetectionMethods,
+			Categories:         generator.Categories,
+			InteractionDomain:  interactionDomain,
 		})
 	}
 	return payloads, nil

@@ -20,7 +20,7 @@ type HistoryFuzzResult struct {
 	Response       http.Response
 	ResponseData   http_utils.FullResponseData
 	Err            error
-	Payload        *generation.Payload
+	Payload        generation.Payload
 	InsertionPoint InsertionPoint
 	Duration       time.Duration
 }
@@ -34,7 +34,7 @@ type HttpFuzzer struct {
 type HttpFuzzerTask struct {
 	history        *db.History
 	insertionPoint InsertionPoint
-	payload        *generation.Payload
+	payload        generation.Payload
 }
 
 func (f *HttpFuzzer) checkConfig() {
@@ -73,7 +73,7 @@ func (f *HttpFuzzer) Run(history *db.History, payloadGenerators []*generation.Pa
 				wg.Add(1)
 				task := HttpFuzzerTask{
 					history:        history,
-					payload:        &payload,
+					payload:        payload,
 					insertionPoint: insertionPoint,
 				}
 				pendingTasks <- task

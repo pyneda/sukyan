@@ -50,7 +50,7 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 		} else {
 			go func() {
 				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack")
-				passive.ScanHistoryItem(history)
+				// passive.ScanHistoryItem(history)
 				linksFound := passive.ExtractAndAnalyzeURLS(string(history.RawResponse), history.URL)
 				hijackResult := HijackResult{
 					History:        history,

@@ -3,6 +3,7 @@ package fuzz
 import (
 	"encoding/json"
 	"github.com/pyneda/sukyan/db"
+	"github.com/spf13/viper"
 	"net/http"
 	"reflect"
 	"sort"
@@ -53,7 +54,7 @@ func TestHandleHeaders(t *testing.T) {
 		{Type: "Header", Name: "Header1", Value: "value1", OriginalData: headerData["Header1"][0]},
 		{Type: "Header", Name: "Header2", Value: "value2", OriginalData: headerData["Header2"][0]},
 	}
-
+	viper.Set("scan.insertion_points.headers", true)
 	result, err := GetInsertionPoints(history)
 	if err != nil {
 		t.Fatal(err)
@@ -88,6 +89,9 @@ func TestHandleCookies(t *testing.T) {
 		{Type: "Cookie", Name: "cookie1", Value: "value1", OriginalData: headerData["Cookie"][0]},
 		{Type: "Cookie", Name: "cookie2", Value: "value2", OriginalData: headerData["Cookie"][0]},
 	}
+	viper.Set("scan.insertion_points.headers", true)
+	viper.Set("scan.insertion_points.cookies", true)
+
 	result, err := GetInsertionPoints(history)
 	if err != nil {
 		t.Fatal(err)

@@ -21,6 +21,10 @@ type InsertionPoint struct {
 	OriginalData string // the original data (URL, header string, body, cookie string) in which this insertion point was found
 }
 
+func (i *InsertionPoint) String() string {
+	return fmt.Sprintf("%s: %s", i.Type, i.Name)
+}
+
 // Handle URL parameters
 func handleURLParameters(urlData *url.URL) ([]InsertionPoint, error) {
 	var points []InsertionPoint

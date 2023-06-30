@@ -105,5 +105,5 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 		InsertionPoint: "parameter",
 	}
 	db.Connection.CreateOOBTest(oobTest)
-	log.Info().Str("url", result.URL).Str("payload", result.Payload.GetValue()).Msg("SSRF payload sent")
+	log.Debug().Str("url", result.URL).Str("payload", result.Payload.GetValue()).Msg("SSRF payload sent")
 }

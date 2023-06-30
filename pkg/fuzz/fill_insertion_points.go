@@ -186,9 +186,9 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 	}
 
 	requestBody, contentType, err = createRequestFromBody(history, bodyBuilders)
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 	if urlStr == "" {
 		urlStr = history.URL
 	}

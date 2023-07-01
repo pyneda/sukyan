@@ -14,12 +14,14 @@ import (
 )
 
 func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator) {
-	log.Info().Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Msg("Starting to scan history item")
+	taskLog := log.With().Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
+	taskLog.Info().Msg("Starting to scan history item")
 	fuzzer := fuzz.HttpFuzzer{
 		Concurrency:         10,
 		InteractionsManager: interactionsManager,
 	}
 	insertionPoints, _ := fuzz.GetInsertionPoints(item)
+	taskLog.Debug().Interface("insertionPoints", insertionPoints).Msg("Insertion points")
 	fuzzer.Run(item, payloadGenerators, insertionPoints)
 
 	var specificParamsToTest []string

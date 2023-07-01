@@ -44,6 +44,7 @@ var (
 	DjangoDebugExceptionCode             IssueCode = "django_debug_exception"
 	JavaServerHeaderCode                 IssueCode = "java_server_header"
 	JettyServerHeaderCode                IssueCode = "jetty_server_header"
+	DatabaseErrorsCode                   IssueCode = "database_errors"
 )
 
 var issueTemplates = []Issue{
@@ -342,6 +343,14 @@ var issueTemplates = []Issue{
 		Remediation: "Configure your server to not disclose software version information in its response headers. Alternatively, regularly update your Jetty version to the latest one to reduce the risk of known vulnerabilities.",
 		Cwe:         200, // CWE-200: Information Exposure
 		Severity:    "Low",
+	},
+	{
+		Code:        DatabaseErrorsCode,
+		Title:       "Database Errors Detected",
+		Description: "The application exposes database errors, which can leak sensitive information about the database setup and potentially the structure of the underlying data model. This could be valuable information for an attacker looking to exploit the application.",
+		Remediation: "Avoid exposing database errors publicly. Consider implementing a global exception handler that can catch any unhandled exceptions and return a generic error message to the user. Detailed error information should be logged for debugging, but should not be exposed to the user or over insecure channels. Regular code reviews and penetration testing can help to identify and mitigate such issues.",
+		Cwe:         209,
+		Severity:    "Medium",
 	},
 }
 

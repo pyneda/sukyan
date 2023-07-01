@@ -21,7 +21,7 @@ type httpMethodsAudiItem struct {
 
 func (a *HTTPMethodsAudit) GetMethodsToTest() (headers []string) {
 	return append(headers, []string{
-		"GET",
+		// "GET",
 		"POST",
 		"PUT",
 		"DELETE",

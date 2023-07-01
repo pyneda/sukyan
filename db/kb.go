@@ -45,7 +45,7 @@ var (
 	JavaServerHeaderCode                 IssueCode = "java_server_header"
 	JettyServerHeaderCode                IssueCode = "jetty_server_header"
 	DatabaseErrorsCode                   IssueCode = "database_errors"
-	NosqlInjectionCode                   IssueCode = "nosql_injection"
+	NoSqlInjectionCode                   IssueCode = "nosql_injection"
 	SqlInjectionCode                     IssueCode = "sql_injection"
 )
 

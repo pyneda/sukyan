@@ -220,13 +220,22 @@ func (f *HttpFuzzer) EvaluateDetectionMethod(result HistoryFuzzResult, method ge
 		log.Warn().Msg("Browser Events detection method not implemented yet")
 		return false, nil
 	case *generation.TimeBasedDetectionMethod:
-		responseDuration := result.Duration * time.Second
 		sleepInt, err := strconv.Atoi(m.Sleep)
 		if err != nil {
 			log.Error().Err(err).Msg("Error converting sleep string to int")
 			return false, err
 		}
-		sleepDuration := time.Duration(sleepInt) * time.Second
+		// TODO: Improve this, the units should probably be defined in the templates
+		var responseDuration time.Duration
+		var sleepDuration time.Duration
+		if sleepInt > 1000 {
+			responseDuration = result.Duration * time.Millisecond
+			sleepDuration = time.Duration(sleepInt) * time.Millisecond
+		} else {
+			responseDuration = result.Duration * time.Second
+			sleepDuration = time.Duration(sleepInt) * time.Second
+		}
+
 		if responseDuration >= sleepDuration {
 			log.Info().Msg("Matched Time Based method")
 			return true, nil

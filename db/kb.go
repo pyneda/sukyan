@@ -45,6 +45,8 @@ var (
 	JavaServerHeaderCode                 IssueCode = "java_server_header"
 	JettyServerHeaderCode                IssueCode = "jetty_server_header"
 	DatabaseErrorsCode                   IssueCode = "database_errors"
+	NosqlInjectionCode                   IssueCode = "nosql_injection"
+	SqlInjectionCode                     IssueCode = "sql_injection"
 )
 
 var issueTemplates = []Issue{
@@ -351,6 +353,22 @@ var issueTemplates = []Issue{
 		Remediation: "Avoid exposing database errors publicly. Consider implementing a global exception handler that can catch any unhandled exceptions and return a generic error message to the user. Detailed error information should be logged for debugging, but should not be exposed to the user or over insecure channels. Regular code reviews and penetration testing can help to identify and mitigate such issues.",
 		Cwe:         209,
 		Severity:    "Medium",
+	},
+	{
+		Code:        NoSqlInjectionCode,
+		Title:       "NoSQL Injection Detected",
+		Description: "The application appears to be vulnerable to NoSQL injection attacks. This vulnerability occurs when the application uses user-supplied input to construct NoSQL queries without properly sanitizing or validating the input first. An attacker can exploit this vulnerability to manipulate queries, potentially leading to unauthorized data access, data loss, or data corruption.",
+		Remediation: "To mitigate this vulnerability, avoid constructing queries with user-supplied input whenever possible. Instead, use parameterized queries, which can help ensure that user input is not interpreted as part of the query. Implement proper input validation and sanitization procedures. Also, ensure that the least privilege principle is followed, and each function of the application has only the necessary access rights it needs to perform its tasks.",
+		Cwe:         943,
+		Severity:    "High",
+	},
+	{
+		Code:        SqlInjectionCode,
+		Title:       "SQL Injection Detected",
+		Description: "The application appears to be vulnerable to SQL injection attacks. This vulnerability occurs when the application uses user-supplied input to construct SQL queries without properly sanitizing or validating the input first. An attacker can exploit this vulnerability to manipulate queries, potentially leading to unauthorized data access, data loss, or data corruption.",
+		Remediation: "To mitigate this vulnerability, avoid constructing SQL queries with user-supplied input whenever possible. Instead, use parameterized queries or prepared statements, which can help ensure that user input is not interpreted as part of the SQL command. Implement proper input validation and sanitization procedures. Also, ensure that the least privilege principle is followed, and each function of the application has only the necessary access rights it needs to perform its tasks.",
+		Cwe:         89,
+		Severity:    "High",
 	},
 }
 

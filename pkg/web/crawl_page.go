@@ -30,37 +30,29 @@ func CrawlURL(url string, page *rod.Page) CrawledPageResut {
 	}
 	ListenForPageEvents(url, page)
 
-	// Requesting page
-	// var e proto.NetworkResponseReceived
-	// // https://github.com/go-rod/rod/issues/213
-	// wait := page.WaitEvent(&e)
+
 	navigationTimeout := time.Duration(viper.GetInt("navigation.timeout"))
 	navigateError := page.Timeout(navigationTimeout * time.Second).Navigate(url)
 	if navigateError != nil {
-		log.Error().Err(navigateError).Str("url", url).Msg("Error navigating to page")
-		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
+		log.Warn().Err(navigateError).Str("url", url).Msg("Error navigating to page")
+		// return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
 	}
 
-	// wait()
 	err := page.Timeout(navigationTimeout * time.Second).WaitLoad()
 
 	if err != nil {
-		log.Error().Err(err).Str("url", url).Msg("Error waiting for page complete load while crawling")
+		log.Warn().Err(err).Str("url", url).Msg("Error waiting for page complete load while crawling")
 		// here, even though the page has not complete loading, we could still try to get some data
-		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
-	} else {
-		log.Debug().Str("url", url).Msg("Page fully loaded on browser and ready to be analyzed")
-	}
+		// return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
+	} 
 
 	// https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-globalLexicalScopeNames
 	// globalScopeNames, err := proto.RuntimeGlobalLexicalScopeNames{}.Call(page)
-
 	// if err != nil {
 	// 	log.Info().Err(err).Msg("Could not get global scope names")
 	// }
 	// log.Info().Interface("names", globalScopeNames).Msg("Global scope names")
 
-	// data := GetPageData(page, url)
 	anchors, err := GetPageAnchors(page)
 	if err != nil {
 		log.Error().Msg("Could not get page anchors")

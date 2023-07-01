@@ -98,8 +98,11 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 	if err != nil {
 		log.Error().Err(err).Msg("Error converting response headers to json")
 	}
-	requestDump, _ := httputil.DumpRequestOut(response.Request, true)
 
+	requestDump, err := httputil.DumpRequestOut(response.Request, true)
+	if err != nil {
+		log.Error().Err(err).Msg("Error dumping request")
+	}
 	var requestBody []byte
 	if response.Request.Body != nil {
 		requestBody, _ = io.ReadAll(response.Request.Body)

@@ -18,6 +18,9 @@ func SetRequestHeadersFromHistoryItem(request *http.Request, historyItem *db.His
 		}
 
 		for key, values := range headers {
+			if key == "Content-Length" {
+				continue
+			}
 			for _, value := range values {
 				log.Debug().Str("key", key).Str("value", value).Msg("Setting header")
 				request.Header.Set(key, value)

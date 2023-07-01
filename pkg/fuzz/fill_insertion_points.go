@@ -207,7 +207,13 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 		return nil, err
 	}
 
+	// Set the same requests as the history item had, before possibly overriding by insertion points
+	http_utils.SetRequestHeadersFromHistoryItem(req, history)
+
 	for name, values := range headers {
+		if name == "Content-Length" {
+			continue
+		}
 		for _, value := range values {
 			req.Header.Add(name, value)
 		}

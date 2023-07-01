@@ -130,7 +130,7 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		URL:                  historyUrl,
 		Depth:                lib.CalculateURLDepth(historyUrl),
 		RequestHeaders:       datatypes.JSON(requestHeaders),
-		RequestBody:					reqBody,
+		RequestBody:          reqBody,
 		RequestBodySize:      len(reqBody),
 		RequestContentLength: request.Req().ContentLength,
 		RequestContentType:   request.Req().Header.Get("Content-Type"),
@@ -140,10 +140,10 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		Evaluated:            false,
 		Method:               request.Method(),
 		// ParametersCount:      len(request.URL().Query()),
-		Note:                 note,
-		Source:               source,
-		RawRequest:           []byte(rawRequest),
-		RawResponse:          []byte(rawResponse),
+		Note:        note,
+		Source:      source,
+		RawRequest:  []byte(rawRequest),
+		RawResponse: []byte(rawResponse),
 		// ResponseContentLength: response.ContentLength,
 
 	}

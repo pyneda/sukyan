@@ -59,7 +59,7 @@ func (a *HTTPMethodsAudit) Run() {
 
 	}
 	wg.Wait()
-	log.Info().Str("url", a.HistoryItem.URL).Msg("All HTTPMethods audit items completed")
+	log.Debug().Str("url", a.HistoryItem.URL).Msg("All HTTPMethods audit items completed")
 }
 
 func (a *HTTPMethodsAudit) worker(auditItems chan httpMethodsAudiItem, pendingChannel chan int, wg *sync.WaitGroup) {
@@ -76,7 +76,7 @@ func (a *HTTPMethodsAudit) monitor(auditItems chan httpMethodsAudiItem, pendingC
 	for c := range pendingChannel {
 		count += c
 		if count == 0 {
-			log.Info().Str("url", a.HistoryItem.URL).Msg("HTTPMethods audit finished, closing communication channels")
+			log.Debug().Str("url", a.HistoryItem.URL).Msg("HTTPMethods audit finished, closing communication channels")
 			close(auditItems)
 			close(pendingChannel)
 		}

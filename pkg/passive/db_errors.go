@@ -43,6 +43,8 @@ var DBMS_ERRORS = map[string][]*regexp.Regexp{
 		`System.Data.SQLite.SQLiteException`,
 		`Warning.*sqlite_.*`,
 		`Warning.*SQLite3::`,
+		`sqlite3.OperationalError`,
+		`sqlite3.ProgrammingError`,
 		`\[SQLITE_ERROR\]`),
 	"Sybase": compilePatterns(
 		`(?i)Warning.*sybase.*`,

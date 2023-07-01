@@ -16,7 +16,7 @@ func TestCreateRequestFromURL(t *testing.T) {
 	}
 	builder := InsertionPointBuilder{
 		Point: InsertionPoint{
-			Type: "URL",
+			Type: "Parameter",
 			Name: "param",
 		},
 		Payload: "value",
@@ -168,7 +168,7 @@ func TestCreateRequestFromInsertionPoints(t *testing.T) {
 	builders := []InsertionPointBuilder{
 		{
 			Point: InsertionPoint{
-				Type: "URL",
+				Type: "Parameter",
 				Name: "param1",
 			},
 			Payload: "modified_value1",

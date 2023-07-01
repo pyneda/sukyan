@@ -104,13 +104,18 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 			result.Err = err
 		} else {
 			startTime := time.Now()
-			response, err := f.client.Do(req)
+			response, err := http_utils.SendRequest(f.client, req)
+			if err != nil {
+				taskLog.Error().Err(err).Msg("Error making request")
+			}
 			responseData, err := http_utils.ReadFullResponse(response)
 			if err != nil {
 				taskLog.Error().Err(err).Msg("Error reading response body, skipping")
 				continue
 			}
+
 			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, db.SourceScanner)
+			taskLog.Debug().Str("rawrequest", string(newHistory.RawRequest)).Msg("Request from history created in http fuzzer")
 			result.Duration = time.Since(startTime)
 			result.Result = newHistory
 			result.Err = err

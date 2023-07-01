@@ -15,7 +15,7 @@ import (
 )
 
 type InsertionPoint struct {
-	Type         string // "URL", "Header", "Body", or "Cookie"
+	Type         string // "Parameter", "Header", "Body", or "Cookie"
 	Name         string // the name of the parameter/header/cookie
 	Value        string // the current value
 	OriginalData string // the original data (URL, header string, body, cookie string) in which this insertion point was found
@@ -33,7 +33,7 @@ func handleURLParameters(urlData *url.URL) ([]InsertionPoint, error) {
 	for name, values := range urlData.Query() {
 		for _, value := range values {
 			points = append(points, InsertionPoint{
-				Type:         "URL",
+				Type:         "Parameter",
 				Name:         name,
 				Value:        value,
 				OriginalData: urlData.String(),

@@ -90,6 +90,7 @@ func ApplyVarsToText(text string, vars map[string]string) (string, error) {
 	t, err := template.New("").Parse(text)
 
 	if err != nil {
+		log.Error().Err(err).Msgf("Failed to parse template %s", text)
 		return "", fmt.Errorf("failed to parse template: %v", err)
 	}
 

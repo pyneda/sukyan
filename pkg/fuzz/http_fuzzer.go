@@ -1,18 +1,18 @@
 package fuzz
 
 import (
+	"fmt"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 type HistoryFuzzResult struct {
@@ -67,7 +67,7 @@ func (f *HttpFuzzer) Run(history *db.History, payloadGenerators []*generation.Pa
 		for _, generator := range payloadGenerators {
 			payloads, err := generator.BuildPayloads(*f.InteractionsManager)
 			if err != nil {
-				log.Error().Err(err).Msg("Failed to build payloads")
+				log.Error().Err(err).Interface("generator", generator).Msg("Failed to build payloads")
 				continue
 			}
 			for _, payload := range payloads {
@@ -125,7 +125,7 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 			result.InsertionPoint = task.insertionPoint
 			result.Original = task.history
 			result.ResponseData = responseData
-			vulnerable, err := f.EvaluateResult(result)
+			vulnerable, details, confidence, err := f.EvaluateResult(result)
 			if err != nil {
 				taskLog.Error().Err(err).Msg("Error evaluating result")
 				continue
@@ -150,7 +150,8 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 			if vulnerable {
 				taskLog.Warn().Msg("Vulnerable")
 				// Should handle the additional details and confidence
-				db.CreateIssueFromHistoryAndTemplate(newHistory, issueCode, "", 50)
+				fullDetails := fmt.Sprintf("The following payload was inserted in the `%s` %s: %s\n\n%s", task.insertionPoint.Name, task.insertionPoint.Type, task.payload.Value, details)
+				db.CreateIssueFromHistoryAndTemplate(newHistory, issueCode, fullDetails, confidence)
 			}
 
 		}
@@ -159,31 +160,42 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 	}
 }
 
-func (f *HttpFuzzer) EvaluateResult(result HistoryFuzzResult) (bool, error) {
+func (f *HttpFuzzer) EvaluateResult(result HistoryFuzzResult) (bool, string, int, error) {
 	// Iterate through payload detection methods
 	vulnerable := false
 	condition := result.Payload.DetectionCondition
+	confidence := 0
+	var sb strings.Builder
 	for _, detectionMethod := range result.Payload.DetectionMethods {
 		// Evaluate the detection method
-		detectionMethodResult, err := f.EvaluateDetectionMethod(result, detectionMethod)
-		if err != nil {
-			return false, err
+		detectionMethodResult, description, conf, err := f.EvaluateDetectionMethod(result, detectionMethod)
+		if conf > confidence {
+			confidence = conf
 		}
+		if description != "" {
+			sb.WriteString(description + "\n")
+		}
+		if err != nil {
+			return false, "", confidence, err
+		}
+
 		if detectionMethodResult {
-			if condition == generation.Or {
-				return true, nil
-			}
+			// Not returning as we want the details of all detection methods
+			// if condition == generation.Or {
+			// 	return true, sb.String(), confidence, nil
+			// }
 			vulnerable = true
 		} else if condition == generation.And {
-			return false, nil
+			return false, "", confidence, nil
 		}
 
 	}
 
-	return vulnerable, nil
+	return vulnerable, sb.String(), confidence, nil
 }
 
-func (f *HttpFuzzer) EvaluateDetectionMethod(result HistoryFuzzResult, method generation.DetectionMethod) (bool, error) {
+// EvaluateDetectionMethod evaluates a detection method and returns a boolean indicating if it matched, a description of the match, the confidence and a possible error
+func (f *HttpFuzzer) EvaluateDetectionMethod(result HistoryFuzzResult, method generation.DetectionMethod) (bool, string, int, error) {
 	switch m := method.GetMethod().(type) {
 	case *generation.OOBInteractionDetectionMethod:
 		log.Debug().Msg("OOB Interaction detection method not implemented yet")
@@ -191,8 +203,10 @@ func (f *HttpFuzzer) EvaluateDetectionMethod(result HistoryFuzzResult, method ge
 	case *generation.ResponseConditionDetectionMethod:
 		statusMatch := false
 		containsMatch := false
+		var sb strings.Builder
 		if m.StatusCode != 0 {
 			if m.StatusCode == result.Result.StatusCode {
+				sb.WriteString(fmt.Sprintf("Response status code is %d\n", m.StatusCode))
 				statusMatch = true
 			}
 		} else {
@@ -202,54 +216,64 @@ func (f *HttpFuzzer) EvaluateDetectionMethod(result HistoryFuzzResult, method ge
 
 		if m.Contains != "" {
 			if strings.Contains(result.ResponseData.RawString, m.Contains) {
+				sb.WriteString(fmt.Sprintf("Response contains the value: %s\n", m.Contains))
 				containsMatch = true
 			}
 		} else {
 			// If no contains is defined, assume it's matched
 			containsMatch = true
 		}
-		return statusMatch && containsMatch, nil
+		confidence := 0
+		matched := statusMatch && containsMatch
+		if matched {
+			confidence = m.Confidence
+		}
+
+		return matched, sb.String(), confidence, nil
 
 	case *generation.ReflectionDetectionMethod:
 		if strings.Contains(result.ResponseData.RawString, m.Value) {
 			log.Info().Msg("Matched Reflection method")
-			return true, nil
+			description := fmt.Sprintf("Response contains the value %s", m.Value)
+			return true, description, m.Confidence, nil
 		}
-		return false, nil
+		return false, "", 0, nil
 	case *generation.BrowserEventsDetectionMethod:
 		log.Warn().Msg("Browser Events detection method not implemented yet")
-		return false, nil
+		return false, "", 0, nil
 	case *generation.TimeBasedDetectionMethod:
 		sleepInt, err := strconv.Atoi(m.Sleep)
 		if err != nil {
-			log.Error().Err(err).Msg("Error converting sleep string to int")
-			return false, err
+			log.Error().Err(err).Str("sleep", m.Sleep).Interface("result", result).Msg("Error converting sleep string to int")
+			return false, "", 0, err
 		}
 		// TODO: Improve this, the units should probably be defined in the templates
-		var responseDuration time.Duration
 		var sleepDuration time.Duration
+		var unit string
 		if sleepInt > 1000 {
-			responseDuration = result.Duration * time.Millisecond
 			sleepDuration = time.Duration(sleepInt) * time.Millisecond
+			unit = "ms"
 		} else {
-			responseDuration = result.Duration * time.Second
 			sleepDuration = time.Duration(sleepInt) * time.Second
+			unit = "s"
 		}
 
-		if responseDuration >= sleepDuration {
-			log.Info().Msg("Matched Time Based method")
-			return true, nil
+		if result.Duration >= sleepDuration {
+			log.Info().Str("duration", result.Duration.String()).Str("sleep", sleepDuration.String()).Str("unit", unit).Msg("Matched Time Based method")
+			description := fmt.Sprintf("Response took %s, which is greater than the sleep time injected in the payload of %s", result.Duration, sleepDuration)
+			return true, description, m.Confidence, nil
 		}
-		return false, nil
+		return false, "", 0, nil
 	case *generation.ResponseCheckDetectionMethod:
 		if m.Check == generation.DatabaseErrorCondition {
 			result := passive.SearchDatabaseErrors(result.ResponseData.RawString)
 			if result != nil {
 				log.Info().Interface("database_error", result).Msg("Matched DatabaseErrorCondition")
-				return true, nil
+				description := fmt.Sprintf("Database error was returned in response:\n - Database: %s\n - Error: %s", result.DatabaseName, result.MatchStr)
+				return true, description, m.Confidence, nil
 			}
 		}
-		return false, nil
+		return false, "", 0, nil
 	}
-	return false, nil
+	return false, "", 0, nil
 }

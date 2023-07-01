@@ -156,7 +156,7 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 
 	for _, builder := range builders {
 		switch builder.Point.Type {
-		case "URL":
+		case "Parameter":
 			urlStr, err = createRequestFromURL(history, builder)
 			if err != nil {
 				return nil, err

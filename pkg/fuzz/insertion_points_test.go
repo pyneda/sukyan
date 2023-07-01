@@ -15,8 +15,8 @@ func TestHandleURLParameters(t *testing.T) {
 		URL: "http://example.com/path?param1=value1&param2=value2",
 	}
 	expected := []InsertionPoint{
-		{Type: "URL", Name: "param1", Value: "value1", OriginalData: history.URL},
-		{Type: "URL", Name: "param2", Value: "value2", OriginalData: history.URL},
+		{Type: "Parameter", Name: "param1", Value: "value1", OriginalData: history.URL},
+		{Type: "Parameter", Name: "param2", Value: "value2", OriginalData: history.URL},
 	}
 
 	result, err := GetInsertionPoints(history)

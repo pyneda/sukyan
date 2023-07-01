@@ -4,6 +4,7 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/http_utils"
+	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"net/http"
 	"strconv"
@@ -232,7 +233,13 @@ func (f *HttpFuzzer) EvaluateDetectionMethod(result HistoryFuzzResult, method ge
 		}
 		return false, nil
 	case *generation.ResponseCheckDetectionMethod:
-		log.Warn().Msg("Response Check detection method not implemented yet")
+		if m.Check == generation.DatabaseErrorCondition {
+			result := passive.SearchDatabaseErrors(result.ResponseData.RawString)
+			if result != nil {
+				log.Info().Interface("database_error", result).Msg("Matched DatabaseErrorCondition")
+				return true, nil
+			}
+		}
 		return false, nil
 	}
 	return false, nil

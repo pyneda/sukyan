@@ -48,6 +48,62 @@ var DBMS_ERRORS = map[string][]*regexp.Regexp{
 		`(?i)Warning.*sybase.*`,
 		`Sybase message`,
 		`Sybase.*Server message.*`),
+	"MongoDB": compilePatterns(
+		`MongoError`,
+		`failed to connect to server .* on first connect`,
+		`E11000 duplicate key error collection`,
+		`collection .* already exists`,
+		`\bdeadlock\b.*\bdetected\b`,
+		`unexpected token`,
+		`invalid .* syntax`,
+		`Failed to parse:.*'filter'.*`,
+		`unknown operator:.*`,
+		`No array filter found for identifier.*in path.*`,
+		`Cannot use.*as a query operator`,
+		`Cannot do exclusion on path.*in inclusion projection`,
+		`Path.*intersects with a project inclusion`,
+		`Unrecognized expression.*`,
+		`is not a valid hex number`,
+		`Failed to parse document from.*: *unexpected character.*after document key`,
+	),
+	"CouchDB": compilePatterns(
+		`unauthorized to access or create database`,
+		`no_db_file`,
+		`document update conflict`,
+		`invalid UTF-8 JSON`,
+		`badmatch`,
+	),
+	"Cassandra": compilePatterns(
+		`Cassandra.*InvalidQueryException`,
+		`unterminated string`,
+		`line .* no viable alternative at input`,
+		`mismatched input .* expecting .*`,
+	),
+	"Redis": compilePatterns(
+		`redis.*WRONGTYPE`,
+		`redis.*syntax error`,
+	),
+	"Elasticsearch": compilePatterns(
+		`SearchPhaseExecutionException`,
+		`QueryParsingException`,
+		`unexpected token`,
+		`invalid .* syntax`,
+	),
+	"DynamoDB": compilePatterns(
+		`ValidationException`,
+		`com.amazonaws.services.dynamodbv2.model.AmazonDynamoDBException`,
+		`ProvisionedThroughputExceededException`,
+	),
+	"HBase": compilePatterns(
+		`org.apache.hadoop.hbase.DoNotRetryIOException`,
+		`ERROR: org.apache.hadoop.hbase.MasterNotRunningException`,
+		`org.apache.hadoop.hbase.regionserver.NoSuchColumnFamilyException`,
+	),
+	"Neo4j": compilePatterns(
+		`Neo.ClientError.Statement.SyntaxError`,
+		`org.neo4j.driver.v1.exceptions.ClientException`,
+		`org.neo4j.driver.v1.exceptions.DatabaseException`,
+	),
 }
 
 type DatabaseErrorMatch struct {

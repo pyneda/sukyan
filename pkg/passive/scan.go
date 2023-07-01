@@ -73,6 +73,7 @@ func ScanHistoryItem(item *db.History) {
 		}
 	}
 	StorageBucketDetectionScan(item)
+	DatabaseErrorScan(item)
 	PrivateIPScan(item)
 	JwtDetectionScan(item)
 	EmailAddressScan(item)
@@ -135,6 +136,21 @@ func PrivateIPScan(item *db.History) {
 		discoveredIPs := sb.String()
 		db.CreateIssueFromHistoryAndTemplate(item, db.PrivateIPsCode, discoveredIPs, 90)
 	}
+}
+
+func DatabaseErrorScan(item *db.History) {
+	matchAgainst := string(item.RawResponse)
+	if matchAgainst == "" {
+		matchAgainst = string(item.ResponseBody)
+	}
+
+	match := SearchDatabaseErrors(matchAgainst)
+	if match != nil {
+		errorDescription := fmt.Sprintf("Discovered database error: \n - Database type: %s\n - Error: %s", match.DatabaseName, match.MatchStr)
+
+		db.CreateIssueFromHistoryAndTemplate(item, db.DatabaseErrorsCode, errorDescription, 90)
+	}
+
 }
 
 func EmailAddressScan(item *db.History) {

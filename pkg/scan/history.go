@@ -19,6 +19,7 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	fuzzer := fuzz.HttpFuzzer{
 		Concurrency:         10,
 		InteractionsManager: interactionsManager,
+		AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),
 	}
 	insertionPoints, _ := fuzz.GetInsertionPoints(item)
 	taskLog.Debug().Interface("insertionPoints", insertionPoints).Msg("Insertion points")

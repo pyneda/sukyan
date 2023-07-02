@@ -29,13 +29,20 @@ type HistoryFuzzResult struct {
 type HttpFuzzer struct {
 	Concurrency         int
 	InteractionsManager *integrations.InteractionsManager
+	AvoidRepeatedIssues bool
 	client              *http.Client
+	issuesFound         sync.Map
 }
 
 type HttpFuzzerTask struct {
 	history        *db.History
 	insertionPoint InsertionPoint
 	payload        generation.Payload
+}
+
+type DetectedIssue struct {
+	code           db.IssueCode
+	insertionPoint InsertionPoint
 }
 
 func (f *HttpFuzzer) checkConfig() {
@@ -46,6 +53,7 @@ func (f *HttpFuzzer) checkConfig() {
 	if f.client == nil {
 		f.client = http_utils.CreateHttpClient()
 	}
+
 }
 
 // Run starts the fuzzing job
@@ -91,6 +99,17 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 	for task := range pendingTasks {
 		taskLog := log.With().Str("method", task.history.Method).Str("param", task.insertionPoint.Name).Str("payload", task.payload.Value).Str("url", task.history.URL).Logger()
 		taskLog.Debug().Interface("task", task).Msg("New fuzzer task received by parameter worker")
+		if f.AvoidRepeatedIssues {
+			_, ok := f.issuesFound.Load(DetectedIssue{
+				code:           db.IssueCode(task.payload.IssueCode),
+				insertionPoint: task.insertionPoint,
+			})
+			if ok {
+				taskLog.Info().Msg("Skipping task as an issue for this insertion point with this code for this history item has already been found")
+				wg.Done()
+				continue
+			}
+		}
 		var result HistoryFuzzResult
 		builders := []InsertionPointBuilder{
 			InsertionPointBuilder{
@@ -152,6 +171,13 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 				// Should handle the additional details and confidence
 				fullDetails := fmt.Sprintf("The following payload was inserted in the `%s` %s: %s\n\n%s", task.insertionPoint.Name, task.insertionPoint.Type, task.payload.Value, details)
 				db.CreateIssueFromHistoryAndTemplate(newHistory, issueCode, fullDetails, confidence)
+				// Avoid repeated issues: could also provide a issue type `variant` and handle the insertion point
+				if f.AvoidRepeatedIssues {
+					f.issuesFound.Store(DetectedIssue{
+						code:           db.IssueCode(issueCode),
+						insertionPoint: task.insertionPoint,
+					}, true)
+				}
 			}
 
 		}

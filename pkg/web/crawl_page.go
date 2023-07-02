@@ -34,7 +34,7 @@ func CrawlURL(url string, page *rod.Page) CrawledPageResut {
 	navigateError := page.Timeout(navigationTimeout * time.Second).Navigate(url)
 	if navigateError != nil {
 		log.Warn().Err(navigateError).Str("url", url).Msg("Error navigating to page")
-		// return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
+		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
 	}
 
 	err := page.Timeout(navigationTimeout * time.Second).WaitLoad()
@@ -42,7 +42,7 @@ func CrawlURL(url string, page *rod.Page) CrawledPageResut {
 	if err != nil {
 		log.Warn().Err(err).Str("url", url).Msg("Error waiting for page complete load while crawling")
 		// here, even though the page has not complete loading, we could still try to get some data
-		// return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
+		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
 	}
 
 	// https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-globalLexicalScopeNames

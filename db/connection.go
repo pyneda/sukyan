@@ -3,10 +3,11 @@ package db
 import (
 	"database/sql"
 	"github.com/spf13/viper"
-	"log"
+	stdlog "log"
 	"os"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -37,15 +38,16 @@ func InitDb() *DatabaseConnection {
 		// Get the connection string from the environment variable
 		dsn := viper.GetString("POSTGRES_DSN")
 		if dsn == "" {
-			log.Fatalf("No Postgres DSN provided")
+			log.Error().Msg("POSTGRES_DSN environment variable not set")
+			os.Exit(1)
 		}
 		dialector = postgres.Open(dsn)
 	} else {
-		log.Fatalf("Unknown database type: %s", dbType)
+		log.Error().Str("type", dbType).Msg("Unknown database type")
 	}
 
 	newLogger := logger.New(
-		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		stdlog.New(os.Stdout, "\r\n", stdlog.LstdFlags),
 		logger.Config{
 			SlowThreshold:             time.Second,
 			LogLevel:                  logger.Silent,
@@ -58,15 +60,18 @@ func InitDb() *DatabaseConnection {
 		Logger: newLogger,
 	})
 	if err != nil {
-		panic("failed to connect database")
+		log.Error().Err(err).Msg("Failed to connect to database")
+		os.Exit(1)
 	}
 	migrateError := db.AutoMigrate(&Workspace{}, &Issue{}, &History{}, &OOBTest{}, &OOBInteraction{}, &Task{}, &TaskJob{}, &WebSocketConnection{}, &WebSocketMessage{}, &JsonWebToken{})
 	if migrateError != nil {
-		panic("failed to migrate database")
+		log.Error().Err(migrateError).Msg("Failed to migrate database")
+		os.Exit(1)
 	}
 	sqlDB, err := db.DB()
 	if err != nil {
-		panic("failed to get underlying sql.DB")
+		log.Error().Err(err).Msg("Failed to get underlying database connection")
+		os.Exit(1)
 	}
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetMaxOpenConns(80)

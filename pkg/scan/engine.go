@@ -125,7 +125,7 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 		if historyItem.StatusCode == 404 {
 			continue
 		}
-		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeActive)
+		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll)
 	}
 	log.Info().Msg("Active scans scheduled")
 	if waitCompletion {

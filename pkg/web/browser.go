@@ -8,11 +8,20 @@ import (
 )
 
 func getBrowserLauncher() *launcher.Launcher {
-	options := launcher.New().Headless(viper.GetBool("crawl.headless"))
-	options = options.Append("disable-infobars", "")
-	options = options.Append("disable-extensions", "")
+	options := launcher.New().
+		Headless(viper.GetBool("crawl.headless")).
+		Set("allow-running-insecure-content").
+		Set("disable-infobars").
+		Set("disable-extensions")
+
 	if viper.GetString("navigation.proxy") != "" {
 		options.Proxy(viper.GetString("navigation.proxy"))
+	}
+	if viper.GetBool("navigation.browser.disable_images") {
+		options = options.Set("disable-images")
+	}
+	if viper.GetBool("navigation.browser.disable_gpu") {
+		options = options.Set("disable-gpu")
 	}
 	return options
 }

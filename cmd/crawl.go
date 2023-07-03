@@ -31,12 +31,6 @@ to quickly create a Cobra application.`,
 			os.Exit(1)
 		}
 		log.Info().Strs("startUrls", startUrls).Int("count", len(startUrls)).Msg("Creating and scheduling the crawler")
-		// crawler := crawl.Crawler{
-		// 	StartUrls:       startUrls,
-		// 	Depth:           depth,
-		// 	MaxPagesToCrawl: maxPagesToCrawl,
-		// 	PagesPoolSize:   pagesPoolSize,
-		// }
 		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns)
 		crawler.Run()
 	},

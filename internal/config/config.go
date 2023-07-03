@@ -65,6 +65,7 @@ func SetDefaultConfig() {
 	viper.SetDefault("crawl.interaction.click_buttons", true)
 	viper.SetDefault("crawl.interaction.timeout", 5)
 	viper.SetDefault("crawl.common.files", []string{"/robots.txt", "/sitemap.xml"})
+	viper.SetDefault("crawl.ignored_extensions", []string{".jpg", ".png", ".gif", ".webp", ".ico", ".css", ".svg", ".tif", ".tiff", ".bmp", ".raw", ".indd", ".ai", ".eps", ".pdf", ".exe", ".dll", ".psd", ".fla", ".avi", ".flv", ".mov", ".mp4", ".mpg", ".mpeg", ".swf", ".mkv", ".wav", ".mp3", ".flac", ".m4a", ".wma", ".aac", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf", ".zip", ".rar", ".7z", ".tar.gz", ".iso", ".dmg"})
 
 	// Scan
 	viper.SetDefault("scan.magic_words", []string{"null", "None", "Undefined", "Blank"})

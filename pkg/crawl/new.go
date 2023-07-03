@@ -3,6 +3,7 @@ package crawl
 import (
 	"github.com/pyneda/sukyan/db"
 	"sync"
+	"strings"
 
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/scope"
@@ -17,6 +18,7 @@ type Crawler2 struct {
 	maxPagesToCrawl int
 	maxDepth        int
 	startURLs       []string
+	excludePatterns []string
 	browser         *web.BrowserManager
 	pages           sync.Map
 	pageCounter     int
@@ -33,7 +35,7 @@ type CrawlItem struct {
 	isError bool
 }
 
-func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int) *Crawler2 {
+func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string) *Crawler2 {
 	hijackChan := make(chan web.HijackResult)
 
 	browser := web.NewHijackedBrowserManager(
@@ -47,6 +49,7 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 		maxPagesToCrawl: maxPagesToCrawl,
 		maxDepth:        maxDepth,
 		startURLs:       startURLs,
+		excludePatterns: excludePatterns,
 		concLimit:       make(chan struct{}, poolSize+2), // Set max concurrency
 		hijackChan:      hijackChan,
 		browser:         browser,
@@ -117,6 +120,13 @@ func (c *Crawler2) isAllowedCrawlDepth(item *CrawlItem) bool {
 }
 
 func (c *Crawler2) shouldCrawl(item *CrawlItem) bool {
+	// Should start by checking if the url is in an excluded pattern from c.excludePatterns
+	for _, pattern := range c.excludePatterns {
+		if strings.Contains(item.url, pattern) {
+			log.Debug().Str("url", item.url).Str("pattern", pattern).Msg("Skipping page because it matches an exclude pattern")
+			return false
+		}
+	}
 	if c.scope.IsInScope(item.url) && c.isAllowedCrawlDepth(item) {
 		if value, ok := c.pages.Load(item.url); ok {
 			if value.(*CrawlItem).visited {

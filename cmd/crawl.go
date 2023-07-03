@@ -37,7 +37,7 @@ to quickly create a Cobra application.`,
 		// 	MaxPagesToCrawl: maxPagesToCrawl,
 		// 	PagesPoolSize:   pagesPoolSize,
 		// }
-		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize)
+		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns)
 		crawler.Run()
 	},
 }
@@ -55,6 +55,7 @@ func init() {
 	// is called directly, e.g.:
 	// crawlCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	crawlCmd.Flags().StringArrayVar(&startUrls, "url", nil, "Target start url(s)")
+	crawlCmd.Flags().StringArrayVar(&crawlExcludePatterns, "exclude-pattern", nil, "URL patterns to ignore when crawling")
 	crawlCmd.Flags().IntVar(&pagesPoolSize, "pool-size", 4, "Page pool size")
 	crawlCmd.Flags().IntVar(&depth, "depth", 0, "Max crawl depth")
 }

@@ -116,8 +116,8 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History) {
 	ActiveScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators)
 }
 
-func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, pagesPoolSize int, waitCompletion bool) {
-	crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize)
+func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, pagesPoolSize int, waitCompletion bool, excludePatterns []string) {
+	crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, excludePatterns)
 	historyItems := crawler.Run()
 	uniqueHistoryItems := removeDuplicateHistoryItems(historyItems)
 	log.Info().Int("count", len(uniqueHistoryItems)).Msg("Crawling finished, scheduling active scans")

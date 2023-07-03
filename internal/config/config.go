@@ -53,6 +53,8 @@ func SetDefaultConfig() {
 	viper.SetDefault("navigation.proxy", "")
 	viper.SetDefault("navigation.auth.basic.username", "admin")
 	viper.SetDefault("navigation.auth.basic.password", "password")
+	viper.SetDefault("navigation.browser.disable_images", false)
+	viper.SetDefault("navigation.browser.disable_gpu", true)
 
 	// Crawl
 	viper.SetDefault("crawl.max_depth", 10)

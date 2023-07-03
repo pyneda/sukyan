@@ -15,20 +15,21 @@ import (
 )
 
 type Crawler struct {
-	scope           scope.Scope
-	maxPagesToCrawl int
-	maxDepth        int
-	startURLs       []string
-	excludePatterns []string
-	browser         *web.BrowserManager
-	pages           sync.Map
-	pageCounter     int
-	clickedElements sync.Map
-	submittedForms  sync.Map
-	counterLock     sync.Mutex
-	wg              sync.WaitGroup
-	concLimit       chan struct{}
-	hijackChan      chan web.HijackResult
+	scope             scope.Scope
+	maxPagesToCrawl   int
+	maxDepth          int
+	startURLs         []string
+	excludePatterns   []string
+	ignoredExtensions []string
+	browser           *web.BrowserManager
+	pages             sync.Map
+	pageCounter       int
+	clickedElements   sync.Map
+	submittedForms    sync.Map
+	counterLock       sync.Mutex
+	wg                sync.WaitGroup
+	concLimit         chan struct{}
+	hijackChan        chan web.HijackResult
 }
 
 type CrawlItem struct {
@@ -63,13 +64,14 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 		hijackChan,
 	)
 	return &Crawler{
-		maxPagesToCrawl: maxPagesToCrawl,
-		maxDepth:        maxDepth,
-		startURLs:       startURLs,
-		excludePatterns: excludePatterns,
-		concLimit:       make(chan struct{}, poolSize+2), // Set max concurrency
-		hijackChan:      hijackChan,
-		browser:         browser,
+		maxPagesToCrawl:   maxPagesToCrawl,
+		maxDepth:          maxDepth,
+		startURLs:         startURLs,
+		excludePatterns:   excludePatterns,
+		concLimit:         make(chan struct{}, poolSize+2), // Set max concurrency
+		hijackChan:        hijackChan,
+		browser:           browser,
+		ignoredExtensions: viper.GetStringSlice("crawl.ignored_extensions"),
 	}
 }
 
@@ -137,13 +139,21 @@ func (c *Crawler) isAllowedCrawlDepth(item *CrawlItem) bool {
 }
 
 func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
-	// Should start by checking if the url is in an excluded pattern from c.excludePatterns
+	// Check if the url is in an excluded pattern from c.excludePatterns
 	for _, pattern := range c.excludePatterns {
 		if strings.Contains(item.url, pattern) {
 			log.Debug().Str("url", item.url).Str("pattern", pattern).Msg("Skipping page because it matches an exclude pattern")
 			return false
 		}
 	}
+	// Check if the url has an ignored extension
+	for _, extension := range c.ignoredExtensions {
+		if strings.HasSuffix(item.url, extension) {
+			log.Debug().Str("url", item.url).Str("extension", extension).Msg("Skipping page because it has an ignored extension")
+			return false
+		}
+	}
+	// Check if the url is in scope and if it's within the max depth
 	if c.scope.IsInScope(item.url) && c.isAllowedCrawlDepth(item) {
 		if value, ok := c.pages.Load(item.url); ok {
 			if value.(*CrawlItem).visited {

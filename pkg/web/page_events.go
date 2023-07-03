@@ -11,6 +11,8 @@ import (
 )
 
 func ListenForPageEvents(url string, page *rod.Page) {
+	// The URL could also be gathered doing page.Info().URL
+	// https://pkg.go.dev/github.com/go-rod/rod#Page.Info
 
 	go page.EachEvent(
 		func(e *proto.PageJavascriptDialogOpening) (stop bool) {

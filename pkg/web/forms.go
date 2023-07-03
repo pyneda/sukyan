@@ -74,7 +74,7 @@ var predefinedNameValues = []InputNameValue{
 
 func SubmitForm(form *rod.Element, page *rod.Page) {
 	submit, err := form.Element("[type=submit]")
-	page.Activate()
+	// page.Activate()
 	if err == nil {
 		log.Info().Interface("submit", submit).Msg("Submit button found, clicking it")
 		submit.Timeout(5*time.Second).Click(proto.InputMouseButtonLeft, 1)
@@ -108,7 +108,7 @@ func AutoFillInput(input *rod.Element, page *rod.Page) {
 	// Get the name and type of the input element
 	name, _ := input.Attribute("name")
 	typeAttr, _ := input.Attribute("type")
-	page.Activate()
+	// page.Activate()
 
 	// handle time inputs
 	// if lib.SliceContains(timeInputs, *typeAttr) {

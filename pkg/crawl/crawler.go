@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-type Crawler2 struct {
+type Crawler struct {
 	scope           scope.Scope
 	maxPagesToCrawl int
 	maxDepth        int
@@ -23,7 +23,7 @@ type Crawler2 struct {
 	browser         *web.BrowserManager
 	pages           sync.Map
 	pageCounter     int
-	clickedEleemnts sync.Map
+	clickedElements sync.Map
 	submittedForms  sync.Map
 	counterLock     sync.Mutex
 	wg              sync.WaitGroup
@@ -46,15 +46,13 @@ type CrawledPageResut struct {
 
 type ClickedElement struct {
 	xpath string
-	html  string
 }
 
 type SubmittedForm struct {
 	xpath string
-	html  string
 }
 
-func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string) *Crawler2 {
+func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string) *Crawler {
 	hijackChan := make(chan web.HijackResult)
 
 	browser := web.NewHijackedBrowserManager(
@@ -64,7 +62,7 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 		"Crawler",
 		hijackChan,
 	)
-	return &Crawler2{
+	return &Crawler{
 		maxPagesToCrawl: maxPagesToCrawl,
 		maxDepth:        maxDepth,
 		startURLs:       startURLs,
@@ -75,7 +73,7 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 	}
 }
 
-func (c *Crawler2) Run() []*db.History {
+func (c *Crawler) Run() []*db.History {
 	log.Info().Msg("Starting crawler")
 	c.CreateScopeFromProvidedUrls()
 	// Spawn a goroutine to listen to hijack results and schedule new pages for crawling
@@ -125,20 +123,20 @@ func (c *Crawler2) Run() []*db.History {
 }
 
 // CreateScopeFromProvidedUrls creates scope items given the received urls
-func (c *Crawler2) CreateScopeFromProvidedUrls() {
+func (c *Crawler) CreateScopeFromProvidedUrls() {
 	// When it can be provided via CLI, the initial scope should be reused
 	c.scope.CreateScopeItemsFromUrls(c.startURLs, "www")
 	log.Warn().Interface("scope", c.scope).Msg("Crawler scope created")
 }
 
-func (c *Crawler2) isAllowedCrawlDepth(item *CrawlItem) bool {
+func (c *Crawler) isAllowedCrawlDepth(item *CrawlItem) bool {
 	if c.maxDepth == 0 {
 		return true
 	}
 	return item.depth <= c.maxDepth
 }
 
-func (c *Crawler2) shouldCrawl(item *CrawlItem) bool {
+func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
 	// Should start by checking if the url is in an excluded pattern from c.excludePatterns
 	for _, pattern := range c.excludePatterns {
 		if strings.Contains(item.url, pattern) {
@@ -159,7 +157,7 @@ func (c *Crawler2) shouldCrawl(item *CrawlItem) bool {
 	return false
 }
 
-func (c *Crawler2) getBrowserPage() *rod.Page {
+func (c *Crawler) getBrowserPage() *rod.Page {
 	page := c.browser.NewPage()
 	web.IgnoreCertificateErrors(page)
 	// Enabling audits, security, etc
@@ -174,7 +172,7 @@ func (c *Crawler2) getBrowserPage() *rod.Page {
 	return page
 }
 
-func (c *Crawler2) crawlPage(item *CrawlItem) {
+func (c *Crawler) crawlPage(item *CrawlItem) {
 	defer c.wg.Done()
 	log.Debug().Str("url", item.url).Msg("Crawling page")
 	c.concLimit <- struct{}{}
@@ -205,8 +203,15 @@ func (c *Crawler2) crawlPage(item *CrawlItem) {
 
 	urlData := c.loadPageAndGetAnchors(url, page)
 
+	if value, ok := c.pages.Load(item.url); ok {
+		value.(*CrawlItem).visited = true
+	}
+
 	if !urlData.IsError {
-		c.interactWithPage(page)
+		log.Debug().Str("url", url).Msg("Starting to interact with page")
+		interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout"))
+		lib.DoWorkWithTimeout(c.interactWithPage, []interface{}{page}, interactionTimeout*time.Second)
+		log.Debug().Str("url", url).Msg("Finished interacting with page")
 	}
 
 	// Recursively crawl to links
@@ -217,12 +222,9 @@ func (c *Crawler2) crawlPage(item *CrawlItem) {
 		}
 	}
 
-	if value, ok := c.pages.Load(item.url); ok {
-		value.(*CrawlItem).visited = true
-	}
 }
 
-func (c *Crawler2) loadPageAndGetAnchors(url string, page *rod.Page) CrawledPageResut {
+func (c *Crawler) loadPageAndGetAnchors(url string, page *rod.Page) CrawledPageResut {
 	navigationTimeout := time.Duration(viper.GetInt("navigation.timeout"))
 	navigateError := page.Timeout(navigationTimeout * time.Second).Navigate(url)
 	if navigateError != nil {
@@ -246,7 +248,72 @@ func (c *Crawler2) loadPageAndGetAnchors(url string, page *rod.Page) CrawledPage
 	return CrawledPageResut{URL: url, DiscoveredURLs: anchors, IsError: false}
 }
 
-func (c *Crawler2) interactWithPage(page *rod.Page) {
-	interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout"))
-	lib.DoWorkWithTimeout(c.browser.InteractWithPage, []interface{}{page}, interactionTimeout*time.Second)
+func (c *Crawler) interactWithPage(page *rod.Page) {
+
+	if viper.GetBool("crawl.interaction.submit_forms") {
+		c.handleForms(page)
+	}
+	if viper.GetBool("crawl.interaction.click_buttons") {
+		c.handleClickableElements(page)
+	}
+}
+
+func (c *Crawler) handleForms(page *rod.Page) (err error) {
+	formElements, err := page.Elements("form")
+	if err != nil {
+		return err
+	}
+	for _, form := range formElements {
+		xpath, err := form.GetXPath(true)
+		if err != nil {
+			continue
+		}
+		e := SubmittedForm{
+			xpath: xpath,
+		}
+		_, submitted := c.submittedForms.Load(e)
+		if !submitted {
+			web.AutoFillForm(form, page)
+			web.SubmitForm(form, page)
+			c.submittedForms.Store(e, true)
+		}
+	}
+	return err
+}
+
+func (c *Crawler) handleClickableElements(page *rod.Page) {
+	c.getAndClickElements("button", page)
+	// getAndClickElements("input[type=submit]", p)
+	// getAndClickElements("input[type=button]", p)
+	// c.getAndClickElements("a", page)
+	log.Debug().Msg("Finished clicking all elements")
+}
+
+func (c *Crawler) getAndClickElements(selector string, page *rod.Page) (err error) {
+	elements, err := page.Elements(selector)
+
+	if err == nil {
+		for _, btn := range elements {
+			xpath, err := btn.GetXPath(true)
+			if err != nil {
+				continue
+			}
+			_, clicked := c.clickedElements.Load(xpath)
+			if !clicked {
+				err = btn.Click(proto.InputMouseButtonLeft, 1)
+				if err != nil {
+					log.Error().Err(err).Str("xpath", xpath).Str("selector", selector).Msg("Error clicking element")
+				} else {
+					log.Info().Str("xpath", xpath).Str("selector", selector).Msg("Clicked button")
+					c.clickedElements.Store(xpath, true)
+					// Try to handle possible new forms that might have appeared due to the click (ex. forms inside a modal)
+					// Since the forms have been submitted previously, in theory, if the same form appears again, it should be skipped
+					// NOTE: Listening for DOM changes might be a better approach
+					c.handleForms(page)
+				}
+			}
+		}
+	}
+	log.Debug().Str("selector", selector).Msg("Finished clicking elements")
+	return err
 }

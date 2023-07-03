@@ -44,7 +44,7 @@ func ExtractAndAnalyzeURLS(response string, extractedFromURL string) ExtractedUR
 		if strings.HasPrefix(cleanedURL, "//") || !strings.Contains(cleanedURL, "://") {
 			u, err := url.Parse(cleanedURL)
 			if err != nil {
-				log.Error().Err(err).Msg("Could not parse relative URL")
+				log.Error().Str("url", cleanedURL).Err(err).Msg("ExtractAndAnalyzeURLS could not parse relative URL")
 				continue
 			}
 			// Resolve the relative URL against the base URL

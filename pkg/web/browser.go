@@ -60,13 +60,6 @@ func NewHijackedBrowserManager(config BrowserManagerConfig, source string, hijac
 	return &manager
 }
 
-func (b *BrowserManager) InteractWithPage(p *rod.Page) {
-	// b.focusChan <- p  // send page to channel, blocking if another function is currently focusing
-	// p.Activate()
-	InteractWithPage(p)
-	// <-b.focusChan  // receive from channel, unblocking the next function that wants to focus
-}
-
 func (b *BrowserManager) Start(hijack bool, source string) {
 	l := getBrowserLauncher()
 	controlURL := l.MustLaunch()

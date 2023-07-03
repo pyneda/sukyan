@@ -1,15 +1,16 @@
 package crawl
 
 import (
+	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/pyneda/sukyan/db"
-	"sync"
-	"strings"
-
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/scope"
 	"github.com/pyneda/sukyan/pkg/web"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,6 +23,8 @@ type Crawler2 struct {
 	browser         *web.BrowserManager
 	pages           sync.Map
 	pageCounter     int
+	clickedEleemnts sync.Map
+	submittedForms  sync.Map
 	counterLock     sync.Mutex
 	wg              sync.WaitGroup
 	concLimit       chan struct{}
@@ -33,6 +36,22 @@ type CrawlItem struct {
 	depth   int
 	visited bool
 	isError bool
+}
+
+type CrawledPageResut struct {
+	URL            string
+	DiscoveredURLs []string
+	IsError        bool
+}
+
+type ClickedElement struct {
+	xpath string
+	html  string
+}
+
+type SubmittedForm struct {
+	xpath string
+	html  string
 }
 
 func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string) *Crawler2 {
@@ -140,6 +159,21 @@ func (c *Crawler2) shouldCrawl(item *CrawlItem) bool {
 	return false
 }
 
+func (c *Crawler2) getBrowserPage() *rod.Page {
+	page := c.browser.NewPage()
+	web.IgnoreCertificateErrors(page)
+	// Enabling audits, security, etc
+	auditEnableError := proto.AuditsEnable{}.Call(page)
+	if auditEnableError != nil {
+		log.Error().Err(auditEnableError).Msg("Error enabling browser audit events")
+	}
+	securityEnableError := proto.SecurityEnable{}.Call(page)
+	if securityEnableError != nil {
+		log.Error().Err(securityEnableError).Msg("Error enabling browser security events")
+	}
+	return page
+}
+
 func (c *Crawler2) crawlPage(item *CrawlItem) {
 	defer c.wg.Done()
 	log.Debug().Str("url", item.url).Msg("Crawling page")
@@ -163,27 +197,56 @@ func (c *Crawler2) crawlPage(item *CrawlItem) {
 	c.pages.Store(item.url, item)
 	url := item.url
 
-	page := c.browser.NewPage()
+	page := c.getBrowserPage()
 	defer c.browser.ReleasePage(page)
 
-	urlData := web.CrawlURL(url, page)
-	if urlData.IsError {
-		return // If there was an error crawling the page, skip it
-	}
+	// There's another implementation which applies to the whole browser which might be better ()
+	web.ListenForPageEvents(url, page)
 
-	interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout"))
-	lib.DoWorkWithTimeout(c.browser.InteractWithPage, []interface{}{page}, interactionTimeout*time.Second)
+	urlData := c.loadPageAndGetAnchors(url, page)
+
+	if !urlData.IsError {
+		c.interactWithPage(page)
+	}
 
 	// Recursively crawl to links
 	for _, link := range urlData.DiscoveredURLs {
 		if c.shouldCrawl(&CrawlItem{url: link, depth: lib.CalculateURLDepth(link)}) {
 			c.wg.Add(1)
 			go c.crawlPage(&CrawlItem{url: link, depth: lib.CalculateURLDepth(link)})
-			// log.Info().Str("url", link).Msg("Scheduled page to crawl")
 		}
 	}
 
 	if value, ok := c.pages.Load(item.url); ok {
 		value.(*CrawlItem).visited = true
 	}
+}
+
+func (c *Crawler2) loadPageAndGetAnchors(url string, page *rod.Page) CrawledPageResut {
+	navigationTimeout := time.Duration(viper.GetInt("navigation.timeout"))
+	navigateError := page.Timeout(navigationTimeout * time.Second).Navigate(url)
+	if navigateError != nil {
+		log.Warn().Err(navigateError).Str("url", url).Msg("Error navigating to page")
+		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
+	}
+
+	err := page.Timeout(navigationTimeout * time.Second).WaitLoad()
+
+	if err != nil {
+		log.Warn().Err(err).Str("url", url).Msg("Error waiting for page complete load while crawling")
+		// here, even though the page has not complete loading, we could still try to get some data
+		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
+	}
+
+	anchors, err := web.GetPageAnchors(page)
+	if err != nil {
+		log.Error().Msg("Could not get page anchors")
+		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: false}
+	}
+	return CrawledPageResut{URL: url, DiscoveredURLs: anchors, IsError: false}
+}
+
+func (c *Crawler2) interactWithPage(page *rod.Page) {
+	interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout"))
+	lib.DoWorkWithTimeout(c.browser.InteractWithPage, []interface{}{page}, interactionTimeout*time.Second)
 }

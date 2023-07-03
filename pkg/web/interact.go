@@ -24,7 +24,7 @@ func GetAndSubmitForms(p *rod.Page) (err error) {
 		return err
 	}
 	for _, form := range formElements {
-		p.Activate()
+		// p.Activate()
 		AutoFillForm(form, p)
 		SubmitForm(form, p)
 
@@ -46,7 +46,7 @@ func getAndClickElements(selector string, p *rod.Page) {
 	elements, err := p.Elements(selector)
 
 	if err == nil {
-		p.Activate()
+		// p.Activate()
 
 		for _, btn := range elements {
 			xpath, err := btn.GetXPath(true)

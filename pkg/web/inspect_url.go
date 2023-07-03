@@ -126,14 +126,14 @@ func GetButtons(p *rod.Page) {
 	buttons, err := p.Elements("button")
 	if err == nil {
 		for _, btn := range buttons {
-			p.Activate()
+			// p.Activate()
 			btn.Click(proto.InputMouseButtonLeft, 1)
 		}
 	}
 	buttons2, err := p.Elements(`[type="button"]`)
 	if err == nil {
 		for _, btn := range buttons2 {
-			p.Activate()
+			// p.Activate()
 			btn.Click(proto.InputMouseButtonLeft, 1)
 		}
 	}
@@ -154,7 +154,7 @@ func GetForms(p *rod.Page) (forms []Form, err error) {
 			html: formHTML,
 		}
 		forms = append(forms, formData)
-		p.Activate()
+		// p.Activate()
 		AutoFillForm(form, p)
 		SubmitForm(form, p)
 

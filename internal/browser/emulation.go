@@ -1,4 +1,4 @@
-package web
+package browser
 
 import "github.com/go-rod/rod/lib/proto"
 

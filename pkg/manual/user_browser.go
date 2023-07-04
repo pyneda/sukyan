@@ -1,6 +1,7 @@
 package manual
 
 import (
+	"github.com/pyneda/sukyan/internal/browser"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/web"
 	"time"
@@ -13,25 +14,25 @@ import (
 type UserBrowser struct {
 	LaunchURL      string
 	HijackRequests bool
-	HijackConfig   web.HijackConfig
+	HijackConfig   browser.HijackConfig
 }
 
-func (b *UserBrowser) Launch() {
+func (ub *UserBrowser) Launch() {
 	u := launcher.New().Headless(false).Leakless(true).MustLaunch()
-	browser := rod.New().ControlURL(u).MustConnect()
+	b := rod.New().ControlURL(u).MustConnect()
 
-	hc := web.HijackConfig{
+	hc := browser.HijackConfig{
 		AnalyzeJs:   true,
 		AnalyzeHTML: true,
 	}
-	hijackResultsChannel := make(chan web.HijackResult)
+	hijackResultsChannel := make(chan browser.HijackResult)
 
-	web.Hijack(hc, browser, "Browser", hijackResultsChannel)
+	browser.Hijack(hc, b, "Browser", hijackResultsChannel)
 	var page *rod.Page
-	if b.LaunchURL != "" {
-		page = browser.MustPage(b.LaunchURL)
+	if ub.LaunchURL != "" {
+		page = b.MustPage(ub.LaunchURL)
 	} else {
-		page = browser.MustPage("")
+		page = b.MustPage("")
 	}
 	web.ListenForWebSocketEvents(page)
 	log.Info().Interface("url", page).Msg("Browser loaded")

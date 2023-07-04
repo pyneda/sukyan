@@ -4,6 +4,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/internal/browser"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/scope"
 	"github.com/pyneda/sukyan/pkg/web"
@@ -21,7 +22,7 @@ type Crawler struct {
 	startURLs         []string
 	excludePatterns   []string
 	ignoredExtensions []string
-	browser           *web.BrowserManager
+	browser           *browser.PagePoolManager
 	pages             sync.Map
 	pageCounter       int
 	clickedElements   sync.Map
@@ -29,7 +30,7 @@ type Crawler struct {
 	counterLock       sync.Mutex
 	wg                sync.WaitGroup
 	concLimit         chan struct{}
-	hijackChan        chan web.HijackResult
+	hijackChan        chan browser.HijackResult
 }
 
 type CrawlItem struct {
@@ -54,10 +55,10 @@ type SubmittedForm struct {
 }
 
 func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string) *Crawler {
-	hijackChan := make(chan web.HijackResult)
+	hijackChan := make(chan browser.HijackResult)
 
-	browser := web.NewHijackedBrowserManager(
-		web.BrowserManagerConfig{
+	browser := browser.NewHijackedPagePoolManager(
+		browser.PagePoolManagerConfig{
 			PoolSize: poolSize,
 		},
 		"Crawler",
@@ -82,6 +83,7 @@ func (c *Crawler) Run() []*db.History {
 	var inScopeHistoryItems []*db.History
 	go func() {
 		for hijackResult := range c.hijackChan {
+			log.Info().Str("url", hijackResult.History.URL).Str("method", hijackResult.History.Method).Msg("Received hijack result")
 			if hijackResult.History.Method != "GET" {
 				item := &CrawlItem{url: hijackResult.History.URL, depth: lib.CalculateURLDepth(hijackResult.History.URL), visited: true, isError: false}
 				c.pages.Store(item.url, item)
@@ -103,22 +105,21 @@ func (c *Crawler) Run() []*db.History {
 			}
 		}
 	}()
+	log.Info().Interface("start_urls", c.startURLs).Msg("Crawling start urls")
 	for _, url := range c.startURLs {
 		c.wg.Add(1)
 		go c.crawlPage(&CrawlItem{url: url, depth: lib.CalculateURLDepth(url)})
-		// Also crawl common files
-
 		baseURL, err := lib.GetBaseURL(url)
 		if err != nil {
 			continue
 		}
-
-		for _, u := range viper.GetStringSlice("crawl.common_files") {
+		for _, u := range viper.GetStringSlice("crawl.common.files") {
 			c.wg.Add(1)
 			go c.crawlPage(&CrawlItem{url: baseURL + u, depth: lib.CalculateURLDepth(u)})
 		}
 	}
 
+	time.Sleep(5 * time.Second)
 	c.wg.Wait()
 	log.Info().Msg("Finished crawling")
 	return inScopeHistoryItems
@@ -293,8 +294,9 @@ func (c *Crawler) handleForms(page *rod.Page) (err error) {
 
 func (c *Crawler) handleClickableElements(page *rod.Page) {
 	c.getAndClickElements("button", page)
+
 	// getAndClickElements("input[type=submit]", p)
-	// getAndClickElements("input[type=button]", p)
+	c.getAndClickElements("input[type=button]", page)
 	// c.getAndClickElements("a", page)
 	log.Debug().Msg("Finished clicking all elements")
 }
@@ -316,10 +318,12 @@ func (c *Crawler) getAndClickElements(selector string, page *rod.Page) (err erro
 				} else {
 					log.Info().Str("xpath", xpath).Str("selector", selector).Msg("Clicked button")
 					c.clickedElements.Store(xpath, true)
-					// Try to handle possible new forms that might have appeared due to the click (ex. forms inside a modal)
+					// Try to handle possible new forms/buttons that might have appeared due to the click (ex. forms inside a modal)
 					// Since the forms have been submitted previously, in theory, if the same form appears again, it should be skipped
 					// NOTE: Listening for DOM changes might be a better approach
 					c.handleForms(page)
+					c.handleClickableElements(page)
+					return err
 				}
 			}
 		}

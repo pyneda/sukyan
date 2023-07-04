@@ -2,15 +2,16 @@ package web
 
 import (
 	"github.com/go-rod/rod"
+	"github.com/pyneda/sukyan/internal/browser"
 )
 
 type PageLoader struct {
 	ExtraHeaders      map[string]string
 	HijackEnabled     bool
-	HijackConfig      HijackConfig
+	HijackConfig      browser.HijackConfig
 	AuditDOM          bool
 	Proxy             string
-	EmulationConfig   EmulationConfig
+	EmulationConfig   browser.EmulationConfig
 	IgnoreCertCerrors bool
 	// https://go-rod.github.io/#/emulation?id=locale-and-timezone
 	Timezone string
@@ -18,16 +19,16 @@ type PageLoader struct {
 }
 
 func (l *PageLoader) GetPage() (*rod.Browser, *rod.Page, error) {
-	browser := rod.New().MustConnect()
+	b := rod.New().MustConnect()
 	// Should hijack if required
 
-	hijackResultsChannel := make(chan HijackResult)
+	hijackResultsChannel := make(chan browser.HijackResult)
 	if l.HijackEnabled {
-		Hijack(l.HijackConfig, browser, l.Source, hijackResultsChannel)
+		browser.Hijack(l.HijackConfig, b, l.Source, hijackResultsChannel)
 	}
-	page := browser.MustPage("")
+	page := b.MustPage("")
 	if l.IgnoreCertCerrors == true {
 		IgnoreCertificateErrors(page)
 	}
-	return browser, page, nil
+	return b, page, nil
 }

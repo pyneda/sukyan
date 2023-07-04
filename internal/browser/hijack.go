@@ -1,4 +1,4 @@
-package web
+package browser
 
 import (
 	"encoding/json"

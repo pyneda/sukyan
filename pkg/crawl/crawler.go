@@ -22,15 +22,16 @@ type Crawler struct {
 	startURLs         []string
 	excludePatterns   []string
 	ignoredExtensions []string
-	browser           *browser.PagePoolManager
-	pages             sync.Map
-	pageCounter       int
-	clickedElements   sync.Map
-	submittedForms    sync.Map
-	counterLock       sync.Mutex
-	wg                sync.WaitGroup
-	concLimit         chan struct{}
-	hijackChan        chan browser.HijackResult
+	// browser           *browser.PagePoolManager
+	browserPool     *browser.BrowserPoolManager
+	pages           sync.Map
+	pageCounter     int
+	clickedElements sync.Map
+	submittedForms  sync.Map
+	counterLock     sync.Mutex
+	wg              sync.WaitGroup
+	concLimit       chan struct{}
+	hijackChan      chan browser.HijackResult
 }
 
 type CrawlItem struct {
@@ -57,11 +58,11 @@ type SubmittedForm struct {
 func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string) *Crawler {
 	hijackChan := make(chan browser.HijackResult)
 
-	browser := browser.NewHijackedPagePoolManager(
-		browser.PagePoolManagerConfig{
+	browserManager := browser.NewHijackedBrowserPoolManager(
+		browser.BrowserPoolManagerConfig{
 			PoolSize: poolSize,
+			Source:   "Crawler",
 		},
-		"Crawler",
 		hijackChan,
 	)
 	return &Crawler{
@@ -71,7 +72,7 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 		excludePatterns:   excludePatterns,
 		concLimit:         make(chan struct{}, poolSize+2), // Set max concurrency
 		hijackChan:        hijackChan,
-		browser:           browser,
+		browserPool:       browserManager,
 		ignoredExtensions: viper.GetStringSlice("crawl.ignored_extensions"),
 	}
 }
@@ -83,7 +84,7 @@ func (c *Crawler) Run() []*db.History {
 	var inScopeHistoryItems []*db.History
 	go func() {
 		for hijackResult := range c.hijackChan {
-			log.Info().Str("url", hijackResult.History.URL).Str("method", hijackResult.History.Method).Msg("Received hijack result")
+			log.Info().Str("url", hijackResult.History.URL).Str("method", hijackResult.History.Method).Msg("Crawler received hijack result")
 			if hijackResult.History.Method != "GET" {
 				item := &CrawlItem{url: hijackResult.History.URL, depth: lib.CalculateURLDepth(hijackResult.History.URL), visited: true, isError: false}
 				c.pages.Store(item.url, item)
@@ -119,9 +120,9 @@ func (c *Crawler) Run() []*db.History {
 		}
 	}
 
-	time.Sleep(5 * time.Second)
 	c.wg.Wait()
 	log.Info().Msg("Finished crawling")
+	time.Sleep(5 * time.Second)
 	return inScopeHistoryItems
 }
 
@@ -168,8 +169,12 @@ func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
 	return false
 }
 
-func (c *Crawler) getBrowserPage() *rod.Page {
-	page := c.browser.NewPage()
+func (c *Crawler) getBrowser() *rod.Browser {
+	return c.browserPool.NewBrowser()
+}
+
+func (c *Crawler) getBrowserPage(url string, b *rod.Browser) *rod.Page {
+	page := b.MustPage(url)
 	web.IgnoreCertificateErrors(page)
 	// Enabling audits, security, etc
 	auditEnableError := proto.AuditsEnable{}.Call(page)
@@ -196,7 +201,7 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	c.counterLock.Lock()
 	if c.maxPagesToCrawl != 0 && c.pageCounter >= c.maxPagesToCrawl {
 		log.Info().Int("max_pages_to_crawl", c.maxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Stopping crawler due to max pages to crawl")
-		c.browser.Close()
+		c.browserPool.Close()
 		c.counterLock.Unlock()
 		return
 	}
@@ -205,9 +210,10 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 
 	c.pages.Store(item.url, item)
 	url := item.url
-
-	page := c.getBrowserPage()
-	defer c.browser.ReleasePage(page)
+	b := c.getBrowser()
+	page := c.getBrowserPage(url, b)
+	defer c.browserPool.ReleaseBrowser(b)
+	defer page.Close()
 
 	// There's another implementation which applies to the whole browser which might be better ()
 	web.ListenForPageEvents(url, page)
@@ -237,18 +243,18 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 
 func (c *Crawler) loadPageAndGetAnchors(url string, page *rod.Page) CrawledPageResut {
 	navigationTimeout := time.Duration(viper.GetInt("navigation.timeout"))
-	navigateError := page.Timeout(navigationTimeout * time.Second).Navigate(url)
-	if navigateError != nil {
-		log.Warn().Err(navigateError).Str("url", url).Msg("Error navigating to page")
-		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
-	}
+	// navigateError := page.Timeout(navigationTimeout * time.Second).Navigate(url)
+	// if navigateError != nil {
+	// 	log.Warn().Err(navigateError).Str("url", url).Msg("Error navigating to page")
+	// 	return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
+	// }
 
 	err := page.Timeout(navigationTimeout * time.Second).WaitLoad()
 
 	if err != nil {
-		log.Warn().Err(err).Str("url", url).Msg("Error waiting for page complete load while crawling")
+		log.Warn().Err(err).Str("url", url).Msg("Error waiting for page complete load while crawling, keeping anyways")
 		// here, even though the page has not complete loading, we could still try to get some data
-		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
+		// return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
 	}
 
 	anchors, err := web.GetPageAnchors(page)

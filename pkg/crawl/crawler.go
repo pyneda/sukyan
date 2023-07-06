@@ -83,7 +83,7 @@ func (c *Crawler) Run() []*db.History {
 	var inScopeHistoryItems []*db.History
 	go func() {
 		for hijackResult := range c.hijackChan {
-			log.Info().Str("url", hijackResult.History.URL).Str("method", hijackResult.History.Method).Msg("Received hijack result")
+			log.Info().Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Msg("Received hijack result")
 			if hijackResult.History.Method != "GET" {
 				item := &CrawlItem{url: hijackResult.History.URL, depth: lib.CalculateURLDepth(hijackResult.History.URL), visited: true, isError: false}
 				c.pages.Store(item.url, item)
@@ -97,7 +97,8 @@ func (c *Crawler) Run() []*db.History {
 				depth := lib.CalculateURLDepth(url)
 
 				// If the URL is within the depth limit, schedule it for crawling
-				if depth <= c.maxDepth {
+
+				if c.maxDepth == 0 || depth <= c.maxDepth {
 					c.wg.Add(1)
 					go c.crawlPage(&CrawlItem{url: url, depth: depth})
 					log.Debug().Str("url", url).Msg("Scheduled page to crawl from hijack result")
@@ -260,7 +261,6 @@ func (c *Crawler) loadPageAndGetAnchors(url string, page *rod.Page) CrawledPageR
 }
 
 func (c *Crawler) interactWithPage(page *rod.Page) {
-
 	if viper.GetBool("crawl.interaction.submit_forms") {
 		c.handleForms(page)
 	}
@@ -287,6 +287,7 @@ func (c *Crawler) handleForms(page *rod.Page) (err error) {
 			web.AutoFillForm(form, page)
 			web.SubmitForm(form, page)
 			c.submittedForms.Store(e, true)
+			log.Info().Str("xpath", xpath).Msg("Submitted form")
 		}
 	}
 	return err

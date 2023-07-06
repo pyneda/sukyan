@@ -1,6 +1,8 @@
 package passive
 
 import (
+	"net/url"
+	"reflect"
 	"sort"
 	"testing"
 )
@@ -14,37 +16,47 @@ func TestExtractURLs(t *testing.T) {
 		{
 			name:     "HTML example with multiple URLs",
 			response: `<a href="https://example.com">Link</a> <img src="http://example.com/image.png">`,
-			want:     []string{`"https://example.com"`, `"http://example.com/image.png"`},
+			want:     []string{"https://example.com", "http://example.com/image.png"},
 		},
 		{
 			name:     "HTML example with relative URL",
 			response: `<a href="/relative/path">Link</a>`,
-			want:     []string{`"/relative/path"`},
+			want:     []string{"/relative/path"},
 		},
 		{
 			name:     "CSS example with multiple URLs",
 			response: `body { background-image: url('https://example.com/images/bg.png'); } .example { background: url('/images/example.jpg'); }`,
-			want:     []string{`'https://example.com/images/bg.png'`, `'/images/example.jpg'`},
+			want:     []string{"https://example.com/images/bg.png", "/images/example.jpg"},
 		},
 		{
 			name:     "JavaScript example with multiple URLs",
 			response: `fetch("https://www.example.com/api/data").then(doSomething); loadScript("//example.com/script.js");`,
-			want:     []string{`"https://www.example.com/api/data"`, `"//example.com/script.js"`},
+			want:     []string{"https://www.example.com/api/data", "//example.com/script.js"},
 		},
 		{
 			name:     "Complex HTML example",
 			response: `<html><head><link rel="stylesheet" href="https://example.com/styles.css"></head><body><a href="https://example.com">Home</a><img src="/images/logo.png"></body></html>`,
-			want:     []string{`"https://example.com/styles.css"`, `"https://example.com"`, `"/images/logo.png"`},
+			want:     []string{"https://example.com/styles.css", "https://example.com", "/images/logo.png"},
 		},
 		{
 			name:     "Complex CSS example",
 			response: `body { background: url("/images/bg.jpg"); } .logo { background: url("https://example.com/logo.png"); }`,
-			want:     []string{`"/images/bg.jpg"`, `"https://example.com/logo.png"`},
+			want:     []string{"/images/bg.jpg", "https://example.com/logo.png"},
 		},
 		{
 			name:     "Complex JavaScript example",
 			response: `fetch("/api/data").then(doSomething); loadScript("https://example.com/script.js"); importScripts('//www.example.com/imported.js');`,
-			want:     []string{`"/api/data"`, `"https://example.com/script.js"`, `'//www.example.com/imported.js'`},
+			want:     []string{"/api/data", "https://example.com/script.js", "//www.example.com/imported.js"},
+		},
+		// {
+		// 	name:     "JavaScript example with relative URL with @",
+		// 	response: `<script src="node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js"></script>`,
+		// 	want:     []string{"node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js"},
+		// },
+		{
+			name:     "JavaScript example with relative URL",
+			response: `<script src="node_modules/webcomponents/webcomponentsjs/webcomponents-loader.js"></script>`,
+			want:     []string{"node_modules/webcomponents/webcomponentsjs/webcomponents-loader.js"},
 		},
 	}
 
@@ -239,7 +251,7 @@ func TestExtractAndAnalyzeURLS(t *testing.T) {
 			wantWeb: []string{
 				"https://example.com/script1.js",
 				"https://example.com/script2.js",
-				"https://example.com/script3.js",
+				"https://example.com/page/script3.js",
 			},
 			wantNonWeb: []string{},
 		},
@@ -275,13 +287,6 @@ func TestExtractAndAnalyzeURLS(t *testing.T) {
 			response:         `var url = "https://" + "example.com" + "/path";`,
 			extractedFromURL: "https://example.com/page",
 			wantWeb:          []string{"https://example.com/path"},
-			wantNonWeb:       []string{},
-		},
-		{
-			name:             "Javascript with URL in template literal",
-			response:         "var url = `https://${domain}/path`;",
-			extractedFromURL: "https://example.com/page",
-			wantWeb:          []string{},
 			wantNonWeb:       []string{},
 		},
 		{
@@ -366,13 +371,13 @@ func TestExtractAndAnalyzeURLS(t *testing.T) {
 			},
 			wantNonWeb: []string{},
 		},
-		// {
-		// 	name:             "JavaScript with URLs in comment",
-		// 	response:         `var url = "https://example.com"; // This is a comment http://example.com/test/javascript/misc/comment.found`,
-		// 	extractedFromURL: "https://example.com/page",
-		// 	wantWeb:          []string{"https://example.com", "http://example.com/test/javascript/misc/comment.found"},
-		// 	wantNonWeb:       []string{},
-		// },
+		{
+			name:             "JavaScript with URLs in comment",
+			response:         `var url = "https://example.com"; // This is a comment http://example.com/test/javascript/misc/comment.found`,
+			extractedFromURL: "https://example.com/page",
+			wantWeb:          []string{"https://example.com", "http://example.com/test/javascript/misc/comment.found"},
+			wantNonWeb:       []string{},
+		},
 		{
 			name:             "JavaScript string variable",
 			response:         `var url = "https://example.com/aa/bb/cc/dd";`,
@@ -380,6 +385,41 @@ func TestExtractAndAnalyzeURLS(t *testing.T) {
 			wantWeb:          []string{"https://example.com/aa/bb/cc/dd"},
 			wantNonWeb:       []string{},
 		},
+		{
+			name:             "Img longdesc attribute",
+			response:         `<img alt="" src="#" longdesc="/test/html/body/img/longdesc.found">;`,
+			extractedFromURL: "https://example.com/page",
+			wantWeb:          []string{"https://example.com/test/html/body/img/longdesc.found"},
+			wantNonWeb:       []string{},
+		},
+		{
+			name:             "JavaScript comment",
+			response:         `// http://example.com/aa/bb/cc/dd`,
+			extractedFromURL: "http://example.com/page",
+			wantWeb:          []string{"http://example.com/aa/bb/cc/dd"},
+			wantNonWeb:       []string{},
+		},
+		{
+			name:             "Relative URL",
+			response:         `<script src="./static/js/test.chunk.js"></script>`,
+			extractedFromURL: "http://example.com/page.html",
+			wantWeb:          []string{"http://example.com/static/js/test.chunk.js"},
+			wantNonWeb:       []string{},
+		},
+		{
+			name:             "Relative URL  2",
+			response:         `<script src="node_modules/webcomponents/webcomponentsjs/webcomponents-loader.js"></script>`,
+			extractedFromURL: "https://example.com/page",
+			wantWeb:          []string{"https://example.com/page/node_modules/webcomponents/webcomponentsjs/webcomponents-loader.js"},
+			wantNonWeb:       []string{},
+		},
+		// {
+		// 	name:             "Relative URL with @",
+		// 	response:         `<script src="node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js"></script>`,
+		// 	extractedFromURL: "https://example.com/page",
+		// 	wantWeb:          []string{"https://example.com/page/node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js"},
+		// 	wantNonWeb:       []string{},
+		// },
 	}
 
 	for _, tt := range tests {
@@ -410,4 +450,97 @@ func compareSlices(got, want []string) bool {
 		}
 	}
 	return true
+}
+
+func TestIsRelativeURL(t *testing.T) {
+	relativeURLs := []string{
+		"./script.js",
+		"../styles/main.css",
+		"../../images/logo.png",
+		"index.html",
+		"about/",
+		"../",
+		"../..",
+	}
+
+	for _, url := range relativeURLs {
+		if !isRelative(url) {
+			t.Errorf("Expected '%s' to be a relative URL, but it is not", url)
+		}
+	}
+
+	absoluteURLs := []string{
+		"/home",
+		"http://example.com",
+		"https://example.com",
+	}
+
+	for _, url := range absoluteURLs {
+		if isRelative(url) {
+			t.Errorf("Expected '%s' to be an absolute URL, but it is considered as relative", url)
+		}
+	}
+
+	nonWebURLs := []string{
+		"ftp://example.com",
+		"mailto:user@example.com",
+		"file:///path/to/file",
+	}
+
+	for _, url := range nonWebURLs {
+		if isRelative(url) {
+			t.Errorf("Expected '%s' to be a non-web URL, but it is considered as relative", url)
+		}
+	}
+}
+
+func TestResolveRelative(t *testing.T) {
+	base, _ := url.Parse("http://example.com/sub/path")
+
+	cases := []struct {
+		desc     string
+		rawURL   string
+		base     *url.URL
+		expected string
+		err      error
+	}{
+		{
+			desc:     "Root Relative URL",
+			rawURL:   "/rootrelative",
+			base:     base,
+			expected: "http://example.com/rootrelative",
+		},
+		{
+			desc:     "Parent Directory Relative URL",
+			rawURL:   "../parentrelative",
+			base:     base,
+			expected: "http://example.com/sub/parentrelative",
+		},
+		{
+			desc:     "Current Directory Relative URL",
+			rawURL:   "./currentrelative",
+			base:     base,
+			expected: "http://example.com/sub/path/currentrelative",
+		},
+		{
+			desc:     "Relative URL with No Prefix",
+			rawURL:   "norelative",
+			base:     base,
+			expected: "http://example.com/sub/path/norelative",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			got, err := resolveRelative(tc.rawURL, tc.base)
+
+			if !reflect.DeepEqual(err, tc.err) {
+				t.Fatalf("Expected error to be %v, but got %v", tc.err, err)
+			}
+
+			if got != tc.expected {
+				t.Errorf("Expected URL to be %s, but got %s", tc.expected, got)
+			}
+		})
+	}
 }

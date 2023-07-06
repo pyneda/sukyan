@@ -133,7 +133,6 @@ func isRelative(url string) bool {
 }
 
 // Function to resolve relative URLs
-// Function to resolve relative URLs
 func resolveRelative(rawURL string, base *url.URL) (string, error) {
 	if strings.HasPrefix(rawURL, "/") {
 		return base.Scheme + "://" + base.Host + rawURL, nil

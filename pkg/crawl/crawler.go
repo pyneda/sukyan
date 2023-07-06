@@ -16,21 +16,22 @@ import (
 )
 
 type Crawler struct {
-	scope             scope.Scope
-	maxPagesToCrawl   int
-	maxDepth          int
-	startURLs         []string
-	excludePatterns   []string
-	ignoredExtensions []string
-	browser           *browser.PagePoolManager
-	pages             sync.Map
-	pageCounter       int
-	clickedElements   sync.Map
-	submittedForms    sync.Map
-	counterLock       sync.Mutex
-	wg                sync.WaitGroup
-	concLimit         chan struct{}
-	hijackChan        chan browser.HijackResult
+	scope                   scope.Scope
+	maxPagesToCrawl         int
+	maxDepth                int
+	startURLs               []string
+	excludePatterns         []string
+	ignoredExtensions       []string
+	browser                 *browser.PagePoolManager
+	pages                   sync.Map
+	pageCounter             int
+	clickedElements         sync.Map
+	submittedForms          sync.Map
+	processedResponseHashes sync.Map
+	counterLock             sync.Mutex
+	wg                      sync.WaitGroup
+	concLimit               chan struct{}
+	hijackChan              chan browser.HijackResult
 }
 
 type CrawlItem struct {
@@ -92,16 +93,21 @@ func (c *Crawler) Run() []*db.History {
 			if c.scope.IsInScope(hijackResult.History.URL) {
 				inScopeHistoryItems = append(inScopeHistoryItems, hijackResult.History)
 			}
-			for _, url := range hijackResult.DiscoveredURLs {
-				// Calculate the depth of the URL
-				depth := lib.CalculateURLDepth(url)
+			// Check if the same response has been processed before
+			responseHash := lib.HashBytes(hijackResult.History.ResponseBody)
+			_, processed := c.processedResponseHashes.Load(responseHash)
+			if !processed {
+				c.processedResponseHashes.Store(responseHash, true)
+				for _, url := range hijackResult.DiscoveredURLs {
+					// Calculate the depth of the URL
+					depth := lib.CalculateURLDepth(url)
 
-				// If the URL is within the depth limit, schedule it for crawling
-
-				if c.maxDepth == 0 || depth <= c.maxDepth {
-					c.wg.Add(1)
-					go c.crawlPage(&CrawlItem{url: url, depth: depth})
-					log.Debug().Str("url", url).Msg("Scheduled page to crawl from hijack result")
+					// If the URL is within the depth limit, schedule it for crawling
+					if c.maxDepth == 0 || depth <= c.maxDepth {
+						c.wg.Add(1)
+						go c.crawlPage(&CrawlItem{url: url, depth: depth})
+						log.Debug().Str("url", url).Msg("Scheduled page to crawl from hijack result")
+					}
 				}
 			}
 		}

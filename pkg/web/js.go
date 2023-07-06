@@ -42,7 +42,7 @@ function getLinks() {
         }
     }
 
-    var urlAttrs = ['href', 'src', 'url', 'codebase', 'action', 'ping', 'background', 'cite', 'data', 'dynsrc', 'formaction', 'lowsrc', 'poster', 'longdesc', 'manifest', 'usemap'];
+    var urlAttrs = ['href', 'src', 'url', 'codebase', 'action', 'ping', 'background', 'cite', 'data', 'dynsrc', 'formaction', 'lowsrc', 'poster', 'longdesc', 'manifest', 'usemap', 'routerlink', 'ng-href'];
 
     urlAttrs.forEach(function(attr){
         var elements = document.querySelectorAll('[' + attr + ']');

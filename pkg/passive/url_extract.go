@@ -1,12 +1,95 @@
 package passive
 
 import (
+	"fmt"
+	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"mvdan.cc/xurls/v2"
 	"net/url"
 	"path"
 	"strings"
 )
+
+type ExtractedURLS struct {
+	Web    []string
+	NonWeb []string
+}
+
+func ExtractURLsFromHistoryItem(history *db.History) ExtractedURLS {
+	responseLinks := ExtractAndAnalyzeURLS(string(history.ResponseBody), history.URL)
+	headers, err := history.GetResponseHeadersAsMap()
+	if err != nil {
+		return responseLinks
+	}
+	headersLinks := ExtractURLsFromHeaders(headers, history.URL)
+	return mergeExtractedURLs(responseLinks, headersLinks)
+}
+
+func mergeExtractedURLs(a, b ExtractedURLS) ExtractedURLS {
+	mergedWebURLs := mergeURLs(a.Web, b.Web)
+	mergedNonWebURLs := mergeURLs(a.NonWeb, b.NonWeb)
+
+	return ExtractedURLS{
+		Web:    mergedWebURLs,
+		NonWeb: mergedNonWebURLs,
+	}
+}
+
+func ExtractURLsFromHeaders(headers map[string][]string, extractedFromURL string) ExtractedURLS {
+	webURLs := make([]string, 0)
+	nonWebURLs := make([]string, 0)
+	base, err := url.Parse(extractedFromURL)
+	if err != nil {
+		log.Error().Err(err).Msg("Could not parse base URL")
+		return ExtractedURLS{}
+	}
+	for _, header := range headers {
+		for _, headerValue := range header {
+			for _, rawURL := range ExtractURLs(fmt.Sprintf("'%v'", headerValue)) {
+				absoluteURL, urlType, err := analyzeURL(rawURL, base)
+				if err != nil {
+					log.Error().Err(err).Msg("Could not analyze URL")
+					continue
+				}
+				if urlType == "web" {
+					webURLs = append(webURLs, absoluteURL)
+				} else if urlType == "non-web" {
+					nonWebURLs = append(nonWebURLs, absoluteURL)
+				}
+			}
+		}
+	}
+
+	return ExtractedURLS{Web: webURLs, NonWeb: nonWebURLs}
+}
+
+// ExtractAndAnalyzeURLS extracts urls from a response and analyzes them. It separates web and non web urls and if relative URLs are found, it makes them absolute based on the extractedFromURL parameter it also fixes other cases like //example.com
+func ExtractAndAnalyzeURLS(response string, extractedFromURL string) ExtractedURLS {
+	urls := ExtractURLs(response)
+	webURLs := make([]string, 0)
+	nonWebURLs := make([]string, 0)
+
+	base, err := url.Parse(extractedFromURL)
+	if err != nil {
+		log.Error().Err(err).Msg("Could not parse base URL")
+		return ExtractedURLS{}
+	}
+
+	for _, rawURL := range urls {
+		absoluteURL, urlType, err := analyzeURL(rawURL, base)
+		if err != nil {
+			log.Error().Err(err).Msg("Could not analyze URL")
+			continue
+		}
+		if urlType == "web" {
+			webURLs = append(webURLs, absoluteURL)
+		} else if urlType == "non-web" {
+			nonWebURLs = append(nonWebURLs, absoluteURL)
+		}
+	}
+
+	return ExtractedURLS{Web: webURLs, NonWeb: nonWebURLs}
+}
 
 func ExtractURLs(response string) []string {
 	quoted := extractQuotedURLs(response)
@@ -52,64 +135,26 @@ func mergeURLs(arr1, arr2 []string) []string {
 	return merged
 }
 
-type ExtractedURLS struct {
-	Web    []string
-	NonWeb []string
-}
-
-// ExtractAndAnalyzeURLS extracts urls from a response and analyzes them. It separates web and non web urls and if relative URLs are found, it makes them absolute based on the extractedFromURL parameter it also fixes other cases like //example.com
-func ExtractAndAnalyzeURLS(response string, extractedFromURL string) ExtractedURLS {
-	urls := ExtractURLs(response)
-	webURLs := make([]string, 0)
-	nonWebURLs := make([]string, 0)
-
-	base, err := url.Parse(extractedFromURL)
-	if err != nil {
-		log.Error().Err(err).Msg("Could not parse base URL")
-		return ExtractedURLS{}
-	}
-
-	for _, rawURL := range urls {
-		if strings.Contains(rawURL, "loader.js") {
-			log.Info().Str("raw_url", rawURL).Msg("Resolving URL")
-
+func analyzeURL(rawURL string, base *url.URL) (string, string, error) {
+	if isRelative(rawURL) {
+		absoluteURL, err := resolveRelative(rawURL, base)
+		if err != nil {
+			return "", "", err
 		}
-		if isRelative(rawURL) {
-			// Resolve the relative URL against the directory
-			absoluteURL, err := resolveRelative(rawURL, base)
-			if err != nil {
-				log.Error().Err(err).Msg("Could not resolve relative URL")
-				continue
-			}
-			if strings.Contains(rawURL, "loader.js") {
-				log.Info().Str("raw_url", rawURL).Str("absolute_url", absoluteURL).Msg("Resolved relative URL")
-
-			}
-			webURLs = append(webURLs, absoluteURL)
-		} else if strings.HasPrefix(rawURL, "//") {
-			// Check if the URL is protocol-relative
-			absoluteURL := base.Scheme + ":" + rawURL
-			webURLs = append(webURLs, absoluteURL)
-		} else if strings.HasPrefix(rawURL, "/") {
-			// Check if the URL is absolute to the domain
-			absoluteURL := base.Scheme + "://" + base.Host + rawURL
-			webURLs = append(webURLs, absoluteURL)
-		} else if u, err := url.Parse(rawURL); err == nil && (u.Scheme == "http" || u.Scheme == "https") {
-			// Check if the URL is an absolute HTTP or HTTPS URL
-			webURLs = append(webURLs, rawURL)
-		} else if strings.Contains(rawURL, "://") {
-			// Check if the URL is an absolute non-HTTP/non-HTTPS URL
-			nonWebURLs = append(nonWebURLs, rawURL)
-		} else {
-			log.Info().Str("raw_url", rawURL).Msg("Could not determine URL type")
-		}
+		return absoluteURL, "web", nil
+	} else if strings.HasPrefix(rawURL, "//") {
+		absoluteURL := base.Scheme + ":" + rawURL
+		return absoluteURL, "web", nil
+	} else if strings.HasPrefix(rawURL, "/") {
+		absoluteURL := base.Scheme + "://" + base.Host + rawURL
+		return absoluteURL, "web", nil
+	} else if u, err := url.Parse(rawURL); err == nil && (u.Scheme == "http" || u.Scheme == "https") {
+		return rawURL, "web", nil
+	} else if strings.Contains(rawURL, "://") {
+		return rawURL, "non-web", nil
+	} else {
+		return "", "", fmt.Errorf("could not determine URL type")
 	}
-
-	// if len(webURLs) > 0 {
-	// 	log.Debug().Str("url", extractedFromURL).Int("web_urls", len(webURLs)).Msg("Found web URLs")
-	// }
-
-	return ExtractedURLS{Web: webURLs, NonWeb: nonWebURLs}
 }
 
 func resolveURL(baseURL, relativeURL string) (string, error) {

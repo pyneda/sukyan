@@ -53,7 +53,9 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 				// passive.ScanHistoryItem(history)
 				linksFound := passive.ExtractedURLS{}
 				if ctx.Request.Type() != "Image" && ctx.Request.Type() != "Font" && ctx.Request.Type() != "Media" {
-					linksFound = passive.ExtractAndAnalyzeURLS(string(history.RawResponse), history.URL)
+					// linksFound = passive.ExtractAndAnalyzeURLS(string(history.RawResponse), history.URL)
+					linksFound = passive.ExtractURLsFromHistoryItem(history)
+
 				}
 				hijackResult := HijackResult{
 					History:        history,

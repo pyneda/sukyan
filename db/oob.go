@@ -70,6 +70,13 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 		issue := GetIssueTemplateByCode(oobTest.Code)
 		issue.Payload = oobTest.Payload
 		issue.URL = oobTest.Target
+		var sb strings.Builder
+		sb.WriteString("An out of band " + interaction.Protocol + " interaction has been detected by inserting the following payload `" + oobTest.Payload + "` in " + oobTest.InsertionPoint + "\n\n")
+		sb.WriteString("The interaction originated from " + interaction.RemoteAddress + " and was performed at " + interaction.Timestamp.String() + ".\n\nFind below the request data:\n")
+		sb.WriteString(interaction.RawRequest + "\n\n")
+		sb.WriteString("The server responded with the following data:\n")
+		sb.WriteString(interaction.RawResponse + "\n")
+		details := sb.String()
 		if oobTest.HistoryID != nil && *oobTest.HistoryID > 0 {
 			history, _ := d.GetHistory(*oobTest.HistoryID)
 			issue.StatusCode = history.StatusCode
@@ -77,6 +84,7 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 			issue.Request = history.RawRequest
 			issue.Response = history.RawResponse
 			issue.Confidence = 80
+			issue.Details = details
 		}
 		d.CreateIssue(*issue)
 	}

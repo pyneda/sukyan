@@ -48,6 +48,9 @@ var (
 	NoSqlInjectionCode                   IssueCode = "nosql_injection"
 	SqlInjectionCode                     IssueCode = "sql_injection"
 	SecretsInJsCode                      IssueCode = "secrets_in_js"
+	XPathInjectionCode                   IssueCode = "xpath_injection"
+	RemoteFileInclusionCode              IssueCode = "remote_file_inclusion"
+	CSRFCode                             IssueCode = "csrf"
 )
 
 var issueTemplates = []Issue{
@@ -378,6 +381,30 @@ var issueTemplates = []Issue{
 		Remediation: "To mitigate this issue, never hard-code secrets into your JavaScript or any other client-side code. Instead, store secrets server-side and ensure they are securely transmitted and only to authenticated and authorized entities. Implement strict access controls and consider using secret management solutions. Regular code reviews can help to identify and remove any accidentally committed secrets.",
 		Cwe:         615,
 		Severity:    "Medium",
+	},
+	{
+		Code:        XPathInjectionCode,
+		Title:       "XPath Injection Detected",
+		Description: "The application appears to be vulnerable to XPath injection attacks. This vulnerability occurs when the application uses user-supplied input to construct XPath queries without properly sanitizing or validating the input first. An attacker can exploit this vulnerability to manipulate queries, potentially leading to unauthorized data access, data loss, or data corruption.",
+		Remediation: "To mitigate this vulnerability, avoid constructing XPath queries with user-supplied input whenever possible. Instead, use parameterized queries or prepared statements, which can help ensure that user input is not interpreted as part of the XPath command. Implement proper input validation and sanitization procedures. Also, ensure that the least privilege principle is followed, and each function of the application has only the necessary access rights it needs to perform its tasks.",
+		Cwe:         643,
+		Severity:    "High",
+	},
+	{
+		Code:        RemoteFileInclusionCode,
+		Title:       "Remote File Inclusion Detected",
+		Description: "The application appears to be vulnerable to Remote File Inclusion (RFI) attacks. This vulnerability occurs when the application uses user-supplied input to include remote files without properly sanitizing or validating the input first. An attacker can exploit this vulnerability to inject malicious scripts, potentially leading to unauthorized data access, data corruption, or even server takeover.",
+		Remediation: "To mitigate this vulnerability, avoid including files from remote servers whenever possible. When it is necessary to do so, ensure that the remote file's location is hard-coded or otherwise not influenced by user input. Also, implement proper input validation and sanitization procedures. Regular code reviews and penetration testing can help to identify and mitigate such issues.",
+		Cwe:         98, // CWE-98: Remote File Inclusion (RFI)
+		Severity:    "High",
+	},
+	{
+		Code:        CSRFCode,
+		Title:       "Cross-Site Request Forgery Detected",
+		Description: "The application appears to be vulnerable to Cross-Site Request Forgery (CSRF) attacks. This vulnerability occurs when the application allows an attacker to trick an authenticated user into performing an unwanted action without their consent. An attacker can exploit this vulnerability to carry out actions with the same permissions as the victim, potentially leading to unauthorized data access, data loss, or account compromise.",
+		Remediation: "To mitigate this vulnerability, ensure that the application uses anti-CSRF tokens in every form or state changing request. These tokens should be tied to a user's session and included in every form or AJAX request that might result in a change of state for the user's data or settings. Also, make sure the application checks for the presence and correctness of this token before processing any such requests.",
+		Cwe:         352, // CWE-352: Cross-Site Request Forgery (CSRF)
+		Severity:    "High",
 	},
 }
 

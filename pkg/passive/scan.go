@@ -32,7 +32,7 @@ func ContentTypesScan(item *db.History) {
 	// } else if strings.Contains(contentType, "application/x-java-serialized-object") {
 	if strings.Contains(contentType, "application/x-java-serialized-object") {
 		log.Warn().Str("url", item.URL).Msg("Hijacked java serialized object response")
-		db.CreateIssueFromHistoryAndTemplate(item, db.JavaSerializedObjectCode, "The page responds using the `application/x-java-serialized-object` content type.", 90)
+		db.CreateIssueFromHistoryAndTemplate(item, db.JavaSerializedObjectCode, "The page responds using the `application/x-java-serialized-object` content type.", 90, "")
 	}
 	// } else {
 	// 	log.Info().Str("url", ctx.Request.URL().String()).Str("contentType", contentType).Msg("Hijacked non common response")
@@ -48,7 +48,7 @@ func ScanHistoryItemHeaders(item *db.History) {
 		result := check.Check(headers)
 		for _, r := range result {
 			if r.Matched {
-				db.CreateIssueFromHistoryAndTemplate(item, r.IssueCode, r.Description, 90)
+				db.CreateIssueFromHistoryAndTemplate(item, r.IssueCode, r.Description, 90, "")
 			}
 		}
 	}
@@ -116,7 +116,7 @@ func DirectoryListingScan(item *db.History) {
 		}
 	}
 	if isDirectoryListing {
-		db.CreateIssueFromHistoryAndTemplate(item, db.DirectoryListingCode, "", 90)
+		db.CreateIssueFromHistoryAndTemplate(item, db.DirectoryListingCode, "", 90, "")
 	}
 }
 
@@ -134,7 +134,7 @@ func PrivateIPScan(item *db.History) {
 			sb.WriteString(fmt.Sprintf("\n - %s", match))
 		}
 		discoveredIPs := sb.String()
-		db.CreateIssueFromHistoryAndTemplate(item, db.PrivateIPsCode, discoveredIPs, 90)
+		db.CreateIssueFromHistoryAndTemplate(item, db.PrivateIPsCode, discoveredIPs, 90, "")
 	}
 }
 
@@ -148,7 +148,7 @@ func DatabaseErrorScan(item *db.History) {
 	if match != nil {
 		errorDescription := fmt.Sprintf("Discovered database error: \n - Database type: %s\n - Error: %s", match.DatabaseName, match.MatchStr)
 
-		db.CreateIssueFromHistoryAndTemplate(item, db.DatabaseErrorsCode, errorDescription, 90)
+		db.CreateIssueFromHistoryAndTemplate(item, db.DatabaseErrorsCode, errorDescription, 90, "")
 	}
 
 }
@@ -167,7 +167,7 @@ func EmailAddressScan(item *db.History) {
 			sb.WriteString(fmt.Sprintf("\n - %s", match))
 		}
 		discoveredEmails := sb.String()
-		db.CreateIssueFromHistoryAndTemplate(item, db.EmailAddressesCode, discoveredEmails, 90)
+		db.CreateIssueFromHistoryAndTemplate(item, db.EmailAddressesCode, discoveredEmails, 90, "")
 	}
 }
 
@@ -181,7 +181,7 @@ func FileUploadScan(item *db.History) {
 			sb.WriteString(fmt.Sprintf("\n - %s", match))
 		}
 		details := sb.String()
-		db.CreateIssueFromHistoryAndTemplate(item, db.FileUploadDetectedCode, details, 90)
+		db.CreateIssueFromHistoryAndTemplate(item, db.FileUploadDetectedCode, details, 90, "")
 	}
 }
 
@@ -198,7 +198,7 @@ func JwtDetectionScan(item *db.History) {
 			db.Connection.GetOrCreateJWTFromTokenAndHistory(match, item.ID)
 		}
 		details := sb.String()
-		db.CreateIssueFromHistoryAndTemplate(item, db.JwtDetectedCode, details, 90)
+		db.CreateIssueFromHistoryAndTemplate(item, db.JwtDetectedCode, details, 90, "")
 	}
 	// Check RequestHeaders
 	req, err := item.GetRequestHeadersAsMap()
@@ -233,7 +233,7 @@ func checkHeadersForJwt(item *db.History, headers map[string][]string) {
 	}
 	details := sb.String()
 	if details != "" {
-		db.CreateIssueFromHistoryAndTemplate(item, db.JwtDetectedCode, details, 90)
+		db.CreateIssueFromHistoryAndTemplate(item, db.JwtDetectedCode, details, 90, "")
 	}
 }
 
@@ -249,7 +249,7 @@ func SessionTokenInURLScan(item *db.History) {
 			sb.WriteString(fmt.Sprintf("\n - Parameter: %s, Value: %s", parameter, value))
 		}
 		details := sb.String()
-		db.CreateIssueFromHistoryAndTemplate(item, db.SessionTokenInURLCode, details, 90)
+		db.CreateIssueFromHistoryAndTemplate(item, db.SessionTokenInURLCode, details, 90, "")
 	}
 }
 
@@ -275,7 +275,7 @@ func PrivateKeyScan(item *db.History) {
 				sb.WriteString(fmt.Sprintf("\n\n%s", match))
 			}
 			discoveredKeys := sb.String()
-			db.CreateIssueFromHistoryAndTemplate(item, db.PrivateKeysCode, discoveredKeys, 90)
+			db.CreateIssueFromHistoryAndTemplate(item, db.PrivateKeysCode, discoveredKeys, 90, "")
 		}
 	}
 }
@@ -313,7 +313,7 @@ func DBConnectionStringScan(item *db.History) {
 				sb.WriteString(fmt.Sprintf("\n - %s", match))
 			}
 			discoveredStrings := sb.String()
-			db.CreateIssueFromHistoryAndTemplate(item, db.DBConnectionStringsCode, discoveredStrings, 90)
+			db.CreateIssueFromHistoryAndTemplate(item, db.DBConnectionStringsCode, discoveredStrings, 90, "")
 		}
 	}
 }
@@ -347,7 +347,7 @@ func PasswordInGetRequestScan(item *db.History) {
 
 	if len(passwordParams) > 0 {
 		description := "Detected password in URL: " + strings.Join(passwordParams, "\n  - ")
-		db.CreateIssueFromHistoryAndTemplate(item, db.PasswordInGetRequestCode, description, 90)
+		db.CreateIssueFromHistoryAndTemplate(item, db.PasswordInGetRequestCode, description, 90, "")
 	}
 }
 
@@ -389,7 +389,7 @@ func StorageBucketDetectionScan(item *db.History) {
 	details := sb.String()
 
 	if matched {
-		db.CreateIssueFromHistoryAndTemplate(item, db.StorageBucketDetectedCode, details, 90)
+		db.CreateIssueFromHistoryAndTemplate(item, db.StorageBucketDetectedCode, details, 90, "")
 	}
 }
 
@@ -400,6 +400,6 @@ func WebSocketUsageScan(item *db.History) {
 	}
 	if item.StatusCode == 101 && lib.SliceContains(headers["Upgrade"], "websocket") {
 		details := fmt.Sprintf("WebSockets in use detected at %s", item.URL)
-		db.CreateIssueFromHistoryAndTemplate(item, db.WebSocketDetectedCode, details, 90)
+		db.CreateIssueFromHistoryAndTemplate(item, db.WebSocketDetectedCode, details, 90, "")
 	}
 }

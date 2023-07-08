@@ -69,6 +69,7 @@ func ScanHistoryItem(item *db.History) {
 		DirectoryListingScan(item)
 	} else if strings.Contains(item.ResponseContentType, "javascript") {
 		if viper.GetBool("passive.checks.js.enabled") {
+			passiveJavascriptSecretsScan(item)
 			PassiveJavascriptScan(item)
 		}
 	}

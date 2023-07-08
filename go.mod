@@ -3,6 +3,7 @@ module github.com/pyneda/sukyan
 go 1.20
 
 require (
+	github.com/BishopFox/jsluice v0.0.0-20230629150035-2c4584eded5a
 	github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819
 	github.com/go-playground/validator/v10 v10.14.1
 	github.com/go-rod/rod v0.113.1
@@ -117,6 +118,7 @@ require (
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect
 	github.com/savsgio/dictpool v0.0.0-20221023140959-7bf2e61cea94 // indirect
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
+	github.com/smacker/go-tree-sitter v0.0.0-20220628134258-ac06e95cfa11 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect

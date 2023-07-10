@@ -13,7 +13,7 @@ import (
 // @Tags Issues
 // @Accept  json
 // @Produce  json
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {array} db.Issue
 // @Failure 500 {object} ErrorResponse
 // @Router /api/v1/issues [get]
 func FindIssues(c *fiber.Ctx) error {

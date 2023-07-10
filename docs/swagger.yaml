@@ -46,6 +46,58 @@ definitions:
       title:
         type: string
     type: object
+  db.Issue:
+    properties:
+      code:
+        type: string
+      confidence:
+        type: integer
+      created_at:
+        type: string
+      cwe:
+        type: integer
+      description:
+        type: string
+      details:
+        type: string
+      falsePositive:
+        type: boolean
+      httpmethod:
+        type: string
+      id:
+        type: integer
+      note:
+        type: string
+      payload:
+        type: string
+      references:
+        items:
+          type: string
+        type: array
+      remediation:
+        type: string
+      request:
+        items:
+          type: integer
+        type: array
+      response:
+        items:
+          type: integer
+        type: array
+      severity:
+        description: |-
+          enums seem to fail - review later
+          Severity string `json:"severity" gorm:"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
+        type: string
+      statusCode:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+      url:
+        type: string
+    type: object
   db.JwtFilters:
     properties:
       algorithm:
@@ -358,8 +410,9 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            items:
+              $ref: '#/definitions/db.Issue'
+            type: array
         "500":
           description: Internal Server Error
           schema:

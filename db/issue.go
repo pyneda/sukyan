@@ -2,12 +2,11 @@ package db
 
 import (
 	"github.com/rs/zerolog/log"
-	"gorm.io/gorm"
 )
 
 // Issue holds table for storing issues found
 type Issue struct {
-	gorm.Model
+	BaseModel
 	Code          IssueCode `gorm:"index" json:"code"`
 	Title         string    `gorm:"index"`
 	Description   string

@@ -11,4 +11,5 @@ type ResponseConditionCheck string
 
 var (
 	DatabaseErrorCondition ResponseConditionCheck = "database_error"
+	XPathErrorCondition    ResponseConditionCheck = "xpath_error"
 )

@@ -2,29 +2,27 @@ package db
 
 import (
 	"github.com/rs/zerolog/log"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 // Issue holds table for storing issues found
 type Issue struct {
 	gorm.Model
-	Code           IssueCode `gorm:"index" json:"code"`
-	Title          string    `gorm:"index"`
-	Description    string
-	Details        string
-	Remediation    string
-	Cwe            int
-	URL            string `gorm:"index"`
-	StatusCode     int
-	HTTPMethod     string
-	Payload        string
-	Request        []byte
-	Response       []byte
-	AdditionalInfo datatypes.JSON
-	FalsePositive  bool
-	Confidence     int
-	References     StringSlice `json:"references"`
+	Code          IssueCode `gorm:"index" json:"code"`
+	Title         string    `gorm:"index"`
+	Description   string
+	Details       string
+	Remediation   string
+	Cwe           int
+	URL           string `gorm:"index"`
+	StatusCode    int
+	HTTPMethod    string
+	Payload       string
+	Request       []byte
+	Response      []byte
+	FalsePositive bool
+	Confidence    int
+	References    StringSlice `json:"references"`
 	// enums seem to fail - review later
 	// Severity string `json:"severity" gorm:"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
 	Severity string `json:"severity" gorm:"index; default:'Unknown'"`

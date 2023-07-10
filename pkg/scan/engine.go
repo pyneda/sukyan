@@ -7,8 +7,8 @@ import (
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/rs/zerolog/log"
-
 	"sync"
+	"time"
 )
 
 type ScanJobType string
@@ -129,6 +129,7 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 	}
 	log.Info().Msg("Active scans scheduled")
 	if waitCompletion {
+		time.Sleep(3 * time.Second)
 		s.wg.Wait()
 		log.Info().Msg("Active scans finished")
 	}

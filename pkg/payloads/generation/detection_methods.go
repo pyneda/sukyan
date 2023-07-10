@@ -36,10 +36,19 @@ type OOBInteractionDetectionMethod struct {
 	Confidence int    `yaml:"confidence,omitempty"`
 }
 
+type ResponseContainsPart string
+
+const (
+	Body    ResponseContainsPart = "body"
+	Headers ResponseContainsPart = "headers"
+	Raw     ResponseContainsPart = "raw"
+)
+
 type ResponseConditionDetectionMethod struct {
-	Contains   string `yaml:"contains,omitempty"`
-	StatusCode int    `yaml:"status_code,omitempty"`
-	Confidence int    `yaml:"confidence,omitempty"`
+	Contains   string               `yaml:"contains,omitempty"`
+	Part       ResponseContainsPart `yaml:"part,omitempty"`
+	StatusCode int                  `yaml:"status_code,omitempty"`
+	Confidence int                  `yaml:"confidence,omitempty"`
 }
 
 type ResponseCheckDetectionMethod struct {

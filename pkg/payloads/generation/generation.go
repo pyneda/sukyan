@@ -10,6 +10,7 @@ import (
 )
 
 type PayloadGenerator struct {
+	ID                 string             `yaml:"id,omitempty"` // Since it's not used yet, allow it to be empty
 	IssueCode          string             `yaml:"issue_code"`
 	DetectionCondition DetectionCondition `yaml:"detection_condition"`
 	DetectionMethods   []DetectionMethod  `yaml:"detection_methods"`

@@ -24,6 +24,7 @@ type Issue struct {
 	AdditionalInfo datatypes.JSON
 	FalsePositive  bool
 	Confidence     int
+	References     StringSlice `json:"references"`
 	// enums seem to fail - review later
 	// Severity string `json:"severity" gorm:"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
 	Severity string `json:"severity" gorm:"index; default:'Unknown'"`

@@ -52,14 +52,14 @@ func BuildURLWithParam(original string, param string, payload string, urlEncode 
 
 	parsedURL.RawQuery = values.Encode()
 	testurl := parsedURL.String()
-	// log.Printf("web url: %s", original)
 	if urlEncode == false {
 		if len(values) == 0 {
-			if strings.HasSuffix(parsedURL.String(), "/") {
-				testurl = parsedURL.String() + "?" + param + "=" + payload
-			} else {
-				testurl = parsedURL.String() + "/?" + param + "=" + payload
-			}
+			testurl = parsedURL.String() + "?" + param + "=" + payload
+			// if strings.HasSuffix(parsedURL.String(), "/") {
+			// 	testurl = parsedURL.String() + "?" + param + "=" + payload
+			// } else {
+			// 	testurl = parsedURL.String() + "/?" + param + "=" + payload
+			// }
 		} else {
 			testurl = parsedURL.String() + "&" + param + "=" + payload
 		}

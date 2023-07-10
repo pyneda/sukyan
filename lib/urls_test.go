@@ -17,7 +17,7 @@ func TestBuildUrlWithParam(t *testing.T) {
 }
 
 func TestBuildUrlWithSingleParam(t *testing.T) {
-	parsedUrl, err := BuildURLWithParam("https://test.com?q=test", "q", "alert(1)", false)
+	parsedUrl, err := BuildURLWithParam("https://test.com/?q=test", "q", "alert(1)", false)
 	if err != nil {
 		t.Error()
 	}
@@ -32,7 +32,7 @@ func TestBuildUrlAddingParam(t *testing.T) {
 	if err != nil {
 		t.Error()
 	}
-	expected := "https://test.com/?q=alert(1)"
+	expected := "https://test.com?q=alert(1)"
 	if parsedUrl != expected {
 		t.Errorf("Expected %s  Received: %s", expected, parsedUrl)
 	}

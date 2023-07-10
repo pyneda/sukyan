@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"io"
 	"mime"
@@ -21,14 +22,7 @@ type InsertionPointBuilder struct {
 }
 
 func createRequestFromURL(history *db.History, builder InsertionPointBuilder) (string, error) {
-	parsedURL, err := url.Parse(history.URL)
-	if err != nil {
-		return "", err
-	}
-	query := parsedURL.Query()
-	query.Set(builder.Point.Name, builder.Payload)
-	parsedURL.RawQuery = query.Encode()
-	return parsedURL.String(), nil
+	return lib.BuildURLWithParam(history.URL, builder.Point.Name, builder.Payload, false)
 }
 
 func createRequestFromHeader(history *db.History, builder InsertionPointBuilder) (http.Header, error) {

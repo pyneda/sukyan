@@ -1,19 +1,13 @@
 package web
 
 import (
-	"encoding/json"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/pyneda/sukyan/db"
-	"github.com/rs/zerolog/log"
 	"strconv"
 	"strings"
 )
 
 func handleBrowserAuditIssues(url string, e *proto.AuditsIssueAdded) {
-	jsonDetails, err := json.Marshal(e.Issue.Details)
-	if err != nil {
-		log.Error().Err(err).Str("url", url).Msg("Could not convert browser audit issue event details to JSON")
-	}
 	// Check if it is a Mixed Content Issue Details
 	// Codes in: https://github.com/go-rod/rod/blob/ba02d6c76c1e2ef7ab4a58909c58877b34761fd9/lib/proto/audits.go#L809
 	if e.Issue.Details.MixedContentIssueDetails != nil {
@@ -34,7 +28,6 @@ func handleBrowserAuditIssues(url string, e *proto.AuditsIssueAdded) {
 		browserAuditIssue := db.GetIssueTemplateByCode(db.MixedContentCode)
 		browserAuditIssue.URL = url
 		browserAuditIssue.Details = details.String()
-		browserAuditIssue.AdditionalInfo = jsonDetails
 		browserAuditIssue.Confidence = 80
 		db.Connection.CreateIssue(*browserAuditIssue)
 
@@ -66,28 +59,8 @@ func handleBrowserAuditIssues(url string, e *proto.AuditsIssueAdded) {
 		browserAuditIssue := db.GetIssueTemplateByCode(db.CorsCode)
 		browserAuditIssue.URL = url
 		browserAuditIssue.Details = details.String()
-		browserAuditIssue.AdditionalInfo = jsonDetails
 		browserAuditIssue.Confidence = 80
 		db.Connection.CreateIssue(*browserAuditIssue)
 
 	}
-	// TODO: Might not want to create issues for these. Should review we catch all relevant ones.
-	// else {
-	// 	// Generic while dont have customized for every event type
-	// 	browserAuditIssue := db.Issue{
-	// 		Code:           "browser-audit-" + string(e.Issue.Code),
-	// 		URL:            url,
-	// 		Title:          "Browser audit issue (classification needed)",
-	// 		Cwe:            1,
-	// 		StatusCode:     200,
-	// 		HTTPMethod:     "GET?",
-	// 		Description:    string(jsonDetails),
-	// 		Payload:        "N/A",
-	// 		Confidence:     80,
-	// 		AdditionalInfo: jsonDetails,
-	// 		Severity:       "Low",
-	// 	}
-	// 	db.Connection.CreateIssue(browserAuditIssue)
-
-	// }
 }

@@ -241,7 +241,18 @@ func (f *HttpFuzzer) EvaluateDetectionMethod(result HistoryFuzzResult, method ge
 		}
 
 		if m.Contains != "" {
-			if strings.Contains(result.ResponseData.RawString, m.Contains) {
+			matchAgainst := result.ResponseData.RawString
+			if m.Part == generation.Body {
+				matchAgainst = string(result.ResponseData.Body)
+			} else if m.Part == generation.Headers {
+				headersString, err := result.Result.GetResponseHeadersAsString()
+				if err == nil {
+					matchAgainst = headersString
+				} else {
+					log.Error().Err(err).Msg("Error getting response headers as string, using raw response. This might create false positives.")
+				}
+			}
+			if strings.Contains(matchAgainst, m.Contains) {
 				sb.WriteString(fmt.Sprintf("Response contains the value: %s\n", m.Contains))
 				containsMatch = true
 			}

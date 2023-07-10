@@ -3,9 +3,11 @@ package db
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"strings"
 )
 
 // History holds table for storing requests history found
@@ -92,6 +94,22 @@ func (h *History) GetRequestHeadersAsMap() (map[string][]string, error) {
 	}
 
 	return stringMap, nil
+}
+
+func (h *History) GetResponseHeadersAsString() (string, error) {
+	headersMap, err := h.GetResponseHeadersAsMap()
+	if err != nil {
+		log.Error().Err(err).Uint("history", h.ID).Msg("Error getting response headers as map")
+		return "", err
+	}
+	headers := make([]string, 0, len(headersMap))
+	for name, values := range headersMap {
+		for _, value := range values {
+			headers = append(headers, fmt.Sprintf("%s: %s", name, value))
+		}
+	}
+
+	return strings.Join(headers, "\n"), nil
 }
 
 func (h *History) getCreateQueryData() (History, History) {

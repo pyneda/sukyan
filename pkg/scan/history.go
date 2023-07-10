@@ -29,14 +29,14 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	p := web.WebPage{URL: item.URL}
 	hasParams, _ := p.HasParameters()
 	if hasParams && viper.GetBool("scan.insertion_points.parameters") {
-		ssrf := active.SSRFAudit{
-			URL:                 item.URL,
-			ParamsToTest:        specificParamsToTest,
-			Concurrency:         5,
-			StopAfterSuccess:    false,
-			InteractionsManager: interactionsManager,
-		}
-		ssrf.Run()
+		// ssrf := active.SSRFAudit{
+		// 	URL:                 item.URL,
+		// 	ParamsToTest:        specificParamsToTest,
+		// 	Concurrency:         5,
+		// 	StopAfterSuccess:    false,
+		// 	InteractionsManager: interactionsManager,
+		// }
+		// ssrf.Run()
 		active.TestXSS(item.URL, specificParamsToTest, "default.txt", false)
 		// ssti := active.SSTIAudit{
 		// 	URL:              item.URL,

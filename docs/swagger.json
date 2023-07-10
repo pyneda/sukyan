@@ -289,8 +289,10 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/db.Issue"
+                            }
                         }
                     },
                     "500": {
@@ -684,6 +686,81 @@
                     "type": "string"
                 },
                 "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.Issue": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "confidence": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "cwe": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "string"
+                },
+                "falsePositive": {
+                    "type": "boolean"
+                },
+                "httpmethod": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "payload": {
+                    "type": "string"
+                },
+                "references": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "remediation": {
+                    "type": "string"
+                },
+                "request": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "response": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "severity": {
+                    "description": "enums seem to fail - review later\nSeverity string `json:\"severity\" gorm:\"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'\"`",
+                    "type": "string"
+                },
+                "statusCode": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "url": {
                     "type": "string"
                 }
             }

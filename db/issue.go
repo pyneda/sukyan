@@ -7,25 +7,25 @@ import (
 // Issue holds table for storing issues found
 type Issue struct {
 	BaseModel
-	Code          IssueCode `gorm:"index" json:"code"`
-	Title         string    `gorm:"index"`
-	Description   string
-	Details       string
-	Remediation   string
-	Cwe           int
-	URL           string `gorm:"index"`
-	StatusCode    int
-	HTTPMethod    string
-	Payload       string
-	Request       []byte
-	Response      []byte
-	FalsePositive bool
-	Confidence    int
+	Code          IssueCode   `gorm:"index" json:"code"`
+	Title         string      `gorm:"index" json:"title"`
+	Description   string      `json:"description"`
+	Details       string      `json:"details"`
+	Remediation   string      `json:"remediation"`
+	Cwe           int         `json:"cwe"`
+	URL           string      `gorm:"index" json:"url"`
+	StatusCode    int         `gorm:"index" json:"status_code"`
+	HTTPMethod    string      `gorm:"index" json:"http_method"`
+	Payload       string      `json:"payload"`
+	Request       []byte      `json:"request"`
+	Response      []byte      `json:"response"`
+	FalsePositive bool        `json:"false_positive"`
+	Confidence    int         `json:"confidence"`
 	References    StringSlice `json:"references"`
 	// enums seem to fail - review later
 	// Severity string `json:"severity" gorm:"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
 	Severity string `json:"severity" gorm:"index; default:'Unknown'"`
-	Note     string
+	Note     string `json:"note"`
 }
 
 // IssueFilter represents available issue filters

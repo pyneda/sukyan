@@ -129,6 +129,7 @@ func (c *Crawler) Run() []*db.History {
 	time.Sleep(5 * time.Second)
 	c.wg.Wait()
 	log.Info().Msg("Finished crawling")
+	c.browser.Close()
 	return inScopeHistoryItems
 }
 

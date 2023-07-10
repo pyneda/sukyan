@@ -298,6 +298,13 @@ func (f *HttpFuzzer) EvaluateDetectionMethod(result HistoryFuzzResult, method ge
 				description := fmt.Sprintf("Database error was returned in response:\n - Database: %s\n - Error: %s", result.DatabaseName, result.MatchStr)
 				return true, description, m.Confidence, nil
 			}
+		} else if m.Check == generation.XPathErrorCondition {
+			result := passive.SearchXPathErrors(result.ResponseData.RawString)
+			if result != "" {
+				log.Info().Str("xpath_error", result).Msg("Matched XPathErrorCondition")
+				description := fmt.Sprintf("XPath error was returned in response:\n - Error: %s", result)
+				return true, description, m.Confidence, nil
+			}
 		}
 		return false, "", 0, nil
 	}

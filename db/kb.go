@@ -51,6 +51,7 @@ var (
 	XPathInjectionCode                   IssueCode = "xpath_injection"
 	RemoteFileInclusionCode              IssueCode = "remote_file_inclusion"
 	CSRFCode                             IssueCode = "csrf"
+	CRLFInjectionCode                    IssueCode = "crlf_injection"
 )
 
 var issueTemplates = []Issue{
@@ -397,6 +398,9 @@ var issueTemplates = []Issue{
 		Remediation: "To mitigate this vulnerability, avoid including files from remote servers whenever possible. When it is necessary to do so, ensure that the remote file's location is hard-coded or otherwise not influenced by user input. Also, implement proper input validation and sanitization procedures. Regular code reviews and penetration testing can help to identify and mitigate such issues.",
 		Cwe:         98, // CWE-98: Remote File Inclusion (RFI)
 		Severity:    "High",
+		References: []string{
+			"https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/07-Input_Validation_Testing/11.2-Testing_for_Remote_File_Inclusion",
+		},
 	},
 	{
 		Code:        CSRFCode,
@@ -405,6 +409,21 @@ var issueTemplates = []Issue{
 		Remediation: "To mitigate this vulnerability, ensure that the application uses anti-CSRF tokens in every form or state changing request. These tokens should be tied to a user's session and included in every form or AJAX request that might result in a change of state for the user's data or settings. Also, make sure the application checks for the presence and correctness of this token before processing any such requests.",
 		Cwe:         352, // CWE-352: Cross-Site Request Forgery (CSRF)
 		Severity:    "High",
+		References: []string{
+			"https://owasp.org/www-community/attacks/csrf",
+			"https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html",
+		},
+	},
+	{
+		Code:        CRLFInjectionCode,
+		Title:       "CRLF Injection Detected",
+		Description: "The application appears to be vulnerable to CRLF (Carriage Return Line Feed) injection attacks. This vulnerability occurs when the application does not properly sanitize user-supplied input that is then used in HTTP headers. An attacker can exploit this vulnerability to manipulate HTTP headers and control the HTTP response body, potentially leading to HTTP response splitting, session hijacking, cross-site scripting (XSS) attacks, or other injection attacks.",
+		Remediation: "To mitigate this vulnerability, sanitize and validate all user-supplied inputs that are incorporated into HTTP headers. Remove or escape CRLF sequences and other control characters. Use allowlists of acceptable inputs, rather than denylists of bad inputs. In addition, configure your web server to ignore or reject HTTP headers that contain CR or LF characters. Regular code reviews and penetration testing can help to identify and mitigate such issues.",
+		Cwe:         93, // CWE-93: Improper Neutralization of CRLF Sequences ('CRLF Injection')
+		Severity:    "Medium",
+		References: []string{
+			"https://owasp.org/www-community/vulnerabilities/CRLF_Injection",
+		},
 	},
 }
 

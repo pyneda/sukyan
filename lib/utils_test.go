@@ -2,6 +2,8 @@ package lib
 
 import (
 	"testing"
+	"sort"
+	"reflect"
 )
 
 func TestGenerateRandomString(t *testing.T) {
@@ -63,6 +65,38 @@ func TestContains(t *testing.T) {
 			result := Contains(tc.slice, tc.item)
 			if result != tc.expected {
 				t.Errorf("expected %v, but got %v", tc.expected, result)
+			}
+		})
+	}
+}
+
+
+func TestGetUniqueItems(t *testing.T) {
+	tests := []struct {
+		name string
+		items []string
+		want  []string
+	}{
+		{
+			name:  "Strings with duplicates",
+			items: []string{"apple", "banana", "apple", "orange", "banana"},
+			want:  []string{"apple", "banana", "orange"},
+		},
+		{
+			name:  "Strings without duplicates",
+			items: []string{"apple", "banana", "cherry"},
+			want:  []string{"apple", "banana", "cherry"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetUniqueItems(tt.items)
+			// Since map iteration is random, we need to sort the slices before comparing.
+			sort.Strings(got)
+			sort.Strings(tt.want)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetUniqueItems() = %v, want %v", got, tt.want)
 			}
 		})
 	}

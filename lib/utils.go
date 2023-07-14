@@ -84,3 +84,19 @@ func GenerateRandInt(min, max int) int {
 	rand.Seed(time.Now().UnixNano())
 	return rand.Intn(max-min+1) + min
 }
+
+
+// GetUniqueItems takes a slice of strings and returns a new slice with unique items.
+func GetUniqueItems(items []string) []string {
+	uniqueItemsMap := make(map[string]bool)
+	for _, item := range items {
+		uniqueItemsMap[item] = true
+	}
+
+	uniqueItems := make([]string, 0, len(uniqueItemsMap))
+	for item := range uniqueItemsMap {
+		uniqueItems = append(uniqueItems, item)
+	}
+
+	return uniqueItems
+}

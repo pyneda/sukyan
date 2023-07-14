@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"reflect"
 	"testing"
+	"sort"
 )
 
 func TestBuildUrlWithParam(t *testing.T) {
@@ -239,5 +240,52 @@ func TestCalculateURLDepth(t *testing.T) {
 		if got != c.depth {
 			t.Errorf("CalculateURLDepth(%q) == %d, want %d", c.url, got, c.depth)
 		}
+	}
+}
+
+func TestGetUniqueBaseURLs(t *testing.T) {
+	tests := []struct {
+		name    string
+		urls    []string
+		want    []string
+		wantErr bool
+	}{
+		{
+			name: "Valid URLs",
+			urls: []string{
+				"http://example.com/path/to/resource",
+				"http://example.com/path/to/another/resource",
+				"http://example.com",
+				"https://another.example.com",
+			},
+			want: []string{
+				"http://example.com",
+				"https://another.example.com",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Invalid URL",
+			urls: []string{
+				"://invalid.url",
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetUniqueBaseURLs(tt.urls)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetUniqueBaseURLs() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			// Since map iteration is random, we need to sort the slices before comparing.
+			sort.Strings(got)
+			sort.Strings(tt.want)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetUniqueBaseURLs() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

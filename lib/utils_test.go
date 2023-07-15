@@ -1,9 +1,9 @@
 package lib
 
 import (
-	"testing"
-	"sort"
 	"reflect"
+	"sort"
+	"testing"
 )
 
 func TestGenerateRandomString(t *testing.T) {
@@ -70,10 +70,9 @@ func TestContains(t *testing.T) {
 	}
 }
 
-
 func TestGetUniqueItems(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		items []string
 		want  []string
 	}{

@@ -54,7 +54,17 @@ var (
 	CRLFInjectionCode                    IssueCode = "crlf_injection"
 )
 
-var issueTemplates = []Issue{
+type IssueTemplate struct {
+	Code        IssueCode `json:"code"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Remediation string    `json:"remediation"`
+	Cwe         int       `json:"cwe"`
+	Severity    string    `json:"severity"`
+	References  []string  `json:"references"`
+}
+
+var issueTemplates = []IssueTemplate{
 	{
 		Code:        SSRFCode,
 		Title:       "Server Side Request Forgery",
@@ -428,9 +438,17 @@ var issueTemplates = []Issue{
 }
 
 func GetIssueTemplateByCode(code IssueCode) *Issue {
-	for _, issue := range issueTemplates {
-		if issue.Code == code {
-			return &issue
+	for _, issueTemplate := range issueTemplates {
+		if issueTemplate.Code == code {
+			return &Issue{
+				Code:        string(issueTemplate.Code),
+				Title:       issueTemplate.Title,
+				Description: issueTemplate.Description,
+				Remediation: issueTemplate.Remediation,
+				Cwe:         issueTemplate.Cwe,
+				Severity:    issueTemplate.Severity,
+				References:  StringSlice(issueTemplate.References),
+			}
 		}
 	}
 	return nil

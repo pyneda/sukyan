@@ -3,8 +3,8 @@ package lib
 import (
 	"net/url"
 	"reflect"
-	"testing"
 	"sort"
+	"testing"
 )
 
 func TestBuildUrlWithParam(t *testing.T) {

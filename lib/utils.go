@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode"
 )
 
 // DefaultRandomStringsCharset Default charset used for random string generation
@@ -85,7 +86,6 @@ func GenerateRandInt(min, max int) int {
 	return rand.Intn(max-min+1) + min
 }
 
-
 // GetUniqueItems takes a slice of strings and returns a new slice with unique items.
 func GetUniqueItems(items []string) []string {
 	uniqueItemsMap := make(map[string]bool)
@@ -99,4 +99,13 @@ func GetUniqueItems(items []string) []string {
 	}
 
 	return uniqueItems
+}
+
+// CapitalizeFirstLetter capitalizes the first letter of a string
+func CapitalizeFirstLetter(input string) string {
+	for _, v := range input {
+		u := string(unicode.ToUpper(v))
+		return u + input[len(u):]
+	}
+	return ""
 }

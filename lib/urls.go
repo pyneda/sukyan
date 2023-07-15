@@ -152,7 +152,6 @@ func GetBaseURL(urlStr string) (string, error) {
 	return baseURL, nil
 }
 
-
 // GetUniqueBaseURLs parses a list of URLs and returns a slice of unique base URLs.
 func GetUniqueBaseURLs(urls []string) ([]string, error) {
 	baseURLs := make([]string, len(urls))

@@ -7,7 +7,7 @@ import (
 // Issue holds table for storing issues found
 type Issue struct {
 	BaseModel
-	Code          IssueCode   `gorm:"index" json:"code"`
+	Code          string      `gorm:"index" json:"code"`
 	Title         string      `gorm:"index" json:"title"`
 	Description   string      `json:"description"`
 	Details       string      `json:"details"`
@@ -24,8 +24,9 @@ type Issue struct {
 	References    StringSlice `json:"references"`
 	// enums seem to fail - review later
 	// Severity string `json:"severity" gorm:"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
-	Severity string `json:"severity" gorm:"index; default:'Unknown'"`
-	Note     string `json:"note"`
+	Severity    string `json:"severity" gorm:"index; default:'Unknown'"`
+	CURLCommand string `json:"curl_command"`
+	Note        string `json:"note"`
 }
 
 // IssueFilter represents available issue filters

@@ -121,6 +121,28 @@ func SetDefaultConfig() {
 	viper.SetDefault("forms.auto_fill.names.username", "admin")
 	viper.SetDefault("forms.auto_fill.names.password", "password")
 	viper.SetDefault("forms.auto_fill.names.email", "example@example.com")
+
+	// Integrations
+	viper.SetDefault("integrations.nuclei.enabled", true)
+	viper.SetDefault("integrations.nuclei.host", "localhost")
+	viper.SetDefault("integrations.nuclei.port", 8555)
+	viper.SetDefault("integrations.nuclei.scan_timeout", 30)
+	viper.SetDefault("integrations.nuclei.automatic_scan", true)
+	viper.SetDefault("integrations.nuclei.include_ids", []string{})
+	viper.SetDefault("integrations.nuclei.exclude_ids", []string{"http-missing-security-headers"})
+	viper.SetDefault("integrations.nuclei.tags", []string{})
+	viper.SetDefault("integrations.nuclei.exclude_tags", []string{})
+	viper.SetDefault("integrations.nuclei.workflows", []string{})
+	viper.SetDefault("integrations.nuclei.exclude_workflows", []string{})
+	viper.SetDefault("integrations.nuclei.templates", []string{})
+	viper.SetDefault("integrations.nuclei.excluded_templates", []string{})
+	viper.SetDefault("integrations.nuclei.authors", []string{})
+	viper.SetDefault("integrations.nuclei.exclude_matchers", []string{})
+	viper.SetDefault("integrations.nuclei.severities", []string{})
+	viper.SetDefault("integrations.nuclei.exclude_severities", []string{})
+	viper.SetDefault("integrations.nuclei.protocols", []string{})
+	viper.SetDefault("integrations.nuclei.exclude_protocols", []string{})
+
 	// API
 	viper.SetDefault("api.listen.host", "")
 	viper.SetDefault("api.listen.port", 8013)

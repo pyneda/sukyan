@@ -2,11 +2,14 @@ package scan
 
 import (
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
+
 	"github.com/pyneda/sukyan/pkg/crawl"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 	"sync"
 	"time"
 )
@@ -121,6 +124,19 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 	historyItems := crawler.Run()
 	uniqueHistoryItems := removeDuplicateHistoryItems(historyItems)
 	log.Info().Int("count", len(uniqueHistoryItems)).Msg("Crawling finished, scheduling active scans")
+	baseURLs, err := lib.GetUniqueBaseURLs(startUrls)
+	if err != nil {
+		log.Error().Err(err).Msg("Could not get unique base urls")
+	}
+
+	// Very basic initial integration, could probably launch it in parallel with other tasks
+	if viper.GetBool("integrations.nuclei.enabled") {
+		nucleiScanErr := integrations.NucleiScan(baseURLs)
+		if nucleiScanErr != nil {
+			log.Error().Err(nucleiScanErr).Msg("Error running nuclei scan")
+		}
+	}
+
 	for _, historyItem := range uniqueHistoryItems {
 		if historyItem.StatusCode == 404 {
 			continue

@@ -16,7 +16,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/projectdiscovery/interactsh v1.1.4
 	github.com/projectdiscovery/wappalyzergo v0.0.101
-	github.com/pyneda/nuclei-api v0.0.0-20230715072956-95fdbb099dac
+	github.com/pyneda/nuclei-api v0.0.0-20230715211054-636941207b06
 	github.com/rs/zerolog v1.29.1
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0

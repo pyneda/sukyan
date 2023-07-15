@@ -16,17 +16,29 @@ import (
 )
 
 func processNucleiResult(result *pb.ScanResult) {
-	if result == nil || result.Info == nil {
+	var info pb.ScanResultInfo
+	if result == nil {
 		log.Error().Str("id", result.TemplateId).Interface("result", result).Msg("Received nuclei scan result without enough information")
 		return
+	}
+
+	if result.Info != nil {
+		info = *result.Info
+	} else {
+		info.Name = convertToTitle(result.TemplateId)
+		info.Description = "N/A"
+		info.Severity = "Unknown"
+		info.References = []string{}
+		info.Remediation = "N/A"
 	}
 
 	var sb strings.Builder
 	if result.MatcherStatus && result.MatcherName != "" {
 		sb.WriteString("Matched: " + result.MatcherName)
 		if result.Matched != "" {
-			sb.WriteString("Matched value: " + result.Matched)
+			sb.WriteString("\nMatched value: " + result.Matched)
 		}
+		sb.WriteString("\n\n")
 	}
 
 	if len(result.ExtractedResults) > 0 {
@@ -36,20 +48,28 @@ func processNucleiResult(result *pb.ScanResult) {
 		}
 	}
 
+	if result.Interaction != nil {
+		sb.WriteString("An out of band " + result.Interaction.Protocol + " interaction has been detected.\n\n")
+		sb.WriteString("The interaction originated from " + result.Interaction.RemoteAddress + " and was performed at " + result.Interaction.Timestamp + ".\n\nFind below the request data:\n")
+		sb.WriteString(string(result.Interaction.RawRequest) + "\n\n")
+		sb.WriteString("The server responded with the following data:\n")
+		sb.WriteString(string(result.Interaction.RawResponse) + "\n")
+	}
+
 	sb.WriteString("\n\nNOTE: This issue has been generated via the Nuclei integration using a template with ID: " + result.TemplateId)
 
 	issue := db.Issue{
 		Code:        result.TemplateId,
-		Title:       result.Info.Name,
-		Description: result.Info.Description,
-		Remediation: result.Info.Remediation,
+		Title:       info.Name,
+		Description: info.Description,
+		Remediation: info.Remediation,
 		URL:         result.Matched,
 		Details:     sb.String(),
 		Request:     []byte(result.Request),
 		Response:    []byte(result.Response),
-		References:  result.Info.References,
+		References:  info.References,
 		CURLCommand: result.CurlCommand,
-		Severity:    lib.CapitalizeFirstLetter(result.Info.Severity),
+		Severity:    lib.CapitalizeFirstLetter(info.Severity),
 	}
 
 	new, err := db.Connection.CreateIssue(issue)

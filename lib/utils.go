@@ -109,3 +109,8 @@ func CapitalizeFirstLetter(input string) string {
 	}
 	return ""
 }
+
+// EscapeDots escapes dots in a string
+func EscapeDots(input string) string {
+	return strings.ReplaceAll(input, ".", "\\\"\\\".")
+}

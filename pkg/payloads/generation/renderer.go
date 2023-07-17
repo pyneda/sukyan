@@ -19,6 +19,7 @@ func (t *TemplateRenderer) getTemplateFuncs() template.FuncMap {
 		"genRandInt":             lib.GenerateRandInt,
 		"genRandString":          lib.GenerateRandomString,
 		"genrandLowercaseString": lib.GenerateRandomLowercaseString,
+		"escapeDots":             lib.EscapeDots,
 	}
 }
 

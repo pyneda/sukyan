@@ -30,7 +30,8 @@ var (
 	XPoweredByHeaderCode                 IssueCode = "x_powered_by_header"
 	XASPVersionHeaderCode                IssueCode = "x_asp_version_header"
 	ServerHeaderCode                     IssueCode = "server_header"
-	ContentTypeHeaderCode                IssueCode = "content_type_header"
+	IncorrectContentTypeHeaderCode       IssueCode = "incorrect_content_type_header"
+	MissingContentTypeCode               IssueCode = "missing_content_type_header"
 	CacheControlHeaderCode               IssueCode = "cache_control_header"
 	StrictTransportSecurityHeaderCode    IssueCode = "strict_transport_security_header"
 	XFrameOptionsHeaderCode              IssueCode = "x_frame_options_header"
@@ -252,8 +253,8 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "Low",
 	},
 	{
-		Code:        ContentTypeHeaderCode,
-		Title:       "Content Type Header Missing or Incorrect",
+		Code:        IncorrectContentTypeHeaderCode,
+		Title:       "Incorrect Content Type Header",
 		Description: "The application does not correctly specify the content type of the response, potentially leading to security vulnerabilities such as MIME sniffing attacks.",
 		Remediation: "Always specify a correct 'Content-Type' header in the response. Use 'X-Content-Type-Options: nosniff' to prevent the browser from MIME-sniffing a response away from the declared content-type.",
 		Cwe:         16,
@@ -460,6 +461,17 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://portswigger.net/web-security/prototype-pollution/client-side",
 			"https://book.hacktricks.xyz/pentesting-web/deserialization/nodejs-proto-prototype-pollution/client-side-prototype-pollution",
+		},
+	},
+	{
+		Code:        MissingContentTypeCode,
+		Title:       "Missing Content Type Header",
+		Description: "The application does not appear to be setting a content type in the response headers. This can lead to security vulnerabilities if the browser attempts to 'sniff' the MIME type, potentially leading to situations where content is interpreted and executed as a different type than intended. For example, an attacker might be able to trick a user's browser into interpreting a response body as HTML or JavaScript, leading to cross-site scripting vulnerabilities.",
+		Remediation: "To mitigate this vulnerability, ensure that all responses include a Content-Type header that accurately reflects the type of content being returned. If the content type is not known in advance, 'application/octet-stream' can be used as a general fallback. Avoid using 'text/plain' as this can still be sniffed in some situations. In addition, setting the 'X-Content-Type-Options: nosniff' header will instruct the browser not to attempt to sniff the MIME type.",
+		Cwe:         16,
+		Severity:    "Info",
+		References: []string{
+			"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options",
 		},
 	},
 }

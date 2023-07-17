@@ -18,6 +18,7 @@ type MatchResult struct {
 
 const (
 	Exists      MatcherType      = "exists"
+	NotExists   MatcherType      = "not-exists"
 	Regex       MatcherType      = "regex"
 	Contains    MatcherType      = "contains"
 	NotContains MatcherType      = "not-contains"
@@ -85,12 +86,25 @@ func (c *HeaderCheck) Check(headers map[string][]string) []MatchResult {
 	for _, headerName := range c.Headers {
 		headerValues, exists := headers[headerName]
 
-		if !exists {
-			continue
+		if exists && len(headerValues) > 0 {
+			results := c.CheckHeader(headerName, headerValues)
+			matchResults = append(matchResults, results...)
+		} else {
+			for _, matcher := range c.Matchers {
+				if matcher.MatcherType == NotExists {
+					description := fmt.Sprintf("Header '%s' does not exist as expected.\n", headerName)
+					issueCode := matcher.CustomIssueCode
+					if issueCode == "" {
+						issueCode = c.IssueCode
+					}
+					matchResults = append(matchResults, MatchResult{
+						IssueCode:   issueCode,
+						Matched:     true,
+						Description: description,
+					})
+				}
+			}
 		}
-
-		results := c.CheckHeader(headerName, headerValues)
-		matchResults = append(matchResults, results...)
 	}
 
 	return matchResults

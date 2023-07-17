@@ -144,6 +144,24 @@ func TestHeaderCheck(t *testing.T) {
 			check:       HeaderCheck{Headers: []string{"Server"}, Matchers: []HeaderCheckMatcher{{MatcherType: NotEquals, Value: "apache"}}, IssueCode: "server-header"},
 			expectCount: 1,
 		},
+		{
+			name:        "NotExists check",
+			headers:     map[string][]string{"Server": []string{"nginx/1.14.0"}},
+			check:       HeaderCheck{Headers: []string{"UnknownHeader"}, Matchers: []HeaderCheckMatcher{{MatcherType: NotExists}}, IssueCode: "missing-header"},
+			expectCount: 1,
+		},
+		{
+			name:        "NotExists but header exists check",
+			headers:     map[string][]string{"Server": []string{"nginx/1.14.0"}},
+			check:       HeaderCheck{Headers: []string{"Server"}, Matchers: []HeaderCheckMatcher{{MatcherType: NotExists}}, IssueCode: "unexpected-header"},
+			expectCount: 0,
+		},
+		{
+			name:        "NotExists check with empty value",
+			headers:     map[string][]string{"Server": []string{}},
+			check:       HeaderCheck{Headers: []string{"Server"}, Matchers: []HeaderCheckMatcher{{MatcherType: NotExists}}, IssueCode: "missing-header-value"},
+			expectCount: 1,
+		},
 	}
 
 	for _, test := range tests {

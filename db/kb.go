@@ -52,6 +52,8 @@ var (
 	RemoteFileInclusionCode              IssueCode = "remote_file_inclusion"
 	CSRFCode                             IssueCode = "csrf"
 	CRLFInjectionCode                    IssueCode = "crlf_injection"
+	ServerSidePrototypePollutionCode     IssueCode = "server_side_prototype_pollution"
+	ClientSidePrototypePollutionCode     IssueCode = "client_side_prototype_pollution"
 )
 
 type IssueTemplate struct {
@@ -433,6 +435,31 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "Medium",
 		References: []string{
 			"https://owasp.org/www-community/vulnerabilities/CRLF_Injection",
+		},
+	},
+	{
+		Code:        ServerSidePrototypePollutionCode,
+		Title:       "Server-Side Prototype Pollution Detected",
+		Description: "The application appears to be vulnerable to Server-Side Prototype Pollution (SSPP) attacks. This vulnerability occurs when the application allows modification of a JavaScript object prototype. When a function traverses the entire prototype chain, an attacker can inject properties into this chain, potentially leading to various impacts, such as denial-of-service, property overwrite, or even remote code execution if the polluted properties are used unsafely.",
+		Remediation: "To mitigate this vulnerability, avoid using user-supplied input in the object manipulation functions without proper validation. Validate and sanitize the inputs that are used for configuration. Be aware of the libraries or dependencies that your application uses and keep them updated. Regular code reviews and penetration testing can also help to identify and mitigate such issues.",
+		Cwe:         400, // CWE-400: Uncontrolled Resource Consumption
+		Severity:    "High",
+		References: []string{
+			"https://portswigger.net/web-security/prototype-pollution/server-side",
+			"https://portswigger.net/research/server-side-prototype-pollution",
+			"https://arxiv.org/pdf/2207.11171.pdf",
+		},
+	},
+	{
+		Code:        ClientSidePrototypePollutionCode,
+		Title:       "Client-Side Prototype Pollution Detected",
+		Description: "The application appears to be vulnerable to Client-Side Prototype Pollution (CSPP) attacks. This vulnerability occurs when the application processes user-supplied input with the JavaScript function `Object.assign()`, or uses it to clone an object. An attacker can inject properties into object prototypes, potentially leading to a variety of impacts, including denial-of-service, alteration of script behavior, or cross-site scripting (XSS) if the polluted properties are used in a DOM context.",
+		Remediation: "To mitigate this vulnerability, avoid using the `Object.assign()` function with user-supplied input. If user input must be used, ensure it is thoroughly validated and sanitized first. Implement proper input validation and sanitization procedures. Also, be aware of how your client-side code handles object properties and ensure that all code which reads from object properties handles unexpected values correctly.",
+		Cwe:         20, // CWE-20: Improper Input Validation
+		Severity:    "Low",
+		References: []string{
+			"https://portswigger.net/web-security/prototype-pollution/client-side",
+			"https://book.hacktricks.xyz/pentesting-web/deserialization/nodejs-proto-prototype-pollution/client-side-prototype-pollution",
 		},
 	},
 }

@@ -9,6 +9,7 @@ func getHeaderChecks() []HeaderCheck {
 		xAspNetVersionHeaderCheck,
 		serverHeaderCheck,
 		// contentTypeHeaderCheck,
+		missingContentTypeHeaderCheck,
 		cacheControlHeaderCheck,
 		strictTransportSecurityHeaderCheck,
 		xFrameOptionsHeaderCheck,
@@ -61,6 +62,17 @@ var serverHeaderCheck = HeaderCheck{
 // 	MatchCondition: And,
 // 	IssueCode: ContentTypeHeaderCode,
 // }
+
+var missingContentTypeHeaderCheck = HeaderCheck{
+	Headers: []string{"Content-Type"},
+	Matchers: []HeaderCheckMatcher{
+		{
+			MatcherType: NotExists,
+		},
+	},
+	MatchCondition: And,
+	IssueCode:      db.MissingContentTypeCode,
+}
 
 var cacheControlHeaderCheck = HeaderCheck{
 	Headers: []string{"Cache-Control"},

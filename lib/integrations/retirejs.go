@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 	"regexp"
 	"strings"
@@ -92,6 +93,30 @@ func (r *RetireScanner) HistoryScan(history *db.History) ([]Vulnerability, error
 				}
 			}
 		}
+	}
+
+	if len(vulnerabilities) > 0 {
+		var detailsBuilder strings.Builder
+		references := make([]string, 0)
+
+		for _, vulnerability := range vulnerabilities {
+			detailsBuilder.WriteString(fmt.Sprintf("Summary: %s\nAt or Above: %s\nBelow: %s\nCWE: %s\nSeverity: %s\nInfo: %s\n\n",
+				vulnerability.Identifiers.Summary,
+				vulnerability.AtOrAbove,
+				vulnerability.Below,
+				vulnerability.Cwe,
+				lib.CapitalizeFirstLetter(vulnerability.Severity),
+				strings.Join(vulnerability.Info, ", ")))
+
+			if len(vulnerability.Info) > 0 {
+				references = append(references, vulnerability.Info...)
+			}
+		}
+
+		issue := db.FillIssueFromHistoryAndTemplate(history, db.VulnerableJavascriptDependencyCode, detailsBuilder.String(), 90, "")
+		issue.References = append(issue.References, lib.GetUniqueItems(references)...)
+		db.Connection.CreateIssue(*issue)
+		log.Warn().Str("issue", issue.Title).Str("url", history.URL).Str("details", issue.Details).Msg("New issue found")
 	}
 
 	return vulnerabilities, nil

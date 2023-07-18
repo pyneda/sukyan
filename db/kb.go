@@ -55,6 +55,7 @@ var (
 	CRLFInjectionCode                    IssueCode = "crlf_injection"
 	ServerSidePrototypePollutionCode     IssueCode = "server_side_prototype_pollution"
 	ClientSidePrototypePollutionCode     IssueCode = "client_side_prototype_pollution"
+	VulnerableJavascriptDependencyCode   IssueCode = "vulnerable_javascript_dependency"
 )
 
 type IssueTemplate struct {
@@ -474,6 +475,17 @@ var issueTemplates = []IssueTemplate{
 			"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options",
 		},
 	},
+	{
+		Code:        VulnerableJavascriptDependencyCode,
+		Title:       "Vulnerable JavaScript Dependency Detected",
+		Description: "The application appears to be using a version of a JavaScript library which is known to be vulnerable. Using out-of-date libraries can expose the application to security risks, as vulnerabilities in the code may be exploited by an attacker.",
+		Remediation: "Upgrade the vulnerable library to the latest version or to the minimum secure version. Ensure all other libraries and dependencies are also up-to-date to prevent similar issues. Regular dependency checks and vulnerability scanning can help keep your application secure.",
+		Cwe:         937,
+		Severity:    "Medium",
+		References: []string{
+			"https://owasp.org/www-project-top-ten/OWASP_Top_Ten_2017/Top_10-2017_A9-Using_Components_with_Known_Vulnerabilities",
+		},
+	},
 }
 
 func GetIssueTemplateByCode(code IssueCode) *Issue {
@@ -493,7 +505,7 @@ func GetIssueTemplateByCode(code IssueCode) *Issue {
 	return nil
 }
 
-func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string) {
+func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string) *Issue {
 	issue := GetIssueTemplateByCode(code)
 	issue.URL = history.URL
 	issue.Request = history.RawRequest
@@ -505,6 +517,11 @@ func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details
 	if severity != "" {
 		issue.Severity = severity
 	}
+	return issue
+}
+
+func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string) {
+	issue := FillIssueFromHistoryAndTemplate(history, code, details, confidence, severity)
 	log.Warn().Str("issue", issue.Title).Str("url", history.URL).Msg("New issue found")
 	Connection.CreateIssue(*issue)
 }

@@ -136,8 +136,11 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 			log.Error().Err(nucleiScanErr).Msg("Error running nuclei scan")
 		}
 	}
+	retireScanner := integrations.NewRetireScanner()
 
 	for _, historyItem := range uniqueHistoryItems {
+		vulns, _ := retireScanner.HistoryScan(historyItem)
+		log.Info().Str("url", historyItem.URL).Int("vulns", len(vulns)).Interface("v", vulns).Msg("RetireJS scan finished")
 		if historyItem.StatusCode == 404 {
 			continue
 		}

@@ -67,22 +67,39 @@ type RetireScanner struct {
 	repo RetireJsRepo
 }
 
+var fixRepeats = regexp.MustCompile("{0,[0-9]{4,}}")
+var fixRepeats2 = regexp.MustCompile("{1,[0-9]{4,}}")
+
+func fixPattern(pattern string) string {
+	pattern = strings.ReplaceAll(pattern, "§§version§§", `[0-9][0-9.a-z_\\-]+`)
+	pattern = fixRepeats.ReplaceAllString(pattern, "{0,1000}")
+	pattern = fixRepeats2.ReplaceAllString(pattern, "{1,1000}")
+	return pattern
+}
+
 func (r *RetireScanner) HistoryScan(history *db.History) ([]Vulnerability, error) {
 	var vulnerabilities []Vulnerability
 
 	for _, entry := range r.repo {
 		for _, pattern := range entry.Extractors.Filename {
-			pattern = strings.ReplaceAll(pattern, "§§version§§", `(\d+\.\d+(\.\d+)?([a-z]*\d*)?)`)
-			if match, _ := regexp.MatchString(pattern, history.URL); match {
+			pattern = fixPattern(pattern)
+			if match, err := regexp.MatchString(pattern, history.URL); err != nil {
+				log.Error().Err(err).Str("pattern", pattern).Str("type", "filename").Msg("Failed to execute retirejs regex match")
+			} else if match {
+				log.Debug().Str("url", history.URL).Str("pattern", pattern).Str("type", "filename").Msg("Matched retirejs pattern")
 				vulnerabilities = append(vulnerabilities, entry.Vulnerabilities...)
 			}
 		}
 		for _, pattern := range entry.Extractors.Filecontent {
-			pattern = strings.ReplaceAll(pattern, "§§version§§", `(\d+\.\d+(\.\d+)?([a-z]*\d*)?)`)
-			if match, _ := regexp.MatchString(pattern, string(history.ResponseBody)); match {
+			pattern = fixPattern(pattern)
+			if match, err := regexp.MatchString(pattern, string(history.RawResponse)); err != nil {
+				log.Error().Err(err).Str("pattern", pattern).Str("type", "filecontent").Msg("Failed to execute retirejs regex match")
+			} else if match {
+				log.Debug().Str("url", history.URL).Str("pattern", pattern).Str("type", "filecontent").Msg("Matched retirejs pattern")
 				vulnerabilities = append(vulnerabilities, entry.Vulnerabilities...)
 			}
 		}
+
 		h := sha1.New()
 		h.Write(history.ResponseBody)
 		hash := fmt.Sprintf("%x", h.Sum(nil))
@@ -90,6 +107,7 @@ func (r *RetireScanner) HistoryScan(history *db.History) ([]Vulnerability, error
 			for _, vulnerability := range entry.Vulnerabilities {
 				if version >= vulnerability.AtOrAbove && version < vulnerability.Below {
 					vulnerabilities = append(vulnerabilities, vulnerability)
+					log.Debug().Str("url", history.URL).Str("hash", hash).Str("version", version).Str("type", "hash").Msg("Matched retirejs pattern")
 				}
 			}
 		}

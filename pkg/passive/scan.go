@@ -75,6 +75,7 @@ func ScanHistoryItem(item *db.History) {
 	}
 	StorageBucketDetectionScan(item)
 	DatabaseErrorScan(item)
+	LeakedApiKeysScan(item)
 	PrivateIPScan(item)
 	JwtDetectionScan(item)
 	EmailAddressScan(item)
@@ -391,6 +392,33 @@ func StorageBucketDetectionScan(item *db.History) {
 
 	if matched {
 		db.CreateIssueFromHistoryAndTemplate(item, db.StorageBucketDetectedCode, details, 90, "")
+	}
+}
+
+func LeakedApiKeysScan(item *db.History) {
+	matchAgainst := string(item.RawResponse)
+	if matchAgainst == "" {
+		matchAgainst = string(item.ResponseBody)
+	}
+	var sb strings.Builder
+	matched := false
+
+	for patternName, pattern := range apiKeysPatternsMap {
+		matches := pattern.FindAllString(matchAgainst, -1)
+
+		if len(matches) > 0 {
+			matched = true
+			sb.WriteString(fmt.Sprintf("\nDiscovered %s", patternName))
+			for _, match := range matches {
+				sb.WriteString(fmt.Sprintf("\n - %s", match))
+			}
+		}
+	}
+
+	details := sb.String()
+
+	if matched {
+		db.CreateIssueFromHistoryAndTemplate(item, db.ExposedAPICredentialsCode, details, 80, "")
 	}
 }
 

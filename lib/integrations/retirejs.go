@@ -9,6 +9,7 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -77,17 +78,17 @@ func fixPattern(pattern string) string {
 	return pattern
 }
 
-func (r *RetireScanner) HistoryScan(history *db.History) ([]Vulnerability, error) {
-	var vulnerabilities []Vulnerability
+func (r *RetireScanner) HistoryScan(history *db.History) {
+	var results = make(map[string][]Vulnerability)
 
-	for _, entry := range r.repo {
+	for library, entry := range r.repo {
 		for _, pattern := range entry.Extractors.Filename {
 			pattern = fixPattern(pattern)
 			if match, err := regexp.MatchString(pattern, history.URL); err != nil {
 				log.Error().Err(err).Str("pattern", pattern).Str("type", "filename").Msg("Failed to execute retirejs regex match")
 			} else if match {
 				log.Debug().Str("url", history.URL).Str("pattern", pattern).Str("type", "filename").Msg("Matched retirejs pattern")
-				vulnerabilities = append(vulnerabilities, entry.Vulnerabilities...)
+				results[library] = append(results[library], entry.Vulnerabilities...)
 			}
 		}
 		for _, pattern := range entry.Extractors.Filecontent {
@@ -96,7 +97,7 @@ func (r *RetireScanner) HistoryScan(history *db.History) ([]Vulnerability, error
 				log.Error().Err(err).Str("pattern", pattern).Str("type", "filecontent").Msg("Failed to execute retirejs regex match")
 			} else if match {
 				log.Debug().Str("url", history.URL).Str("pattern", pattern).Str("type", "filecontent").Msg("Matched retirejs pattern")
-				vulnerabilities = append(vulnerabilities, entry.Vulnerabilities...)
+				results[library] = append(results[library], entry.Vulnerabilities...)
 			}
 		}
 
@@ -106,36 +107,52 @@ func (r *RetireScanner) HistoryScan(history *db.History) ([]Vulnerability, error
 		if version, exists := entry.Extractors.Hashes[hash]; exists {
 			for _, vulnerability := range entry.Vulnerabilities {
 				if version >= vulnerability.AtOrAbove && version < vulnerability.Below {
-					vulnerabilities = append(vulnerabilities, vulnerability)
+					results[library] = append(results[library], vulnerability)
+
 					log.Debug().Str("url", history.URL).Str("hash", hash).Str("version", version).Str("type", "hash").Msg("Matched retirejs pattern")
 				}
 			}
 		}
 	}
-
-	if len(vulnerabilities) > 0 {
-		var detailsBuilder strings.Builder
-		references := make([]string, 0)
-
-		for _, vulnerability := range vulnerabilities {
-			detailsBuilder.WriteString(fmt.Sprintf("Summary: %s\nAt or Above: %s\nBelow: %s\nCWE: %s\nSeverity: %s\nInfo: %s\n\n",
-				vulnerability.Identifiers.Summary,
-				vulnerability.AtOrAbove,
-				vulnerability.Below,
-				vulnerability.Cwe,
-				lib.CapitalizeFirstLetter(vulnerability.Severity),
-				strings.Join(vulnerability.Info, ", ")))
-
-			if len(vulnerability.Info) > 0 {
-				references = append(references, vulnerability.Info...)
+	for library, vulnerabilities := range results {
+		if len(vulnerabilities) > 0 {
+			var detailsBuilder strings.Builder
+			references := make([]string, 0)
+			name := "vulnerabilities"
+			if len(vulnerabilities) == 1 {
+				name = "vulnerability"
 			}
-		}
+			detailsBuilder.WriteString("The detected version of " + library + " is affected by " + strconv.Itoa(len(vulnerabilities)) + " " + name + ":\n\n")
 
-		issue := db.FillIssueFromHistoryAndTemplate(history, db.VulnerableJavascriptDependencyCode, detailsBuilder.String(), 90, "")
-		issue.References = append(issue.References, lib.GetUniqueItems(references)...)
-		db.Connection.CreateIssue(*issue)
-		log.Warn().Str("issue", issue.Title).Str("url", history.URL).Str("details", issue.Details).Msg("New issue found")
+			for _, vulnerability := range vulnerabilities {
+				detailsBuilder.WriteString(vulnerability.Identifiers.Summary + "\n")
+
+				if len(vulnerability.Identifiers.CVE) > 0 {
+					detailsBuilder.WriteString(fmt.Sprintf("CVEs: %s\n", strings.Join(vulnerability.Identifiers.CVE, ", ")))
+				}
+
+				if vulnerability.AtOrAbove != "" {
+					detailsBuilder.WriteString(fmt.Sprintf("At or Above: %s\n", vulnerability.AtOrAbove))
+				}
+				if vulnerability.Below != "" {
+					detailsBuilder.WriteString(fmt.Sprintf("Below: %s\n", vulnerability.Below))
+				}
+				detailsBuilder.WriteString(fmt.Sprintf("Severity: %s\nCWEs: %s\nReferences:\n%s\n\n",
+					lib.CapitalizeFirstLetter(vulnerability.Severity),
+					strings.Join(vulnerability.Cwe, ", "),
+					strings.Join(vulnerability.Info, "\n")),
+				)
+
+				if len(vulnerability.Info) > 0 {
+					references = append(references, vulnerability.Info...)
+				}
+			}
+
+			issue := db.FillIssueFromHistoryAndTemplate(history, db.VulnerableJavascriptDependencyCode, detailsBuilder.String(), 90, "")
+			issue.References = append(issue.References, lib.GetUniqueItems(references)...)
+			db.Connection.CreateIssue(*issue)
+			log.Warn().Str("issue", issue.Title).Str("url", history.URL).Str("details", issue.Details).Msg("New issue found")
+		}
 	}
 
-	return vulnerabilities, nil
 }

@@ -477,7 +477,7 @@ var issueTemplates = []IssueTemplate{
 	},
 	{
 		Code:        VulnerableJavascriptDependencyCode,
-		Title:       "Vulnerable JavaScript Dependency Detected",
+		Title:       "Vulnerable JavaScript Dependency",
 		Description: "The application appears to be using a version of a JavaScript library which is known to be vulnerable. Using out-of-date libraries can expose the application to security risks, as vulnerabilities in the code may be exploited by an attacker.",
 		Remediation: "Upgrade the vulnerable library to the latest version or to the minimum secure version. Ensure all other libraries and dependencies are also up-to-date to prevent similar issues. Regular dependency checks and vulnerability scanning can help keep your application secure.",
 		Cwe:         937,

@@ -56,6 +56,7 @@ var (
 	ServerSidePrototypePollutionCode     IssueCode = "server_side_prototype_pollution"
 	ClientSidePrototypePollutionCode     IssueCode = "client_side_prototype_pollution"
 	VulnerableJavascriptDependencyCode   IssueCode = "vulnerable_javascript_dependency"
+	ExposedAPICredentialsCode            IssueCode = "exposed_api_credentials"
 )
 
 type IssueTemplate struct {
@@ -484,6 +485,17 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "Medium",
 		References: []string{
 			"https://owasp.org/www-project-top-ten/OWASP_Top_Ten_2017/Top_10-2017_A9-Using_Components_with_Known_Vulnerabilities",
+		},
+	},
+	{
+		Code:        ExposedAPICredentialsCode,
+		Title:       "Exposed API Credentials Detected",
+		Description: "The application appears to have API credentials exposed. This vulnerability occurs when API keys, tokens or other forms of credentials are unintentionally exposed within the application, which could allow an attacker to misuse these credentials to gain unauthorized access or perform actions on behalf of the application.",
+		Remediation: "To mitigate this vulnerability, ensure that API credentials are securely stored and not embedded in the code directly. Environment variables or secure credential storage should be used. Make sure to not commit these credentials in the version control system. If these exposed credentials have been used, consider them compromised and replace them immediately.",
+		Cwe:         798, // CWE-798: Use of Hard-coded Credentials
+		Severity:    "High",
+		References: []string{
+			"https://support.google.com/googleapi/answer/6310037?hl=en",
 		},
 	},
 }

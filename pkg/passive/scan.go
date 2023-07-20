@@ -165,7 +165,7 @@ func EmailAddressScan(item *db.History) {
 	if len(matches) > 0 {
 		var sb strings.Builder
 		sb.WriteString("Discovered email addresses:")
-		for _, match := range matches {
+		for _, match := range lib.GetUniqueItems(matches) {
 			sb.WriteString(fmt.Sprintf("\n - %s", match))
 		}
 		discoveredEmails := sb.String()

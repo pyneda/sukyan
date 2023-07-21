@@ -49,3 +49,12 @@ func (d *DatabaseConnection) CreateWorkspace(workspace *Workspace) (*Workspace, 
 	}
 	return workspace, result.Error
 }
+
+// GetOrCreateWorkspace gets a workspace with the given code, or creates it if it doesn't exist
+func (d *DatabaseConnection) GetOrCreateWorkspace(workspace *Workspace) (*Workspace, error) {
+	result := d.db.FirstOrCreate(workspace, Workspace{Code: workspace.Code})
+	if result.Error != nil {
+		log.Error().Err(result.Error).Interface("workspace", workspace).Msg("Workspace get or create failed")
+	}
+	return workspace, result.Error
+}

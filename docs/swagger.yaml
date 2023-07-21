@@ -35,6 +35,15 @@ definitions:
     required:
     - items
     type: object
+  api.WorkspaceCreateInput:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      title:
+        type: string
+    type: object
   db.GroupedIssue:
     properties:
       code:
@@ -54,15 +63,17 @@ definitions:
         type: integer
       created_at:
         type: string
+      curl_command:
+        type: string
       cwe:
         type: integer
       description:
         type: string
       details:
         type: string
-      falsePositive:
+      false_positive:
         type: boolean
-      httpmethod:
+      http_method:
         type: string
       id:
         type: integer
@@ -89,7 +100,7 @@ definitions:
           enums seem to fail - review later
           Severity string `json:"severity" gorm:"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
         type: string
-      statusCode:
+      status_code:
         type: integer
       title:
         type: string
@@ -623,6 +634,31 @@ paths:
           schema:
             $ref: '#/definitions/api.ErrorResponse'
       summary: List all workspaces
+      tags:
+      - Workspaces
+    post:
+      consumes:
+      - application/json
+      description: Saves a new workspace to the database
+      parameters:
+      - description: Workspace to create
+        in: body
+        name: workspace
+        required: true
+        schema:
+          $ref: '#/definitions/api.WorkspaceCreateInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/db.Workspace'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Create a new workspace
       tags:
       - Workspaces
 swagger: "2.0"

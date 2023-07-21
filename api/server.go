@@ -72,6 +72,7 @@ func StartAPI() {
 	api.Get("/history/websocket/messages", FindWebSocketMessages)
 
 	api.Get("/workspaces", FindWorkspaces)
+	api.Post("/workspaces", CreateWorkspace)
 	api.Get("/interactions", FindInteractions)
 	api.Get("/tasks", FindTasks)
 	api.Get("/tasks/jobs", FindTaskJobs)

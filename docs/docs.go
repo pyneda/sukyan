@@ -625,6 +625,44 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "post": {
+                "description": "Saves a new workspace to the database",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Workspaces"
+                ],
+                "summary": "Create a new workspace",
+                "parameters": [
+                    {
+                        "description": "Workspace to create",
+                        "name": "workspace",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.WorkspaceCreateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/db.Workspace"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
             }
         }
     },
@@ -685,6 +723,20 @@ const docTemplate = `{
                 }
             }
         },
+        "api.WorkspaceCreateInput": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "db.GroupedIssue": {
             "type": "object",
             "properties": {
@@ -714,6 +766,9 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "curl_command": {
+                    "type": "string"
+                },
                 "cwe": {
                     "type": "integer"
                 },
@@ -723,10 +778,10 @@ const docTemplate = `{
                 "details": {
                     "type": "string"
                 },
-                "falsePositive": {
+                "false_positive": {
                     "type": "boolean"
                 },
-                "httpmethod": {
+                "http_method": {
                     "type": "string"
                 },
                 "id": {
@@ -763,7 +818,7 @@ const docTemplate = `{
                     "description": "enums seem to fail - review later\nSeverity string ` + "`" + `json:\"severity\" gorm:\"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'\"` + "`" + `",
                     "type": "string"
                 },
-                "statusCode": {
+                "status_code": {
                     "type": "integer"
                 },
                 "title": {

@@ -91,8 +91,8 @@ func SetDefaultConfig() {
 	viper.SetDefault("generators.directory", "/etc/sukyan/generators")
 
 	// Passive
-	viper.SetDefault("passive.wappalyzer", false)
-	viper.SetDefault("passive.retirejs", false)
+	// viper.SetDefault("passive.wappalyzer", false)
+	// viper.SetDefault("passive.retirejs", false)
 	viper.SetDefault("passive.checks.headers.enabled", true)
 	viper.SetDefault("passive.checks.js.enabled", true)
 	viper.SetDefault("passive.checks.missconfigurations.enabled", true)

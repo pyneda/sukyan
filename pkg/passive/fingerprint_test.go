@@ -73,3 +73,71 @@ func TestGetNucleiTags(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildCPE(t *testing.T) {
+	tests := []struct {
+		name     string
+		version  string
+		expected string
+		err      bool
+	}{
+		{
+			name:     "PHP",
+			version:  "5.4.0",
+			expected: "cpe:/a:php:php:5.4.0",
+			err:      false,
+		},
+		{
+			name:     "UNIX",
+			version:  "",
+			expected: "",
+			err:      true,
+		},
+		{
+			name:     "Python",
+			version:  "3.9.7",
+			expected: "cpe:/a:python:python:3.9.7",
+			err:      false,
+		},
+		{
+			name:     "Apache HTTP Server",
+			version:  "2.4.2",
+			expected: "cpe:/a:apache_http_server:apache_http_server:2.4.2",
+			err:      false,
+		},
+		{
+			name:     "Nginx",
+			version:  "",
+			expected: "",
+			err:      true,
+		},
+		{
+			name:     "Microsoft IIS",
+			version:  "10.0",
+			expected: "cpe:/a:microsoft_iis:microsoft_iis:10.0",
+			err:      false,
+		},
+		{
+			name:     "Uvicorn",
+			version:  "0.13.4",
+			expected: "cpe:/a:uvicorn:uvicorn:0.13.4",
+			err:      false,
+		},
+	}
+
+	for _, test := range tests {
+		f := Fingerprint{
+			Name:    test.name,
+			Version: test.version,
+		}
+
+		cpe, err := f.BuildCPE()
+		if (err != nil) != test.err {
+			t.Errorf("Expected error status: %v, got: %v", test.err, (err != nil))
+		}
+
+		if cpe != test.expected {
+			t.Errorf("Expected CPE: %s, got: %s", test.expected, cpe)
+		}
+	}
+}

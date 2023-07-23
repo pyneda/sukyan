@@ -1,6 +1,8 @@
 package passive
 
 import (
+	"errors"
+	"fmt"
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -16,6 +18,14 @@ func (f *Fingerprint) GetNucleiTags() string {
 	splitName := strings.Split(f.Name, " ")
 	firstWord := strings.ToLower(splitName[0])
 	return firstWord
+}
+
+func (f *Fingerprint) BuildCPE() (string, error) {
+	if f.Version == "" {
+		return "", errors.New("version not available")
+	}
+	name := strings.ToLower(strings.ReplaceAll(f.Name, " ", "_"))
+	return fmt.Sprintf("cpe:/a:%s:%s:%s", name, name, f.Version), nil
 }
 
 func FingerprintHistoryItems(items []*db.History) []Fingerprint {

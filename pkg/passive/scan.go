@@ -2,7 +2,6 @@ package passive
 
 import (
 	"fmt"
-	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
@@ -55,13 +54,6 @@ func ScanHistoryItemHeaders(item *db.History) {
 }
 
 func ScanHistoryItem(item *db.History) {
-	if viper.GetBool("passive.wappalyzer") {
-		headers, _ := item.GetResponseHeadersAsMap()
-		wappalyzerClient, _ := wappalyzer.New()
-		fingerprints := wappalyzerClient.Fingerprint(headers, []byte(item.ResponseBody))
-		log.Info().Interface("fingerprints", fingerprints).Str("url", item.URL).Msg("Fingerprints found")
-	}
-
 	if strings.Contains(item.ResponseContentType, "text/html") {
 		if viper.GetBool("passive.checks.js.enabled") {
 			PassiveJavascriptScan(item)

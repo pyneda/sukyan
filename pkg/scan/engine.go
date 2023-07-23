@@ -124,6 +124,9 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 	historyItems := crawler.Run()
 	uniqueHistoryItems := removeDuplicateHistoryItems(historyItems)
 	log.Info().Int("count", len(uniqueHistoryItems)).Msg("Crawling finished, scheduling active scans")
+	fingerprints := passive.FingerprintHistoryItems(uniqueHistoryItems)
+	log.Info().Int("count", len(fingerprints)).Interface("fingerprints", fingerprints).Msg("Gathered fingerprints")
+
 	baseURLs, err := lib.GetUniqueBaseURLs(startUrls)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get unique base urls")
@@ -131,6 +134,8 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 
 	// Very basic initial integration, could probably launch it in parallel with other tasks
 	if viper.GetBool("integrations.nuclei.enabled") {
+		nucleiTags := passive.GetUniqueNucleiTags(fingerprints)
+		log.Info().Int("count", len(nucleiTags)).Interface("tags", nucleiTags).Msg("Gathered tags from fingerprints for Nuclei scan")
 		nucleiScanErr := integrations.NucleiScan(baseURLs)
 		if nucleiScanErr != nil {
 			log.Error().Err(nucleiScanErr).Msg("Error running nuclei scan")

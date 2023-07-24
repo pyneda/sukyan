@@ -16,6 +16,10 @@ import (
 func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator) {
 	taskLog := log.With().Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
 	taskLog.Info().Msg("Starting to scan history item")
+	cspp := active.ClientSidePrototypePollutionAudit{
+		HistoryItem: item,
+	}
+	cspp.Run()
 	fuzzer := fuzz.HttpFuzzer{
 		Concurrency:         10,
 		InteractionsManager: interactionsManager,

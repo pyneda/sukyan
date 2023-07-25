@@ -3,9 +3,11 @@ package active
 import (
 	"github.com/go-rod/rod"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/internal/browser"
 	"github.com/pyneda/sukyan/pkg/web"
 	"github.com/spf13/viper"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -15,6 +17,7 @@ import (
 
 type ClientSidePrototypePollutionAudit struct {
 	HistoryItem *db.History
+	requests    sync.Map
 }
 
 func (a *ClientSidePrototypePollutionAudit) Run() {
@@ -26,6 +29,14 @@ func (a *ClientSidePrototypePollutionAudit) Run() {
 	}
 }
 
+func (a *ClientSidePrototypePollutionAudit) GetHistory(url string) *db.History {
+	history, ok := a.requests.Load(url)
+	if ok {
+		return history.(*db.History)
+	}
+	return &db.History{}
+}
+
 func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 	payloads := [4]string{
 		"constructor%5Bprototype%5D%5Bsukyan%5D=reserved",
@@ -33,17 +44,24 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 		"constructor.prototype.sukyan=reserved",
 		"__proto__%5Bsukyan%5D=reserved",
 	}
-
-	browser := rod.New().MustConnect()
-	defer browser.MustClose()
-	page := browser.MustIncognito().MustPage("")
+	launcher := browser.GetBrowserLauncher()
+	controlURL := launcher.MustLaunch()
+	b := rod.New().ControlURL(controlURL).MustConnect()
+	hijackResultsChannel := make(chan browser.HijackResult)
+	browser.Hijack(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel)
+	defer b.MustClose()
+	page := b.MustIncognito().MustPage("")
 	web.IgnoreCertificateErrors(page)
+	go func() {
+		for hijackResult := range hijackResultsChannel {
+			log.Info().Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Msg("Received hijack result")
+			a.requests.Store(hijackResult.History.URL, hijackResult.History)
+		}
+	}()
 
 	for _, payload := range payloads {
-
 		url := string(a.HistoryItem.URL) + string(quote) + string(payload)
 		taskLog := log.With().Str("url", url).Str("audit", "client-side-prototype-pollution").Logger()
-
 		navigationTimeout := time.Duration(viper.GetInt("navigation.timeout"))
 		navigateError := page.Timeout(navigationTimeout * time.Second).Navigate(url)
 		if navigateError != nil {
@@ -55,28 +73,44 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 			taskLog.Warn().Err(err).Msg("Error waiting for page complete load")
 			continue
 		}
-
 		res := page.MustEval(`() => {
 			function getWindowValue() {
 				return window.sukyan;
 			}
 			return getWindowValue();
 		}`).Str()
-
+		var sb strings.Builder
 		if res == "reserved" {
-			taskLog.Info().Msg("Client side prototype pollution detected, trying to find a known gadget")
+			taskLog.Debug().Msg("Client side prototype pollution detected, trying to find a known gadget")
 		} else {
 			continue
 		}
+		sb.WriteString("The following payload has been inserted " + payload + " and it has been validated that the prototype has been polluted by checking that `window.sukyan` has the value `reflected`\n\n")
+		severity := ""
+		history := a.GetHistory(url)
+		log.Info().Str("url", history.URL).Int("status_code", history.StatusCode).Str("method", history.Method).Msg("History for prototype pollution item")
 		fingerprint := page.MustEval(clientSidePrototypePollutionFingerprints).Str()
 		if fingerprint == "default" {
-			taskLog.Info().Msg("Could not find a known gadget but prototype pollution detected")
+			taskLog.Debug().Msg("Could not find a known gadget but prototype pollution detected")
+			sb.WriteString("No known gadgets have been found, but you might be able to build your own.")
 		} else {
 			gadget, ok := GadgetsMap[fingerprint]
 			if ok {
 				taskLog.Info().Str("fingerprint", fingerprint).Interface("gadget", gadget).Msg("Prototype pollution detected with known gadget")
+				severity = "Medium"
+				sb.WriteString("A known gadget detected: " + fingerprint + "\n\n")
+				sb.WriteString("The following payloads can be used to exploit this issue:\n")
+				for _, p := range gadget.Payloads {
+					sb.WriteString(p + "\n")
+				}
+				if gadget.Info != "" {
+					sb.WriteString("\n" + gadget.Info)
+				}
 			}
 		}
+		db.CreateIssueFromHistoryAndTemplate(history, db.ClientSidePrototypePollutionCode, sb.String(), 90, severity)
+		// Issue detected, stop checking
+		return
 	}
 
 }

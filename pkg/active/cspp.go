@@ -54,7 +54,6 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 	web.IgnoreCertificateErrors(page)
 	go func() {
 		for hijackResult := range hijackResultsChannel {
-			log.Info().Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Msg("Received hijack result")
 			a.requests.Store(hijackResult.History.URL, hijackResult.History)
 		}
 	}()

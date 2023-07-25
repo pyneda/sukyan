@@ -98,7 +98,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 			if ok {
 				taskLog.Info().Str("fingerprint", fingerprint).Interface("gadget", gadget).Msg("Prototype pollution detected with known gadget")
 				severity = "Medium"
-				sb.WriteString("A known gadget detected: " + fingerprint + "\n\n")
+				sb.WriteString("Detected a known gadget: " + fingerprint + "\n\n")
 				sb.WriteString("The following payloads can be used to exploit this issue:\n")
 				for _, p := range gadget.Payloads {
 					sb.WriteString(p + "\n")

@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/spf13/viper"
 )
@@ -22,4 +23,10 @@ func GetBrowserLauncher() *launcher.Launcher {
 		options = options.Set("disable-gpu")
 	}
 	return options
+}
+
+func NewBrowser() *rod.Browser {
+	launcher := GetBrowserLauncher()
+	controlURL := launcher.MustLaunch()
+	return rod.New().ControlURL(controlURL).MustConnect()
 }

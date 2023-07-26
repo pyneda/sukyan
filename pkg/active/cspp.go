@@ -1,7 +1,6 @@
 package active
 
 import (
-	"github.com/go-rod/rod"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/internal/browser"
 	"github.com/pyneda/sukyan/pkg/web"
@@ -44,9 +43,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 		"constructor.prototype.sukyan=reserved",
 		"__proto__%5Bsukyan%5D=reserved",
 	}
-	launcher := browser.GetBrowserLauncher()
-	controlURL := launcher.MustLaunch()
-	b := rod.New().ControlURL(controlURL).MustConnect()
+	b := browser.NewBrowser()
 	hijackResultsChannel := make(chan browser.HijackResult)
 	browser.Hijack(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel)
 	defer b.MustClose()

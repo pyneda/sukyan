@@ -289,3 +289,52 @@ func TestGetUniqueBaseURLs(t *testing.T) {
 		})
 	}
 }
+
+func TestGetHostFromURL(t *testing.T) {
+	testCases := []struct {
+		url      string
+		expected string
+		err      bool
+	}{
+		{
+			url:      "http://example.com/path",
+			expected: "example.com",
+			err:      false,
+		},
+		{
+			url:      "https://www.google.com",
+			expected: "www.google.com",
+			err:      false,
+		},
+		{
+			url:      "https://192.168.1.1",
+			expected: "192.168.1.1",
+			err:      false,
+		},
+		{
+			url:      "https://[2001:db8::1]",
+			expected: "[2001:db8::1]",
+			err:      false,
+		},
+		{
+			url:      "://invalid_url",
+			expected: "",
+			err:      true,
+		},
+	}
+
+	for _, tc := range testCases {
+		result, err := GetHostFromURL(tc.url)
+		if tc.err && err == nil {
+			t.Errorf("expected an error for url: %s", tc.url)
+			continue
+		}
+		if !tc.err && err != nil {
+			t.Errorf("did not expect an error for url: %s, got: %v", tc.url, err)
+			continue
+		}
+		if result != tc.expected {
+			t.Errorf("expected %s for url: %s, got: %s", tc.expected, tc.url, result)
+		}
+	}
+}

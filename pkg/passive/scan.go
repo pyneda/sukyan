@@ -115,11 +115,13 @@ func DirectoryListingScan(item *db.History) {
 }
 
 func PrivateIPScan(item *db.History) {
+	host, _ := lib.GetHostFromURL(item.URL)
 	matchAgainst := string(item.RawResponse)
 	if matchAgainst == "" {
 		matchAgainst = string(item.ResponseBody)
 	}
 	matches := privateIPRegex.FindAllString(matchAgainst, -1)
+	matches = lib.FilterOutString(matches, host)
 
 	if len(matches) > 0 {
 		var sb strings.Builder

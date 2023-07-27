@@ -120,7 +120,7 @@ var apiKeysPatternsMap = map[string]*regexp.Regexp{
 	"Telegram Bot API Key":              regexp.MustCompile(`[0-9]+:AA[0-9A-Za-z\\-_]{33}`),
 	"Twilio API Key":                    regexp.MustCompile(`SK[0-9a-fA-F]{32}`),
 	"Twitter Access Token":              regexp.MustCompile(`[tT][wW][iI][tT][tT][eE][rR].*[0-9a-zA-Z]{35,44}`),
-	"Vault Token":                       regexp.MustCompile(`[sb]\.[a-zA-Z0-9]{24}`),
+	"Vault Token":                       regexp.MustCompile(`hv[sb]\.(?:[A-Za-z0-9]{24}|[A-Za-z0-9_-]{91,})`),
 	"Web3 API Key":                      regexp.MustCompile(`(web3[a-z0-9_ \.,\-]{0,25})(=|>|:=|\|\|:|<=|=>|:).{0,5}['"]([A-Za-z0-9_=\-]+\.[A-Za-z0-9_=\-]+\.?[A-Za-z0-9_.+/=\-]*)['"]`),
 	"Yandex Access Token":               regexp.MustCompile(`t1\.[A-Z0-9a-z_-]+[=]{0,2}\.[A-Z0-9a-z_-]{86}[=]{0,2}`),
 	"Yandex API Key":                    regexp.MustCompile(`AQVN[A-Za-z0-9_-]{35,38}`),

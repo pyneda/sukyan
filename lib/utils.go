@@ -114,3 +114,14 @@ func CapitalizeFirstLetter(input string) string {
 func EscapeDots(input string) string {
 	return strings.ReplaceAll(input, ".", "\\\"\\\".")
 }
+
+// FilterOutString removes all instances of target from the slice.
+func FilterOutString(slice []string, target string) []string {
+	filtered := []string{}
+	for _, item := range slice {
+		if item != target {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}

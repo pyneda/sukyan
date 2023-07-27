@@ -165,3 +165,12 @@ func GetUniqueBaseURLs(urls []string) ([]string, error) {
 
 	return GetUniqueItems(baseURLs), nil
 }
+
+// GetHostFromURL extracts the host from the given URL.
+func GetHostFromURL(u string) (string, error) {
+	parsedURL, err := url.Parse(u)
+	if err != nil {
+		return "", err
+	}
+	return parsedURL.Host, nil
+}

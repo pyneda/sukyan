@@ -100,3 +100,46 @@ func TestGetUniqueItems(t *testing.T) {
 		})
 	}
 }
+
+func TestFilterOutString(t *testing.T) {
+	testCases := []struct {
+		name   string
+		slice  []string
+		target string
+		want   []string
+	}{
+		{
+			name:   "Target present in slice",
+			slice:  []string{"apple", "banana", "apple", "orange", "apple"},
+			target: "apple",
+			want:   []string{"banana", "orange"},
+		},
+		{
+			name:   "Target not present in slice",
+			slice:  []string{"apple", "banana", "orange"},
+			target: "pear",
+			want:   []string{"apple", "banana", "orange"},
+		},
+		{
+			name:   "Empty slice",
+			slice:  []string{},
+			target: "apple",
+			want:   []string{},
+		},
+		{
+			name:   "All elements match target",
+			slice:  []string{"apple", "apple", "apple"},
+			target: "apple",
+			want:   []string{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := FilterOutString(tc.slice, tc.target)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("FilterOutString(%v, %q) = %v; want %v", tc.slice, tc.target, got, tc.want)
+			}
+		})
+	}
+}

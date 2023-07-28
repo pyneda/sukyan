@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/swagger"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
@@ -87,8 +88,19 @@ func StartAPI() {
 	scan_app.Post("/passive", PassiveScanHandler)
 	scan_app.Post("/active", ActiveScanHandler)
 
+	certPath := viper.GetString("server.cert.file")
+	keyPath := viper.GetString("server.key.file")
+	caCertPath := viper.GetString("server.caCert.file")
+	caKeyPath := viper.GetString("server.caKey.file")
+
+	_, _, err = lib.EnsureCertificatesExist(certPath, keyPath, caCertPath, caKeyPath)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to load or generate certificates")
+
+	}
+
 	listen_addres := fmt.Sprintf("%v:%v", viper.Get("api.listen.host"), viper.Get("api.listen.port"))
-	if err := app.Listen(listen_addres); err != nil {
+	if err := app.ListenTLS(listen_addres, certPath, keyPath); err != nil {
 		log.Warn().Err(err).Msg("Error starting server")
 	}
 

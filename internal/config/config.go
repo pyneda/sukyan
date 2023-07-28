@@ -143,6 +143,16 @@ func SetDefaultConfig() {
 	viper.SetDefault("integrations.nuclei.protocols", []string{})
 	viper.SetDefault("integrations.nuclei.exclude_protocols", []string{})
 
+	viper.SetDefault("server.cert.file", "server.crt")
+	viper.SetDefault("server.key.file", "server.key")
+	viper.SetDefault("server.caCert.file", "ca.crt")
+	viper.SetDefault("server.caKey.file", "ca.key")
+	viper.SetDefault("server.cert.organization", "Sukyan")
+	viper.SetDefault("server.cert.country", "XX")
+	viper.SetDefault("server.cert.locality", "XXX")
+	viper.SetDefault("server.cert.street_address", "")
+	viper.SetDefault("server.cert.postal_code", "")
+
 	// API
 	viper.SetDefault("api.listen.host", "")
 	viper.SetDefault("api.listen.port", 8013)

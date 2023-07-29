@@ -9,7 +9,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -25,26 +24,14 @@ func InitDb() *DatabaseConnection {
 	// Set up viper to read from the environment
 	viper.AutomaticEnv()
 
-	// Default to sqlite if no DATABASE_TYPE is set
-	dbType := viper.GetString("DATABASE_TYPE")
-	if dbType == "" {
-		dbType = "sqlite"
-	}
-
 	var dialector gorm.Dialector
-	if dbType == "sqlite" {
-		dialector = sqlite.Open("sukyan.db")
-	} else if dbType == "postgres" {
-		// Get the connection string from the environment variable
-		dsn := viper.GetString("POSTGRES_DSN")
-		if dsn == "" {
-			log.Error().Msg("POSTGRES_DSN environment variable not set")
-			os.Exit(1)
-		}
-		dialector = postgres.Open(dsn)
-	} else {
-		log.Error().Str("type", dbType).Msg("Unknown database type")
+
+	dsn := viper.GetString("POSTGRES_DSN")
+	if dsn == "" {
+		log.Error().Msg("POSTGRES_DSN environment variable not set")
+		os.Exit(1)
 	}
+	dialector = postgres.Open(dsn)
 
 	newLogger := logger.New(
 		stdlog.New(os.Stdout, "\r\n", stdlog.LstdFlags),

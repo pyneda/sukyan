@@ -312,8 +312,13 @@ func TestGetHostFromURL(t *testing.T) {
 			err:      false,
 		},
 		{
+			url:      "https://192.168.1.1:8000/aaaa",
+			expected: "192.168.1.1",
+			err:      false,
+		},
+		{
 			url:      "https://[2001:db8::1]",
-			expected: "[2001:db8::1]",
+			expected: "2001:db8::1",
 			err:      false,
 		},
 		{

@@ -172,5 +172,5 @@ func GetHostFromURL(u string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return parsedURL.Host, nil
+	return parsedURL.Hostname(), nil
 }

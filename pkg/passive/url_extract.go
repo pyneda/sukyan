@@ -48,7 +48,7 @@ func ExtractURLsFromHeaders(headers map[string][]string, extractedFromURL string
 			for _, rawURL := range ExtractURLs(fmt.Sprintf("'%v'", headerValue)) {
 				absoluteURL, urlType, err := analyzeURL(rawURL, base)
 				if err != nil {
-					log.Error().Err(err).Msg("Could not analyze URL")
+					log.Error().Err(err).Str("part", "headers").Str("url", rawURL).Msg("Could not analyze URL")
 					continue
 				}
 				if urlType == "web" {
@@ -78,7 +78,7 @@ func ExtractAndAnalyzeURLS(response string, extractedFromURL string) ExtractedUR
 	for _, rawURL := range urls {
 		absoluteURL, urlType, err := analyzeURL(rawURL, base)
 		if err != nil {
-			log.Error().Err(err).Msg("Could not analyze URL")
+			log.Error().Err(err).Str("part", "response").Str("url", rawURL).Msg("Could not analyze URL")
 			continue
 		}
 		if urlType == "web" {

@@ -121,7 +121,7 @@ func (d *DatabaseConnection) ListInteractions(filter InteractionsFilter) (items 
 		d.db.Model(&OOBInteraction{}).Count(&count)
 	}
 
-	log.Info().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Msg("Getting interaction items")
+	log.Debug().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Msg("Getting interaction items")
 
 	return items, count, err
 }

@@ -67,7 +67,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 		err := page.Timeout(navigationTimeout * time.Second).WaitLoad()
 		if err != nil {
 			taskLog.Warn().Err(err).Msg("Error waiting for page complete load")
-			continue
+			// continue
 		}
 		res := page.MustEval(`() => {
 			function getWindowValue() {

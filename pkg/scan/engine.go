@@ -144,11 +144,12 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 	retireScanner := integrations.NewRetireScanner()
 
 	for _, historyItem := range uniqueHistoryItems {
-		retireScanner.HistoryScan(historyItem)
 		if historyItem.StatusCode == 404 {
 			continue
 		}
 		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll)
+		retireScanner.HistoryScan(historyItem)
+
 	}
 	log.Info().Msg("Active scans scheduled")
 	if waitCompletion {

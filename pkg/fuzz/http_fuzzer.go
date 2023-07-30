@@ -105,7 +105,7 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 				insertionPoint: task.insertionPoint,
 			})
 			if ok {
-				taskLog.Info().Msg("Skipping task as an issue for this insertion point with this code for this history item has already been found")
+				taskLog.Debug().Msg("Skipping task as an issue for this insertion point with this code for this history item has already been found")
 				wg.Done()
 				continue
 			}

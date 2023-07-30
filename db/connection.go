@@ -50,11 +50,25 @@ func InitDb() *DatabaseConnection {
 		log.Error().Err(err).Msg("Failed to connect to database")
 		os.Exit(1)
 	}
-	migrateError := db.AutoMigrate(&Workspace{}, &Issue{}, &History{}, &OOBTest{}, &OOBInteraction{}, &Task{}, &TaskJob{}, &WebSocketConnection{}, &WebSocketMessage{}, &JsonWebToken{})
-	if migrateError != nil {
-		log.Error().Err(migrateError).Msg("Failed to migrate database")
+	sql := `DO $$ BEGIN
+		CREATE TYPE severity AS ENUM ('Unknown', 'Info', 'Low', 'Medium', 'High', 'Critical');
+	EXCEPTION
+		WHEN duplicate_object THEN null;
+	END $$;`
+	db.Exec(sql)
+
+	// Migrate Issue separately after enum creation
+	if err := db.AutoMigrate(&Issue{}); err != nil {
+		log.Error().Err(err).Msg("Failed to migrate Issue table")
 		os.Exit(1)
 	}
+
+	// Migrate other tables
+	if err := db.AutoMigrate(&Workspace{}, &History{}, &OOBTest{}, &OOBInteraction{}, &Task{}, &TaskJob{}, &WebSocketConnection{}, &WebSocketMessage{}, &JsonWebToken{}); err != nil {
+		log.Error().Err(err).Msg("Failed to migrate other tables")
+		os.Exit(1)
+	}
+
 	sqlDB, err := db.DB()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get underlying database connection")

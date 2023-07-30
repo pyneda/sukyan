@@ -509,7 +509,7 @@ func GetIssueTemplateByCode(code IssueCode) *Issue {
 				Description: issueTemplate.Description,
 				Remediation: issueTemplate.Remediation,
 				Cwe:         issueTemplate.Cwe,
-				Severity:    issueTemplate.Severity,
+				Severity:    NewSeverity(issueTemplate.Severity),
 				References:  StringSlice(issueTemplate.References),
 			}
 		}
@@ -527,7 +527,7 @@ func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details s
 	issue.Confidence = confidence
 	issue.Details = details
 	if severity != "" {
-		issue.Severity = severity
+		issue.Severity = NewSeverity(severity)
 	}
 	return issue
 }

@@ -23,8 +23,10 @@ type Issue struct {
 	Confidence    int         `json:"confidence"`
 	References    StringSlice `json:"references"`
 	// enums seem to fail - review later
-	// Severity string `json:"severity" gorm:"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
-	Severity    string `json:"severity" gorm:"index; default:'Unknown'"`
+	Severity severity `gorm:"type:severity;default:'Info'" json:"severity"`
+
+	// Severity string `json:"severity" gorm:"type:ENUM('Unknown', 'Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
+	// Severity    string `json:"severity" gorm:"index; default:'Unknown'"`
 	CURLCommand string `json:"curl_command"`
 	Note        string `json:"note"`
 }
@@ -37,12 +39,12 @@ type IssueFilter struct {
 // ListIssues Lists issues
 func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, count int64, err error) {
 	if len(filter.Codes) > 0 {
-		result := d.db.Where("code IN ?", filter.Codes).Order("created_at desc").Find(&issues).Count(&count)
+		result := d.db.Where("code IN ?", filter.Codes).Order("severity desc, created_at desc").Find(&issues).Count(&count)
 		if result.Error != nil {
 			err = result.Error
 		}
 	} else {
-		result := d.db.Order("created_at desc").Find(&issues).Count(&count)
+		result := d.db.Order("severity desc, created_at desc").Find(&issues).Count(&count)
 		if result.Error != nil {
 			err = result.Error
 		}

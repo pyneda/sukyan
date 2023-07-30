@@ -69,7 +69,7 @@ func processNucleiResult(result *pb.ScanResult) {
 		Response:    []byte(result.Response),
 		References:  info.References,
 		CURLCommand: result.CurlCommand,
-		Severity:    lib.CapitalizeFirstLetter(info.Severity),
+		Severity:    db.NewSeverity(lib.CapitalizeFirstLetter(info.Severity)),
 	}
 
 	new, err := db.Connection.CreateIssue(issue)

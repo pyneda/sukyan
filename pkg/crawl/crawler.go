@@ -99,6 +99,14 @@ func (c *Crawler) Run() []*db.History {
 			if !processed {
 				c.processedResponseHashes.Store(responseHash, true)
 				for _, url := range hijackResult.DiscoveredURLs {
+					// Checking if max pages to crawl are reached
+					c.counterLock.Lock()
+					if c.maxPagesToCrawl != 0 && c.pageCounter >= c.maxPagesToCrawl {
+						log.Info().Int("max_pages_to_crawl", c.maxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Stopping crawler hijacking due to max pages to crawl")
+						c.counterLock.Unlock()
+						return // terminate the goroutine
+					}
+					c.counterLock.Unlock()
 					// Calculate the depth of the URL
 					depth := lib.CalculateURLDepth(url)
 
@@ -203,8 +211,7 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	// Increment pageCounter
 	c.counterLock.Lock()
 	if c.maxPagesToCrawl != 0 && c.pageCounter >= c.maxPagesToCrawl {
-		log.Info().Int("max_pages_to_crawl", c.maxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Stopping crawler due to max pages to crawl")
-		c.browser.Close()
+		log.Info().Int("max_pages_to_crawl", c.maxPagesToCrawl).Int("crawled", c.pageCounter).Str("url", item.url).Msg("Crawler skipping page due to having reached max pages to crawl")
 		c.counterLock.Unlock()
 		return
 	}

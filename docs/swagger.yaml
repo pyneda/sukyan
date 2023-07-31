@@ -1,3 +1,4 @@
+basePath: /
 definitions:
   api.ActionResponse:
     properties:
@@ -273,7 +274,13 @@ definitions:
     - High
     - Critical
 info:
-  contact: {}
+  contact:
+    email: contact@sukyan.com
+    name: Contact
+  description: The Sukyan API documentation.
+  termsOfService: http://swagger.io/terms/
+  title: Sukyan API
+  version: "0.1"
 paths:
   /api/v1/auth/token/renew:
     post:
@@ -770,4 +777,9 @@ paths:
       summary: Create a new workspace
       tags:
       - Workspaces
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

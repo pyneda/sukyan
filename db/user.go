@@ -8,7 +8,7 @@ import (
 type User struct {
 	BaseUUIDModel
 	Email        string `gorm:"type:varchar(255);not null;unique" json:"email" validate:"required,email,lte=255"`
-	PasswordHash string `json:"password_hash"` // `gorm:"<-:false" json:"password_hash"`
+	PasswordHash string `gorm:"<-:false" json:"password_hash,omitempty"`
 	Active       bool   `json:"active" validate:"required,len=1"`
 }
 

@@ -147,3 +147,37 @@ func UserSignOut(c *fiber.Ctx) error {
 	// Return status 204 no content.
 	return c.SendStatus(fiber.StatusNoContent)
 }
+
+// WhoAmI method to get details of the authenticated user.
+// @Description Get details of the authenticated user using JWT token.
+// @Summary get details of the authenticated user
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Bearer token"
+// @Success 200 {object} db.User "Returns the authenticated user data"
+// @Failure 500 {object} ErrorResponse "Returns error message and status code 500 when an error occurs while processing the request"
+// @Security ApiKeyAuth
+// @Router /api/v1/auth/user/whoami [get]
+func WhoAmI(c *fiber.Ctx) error {
+	// Get claims from JWT.
+	claims, err := auth.ExtractTokenMetadata(c)
+	if err != nil {
+		// Return status 500 and JWT parse error.
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": true,
+			"msg":   err.Error(),
+		})
+	}
+
+	user, err := db.Connection.GetUserByID(claims.UserID)
+	user.PasswordHash = ""
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": true,
+			"msg":   err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"data": user, "count": 1})
+}

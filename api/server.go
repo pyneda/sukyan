@@ -91,7 +91,8 @@ func StartAPI() {
 	// Auth related endpoints
 	auth_app := api.Group("/auth")
 	auth_app.Post("/token/renew", JWTProtected(), RenewTokens)
-	auth_app.Post("/user/sign/out", JWTProtected(), UserSignOut) // de-authorization user
+	auth_app.Post("/user/sign/out", JWTProtected(), UserSignOut)
+	auth_app.Get("/user/whoami", JWTProtected(), WhoAmI)
 	auth_app.Post("/user/sign/in", UserSignIn)
 
 	// Make a group for all scan endpoints which require the scan engine

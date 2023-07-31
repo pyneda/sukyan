@@ -79,6 +79,12 @@ func StartAPI() {
 	api.Get("/tasks/jobs", FindTaskJobs)
 	api.Post("/tokens/jwts", JwtListHandler)
 
+	// Auth related endpoints
+	auth_app := api.Group("/auth")
+	auth_app.Post("/token/renew", JWTProtected(), RenewTokens)
+	auth_app.Post("/user/sign/out", JWTProtected(), UserSignOut) // de-authorization user
+	auth_app.Post("/user/sign/in", UserSignIn)
+
 	// Make a group for all scan endpoints which require the scan engine
 	scan_app := api.Group("/scan")
 	scan_app.Use(func(c *fiber.Ctx) error {

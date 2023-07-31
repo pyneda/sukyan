@@ -35,6 +35,34 @@ definitions:
     required:
     - items
     type: object
+  api.SignIn:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      password:
+        maxLength: 255
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  api.SignInResponse:
+    properties:
+      error:
+        type: boolean
+      msg:
+        type: string
+      tokens:
+        $ref: '#/definitions/api.SignInTokens'
+    type: object
+  api.SignInTokens:
+    properties:
+      access:
+        type: string
+      refresh:
+        type: string
+    type: object
   api.WorkspaceCreateInput:
     properties:
       code:
@@ -64,6 +92,9 @@ definitions:
       created_at:
         type: string
       curl_command:
+        description: |-
+          Severity string `json:"severity" gorm:"type:ENUM('Unknown', 'Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
+          Severity    string `json:"severity" gorm:"index; default:'Unknown'"`
         type: string
       cwe:
         type: integer
@@ -96,10 +127,9 @@ definitions:
           type: integer
         type: array
       severity:
-        description: |-
-          enums seem to fail - review later
-          Severity string `json:"severity" gorm:"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
-        type: string
+        allOf:
+        - $ref: '#/definitions/db.severity'
+        description: enums seem to fail - review later
       status_code:
         type: integer
       title:
@@ -226,9 +256,88 @@ definitions:
       updated_at:
         type: string
     type: object
+  db.severity:
+    enum:
+    - Unknown
+    - Info
+    - Low
+    - Medium
+    - High
+    - Critical
+    type: string
+    x-enum-varnames:
+    - Unknown
+    - Info
+    - Low
+    - Medium
+    - High
+    - Critical
 info:
   contact: {}
 paths:
+  /api/v1/auth/token/renew:
+    post:
+      consumes:
+      - application/json
+      description: Renew access and refresh tokens.
+      parameters:
+      - description: Refresh token
+        in: body
+        name: refresh_token
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: renew access and refresh tokens
+      tags:
+      - Auth
+  /api/v1/auth/user/sign/in:
+    post:
+      consumes:
+      - application/json
+      description: Auth user and return access and refresh token.
+      parameters:
+      - description: SignIn payload
+        in: body
+        name: signIn
+        required: true
+        schema:
+          $ref: '#/definitions/api.SignIn'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.SignInResponse'
+      summary: auth user and return access and refresh token
+      tags:
+      - Auth
+  /api/v1/auth/user/sign/out:
+    post:
+      consumes:
+      - application/json
+      description: De-authorize user and delete refresh token.
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: ok
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: de-authorize user and delete refresh token
+      tags:
+      - Auth
   /api/v1/history:
     get:
       description: Get history with optional pagination and filtering by status codes,

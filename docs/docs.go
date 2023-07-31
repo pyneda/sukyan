@@ -16,6 +16,107 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/auth/token/renew": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Renew access and refresh tokens.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "renew access and refresh tokens",
+                "parameters": [
+                    {
+                        "description": "Refresh token",
+                        "name": "refresh_token",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/user/sign/in": {
+            "post": {
+                "description": "Auth user and return access and refresh token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "auth user and return access and refresh token",
+                "parameters": [
+                    {
+                        "description": "SignIn payload",
+                        "name": "signIn",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.SignIn"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.SignInResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/user/sign/out": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "De-authorize user and delete refresh token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "de-authorize user and delete refresh token",
+                "responses": {
+                    "204": {
+                        "description": "ok",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/history": {
             "get": {
                 "description": "Get history with optional pagination and filtering by status codes, HTTP methods, and sources",
@@ -723,6 +824,48 @@ const docTemplate = `{
                 }
             }
         },
+        "api.SignIn": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "password": {
+                    "type": "string",
+                    "maxLength": 255
+                }
+            }
+        },
+        "api.SignInResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "boolean"
+                },
+                "msg": {
+                    "type": "string"
+                },
+                "tokens": {
+                    "$ref": "#/definitions/api.SignInTokens"
+                }
+            }
+        },
+        "api.SignInTokens": {
+            "type": "object",
+            "properties": {
+                "access": {
+                    "type": "string"
+                },
+                "refresh": {
+                    "type": "string"
+                }
+            }
+        },
         "api.WorkspaceCreateInput": {
             "type": "object",
             "properties": {
@@ -767,6 +910,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "curl_command": {
+                    "description": "Severity string ` + "`" + `json:\"severity\" gorm:\"type:ENUM('Unknown', 'Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'\"` + "`" + `\nSeverity    string ` + "`" + `json:\"severity\" gorm:\"index; default:'Unknown'\"` + "`" + `",
                     "type": "string"
                 },
                 "cwe": {
@@ -815,8 +959,12 @@ const docTemplate = `{
                     }
                 },
                 "severity": {
-                    "description": "enums seem to fail - review later\nSeverity string ` + "`" + `json:\"severity\" gorm:\"type:ENUM('Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'\"` + "`" + `",
-                    "type": "string"
+                    "description": "enums seem to fail - review later",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.severity"
+                        }
+                    ]
                 },
                 "status_code": {
                     "type": "integer"
@@ -1000,6 +1148,25 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "db.severity": {
+            "type": "string",
+            "enum": [
+                "Unknown",
+                "Info",
+                "Low",
+                "Medium",
+                "High",
+                "Critical"
+            ],
+            "x-enum-varnames": [
+                "Unknown",
+                "Info",
+                "Low",
+                "Medium",
+                "High",
+                "Critical"
+            ]
         }
     }
 }`

@@ -56,6 +56,7 @@ func InitDb() *DatabaseConnection {
 		WHEN duplicate_object THEN null;
 	END $$;`
 	db.Exec(sql)
+	db.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`)
 
 	// Migrate Issue separately after enum creation
 	if err := db.AutoMigrate(&Issue{}); err != nil {
@@ -64,7 +65,7 @@ func InitDb() *DatabaseConnection {
 	}
 
 	// Migrate other tables
-	if err := db.AutoMigrate(&Workspace{}, &History{}, &OOBTest{}, &OOBInteraction{}, &Task{}, &TaskJob{}, &WebSocketConnection{}, &WebSocketMessage{}, &JsonWebToken{}); err != nil {
+	if err := db.AutoMigrate(&Workspace{}, &History{}, &OOBTest{}, &OOBInteraction{}, &Task{}, &TaskJob{}, &WebSocketConnection{}, &WebSocketMessage{}, &JsonWebToken{}, &User{}, &RefreshToken{}); err != nil {
 		log.Error().Err(err).Msg("Failed to migrate other tables")
 		os.Exit(1)
 	}

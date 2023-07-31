@@ -18,7 +18,16 @@ import (
 	"github.com/spf13/viper"
 )
 
-// StartAPI starts the api
+// @title Sukyan API
+// @version 0.1
+// @description The Sukyan API documentation.
+// @termsOfService http://swagger.io/terms/
+// @contact.name Contact
+// @contact.email contact@sukyan.com
+// @BasePath /
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
 func StartAPI() {
 	log.Info().Msg("Initializing...")
 	db.InitDb()

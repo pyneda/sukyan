@@ -10,7 +10,7 @@ import (
 
 // @Summary Get WebSocket connections
 // @Description Get WebSocket connections with optional pagination
-// @Tags History WebSocket
+// @Tags History
 // @Produce json
 // @Param page_size query integer false "Size of each page" default(50)
 // @Param page query integer false "Page number" default(1)
@@ -47,7 +47,7 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 
 // @Summary Get WebSocket messages
 // @Description Get WebSocket messages with optional pagination and filtering by connection id
-// @Tags History WebSocket
+// @Tags History
 // @Produce json
 // @Param page_size query integer false "Size of each page" default(50)
 // @Param page query integer false "Page number" default(1)

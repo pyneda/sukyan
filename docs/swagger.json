@@ -204,7 +204,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "History WebSocket"
+                    "History"
                 ],
                 "summary": "Get WebSocket connections",
                 "parameters": [
@@ -240,7 +240,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "History WebSocket"
+                    "History"
                 ],
                 "summary": "Get WebSocket messages",
                 "parameters": [

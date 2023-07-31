@@ -455,7 +455,7 @@ paths:
             $ref: '#/definitions/api.ErrorResponse'
       summary: Get WebSocket connections
       tags:
-      - History WebSocket
+      - History
   /api/v1/history/websocket/messages:
     get:
       description: Get WebSocket messages with optional pagination and filtering by
@@ -490,7 +490,7 @@ paths:
             $ref: '#/definitions/api.ErrorResponse'
       summary: Get WebSocket messages
       tags:
-      - History WebSocket
+      - History
   /api/v1/interactions:
     get:
       description: Get interactions with optional pagination and protocols filter

@@ -216,7 +216,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "History WebSocket"
+                    "History"
                 ],
                 "summary": "Get WebSocket connections",
                 "parameters": [
@@ -252,7 +252,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "History WebSocket"
+                    "History"
                 ],
                 "summary": "Get WebSocket messages",
                 "parameters": [

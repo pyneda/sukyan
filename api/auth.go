@@ -60,7 +60,6 @@ func UserSignIn(c *fiber.Ctx) error {
 	}
 
 	// Compare given user password with stored in found user.
-	log.Info().Interface("user", foundedUser).Msg("Hash")
 	compareUserPassword := auth.ComparePasswords(foundedUser.PasswordHash, signIn.Password)
 	if !compareUserPassword {
 		// Return, if password is not compare to stored in database.

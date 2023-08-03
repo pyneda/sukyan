@@ -158,5 +158,5 @@ func SetDefaultConfig() {
 	viper.SetDefault("api.listen.port", 8013)
 	viper.SetDefault("api.docs.enabled", false)
 	viper.SetDefault("api.docs.path", "/docs")
-
+	viper.SetDefault("api.cors.origins", []string{"http://localhost:3001", "http://127.0.0.1:3001"})
 }

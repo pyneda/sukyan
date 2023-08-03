@@ -30,6 +30,7 @@ func IsValidFilterHTTPMethod(method string) bool {
 // @Param methods query string false "Comma-separated list of HTTP methods to filter by"
 // @Param sources query string false "Comma-separated list of sources to filter by"
 // @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/history [get]
 func FindHistory(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
@@ -118,6 +119,7 @@ type HistorySummary struct {
 // @Param id path int true "History ID"
 // @Success 200 {array} HistorySummary
 // @Failure 400,404 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/history/{id}/children [get]
 func GetChildren(c *fiber.Ctx) error {
 	// get history id from path
@@ -162,6 +164,7 @@ func GetChildren(c *fiber.Ctx) error {
 // @Produce  json
 // @Success 200 {array} HistorySummary
 // @Failure 400,404 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/history/root-nodes [get]
 func GetRootNodes(c *fiber.Ctx) error {
 	// retrieve all the children history items

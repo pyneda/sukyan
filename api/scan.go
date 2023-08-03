@@ -22,6 +22,7 @@ var validate = validator.New()
 // @Param input body PassiveScanInput true "List of items"
 // @Success 200 {object} ActionResponse
 // @Failure 400 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/scan/passive [post]
 func PassiveScanHandler(c *fiber.Ctx) error {
 	input := new(PassiveScanInput)
@@ -70,6 +71,7 @@ type ActiveScanInput struct {
 // @Param input body PassiveScanInput true "List of items"
 // @Success 200 {object} ActionResponse
 // @Failure 400 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/scan/active [post]
 func ActiveScanHandler(c *fiber.Ctx) error {
 	input := new(ActiveScanInput)

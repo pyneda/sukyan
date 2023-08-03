@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
+
 	"github.com/gofiber/swagger"
 	"github.com/pyneda/sukyan/db"
 	_ "github.com/pyneda/sukyan/docs"
@@ -90,6 +92,12 @@ func StartAPI() {
 
 	// Auth related endpoints
 	auth_app := api.Group("/auth")
+	auth_app.Use(limiter.New(limiter.Config{
+		Max:               20,
+		Expiration:        30 * time.Second,
+		LimiterMiddleware: limiter.SlidingWindow{},
+	}))
+
 	auth_app.Post("/token/renew", JWTProtected(), RenewTokens)
 	auth_app.Post("/user/sign/out", JWTProtected(), UserSignOut)
 	auth_app.Get("/user/whoami", JWTProtected(), WhoAmI)

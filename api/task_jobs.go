@@ -24,6 +24,7 @@ import (
 // @Param completed_at query string false "Completed at date to filter"
 // @Success 200 {array} db.TaskJob
 // @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/tasks/jobs [get]
 func FindTaskJobs(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")

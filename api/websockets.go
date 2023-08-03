@@ -15,6 +15,7 @@ import (
 // @Param page_size query integer false "Size of each page" default(50)
 // @Param page query integer false "Page number" default(1)
 // @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/history/websocket/connections [get]
 func FindWebSocketConnections(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
@@ -54,6 +55,7 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 // @Param connection_id query string false "Filter messages by WebSocket connection ID"
 // @Success 200 {array} db.WebSocketMessage
 // @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/history/websocket/messages [get]
 func FindWebSocketMessages(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")

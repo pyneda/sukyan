@@ -18,6 +18,7 @@ import (
 // @Param input body db.JwtFilters true "Filtering and sorting options"
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/tokens/jwts [post]
 func JwtListHandler(c *fiber.Ctx) error {
 	input := new(db.JwtFilters)

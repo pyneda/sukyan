@@ -427,6 +427,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Get history
       tags:
       - History
@@ -459,6 +461,8 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Get children history
       tags:
       - History
@@ -484,6 +488,8 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Gets all root history nodes
       tags:
       - History
@@ -508,6 +514,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Get WebSocket connections
       tags:
       - History
@@ -543,6 +551,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Get WebSocket messages
       tags:
       - History
@@ -571,6 +581,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Get interactions
       tags:
       - Interactions
@@ -592,6 +604,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: List all issues
       tags:
       - Issues
@@ -613,6 +627,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: List all issues grouped
       tags:
       - Issues
@@ -639,6 +655,8 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Submit items for active scanning
       tags:
       - Scan
@@ -665,6 +683,8 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Submit items for passive scanning
       tags:
       - Scan
@@ -701,6 +721,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: List tasks with pagination and filtering
       tags:
       - Tasks
@@ -750,6 +772,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Search Task Jobs
       tags:
       - Tasks
@@ -776,6 +800,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: List JWTs with filtering and sorting
       tags:
       - JWT
@@ -797,6 +823,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: List all workspaces
       tags:
       - Workspaces
@@ -822,6 +850,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
       summary: Create a new workspace
       tags:
       - Workspaces

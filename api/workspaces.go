@@ -15,6 +15,7 @@ import (
 // @Produce  json
 // @Success 200 {array} db.Workspace
 // @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/workspaces [get]
 func FindWorkspaces(c *fiber.Ctx) error {
 	items, count, err := db.Connection.ListWorkspaces()
@@ -41,6 +42,7 @@ type WorkspaceCreateInput struct {
 // @Param workspace body WorkspaceCreateInput true "Workspace to create"
 // @Success 201 {object} db.Workspace
 // @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/workspaces [post]
 func CreateWorkspace(c *fiber.Ctx) error {
 	input := new(WorkspaceCreateInput)

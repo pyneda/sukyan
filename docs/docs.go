@@ -166,6 +166,11 @@ const docTemplate = `{
         },
         "/api/v1/history": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get history with optional pagination and filtering by status codes, HTTP methods, and sources",
                 "produces": [
                     "application/json"
@@ -220,6 +225,11 @@ const docTemplate = `{
         },
         "/api/v1/history/root-nodes": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get all the root history items",
                 "consumes": [
                     "application/json"
@@ -258,6 +268,11 @@ const docTemplate = `{
         },
         "/api/v1/history/websocket/connections": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get WebSocket connections with optional pagination",
                 "produces": [
                     "application/json"
@@ -294,6 +309,11 @@ const docTemplate = `{
         },
         "/api/v1/history/websocket/messages": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get WebSocket messages with optional pagination and filtering by connection id",
                 "produces": [
                     "application/json"
@@ -345,6 +365,11 @@ const docTemplate = `{
         },
         "/api/v1/history/{id}/children": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get all the other history items that have the same depth or more than the provided history ID and that start with the same URL",
                 "consumes": [
                     "application/json"
@@ -392,6 +417,11 @@ const docTemplate = `{
         },
         "/api/v1/interactions": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Get interactions with optional pagination and protocols filter",
                 "produces": [
                     "application/json"
@@ -434,6 +464,11 @@ const docTemplate = `{
         },
         "/api/v1/issues": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Retrieves all issues with a count",
                 "consumes": [
                     "application/json"
@@ -466,6 +501,11 @@ const docTemplate = `{
         },
         "/api/v1/issues/grouped": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Retrieves all issues grouped",
                 "consumes": [
                     "application/json"
@@ -498,6 +538,11 @@ const docTemplate = `{
         },
         "/api/v1/scan/active": {
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Receives a list of items and schedules them for active scanning",
                 "consumes": [
                     "application/json"
@@ -538,6 +583,11 @@ const docTemplate = `{
         },
         "/api/v1/scan/passive": {
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Receives a list of items and schedules them for passive scanning",
                 "consumes": [
                     "application/json"
@@ -578,6 +628,11 @@ const docTemplate = `{
         },
         "/api/v1/tasks": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Retrieves tasks based on pagination and status filters",
                 "consumes": [
                     "application/json"
@@ -632,6 +687,11 @@ const docTemplate = `{
         },
         "/api/v1/tasks/jobs": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Allows to filter and search task jobs",
                 "consumes": [
                     "application/json"
@@ -705,6 +765,11 @@ const docTemplate = `{
         },
         "/api/v1/tokens/jwts": {
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Retrieves a list of JWTs with optional filtering and sorting options",
                 "consumes": [
                     "application/json"
@@ -745,6 +810,11 @@ const docTemplate = `{
         },
         "/api/v1/workspaces": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Retrieves all workspaces with a count",
                 "consumes": [
                     "application/json"
@@ -775,6 +845,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "description": "Saves a new workspace to the database",
                 "consumes": [
                     "application/json"

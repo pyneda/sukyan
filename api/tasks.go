@@ -21,6 +21,7 @@ import (
 // @Param status query string false "Comma-separated list of statuses to filter"
 // @Success 200 {array} db.Task
 // @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/tasks [get]
 func FindTasks(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")

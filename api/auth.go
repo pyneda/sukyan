@@ -43,7 +43,7 @@ func UserSignIn(c *fiber.Ctx) error {
 	// Checking received data from JSON body.
 	if err := c.BodyParser(signIn); err != nil {
 		// Return status 400 and error message.
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		return c.JSON(fiber.Map{
 			"error": true,
 			"msg":   err.Error(),
 		})
@@ -53,7 +53,7 @@ func UserSignIn(c *fiber.Ctx) error {
 	foundedUser, err := db.Connection.GetUserByEmail(signIn.Email)
 	if err != nil {
 		// Return, if user not found.
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+		return c.JSON(fiber.Map{
 			"error": true,
 			"msg":   "wrong user email address or password", // "user with the given email is not found",
 		})
@@ -63,7 +63,7 @@ func UserSignIn(c *fiber.Ctx) error {
 	compareUserPassword := auth.ComparePasswords(foundedUser.PasswordHash, signIn.Password)
 	if !compareUserPassword {
 		// Return, if password is not compare to stored in database.
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		return c.JSON(fiber.Map{
 			"error": true,
 			"msg":   "wrong user email address or password",
 		})

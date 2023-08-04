@@ -159,4 +159,8 @@ func SetDefaultConfig() {
 	viper.SetDefault("api.docs.enabled", false)
 	viper.SetDefault("api.docs.path", "/docs")
 	viper.SetDefault("api.cors.origins", []string{"http://localhost:3001", "http://127.0.0.1:3001"})
+	viper.SetDefault("api.auth.jwt_secret_key", "ch4ng3Th1sToAS3cr3tK3y")
+	viper.SetDefault("api.auth.jwt_secret_expire_minutes", 15)
+	viper.SetDefault("api.auth.jwt_refresh_key", "ch4ng3Th1sK3y")
+	viper.SetDefault("api.auth.jwt_refresh_expire_hours", 7*24)
 }

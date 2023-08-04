@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/spf13/viper"
 	"os"
 	"strconv"
 	"strings"
@@ -42,20 +43,16 @@ func GenerateNewTokens(id string, credentials []string) (*Tokens, error) {
 
 func generateNewAccessToken(id string, credentials []string) (string, error) {
 	// Set secret key from .env file.
-	secret := os.Getenv("JWT_SECRET_KEY")
+	secret := viper.GetString("api.auth.jwt_secret_key")
 
 	// Set expires minutes count for secret key from .env file.
-	minutesCount, _ := strconv.Atoi(os.Getenv("JWT_SECRET_KEY_EXPIRE_MINUTES_COUNT"))
-
+	minutesCount := viper.GetInt("api.auth.jwt_secret_expire_minutes")
 	// Create a new claims.
 	claims := jwt.MapClaims{}
 
 	// Set public claims:
 	claims["id"] = id
 	claims["expires"] = time.Now().Add(time.Minute * time.Duration(minutesCount)).Unix()
-	claims["book:create"] = false
-	claims["book:update"] = false
-	claims["book:delete"] = false
 
 	// Set private token credentials:
 	for _, credential := range credentials {
@@ -80,7 +77,8 @@ func generateNewRefreshToken() (string, error) {
 	hash := sha256.New()
 
 	// Create a new now date and time string with salt.
-	refresh := os.Getenv("JWT_REFRESH_KEY") + time.Now().String()
+	refresh_key := viper.GetString("api.auth.jwt_refresh_key")
+	refresh := refresh_key + time.Now().String()
 
 	// See: https://pkg.go.dev/io#Writer.Write
 	_, err := hash.Write([]byte(refresh))
@@ -90,7 +88,7 @@ func generateNewRefreshToken() (string, error) {
 	}
 
 	// Set expires hours count for refresh key from .env file.
-	hoursCount, _ := strconv.Atoi(os.Getenv("JWT_REFRESH_KEY_EXPIRE_HOURS_COUNT"))
+	hoursCount := viper.GetInt("api.auth.jwt_refresh_expire_hours")
 
 	// Set expiration time.
 	expireTime := fmt.Sprint(time.Now().Add(time.Hour * time.Duration(hoursCount)).Unix())

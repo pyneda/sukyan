@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/auth"
+	"github.com/rs/zerolog/log"
 	"time"
 )
 
@@ -17,13 +18,12 @@ type Renew struct {
 // @Tags Auth
 // @Accept json
 // @Produce json
-// @Param refresh_token body string true "Refresh token"
+// @Param refresh_token body Renew true "Refresh token"
 // @Success 200 {string} status "ok"
 // @Security ApiKeyAuth
 // @Router /api/v1/auth/token/renew [post]
 func RenewTokens(c *fiber.Ctx) error {
 	now := time.Now().Unix()
-
 	claims, err := auth.ExtractTokenMetadata(c)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -42,7 +42,6 @@ func RenewTokens(c *fiber.Ctx) error {
 	}
 
 	renew := &Renew{}
-
 	if err := c.BodyParser(renew); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": true,
@@ -101,6 +100,7 @@ func RenewTokens(c *fiber.Ctx) error {
 				"msg":   err.Error(),
 			})
 		}
+		log.Info().Str("user", claims.UserID.String()).Msg("Renewed JWT token")
 
 		return c.JSON(fiber.Map{
 			"error": false,

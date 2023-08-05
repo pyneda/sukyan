@@ -36,6 +36,11 @@ definitions:
     required:
     - items
     type: object
+  api.Renew:
+    properties:
+      refresh_token:
+        type: string
+    type: object
   api.SignIn:
     properties:
       email:
@@ -313,7 +318,7 @@ paths:
         name: refresh_token
         required: true
         schema:
-          type: string
+          $ref: '#/definitions/api.Renew'
       produces:
       - application/json
       responses:

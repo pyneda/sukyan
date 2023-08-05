@@ -1,11 +1,11 @@
 package auth
 
 import (
-	"strings"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
+	"strings"
 )
 
 // TokenMetadata struct to describe metadata in JWT.
@@ -35,16 +35,16 @@ func ExtractTokenMetadata(c *fiber.Ctx) (*TokenMetadata, error) {
 		expires := int64(claims["expires"].(float64))
 
 		// User credentials.
-		credentials := map[string]bool{
-			"book:create": claims["book:create"].(bool),
-			"book:update": claims["book:update"].(bool),
-			"book:delete": claims["book:delete"].(bool),
-		}
+		// credentials := map[string]bool{
+		// 	"book:create": claims["book:create"].(bool),
+		// 	"book:update": claims["book:update"].(bool),
+		// 	"book:delete": claims["book:delete"].(bool),
+		// }
 
 		return &TokenMetadata{
-			UserID:      userID,
-			Credentials: credentials,
-			Expires:     expires,
+			UserID: userID,
+			// Credentials: credentials,
+			Expires: expires,
 		}, nil
 	}
 

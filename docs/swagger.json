@@ -37,7 +37,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/api.Renew"
                         }
                     }
                 ],
@@ -935,6 +935,14 @@
                     "items": {
                         "type": "integer"
                     }
+                }
+            }
+        },
+        "api.Renew": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
                 }
             }
         },

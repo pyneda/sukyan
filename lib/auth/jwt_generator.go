@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/spf13/viper"
-	"os"
 	"strconv"
 	"strings"
 	"time"

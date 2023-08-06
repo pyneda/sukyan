@@ -1,11 +1,13 @@
 package integrations
 
 import (
-	"strings"
-	"time"
-
 	"github.com/projectdiscovery/interactsh/pkg/client"
 	"github.com/projectdiscovery/interactsh/pkg/server"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
+	"os"
+	"strings"
+	"time"
 )
 
 type InteractionDomain struct {
@@ -21,7 +23,16 @@ type InteractionsManager struct {
 }
 
 func (i *InteractionsManager) Start() {
-	i.client, _ = client.New(client.DefaultOptions)
+	options := client.DefaultOptions
+	if viper.GetString("scan.oob.server_urls") != "" {
+		options.ServerURL = viper.GetString("scan.oob.server_urls")
+	}
+	var err error
+	i.client, err = client.New(options)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Could not create interactsh client")
+		os.Exit(1)
+	}
 	i.client.StartPolling(i.PollingInterval, func(interaction *server.Interaction) {
 		if i.GetAsnInfo {
 			i.client.TryGetAsnInfo(interaction)

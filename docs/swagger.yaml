@@ -222,26 +222,6 @@ definitions:
       updated_at:
         type: string
     type: object
-  db.User:
-    properties:
-      active:
-        type: boolean
-      created_at:
-        type: string
-      email:
-        maxLength: 255
-        type: string
-      id:
-        type: string
-      password_hash:
-        type: string
-      updated_at:
-        type: string
-    required:
-    - active
-    - email
-    - id
-    type: object
   db.WebSocketMessage:
     properties:
       connection_id:
@@ -367,34 +347,6 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: de-authorize user and delete refresh token
-      tags:
-      - Auth
-  /api/v1/auth/user/whoami:
-    get:
-      consumes:
-      - application/json
-      description: Get details of the authenticated user using JWT token.
-      parameters:
-      - description: Bearer token
-        in: header
-        name: Authorization
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Returns the authenticated user data
-          schema:
-            $ref: '#/definitions/db.User'
-        "500":
-          description: Returns error message and status code 500 when an error occurs
-            while processing the request
-          schema:
-            $ref: '#/definitions/api.ErrorResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: get details of the authenticated user
       tags:
       - Auth
   /api/v1/history:

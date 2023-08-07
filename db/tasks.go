@@ -7,8 +7,10 @@ import (
 
 type Task struct {
 	BaseModel
-	Status    string    `json:"status"`
-	StartedAt time.Time `json:"started_at"`
+	Status      string    `json:"status"`
+	StartedAt   time.Time `json:"started_at"`
+	Workspace   Workspace `json:"-" gorm:"foreignKey:WorkspaceID"`
+	WorkspaceID uint      `json:"workspace_id"`
 }
 
 type TaskFilter struct {

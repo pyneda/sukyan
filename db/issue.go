@@ -22,13 +22,11 @@ type Issue struct {
 	FalsePositive bool        `json:"false_positive"`
 	Confidence    int         `json:"confidence"`
 	References    StringSlice `json:"references"`
-	// enums seem to fail - review later
-	Severity severity `gorm:"type:severity;default:'Info'" json:"severity"`
-
-	// Severity string `json:"severity" gorm:"type:ENUM('Unknown', 'Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'"`
-	// Severity    string `json:"severity" gorm:"index; default:'Unknown'"`
-	CURLCommand string `json:"curl_command"`
-	Note        string `json:"note"`
+	Severity      severity    `gorm:"type:severity;default:'Info'" json:"severity"`
+	CURLCommand   string      `json:"curl_command"`
+	Note          string      `json:"note"`
+	Workspace     Workspace   `json:"-" gorm:"foreignKey:WorkspaceID"`
+	WorkspaceID   uint        `json:"workspace_id"`
 }
 
 // IssueFilter represents available issue filters

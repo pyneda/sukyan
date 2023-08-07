@@ -1040,7 +1040,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "curl_command": {
-                    "description": "Severity string ` + "`" + `json:\"severity\" gorm:\"type:ENUM('Unknown', 'Info', 'Low', 'Medium', 'High', 'Critical');default:'Info'\"` + "`" + `\nSeverity    string ` + "`" + `json:\"severity\" gorm:\"index; default:'Unknown'\"` + "`" + `",
                     "type": "string"
                 },
                 "cwe": {
@@ -1089,12 +1088,7 @@ const docTemplate = `{
                     }
                 },
                 "severity": {
-                    "description": "enums seem to fail - review later",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/db.severity"
-                        }
-                    ]
+                    "$ref": "#/definitions/db.severity"
                 },
                 "status_code": {
                     "type": "integer"
@@ -1107,6 +1101,9 @@ const docTemplate = `{
                 },
                 "url": {
                     "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -1189,6 +1186,9 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
                 }
             }
         },

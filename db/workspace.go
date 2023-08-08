@@ -12,6 +12,36 @@ type Workspace struct {
 	Description string `json:"description"`
 }
 
+// GetWorkspaceByID gets a workspace by ID
+func (d *DatabaseConnection) GetWorkspaceByID(id uint) (*Workspace, error) {
+	var workspace Workspace
+	if err := d.db.Where("id = ?", id).First(&workspace).Error; err != nil {
+		log.Error().Err(err).Interface("id", id).Msg("Unable to fetch workspace by ID")
+		return nil, err
+	}
+	return &workspace, nil
+}
+
+// GetWorkspaceByCode gets a workspace by code
+func (d *DatabaseConnection) GetWorkspaceByCode(code string) (*Workspace, error) {
+	var workspace Workspace
+	if err := d.db.Where("code = ?", code).First(&workspace).Error; err != nil {
+		log.Error().Err(err).Interface("code", code).Msg("Unable to fetch workspace by code")
+		return nil, err
+	}
+	return &workspace, nil
+}
+
+// WorkspaceExists checks if a workspace exists
+func (d *DatabaseConnection) WorkspaceExists(id uint) (bool, error) {
+	var count int64
+	err := d.db.Model(&Workspace{}).Where("id = ?", id).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // ListWorkspaces Lists workspaces
 func (d *DatabaseConnection) ListWorkspaces() (items []*Workspace, count int64, err error) {
 	result := d.db.Find(&items).Count(&count)

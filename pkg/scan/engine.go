@@ -22,6 +22,11 @@ const (
 	ScanJobTypeAll     ScanJobType = "all"
 )
 
+type engineTask struct {
+	item        *db.History
+	workspaceID uint
+}
+
 type ScanEngine struct {
 	task                      *db.Task
 	MaxConcurrentPassiveScans int
@@ -29,7 +34,7 @@ type ScanEngine struct {
 	InteractionsManager       *integrations.InteractionsManager
 	payloadGenerators         []*generation.PayloadGenerator
 	passiveScanCh             chan *db.History
-	activeScanCh              chan *db.History
+	activeScanCh              chan *engineTask
 	wg                        sync.WaitGroup
 	stopCh                    chan struct{}
 	pauseCh                   chan struct{}
@@ -43,7 +48,7 @@ func NewScanEngine(payloadGenerators []*generation.PayloadGenerator, maxConcurre
 		MaxConcurrentActiveScans:  maxConcurrentActiveScans,
 		InteractionsManager:       interactionsManager,
 		passiveScanCh:             make(chan *db.History, maxConcurrentPassiveScans),
-		activeScanCh:              make(chan *db.History, maxConcurrentActiveScans),
+		activeScanCh:              make(chan *engineTask, maxConcurrentActiveScans),
 		stopCh:                    make(chan struct{}),
 		pauseCh:                   make(chan struct{}),
 		resumeCh:                  make(chan struct{}),
@@ -51,15 +56,15 @@ func NewScanEngine(payloadGenerators []*generation.PayloadGenerator, maxConcurre
 	}
 }
 
-func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType) {
+func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, workspaceID uint) {
 	switch scanJobType {
 	case ScanJobTypePassive:
 		s.passiveScanCh <- item
 	case ScanJobTypeActive:
-		s.activeScanCh <- item
+		s.activeScanCh <- &engineTask{item: item, workspaceID: workspaceID}
 	case ScanJobTypeAll:
 		s.passiveScanCh <- item
-		s.activeScanCh <- item
+		s.activeScanCh <- &engineTask{item: item, workspaceID: workspaceID}
 	}
 }
 
@@ -87,14 +92,14 @@ func (s *ScanEngine) run() {
 			s.wg.Add(1)
 			go func(item *db.History) {
 				defer s.wg.Done()
-				s.schedulePassiveScan(item)
+				s.schedulePassiveScan(item, 0)
 			}(item)
-		case item := <-s.activeScanCh:
+		case task := <-s.activeScanCh:
 			s.wg.Add(1)
-			go func(item *db.History) {
+			go func(task *engineTask) {
 				defer s.wg.Done()
-				s.scheduleActiveScan(item)
-			}(item)
+				s.scheduleActiveScan(task.item, task.workspaceID)
+			}(task)
 		case <-s.pauseCh:
 			s.isPaused = true
 		case <-s.resumeCh:
@@ -111,12 +116,12 @@ func (s *ScanEngine) run() {
 	}
 }
 
-func (s *ScanEngine) schedulePassiveScan(item *db.History) {
+func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 	passive.ScanHistoryItem(item)
 }
 
-func (s *ScanEngine) scheduleActiveScan(item *db.History) {
-	ActiveScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators)
+func (s *ScanEngine) scheduleActiveScan(item *db.History, workspaceID uint) {
+	ActiveScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators, workspaceID)
 }
 
 func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, pagesPoolSize int, waitCompletion bool, excludePatterns []string, workspaceID uint) {
@@ -136,7 +141,7 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 	if viper.GetBool("integrations.nuclei.enabled") {
 		nucleiTags := passive.GetUniqueNucleiTags(fingerprints)
 		log.Info().Int("count", len(nucleiTags)).Interface("tags", nucleiTags).Msg("Gathered tags from fingerprints for Nuclei scan")
-		nucleiScanErr := integrations.NucleiScan(baseURLs)
+		nucleiScanErr := integrations.NucleiScan(baseURLs, workspaceID)
 		if nucleiScanErr != nil {
 			log.Error().Err(nucleiScanErr).Msg("Error running nuclei scan")
 		}
@@ -147,7 +152,7 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 		if historyItem.StatusCode == 404 {
 			continue
 		}
-		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll)
+		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, workspaceID)
 		retireScanner.HistoryScan(historyItem)
 
 	}

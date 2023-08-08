@@ -50,7 +50,8 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 
 	engine := c.Locals("engine").(*scan.ScanEngine)
 	for _, item := range items {
-		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypePassive)
+		// TODO: The workspace ID should be received from the client
+		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypePassive, 1)
 	}
 
 	return c.JSON(fiber.Map{
@@ -99,7 +100,8 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 
 	engine := c.Locals("engine").(*scan.ScanEngine)
 	for _, item := range items {
-		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypeActive)
+		// TODO: The workspace ID should be received from the client
+		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypeActive, 1)
 	}
 
 	return c.JSON(fiber.Map{

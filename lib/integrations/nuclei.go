@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-func processNucleiResult(result *pb.ScanResult) {
+func processNucleiResult(result *pb.ScanResult, workspaceID uint) {
 	var info pb.ScanResultInfo
 	if result == nil {
 		log.Error().Str("id", result.TemplateId).Interface("result", result).Msg("Received nuclei scan result without enough information")
@@ -70,6 +70,7 @@ func processNucleiResult(result *pb.ScanResult) {
 		References:  info.References,
 		CURLCommand: result.CurlCommand,
 		Severity:    db.NewSeverity(lib.CapitalizeFirstLetter(info.Severity)),
+		WorkspaceID: workspaceID,
 	}
 
 	new, err := db.Connection.CreateIssue(issue)
@@ -81,7 +82,7 @@ func processNucleiResult(result *pb.ScanResult) {
 
 }
 
-func NucleiScan(targets []string) error {
+func NucleiScan(targets []string, workspaceID uint) error {
 	address := fmt.Sprintf("%v:%v", viper.Get("integrations.nuclei.host"), viper.Get("integrations.nuclei.port"))
 	scanRequest := &pb.ScanRequest{
 		Targets:           targets,
@@ -135,7 +136,7 @@ func NucleiScan(targets []string) error {
 			return err
 		}
 		log.Info().Str("id", result.TemplateId).Msg("Received nuclei scan result")
-		processNucleiResult(result)
+		processNucleiResult(result, workspaceID)
 	}
 	return nil
 }

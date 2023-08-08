@@ -31,25 +31,16 @@ to quickly create a Cobra application.`,
 			os.Exit(1)
 		}
 		log.Info().Strs("startUrls", startUrls).Int("count", len(startUrls)).Msg("Creating and scheduling the crawler")
-		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns)
+		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns, workspaceID)
 		crawler.Run()
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(crawlCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// crawlCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// crawlCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	crawlCmd.Flags().StringArrayVar(&startUrls, "url", nil, "Target start url(s)")
 	crawlCmd.Flags().StringArrayVar(&crawlExcludePatterns, "exclude-pattern", nil, "URL patterns to ignore when crawling")
 	crawlCmd.Flags().IntVar(&pagesPoolSize, "pool-size", 4, "Page pool size")
 	crawlCmd.Flags().IntVar(&depth, "depth", 0, "Max crawl depth")
+	crawlCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 }

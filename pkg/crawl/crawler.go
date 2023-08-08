@@ -25,6 +25,7 @@ type Crawler struct {
 	browser                 *browser.PagePoolManager
 	pages                   sync.Map
 	pageCounter             int
+	workspaceID             uint
 	clickedElements         sync.Map
 	submittedForms          sync.Map
 	processedResponseHashes sync.Map
@@ -55,7 +56,7 @@ type SubmittedForm struct {
 	xpath string
 }
 
-func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string) *Crawler {
+func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID uint) *Crawler {
 	hijackChan := make(chan browser.HijackResult)
 
 	browser := browser.NewHijackedPagePoolManager(
@@ -74,6 +75,7 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 		hijackChan:        hijackChan,
 		browser:           browser,
 		ignoredExtensions: viper.GetStringSlice("crawl.ignored_extensions"),
+		workspaceID:       workspaceID,
 	}
 }
 

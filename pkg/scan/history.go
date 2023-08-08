@@ -13,8 +13,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator) {
-	taskLog := log.With().Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
+func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, workspaceID uint) {
+	taskLog := log.With().Uint("workspace", workspaceID).Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
 	taskLog.Info().Msg("Starting to scan history item")
 
 	fuzzer := fuzz.HttpFuzzer{

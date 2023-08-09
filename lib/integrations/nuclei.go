@@ -70,7 +70,7 @@ func processNucleiResult(result *pb.ScanResult, workspaceID uint) {
 		References:  info.References,
 		CURLCommand: result.CurlCommand,
 		Severity:    db.NewSeverity(lib.CapitalizeFirstLetter(info.Severity)),
-		WorkspaceID: workspaceID,
+		WorkspaceID: &workspaceID,
 	}
 
 	new, err := db.Connection.CreateIssue(issue)

@@ -30,6 +30,7 @@ type HttpFuzzer struct {
 	Concurrency         int
 	InteractionsManager *integrations.InteractionsManager
 	AvoidRepeatedIssues bool
+	WorkspaceID         uint
 	client              *http.Client
 	issuesFound         sync.Map
 }
@@ -134,7 +135,7 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 				continue
 			}
 
-			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, db.SourceScanner)
+			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, db.SourceScanner, f.WorkspaceID)
 			taskLog.Debug().Str("rawrequest", string(newHistory.RawRequest)).Msg("Request from history created in http fuzzer")
 			result.Duration = time.Since(startTime)
 			result.Result = newHistory

@@ -21,6 +21,7 @@ type Log4ShellInjectionAudit struct {
 	ExpectedResponses   fuzz.ExpectedResponses
 	ExtraHeadersToTest  []string
 	InteractionsManager *integrations.InteractionsManager
+	WorkspaceID         uint
 }
 
 type log4ShellAuditItem struct {
@@ -189,8 +190,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		return
 	}
 
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner)
-
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner, a.WorkspaceID)
 	isInResponse, err := item.payload.MatchAgainstString(string(history.RawResponse))
 
 	// This might be un-needed

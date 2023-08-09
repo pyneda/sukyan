@@ -892,7 +892,8 @@ const docTemplate = `{
         "api.PassiveScanInput": {
             "type": "object",
             "required": [
-                "items"
+                "items",
+                "workspace_id"
             ],
             "properties": {
                 "items": {
@@ -900,6 +901,10 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "workspace_id": {
+                    "type": "integer",
+                    "minimum": 0
                 }
             }
         },

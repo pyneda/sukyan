@@ -884,7 +884,8 @@
         "api.PassiveScanInput": {
             "type": "object",
             "required": [
-                "items"
+                "items",
+                "workspace_id"
             ],
             "properties": {
                 "items": {
@@ -892,6 +893,10 @@
                     "items": {
                         "type": "integer"
                     }
+                },
+                "workspace_id": {
+                    "type": "integer",
+                    "minimum": 0
                 }
             }
         },

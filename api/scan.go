@@ -8,7 +8,8 @@ import (
 )
 
 type PassiveScanInput struct {
-	Items []uint `json:"items" validate:"required,dive,min=0"`
+	Items       []uint `json:"items" validate:"required,dive,min=0"`
+	WorkspaceID uint   `json:"workspace_id" validate:"required,min=0"`
 }
 
 var validate = validator.New()
@@ -40,6 +41,14 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
+	workspaceExists, _ := db.Connection.WorkspaceExists(input.WorkspaceID)
+	if !workspaceExists {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid workspace",
+			"message": "The provided workspace ID does not seem valid",
+		})
+	}
+
 	items, err := db.Connection.GetHistoriesByID(input.Items)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -50,8 +59,7 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 
 	engine := c.Locals("engine").(*scan.ScanEngine)
 	for _, item := range items {
-		// TODO: The workspace ID should be received from the client
-		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypePassive, 1)
+		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypePassive, input.WorkspaceID)
 	}
 
 	return c.JSON(fiber.Map{
@@ -60,7 +68,8 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 }
 
 type ActiveScanInput struct {
-	Items []uint `json:"items" validate:"required,dive,min=0"`
+	Items       []uint `json:"items" validate:"required,dive,min=0"`
+	WorkspaceID uint   `json:"workspace_id" validate:"required,min=0"`
 }
 
 // ActiveScanHandler godoc
@@ -90,6 +99,13 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
+	workspaceExists, _ := db.Connection.WorkspaceExists(input.WorkspaceID)
+	if !workspaceExists {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid workspace",
+			"message": "The provided workspace ID does not seem valid",
+		})
+	}
 	items, err := db.Connection.GetHistoriesByID(input.Items)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -100,8 +116,7 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 
 	engine := c.Locals("engine").(*scan.ScanEngine)
 	for _, item := range items {
-		// TODO: The workspace ID should be received from the client
-		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypeActive, 1)
+		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypeActive, input.WorkspaceID)
 	}
 
 	return c.JSON(fiber.Map{

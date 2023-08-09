@@ -65,6 +65,7 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 		},
 		"Crawler",
 		hijackChan,
+		workspaceID,
 	)
 	return &Crawler{
 		maxPagesToCrawl:   maxPagesToCrawl,

@@ -14,8 +14,9 @@ type PageLoader struct {
 	EmulationConfig   browser.EmulationConfig
 	IgnoreCertCerrors bool
 	// https://go-rod.github.io/#/emulation?id=locale-and-timezone
-	Timezone string
-	Source   string
+	Timezone    string
+	Source      string
+	WorkspaceID uint
 }
 
 func (l *PageLoader) GetPage() (*rod.Browser, *rod.Page, error) {
@@ -24,7 +25,7 @@ func (l *PageLoader) GetPage() (*rod.Browser, *rod.Page, error) {
 
 	hijackResultsChannel := make(chan browser.HijackResult)
 	if l.HijackEnabled {
-		browser.Hijack(l.HijackConfig, b, l.Source, hijackResultsChannel)
+		browser.Hijack(l.HijackConfig, b, l.Source, hijackResultsChannel, l.WorkspaceID)
 	}
 	page := b.MustPage("")
 	if l.IgnoreCertCerrors == true {

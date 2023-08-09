@@ -20,6 +20,7 @@ type SSRFAudit struct {
 	HeuristicRecords           []fuzz.HeuristicRecord
 	ExpectedResponses          fuzz.ExpectedResponses
 	InteractionsManager        *integrations.InteractionsManager
+	WorkspaceID                uint
 }
 
 // Run starts the audit
@@ -82,7 +83,8 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 		log.Error().Err(result.Err).Str("url", result.URL).Msg("Error sending SSRF test request")
 	}
 
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(&result.Response, db.SourceScanner)
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(&result.Response, db.SourceScanner, a.WorkspaceID)
+
 	if err != nil {
 		log.Error().Err(err).Str("url", result.URL).Msg("Error creating history from SSRF test request")
 	}

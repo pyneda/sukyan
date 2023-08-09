@@ -21,6 +21,7 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 		Concurrency:         10,
 		InteractionsManager: interactionsManager,
 		AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),
+		WorkspaceID:         workspaceID,
 	}
 	insertionPoints, _ := fuzz.GetInsertionPoints(item)
 	taskLog.Debug().Interface("insertionPoints", insertionPoints).Msg("Insertion points")
@@ -42,6 +43,7 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 		// 	Concurrency:         5,
 		// 	StopAfterSuccess:    false,
 		// 	InteractionsManager: interactionsManager,
+		// 	WorkspaceID:         workspaceID,
 		// }
 		// ssrf.Run()
 		active.TestXSS(item.URL, specificParamsToTest, "default.txt", false)
@@ -66,11 +68,13 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	sni := active.SNIAudit{
 		HistoryItem:         item,
 		InteractionsManager: interactionsManager,
+		WorkspaceID:         workspaceID,
 	}
 	sni.Run()
 	methods := active.HTTPMethodsAudit{
 		HistoryItem: item,
 		Concurrency: 5,
+		WorkspaceID: workspaceID,
 	}
 	methods.Run()
 
@@ -79,6 +83,7 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 			URL:                 item.URL,
 			Concurrency:         10,
 			InteractionsManager: interactionsManager,
+			WorkspaceID:         workspaceID,
 		}
 		log4shell.Run()
 		hostHeader := active.HostHeaderInjectionAudit{

@@ -13,6 +13,7 @@ import (
 type HTTPMethodsAudit struct {
 	HistoryItem *db.History
 	Concurrency int
+	WorkspaceID uint
 }
 
 type httpMethodsAudiItem struct {
@@ -101,7 +102,7 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 		return
 	}
 
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner)
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner, a.WorkspaceID)
 	if history.StatusCode != 405 && history.StatusCode != 404 {
 		// Should improve the issue template and probably all all the instances in the same issue
 		issue := db.GetIssueTemplateByCode(db.HTTPMethodsCode)

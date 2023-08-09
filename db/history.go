@@ -35,7 +35,7 @@ type History struct {
 	Source               string         `json:"source"`
 	JsonWebTokens        []JsonWebToken `gorm:"many2many:json_web_token_histories" json:"json_web_tokens"`
 	Workspace            Workspace      `json:"-" gorm:"foreignKey:WorkspaceID"`
-	WorkspaceID          uint           `json:"workspace_id"`
+	WorkspaceID          *uint          `json:"workspace_id"`
 }
 
 func (h *History) GetResponseHeadersAsMap() (map[string][]string, error) {

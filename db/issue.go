@@ -26,7 +26,7 @@ type Issue struct {
 	CURLCommand   string      `json:"curl_command"`
 	Note          string      `json:"note"`
 	Workspace     Workspace   `json:"-" gorm:"foreignKey:WorkspaceID"`
-	WorkspaceID   uint        `json:"workspace_id"`
+	WorkspaceID   *uint       `json:"workspace_id"`
 }
 
 // IssueFilter represents available issue filters

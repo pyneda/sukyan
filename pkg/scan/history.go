@@ -28,6 +28,7 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 
 	cspp := active.ClientSidePrototypePollutionAudit{
 		HistoryItem: item,
+		WorkspaceID: workspaceID,
 	}
 	cspp.Run()
 

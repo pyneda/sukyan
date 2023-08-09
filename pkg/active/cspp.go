@@ -17,6 +17,7 @@ import (
 type ClientSidePrototypePollutionAudit struct {
 	HistoryItem *db.History
 	requests    sync.Map
+	WorkspaceID uint
 }
 
 func (a *ClientSidePrototypePollutionAudit) Run() {
@@ -45,7 +46,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 	}
 	b := browser.NewBrowser()
 	hijackResultsChannel := make(chan browser.HijackResult)
-	browser.Hijack(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel)
+	browser.Hijack(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, a.WorkspaceID)
 	defer b.MustClose()
 	page := b.MustIncognito().MustPage("")
 	web.IgnoreCertificateErrors(page)

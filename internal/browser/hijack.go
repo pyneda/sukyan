@@ -25,7 +25,7 @@ type HijackResult struct {
 	DiscoveredURLs []string
 }
 
-func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult) {
+func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, workspaceID uint) {
 	router := browser.HijackRequests()
 	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "127.0.0.2"}
 
@@ -49,7 +49,7 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 			log.Debug().Str("url", ctx.Request.URL().String()).Msg("Skipping processing of hijacked response")
 		} else {
 			go func() {
-				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack")
+				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack", workspaceID)
 				// passive.ScanHistoryItem(history)
 				linksFound := passive.ExtractedURLS{}
 				if ctx.Request.Type() != "Image" && ctx.Request.Type() != "Font" && ctx.Request.Type() != "Media" {
@@ -116,7 +116,7 @@ func DumpHijackResponse(res *rod.HijackResponse) string {
 }
 
 // CreateHistoryFromHijack saves a history request from hijack request/response items.
-func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string) *db.History {
+func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string, workspaceID uint) *db.History {
 	requestHeaders, err := json.Marshal(request.Headers())
 	if err != nil {
 		log.Error().Err(err).Msg("Error converting request headers to json")
@@ -149,7 +149,7 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		RawRequest:  []byte(rawRequest),
 		RawResponse: []byte(rawResponse),
 		// ResponseContentLength: response.ContentLength,
-
+		WorkspaceID: &workspaceID,
 	}
 	createdHistory, _ := db.Connection.CreateHistory(&history)
 	log.Debug().Interface("history", history).Msg("New history record created")

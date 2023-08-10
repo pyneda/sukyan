@@ -2,7 +2,7 @@ package active
 
 import (
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/internal/browser"
+	"github.com/pyneda/sukyan/lib/browser"
 	"github.com/pyneda/sukyan/pkg/web"
 	"github.com/spf13/viper"
 	"strings"

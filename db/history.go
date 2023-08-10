@@ -141,6 +141,7 @@ type HistoryFilter struct {
 	RequestContentTypes  []string
 	Sources              []string
 	Pagination           Pagination
+	WorkspaceID          uint
 }
 
 // ListHistory Lists history
@@ -164,6 +165,10 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 
 	if len(filter.RequestContentTypes) > 0 {
 		filterQuery["request_content_type"] = filter.RequestContentTypes
+	}
+
+	if filter.WorkspaceID > 0 {
+		filterQuery["workspace_id"] = filter.WorkspaceID
 	}
 	// Perform the query
 	if filterQuery != nil && len(filterQuery) > 0 {

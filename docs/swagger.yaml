@@ -380,6 +380,11 @@ paths:
         in: query
         name: sources
         type: string
+      - description: Workspace ID to filter by
+        in: query
+        name: workspace
+        required: true
+        type: integer
       produces:
       - application/json
       responses:

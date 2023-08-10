@@ -29,6 +29,7 @@ func IsValidFilterHTTPMethod(method string) bool {
 // @Param status query string false "Comma-separated list of status codes to filter by"
 // @Param methods query string false "Comma-separated list of HTTP methods to filter by"
 // @Param sources query string false "Comma-separated list of sources to filter by"
+// @Param workspace query integer true "Workspace ID to filter by"
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history [get]
@@ -38,6 +39,7 @@ func FindHistory(c *fiber.Ctx) error {
 	unparsedStatusCodes := c.Query("status")
 	unparsedHttpMethods := c.Query("methods")
 	unparsedSources := c.Query("sources")
+	unparsedWorkspaceID := c.Query("workspace")
 	var statusCodes []int
 	var httpMethods []string
 	var sources []string
@@ -53,6 +55,25 @@ func FindHistory(c *fiber.Ctx) error {
 	if err != nil {
 		log.Error().Err(err).Msg("Error parsing page parameter query")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid page parameter"})
+	}
+
+	workspaceID64, err := strconv.ParseUint(unparsedWorkspaceID, 10, 64)
+
+	if err != nil {
+		log.Error().Err(err).Msg("Error parsing workspace parameter query")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid workspace",
+			"message": "The provided workspace ID does not seem valid",
+		})
+	}
+	workspaceID := uint(workspaceID64)
+
+	workspaceExists, _ := db.Connection.WorkspaceExists(workspaceID)
+	if !workspaceExists {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid workspace",
+			"message": "The provided workspace ID does not seem valid",
+		})
 	}
 
 	if unparsedStatusCodes != "" {
@@ -93,6 +114,7 @@ func FindHistory(c *fiber.Ctx) error {
 		StatusCodes: statusCodes,
 		Methods:     httpMethods,
 		Sources:     sources,
+		WorkspaceID: workspaceID,
 	})
 
 	if err != nil {

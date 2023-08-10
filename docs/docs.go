@@ -168,6 +168,13 @@ const docTemplate = `{
                         "description": "Comma-separated list of sources to filter by",
                         "name": "sources",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID to filter by",
+                        "name": "workspace",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {

@@ -148,7 +148,7 @@ func (r *RetireScanner) HistoryScan(history *db.History) {
 				}
 			}
 
-			issue := db.FillIssueFromHistoryAndTemplate(history, db.VulnerableJavascriptDependencyCode, detailsBuilder.String(), 90, "")
+			issue := db.FillIssueFromHistoryAndTemplate(history, db.VulnerableJavascriptDependencyCode, detailsBuilder.String(), 90, "", history.WorkspaceID)
 			issue.References = append(issue.References, lib.GetUniqueItems(references)...)
 			db.Connection.CreateIssue(*issue)
 			log.Warn().Str("issue", issue.Title).Str("url", history.URL).Str("details", issue.Details).Msg("New issue found")

@@ -65,7 +65,7 @@ func passiveJavascriptSecretsScan(item *db.History) {
 	// NOTE: By now we only support javascript, but should also be able to extract scripts from HTML and analyze them.
 	secrets := findSecretsInJavascript(item.ResponseBody)
 	for _, secret := range secrets {
-		db.CreateIssueFromHistoryAndTemplate(item, db.SecretsInJsCode, secret.Details, 90, secret.Severity)
+		db.CreateIssueFromHistoryAndTemplate(item, db.SecretsInJsCode, secret.Details, 90, secret.Severity, item.WorkspaceID)
 	}
 }
 

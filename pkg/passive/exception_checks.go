@@ -19,7 +19,7 @@ func apacheTapestryExceptionScan(item *db.History) {
 	}
 	if strings.Contains(matchAgainst, tapestryException) {
 		details := fmt.Sprintf("Apache Tapestry Exception Detected in response for %s", item.URL)
-		db.CreateIssueFromHistoryAndTemplate(item, db.ApacheTapestryExceptionCode, details, 90, "")
+		db.CreateIssueFromHistoryAndTemplate(item, db.ApacheTapestryExceptionCode, details, 90, "", item.WorkspaceID)
 	}
 }
 
@@ -31,6 +31,6 @@ func grailsExceptionScan(item *db.History) {
 	}
 	if strings.Contains(matchAgainst, grailsException) {
 		details := fmt.Sprintf("Grails Runtime Exception Detected in response for %s", item.URL)
-		db.CreateIssueFromHistoryAndTemplate(item, db.GrailsExceptionCode, details, 90, "")
+		db.CreateIssueFromHistoryAndTemplate(item, db.GrailsExceptionCode, details, 90, "", item.WorkspaceID)
 	}
 }

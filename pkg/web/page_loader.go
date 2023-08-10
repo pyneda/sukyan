@@ -2,7 +2,7 @@ package web
 
 import (
 	"github.com/go-rod/rod"
-	"github.com/pyneda/sukyan/internal/browser"
+	"github.com/pyneda/sukyan/lib/browser"
 )
 
 type PageLoader struct {

@@ -1,8 +1,8 @@
 package manual
 
 import (
-	"github.com/pyneda/sukyan/internal/browser"
 	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/lib/browser"
 	"github.com/pyneda/sukyan/pkg/web"
 	"time"
 

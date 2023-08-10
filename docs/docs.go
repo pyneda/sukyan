@@ -444,6 +444,15 @@ const docTemplate = `{
                     "Issues"
                 ],
                 "summary": "List all issues",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",

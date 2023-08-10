@@ -556,6 +556,12 @@ paths:
       consumes:
       - application/json
       description: Retrieves all issues with a count
+      parameters:
+      - description: Workspace ID
+        in: query
+        name: workspace
+        required: true
+        type: integer
       produces:
       - application/json
       responses:

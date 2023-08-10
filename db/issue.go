@@ -31,22 +31,27 @@ type Issue struct {
 
 // IssueFilter represents available issue filters
 type IssueFilter struct {
-	Codes []string
+	Codes       []string
+	WorkspaceID uint
 }
 
 // ListIssues Lists issues
 func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, count int64, err error) {
+	query := d.db
+
 	if len(filter.Codes) > 0 {
-		result := d.db.Where("code IN ?", filter.Codes).Order("severity desc, created_at desc").Find(&issues).Count(&count)
-		if result.Error != nil {
-			err = result.Error
-		}
-	} else {
-		result := d.db.Order("severity desc, created_at desc").Find(&issues).Count(&count)
-		if result.Error != nil {
-			err = result.Error
-		}
+		query = query.Where("code IN ?", filter.Codes)
 	}
+
+	if filter.WorkspaceID != 0 {
+		query = query.Where("workspace_id = ?", filter.WorkspaceID)
+	}
+
+	result := query.Order("severity desc, created_at desc").Find(&issues).Count(&count)
+	if result.Error != nil {
+		err = result.Error
+	}
+
 	return issues, count, err
 }
 

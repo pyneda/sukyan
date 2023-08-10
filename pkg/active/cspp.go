@@ -105,7 +105,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 				}
 			}
 		}
-		db.CreateIssueFromHistoryAndTemplate(history, db.ClientSidePrototypePollutionCode, sb.String(), 90, severity)
+		db.CreateIssueFromHistoryAndTemplate(history, db.ClientSidePrototypePollutionCode, sb.String(), 90, severity, &a.WorkspaceID)
 		// Issue detected, stop checking
 		return
 	}

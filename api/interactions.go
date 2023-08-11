@@ -15,6 +15,7 @@ import (
 // @Description Get interactions with optional pagination and protocols filter
 // @Tags Interactions
 // @Produce json
+// @Param workspace query int true "Workspace ID"
 // @Param page_size query integer false "Size of each page" default(50)
 // @Param page query integer false "Page number" default(1)
 // @Param protocols query string false "Comma-separated list of protocols to filter by"
@@ -26,7 +27,13 @@ func FindInteractions(c *fiber.Ctx) error {
 	unparsedPage := c.Query("page", "1")
 	unparsedProtocols := c.Query("protocols")
 	var protocols []string
-
+	workspaceID, err := parseWorkspaceID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid workspace",
+			"message": "The provided workspace ID does not seem valid",
+		})
+	}
 	pageSize, err := strconv.Atoi(unparsedPageSize)
 	if err != nil {
 		log.Error().Err(err).Msg("Error parsing page size parameter query")
@@ -47,7 +54,8 @@ func FindInteractions(c *fiber.Ctx) error {
 		Pagination: db.Pagination{
 			Page: page, PageSize: pageSize,
 		},
-		Protocols: protocols,
+		Protocols:   protocols,
+		WorkspaceID: workspaceID,
 	})
 
 	if err != nil {

@@ -64,6 +64,7 @@ func (a *SNIAudit) Run() {
 		Payload:           interactionData.URL,
 		HistoryID:         &history.ID,
 		InsertionPoint:    "sni",
+		WorkspaceID:       &a.WorkspaceID,
 	}
 	db.Connection.CreateOOBTest(oobTest)
 

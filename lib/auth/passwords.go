@@ -1,6 +1,9 @@
 package auth
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"github.com/rs/zerolog/log"
+	"golang.org/x/crypto/bcrypt"
+)
 
 // NormalizePassword func for a returning the users input as a byte slice.
 func NormalizePassword(p string) []byte {
@@ -17,6 +20,7 @@ func GeneratePassword(p string) string {
 	// you want provided it isn't lower than the MinCost (4).
 	hash, err := bcrypt.GenerateFromPassword(bytePwd, bcrypt.MinCost)
 	if err != nil {
+		log.Error().Err(err).Msg("Error generating password hash")
 		return err.Error()
 	}
 

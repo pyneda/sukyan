@@ -228,6 +228,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		Payload:           item.payload.GetValue(),
 		HistoryID:         &history.ID,
 		InsertionPoint:    insertionPoint,
+		WorkspaceID:       &a.WorkspaceID,
 	}
 	db.Connection.CreateOOBTest(oobTest)
 }

@@ -162,6 +162,7 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 					Payload:           task.payload.Value,
 					HistoryID:         &newHistory.ID,
 					InsertionPoint:    task.insertionPoint.String(),
+					WorkspaceID:       &f.WorkspaceID,
 				}
 				db.Connection.CreateOOBTest(oobTest)
 				taskLog.Debug().Interface("oobTest", oobTest).Msg("Created OOB Test")

@@ -397,6 +397,13 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
                         "default": 50,
                         "description": "Size of each page",
                         "name": "page_size",
@@ -490,6 +497,15 @@ const docTemplate = `{
                     "Issues"
                 ],
                 "summary": "List all issues grouped",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1133,6 +1149,9 @@ const docTemplate = `{
                 },
                 "subject": {
                     "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
                 }
             }
         },

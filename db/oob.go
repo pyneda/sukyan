@@ -21,6 +21,8 @@ type OOBTest struct {
 	InteractionFullID string    `json:"interaction_id"`
 	Payload           string    `json:"payload"`
 	InsertionPoint    string    `json:"insertion_point"`
+	Workspace         Workspace `json:"-" gorm:"foreignKey:WorkspaceID"`
+	WorkspaceID       *uint     `json:"workspace_id"`
 }
 
 // CreateOOBTest saves an OOBTest to the database
@@ -46,6 +48,8 @@ type OOBInteraction struct {
 	RawResponse   string    `json:"raw_response"`
 	RemoteAddress string    `json:"remote_address"`
 	Timestamp     time.Time `json:"timestamp"`
+	Workspace     Workspace `json:"-" gorm:"foreignKey:WorkspaceID"`
+	WorkspaceID   *uint     `json:"workspace_id"`
 }
 
 // CreateInteraction saves an issue to the database
@@ -66,6 +70,7 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 	} else {
 		log.Info().Interface("oobTest", oobTest).Interface("interaction", interaction).Msg("Matched Interaction and OOBTest")
 		interaction.OOBTestID = &oobTest.ID
+		interaction.WorkspaceID = oobTest.WorkspaceID
 		d.db.Save(&interaction)
 		issue := GetIssueTemplateByCode(oobTest.Code)
 		issue.Payload = oobTest.Payload
@@ -92,10 +97,11 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 }
 
 type InteractionsFilter struct {
-	QTypes     []string
-	Protocols  []string
-	FullIDs    []string
-	Pagination Pagination
+	QTypes      []string
+	Protocols   []string
+	FullIDs     []string
+	Pagination  Pagination
+	WorkspaceID uint
 }
 
 // ListInteractions Lists interactions
@@ -111,6 +117,10 @@ func (d *DatabaseConnection) ListInteractions(filter InteractionsFilter) (items 
 
 	if len(filter.FullIDs) > 0 {
 		filterQuery["full_id"] = filter.FullIDs
+	}
+
+	if filter.WorkspaceID > 0 {
+		filterQuery["workspace_id"] = filter.WorkspaceID
 	}
 	if filterQuery != nil && len(filterQuery) > 0 {
 		err = d.db.Scopes(Paginate(&filter.Pagination)).Where(filterQuery).Order("created_at desc").Find(&items).Error

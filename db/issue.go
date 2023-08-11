@@ -65,9 +65,9 @@ type GroupedIssue struct {
 // ListIssues Lists issues
 func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) (issues []*GroupedIssue, err error) {
 	if len(filter.Codes) > 0 {
-		err = d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Where("code IN ?", filter.Codes).Group("title,severity,code").Find(&issues).Error
+		err = d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Where("workspace_id = ?", filter.WorkspaceID).Where("code IN ?", filter.Codes).Group("title,severity,code").Find(&issues).Error
 	} else {
-		err = d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Group("title,severity,code").Find(&issues).Error
+		err = d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Where("workspace_id = ?", filter.WorkspaceID).Group("title,severity,code").Find(&issues).Error
 	}
 	return issues, err
 }

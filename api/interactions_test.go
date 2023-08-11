@@ -14,7 +14,7 @@ func TestFindInteractions(t *testing.T) {
 
 	app.Get("/interactions", FindInteractions)
 
-	req := httptest.NewRequest("GET", "/interactions?page=1&page_size=10&protocols=HTTP,FTP", nil)
+	req := httptest.NewRequest("GET", "/interactions?page=1&page_size=10&protocols=HTTP,FTP&workspace=1", nil)
 	resp, _ := app.Test(req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)

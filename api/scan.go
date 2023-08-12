@@ -124,14 +124,12 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 	})
 }
 
-
-
 type FullScanInput struct {
-	StartURLs     []string `json:"start_urls" validate:"required,dive,url"`
-	MaxDepth      int      `json:"max_depth" validate:"min=0"`
-	MaxPagesToCrawl int `json:"max_pages_to_crawl" validate:"min=0"`
+	StartURLs       []string `json:"start_urls" validate:"required,dive,url"`
+	MaxDepth        int      `json:"max_depth" validate:"min=0"`
+	MaxPagesToCrawl int      `json:"max_pages_to_crawl" validate:"min=0"`
 	ExcludePatterns []string `json:"exclude_patterns"`
-	WorkspaceID   uint     `json:"workspace_id" validate:"required,min=0"`
+	WorkspaceID     uint     `json:"workspace_id" validate:"required,min=0"`
 }
 
 // FullScanHandler godoc
@@ -171,7 +169,6 @@ func FullScanHandler(c *fiber.Ctx) error {
 
 	engine := c.Locals("engine").(*scan.ScanEngine)
 	engine.CrawlAndAudit(input.StartURLs, 1000, input.MaxDepth, 5, false, input.ExcludePatterns, input.WorkspaceID)
-
 
 	return c.JSON(fiber.Map{
 		"message": "Full scan scheduled",

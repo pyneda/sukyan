@@ -123,3 +123,57 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 		"message": "Active scan scheduled",
 	})
 }
+
+
+
+type FullScanInput struct {
+	StartURLs     []string `json:"start_urls" validate:"required,dive,url"`
+	MaxDepth      int      `json:"max_depth" validate:"min=0"`
+	MaxPagesToCrawl int `json:"max_pages_to_crawl" validate:"min=0"`
+	ExcludePatterns []string `json:"exclude_patterns"`
+	WorkspaceID   uint     `json:"workspace_id" validate:"required,min=0"`
+}
+
+// FullScanHandler godoc
+// @Summary Submit URLs for full scanning
+// @Description Receives a list of URLs and other parameters and schedules them for a full scan
+// @Tags Scan
+// @Accept  json
+// @Produce  json
+// @Param input body FullScanInput true "Configuration for full scan"
+// @Success 200 {object} ActionResponse
+// @Failure 400 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/scan/full [post]
+func FullScanHandler(c *fiber.Ctx) error {
+	input := new(FullScanInput)
+
+	if err := c.BodyParser(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Cannot parse JSON",
+		})
+	}
+
+	if err := validate.Struct(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Validation failed",
+			"message": err.Error(),
+		})
+	}
+
+	workspaceExists, _ := db.Connection.WorkspaceExists(input.WorkspaceID)
+	if !workspaceExists {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid workspace",
+			"message": "The provided workspace ID does not seem valid",
+		})
+	}
+
+	engine := c.Locals("engine").(*scan.ScanEngine)
+	engine.CrawlAndAudit(input.StartURLs, 1000, input.MaxDepth, 5, false, input.ExcludePatterns, input.WorkspaceID)
+
+
+	return c.JSON(fiber.Map{
+		"message": "Full scan scheduled",
+	})
+}

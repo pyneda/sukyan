@@ -108,6 +108,8 @@ func StartAPI() {
 		c.Locals("engine", engine)
 		return c.Next()
 	})
+
+	scan_app.Post("/full", JWTProtected(), FullScanHandler)
 	scan_app.Post("/passive", JWTProtected(), PassiveScanHandler)
 	scan_app.Post("/active", JWTProtected(), ActiveScanHandler)
 

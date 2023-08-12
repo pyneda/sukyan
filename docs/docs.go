@@ -570,6 +570,51 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/scan/full": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Receives a list of URLs and other parameters and schedules them for a full scan",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scan"
+                ],
+                "summary": "Submit URLs for full scanning",
+                "parameters": [
+                    {
+                        "description": "Configuration for full scan",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.FullScanInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/scan/passive": {
             "post": {
                 "security": [
@@ -895,6 +940,39 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "api.FullScanInput": {
+            "type": "object",
+            "required": [
+                "start_urls",
+                "workspace_id"
+            ],
+            "properties": {
+                "exclude_patterns": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "max_depth": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max_pages_to_crawl": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "start_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "workspace_id": {
+                    "type": "integer",
+                    "minimum": 0
                 }
             }
         },

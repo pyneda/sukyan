@@ -12,6 +12,29 @@ definitions:
       message:
         type: string
     type: object
+  api.FullScanInput:
+    properties:
+      exclude_patterns:
+        items:
+          type: string
+        type: array
+      max_depth:
+        minimum: 0
+        type: integer
+      max_pages_to_crawl:
+        minimum: 0
+        type: integer
+      start_urls:
+        items:
+          type: string
+        type: array
+      workspace_id:
+        minimum: 0
+        type: integer
+    required:
+    - start_urls
+    - workspace_id
+    type: object
   api.HistorySummary:
     properties:
       depth:
@@ -642,6 +665,35 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Submit items for active scanning
+      tags:
+      - Scan
+  /api/v1/scan/full:
+    post:
+      consumes:
+      - application/json
+      description: Receives a list of URLs and other parameters and schedules them
+        for a full scan
+      parameters:
+      - description: Configuration for full scan
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.FullScanInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ActionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Submit URLs for full scanning
       tags:
       - Scan
   /api/v1/scan/passive:

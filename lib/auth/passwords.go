@@ -38,6 +38,7 @@ func ComparePasswords(hashedPwd, inputPwd string) bool {
 
 	// Return result.
 	if err := bcrypt.CompareHashAndPassword(byteHash, byteInput); err != nil {
+		log.Error().Err(err).Msg("Error comparing passwords")
 		return false
 	}
 

@@ -85,7 +85,7 @@ func (a *HTTPMethodsAudit) monitor(auditItems chan httpMethodsAudiItem, pendingC
 }
 
 func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
-	client := &http.Client{}
+	client := http_utils.CreateHttpClient()
 	auditLog := log.With().Str("audit", "httpMethods").Interface("auditItem", item).Str("url", a.HistoryItem.URL).Logger()
 	request, err := http.NewRequest(item.method, a.HistoryItem.URL, nil)
 	if err != nil {

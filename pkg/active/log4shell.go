@@ -173,7 +173,7 @@ func (a *Log4ShellInjectionAudit) monitor(auditItems chan log4ShellAuditItem, pe
 }
 
 func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
-	client := &http.Client{}
+	client := http_utils.CreateHttpClient()
 	auditLog := log.With().Str("audit", "log4shell").Interface("auditItem", item).Str("url", a.URL).Logger()
 	request, err := http.NewRequest("GET", a.URL, nil)
 	if err != nil {

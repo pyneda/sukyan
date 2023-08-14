@@ -50,7 +50,7 @@ func UserSignIn(c *fiber.Ctx) error {
 	}
 
 	// Get user by email.
-	foundedUser, err := db.Connection.GetUserByEmail(signIn.Email)
+	foundUser, err := db.Connection.GetUserByEmail(signIn.Email)
 	if err != nil {
 		// Return, if user not found.
 		return c.JSON(fiber.Map{
@@ -60,7 +60,7 @@ func UserSignIn(c *fiber.Ctx) error {
 	}
 
 	// Compare given user password with stored in found user.
-	compareUserPassword := auth.ComparePasswords(foundedUser.PasswordHash, signIn.Password)
+	compareUserPassword := auth.ComparePasswords(foundUser.PasswordHash, signIn.Password)
 	if !compareUserPassword {
 		// Return, if password is not compare to stored in database.
 		return c.JSON(fiber.Map{
@@ -71,7 +71,7 @@ func UserSignIn(c *fiber.Ctx) error {
 
 	// Generate a new pair of access and refresh tokens.
 	credentials := []string{}
-	tokens, err := auth.GenerateNewTokens(foundedUser.ID.String(), credentials)
+	tokens, err := auth.GenerateNewTokens(foundUser.ID.String(), credentials)
 	if err != nil {
 		// Return status 500 and token generation error.
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -81,10 +81,10 @@ func UserSignIn(c *fiber.Ctx) error {
 	}
 
 	// Define user ID.
-	userID := foundedUser.ID.String()
+	userID := foundUser.ID.String()
 
 	// Save refresh token to database.
-	refreshToken := &db.RefreshToken{UserID: foundedUser.ID, Token: tokens.Refresh}
+	refreshToken := &db.RefreshToken{UserID: foundUser.ID, Token: tokens.Refresh}
 	if err := db.Connection.CreateRefreshToken(refreshToken); err != nil {
 		// Return status 500 and token save error.
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

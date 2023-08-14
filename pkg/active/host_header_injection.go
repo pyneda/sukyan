@@ -5,7 +5,7 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/fuzz"
-	// "github.com/pyneda/sukyan/pkg/http_utils"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
 	"net/http"
 	"net/http/httputil"
@@ -122,7 +122,7 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 	// - Use the data gathered in previous steps to compare with the current implementation results
 	// - Could use interactsh payloads
 	// - Could also probably send all headers at once
-	client := &http.Client{}
+	client := http_utils.CreateHttpClient()
 	auditLog := log.With().Str("audit", "host-header-injection").Interface("auditItem", item).Str("url", a.URL).Logger()
 	request, err := http.NewRequest("GET", a.URL, nil)
 	if err != nil {

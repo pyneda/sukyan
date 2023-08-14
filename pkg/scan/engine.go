@@ -146,6 +146,7 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 			log.Error().Err(nucleiScanErr).Msg("Error running nuclei scan")
 		}
 	}
+
 	retireScanner := integrations.NewRetireScanner()
 
 	for _, historyItem := range uniqueHistoryItems {

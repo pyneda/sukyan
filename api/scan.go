@@ -168,7 +168,7 @@ func FullScanHandler(c *fiber.Ctx) error {
 	}
 
 	engine := c.Locals("engine").(*scan.ScanEngine)
-	engine.CrawlAndAudit(input.StartURLs, 1000, input.MaxDepth, 5, false, input.ExcludePatterns, input.WorkspaceID)
+	go engine.CrawlAndAudit(input.StartURLs, 1000, input.MaxDepth, 5, false, input.ExcludePatterns, input.WorkspaceID)
 
 	return c.JSON(fiber.Map{
 		"message": "Full scan scheduled",

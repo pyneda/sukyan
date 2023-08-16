@@ -24,6 +24,10 @@ definitions:
       max_pages_to_crawl:
         minimum: 0
         type: integer
+      pages_pool_size:
+        maximum: 100
+        minimum: 1
+        type: integer
       start_urls:
         items:
           type: string

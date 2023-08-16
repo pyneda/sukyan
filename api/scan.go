@@ -130,6 +130,7 @@ type FullScanInput struct {
 	MaxPagesToCrawl int      `json:"max_pages_to_crawl" validate:"min=0"`
 	ExcludePatterns []string `json:"exclude_patterns"`
 	WorkspaceID     uint     `json:"workspace_id" validate:"required,min=0"`
+	PagesPoolSize   int      `json:"pages_pool_size" validate:"min=1,max=100"`
 }
 
 // FullScanHandler godoc
@@ -168,7 +169,15 @@ func FullScanHandler(c *fiber.Ctx) error {
 	}
 
 	engine := c.Locals("engine").(*scan.ScanEngine)
-	go engine.CrawlAndAudit(input.StartURLs, 1000, input.MaxDepth, 5, false, input.ExcludePatterns, input.WorkspaceID)
+	go engine.CrawlAndAudit(
+		input.StartURLs,
+		input.MaxPagesToCrawl,
+		input.MaxDepth,
+		input.PagesPoolSize,
+		false,
+		input.ExcludePatterns,
+		input.WorkspaceID,
+	)
 
 	return c.JSON(fiber.Map{
 		"message": "Full scan scheduled",

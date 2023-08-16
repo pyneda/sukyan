@@ -23,6 +23,7 @@ type HostHeaderInjectionAudit struct {
 	HeuristicRecords   []fuzz.HeuristicRecord
 	ExpectedResponses  fuzz.ExpectedResponses
 	ExtraHeadersToTest []string
+	WorkspaceID        uint
 }
 
 type hostHeaderInjectionAuditItem struct {

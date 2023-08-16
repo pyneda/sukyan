@@ -964,6 +964,11 @@ const docTemplate = `{
                     "type": "integer",
                     "minimum": 0
                 },
+                "pages_pool_size": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 1
+                },
                 "start_urls": {
                     "type": "array",
                     "items": {

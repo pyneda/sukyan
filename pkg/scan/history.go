@@ -89,6 +89,7 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 		hostHeader := active.HostHeaderInjectionAudit{
 			URL:         item.URL,
 			Concurrency: 10,
+			WorkspaceID: workspaceID,
 		}
 		hostHeader.Run()
 	}

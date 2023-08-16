@@ -81,13 +81,13 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 }
 
 func (c *Crawler) Run() []*db.History {
-	log.Info().Msg("Starting crawler")
+	log.Info().Uint("workspace", c.workspaceID).Msg("Starting crawler")
 	c.CreateScopeFromProvidedUrls()
 	// Spawn a goroutine to listen to hijack results and schedule new pages for crawling
 	var inScopeHistoryItems []*db.History
 	go func() {
 		for hijackResult := range c.hijackChan {
-			log.Info().Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Msg("Received hijack result")
+			log.Info().Uint("workspace", c.workspaceID).Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Msg("Received hijack result")
 			if hijackResult.History.Method != "GET" {
 				item := &CrawlItem{url: hijackResult.History.URL, depth: lib.CalculateURLDepth(hijackResult.History.URL), visited: true, isError: false}
 				c.pages.Store(item.url, item)
@@ -105,7 +105,7 @@ func (c *Crawler) Run() []*db.History {
 					// Checking if max pages to crawl are reached
 					c.counterLock.Lock()
 					if c.maxPagesToCrawl != 0 && c.pageCounter >= c.maxPagesToCrawl {
-						log.Info().Int("max_pages_to_crawl", c.maxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Stopping crawler hijacking due to max pages to crawl")
+						log.Info().Uint("workspace", c.workspaceID).Int("max_pages_to_crawl", c.maxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Stopping crawler hijacking due to max pages to crawl")
 						c.counterLock.Unlock()
 						return // terminate the goroutine
 					}
@@ -117,13 +117,13 @@ func (c *Crawler) Run() []*db.History {
 					if c.maxDepth == 0 || depth <= c.maxDepth {
 						c.wg.Add(1)
 						go c.crawlPage(&CrawlItem{url: url, depth: depth})
-						log.Debug().Str("url", url).Msg("Scheduled page to crawl from hijack result")
+						log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Msg("Scheduled page to crawl from hijack result")
 					}
 				}
 			}
 		}
 	}()
-	log.Info().Interface("start_urls", c.startURLs).Msg("Crawling start urls")
+	log.Info().Uint("workspace", c.workspaceID).Interface("start_urls", c.startURLs).Msg("Crawling start urls")
 	for _, url := range c.startURLs {
 		c.wg.Add(1)
 		go c.crawlPage(&CrawlItem{url: url, depth: lib.CalculateURLDepth(url)})
@@ -139,7 +139,7 @@ func (c *Crawler) Run() []*db.History {
 
 	time.Sleep(5 * time.Second)
 	c.wg.Wait()
-	log.Info().Msg("Finished crawling")
+	log.Info().Uint("workspace", c.workspaceID).Msg("Finished crawling")
 	c.browser.Close()
 	return inScopeHistoryItems
 }
@@ -162,14 +162,14 @@ func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
 	// Check if the url is in an excluded pattern from c.excludePatterns
 	for _, pattern := range c.excludePatterns {
 		if strings.Contains(item.url, pattern) {
-			log.Debug().Str("url", item.url).Str("pattern", pattern).Msg("Skipping page because it matches an exclude pattern")
+			log.Debug().Uint("workspace", c.workspaceID).Str("url", item.url).Str("pattern", pattern).Msg("Skipping page because it matches an exclude pattern")
 			return false
 		}
 	}
 	// Check if the url has an ignored extension
 	for _, extension := range c.ignoredExtensions {
 		if strings.HasSuffix(item.url, extension) {
-			log.Debug().Str("url", item.url).Str("extension", extension).Msg("Skipping page because it has an ignored extension")
+			log.Debug().Uint("workspace", c.workspaceID).Str("url", item.url).Str("extension", extension).Msg("Skipping page because it has an ignored extension")
 			return false
 		}
 	}
@@ -177,13 +177,13 @@ func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
 	if c.scope.IsInScope(item.url) && c.isAllowedCrawlDepth(item) {
 		if value, ok := c.pages.Load(item.url); ok {
 			if value.(*CrawlItem).visited {
-				log.Debug().Str("url", item.url).Msg("Skipping page because it has been crawled before")
+				log.Debug().Uint("workspace", c.workspaceID).Str("url", item.url).Msg("Skipping page because it has been crawled before")
 				return false // If this page has been crawled before, skip it
 			}
 		}
 		return true
 	}
-	log.Debug().Str("url", item.url).Int("depth", item.depth).Msg("Skipping page because either exceeds the max depth or is not in scope")
+	log.Debug().Uint("workspace", c.workspaceID).Str("url", item.url).Int("depth", item.depth).Msg("Skipping page because either exceeds the max depth or is not in scope")
 	return false
 }
 
@@ -204,7 +204,7 @@ func (c *Crawler) getBrowserPage() *rod.Page {
 
 func (c *Crawler) crawlPage(item *CrawlItem) {
 	defer c.wg.Done()
-	log.Debug().Str("url", item.url).Msg("Crawling page")
+	log.Debug().Uint("workspace", c.workspaceID).Str("url", item.url).Msg("Crawling page")
 	c.concLimit <- struct{}{}
 	defer func() { <-c.concLimit }()
 
@@ -214,7 +214,7 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	// Increment pageCounter
 	c.counterLock.Lock()
 	if c.maxPagesToCrawl != 0 && c.pageCounter >= c.maxPagesToCrawl {
-		log.Info().Int("max_pages_to_crawl", c.maxPagesToCrawl).Int("crawled", c.pageCounter).Str("url", item.url).Msg("Crawler skipping page due to having reached max pages to crawl")
+		log.Debug().Uint("workspace", c.workspaceID).Int("max_pages_to_crawl", c.maxPagesToCrawl).Int("crawled", c.pageCounter).Str("url", item.url).Msg("Crawler skipping page due to having reached max pages to crawl")
 		c.counterLock.Unlock()
 		return
 	}
@@ -237,10 +237,10 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	}
 
 	if !urlData.IsError {
-		log.Debug().Str("url", url).Msg("Starting to interact with page")
+		log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Msg("Starting to interact with page")
 		interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout"))
 		lib.DoWorkWithTimeout(c.interactWithPage, []interface{}{page}, interactionTimeout*time.Second)
-		log.Debug().Str("url", url).Msg("Finished interacting with page")
+		log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Msg("Finished interacting with page")
 	}
 
 	// Recursively crawl to links
@@ -304,7 +304,7 @@ func (c *Crawler) handleForms(page *rod.Page) (err error) {
 			web.AutoFillForm(form, page)
 			web.SubmitForm(form, page)
 			c.submittedForms.Store(e, true)
-			log.Info().Str("xpath", xpath).Msg("Submitted form")
+			log.Info().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Submitted form")
 		}
 	}
 	return err
@@ -316,7 +316,7 @@ func (c *Crawler) handleClickableElements(page *rod.Page) {
 	// getAndClickElements("input[type=submit]", p)
 	c.getAndClickElements("input[type=button]", page)
 	// c.getAndClickElements("a", page)
-	log.Debug().Msg("Finished clicking all elements")
+	log.Debug().Uint("workspace", c.workspaceID).Msg("Finished clicking all elements")
 }
 
 func (c *Crawler) getAndClickElements(selector string, page *rod.Page) (err error) {
@@ -334,7 +334,7 @@ func (c *Crawler) getAndClickElements(selector string, page *rod.Page) (err erro
 				if err != nil {
 					log.Error().Err(err).Str("xpath", xpath).Str("selector", selector).Msg("Error clicking element")
 				} else {
-					log.Info().Str("xpath", xpath).Str("selector", selector).Msg("Clicked button")
+					log.Info().Uint("workspace", c.workspaceID).Str("xpath", xpath).Str("selector", selector).Msg("Clicked button")
 					c.clickedElements.Store(xpath, true)
 					// Try to handle possible new forms/buttons that might have appeared due to the click (ex. forms inside a modal)
 					// Since the forms have been submitted previously, in theory, if the same form appears again, it should be skipped
@@ -346,6 +346,6 @@ func (c *Crawler) getAndClickElements(selector string, page *rod.Page) (err erro
 			}
 		}
 	}
-	log.Debug().Str("selector", selector).Msg("Finished clicking elements")
+	log.Debug().Uint("workspace", c.workspaceID).Str("selector", selector).Msg("Finished clicking elements")
 	return err
 }

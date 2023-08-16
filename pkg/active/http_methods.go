@@ -5,7 +5,6 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
-	"net/http"
 	"sync"
 )
 
@@ -86,15 +85,13 @@ func (a *HTTPMethodsAudit) monitor(auditItems chan httpMethodsAudiItem, pendingC
 
 func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 	client := http_utils.CreateHttpClient()
-	auditLog := log.With().Str("audit", "httpMethods").Interface("auditItem", item).Str("url", a.HistoryItem.URL).Logger()
-	request, err := http.NewRequest(item.method, a.HistoryItem.URL, nil)
+	auditLog := log.With().Str("audit", "httpMethods").Interface("auditItem", item).Str("url", a.HistoryItem.URL).Uint("workspace", a.WorkspaceID).Logger()
+	request, err := http_utils.BuildRequestFromHistoryItem(a.HistoryItem)
 	if err != nil {
-		fmt.Println("Error:", err)
+		auditLog.Error().Err(err).Msg("Error creating the request")
 		return
 	}
-
-	http_utils.SetRequestHeadersFromHistoryItem(request, a.HistoryItem)
-	// log.Warn().Interface("request", request.Header).Msg("Request headers")
+	request.Method = item.method
 	response, err := client.Do(request)
 
 	if err != nil {
@@ -105,17 +102,17 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner, a.WorkspaceID)
 	if history.StatusCode != 405 && history.StatusCode != 404 {
 		// Should improve the issue template and probably all all the instances in the same issue
-		issue := db.GetIssueTemplateByCode(db.HTTPMethodsCode)
+		issue := db.FillIssueFromHistoryAndTemplate(
+			history,
+			db.HTTPMethodsCode,
+			fmt.Sprintf("Received a %s status code making an %s request.", history.StatusCode, history.Method),
+			80,
+			"",
+			&a.WorkspaceID,
+		)
 		issue.Title = fmt.Sprintf("%s: %s", issue.Title, history.Method)
-		issue.URL = history.URL
-		issue.Request = history.RawRequest
-		issue.Response = []byte(history.RawResponse)
-		issue.StatusCode = history.StatusCode
-		issue.HTTPMethod = history.Method
-		issue.Confidence = 80
-		issue.WorkspaceID = &a.WorkspaceID
 		db.Connection.CreateIssue(*issue)
-		log.Warn().Str("issue", issue.Title).Str("url", history.URL).Msg("New issue found")
+		log.Warn().Str("issue", issue.Title).Str("url", history.URL).Uint("workspace", a.WorkspaceID).Msg("New issue found")
 
 	}
 }

@@ -211,6 +211,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 			FalsePositive: false,
 			Confidence:    75,
 			Severity:      "Medium",
+			WorkspaceID:   &a.WorkspaceID,
 		}
 		db.Connection.CreateIssue(issue)
 

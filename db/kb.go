@@ -535,6 +535,6 @@ func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details s
 
 func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID *uint) {
 	issue := FillIssueFromHistoryAndTemplate(history, code, details, confidence, severity, workspaceID)
-	log.Warn().Str("issue", issue.Title).Str("url", history.URL).Msg("New issue found")
+	log.Warn().Str("issue", issue.Title).Str("url", history.URL).Uint("workspace", *workspaceID).Msg("New issue found")
 	Connection.CreateIssue(*issue)
 }

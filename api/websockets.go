@@ -14,6 +14,7 @@ import (
 // @Produce json
 // @Param page_size query integer false "Size of each page" default(50)
 // @Param page query integer false "Page number" default(1)
+// @Param workspace query int true "Workspace ID"
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history/websocket/connections [get]
@@ -33,11 +34,20 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid page parameter"})
 	}
 
+	workspaceID, err := parseWorkspaceID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid workspace",
+			"message": "The provided workspace ID does not seem valid",
+		})
+	}
+
 	connections, count, err := db.Connection.ListWebSocketConnections(db.WebSocketConnectionFilter{
 		Pagination: db.Pagination{
 			Page:     page,
 			PageSize: pageSize,
 		},
+		WorkspaceID: workspaceID,
 	})
 
 	if err != nil {

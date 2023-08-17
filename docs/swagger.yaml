@@ -501,6 +501,11 @@ paths:
         in: query
         name: page
         type: integer
+      - description: Workspace ID
+        in: query
+        name: workspace
+        required: true
+        type: integer
       produces:
       - application/json
       responses:

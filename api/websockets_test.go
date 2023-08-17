@@ -14,17 +14,17 @@ func TestFindWebSocketConnections(t *testing.T) {
 	app.Get("/api/v1/wsconnections", FindWebSocketConnections)
 
 	// Test with valid parameters
-	req := httptest.NewRequest("GET", "/api/v1/wsconnections?page_size=2&page=1", nil)
+	req := httptest.NewRequest("GET", "/api/v1/wsconnections?page_size=2&page=1&workspace=1", nil)
 	resp, _ := app.Test(req)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// Test with invalid page parameter
-	req = httptest.NewRequest("GET", "/api/v1/wsconnections?page_size=2&page=abc", nil)
+	req = httptest.NewRequest("GET", "/api/v1/wsconnections?page_size=2&page=abc&workspace=1", nil)
 	resp, _ = app.Test(req)
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
 	// Test with invalid page_size parameter
-	req = httptest.NewRequest("GET", "/api/v1/wsconnections?page_size=xyz&page=1", nil)
+	req = httptest.NewRequest("GET", "/api/v1/wsconnections?page_size=xyz&page=1&workspace=1", nil)
 	resp, _ = app.Test(req)
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }

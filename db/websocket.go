@@ -53,6 +53,7 @@ func (d *DatabaseConnection) UpdateWebSocketConnection(connection *WebSocketConn
 
 type WebSocketConnectionFilter struct {
 	Pagination
+	WorkspaceID uint
 }
 
 type WebSocketMessageFilter struct {
@@ -67,6 +68,7 @@ func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnection
 	err := d.db.Model(&WebSocketConnection{}).
 		Count(&count).
 		Order("id desc").
+		Where("workspace_id = ?", filter.WorkspaceID).
 		Limit(filter.PageSize).
 		Offset((filter.Page - 1) * filter.PageSize).
 		Find(&connections).

@@ -10,12 +10,13 @@ import (
 
 func parseWorkspaceID(c *fiber.Ctx) (uint, error) {
 	unparsedWorkspaceID := c.Query("workspace")
-	workspaceID64, err := strconv.ParseUint(unparsedWorkspaceID, 10, 64)
+	workspaceID64, err := strconv.ParseUint(unparsedWorkspaceID, 10, strconv.IntSize)
 	if err != nil {
 		log.Error().Err(err).Msg("Error parsing workspace parameter query")
 		return 0, err
 
 	}
+
 	workspaceID := uint(workspaceID64)
 	workspaceExists, _ := db.Connection.WorkspaceExists(workspaceID)
 	if !workspaceExists {

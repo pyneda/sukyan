@@ -105,7 +105,7 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 		issue := db.FillIssueFromHistoryAndTemplate(
 			history,
 			db.HTTPMethodsCode,
-			fmt.Sprintf("Received a %s status code making an %s request.", history.StatusCode, history.Method),
+			fmt.Sprintf("Received a %d status code making an %s request.", history.StatusCode, history.Method),
 			80,
 			"",
 			&a.WorkspaceID,

@@ -49,7 +49,6 @@ func FindHistory(c *fiber.Ctx) error {
 	var statusCodes []int
 	var httpMethods []string
 	var sources []string
-	log.Warn().Str("status", unparsedStatusCodes).Msg("status codes unparsed")
 
 	pageSize, err := strconv.Atoi(unparsedPageSize)
 	if err != nil {

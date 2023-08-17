@@ -3,39 +3,36 @@ package manual
 import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/browser"
+
 	"github.com/pyneda/sukyan/pkg/web"
 	"time"
 
 	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/launcher"
+	// "github.com/go-rod/rod/lib/launcher"
 	"github.com/rs/zerolog/log"
 )
 
-type UserBrowser struct {
-	LaunchURL      string
-	HijackRequests bool
-	HijackConfig   browser.HijackConfig
-	WorkspaceID    uint
-}
-
-func (ub *UserBrowser) Launch() {
-	u := launcher.New().Headless(false).Leakless(true).MustLaunch()
-	b := rod.New().ControlURL(u).MustConnect()
-
+// LaunchUserBrowser launches a browser in non headless mode and logs all network requests
+func LaunchUserBrowser(workspaceID uint, initialURL string) {
+	log.Info().Uint("workspace", workspaceID).Str("url", initialURL).Msg("Launching browser")
+	launcher := browser.GetBrowserLauncher()
+	launcher.Delete("--headless")
+	controlURL := launcher.MustLaunch()
+	b := rod.New().ControlURL(controlURL).MustConnect()
 	hc := browser.HijackConfig{
 		AnalyzeJs:   true,
 		AnalyzeHTML: true,
 	}
 	hijackResultsChannel := make(chan browser.HijackResult)
 
-	browser.Hijack(hc, b, "Browser", hijackResultsChannel, ub.WorkspaceID)
+	browser.Hijack(hc, b, "Browser", hijackResultsChannel, workspaceID)
 	var page *rod.Page
-	if ub.LaunchURL != "" {
-		page = b.MustPage(ub.LaunchURL)
+	if initialURL != "" {
+		page = b.MustPage(initialURL)
 	} else {
 		page = b.MustPage("")
 	}
-	web.ListenForWebSocketEvents(page)
+	web.ListenForWebSocketEvents(page, workspaceID)
 	log.Info().Interface("url", page).Msg("Browser loaded")
 	lib.SetupCloseHandler()
 	for {

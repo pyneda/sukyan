@@ -259,6 +259,13 @@ const docTemplate = `{
                         "description": "Page number",
                         "name": "page",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {

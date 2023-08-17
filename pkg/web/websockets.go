@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func ListenForWebSocketEvents(page *rod.Page) {
+func ListenForWebSocketEvents(page *rod.Page, workspaceID uint) {
 	wsConnections := make(map[proto.NetworkRequestID]*db.WebSocketConnection)
 
 	go page.EachEvent(func(e *proto.NetworkWebSocketCreated) {
@@ -18,18 +18,19 @@ func ListenForWebSocketEvents(page *rod.Page) {
 		connection := &db.WebSocketConnection{
 			URL:            e.URL,
 			RequestHeaders: datatypes.JSON(headers),
+			WorkspaceID:    &workspaceID,
 		}
 		err := db.Connection.CreateWebSocketConnection(connection)
 		if err != nil {
-			log.Error().Err(err).Str("url", e.URL).Msg("Failed to create WebSocket connection")
+			log.Error().Uint("workspace", workspaceID).Err(err).Str("url", e.URL).Msg("Failed to create WebSocket connection")
 			return
 		}
-		log.Info().Str("url", e.URL).Msg("Created WebSocket connection")
+		log.Info().Uint("workspace", workspaceID).Str("url", e.URL).Msg("Created WebSocket connection")
 		wsConnections[e.RequestID] = connection
 	}, func(e *proto.NetworkWebSocketHandshakeResponseReceived) {
 		connection, ok := wsConnections[e.RequestID]
 		if !ok {
-			log.Warn().Str("request_id", string(e.RequestID)).Msg("Unknown connection")
+			log.Warn().Uint("workspace", workspaceID).Str("request_id", string(e.RequestID)).Msg("Unknown connection")
 			return
 		}
 		headers, err := json.Marshal(e.Response.Headers)
@@ -44,13 +45,13 @@ func ListenForWebSocketEvents(page *rod.Page) {
 		connection.StatusText = e.Response.StatusText
 		err = db.Connection.UpdateWebSocketConnection(connection)
 		if err != nil {
-			log.Error().Err(err).Str("url", connection.URL).Msg("Failed to update WebSocket connection")
+			log.Error().Uint("workspace", workspaceID).Err(err).Str("url", connection.URL).Msg("Failed to update WebSocket connection")
 		}
 
 	}, func(e *proto.NetworkWebSocketFrameSent) {
 		connection, ok := wsConnections[e.RequestID]
 		if !ok {
-			log.Warn().Str("request_id", string(e.RequestID)).Msg("Unknown connection")
+			log.Warn().Uint("workspace", workspaceID).Str("request_id", string(e.RequestID)).Msg("Unknown connection")
 			return
 		}
 		message := &db.WebSocketMessage{
@@ -63,12 +64,12 @@ func ListenForWebSocketEvents(page *rod.Page) {
 		}
 		err := db.Connection.CreateWebSocketMessage(message)
 		if err != nil {
-			log.Error().Err(err).Str("data", e.Response.PayloadData).Msg("Failed to create WebSocket message")
+			log.Error().Uint("workspace", workspaceID).Err(err).Str("data", e.Response.PayloadData).Msg("Failed to create WebSocket message")
 		}
 	}, func(e *proto.NetworkWebSocketFrameReceived) {
 		connection, ok := wsConnections[e.RequestID]
 		if !ok {
-			log.Warn().Str("request_id", string(e.RequestID)).Msg("Unknown connection")
+			log.Warn().Uint("workspace", workspaceID).Str("request_id", string(e.RequestID)).Msg("Unknown connection")
 			return
 		}
 		message := &db.WebSocketMessage{
@@ -81,19 +82,19 @@ func ListenForWebSocketEvents(page *rod.Page) {
 		}
 		err := db.Connection.CreateWebSocketMessage(message)
 		if err != nil {
-			log.Error().Err(err).Str("data", e.Response.PayloadData).Msg("Failed to create WebSocket message")
+			log.Error().Uint("workspace", workspaceID).Err(err).Str("data", e.Response.PayloadData).Msg("Failed to create WebSocket message")
 		}
 	}, func(e *proto.NetworkWebSocketClosed) {
 		connection, ok := wsConnections[e.RequestID]
 		if !ok {
-			log.Warn().Str("request_id", string(e.RequestID)).Msg("Unknown connection")
+			log.Warn().Uint("workspace", workspaceID).Str("request_id", string(e.RequestID)).Msg("Unknown connection")
 			return
 		}
 		now := time.Now()
 		connection.ClosedAt = now
 		err := db.Connection.UpdateWebSocketConnection(connection)
 		if err != nil {
-			log.Error().Err(err).Str("url", connection.URL).Msg("Failed to update WebSocket connection closed at")
+			log.Error().Uint("workspace", workspaceID).Err(err).Str("url", connection.URL).Msg("Failed to update WebSocket connection closed at")
 		}
 		delete(wsConnections, e.RequestID)
 	})()

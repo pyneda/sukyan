@@ -414,6 +414,19 @@ paths:
         name: workspace
         required: true
         type: integer
+      - default: '"id"'
+        description: Sort by field
+        in: query
+        name: sort_by
+        type: string
+      - default: '"desc"'
+        description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_order
+        type: string
       produces:
       - application/json
       responses:

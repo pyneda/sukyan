@@ -135,13 +135,15 @@ func (h *History) getCreateQueryData() (History, History) {
 
 // HistoryFilter represents available history filters
 type HistoryFilter struct {
-	StatusCodes          []int
-	Methods              []string
-	ResponseContentTypes []string
-	RequestContentTypes  []string
-	Sources              []string
+	StatusCodes          []int    `json:"status_codes" validate:"omitempty,dive,numeric"`
+	Methods              []string `json:"methods" validate:"omitempty,dive,oneof=GET POST PUT DELETE PATCH HEAD OPTIONS TRACE"`
+	ResponseContentTypes []string `json:"response_content_types" validate:"omitempty,dive,ascii"`
+	RequestContentTypes  []string `json:"request_content_types" validate:"omitempty,dive,ascii"`
+	Sources              []string `json:"sources" validate:"omitempty,dive,ascii"`
 	Pagination           Pagination
-	WorkspaceID          uint
+	WorkspaceID          uint   `json:"workspace_id" validate:"omitempty,numeric"`
+	SortBy               string `json:"sort_by" validate:"omitempty,oneof=id created_at updated_at status_code request_body_size url response_body_size parameters_count method"` // Validate to be one of the listed fields
+	SortOrder            string `json:"sort_order" validate:"omitempty,oneof=asc desc"`                                                                                           // Validate to be either "asc" or "desc"
 }
 
 // ListHistory Lists history
@@ -170,15 +172,39 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 	if filter.WorkspaceID > 0 {
 		filterQuery["workspace_id"] = filter.WorkspaceID
 	}
+
+	validSortBy := map[string]bool{
+		"id":                 true,
+		"created_at":         true,
+		"updated_at":         true,
+		"status_code":        true,
+		"request_body_size":  true,
+		"url":                true,
+		"response_body_size": true,
+		"parameters_count":   true,
+		"method":             true,
+	}
+
+	validSortOrder := map[string]bool{
+		"asc":  true,
+		"desc": true,
+	}
+
+	order := "created_at desc"
+	if validSort, exists := validSortBy[filter.SortBy]; exists && validSort {
+		if validOrder, exists := validSortOrder[filter.SortOrder]; exists && validOrder {
+			order = filter.SortBy + " " + filter.SortOrder
+		} else {
+			order = filter.SortBy + " asc"
+		}
+	}
+
 	// Perform the query
 	if filterQuery != nil && len(filterQuery) > 0 {
-		// err = d.db.Scopes(Paginate(&filter.Pagination)).Where(filterQuery).Find(&items).Count(&count).Error
-		err = d.db.Scopes(Paginate(&filter.Pagination)).Where(filterQuery).Order("created_at desc").Find(&items).Error
+		err = d.db.Scopes(Paginate(&filter.Pagination)).Where(filterQuery).Order(order).Find(&items).Error
 		d.db.Model(&History{}).Where(filterQuery).Count(&count)
-
 	} else {
-		// err = d.db.Scopes(Paginate(&filter.Pagination)).Find(&items).Count(&count).Error
-		err = d.db.Scopes(Paginate(&filter.Pagination)).Order("created_at desc").Find(&items).Error
+		err = d.db.Scopes(Paginate(&filter.Pagination)).Order(order).Find(&items).Error
 		d.db.Model(&History{}).Count(&count)
 	}
 

@@ -18,7 +18,7 @@ import (
 func processNucleiResult(result *pb.ScanResult, workspaceID uint) {
 	var info pb.ScanResultInfo
 	if result == nil {
-		log.Error().Str("id", result.TemplateId).Interface("result", result).Msg("Received nuclei scan result without enough information")
+		log.Error().Uint("workspace", workspaceID).Str("id", result.TemplateId).Interface("result", result).Msg("Received nuclei scan result without enough information")
 		return
 	}
 
@@ -75,10 +75,10 @@ func processNucleiResult(result *pb.ScanResult, workspaceID uint) {
 
 	new, err := db.Connection.CreateIssue(issue)
 	if err != nil {
-		log.Error().Err(err).Interface("issue", issue).Msg("Could not create nuclei issue")
+		log.Error().Uint("workspace", workspaceID).Err(err).Interface("issue", issue).Msg("Could not create nuclei issue")
 		return
 	}
-	log.Info().Interface("issue", new).Msg("Created nuclei issue")
+	log.Info().Uint("workspace", workspaceID).Interface("issue", new).Msg("Created nuclei issue")
 
 }
 
@@ -110,7 +110,7 @@ func NucleiScan(targets []string, workspaceID uint) error {
 
 	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Error().Err(err).Msg("Could not connect to nuclei-api")
+		log.Error().Uint("workspace", workspaceID).Err(err).Msg("Could not connect to nuclei-api")
 		return err
 	}
 	defer conn.Close()
@@ -120,7 +120,7 @@ func NucleiScan(targets []string, workspaceID uint) error {
 	timeout := time.Duration(viper.GetInt("integrations.nuclei.scan_timeout"))
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*timeout)
 	defer cancel()
-	log.Info().Interface("configuration", scanRequest).Msg("Starting nuclei scan through nuclei-api")
+	log.Info().Uint("workspace", workspaceID).Interface("configuration", scanRequest).Msg("Starting nuclei scan through nuclei-api")
 	stream, err := c.Scan(ctx, scanRequest)
 	if err != nil {
 		log.Error().Err(err).Msg("Error starting a nuclei scan through nuclei-api")
@@ -132,10 +132,10 @@ func NucleiScan(targets []string, workspaceID uint) error {
 			break
 		}
 		if err != nil {
-			log.Error().Err(err).Msg("Error while performing a nuclei scan through nuclei-api")
+			log.Error().Uint("workspace", workspaceID).Err(err).Msg("Error while performing a nuclei scan through nuclei-api")
 			return err
 		}
-		log.Info().Str("id", result.TemplateId).Msg("Received nuclei scan result")
+		log.Info().Uint("workspace", workspaceID).Str("id", result.TemplateId).Msg("Received nuclei scan result")
 		processNucleiResult(result, workspaceID)
 	}
 	return nil

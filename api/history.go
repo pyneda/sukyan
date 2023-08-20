@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/go-playground/validator/v10"
 	"github.com/pyneda/sukyan/db"
 	"net/http"
 	"strconv"
@@ -30,6 +31,8 @@ func IsValidFilterHTTPMethod(method string) bool {
 // @Param methods query string false "Comma-separated list of HTTP methods to filter by"
 // @Param sources query string false "Comma-separated list of sources to filter by"
 // @Param workspace query integer true "Workspace ID to filter by"
+// @Param sort_by query string false "Sort by field" default("id")
+// @Param sort_order query string false "Sort order" Enums(asc, desc) default("desc")
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history [get]
@@ -93,7 +96,7 @@ func FindHistory(c *fiber.Ctx) error {
 			}
 		}
 	}
-	items, count, err := db.Connection.ListHistory(db.HistoryFilter{
+	filters := db.HistoryFilter{
 		Pagination: db.Pagination{
 			Page: page, PageSize: pageSize,
 		},
@@ -101,7 +104,21 @@ func FindHistory(c *fiber.Ctx) error {
 		Methods:     httpMethods,
 		Sources:     sources,
 		WorkspaceID: workspaceID,
-	})
+		SortBy:      c.Query("sort_by", "id"),
+		SortOrder:   c.Query("sort_order", "desc"),
+	}
+	validate := validator.New()
+	if err := validate.Struct(filters); err != nil {
+		errors := make(map[string]string)
+		for _, err := range err.(validator.ValidationErrors) {
+			errors[err.Field()] = "Invalid value"
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Validation failed",
+			"message": errors,
+		})
+	}
+	items, count, err := db.Connection.ListHistory(filters)
 
 	if err != nil {
 		// Should handle this better

@@ -34,19 +34,19 @@ func ListenForPageEvents(url string, page *rod.Page, workspaceID uint) {
 			return true
 		},
 		func(e *proto.BackgroundServiceBackgroundServiceEventReceived) {
-			log.Warn().Interface("event", e).Msg("Received background service event")
+			log.Debug().Interface("event", e).Msg("Received background service event")
 		},
 		func(e *proto.StorageIndexedDBContentUpdated) {
-			log.Warn().Interface("event", e).Msg("Received StorageIndexedDBContentUpdated event")
+			log.Debug().Interface("event", e).Msg("Received StorageIndexedDBContentUpdated event")
 		},
 		func(e *proto.StorageCacheStorageListUpdated) {
-			log.Warn().Interface("event", e).Msg("Received StorageCacheStorageListUpdated event")
+			log.Debug().Interface("event", e).Msg("Received StorageCacheStorageListUpdated event")
 		},
 		func(e *proto.StorageIndexedDBContentUpdated) {
-			log.Warn().Interface("event", e).Msg("Received StorageIndexedDBContentUpdated event")
+			log.Debug().Interface("event", e).Msg("Received StorageIndexedDBContentUpdated event")
 		},
 		func(e *proto.StorageIndexedDBListUpdated) {
-			log.Warn().Interface("event", e).Msg("Received StorageIndexedDBListUpdated event")
+			log.Debug().Interface("event", e).Msg("Received StorageIndexedDBListUpdated event")
 		},
 		func(e *proto.DatabaseAddDatabase) {
 			log.Warn().Interface("database", e).Msg("Client side database has been added")
@@ -85,16 +85,16 @@ func ListenForPageEvents(url string, page *rod.Page, workspaceID uint) {
 		// 	log.Warn().Interface("issue", e).Str("url", url).Msg("Received a new browser SecurityHandleCertificateError")
 		// },
 		func(e *proto.DOMStorageDomStorageItemAdded) {
-			log.Warn().Interface("dom_storage_item_added", e).Str("url", url).Msg("Received a new DOMStorageDomStorageItemAdded event")
+			log.Debug().Interface("dom_storage_item_added", e).Str("url", url).Msg("Received a new DOMStorageDomStorageItemAdded event")
 		},
 		func(e *proto.DOMStorageDomStorageItemRemoved) {
-			log.Warn().Interface("dom_storage_item_removed", e).Str("url", url).Msg("Received a new DOMStorageDomStorageItemRemoved event")
+			log.Debug().Interface("dom_storage_item_removed", e).Str("url", url).Msg("Received a new DOMStorageDomStorageItemRemoved event")
 		},
 		func(e *proto.DOMStorageDomStorageItemsCleared) {
-			log.Warn().Interface("dom_storage_items_cleared", e).Str("url", url).Msg("Received a new DOMStorageDomStorageItemsCleared event")
+			log.Debug().Interface("dom_storage_items_cleared", e).Str("url", url).Msg("Received a new DOMStorageDomStorageItemsCleared event")
 		},
 		func(e *proto.DOMStorageDomStorageItemUpdated) {
-			log.Warn().Interface("dom_storage_item_updated", e).Str("url", url).Msg("Received a new DOMStorageDomStorageItemUpdated event")
+			log.Debug().Interface("dom_storage_item_updated", e).Str("url", url).Msg("Received a new DOMStorageDomStorageItemUpdated event")
 		},
 		func(e *proto.SecurityCertificateError) bool {
 			// If IgnoreCertificateErrors are permanently added, this can be deleted

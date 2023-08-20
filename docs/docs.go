@@ -175,6 +175,24 @@ const docTemplate = `{
                         "name": "workspace",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "\"id\"",
+                        "description": "Sort by field",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "default": "\"desc\"",
+                        "description": "Sort order",
+                        "name": "sort_order",
+                        "in": "query"
                     }
                 ],
                 "responses": {

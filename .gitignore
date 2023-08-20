@@ -4,7 +4,10 @@ openapitools.yaml
 config.yml
 generators
 
+*.crt
+*.key
 
+bins/
 frontend/
 *.db
 *.log

@@ -190,7 +190,7 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 		"desc": true,
 	}
 
-	order := "created_at desc"
+	order := "id desc"
 	if validSort, exists := validSortBy[filter.SortBy]; exists && validSort {
 		if validOrder, exists := validSortOrder[filter.SortOrder]; exists && validOrder {
 			order = filter.SortBy + " " + filter.SortOrder

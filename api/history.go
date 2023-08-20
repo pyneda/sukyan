@@ -31,7 +31,7 @@ func IsValidFilterHTTPMethod(method string) bool {
 // @Param methods query string false "Comma-separated list of HTTP methods to filter by"
 // @Param sources query string false "Comma-separated list of sources to filter by"
 // @Param workspace query integer true "Workspace ID to filter by"
-// @Param sort_by query string false "Sort by field" default("id")
+// @Param sort_by query string false "Field to sort by" Enums(id,created_at,updated_at,status_code,request_body_size,url,response_body_size,parameters_count,method) default("id")
 // @Param sort_order query string false "Sort order" Enums(asc, desc) default("desc")
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth

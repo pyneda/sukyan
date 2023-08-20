@@ -177,9 +177,20 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+                        "enum": [
+                            "id",
+                            "created_at",
+                            "updated_at",
+                            "status_code",
+                            "request_body_size",
+                            "url",
+                            "response_body_size",
+                            "parameters_count",
+                            "method"
+                        ],
                         "type": "string",
                         "default": "\"id\"",
-                        "description": "Sort by field",
+                        "description": "Field to sort by",
                         "name": "sort_by",
                         "in": "query"
                     },

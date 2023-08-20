@@ -415,7 +415,17 @@ paths:
         required: true
         type: integer
       - default: '"id"'
-        description: Sort by field
+        description: Field to sort by
+        enum:
+        - id
+        - created_at
+        - updated_at
+        - status_code
+        - request_body_size
+        - url
+        - response_body_size
+        - parameters_count
+        - method
         in: query
         name: sort_by
         type: string

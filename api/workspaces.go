@@ -13,12 +13,18 @@ import (
 // @Tags Workspaces
 // @Accept  json
 // @Produce  json
+// @Param query query string false "Search query"
 // @Success 200 {array} db.Workspace
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces [get]
 func FindWorkspaces(c *fiber.Ctx) error {
-	items, count, err := db.Connection.ListWorkspaces()
+	query := c.Query("query", "")
+	filters := db.WorkspaceFilters{}
+	if query != "" {
+		filters.Query = query
+	}
+	items, count, err := db.Connection.ListWorkspaces(filters)
 	if err != nil {
 		// Should handle this better
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})

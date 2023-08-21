@@ -878,6 +878,11 @@ paths:
       consumes:
       - application/json
       description: Retrieves all workspaces with a count
+      parameters:
+      - description: Search query
+        in: query
+        name: query
+        type: string
       produces:
       - application/json
       responses:

@@ -19,7 +19,7 @@ var browserCmd = &cobra.Command{
 		workspaceExists, _ := db.Connection.WorkspaceExists(workspaceID)
 		if !workspaceExists {
 			log.Error().Uint("id", workspaceID).Msg("Workspace does not exist")
-			workspaces, count, _ := db.Connection.ListWorkspaces()
+			workspaces, count, _ := db.Connection.ListWorkspaces(db.WorkspaceFilters{})
 			if count == 0 {
 				log.Info().Msg("No workspaces found, creating default")
 				db.Connection.CreateDefaultWorkspace()

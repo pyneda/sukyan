@@ -896,6 +896,14 @@ const docTemplate = `{
                     "Workspaces"
                 ],
                 "summary": "List all workspaces",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search query",
+                        "name": "query",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",

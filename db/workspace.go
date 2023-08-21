@@ -42,12 +42,23 @@ func (d *DatabaseConnection) WorkspaceExists(id uint) (bool, error) {
 	return count > 0, nil
 }
 
+type WorkspaceFilters struct {
+	Query string `json:"query" validate:"omitempty,dive,ascii"`
+}
+
 // ListWorkspaces Lists workspaces
-func (d *DatabaseConnection) ListWorkspaces() (items []*Workspace, count int64, err error) {
-	result := d.db.Find(&items).Count(&count)
+func (d *DatabaseConnection) ListWorkspaces(filters WorkspaceFilters) (items []*Workspace, count int64, err error) {
+	query := d.db
+	if filters.Query != "" {
+		likeQuery := "%" + filters.Query + "%"
+		query = query.Where("code LIKE ? OR title LIKE ? OR description LIKE ?", likeQuery, likeQuery, likeQuery)
+	}
+
+	result := query.Find(&items).Count(&count)
 	if result.Error != nil {
 		err = result.Error
 	}
+
 	if count == 0 {
 		log.Info().Msg("No workspaces found, creating default")
 

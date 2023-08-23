@@ -1,8 +1,12 @@
 package auth
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
+	"unicode"
 )
 
 // NormalizePassword func for a returning the users input as a byte slice.
@@ -43,4 +47,35 @@ func ComparePasswords(hashedPwd, inputPwd string) bool {
 	}
 
 	return true
+}
+
+const MinPasswordLength = 7
+
+var ErrEmptyPassword = errors.New("No password provided")
+var ErrPasswordTooShort = fmt.Errorf("Password must be at least %d characters", MinPasswordLength)
+var ErrMissingLetterOrNumber = errors.New("Password must contain both letters and numbers")
+
+// CheckPasswordPolicy checks if a password meets the minimum requirements.
+func CheckPasswordPolicy(password string) error {
+	hasLetter := false
+	hasNumber := false
+
+	for _, char := range password {
+		switch {
+		case unicode.IsLetter(char):
+			hasLetter = true
+		case unicode.IsNumber(char):
+			hasNumber = true
+		}
+	}
+
+	switch {
+	case password == "":
+		return ErrEmptyPassword
+	case len(password) < MinPasswordLength:
+		return ErrPasswordTooShort
+	case !hasLetter || !hasNumber:
+		return ErrMissingLetterOrNumber
+	}
+	return nil
 }

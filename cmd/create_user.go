@@ -22,6 +22,11 @@ var createUserCmd = &cobra.Command{
 			return fmt.Errorf("error getting 'password' flag: %v", err)
 		}
 
+		validPassword := auth.CheckPasswordPolicy(password)
+		if validPassword != nil {
+			return fmt.Errorf("invalid password: %v", validPassword)
+		}
+
 		user := &db.User{
 			Email:        email,
 			PasswordHash: auth.GeneratePassword(password),

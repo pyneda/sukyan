@@ -60,7 +60,7 @@ func (d *DatabaseConnection) ListWorkspaces(filters WorkspaceFilters) (items []*
 	}
 
 	if count == 0 {
-		log.Info().Msg("No workspaces found, creating default")
+		log.Info().Msg("No workspaces found.")
 
 		workspace, err := d.CreateDefaultWorkspace()
 		if err != nil {

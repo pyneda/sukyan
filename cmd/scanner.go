@@ -45,8 +45,7 @@ var scanCmd = &cobra.Command{
 			log.Error().Uint("id", workspaceID).Msg("Workspace does not exist")
 			workspaces, count, _ := db.Connection.ListWorkspaces(db.WorkspaceFilters{})
 			if count == 0 {
-				log.Info().Msg("No workspaces found, creating default")
-				db.Connection.CreateDefaultWorkspace()
+				log.Info().Msg("No workspaces found")
 			} else {
 				log.Info().Msg("Available workspaces:")
 				for _, workspace := range workspaces {

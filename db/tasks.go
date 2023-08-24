@@ -9,7 +9,7 @@ type Task struct {
 	BaseModel
 	Status      string    `json:"status"`
 	StartedAt   time.Time `json:"started_at"`
-	Workspace   Workspace `json:"-" gorm:"foreignKey:WorkspaceID"`
+	Workspace   Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID uint      `json:"workspace_id"`
 }
 

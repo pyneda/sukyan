@@ -21,7 +21,7 @@ type OOBTest struct {
 	InteractionFullID string    `json:"interaction_id"`
 	Payload           string    `json:"payload"`
 	InsertionPoint    string    `json:"insertion_point"`
-	Workspace         Workspace `json:"-" gorm:"foreignKey:WorkspaceID"`
+	Workspace         Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID       *uint     `json:"workspace_id"`
 }
 
@@ -48,7 +48,7 @@ type OOBInteraction struct {
 	RawResponse   string    `json:"raw_response"`
 	RemoteAddress string    `json:"remote_address"`
 	Timestamp     time.Time `json:"timestamp"`
-	Workspace     Workspace `json:"-" gorm:"foreignKey:WorkspaceID"`
+	Workspace     Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID   *uint     `json:"workspace_id"`
 }
 

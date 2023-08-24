@@ -25,7 +25,7 @@ type Issue struct {
 	Severity      severity    `gorm:"type:severity;default:'Info'" json:"severity"`
 	CURLCommand   string      `json:"curl_command"`
 	Note          string      `json:"note"`
-	Workspace     Workspace   `json:"-" gorm:"foreignKey:WorkspaceID"`
+	Workspace     Workspace   `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID   *uint       `json:"workspace_id"`
 }
 

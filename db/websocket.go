@@ -15,7 +15,7 @@ type WebSocketConnection struct {
 	StatusText      string             `json:"status_text"`
 	Messages        []WebSocketMessage `json:"messages" gorm:"foreignKey:ConnectionID"`
 	ClosedAt        time.Time          `json:"closed_at"` // timestamp for when the connection is closed
-	Workspace       Workspace          `json:"-" gorm:"foreignKey:WorkspaceID"`
+	Workspace       Workspace          `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID     *uint              `json:"workspace_id"`
 }
 

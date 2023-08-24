@@ -97,11 +97,15 @@ func TestGetOrCreateWorkspace(t *testing.T) {
 }
 
 func TestDeleteWorkspace(t *testing.T) {
+	newWorkspace := &Workspace{
+		Code:        "to-delete",
+		Title:       "To Delete",
+		Description: "description",
+	}
 
-	workspace, err := Connection.CreateDefaultWorkspace()
+	workspace, err := Connection.GetOrCreateWorkspace(newWorkspace)
 	assert.NotNil(t, workspace)
 	assert.Nil(t, err)
-
 	// Delete the workspace
 	err = Connection.DeleteWorkspace(workspace.ID)
 	assert.Nil(t, err)

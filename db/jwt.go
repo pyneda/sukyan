@@ -24,7 +24,7 @@ type JsonWebToken struct {
 	Expiration  time.Time      `gorm:"type:timestamp" json:"expiration"`
 	IssuedAt    time.Time      `gorm:"type:timestamp" json:"issued_at"`
 	Histories   []History      `gorm:"many2many:json_web_token_histories" json:"histories"`
-	Workspace   Workspace      `json:"-" gorm:"foreignKey:WorkspaceID"`
+	Workspace   Workspace      `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID *uint          `json:"workspace_id"`
 }
 

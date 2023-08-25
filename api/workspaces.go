@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/pyneda/sukyan/db"
 	"net/http"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -68,4 +69,73 @@ func CreateWorkspace(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": workspace})
+}
+
+// DeleteWorkspace godoc
+// @Summary Delete a workspace
+// @Description Deletes a workspace and all associated data
+// @Tags Workspaces
+// @Accept  json
+// @Produce  json
+// @Param id path string true "Workspace ID"
+// @Success 200 {object} map[string]interface{} "message": "Workspace successfully deleted"
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/workspaces/{id} [delete]
+func DeleteWorkspace(c *fiber.Ctx) error {
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})
+	}
+	exists, err := db.Connection.WorkspaceExists(uint(id))
+	if err != nil || !exists {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Workspace not found"})
+	}
+
+	if err := db.Connection.DeleteWorkspace(uint(id)); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to delete workspace", "error": "Failed to delete workspace"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Workspace successfully deleted"})
+}
+
+// WorkspaceUpdateInput defines the acceptable input for updating a workspace
+type WorkspaceUpdateInput struct {
+	Code        string `json:"code"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+// UpdateWorkspace godoc
+// @Summary Update a workspace
+// @Description Updates a workspace by ID
+// @Tags Workspaces
+// @Accept  json
+// @Produce  json
+// @Param id path string true "Workspace ID"
+// @Param workspace body WorkspaceUpdateInput true "Workspace object"
+// @Success 200 {object} db.Workspace
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/workspaces/{id} [put]
+func UpdateWorkspace(c *fiber.Ctx) error {
+	var updatedWorkspace db.Workspace
+	if err := c.BodyParser(&updatedWorkspace); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Cannot parse JSON", "error": "Bad request"})
+	}
+
+	id, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})
+	}
+	if err := db.Connection.UpdateWorkspace(uint(id), &updatedWorkspace); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Failed to update workspace", "error": "Failed to update workspace"})
+	}
+
+	workspace, err := db.Connection.GetWorkspaceByID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Workspace not found", "error": "Workspace not found"})
+	}
+
+	return c.JSON(workspace)
 }

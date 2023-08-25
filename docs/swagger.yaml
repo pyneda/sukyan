@@ -72,6 +72,15 @@ definitions:
       refresh_token:
         type: string
     type: object
+  api.ReportRequest:
+    properties:
+      format:
+        $ref: '#/definitions/report.ReportFormat'
+      title:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
   api.SignIn:
     properties:
       email:
@@ -319,6 +328,14 @@ definitions:
     - Medium
     - High
     - Critical
+  report.ReportFormat:
+    enum:
+    - html
+    - json
+    type: string
+    x-enum-varnames:
+    - ReportFormatHTML
+    - ReportFormatJSON
 info:
   contact:
     email: contact@sukyan.com
@@ -680,6 +697,34 @@ paths:
       summary: List all issues grouped
       tags:
       - Issues
+  /api/v1/report:
+    post:
+      consumes:
+      - application/json
+      description: Generates a report for a given workspace
+      parameters:
+      - description: Report request
+        in: body
+        name: report
+        required: true
+        schema:
+          $ref: '#/definitions/api.ReportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Generate a report
+      tags:
+      - Reports
   /api/v1/scan/active:
     post:
       consumes:

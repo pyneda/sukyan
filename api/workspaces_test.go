@@ -87,5 +87,3 @@ func TestDeleteWorkspace(t *testing.T) {
 	// assert.False(t, historyExists)
 
 }
-
-

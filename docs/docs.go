@@ -561,6 +561,51 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/report": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Generates a report for a given workspace",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Reports"
+                ],
+                "summary": "Generate a report",
+                "parameters": [
+                    {
+                        "description": "Report request",
+                        "name": "report",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ReportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/scan/active": {
             "post": {
                 "security": [
@@ -1169,6 +1214,20 @@ const docTemplate = `{
                 }
             }
         },
+        "api.ReportRequest": {
+            "type": "object",
+            "properties": {
+                "format": {
+                    "$ref": "#/definitions/report.ReportFormat"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "api.SignIn": {
             "type": "object",
             "required": [
@@ -1528,6 +1587,17 @@ const docTemplate = `{
                 "Medium",
                 "High",
                 "Critical"
+            ]
+        },
+        "report.ReportFormat": {
+            "type": "string",
+            "enum": [
+                "html",
+                "json"
+            ],
+            "x-enum-varnames": [
+                "ReportFormatHTML",
+                "ReportFormatJSON"
             ]
         }
     },

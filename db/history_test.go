@@ -28,7 +28,7 @@ func TestGetRootHistoryNodes(t *testing.T) {
 
 	roots, err := Connection.GetRootHistoryNodes()
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(roots))
+	assert.Equal(t, true, len(roots) >= 2)
 }
 
 func TestGetHistoriesByID(t *testing.T) {

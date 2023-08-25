@@ -109,6 +109,15 @@ definitions:
       title:
         type: string
     type: object
+  api.WorkspaceUpdateInput:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      title:
+        type: string
+    type: object
   db.GroupedIssue:
     properties:
       code:
@@ -926,6 +935,66 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Create a new workspace
+      tags:
+      - Workspaces
+  /api/v1/workspaces/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a workspace and all associated data
+      parameters:
+      - description: Workspace ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'message": "Workspace successfully deleted'
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a workspace
+      tags:
+      - Workspaces
+    put:
+      consumes:
+      - application/json
+      description: Updates a workspace by ID
+      parameters:
+      - description: Workspace ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Workspace object
+        in: body
+        name: workspace
+        required: true
+        schema:
+          $ref: '#/definitions/api.WorkspaceUpdateInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Workspace'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update a workspace
       tags:
       - Workspaces
 securityDefinitions:

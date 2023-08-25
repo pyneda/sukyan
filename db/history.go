@@ -309,3 +309,13 @@ func (d *DatabaseConnection) GetHistoriesByID(ids []uint) ([]History, error) {
 
 	return histories, nil
 }
+
+// HistoryExists checks if a history record exists
+func (d *DatabaseConnection) HistoryExists(id uint) (bool, error) {
+	var count int64
+	err := d.db.Model(&History{}).Where("id = ?", id).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

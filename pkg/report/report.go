@@ -4,7 +4,9 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
 	"html/template"
 	"io"
 )
@@ -38,9 +40,19 @@ func GenerateReport(options ReportOptions, w io.Writer) error {
 }
 
 func generateHTMLReport(options ReportOptions, w io.Writer) error {
-	tmpl, err := template.ParseFS(templates, "templates/report.tmpl")
+	funcMap := template.FuncMap{
+		"toString": toString,
+	}
+
+	// Parsing the template with the custom function map
+	tmpl, err := template.New("report.tmpl").Funcs(funcMap).ParseFS(templates, "templates/report.tmpl")
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to parse report template")
 		return err
+	}
+
+	if tmpl.DefinedTemplates() == "" {
+		return fmt.Errorf("No defined templates found")
 	}
 
 	data := map[string]interface{}{
@@ -49,6 +61,7 @@ func generateHTMLReport(options ReportOptions, w io.Writer) error {
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
+		log.Error().Err(err).Msg("Failed to execute report template")
 		return err
 	}
 
@@ -68,4 +81,15 @@ func generateJSONReport(options ReportOptions, w io.Writer) error {
 	}
 
 	return nil
+}
+
+func toString(value interface{}) string {
+	switch v := value.(type) {
+	case []byte:
+		return string(v)
+	case string:
+		return v
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }

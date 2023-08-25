@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/report"
+	"github.com/rs/zerolog/log"
 )
 
 // ReportRequest represents the structure of the JSON payload for generating a report.
@@ -79,6 +80,7 @@ func ReportHandler(c *fiber.Ctx) error {
 
 	// Generate the report
 	if err := report.GenerateReport(options, &buf); err != nil {
+		log.Error().Err(err).Msg("Failed to generate report")
 		return c.Status(fiber.StatusInternalServerError).SendString("Failed to generate report")
 	}
 

@@ -34,22 +34,22 @@
           <pre><code>{{ $issue.Payload }}</code></pre>
         </div>
       {{ end }}
-      {{ if $issue.Remediation }}
-        <div>
-          <h4>Remediation</h4>
-          <p>{{ $issue.Remediation }}</p>
-        </div>
-      {{ end }}
       {{ if $issue.Request }}
         <div>
           <h4>Request</h4>
-          <pre><code style="max-height: 400px; overflow: auto;">{{ $issue.Request | toString }}</code></pre>
+          <pre style="max-height: 400px;"><code>{{ $issue.Request | toString }}</code></pre>
         </div>
       {{ end }}
       {{ if $issue.Response }}
         <div>
           <h4>Response</h4>
-          <pre><code style="max-height: 400px; overflow: auto;">{{ $issue.Response | toString }}</code></pre>
+          <pre style="max-height: 400px;"><code>{{ $issue.Response | toString }}</code></pre>
+        </div>
+      {{ end }}
+      {{ if $issue.Remediation }}
+        <div>
+          <h4>Remediation</h4>
+          <p>{{ $issue.Remediation }}</p>
         </div>
       {{ end }}
     </div>

@@ -63,8 +63,9 @@ func StartAPI() {
 	// app.Use(cors.Default())
 	// app.LoadHTMLGlob("templates/*")
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: strings.Join(viper.GetStringSlice("api.cors.origins"), ","),
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowOrigins:  strings.Join(viper.GetStringSlice("api.cors.origins"), ","),
+		AllowHeaders:  "Origin, Content-Type, Accept, Authorization",
+		ExposeHeaders: "Content-Disposition",
 	}))
 
 	app.Get("/", func(c *fiber.Ctx) error {

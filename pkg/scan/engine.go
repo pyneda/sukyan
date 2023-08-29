@@ -125,6 +125,10 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History, workspaceID uint) {
 }
 
 func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, pagesPoolSize int, waitCompletion bool, excludePatterns []string, workspaceID uint) {
+	task, err := db.Connection.NewTask(workspaceID, "crawl")
+	if err != nil {
+		log.Error().Err(err).Msg("Could not create task")
+	}
 	crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, excludePatterns, workspaceID)
 	historyItems := crawler.Run()
 	uniqueHistoryItems := removeDuplicateHistoryItems(historyItems)
@@ -139,6 +143,7 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 
 	// Very basic initial integration, could probably launch it in parallel with other tasks
 	if viper.GetBool("integrations.nuclei.enabled") {
+		db.Connection.SetTaskStatus(task.ID, db.TaskStatusNuclei)
 		nucleiTags := passive.GetUniqueNucleiTags(fingerprints)
 		log.Info().Int("count", len(nucleiTags)).Interface("tags", nucleiTags).Msg("Gathered tags from fingerprints for Nuclei scan")
 		nucleiScanErr := integrations.NucleiScan(baseURLs, workspaceID)
@@ -148,6 +153,7 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 	}
 
 	retireScanner := integrations.NewRetireScanner()
+	db.Connection.SetTaskStatus(task.ID, db.TaskStatusScanning)
 
 	for _, historyItem := range uniqueHistoryItems {
 		if historyItem.StatusCode == 404 {
@@ -155,7 +161,6 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 		}
 		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, workspaceID)
 		retireScanner.HistoryScan(historyItem)
-
 	}
 	log.Info().Msg("Active scans scheduled")
 	if waitCompletion {
@@ -163,4 +168,6 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 		s.wg.Wait()
 		log.Info().Msg("Active scans finished")
 	}
+	db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
+
 }

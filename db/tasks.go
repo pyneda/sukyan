@@ -7,8 +7,10 @@ import (
 
 type Task struct {
 	BaseModel
+	Title       string    `json:"title"`
 	Status      string    `json:"status"`
 	StartedAt   time.Time `json:"started_at"`
+	FinishedAt  time.Time `json:"finished_at"`
 	Workspace   Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID uint      `json:"workspace_id"`
 }
@@ -16,6 +18,36 @@ type Task struct {
 type TaskFilter struct {
 	Statuses   []string
 	Pagination Pagination
+}
+
+var (
+	TaskStatusCrawling string = "crawling"
+	TaskStatusScanning string = "scanning"
+	TaskStatusNuclei   string = "nuclei"
+	TaskStatusRunning  string = "running"
+	TaskStatusFinished string = "finished"
+	TaskStatusFailed   string = "failed"
+	TaskStatusPaused   string = "paused"
+)
+
+func (d *DatabaseConnection) NewTask(workspaceID uint, status string) (*Task, error) {
+	task := &Task{
+		WorkspaceID: workspaceID,
+		Status:      status,
+		StartedAt:   time.Now(),
+	}
+	return d.CreateTask(task)
+}
+
+func (d *DatabaseConnection) SetTaskStatus(id uint, status string) error {
+	task, err := d.GetTaskByID(id)
+	if err != nil {
+		return err
+	}
+	task.Status = status
+	task.FinishedAt = time.Now()
+	_, err = d.UpdateTask(id, task)
+	return err
 }
 
 func (d *DatabaseConnection) CreateTask(task *Task) (*Task, error) {
@@ -45,4 +77,29 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 	log.Info().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Int("total_results", len(items)).Msg("Getting task items")
 
 	return items, count, err
+}
+
+func (d *DatabaseConnection) UpdateTask(id uint, task *Task) (*Task, error) {
+	result := d.db.Model(&Task{}).Where("id = ?", id).Updates(task)
+	if result.Error != nil {
+		log.Error().Err(result.Error).Interface("task", task).Msg("Task update failed")
+	}
+	return task, result.Error
+}
+
+func (d *DatabaseConnection) GetTaskByID(id uint) (*Task, error) {
+	var task Task
+	if err := d.db.Where("id = ?", id).First(&task).Error; err != nil {
+		log.Error().Err(err).Interface("id", id).Msg("Unable to fetch task by ID")
+		return nil, err
+	}
+	return &task, nil
+}
+
+func (d *DatabaseConnection) DeleteTask(id uint) error {
+	if err := d.db.Delete(&Task{}, id).Error; err != nil {
+		log.Error().Err(err).Interface("id", id).Msg("Error deleting task")
+		return err
+	}
+	return nil
 }

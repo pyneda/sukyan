@@ -14,7 +14,7 @@ func TestFindTasks(t *testing.T) {
 
 	app.Get("/tasks", FindTasks)
 
-	req := httptest.NewRequest("GET", "/tasks?page=1&page_size=10&status=Completed", nil)
+	req := httptest.NewRequest("GET", "/tasks?page=1&page_size=10&status=Completed&workspace=1", nil)
 	resp, _ := app.Test(req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)

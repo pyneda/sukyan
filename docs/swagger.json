@@ -767,6 +767,13 @@
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
                         "type": "string",
                         "description": "Comma-separated list of statuses to filter",
                         "name": "status",
@@ -1458,6 +1465,9 @@
                 "created_at": {
                     "type": "string"
                 },
+                "finished_at": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "integer"
                 },
@@ -1465,6 +1475,9 @@
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                },
+                "title": {
                     "type": "string"
                 },
                 "updated_at": {

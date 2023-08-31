@@ -16,8 +16,9 @@ type Task struct {
 }
 
 type TaskFilter struct {
-	Statuses   []string
-	Pagination Pagination
+	Statuses    []string
+	Pagination  Pagination
+	WorkspaceID uint
 }
 
 var (
@@ -63,6 +64,10 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 
 	if len(filter.Statuses) > 0 {
 		filterQuery["status"] = filter.Statuses
+	}
+
+	if filter.WorkspaceID > 0 {
+		filterQuery["workspace_id"] = filter.WorkspaceID
 	}
 
 	if filterQuery != nil && len(filterQuery) > 0 {

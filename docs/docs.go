@@ -775,6 +775,13 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
                         "type": "string",
                         "description": "Comma-separated list of statuses to filter",
                         "name": "status",
@@ -1466,6 +1473,9 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "finished_at": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "integer"
                 },
@@ -1473,6 +1483,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
+                    "type": "string"
+                },
+                "title": {
                     "type": "string"
                 },
                 "updated_at": {

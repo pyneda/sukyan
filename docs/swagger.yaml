@@ -245,11 +245,15 @@ definitions:
     properties:
       created_at:
         type: string
+      finished_at:
+        type: string
       id:
         type: integer
       started_at:
         type: string
       status:
+        type: string
+      title:
         type: string
       updated_at:
         type: string
@@ -825,6 +829,11 @@ paths:
         description: Page number
         in: query
         name: page
+        type: integer
+      - description: Workspace ID
+        in: query
+        name: workspace
+        required: true
         type: integer
       - description: Comma-separated list of statuses to filter
         in: query

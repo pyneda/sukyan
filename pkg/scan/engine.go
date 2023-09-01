@@ -25,6 +25,7 @@ const (
 type engineTask struct {
 	item        *db.History
 	workspaceID uint
+	taskJob     *db.TaskJob
 }
 
 type ScanEngine struct {
@@ -56,15 +57,26 @@ func NewScanEngine(payloadGenerators []*generation.PayloadGenerator, maxConcurre
 	}
 }
 
-func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, workspaceID uint) {
+func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, workspaceID uint, taskID uint) {
+
 	switch scanJobType {
 	case ScanJobTypePassive:
 		s.passiveScanCh <- item
 	case ScanJobTypeActive:
-		s.activeScanCh <- &engineTask{item: item, workspaceID: workspaceID}
+		taskJob, err := db.Connection.NewTaskJob(taskID, "Active scan", db.TaskJobScheduled, item.ID)
+		if err != nil {
+			log.Error().Err(err).Interface("type", scanJobType).Uint("history", item.ID).Msg("Could not create task job")
+			return
+		}
+		s.activeScanCh <- &engineTask{item: item, workspaceID: workspaceID, taskJob: taskJob}
 	case ScanJobTypeAll:
+		taskJob, err := db.Connection.NewTaskJob(taskID, "Active and passive scan", db.TaskJobScheduled, item.ID)
+		if err != nil {
+			log.Error().Err(err).Interface("type", scanJobType).Uint("history", item.ID).Msg("Could not create task job")
+			return
+		}
 		s.passiveScanCh <- item
-		s.activeScanCh <- &engineTask{item: item, workspaceID: workspaceID}
+		s.activeScanCh <- &engineTask{item: item, workspaceID: workspaceID, taskJob: taskJob}
 	}
 }
 
@@ -98,7 +110,7 @@ func (s *ScanEngine) run() {
 			s.wg.Add(1)
 			go func(task *engineTask) {
 				defer s.wg.Done()
-				s.scheduleActiveScan(task.item, task.workspaceID)
+				s.scheduleActiveScan(task.item, task.workspaceID, task.taskJob)
 			}(task)
 		case <-s.pauseCh:
 			s.isPaused = true
@@ -120,8 +132,13 @@ func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 	passive.ScanHistoryItem(item)
 }
 
-func (s *ScanEngine) scheduleActiveScan(item *db.History, workspaceID uint) {
+func (s *ScanEngine) scheduleActiveScan(item *db.History, workspaceID uint, taskJob *db.TaskJob) {
+	taskJob.Status = db.TaskJobRunning
+	db.Connection.UpdateTaskJob(taskJob)
 	ActiveScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators, workspaceID)
+	taskJob.Status = db.TaskJobFinished
+	taskJob.CompletedAt = time.Now()
+	db.Connection.UpdateTaskJob(taskJob)
 }
 
 func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, pagesPoolSize int, waitCompletion bool, excludePatterns []string, workspaceID uint) {
@@ -159,8 +176,8 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 		if historyItem.StatusCode == 404 {
 			continue
 		}
-		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, workspaceID)
-		retireScanner.HistoryScan(historyItem)
+		go retireScanner.HistoryScan(historyItem)
+		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, workspaceID, task.ID)
 	}
 	log.Info().Msg("Active scans scheduled")
 	if waitCompletion {

@@ -16,7 +16,7 @@ import (
 // @Tags Tasks
 // @Accept  json
 // @Produce  json
-// @Param id path int true "Task ID"
+// @Param query path int true "Task ID"
 // @Param page_size query int false "Number of items per page" default(50)
 // @Param page query int false "Page number" default(1)
 // @Param status query string false "Comma-separated list of statuses to filter"
@@ -32,6 +32,13 @@ func FindTaskJobs(c *fiber.Ctx) error {
 	unparsedStatuses := c.Query("status")
 	unparsedTitles := c.Query("title")
 	unparsedCompletedAt := c.Query("completed_at")
+	taskID, err := parseTaskID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid task",
+			"message": "The provided task ID does not seem valid",
+		})
+	}
 	var statuses []string
 	var titles []string
 	var completedAt time.Time
@@ -71,6 +78,7 @@ func FindTaskJobs(c *fiber.Ctx) error {
 		Statuses:    statuses,
 		Titles:      titles,
 		CompletedAt: &completedAt,
+		TaskID:      taskID,
 	})
 
 	if err != nil {

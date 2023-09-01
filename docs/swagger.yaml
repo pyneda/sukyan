@@ -60,11 +60,15 @@ definitions:
         items:
           type: integer
         type: array
+      task_id:
+        minimum: 0
+        type: integer
       workspace_id:
         minimum: 0
         type: integer
     required:
     - items
+    - task_id
     - workspace_id
     type: object
   api.Renew:
@@ -266,8 +270,12 @@ definitions:
         type: string
       created_at:
         type: string
+      history_id:
+        type: integer
       id:
         type: integer
+      started_at:
+        type: string
       status:
         type: string
       task_id:
@@ -865,7 +873,7 @@ paths:
       parameters:
       - description: Task ID
         in: path
-        name: id
+        name: query
         required: true
         type: integer
       - default: 50

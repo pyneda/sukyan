@@ -821,7 +821,7 @@
                     {
                         "type": "integer",
                         "description": "Task ID",
-                        "name": "id",
+                        "name": "query",
                         "in": "path",
                         "required": true
                     },
@@ -1190,6 +1190,7 @@
             "type": "object",
             "required": [
                 "items",
+                "task_id",
                 "workspace_id"
             ],
             "properties": {
@@ -1198,6 +1199,10 @@
                     "items": {
                         "type": "integer"
                     }
+                },
+                "task_id": {
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "workspace_id": {
                     "type": "integer",
@@ -1497,8 +1502,14 @@
                 "created_at": {
                     "type": "string"
                 },
+                "history_id": {
+                    "type": "integer"
+                },
                 "id": {
                     "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
                 },
                 "status": {
                     "type": "string"

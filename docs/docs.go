@@ -613,7 +613,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Receives a list of items and schedules them for active scanning",
+                "description": "Receives a list of items and schedules them for active scanning. Either the workspace ID or task ID must be provided.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1197,9 +1197,7 @@ const docTemplate = `{
         "api.PassiveScanInput": {
             "type": "object",
             "required": [
-                "items",
-                "task_id",
-                "workspace_id"
+                "items"
             ],
             "properties": {
                 "items": {
@@ -1207,14 +1205,6 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
-                },
-                "task_id": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "workspace_id": {
-                    "type": "integer",
-                    "minimum": 0
                 }
             }
         },

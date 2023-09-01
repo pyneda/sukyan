@@ -60,16 +60,8 @@ definitions:
         items:
           type: integer
         type: array
-      task_id:
-        minimum: 0
-        type: integer
-      workspace_id:
-        minimum: 0
-        type: integer
     required:
     - items
-    - task_id
-    - workspace_id
     type: object
   api.Renew:
     properties:
@@ -741,7 +733,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Receives a list of items and schedules them for active scanning
+      description: Receives a list of items and schedules them for active scanning.
+        Either the workspace ID or task ID must be provided.
       parameters:
       - description: List of items
         in: body

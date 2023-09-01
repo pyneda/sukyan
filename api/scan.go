@@ -8,9 +8,7 @@ import (
 )
 
 type PassiveScanInput struct {
-	Items       []uint `json:"items" validate:"required,dive,min=0"`
-	WorkspaceID uint   `json:"workspace_id" validate:"required,min=0"`
-	TaskID      uint   `json:"task_id" validate:"required,min=0"`
+	Items []uint `json:"items" validate:"required,dive,min=0"`
 }
 
 var validate = validator.New()
@@ -42,23 +40,6 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	workspaceExists, _ := db.Connection.WorkspaceExists(input.WorkspaceID)
-	if !workspaceExists {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid workspace",
-			"message": "The provided workspace ID does not seem valid",
-		})
-	}
-
-	taskExists, _ := db.Connection.TaskExists(input.TaskID)
-	if !taskExists {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid task",
-			"message": "The provided task ID does not seem valid",
-		})
-
-	}
-
 	items, err := db.Connection.GetHistoriesByID(input.Items)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -69,7 +50,10 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 
 	engine := c.Locals("engine").(*scan.ScanEngine)
 	for _, item := range items {
-		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypePassive, input.WorkspaceID, input.TaskID)
+		// engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypePassive, input.WorkspaceID, input.TaskID)
+		// NOTE: By now, passive scans do not create task jobs, so we pass 0 as task ID
+		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypePassive, *item.WorkspaceID, 0)
+
 	}
 
 	return c.JSON(fiber.Map{
@@ -79,13 +63,13 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 
 type ActiveScanInput struct {
 	Items       []uint `json:"items" validate:"required,dive,min=0"`
-	WorkspaceID uint   `json:"workspace_id" validate:"required,min=0"`
-	TaskID      uint   `json:"task_id" validate:"required,min=0"`
+	WorkspaceID uint   `json:"workspace" validate:"omitempty,min=0"`
+	TaskID      uint   `json:"task" validate:"omitempty,min=0"`
 }
 
 // ActiveScanHandler godoc
 // @Summary Submit items for active scanning
-// @Description Receives a list of items and schedules them for active scanning
+// @Description Receives a list of items and schedules them for active scanning. Either the workspace ID or task ID must be provided.
 // @Tags Scan
 // @Accept  json
 // @Produce  json
@@ -110,20 +94,31 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	workspaceExists, _ := db.Connection.WorkspaceExists(input.WorkspaceID)
-	if !workspaceExists {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid workspace",
-			"message": "The provided workspace ID does not seem valid",
-		})
-	}
+	// if !workspaceExists {
+	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+	// 		"error":   "Invalid workspace",
+	// 		"message": "The provided workspace ID does not seem valid",
+	// 	})
+	// }
 
 	taskExists, _ := db.Connection.TaskExists(input.TaskID)
 	if !taskExists {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid task",
-			"message": "The provided task ID does not seem valid",
-		})
+		workspaceExists, _ := db.Connection.WorkspaceExists(input.WorkspaceID)
+		if !workspaceExists {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Invalid task",
+				"message": "The provided task ID does not seem valid and we can't create a default one because the workspace ID is either not provided or invalid",
+			})
+		}
+
+		task, err := db.Connection.GetOrCreateDefaultWorkspaceTask(input.WorkspaceID)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Error creating default task",
+				"message": "We couldnt create a default task for the provided workspace",
+			})
+		}
+		input.TaskID = task.ID
 	}
 
 	items, err := db.Connection.GetHistoriesByID(input.Items)
@@ -135,8 +130,10 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 	}
 
 	engine := c.Locals("engine").(*scan.ScanEngine)
+
 	for _, item := range items {
-		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypeActive, input.WorkspaceID, input.TaskID)
+		// TODO: maybe should validate that the history item and task belongs to the same workspace
+		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypeActive, *item.WorkspaceID, input.TaskID)
 	}
 
 	return c.JSON(fiber.Map{

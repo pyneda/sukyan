@@ -108,3 +108,13 @@ func (d *DatabaseConnection) DeleteTask(id uint) error {
 	}
 	return nil
 }
+
+// TaskExists checks if a workspace exists
+func (d *DatabaseConnection) TaskExists(id uint) (bool, error) {
+	var count int64
+	err := d.db.Model(&Task{}).Where("id = ?", id).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

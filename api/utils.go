@@ -24,3 +24,20 @@ func parseWorkspaceID(c *fiber.Ctx) (uint, error) {
 	}
 	return workspaceID, nil
 }
+
+func parseTaskID(c *fiber.Ctx) (uint, error) {
+	unparsed := c.Query("task")
+	taskID64, err := strconv.ParseUint(unparsed, 10, strconv.IntSize)
+	if err != nil {
+		log.Error().Err(err).Msg("Error parsing task parameter query")
+		return 0, err
+
+	}
+
+	taskID := uint(taskID64)
+	taskExists, _ := db.Connection.TaskExists(taskID)
+	if !taskExists {
+		return 0, errors.New("Invalid task")
+	}
+	return taskID, nil
+}

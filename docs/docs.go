@@ -829,7 +829,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Task ID",
-                        "name": "id",
+                        "name": "query",
                         "in": "path",
                         "required": true
                     },
@@ -1198,6 +1198,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "items",
+                "task_id",
                 "workspace_id"
             ],
             "properties": {
@@ -1206,6 +1207,10 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "task_id": {
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "workspace_id": {
                     "type": "integer",
@@ -1505,8 +1510,14 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "history_id": {
+                    "type": "integer"
+                },
                 "id": {
                     "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
                 },
                 "status": {
                     "type": "string"

@@ -22,13 +22,14 @@ type TaskFilter struct {
 }
 
 var (
-	TaskStatusCrawling string = "crawling"
-	TaskStatusScanning string = "scanning"
-	TaskStatusNuclei   string = "nuclei"
-	TaskStatusRunning  string = "running"
-	TaskStatusFinished string = "finished"
-	TaskStatusFailed   string = "failed"
-	TaskStatusPaused   string = "paused"
+	TaskStatusCrawling        string = "crawling"
+	TaskStatusScanning        string = "scanning"
+	TaskStatusNuclei          string = "nuclei"
+	TaskStatusRunning         string = "running"
+	TaskStatusFinished        string = "finished"
+	TaskStatusFailed          string = "failed"
+	TaskStatusPaused          string = "paused"
+	DefaultWorkspaceTaskTitle string = "Default task"
 )
 
 func (d *DatabaseConnection) NewTask(workspaceID uint, status string) (*Task, error) {
@@ -117,4 +118,18 @@ func (d *DatabaseConnection) TaskExists(id uint) (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (d *DatabaseConnection) GetOrCreateDefaultWorkspaceTask(workspaceID uint) (*Task, error) {
+	task := &Task{
+		WorkspaceID: workspaceID,
+		Title:       DefaultWorkspaceTaskTitle,
+		Status:      TaskStatusScanning,
+		StartedAt:   time.Now(),
+	}
+	result := d.db.Model(&Task{}).Where("workspace_id = ? AND title = ?", workspaceID, DefaultWorkspaceTaskTitle).FirstOrCreate(task)
+	if result.Error != nil {
+		log.Error().Err(result.Error).Interface("workspace_id", workspaceID).Msg("Unable to create default workspace task")
+	}
+	return task, result.Error
 }

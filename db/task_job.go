@@ -45,9 +45,9 @@ func (d *DatabaseConnection) ListTaskJobs(filter TaskJobFilter) (items []*TaskJo
 		filterQuery["title"] = filter.Titles
 	}
 
-	if filter.CompletedAt != nil {
-		filterQuery["completed_at"] = filter.CompletedAt
-	}
+	// if filter.CompletedAt != nil {
+	// 	filterQuery["completed_at"] = filter.CompletedAt
+	// }
 
 	if filter.TaskID != 0 {
 		filterQuery["task_id"] = filter.TaskID

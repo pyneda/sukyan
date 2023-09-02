@@ -32,11 +32,12 @@ var (
 	DefaultWorkspaceTaskTitle string = "Default task"
 )
 
-func (d *DatabaseConnection) NewTask(workspaceID uint, status string) (*Task, error) {
+func (d *DatabaseConnection) NewTask(workspaceID uint, title, status string) (*Task, error) {
 	task := &Task{
 		WorkspaceID: workspaceID,
 		Status:      status,
 		StartedAt:   time.Now(),
+		Title:       title,
 	}
 	return d.CreateTask(task)
 }

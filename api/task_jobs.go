@@ -16,7 +16,7 @@ import (
 // @Tags Tasks
 // @Accept  json
 // @Produce  json
-// @Param query path int true "Task ID"
+// @Param task query int true "Task ID"
 // @Param page_size query int false "Number of items per page" default(50)
 // @Param page query int false "Page number" default(1)
 // @Param status query string false "Comma-separated list of statuses to filter"

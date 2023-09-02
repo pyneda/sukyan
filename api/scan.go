@@ -142,6 +142,7 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 }
 
 type FullScanInput struct {
+	Title 				 string   `json:"title" validate:"omitempty,min=1,max=255"`
 	StartURLs       []string `json:"start_urls" validate:"required,dive,url"`
 	MaxDepth        int      `json:"max_depth" validate:"min=0"`
 	MaxPagesToCrawl int      `json:"max_pages_to_crawl" validate:"min=0"`
@@ -185,6 +186,10 @@ func FullScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
+	if input.Title == "" {
+		input.Title = "Full scan"
+	}
+
 	engine := c.Locals("engine").(*scan.ScanEngine)
 	go engine.CrawlAndAudit(
 		input.StartURLs,
@@ -194,6 +199,7 @@ func FullScanHandler(c *fiber.Ctx) error {
 		false,
 		input.ExcludePatterns,
 		input.WorkspaceID,
+		input.Title,
 	)
 
 	return c.JSON(fiber.Map{

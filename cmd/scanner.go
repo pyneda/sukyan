@@ -20,6 +20,7 @@ var crawlMaxPages int
 var crawlExcludePatterns []string
 var workspaceID uint
 var scanTests []string
+var scanTitle string
 
 // scanCmd represents the audit command
 var scanCmd = &cobra.Command{
@@ -66,7 +67,7 @@ var scanCmd = &cobra.Command{
 		engine := scan.NewScanEngine(generators, 100, 30, interactionsManager)
 		engine.Start()
 
-		engine.CrawlAndAudit(startURLs, crawlMaxPages, crawlDepth, pagesPoolSize, true, crawlExcludePatterns, workspaceID)
+		engine.CrawlAndAudit(startURLs, crawlMaxPages, crawlDepth, pagesPoolSize, true, crawlExcludePatterns, workspaceID, scanTitle)
 		oobWait := time.Duration(viper.GetInt("scan.oob.wait_after_scan"))
 		log.Info().Msgf("Audit finished, waiting %d seconds for possible interactions...", oobWait)
 		time.Sleep(oobWait * time.Second)
@@ -87,4 +88,5 @@ func init() {
 	scanCmd.Flags().StringArrayVar(&crawlExcludePatterns, "exclude-pattern", nil, "URL patterns to ignore when crawling")
 	scanCmd.Flags().IntVar(&crawlDepth, "depth", 5, "Max crawl depth")
 	scanCmd.Flags().StringArrayVar(&scanTests, "test", nil, "Tests to run (all by default)")
+	scanCmd.Flags().StringVar(&scanTitle, "title", "Scan", "Scan title")
 }

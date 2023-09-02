@@ -32,6 +32,10 @@ definitions:
         items:
           type: string
         type: array
+      title:
+        maxLength: 255
+        minLength: 1
+        type: string
       workspace_id:
         minimum: 0
         type: integer
@@ -865,8 +869,8 @@ paths:
       description: Allows to filter and search task jobs
       parameters:
       - description: Task ID
-        in: path
-        name: query
+        in: query
+        name: task
         required: true
         type: integer
       - default: 50

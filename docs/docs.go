@@ -829,8 +829,8 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Task ID",
-                        "name": "query",
-                        "in": "path",
+                        "name": "task",
+                        "in": "query",
                         "required": true
                     },
                     {
@@ -1164,6 +1164,11 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
                 },
                 "workspace_id": {
                     "type": "integer",

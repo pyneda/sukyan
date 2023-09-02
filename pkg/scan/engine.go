@@ -141,17 +141,18 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History, workspaceID uint, task
 	db.Connection.UpdateTaskJob(taskJob)
 }
 
-func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, pagesPoolSize int, waitCompletion bool, excludePatterns []string, workspaceID uint) {
-	task, err := db.Connection.NewTask(workspaceID, "crawl")
+func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, pagesPoolSize int, waitCompletion bool, excludePatterns []string, workspaceID uint, scanTitle string) {
+	task, err := db.Connection.NewTask(workspaceID, scanTitle, "crawl")
 	if err != nil {
 		log.Error().Err(err).Msg("Could not create task")
 	}
+	scanLog := log.With().Uint("task", task.ID).Str("title", scanTitle).Uint("workspace", workspaceID).Logger()
 	crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, excludePatterns, workspaceID)
 	historyItems := crawler.Run()
 	uniqueHistoryItems := removeDuplicateHistoryItems(historyItems)
-	log.Info().Int("count", len(uniqueHistoryItems)).Msg("Crawling finished, scheduling active scans")
+	scanLog.Info().Int("count", len(uniqueHistoryItems)).Msg("Crawling finished, scheduling active scans")
 	fingerprints := passive.FingerprintHistoryItems(uniqueHistoryItems)
-	log.Info().Int("count", len(fingerprints)).Interface("fingerprints", fingerprints).Msg("Gathered fingerprints")
+	scanLog.Info().Int("count", len(fingerprints)).Interface("fingerprints", fingerprints).Msg("Gathered fingerprints")
 
 	baseURLs, err := lib.GetUniqueBaseURLs(startUrls)
 	if err != nil {
@@ -162,10 +163,10 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 	if viper.GetBool("integrations.nuclei.enabled") {
 		db.Connection.SetTaskStatus(task.ID, db.TaskStatusNuclei)
 		nucleiTags := passive.GetUniqueNucleiTags(fingerprints)
-		log.Info().Int("count", len(nucleiTags)).Interface("tags", nucleiTags).Msg("Gathered tags from fingerprints for Nuclei scan")
+		scanLog.Info().Int("count", len(nucleiTags)).Interface("tags", nucleiTags).Msg("Gathered tags from fingerprints for Nuclei scan")
 		nucleiScanErr := integrations.NucleiScan(baseURLs, workspaceID)
 		if nucleiScanErr != nil {
-			log.Error().Err(nucleiScanErr).Msg("Error running nuclei scan")
+			scanLog.Error().Err(nucleiScanErr).Msg("Error running nuclei scan")
 		}
 	}
 
@@ -179,11 +180,11 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 		go retireScanner.HistoryScan(historyItem)
 		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, workspaceID, task.ID)
 	}
-	log.Info().Msg("Active scans scheduled")
+	scanLog.Info().Msg("Active scans scheduled")
 	if waitCompletion {
 		time.Sleep(3 * time.Second)
 		s.wg.Wait()
-		log.Info().Msg("Active scans finished")
+		scanLog.Info().Msg("Active scans finished")
 	}
 	db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
 

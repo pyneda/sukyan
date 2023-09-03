@@ -23,7 +23,7 @@ type TaskJob struct {
 	StartedAt   time.Time     `json:"started_at"`
 	CompletedAt time.Time     `json:"completed_at"`
 	HistoryID   uint          `json:"history_id"`
-	History     History       `json:"-" gorm:"foreignKey:HistoryID"`
+	History     History       `json:"history" gorm:"foreignKey:HistoryID"`
 }
 
 type TaskJobFilter struct {
@@ -35,36 +35,35 @@ type TaskJobFilter struct {
 }
 
 func (d *DatabaseConnection) ListTaskJobs(filter TaskJobFilter) (items []*TaskJob, count int64, err error) {
-	filterQuery := make(map[string]interface{})
+    filterQuery := make(map[string]interface{})
 
-	if len(filter.Statuses) > 0 {
-		filterQuery["status"] = filter.Statuses
-	}
+    if len(filter.Statuses) > 0 {
+        filterQuery["status"] = filter.Statuses
+    }
 
-	if len(filter.Titles) > 0 {
-		filterQuery["title"] = filter.Titles
-	}
+    if len(filter.Titles) > 0 {
+        filterQuery["title"] = filter.Titles
+    }
 
-	// if filter.CompletedAt != nil {
-	// 	filterQuery["completed_at"] = filter.CompletedAt
-	// }
+    if filter.TaskID != 0 {
+        filterQuery["task_id"] = filter.TaskID
+    }
 
-	if filter.TaskID != 0 {
-		filterQuery["task_id"] = filter.TaskID
-	}
+    query := d.db.Preload("History")  // Eager load History
 
-	if filterQuery != nil && len(filterQuery) > 0 {
-		err = d.db.Scopes(Paginate(&filter.Pagination)).Where(filterQuery).Order("created_at desc").Find(&items).Error
-		d.db.Model(&TaskJob{}).Where(filterQuery).Count(&count)
-	} else {
-		err = d.db.Scopes(Paginate(&filter.Pagination)).Order("created_at desc").Find(&items).Error
-		d.db.Model(&TaskJob{}).Count(&count)
-	}
+    if filterQuery != nil && len(filterQuery) > 0 {
+        err = query.Scopes(Paginate(&filter.Pagination)).Where(filterQuery).Order("created_at desc").Find(&items).Error
+        d.db.Model(&TaskJob{}).Where(filterQuery).Count(&count)
+    } else {
+        err = query.Scopes(Paginate(&filter.Pagination)).Order("created_at desc").Find(&items).Error
+        d.db.Model(&TaskJob{}).Count(&count)
+    }
 
-	log.Info().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Int("total_results", len(items)).Msg("Getting task job items")
+    log.Info().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Int("total_results", len(items)).Msg("Getting task job items")
 
-	return items, count, err
+    return items, count, err
 }
+
 
 func (d *DatabaseConnection) NewTaskJob(taskID uint, title string, status TaskJobStatus, historyID uint) (*TaskJob, error) {
 	task := &TaskJob{

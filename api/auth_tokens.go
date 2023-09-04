@@ -12,6 +12,12 @@ type Renew struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type RenewTokensResponse struct {
+	Error bool `json:"error"`
+	Msg    string      `json:"msg"`
+	Tokens auth.Tokens `json:"tokens"`
+}
+
 // RenewTokens method for renew access and refresh tokens.
 // @Description Renew access and refresh tokens.
 // @Summary renew access and refresh tokens
@@ -19,7 +25,8 @@ type Renew struct {
 // @Accept json
 // @Produce json
 // @Param refresh_token body Renew true "Refresh token"
-// @Success 200 {string} status "ok"
+// @Success 200 {object} RenewTokensResponse
+// @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/auth/token/renew [post]
 func RenewTokens(c *fiber.Ctx) error {

@@ -142,7 +142,7 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 }
 
 type FullScanInput struct {
-	Title 				 string   `json:"title" validate:"omitempty,min=1,max=255"`
+	Title           string   `json:"title" validate:"omitempty,min=1,max=255"`
 	StartURLs       []string `json:"start_urls" validate:"required,dive,url"`
 	MaxDepth        int      `json:"max_depth" validate:"min=0"`
 	MaxPagesToCrawl int      `json:"max_pages_to_crawl" validate:"min=0"`

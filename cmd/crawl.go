@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/crawl"
 	"os"
 
@@ -30,8 +31,10 @@ to quickly create a Cobra application.`,
 			log.Error().Msg("At least one crawl starting url should be provided")
 			os.Exit(1)
 		}
+		headers := lib.ParseHeadersStringToMap(requestsHeadersString)
+
 		log.Info().Strs("startUrls", startUrls).Int("count", len(startUrls)).Msg("Creating and scheduling the crawler")
-		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns, workspaceID)
+		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, headers)
 		crawler.Run()
 	},
 }
@@ -43,4 +46,5 @@ func init() {
 	crawlCmd.Flags().IntVar(&pagesPoolSize, "pool-size", 4, "Page pool size")
 	crawlCmd.Flags().IntVar(&depth, "depth", 0, "Max crawl depth")
 	crawlCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
+	crawlCmd.Flags().StringVarP(&requestsHeadersString, "headers", "H", "", "Headers to use in requests")
 }

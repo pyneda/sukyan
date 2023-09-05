@@ -141,13 +141,13 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History, workspaceID uint, task
 	db.Connection.UpdateTaskJob(taskJob)
 }
 
-func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, pagesPoolSize int, waitCompletion bool, excludePatterns []string, workspaceID uint, scanTitle string) {
+func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, pagesPoolSize int, waitCompletion bool, excludePatterns []string, workspaceID uint, scanTitle string, extraHeaders map[string][]string) {
 	task, err := db.Connection.NewTask(workspaceID, scanTitle, "crawl")
 	if err != nil {
 		log.Error().Err(err).Msg("Could not create task")
 	}
 	scanLog := log.With().Uint("task", task.ID).Str("title", scanTitle).Uint("workspace", workspaceID).Logger()
-	crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, excludePatterns, workspaceID)
+	crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, excludePatterns, workspaceID, extraHeaders)
 	historyItems := crawler.Run()
 	uniqueHistoryItems := removeDuplicateHistoryItems(historyItems)
 	scanLog.Info().Int("count", len(uniqueHistoryItems)).Msg("Crawling finished, scheduling active scans")

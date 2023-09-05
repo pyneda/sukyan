@@ -186,15 +186,15 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 	if urlStr == "" {
 		urlStr = history.URL
 	}
-	if len(headers) == 0 {
-		h, err := history.GetRequestHeadersAsMap()
-		if err != nil {
-			return nil, err
-		}
-		for name, values := range h {
-			headers[name] = values
-		}
-	}
+	// if len(headers) == 0 {
+	// 	h, err := history.GetRequestHeadersAsMap()
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	for name, values := range h {
+	// 		headers[name] = values
+	// 	}
+	// }
 
 	req, err := http.NewRequest(history.Method, urlStr, requestBody)
 	if err != nil {

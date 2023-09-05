@@ -18,6 +18,12 @@ definitions:
         items:
           type: string
         type: array
+      headers:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
       max_depth:
         minimum: 0
         type: integer

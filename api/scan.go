@@ -142,13 +142,14 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 }
 
 type FullScanInput struct {
-	Title           string   `json:"title" validate:"omitempty,min=1,max=255"`
-	StartURLs       []string `json:"start_urls" validate:"required,dive,url"`
-	MaxDepth        int      `json:"max_depth" validate:"min=0"`
-	MaxPagesToCrawl int      `json:"max_pages_to_crawl" validate:"min=0"`
-	ExcludePatterns []string `json:"exclude_patterns"`
-	WorkspaceID     uint     `json:"workspace_id" validate:"required,min=0"`
-	PagesPoolSize   int      `json:"pages_pool_size" validate:"min=1,max=100"`
+	Title           string              `json:"title" validate:"omitempty,min=1,max=255"`
+	StartURLs       []string            `json:"start_urls" validate:"required,dive,url"`
+	MaxDepth        int                 `json:"max_depth" validate:"min=0"`
+	MaxPagesToCrawl int                 `json:"max_pages_to_crawl" validate:"min=0"`
+	ExcludePatterns []string            `json:"exclude_patterns"`
+	WorkspaceID     uint                `json:"workspace_id" validate:"required,min=0"`
+	PagesPoolSize   int                 `json:"pages_pool_size" validate:"min=1,max=100"`
+	Headers         map[string][]string `json:"headers" validate:"omitempty"`
 }
 
 // FullScanHandler godoc
@@ -200,7 +201,7 @@ func FullScanHandler(c *fiber.Ctx) error {
 		input.ExcludePatterns,
 		input.WorkspaceID,
 		input.Title,
-		nil,
+		input.Headers,
 	)
 
 	return c.JSON(fiber.Map{

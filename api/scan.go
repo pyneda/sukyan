@@ -200,6 +200,7 @@ func FullScanHandler(c *fiber.Ctx) error {
 		input.ExcludePatterns,
 		input.WorkspaceID,
 		input.Title,
+		nil,
 	)
 
 	return c.JSON(fiber.Map{

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
@@ -21,6 +22,7 @@ var crawlExcludePatterns []string
 var workspaceID uint
 var scanTests []string
 var scanTitle string
+var requestsHeadersString string
 
 // scanCmd represents the audit command
 var scanCmd = &cobra.Command{
@@ -56,6 +58,9 @@ var scanCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		headers := lib.ParseHeadersStringToMap(requestsHeadersString)
+		log.Info().Interface("headers", headers).Msg("Parsed headers")
+
 		oobPollingInterval := time.Duration(viper.GetInt("scan.oob.poll_interval"))
 		log.Info().Strs("urls", startURLs).Int("count", len(startURLs)).Msg("Starting the audit")
 		interactionsManager := &integrations.InteractionsManager{
@@ -67,7 +72,7 @@ var scanCmd = &cobra.Command{
 		engine := scan.NewScanEngine(generators, 100, 30, interactionsManager)
 		engine.Start()
 
-		engine.CrawlAndAudit(startURLs, crawlMaxPages, crawlDepth, pagesPoolSize, true, crawlExcludePatterns, workspaceID, scanTitle)
+		engine.CrawlAndAudit(startURLs, crawlMaxPages, crawlDepth, pagesPoolSize, true, crawlExcludePatterns, workspaceID, scanTitle, headers)
 		oobWait := time.Duration(viper.GetInt("scan.oob.wait_after_scan"))
 		log.Info().Msgf("Audit finished, waiting %d seconds for possible interactions...", oobWait)
 		time.Sleep(oobWait * time.Second)
@@ -88,5 +93,6 @@ func init() {
 	scanCmd.Flags().StringArrayVar(&crawlExcludePatterns, "exclude-pattern", nil, "URL patterns to ignore when crawling")
 	scanCmd.Flags().IntVar(&crawlDepth, "depth", 5, "Max crawl depth")
 	scanCmd.Flags().StringArrayVar(&scanTests, "test", nil, "Tests to run (all by default)")
-	scanCmd.Flags().StringVar(&scanTitle, "title", "Scan", "Scan title")
+	scanCmd.Flags().StringVarP(&scanTitle, "title", "t", "Scan", "Scan title")
+	scanCmd.Flags().StringVar(&requestsHeadersString, "headers", "H", "Headers to use for requests")
 }

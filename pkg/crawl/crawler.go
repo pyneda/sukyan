@@ -15,10 +15,14 @@ import (
 	"time"
 )
 
+type CrawlOptions struct {
+	ExtraHeaders    map[string][]string
+	MaxDepth        int
+	MaxPagesToCrawl int
+}
 type Crawler struct {
+	Options                 CrawlOptions
 	scope                   scope.Scope
-	maxPagesToCrawl         int
-	maxDepth                int
 	startURLs               []string
 	excludePatterns         []string
 	ignoredExtensions       []string
@@ -56,9 +60,13 @@ type SubmittedForm struct {
 	xpath string
 }
 
-func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID uint) *Crawler {
+func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID uint, extraHeaders map[string][]string) *Crawler {
 	hijackChan := make(chan browser.HijackResult)
-
+	options := CrawlOptions{
+		ExtraHeaders:    extraHeaders,
+		MaxDepth:        maxDepth,
+		MaxPagesToCrawl: maxPagesToCrawl,
+	}
 	browser := browser.NewHijackedPagePoolManager(
 		browser.PagePoolManagerConfig{
 			PoolSize: poolSize,
@@ -68,8 +76,7 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 		workspaceID,
 	)
 	return &Crawler{
-		maxPagesToCrawl:   maxPagesToCrawl,
-		maxDepth:          maxDepth,
+		Options:           options,
 		startURLs:         startURLs,
 		excludePatterns:   excludePatterns,
 		concLimit:         make(chan struct{}, poolSize+2), // Set max concurrency
@@ -104,8 +111,8 @@ func (c *Crawler) Run() []*db.History {
 				for _, url := range hijackResult.DiscoveredURLs {
 					// Checking if max pages to crawl are reached
 					c.counterLock.Lock()
-					if c.maxPagesToCrawl != 0 && c.pageCounter >= c.maxPagesToCrawl {
-						log.Info().Uint("workspace", c.workspaceID).Int("max_pages_to_crawl", c.maxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Stopping crawler hijacking due to max pages to crawl")
+					if c.Options.MaxPagesToCrawl != 0 && c.pageCounter >= c.Options.MaxPagesToCrawl {
+						log.Info().Uint("workspace", c.workspaceID).Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Stopping crawler hijacking due to max pages to crawl")
 						c.counterLock.Unlock()
 						return // terminate the goroutine
 					}
@@ -114,7 +121,7 @@ func (c *Crawler) Run() []*db.History {
 					depth := lib.CalculateURLDepth(url)
 
 					// If the URL is within the depth limit, schedule it for crawling
-					if c.maxDepth == 0 || depth <= c.maxDepth {
+					if c.Options.MaxDepth == 0 || depth <= c.Options.MaxDepth {
 						c.wg.Add(1)
 						go c.crawlPage(&CrawlItem{url: url, depth: depth})
 						log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Msg("Scheduled page to crawl from hijack result")
@@ -152,10 +159,10 @@ func (c *Crawler) CreateScopeFromProvidedUrls() {
 }
 
 func (c *Crawler) isAllowedCrawlDepth(item *CrawlItem) bool {
-	if c.maxDepth == 0 {
+	if c.Options.MaxDepth == 0 {
 		return true
 	}
-	return item.depth <= c.maxDepth
+	return item.depth <= c.Options.MaxDepth
 }
 
 func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
@@ -199,6 +206,14 @@ func (c *Crawler) getBrowserPage() *rod.Page {
 	if securityEnableError != nil {
 		log.Error().Err(securityEnableError).Msg("Error enabling browser security events")
 	}
+	if c.Options.ExtraHeaders != nil {
+		extraHeaders := browser.ConvertToNetworkHeaders(c.Options.ExtraHeaders)
+		page.EnableDomain(&proto.NetworkEnable{})
+		err := proto.NetworkSetExtraHTTPHeaders{Headers: extraHeaders}.Call(page)
+		if err != nil {
+			log.Error().Err(err).Interface("headers", extraHeaders).Msg("Error setting extra HTTP headers")
+		}
+	}
 	return page
 }
 
@@ -213,8 +228,8 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	}
 	// Increment pageCounter
 	c.counterLock.Lock()
-	if c.maxPagesToCrawl != 0 && c.pageCounter >= c.maxPagesToCrawl {
-		log.Debug().Uint("workspace", c.workspaceID).Int("max_pages_to_crawl", c.maxPagesToCrawl).Int("crawled", c.pageCounter).Str("url", item.url).Msg("Crawler skipping page due to having reached max pages to crawl")
+	if c.Options.MaxPagesToCrawl != 0 && c.pageCounter >= c.Options.MaxPagesToCrawl {
+		log.Debug().Uint("workspace", c.workspaceID).Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Str("url", item.url).Msg("Crawler skipping page due to having reached max pages to crawl")
 		c.counterLock.Unlock()
 		return
 	}

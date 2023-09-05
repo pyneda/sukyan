@@ -1143,6 +1143,15 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "max_depth": {
                     "type": "integer",
                     "minimum": 0

@@ -13,7 +13,7 @@ type Renew struct {
 }
 
 type RenewTokensResponse struct {
-	Error bool `json:"error"`
+	Error  bool        `json:"error"`
 	Msg    string      `json:"msg"`
 	Tokens auth.Tokens `json:"tokens"`
 }

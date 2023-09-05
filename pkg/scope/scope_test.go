@@ -15,6 +15,10 @@ func TestStrictScope(t *testing.T) {
 		scope:  "strict",
 	})
 	testScope.ScopeItems = append(testScope.ScopeItems, DomainScope{
+		domain: "127.0.0.1",
+		scope:  "strict",
+	})
+	testScope.ScopeItems = append(testScope.ScopeItems, DomainScope{
 		domain: "xyz.com",
 	})
 	if !testScope.IsInScope("https://test.com/xyz/2?q=test") {
@@ -36,6 +40,9 @@ func TestStrictScope(t *testing.T) {
 		t.Error()
 	}
 	if testScope.IsInScope("https://xyz.xyz.com") {
+		t.Error()
+	}
+	if !testScope.IsInScope("https://127.0.0.1:8000") {
 		t.Error()
 	}
 }

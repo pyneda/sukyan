@@ -43,14 +43,23 @@ func (s *Scope) CreateScopeItemsFromUrls(paths []string, scope string) {
 func (s *Scope) IsInScope(path string) bool {
 	u, err := tld.Parse(path)
 	if err != nil {
+		// tld.Parse failed; falling back to url.Parse for localhost check
+		parsedURL, err := url.Parse(path)
+		if err == nil && parsedURL.Hostname() == "localhost" {
+			// Handle localhost special case
+			for _, scopeItem := range s.ScopeItems {
+				if scopeItem.domain == "localhost" {
+					return true
+				}
+			}
+			return false
+		}
 		log.Error().Err(err).Str("url", path).Msg("Url to check if is in scope seems not valid. Assuming it is not in scope, this should be reviewed.")
 		return false
 	}
-	//host, _, _ := net.SplitHostPort(u.Host)
+
 	tld := fmt.Sprintf("%s.%s", u.Domain, u.TLD)
-	// wwwTld := fmt.Sprintf("%s.%s", "www", tld)
 	host := u.Hostname()
-	// fmt.Printf("Tld: %s  wwwTld: %s  Host: %s", tld, wwwTld, host)
 
 	for _, scopeItem := range s.ScopeItems {
 		switch scopeItem.scope {

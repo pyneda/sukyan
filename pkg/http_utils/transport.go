@@ -32,10 +32,14 @@ func CreateHttpTransport() *http.Transport {
 			DualStack: true,
 		}).DialContext,
 		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		MaxConnsPerHost:       100,
+		DisableKeepAlives:     false,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig: &tls.Config{
+			Renegotiation:      tls.RenegotiateOnceAsClient,
 			InsecureSkipVerify: true,
 		},
 	}

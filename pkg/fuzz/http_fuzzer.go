@@ -128,6 +128,7 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 			response, err := http_utils.SendRequest(f.client, req)
 			if err != nil {
 				taskLog.Error().Err(err).Msg("Error making request")
+				continue
 			}
 			responseData, err := http_utils.ReadFullResponse(response)
 			if err != nil {

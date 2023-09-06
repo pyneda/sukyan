@@ -31,15 +31,15 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 
 	router.MustAdd("*", func(ctx *rod.Hijack) {
 
-		// ctx.MustLoadResponse()
 		err := ctx.LoadResponse(http.DefaultClient, true)
+		mustSkip := false
 
 		if err != nil {
 			log.Error().Err(err).Str("url", ctx.Request.URL().String()).Msg("Error loading hijacked response")
+			mustSkip = true
 		}
 
 		// contentType := ctx.Response.Headers().Get("Content-Type")
-		mustSkip := false
 		for _, skipWord := range ignoreKeywords {
 			if strings.Contains(ctx.Request.URL().Host, skipWord) == true {
 				mustSkip = true

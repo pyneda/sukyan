@@ -10,6 +10,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
+	"strings"
 	"sync"
 	"time"
 )
@@ -146,6 +147,8 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 	if err != nil {
 		log.Error().Err(err).Msg("Could not create task")
 	}
+	ignoredExtensions := viper.GetStringSlice("crawl.ignored_extensions")
+
 	scanLog := log.With().Uint("task", task.ID).Str("title", scanTitle).Uint("workspace", workspaceID).Logger()
 	crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, excludePatterns, workspaceID, extraHeaders)
 	historyItems := crawler.Run()
@@ -178,6 +181,19 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 			continue
 		}
 		go retireScanner.HistoryScan(historyItem)
+
+		shouldSkip := false
+
+		for _, extension := range ignoredExtensions {
+			if strings.HasSuffix(historyItem.URL, extension) {
+				shouldSkip = true
+				break
+			}
+		}
+
+		if shouldSkip {
+			continue
+		}
 		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, workspaceID, task.ID)
 	}
 	scanLog.Info().Msg("Active scans scheduled")

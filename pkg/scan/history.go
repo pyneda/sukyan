@@ -65,12 +65,12 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 		// pathTraversal.Run()
 	}
 
-	sni := active.SNIAudit{
-		HistoryItem:         item,
-		InteractionsManager: interactionsManager,
-		WorkspaceID:         workspaceID,
-	}
-	sni.Run()
+	// sni := active.SNIAudit{
+	// 	HistoryItem:         item,
+	// 	InteractionsManager: interactionsManager,
+	// 	WorkspaceID:         workspaceID,
+	// }
+	// sni.Run()
 	methods := active.HTTPMethodsAudit{
 		HistoryItem: item,
 		Concurrency: 5,
@@ -78,20 +78,20 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	}
 	methods.Run()
 
-	if viper.GetBool("scan.insertion_points.headers") {
-		log4shell := active.Log4ShellInjectionAudit{
-			URL:                 item.URL,
-			Concurrency:         10,
-			InteractionsManager: interactionsManager,
-			WorkspaceID:         workspaceID,
-		}
-		log4shell.Run()
-		hostHeader := active.HostHeaderInjectionAudit{
-			URL:         item.URL,
-			Concurrency: 10,
-			WorkspaceID: workspaceID,
-		}
-		hostHeader.Run()
+	// if viper.GetBool("scan.insertion_points.headers") {
+	log4shell := active.Log4ShellInjectionAudit{
+		URL:                 item.URL,
+		Concurrency:         10,
+		InteractionsManager: interactionsManager,
+		WorkspaceID:         workspaceID,
 	}
+	log4shell.Run()
+	hostHeader := active.HostHeaderInjectionAudit{
+		URL:         item.URL,
+		Concurrency: 10,
+		WorkspaceID: workspaceID,
+	}
+	hostHeader.Run()
+	// }
 	log.Info().Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Msg("Finished scanning history item")
 }

@@ -91,3 +91,78 @@ func IsCommonHTTPHeader(headerKey string) bool {
 
 	return commonHeaders[canonicalHeaderKey]
 }
+
+// ClassifyHTTPResponseHeader classifies a given HTTP response header key by its purpose.
+func ClassifyHTTPResponseHeader(headerKey string) string {
+	headerCategories := map[string]map[string]bool{
+		"Caching": {
+			"Age":           true,
+			"Cache-Control": true,
+			"Expires":       true,
+			"Pragma":        true,
+			"Vary":          true,
+			"Warning":       true,
+		},
+		"Security": {
+			"Access-Control-Allow-Origin":      true,
+			"Access-Control-Allow-Methods":     true,
+			"Access-Control-Allow-Headers":     true,
+			"Access-Control-Allow-Credentials": true,
+			"Access-Control-Max-Age":           true,
+			"Access-Control-Expose-Headers":    true,
+			"Access-Control-Request-Method":    true,
+			"Access-Control-Request-Headers":   true,
+			"Strict-Transport-Security":        true,
+			"Content-Security-Policy":          true,
+			"X-Content-Type-Options":           true,
+			"X-XSS-Protection":                 true,
+			"X-Frame-Options":                  true,
+		},
+		"Transport": {
+			"Transfer-Encoding": true,
+			"Trailer":           true,
+			"Connection":        true,
+			"Keep-Alive":        true,
+			"Upgrade":           true,
+		},
+		"Information": {
+			"Allow":       true,
+			"Date":        true,
+			"Location":    true,
+			"Retry-After": true,
+			"Server":      true,
+			"Via":         true,
+		},
+		"Content": {
+			"Accept-Ranges":    true,
+			"Content-Encoding": true,
+			"Content-Language": true,
+			"Content-Length":   true,
+			"Content-Location": true,
+			"Content-MD5":      true,
+			"Content-Range":    true,
+			"Content-Type":     true,
+			"ETag":             true,
+			"Last-Modified":    true,
+		},
+		"Rate-Limiting": {
+			"RateLimit-Limit":     true,
+			"RateLimit-Remaining": true,
+			"RateLimit-Reset":     true,
+		},
+		"Authentication": {
+			"WWW-Authenticate": true,
+			"Set-Cookie":       true,
+		},
+	}
+
+	// Normalize the header key to capitalize each word, similar to the canonical MIME header key format
+	canonicalHeaderKey := strings.Title(headerKey)
+
+	for category, headers := range headerCategories {
+		if headers[canonicalHeaderKey] {
+			return category
+		}
+	}
+	return "Uncommon"
+}

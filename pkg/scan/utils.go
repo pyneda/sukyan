@@ -2,6 +2,8 @@ package scan
 
 import (
 	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
+	"net/url"
 )
 
 type UniqueHistoryidentifiers struct {
@@ -32,4 +34,22 @@ func removeDuplicateHistoryItems(histories []*db.History) []*db.History {
 	}
 
 	return result
+}
+
+// SeparateHistoriesByBaseURL takes a slice of db.History and returns them separated by base URL in a map.
+func separateHistoriesByBaseURL(histories []*db.History) map[string][]*db.History {
+	baseURLMap := make(map[string][]*db.History)
+
+	for _, history := range histories {
+		parsedURL, err := url.Parse(history.URL)
+		if err != nil {
+			log.Error().Err(err).Msg("Invalid URL")
+			continue
+		}
+
+		baseURL := parsedURL.Scheme + "://" + parsedURL.Host
+		baseURLMap[baseURL] = append(baseURLMap[baseURL], history)
+	}
+
+	return baseURLMap
 }

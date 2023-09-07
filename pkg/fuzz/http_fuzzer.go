@@ -173,6 +173,7 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 				taskLog.Warn().Msg("Vulnerable")
 				// Should handle the additional details and confidence
 				fullDetails := fmt.Sprintf("The following payload was inserted in the `%s` %s: %s\n\n%s", task.insertionPoint.Name, task.insertionPoint.Type, task.payload.Value, details)
+				// taskLog.Warn().Interface("newHistory", newHistory).Str("issue", string(issueCode)).Str("details", fullDetails).Int("confidence", confidence).Uint("wksp", f.WorkspaceID).Msg("Creating issue")
 				db.CreateIssueFromHistoryAndTemplate(newHistory, issueCode, fullDetails, confidence, "", &f.WorkspaceID)
 				// Avoid repeated issues: could also provide a issue type `variant` and handle the insertion point
 				if f.AvoidRepeatedIssues {

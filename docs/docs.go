@@ -870,6 +870,47 @@ const docTemplate = `{
                         "description": "Completed at date to filter",
                         "name": "completed_at",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of status codes to filter",
+                        "name": "status_codes",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of methods to filter",
+                        "name": "methods",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "id",
+                            "history_method",
+                            "history_url",
+                            "history_status",
+                            "history_parameters_count",
+                            "title",
+                            "status",
+                            "started_at",
+                            "completed_at",
+                            "created_at",
+                            "updated_at"
+                        ],
+                        "type": "string",
+                        "description": "Field to sort by",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "description": "Sort order",
+                        "name": "sort_order",
+                        "in": "query"
                     }
                 ],
                 "responses": {

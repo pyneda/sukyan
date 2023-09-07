@@ -900,6 +900,37 @@ paths:
         in: query
         name: completed_at
         type: string
+      - description: Comma-separated list of status codes to filter
+        in: query
+        name: status_codes
+        type: string
+      - description: Comma-separated list of methods to filter
+        in: query
+        name: methods
+        type: string
+      - description: Field to sort by
+        enum:
+        - id
+        - history_method
+        - history_url
+        - history_status
+        - history_parameters_count
+        - title
+        - status
+        - started_at
+        - completed_at
+        - created_at
+        - updated_at
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_order
+        type: string
       produces:
       - application/json
       responses:

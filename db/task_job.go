@@ -2,6 +2,7 @@ package db
 
 import (
 	"github.com/rs/zerolog/log"
+	"strings"
 	"time"
 )
 
@@ -68,10 +69,16 @@ func (d *DatabaseConnection) ListTaskJobs(filter TaskJobFilter) (items []*TaskJo
 
 	// Filters related to History
 	if len(filter.StatusCodes) > 0 {
-		query = query.Joins("JOIN histories ON histories.id = task_jobs.history_id").Where("histories.status_code IN ?", filter.StatusCodes)
+		query = query.Where("histories.status_code IN ?", filter.StatusCodes)
 	}
 	if len(filter.Methods) > 0 {
-		query = query.Joins("JOIN histories ON histories.id = task_jobs.history_id").Where("histories.method IN ?", filter.Methods)
+		query = query.Where("histories.method IN ?", filter.Methods)
+	}
+
+	needsHistoryJoin := len(filter.StatusCodes) > 0 || len(filter.Methods) > 0 || strings.HasPrefix(filter.SortBy, "history_")
+
+	if needsHistoryJoin {
+		query = query.Joins("JOIN histories ON histories.id = task_jobs.history_id")
 	}
 
 	// Sorting

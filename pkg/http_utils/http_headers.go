@@ -130,7 +130,6 @@ func ClassifyHTTPResponseHeader(headerKey string) string {
 			"Date":        true,
 			"Location":    true,
 			"Retry-After": true,
-			"Server":      true,
 			"Via":         true,
 		},
 		"Content": {
@@ -153,6 +152,15 @@ func ClassifyHTTPResponseHeader(headerKey string) string {
 		"Authentication": {
 			"WWW-Authenticate": true,
 			"Set-Cookie":       true,
+		},
+		"Fingerprint": {
+			"Server":           true,
+			"X-Powered-By":     true,
+			"X-AspNet-Version": true,
+			"X-Runtime":        true,
+			"X-Version":        true,
+			"X-Generator":      true,
+			"X-Drupal-Cache":   true,
 		},
 	}
 

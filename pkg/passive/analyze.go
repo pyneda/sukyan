@@ -71,11 +71,11 @@ func getOccurrencesReport(data map[string]*HeaderData) string {
 
 	reportBuilder.WriteString("Find below a list of headers found in the responses of the target application during the crawl phase.\n\n")
 
-	reportBuilder.WriteString("Uncommon Headers:\n\n")
+	reportBuilder.WriteString("Uncommon Headers:\n")
 	reportBuilder.WriteString("--------------------------------\n\n")
 	reportBuilder.WriteString(strings.Join(uncommonHeaders, "\n"))
 
-	reportBuilder.WriteString("Common Headers:\n")
+	reportBuilder.WriteString("\n\nCommon Headers:\n")
 	reportBuilder.WriteString("--------------------------------\n\n")
 	reportBuilder.WriteString(strings.Join(commonHeaders, "\n"))
 

@@ -24,7 +24,7 @@ func (generator *PayloadGenerator) BuildPayloads(interactionsManager integration
 	for _, tmpl := range generator.Templates {
 		vars, interactionDomain, err := GenerateVars(generator.Vars, interactionsManager)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to generate vars")
+			log.Error().Err(err).Str("template", tmpl).Msg("Failed to generate vars")
 			continue
 		}
 		result, err := ApplyVarsToText(tmpl, vars)
@@ -72,13 +72,15 @@ func GenerateVars(variables []PayloadVariable, interactionsManager integrations.
 	for _, v := range variables {
 		t, err := template.New("").Funcs(renderer.getTemplateFuncs()).Parse(v.Value)
 		if err != nil {
-			return nil, integrations.InteractionDomain{}, fmt.Errorf("failed to parse template: %v", err)
+			log.Error().Err(err).Str("template", v.Value).Msg("Failed to parse template when generating vars")
+			return nil, integrations.InteractionDomain{}, fmt.Errorf("failed to parse template when generating vars: %v", err)
 		}
 
 		var buf bytes.Buffer
 		err = t.Execute(&buf, nil)
 		if err != nil {
-			return nil, integrations.InteractionDomain{}, fmt.Errorf("failed to execute template: %v", err)
+			log.Error().Err(err).Str("template", v.Value).Msg("Failed to execute template when generating vars")
+			return nil, integrations.InteractionDomain{}, fmt.Errorf("failed to execute template when generating vars: %v", err)
 		}
 
 		vars[v.Name] = buf.String()
@@ -91,14 +93,14 @@ func ApplyVarsToText(text string, vars map[string]string) (string, error) {
 	t, err := template.New("").Parse(text)
 
 	if err != nil {
-		log.Error().Err(err).Msgf("Failed to parse template %s", text)
-		return "", fmt.Errorf("failed to parse template: %v", err)
+		log.Error().Err(err).Msgf("Failed to parse template when applying vars: %s", text)
+		return "", fmt.Errorf("failed to parse template when applying vars: %v", err)
 	}
 
 	var buf bytes.Buffer
 	err = t.Execute(&buf, vars)
 	if err != nil {
-		return "", fmt.Errorf("failed to execute template: %v", err)
+		return "", fmt.Errorf("failed to execute applying vars to template: %v", err)
 	}
 
 	return buf.String(), nil

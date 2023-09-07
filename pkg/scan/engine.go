@@ -157,6 +157,11 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 	fingerprints := passive.FingerprintHistoryItems(uniqueHistoryItems)
 	scanLog.Info().Int("count", len(fingerprints)).Interface("fingerprints", fingerprints).Msg("Gathered fingerprints")
 
+	historiesByBaseURL := separateHistoriesByBaseURL(uniqueHistoryItems)
+	for baseURL, histories := range historiesByBaseURL {
+		passive.AnalyzeHeaders(baseURL, histories)
+	}
+
 	baseURLs, err := lib.GetUniqueBaseURLs(startUrls)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get unique base urls")
@@ -174,6 +179,7 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 	}
 
 	retireScanner := integrations.NewRetireScanner()
+
 	db.Connection.SetTaskStatus(task.ID, db.TaskStatusScanning)
 
 	for _, historyItem := range uniqueHistoryItems {

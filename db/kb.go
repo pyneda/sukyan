@@ -57,6 +57,7 @@ var (
 	ClientSidePrototypePollutionCode     IssueCode = "client_side_prototype_pollution"
 	VulnerableJavascriptDependencyCode   IssueCode = "vulnerable_javascript_dependency"
 	ExposedAPICredentialsCode            IssueCode = "exposed_api_credentials"
+	HeaderInsightsReportCode             IssueCode = "header_insights_report"
 )
 
 type IssueTemplate struct {
@@ -496,6 +497,17 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "High",
 		References: []string{
 			"https://support.google.com/googleapi/answer/6310037?hl=en",
+		},
+	},
+	{
+		Code:        HeaderInsightsReportCode,
+		Title:       "Header Insights Report",
+		Description: "This report offers a comprehensive overview of the HTTP headers used by the application. While HTTP headers can provide important information about security controls, technology stacks, and other aspects, this report is intended for informational purposes and is not indicative of security vulnerabilities.",
+		Remediation: "No remediation steps are required, as this report is intended for informational purposes. However, the insights can be valuable for understanding the application's behavior, debugging issues, or for future security assessments.",
+		Cwe:         0, // No CWE as this is informational
+		Severity:    "Info",
+		References: []string{
+			"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers",
 		},
 	},
 }

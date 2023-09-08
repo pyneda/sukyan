@@ -10,11 +10,6 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "Contact",
-            "email": "contact@sukyan.com"
-        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",

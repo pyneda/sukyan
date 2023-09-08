@@ -160,6 +160,10 @@ func SetDefaultConfig() {
 	viper.SetDefault("api.listen.port", 8013)
 	viper.SetDefault("api.docs.enabled", false)
 	viper.SetDefault("api.docs.path", "/docs")
+	viper.SetDefault("api.metrics.enabled", false)
+	viper.SetDefault("api.metrics.path", "/metrics")
+	viper.SetDefault("api.metrics.title", "Sukyan Metrics")
+
 	viper.SetDefault("api.cors.origins", []string{"http://localhost:3001", "http://127.0.0.1:3001"})
 	viper.SetDefault("api.auth.jwt_secret_key", "ch4ng3Th1sToAS3cr3tK3y")
 	viper.SetDefault("api.auth.jwt_secret_expire_minutes", 15)

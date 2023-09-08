@@ -27,7 +27,7 @@ type HijackResult struct {
 
 func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, workspaceID uint) {
 	router := browser.HijackRequests()
-	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "127.0.0.2"}
+	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
 
 	router.MustAdd("*", func(ctx *rod.Hijack) {
 

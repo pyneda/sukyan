@@ -5,6 +5,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
+	"github.com/gofiber/fiber/v2/middleware/monitor"
 
 	"github.com/gofiber/swagger"
 	"github.com/pyneda/sukyan/db"
@@ -71,8 +72,13 @@ func StartAPI() {
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("API Running")
 	})
+
 	if viper.GetBool("api.docs.enabled") {
 		app.Get(fmt.Sprintf("%v/*", viper.GetString("api.docs.path")), swagger.HandlerDefault)
+	}
+
+	if viper.GetBool("api.metrics.enabled") {
+		app.Get(fmt.Sprintf("%v/*", viper.GetString("api.metrics.path")), monitor.New(monitor.Config{Title: viper.GetString("api.metrics.title")}))
 	}
 
 	api := app.Group("/api/v1")

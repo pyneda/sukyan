@@ -896,10 +896,6 @@ paths:
         in: query
         name: title
         type: string
-      - description: Completed at date to filter
-        in: query
-        name: completed_at
-        type: string
       - description: Comma-separated list of status codes to filter
         in: query
         name: status_codes

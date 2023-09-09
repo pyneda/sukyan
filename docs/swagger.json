@@ -859,12 +859,6 @@
                     },
                     {
                         "type": "string",
-                        "description": "Completed at date to filter",
-                        "name": "completed_at",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
                         "description": "Comma-separated list of status codes to filter",
                         "name": "status_codes",
                         "in": "query"

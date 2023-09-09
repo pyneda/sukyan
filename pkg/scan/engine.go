@@ -154,12 +154,15 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 	historyItems := crawler.Run()
 	uniqueHistoryItems := removeDuplicateHistoryItems(historyItems)
 	scanLog.Info().Int("count", len(uniqueHistoryItems)).Msg("Crawling finished, scheduling active scans")
-	fingerprints := passive.FingerprintHistoryItems(uniqueHistoryItems)
+	fingerprints := make([]passive.Fingerprint, 0)
 	scanLog.Info().Int("count", len(fingerprints)).Interface("fingerprints", fingerprints).Msg("Gathered fingerprints")
 
 	historiesByBaseURL := separateHistoriesByBaseURL(uniqueHistoryItems)
 	for baseURL, histories := range historiesByBaseURL {
 		passive.AnalyzeHeaders(baseURL, histories)
+		newFingerprints := passive.FingerprintHistoryItems(histories)
+		passive.ReportFingerprints(baseURL, newFingerprints, workspaceID)
+		fingerprints = append(fingerprints, newFingerprints...)
 	}
 
 	baseURLs, err := lib.GetUniqueBaseURLs(startUrls)

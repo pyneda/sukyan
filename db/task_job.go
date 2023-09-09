@@ -20,7 +20,7 @@ type TaskJob struct {
 	Title       string        `json:"title"`
 	TaskID      uint          `json:"task_id"`
 	Task        Task          `json:"-" gorm:"foreignKey:TaskID"`
-	Status      TaskJobStatus `json:"status"`
+	Status      TaskJobStatus `gorm:"index" json:"status"`
 	StartedAt   time.Time     `json:"started_at"`
 	CompletedAt time.Time     `json:"completed_at"`
 	HistoryID   uint          `json:"history_id"`

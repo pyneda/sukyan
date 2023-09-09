@@ -8,7 +8,7 @@ import (
 type Task struct {
 	BaseModel
 	Title       string    `json:"title"`
-	Status      string    `json:"status"`
+	Status      string    `gorm:"index" json:"status"`
 	StartedAt   time.Time `json:"started_at"`
 	FinishedAt  time.Time `json:"finished_at"`
 	Workspace   Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`

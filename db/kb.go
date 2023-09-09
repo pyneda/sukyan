@@ -58,6 +58,7 @@ var (
 	VulnerableJavascriptDependencyCode   IssueCode = "vulnerable_javascript_dependency"
 	ExposedAPICredentialsCode            IssueCode = "exposed_api_credentials"
 	HeaderInsightsReportCode             IssueCode = "header_insights_report"
+	TechStackFingerprintCode             IssueCode = "tech_stack_fingerprint"
 )
 
 type IssueTemplate struct {
@@ -508,6 +509,18 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "Info",
 		References: []string{
 			"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers",
+		},
+	},
+	{
+		Code:        TechStackFingerprintCode,
+		Title:       "Technology Stack Fingerprint Report",
+		Description: "This report provides a detailed fingerprint of the technology stack used by the target application. It identifies various technologies such as CMS platforms, JavaScript libraries, server software, and more. Knowing the technologies in use can offer insights into potential vulnerabilities and areas for further investigation.",
+		Remediation: "No remediation steps are required, as this report is intended for informational purposes. However, understanding the technologies in use can be valuable for identifying potential vulnerabilities specific to those technologies.",
+		Cwe:         0, // No CWE as this is informational
+		Severity:    "Info",
+		References: []string{
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server",
+			"https://www.wappalyzer.com/",
 		},
 	},
 }

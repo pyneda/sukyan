@@ -6,6 +6,9 @@ import (
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
+	"github.com/rs/zerolog/log"
+	"sort"
+
 	"strings"
 )
 
@@ -69,4 +72,44 @@ func GetUniqueNucleiTags(fingerprints []Fingerprint) []string {
 	uniqueTags := lib.GetUniqueItems(tags)
 
 	return uniqueTags
+}
+
+func ReportFingerprints(baseURL string, fingerprints []Fingerprint, workspaceID uint) {
+	details := getFingerprintsReport(fingerprints)
+
+	issueTemplate := db.GetIssueTemplateByCode(db.TechStackFingerprintCode)
+	issueTemplate.Details = details
+	issueTemplate.Confidence = 100
+	issueTemplate.WorkspaceID = &workspaceID
+	issueTemplate.URL = baseURL
+
+	created, err := db.Connection.CreateIssue(*issueTemplate)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create TechStackFingerprintCode issue")
+		return
+	}
+
+	log.Info().Msgf("Successfully created issue: %v", created)
+}
+
+func getFingerprintsReport(fingerprints []Fingerprint) string {
+	var reportBuilder strings.Builder
+	reportBuilder.WriteString("Find below a list of technologies found in the target application during the crawl phase.\n\n")
+
+	// Sort fingerprints by their Name for better readability
+	sort.Slice(fingerprints, func(i, j int) bool {
+		return fingerprints[i].Name < fingerprints[j].Name
+	})
+
+	// Append each fingerprint to the report
+	for _, fp := range fingerprints {
+		fpInfo := fmt.Sprintf("  * %s", fp.Name)
+		if fp.Version != "" {
+			fpInfo += fmt.Sprintf(" (Version: %s)", fp.Version)
+		}
+		fpInfo += "\n"
+		reportBuilder.WriteString(fpInfo)
+	}
+
+	return reportBuilder.String()
 }

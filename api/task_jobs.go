@@ -21,7 +21,6 @@ import (
 // @Param page query int false "Page number" default(1)
 // @Param status query string false "Comma-separated list of statuses to filter"
 // @Param title query string false "Comma-separated list of titles to filter"
-// @Param completed_at query string false "Completed at date to filter"
 // @Param status_codes query string false "Comma-separated list of status codes to filter"
 // @Param methods query string false "Comma-separated list of methods to filter"
 // @Param sort_by query string false "Field to sort by" Enums(id, history_method, history_url, history_status, history_parameters_count, title, status, started_at, completed_at, created_at, updated_at)
@@ -34,7 +33,6 @@ func FindTaskJobs(c *fiber.Ctx) error {
 	unparsedPage := c.Query("page", "1")
 	unparsedStatuses := c.Query("status")
 	unparsedTitles := c.Query("title")
-	unparsedCompletedAt := c.Query("completed_at")
 	unparsedStatusCodes := c.Query("status_codes")
 	unparsedMethods := c.Query("methods")
 	unparsedSortBy := c.Query("sort_by")
@@ -52,7 +50,6 @@ func FindTaskJobs(c *fiber.Ctx) error {
 	var titles []string
 	var statusCodes []int
 	var methods []string
-	var completedAt time.Time
 
 	pageSize, err := strconv.Atoi(unparsedPageSize)
 	if err != nil {
@@ -72,14 +69,6 @@ func FindTaskJobs(c *fiber.Ctx) error {
 
 	if unparsedTitles != "" {
 		titles = append(titles, strings.Split(unparsedTitles, ",")...)
-	}
-
-	if unparsedCompletedAt != "" {
-		completedAt, err = time.Parse(time.RFC3339, unparsedCompletedAt)
-		if err != nil {
-			log.Error().Err(err).Msg("Error parsing completed_at parameter query")
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid completed_at parameter"})
-		}
 	}
 
 	if unparsedStatusCodes != "" {
@@ -110,7 +99,6 @@ func FindTaskJobs(c *fiber.Ctx) error {
 		},
 		Statuses:    statuses,
 		Titles:      titles,
-		CompletedAt: &completedAt,
 		TaskID:      taskID,
 		StatusCodes: statusCodes,
 		Methods:     methods,

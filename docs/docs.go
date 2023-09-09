@@ -10,6 +10,11 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "Contact",
+            "email": "contact@sukyan.com"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -858,12 +863,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Comma-separated list of titles to filter",
                         "name": "title",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Completed at date to filter",
-                        "name": "completed_at",
                         "in": "query"
                     },
                     {

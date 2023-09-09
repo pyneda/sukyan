@@ -17,8 +17,8 @@ type OOBTest struct {
 	Target            string    `json:"target"`
 	HistoryID         *uint     `json:"history_id"`
 	HistoryItem       *History  `gorm:"foreignKey:HistoryID" json:"-"`
-	InteractionDomain string    `json:"interaction_domain"`
-	InteractionFullID string    `json:"interaction_id"`
+	InteractionDomain string    `gorm:"index" json:"interaction_domain"`
+	InteractionFullID string    `gorm:"index" json:"interaction_id"`
 	Payload           string    `json:"payload"`
 	InsertionPoint    string    `json:"insertion_point"`
 	Workspace         Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`

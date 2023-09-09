@@ -11,7 +11,7 @@ type WebSocketConnection struct {
 	URL             string             `json:"url"`
 	RequestHeaders  datatypes.JSON     `json:"request_headers"`
 	ResponseHeaders datatypes.JSON     `json:"response_headers"`
-	StatusCode      int                `json:"status_code"`
+	StatusCode      int                `gorm:"index" json:"status_code"`
 	StatusText      string             `json:"status_text"`
 	Messages        []WebSocketMessage `json:"messages" gorm:"foreignKey:ConnectionID"`
 	ClosedAt        time.Time          `json:"closed_at"` // timestamp for when the connection is closed
@@ -30,10 +30,10 @@ type WebSocketMessage struct {
 	BaseModel
 	ConnectionID uint             `json:"connection_id"`
 	Opcode       float64          `json:"opcode"`
-	Mask         bool             `json:"mask"`
+	Mask         bool             `gorm:"index" json:"mask"`
 	PayloadData  string           `json:"payload_data"`
-	Timestamp    time.Time        `json:"timestamp"` // timestamp for when the message was sent/received
-	Direction    MessageDirection `json:"direction"` // direction of the message
+	Timestamp    time.Time        `json:"timestamp"`              // timestamp for when the message was sent/received
+	Direction    MessageDirection `gorm:"index" json:"direction"` // direction of the message
 }
 
 func (d *DatabaseConnection) CreateWebSocketConnection(connection *WebSocketConnection) error {

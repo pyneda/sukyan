@@ -19,20 +19,20 @@ type History struct {
 	Depth                int            `gorm:"index" json:"depth"`
 	RequestHeaders       datatypes.JSON `json:"request_headers" swaggertype:"array`
 	RequestBody          []byte         `json:"request_body"`
-	RequestBodySize      int            `json:"request_body_size"`
+	RequestBodySize      int            `gorm:"index" json:"request_body_size"`
 	RequestContentLength int64          `json:"request_content_length"`
 	ResponseHeaders      datatypes.JSON `json:"response_headers" swaggertype:"array"`
 	ResponseBody         []byte         `json:"response_body"`
-	RequestContentType   string         `json:"request_content_type"`
-	ResponseBodySize     int            `json:"response_body_size"`
-	ResponseContentType  string         `json:"response_content_type"`
+	RequestContentType   string         `gorm:"index" json:"request_content_type"`
+	ResponseBodySize     int            `gorm:"index" json:"response_body_size"`
+	ResponseContentType  string         `gorm:"index" json:"response_content_type"`
 	RawRequest           []byte         `json:"raw_request"`
 	RawResponse          []byte         `json:"raw_response"`
 	Method               string         `gorm:"index" json:"method"`
-	ParametersCount      int            `json:"parameters_count"`
-	Evaluated            bool           `json:"evaluated"`
+	ParametersCount      int            `gorm:"index" json:"parameters_count"`
+	Evaluated            bool           `gorm:"index" json:"evaluated"`
 	Note                 string         `json:"note"`
-	Source               string         `json:"source"`
+	Source               string         `gorm:"index" json:"source"`
 	JsonWebTokens        []JsonWebToken `gorm:"many2many:json_web_token_histories" json:"json_web_tokens"`
 	Workspace            Workspace      `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID          *uint          `json:"workspace_id" gorm:"index"`

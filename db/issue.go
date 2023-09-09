@@ -19,8 +19,8 @@ type Issue struct {
 	Payload       string      `json:"payload"`
 	Request       []byte      `json:"request"`
 	Response      []byte      `json:"response"`
-	FalsePositive bool        `json:"false_positive"`
-	Confidence    int         `json:"confidence"`
+	FalsePositive bool        `gorm:"index" json:"false_positive"`
+	Confidence    int         `gorm:"index" json:"confidence"`
 	References    StringSlice `json:"references"`
 	Severity      severity    `gorm:"type:severity;default:'Info'" json:"severity"`
 	CURLCommand   string      `json:"curl_command"`

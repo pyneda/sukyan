@@ -1,14 +1,12 @@
 package api
 
 import (
+	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 // @Summary Search Task Jobs

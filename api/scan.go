@@ -141,30 +141,19 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 	})
 }
 
-type FullScanInput struct {
-	Title           string              `json:"title" validate:"omitempty,min=1,max=255"`
-	StartURLs       []string            `json:"start_urls" validate:"required,dive,url"`
-	MaxDepth        int                 `json:"max_depth" validate:"min=0"`
-	MaxPagesToCrawl int                 `json:"max_pages_to_crawl" validate:"min=0"`
-	ExcludePatterns []string            `json:"exclude_patterns"`
-	WorkspaceID     uint                `json:"workspace_id" validate:"required,min=0"`
-	PagesPoolSize   int                 `json:"pages_pool_size" validate:"min=1,max=100"`
-	Headers         map[string][]string `json:"headers" validate:"omitempty"`
-}
-
 // FullScanHandler godoc
 // @Summary Submit URLs for full scanning
 // @Description Receives a list of URLs and other parameters and schedules them for a full scan
 // @Tags Scan
 // @Accept  json
 // @Produce  json
-// @Param input body FullScanInput true "Configuration for full scan"
+// @Param input body scan.FullScanOptions true "Configuration for full scan"
 // @Success 200 {object} ActionResponse
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scan/full [post]
 func FullScanHandler(c *fiber.Ctx) error {
-	input := new(FullScanInput)
+	input := new(scan.FullScanOptions)
 
 	if err := c.BodyParser(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -192,17 +181,7 @@ func FullScanHandler(c *fiber.Ctx) error {
 	}
 
 	engine := c.Locals("engine").(*scan.ScanEngine)
-	go engine.CrawlAndAudit(
-		input.StartURLs,
-		input.MaxPagesToCrawl,
-		input.MaxDepth,
-		input.PagesPoolSize,
-		false,
-		input.ExcludePatterns,
-		input.WorkspaceID,
-		input.Title,
-		input.Headers,
-	)
+	go engine.FullScan(*input, false)
 
 	return c.JSON(fiber.Map{
 		"message": "Full scan scheduled",

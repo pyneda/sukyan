@@ -182,13 +182,19 @@ func GetChildren(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(childrenSummaries)
 }
 
+type RootNode struct {
+	ID    uint   `json:"id"`
+	Depth int    `json:"depth"`
+	URL   string `json:"url"`
+}
+
 // @Summary Gets all root history nodes
 // @Description Get all the root history items
 // @Tags History
 // @Accept  json
 // @Produce  json
 // @Param workspace query integer true "Workspace ID to filter by"
-// @Success 200 {array} HistorySummary
+// @Success 200 {array} RootNode
 // @Failure 400,404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history/root-nodes [get]
@@ -205,19 +211,15 @@ func GetRootNodes(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	// map to the HistorySummary type
-	childrenSummaries := make([]HistorySummary, len(children))
+	nodes := make([]RootNode, len(children))
 	for i, child := range children {
-		childrenSummaries[i] = HistorySummary{
-			ID:              child.ID,
-			Depth:           child.Depth,
-			URL:             child.URL,
-			StatusCode:      child.StatusCode,
-			Method:          child.Method,
-			ParametersCount: child.ParametersCount,
+		nodes[i] = RootNode{
+			ID:    child.ID,
+			Depth: child.Depth,
+			URL:   child.URL,
 		}
 	}
 
 	// return the response
-	return c.Status(fiber.StatusOK).JSON(childrenSummaries)
+	return c.Status(fiber.StatusOK).JSON(nodes)
 }

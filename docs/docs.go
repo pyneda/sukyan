@@ -255,7 +255,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/api.HistorySummary"
+                                "$ref": "#/definitions/api.RootNode"
                             }
                         }
                     },
@@ -1244,6 +1244,20 @@ const docTemplate = `{
                 },
                 "workspace_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "api.RootNode": {
+            "type": "object",
+            "properties": {
+                "depth": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
                 }
             }
         },

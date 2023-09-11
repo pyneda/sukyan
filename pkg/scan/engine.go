@@ -142,15 +142,27 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History, workspaceID uint, task
 	db.Connection.UpdateTaskJob(taskJob)
 }
 
-func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, pagesPoolSize int, waitCompletion bool, excludePatterns []string, workspaceID uint, scanTitle string, extraHeaders map[string][]string) {
-	task, err := db.Connection.NewTask(workspaceID, scanTitle, "crawl")
+type FullScanOptions struct {
+	Title           string              `json:"title" validate:"omitempty,min=1,max=255"`
+	StartURLs       []string            `json:"start_urls" validate:"required,dive,url"`
+	MaxDepth        int                 `json:"max_depth" validate:"min=0"`
+	MaxPagesToCrawl int                 `json:"max_pages_to_crawl" validate:"min=0"`
+	ExcludePatterns []string            `json:"exclude_patterns"`
+	WorkspaceID     uint                `json:"workspace_id" validate:"required,min=0"`
+	PagesPoolSize   int                 `json:"pages_pool_size" validate:"min=1,max=100"`
+	Headers         map[string][]string `json:"headers" validate:"omitempty"`
+	InsertionPoints []string            `json:"insertion_points" validate:"omitempty,dive,oneof=url body header cookie"`
+}
+
+func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
+	task, err := db.Connection.NewTask(options.WorkspaceID, options.Title, "crawl")
 	if err != nil {
 		log.Error().Err(err).Msg("Could not create task")
 	}
 	ignoredExtensions := viper.GetStringSlice("crawl.ignored_extensions")
 
-	scanLog := log.With().Uint("task", task.ID).Str("title", scanTitle).Uint("workspace", workspaceID).Logger()
-	crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, excludePatterns, workspaceID, extraHeaders)
+	scanLog := log.With().Uint("task", task.ID).Str("title", options.Title).Uint("workspace", options.WorkspaceID).Logger()
+	crawler := crawl.NewCrawler(options.StartURLs, options.MaxPagesToCrawl, options.MaxDepth, options.PagesPoolSize, options.ExcludePatterns, options.WorkspaceID, options.Headers)
 	historyItems := crawler.Run()
 	uniqueHistoryItems := removeDuplicateHistoryItems(historyItems)
 	scanLog.Info().Int("count", len(uniqueHistoryItems)).Msg("Crawling finished, scheduling active scans")
@@ -161,21 +173,20 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 	for baseURL, histories := range historiesByBaseURL {
 		passive.AnalyzeHeaders(baseURL, histories)
 		newFingerprints := passive.FingerprintHistoryItems(histories)
-		passive.ReportFingerprints(baseURL, newFingerprints, workspaceID)
+		passive.ReportFingerprints(baseURL, newFingerprints, options.WorkspaceID)
 		fingerprints = append(fingerprints, newFingerprints...)
 	}
 
-	baseURLs, err := lib.GetUniqueBaseURLs(startUrls)
+	baseURLs, err := lib.GetUniqueBaseURLs(options.StartURLs)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get unique base urls")
 	}
 
-	// Very basic initial integration, could probably launch it in parallel with other tasks
 	if viper.GetBool("integrations.nuclei.enabled") {
 		db.Connection.SetTaskStatus(task.ID, db.TaskStatusNuclei)
 		nucleiTags := passive.GetUniqueNucleiTags(fingerprints)
 		scanLog.Info().Int("count", len(nucleiTags)).Interface("tags", nucleiTags).Msg("Gathered tags from fingerprints for Nuclei scan")
-		nucleiScanErr := integrations.NucleiScan(baseURLs, workspaceID)
+		nucleiScanErr := integrations.NucleiScan(baseURLs, options.WorkspaceID)
 		if nucleiScanErr != nil {
 			scanLog.Error().Err(nucleiScanErr).Msg("Error running nuclei scan")
 		}
@@ -203,7 +214,7 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 		if shouldSkip {
 			continue
 		}
-		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, workspaceID, task.ID)
+		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, options.WorkspaceID, task.ID)
 	}
 	scanLog.Info().Msg("Active scans scheduled")
 	if waitCompletion {
@@ -212,5 +223,4 @@ func (s *ScanEngine) CrawlAndAudit(startUrls []string, maxPagesToCrawl, depth, p
 		scanLog.Info().Msg("Active scans finished")
 	}
 	db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
-
 }

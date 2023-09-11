@@ -30,7 +30,6 @@ type TaskJob struct {
 type TaskJobFilter struct {
 	Statuses    []string   `json:"statuses" validate:"omitempty,dive,oneof=scheduled running finished failed"`
 	Titles      []string   `json:"titles" validate:"omitempty,dive,ascii"`
-	CompletedAt *time.Time `json:"completed_at" validate:"omitempty"`
 	Pagination  Pagination `json:"pagination"`
 	TaskID      uint       `json:"task_id" validate:"omitempty,numeric"`
 	StatusCodes []int      `json:"status_codes" validate:"omitempty,dive,numeric"`

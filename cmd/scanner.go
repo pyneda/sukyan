@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/go-playground/validator/v10"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
@@ -23,6 +24,9 @@ var workspaceID uint
 var scanTests []string
 var scanTitle string
 var requestsHeadersString string
+var insertionPoints []string
+
+var validate = validator.New()
 
 // scanCmd represents the audit command
 var scanCmd = &cobra.Command{
@@ -61,6 +65,22 @@ var scanCmd = &cobra.Command{
 		headers := lib.ParseHeadersStringToMap(requestsHeadersString)
 		log.Info().Interface("headers", headers).Msg("Parsed headers")
 
+		options := scan.FullScanOptions{
+			Title:           scanTitle,
+			StartURLs:       startURLs,
+			MaxDepth:        crawlDepth,
+			MaxPagesToCrawl: crawlMaxPages,
+			ExcludePatterns: crawlExcludePatterns,
+			WorkspaceID:     workspaceID,
+			PagesPoolSize:   pagesPoolSize,
+			Headers:         headers,
+			InsertionPoints: insertionPoints,
+		}
+		if err := validate.Struct(options); err != nil {
+			log.Error().Err(err).Msg("Validation failed")
+			os.Exit(1)
+		}
+
 		oobPollingInterval := time.Duration(viper.GetInt("scan.oob.poll_interval"))
 		log.Info().Strs("urls", startURLs).Int("count", len(startURLs)).Msg("Starting the audit")
 		interactionsManager := &integrations.InteractionsManager{
@@ -71,8 +91,8 @@ var scanCmd = &cobra.Command{
 		interactionsManager.Start()
 		engine := scan.NewScanEngine(generators, 100, 30, interactionsManager)
 		engine.Start()
+		engine.FullScan(options, true)
 
-		engine.CrawlAndAudit(startURLs, crawlMaxPages, crawlDepth, pagesPoolSize, true, crawlExcludePatterns, workspaceID, scanTitle, headers)
 		oobWait := time.Duration(viper.GetInt("scan.oob.wait_after_scan"))
 		log.Info().Msgf("Audit finished, waiting %d seconds for possible interactions...", oobWait)
 		time.Sleep(oobWait * time.Second)
@@ -95,4 +115,6 @@ func init() {
 	scanCmd.Flags().StringArrayVar(&scanTests, "test", nil, "Tests to run (all by default)")
 	scanCmd.Flags().StringVarP(&scanTitle, "title", "t", "Scan", "Scan title")
 	scanCmd.Flags().StringVar(&requestsHeadersString, "headers", "H", "Headers to use for requests")
+	scanCmd.Flags().StringArrayVar(&insertionPoints, "insertion-points", nil, "Insertion points (url, body, header, cookie)")
+
 }

@@ -164,6 +164,10 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 	scanLog := log.With().Uint("task", task.ID).Str("title", options.Title).Uint("workspace", options.WorkspaceID).Logger()
 	crawler := crawl.NewCrawler(options.StartURLs, options.MaxPagesToCrawl, options.MaxDepth, options.PagesPoolSize, options.ExcludePatterns, options.WorkspaceID, options.Headers)
 	historyItems := crawler.Run()
+	if len(historyItems) == 0 {
+		scanLog.Info().Msg("No history items gathered during crawl, exiting")
+		return
+	}
 	uniqueHistoryItems := removeDuplicateHistoryItems(historyItems)
 	scanLog.Info().Int("count", len(uniqueHistoryItems)).Msg("Crawling finished, scheduling active scans")
 	fingerprints := make([]passive.Fingerprint, 0)

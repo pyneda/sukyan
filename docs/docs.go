@@ -682,7 +682,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.FullScanInput"
+                            "$ref": "#/definitions/scan.FullScanOptions"
                         }
                     }
                 ],
@@ -1165,58 +1165,6 @@ const docTemplate = `{
                 }
             }
         },
-        "api.FullScanInput": {
-            "type": "object",
-            "required": [
-                "start_urls",
-                "workspace_id"
-            ],
-            "properties": {
-                "exclude_patterns": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "headers": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "max_depth": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "max_pages_to_crawl": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "pages_pool_size": {
-                    "type": "integer",
-                    "maximum": 100,
-                    "minimum": 1
-                },
-                "start_urls": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "title": {
-                    "type": "string",
-                    "maxLength": 255,
-                    "minLength": 1
-                },
-                "workspace_id": {
-                    "type": "integer",
-                    "minimum": 0
-                }
-            }
-        },
         "api.HistorySummary": {
             "type": "object",
             "properties": {
@@ -1652,6 +1600,72 @@ const docTemplate = `{
                 "ReportFormatHTML",
                 "ReportFormatJSON"
             ]
+        },
+        "scan.FullScanOptions": {
+            "type": "object",
+            "required": [
+                "start_urls",
+                "workspace_id"
+            ],
+            "properties": {
+                "exclude_patterns": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "insertion_points": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "max_depth": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max_pages_to_crawl": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "fast",
+                        "smart",
+                        "fuzz"
+                    ]
+                },
+                "pages_pool_size": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 1
+                },
+                "start_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                },
+                "workspace_id": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
         }
     },
     "securityDefinitions": {

@@ -142,6 +142,14 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History, workspaceID uint, task
 	db.Connection.UpdateTaskJob(taskJob)
 }
 
+type ScanMode string
+
+var (
+	ScanModeFast  ScanMode = "fast"
+	ScanModeSmart ScanMode = "smart"
+	ScanModeFuzz  ScanMode = "fuzz"
+)
+
 type FullScanOptions struct {
 	Title           string              `json:"title" validate:"omitempty,min=1,max=255"`
 	StartURLs       []string            `json:"start_urls" validate:"required,dive,url"`
@@ -152,6 +160,7 @@ type FullScanOptions struct {
 	PagesPoolSize   int                 `json:"pages_pool_size" validate:"min=1,max=100"`
 	Headers         map[string][]string `json:"headers" validate:"omitempty"`
 	InsertionPoints []string            `json:"insertion_points" validate:"omitempty,dive,oneof=url body header cookie"`
+	Mode            ScanMode            `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
 }
 
 func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {

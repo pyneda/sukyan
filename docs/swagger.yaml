@@ -12,43 +12,6 @@ definitions:
       message:
         type: string
     type: object
-  api.FullScanInput:
-    properties:
-      exclude_patterns:
-        items:
-          type: string
-        type: array
-      headers:
-        additionalProperties:
-          items:
-            type: string
-          type: array
-        type: object
-      max_depth:
-        minimum: 0
-        type: integer
-      max_pages_to_crawl:
-        minimum: 0
-        type: integer
-      pages_pool_size:
-        maximum: 100
-        minimum: 1
-        type: integer
-      start_urls:
-        items:
-          type: string
-        type: array
-      title:
-        maxLength: 255
-        minLength: 1
-        type: string
-      workspace_id:
-        minimum: 0
-        type: integer
-    required:
-    - start_urls
-    - workspace_id
-    type: object
   api.HistorySummary:
     properties:
       depth:
@@ -345,6 +308,53 @@ definitions:
     x-enum-varnames:
     - ReportFormatHTML
     - ReportFormatJSON
+  scan.FullScanOptions:
+    properties:
+      exclude_patterns:
+        items:
+          type: string
+        type: array
+      headers:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      insertion_points:
+        items:
+          type: string
+        type: array
+      max_depth:
+        minimum: 0
+        type: integer
+      max_pages_to_crawl:
+        minimum: 0
+        type: integer
+      mode:
+        enum:
+        - fast
+        - smart
+        - fuzz
+        type: string
+      pages_pool_size:
+        maximum: 100
+        minimum: 1
+        type: integer
+      start_urls:
+        items:
+          type: string
+        type: array
+      title:
+        maxLength: 255
+        minLength: 1
+        type: string
+      workspace_id:
+        minimum: 0
+        type: integer
+    required:
+    - start_urls
+    - workspace_id
+    type: object
 info:
   contact:
     email: contact@sukyan.com
@@ -779,7 +789,7 @@ paths:
         name: input
         required: true
         schema:
-          $ref: '#/definitions/api.FullScanInput'
+          $ref: '#/definitions/scan.FullScanOptions'
       produces:
       - application/json
       responses:

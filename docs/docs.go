@@ -240,6 +240,15 @@ const docTemplate = `{
                     "History"
                 ],
                 "summary": "Gets all root history nodes",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID to filter by",
+                        "name": "workspace",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",

@@ -187,13 +187,20 @@ func GetChildren(c *fiber.Ctx) error {
 // @Tags History
 // @Accept  json
 // @Produce  json
+// @Param workspace query integer true "Workspace ID to filter by"
 // @Success 200 {array} HistorySummary
 // @Failure 400,404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history/root-nodes [get]
 func GetRootNodes(c *fiber.Ctx) error {
-	// retrieve all the children history items
-	children, err := db.Connection.GetRootHistoryNodes()
+	workspaceID, err := parseWorkspaceID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid workspace",
+			"message": "The provided workspace ID does not seem valid",
+		})
+	}
+	children, err := db.Connection.GetRootHistoryNodes(workspaceID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}

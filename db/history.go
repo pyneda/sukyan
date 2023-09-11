@@ -267,14 +267,18 @@ type HistorySummary struct {
 }
 
 func (d *DatabaseConnection) GetChildrenHistories(parent *History) ([]*HistorySummary, error) {
-
 	var children []*HistorySummary
-	// Query database for histories that have the same base URL and a depth equal to or greater than the parent
-	err := d.db.Model(&History{}).
+
+	query := d.db.Model(&History{}).
 		Select("MIN(id) as id, url, depth, method, status_code, parameters_count").
 		Where("depth >= ? AND depth <= ? AND url LIKE ?", parent.Depth, parent.Depth+1, parent.URL+"%").
-		Group("url, depth, method, status_code, parameters_count").
-		Scan(&children).Error
+		Group("url, depth, method, status_code, parameters_count")
+
+	if parent.WorkspaceID != nil {
+		query = query.Where("workspace_id = ?", *parent.WorkspaceID)
+	}
+
+	err := query.Scan(&children).Error
 	if err != nil {
 		return nil, err
 	}
@@ -282,17 +286,23 @@ func (d *DatabaseConnection) GetChildrenHistories(parent *History) ([]*HistorySu
 	return children, nil
 }
 
-func (d *DatabaseConnection) GetRootHistoryNodes() ([]*HistorySummary, error) {
+func (d *DatabaseConnection) GetRootHistoryNodes(workspaceID uint) ([]*HistorySummary, error) {
 	var rootChildren []*HistorySummary
-	err := d.db.Model(&History{}).
+	query := d.db.Model(&History{}).
 		Select("MIN(id) as id, url, depth, method, status_code, parameters_count").
 		Where("depth = 0 AND url LIKE ?", "%/").
 		Group("url, depth, method, status_code, parameters_count").
-		Order("url, parameters_count desc").
-		Scan(&rootChildren).Error
+		Order("url, parameters_count desc")
+
+	if workspaceID != 0 {
+		query = query.Where("workspace_id = ?", workspaceID)
+	}
+
+	err := query.Scan(&rootChildren).Error
 	if err != nil {
 		return nil, err
 	}
+
 	return rootChildren, nil
 }
 

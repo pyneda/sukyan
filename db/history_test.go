@@ -21,12 +21,13 @@ func TestGetChildrenHistories(t *testing.T) {
 }
 
 func TestGetRootHistoryNodes(t *testing.T) {
-	root1 := &History{Depth: 0, URL: "/root1/"}
-	root2 := &History{Depth: 0, URL: "/root2/"}
+	workspaceID := uint(1)
+	root1 := &History{Depth: 0, URL: "/root1/", WorkspaceID: &workspaceID}
+	root2 := &History{Depth: 0, URL: "/root2/", WorkspaceID: &workspaceID}
 	Connection.CreateHistory(root1)
 	Connection.CreateHistory(root2)
 
-	roots, err := Connection.GetRootHistoryNodes()
+	roots, err := Connection.GetRootHistoryNodes(workspaceID)
 	assert.Nil(t, err)
 	assert.Equal(t, true, len(roots) >= 2)
 }

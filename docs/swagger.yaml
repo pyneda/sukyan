@@ -537,6 +537,12 @@ paths:
       consumes:
       - application/json
       description: Get all the root history items
+      parameters:
+      - description: Workspace ID to filter by
+        in: query
+        name: workspace
+        required: true
+        type: integer
       produces:
       - application/json
       responses:

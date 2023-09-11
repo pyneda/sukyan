@@ -289,10 +289,10 @@ func (d *DatabaseConnection) GetChildrenHistories(parent *History) ([]*HistorySu
 func (d *DatabaseConnection) GetRootHistoryNodes(workspaceID uint) ([]*HistorySummary, error) {
 	var rootChildren []*HistorySummary
 	query := d.db.Model(&History{}).
-		Select("MIN(id) as id, url, depth, method, status_code, parameters_count").
+		Select("MIN(id) as id, url, depth").
 		Where("depth = 0 AND url LIKE ?", "%/").
-		Group("url, depth, method, status_code, parameters_count").
-		Order("url, parameters_count desc")
+		Group("url, depth").
+		Order("url desc")
 
 	if workspaceID != 0 {
 		query = query.Where("workspace_id = ?", workspaceID)

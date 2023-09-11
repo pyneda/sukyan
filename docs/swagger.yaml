@@ -59,6 +59,15 @@ definitions:
       workspace_id:
         type: integer
     type: object
+  api.RootNode:
+    properties:
+      depth:
+        type: integer
+      id:
+        type: integer
+      url:
+        type: string
+    type: object
   api.SignIn:
     properties:
       email:
@@ -550,7 +559,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/api.HistorySummary'
+              $ref: '#/definitions/api.RootNode'
             type: array
         "400":
           description: Bad Request

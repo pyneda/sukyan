@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 
+	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/swagger"
 	"github.com/pyneda/sukyan/db"
 	_ "github.com/pyneda/sukyan/docs"
@@ -18,25 +19,24 @@ import (
 	"github.com/spf13/viper"
 	"os"
 	"strings"
+
 	"time"
 )
 
 // @title Sukyan API
 // @version 0.1
 // @description The Sukyan API documentation.
-// @termsOfService http://swagger.io/terms/
-// @contact.name Contact
-// @contact.email contact@sukyan.com
-// @BasePath /
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
 // @name Authorization
 func StartAPI() {
-	log.Info().Msg("Initializing...")
+	apiLogger := log.With().Str("type", "api").Logger()
+
+	apiLogger.Info().Msg("Initializing...")
 	db.InitDb()
 	generators, err := generation.LoadGenerators(viper.GetString("generators.directory"))
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to load generators")
+		apiLogger.Error().Err(err).Msg("Failed to load generators")
 		os.Exit(1)
 	}
 	oobPollingInterval := time.Duration(viper.GetInt("scan.oob.poll_interval"))
@@ -50,7 +50,7 @@ func StartAPI() {
 	engine := scan.NewScanEngine(generators, 100, 100, interactionsManager)
 	engine.Start()
 
-	log.Info().Msg("Initialized everything. Starting the API...")
+	apiLogger.Info().Msg("Initialized everything. Starting the API...")
 
 	app := fiber.New(fiber.Config{
 		// Prefork:       true,
@@ -67,6 +67,10 @@ func StartAPI() {
 		AllowOrigins:  strings.Join(viper.GetStringSlice("api.cors.origins"), ","),
 		AllowHeaders:  "Origin, Content-Type, Accept, Authorization",
 		ExposeHeaders: "Content-Disposition",
+	}))
+
+	app.Use(fiberzerolog.New(fiberzerolog.Config{
+		Logger: &apiLogger,
 	}))
 
 	app.Get("/", func(c *fiber.Ctx) error {
@@ -130,13 +134,13 @@ func StartAPI() {
 
 	_, _, err = lib.EnsureCertificatesExist(certPath, keyPath, caCertPath, caKeyPath)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to load or generate certificates")
+		apiLogger.Error().Err(err).Msg("Failed to load or generate certificates")
 
 	}
 
 	listen_addres := fmt.Sprintf("%v:%v", viper.Get("api.listen.host"), viper.Get("api.listen.port"))
 	if err := app.ListenTLS(listen_addres, certPath, keyPath); err != nil {
-		log.Warn().Err(err).Msg("Error starting server")
+		apiLogger.Warn().Err(err).Msg("Error starting server")
 	}
 
 }

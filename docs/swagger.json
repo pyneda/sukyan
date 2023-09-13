@@ -3,14 +3,9 @@
     "info": {
         "description": "The Sukyan API documentation.",
         "title": "Sukyan API",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "Contact",
-            "email": "contact@sukyan.com"
-        },
+        "contact": {},
         "version": "0.1"
     },
-    "basePath": "/",
     "paths": {
         "/api/v1/auth/token/renew": {
             "post": {

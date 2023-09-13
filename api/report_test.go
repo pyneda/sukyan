@@ -15,23 +15,24 @@ import (
 
 func TestReportHandler(t *testing.T) {
 	// Initialize Fiber app
+	workspace, _ := db.Connection.CreateDefaultWorkspace()
+
 	app := fiber.New()
 	app.Post("/report", ReportHandler)
 
 	// Create some issues
-	workspaceID := uint(1)
 	issues := []db.Issue{
 		{
 			Code:        "ISSUE1",
 			Title:       "Test Issue 1",
 			Description: "Description 1",
-			WorkspaceID: &workspaceID,
+			WorkspaceID: &workspace.ID,
 		},
 		{
 			Code:        "ISSUE2",
 			Title:       "Test Issue 2",
 			Description: "Description 2",
-			WorkspaceID: &workspaceID,
+			WorkspaceID: &workspace.ID,
 		},
 	}
 
@@ -42,7 +43,7 @@ func TestReportHandler(t *testing.T) {
 
 	// Valid Request Payload for HTML
 	validHTMLPayload := ReportRequest{
-		WorkspaceID: workspaceID,
+		WorkspaceID: workspace.ID,
 		Title:       "Test HTML Report",
 		Format:      report.ReportFormatHTML,
 	}
@@ -68,7 +69,7 @@ func TestReportHandler(t *testing.T) {
 
 	// Valid Request Payload for JSON
 	validJSONPayload := ReportRequest{
-		WorkspaceID: workspaceID,
+		WorkspaceID: workspace.ID,
 		Title:       "Test JSON Report",
 		Format:      report.ReportFormatJSON,
 	}

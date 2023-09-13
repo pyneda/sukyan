@@ -1,9 +1,11 @@
 code: java_server_header
 title: Java Version Detected
-description: The application's server response header discloses the version of Java
+description:
+  The application's server response header discloses the version of Java
   in use. This could potentially provide valuable information to an attacker seeking
   to exploit a known vulnerability in the disclosed Java version.
-remediation: Configure your server to not disclose software version information in
+remediation:
+  Configure your server to not disclose software version information in
   its response headers. Alternatively, ensure your software versions are regularly
   updated to the latest versions, mitigating the risk of known vulnerabilities.
 cwe: 200

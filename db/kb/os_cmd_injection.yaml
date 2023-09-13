@@ -1,7 +1,8 @@
 code: os_cmd_injection
 title: OS Command Injection
 description: The application allows the execution of arbitrary operating system commands.
-remediation: Avoid using shell commands in application code. If unavoidable, use strongly
+remediation:
+  Avoid using shell commands in application code. If unavoidable, use strongly
   typed parameter APIs to prevent injection.
 cwe: 78
 severity: High

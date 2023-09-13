@@ -1,9 +1,11 @@
 code: database_errors
 title: Database Errors Detected
-description: The application exposes database errors, which can leak sensitive information
+description:
+  The application exposes database errors, which can leak sensitive information
   about the database setup and potentially the structure of the underlying data model.
   This could be valuable information for an attacker looking to exploit the application.
-remediation: Avoid exposing database errors publicly. Consider implementing a global
+remediation:
+  Avoid exposing database errors publicly. Consider implementing a global
   exception handler that can catch any unhandled exceptions and return a generic error
   message to the user. Detailed error information should be logged for debugging,
   but should not be exposed to the user or over insecure channels. Regular code reviews

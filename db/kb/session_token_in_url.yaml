@@ -1,8 +1,10 @@
 code: session_token_in_url
 title: Session Token In URL
-description: The application includes session tokens in URLs, potentially exposing
+description:
+  The application includes session tokens in URLs, potentially exposing
   sensitive data and enabling session hijacking.
-remediation: Do not include session tokens in URLs. Instead, use secure cookies to
+remediation:
+  Do not include session tokens in URLs. Instead, use secure cookies to
   manage sessions.
 cwe: 200
 severity: Medium

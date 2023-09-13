@@ -1,13 +1,15 @@
 code: vulnerable_javascript_dependency
 title: Vulnerable JavaScript Dependency
-description: The application appears to be using a version of a JavaScript library
+description:
+  The application appears to be using a version of a JavaScript library
   which is known to be vulnerable. Using out-of-date libraries can expose the application
   to security risks, as vulnerabilities in the code may be exploited by an attacker.
-remediation: Upgrade the vulnerable library to the latest version or to the minimum
+remediation:
+  Upgrade the vulnerable library to the latest version or to the minimum
   secure version. Ensure all other libraries and dependencies are also up-to-date
   to prevent similar issues. Regular dependency checks and vulnerability scanning
   can help keep your application secure.
 cwe: 937
 severity: Medium
 references:
-- https://owasp.org/www-project-top-ten/OWASP_Top_Ten_2017/Top_10-2017_A9-Using_Components_with_Known_Vulnerabilities
+  - https://owasp.org/www-project-top-ten/OWASP_Top_Ten_2017/Top_10-2017_A9-Using_Components_with_Known_Vulnerabilities

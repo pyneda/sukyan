@@ -1,8 +1,10 @@
 code: x_frame_options_header
 title: X-Frame-Options Header Missing or Incorrect
-description: The application does not correctly specify the X-Frame-Options header,
+description:
+  The application does not correctly specify the X-Frame-Options header,
   potentially leading to clickjacking attacks.
-remediation: Always specify a correct 'X-Frame-Options' header in the response. Recommended
+remediation:
+  Always specify a correct 'X-Frame-Options' header in the response. Recommended
   values are 'DENY' or 'SAMEORIGIN'.
 cwe: 346
 severity: Low

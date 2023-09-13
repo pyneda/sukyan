@@ -1,8 +1,10 @@
 code: private_keys
 title: Private Keys Detected
-description: The application exposes private keys, which can provide crucial information
+description:
+  The application exposes private keys, which can provide crucial information
   for potential attackers and expose the system to unauthorized access.
-remediation: Private keys must be kept confidential and should never be exposed or
+remediation:
+  Private keys must be kept confidential and should never be exposed or
   sent over insecure channels. If a private key has been exposed, it should be considered
   compromised and a new key pair should be generated.
 cwe: 522

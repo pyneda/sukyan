@@ -1,8 +1,10 @@
 code: file_upload_detected
 title: File Upload Detected
-description: The application allows file uploads, which can expose it to various security
+description:
+  The application allows file uploads, which can expose it to various security
   vulnerabilities if not properly managed.
-remediation: Ensure that file upload functionality is secured, including validating/sanitizing
+remediation:
+  Ensure that file upload functionality is secured, including validating/sanitizing
   uploaded files, setting proper file permissions, and storing files in a secure location.
 cwe: 434
 severity: Info

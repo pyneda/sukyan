@@ -1,12 +1,14 @@
 code: csrf
 title: Cross-Site Request Forgery Detected
-description: The application appears to be vulnerable to Cross-Site Request Forgery
+description:
+  The application appears to be vulnerable to Cross-Site Request Forgery
   (CSRF) attacks. This vulnerability occurs when the application allows an attacker
   to trick an authenticated user into performing an unwanted action without their
   consent. An attacker can exploit this vulnerability to carry out actions with the
   same permissions as the victim, potentially leading to unauthorized data access,
   data loss, or account compromise.
-remediation: To mitigate this vulnerability, ensure that the application uses anti-CSRF
+remediation:
+  To mitigate this vulnerability, ensure that the application uses anti-CSRF
   tokens in every form or state changing request. These tokens should be tied to a
   user's session and included in every form or AJAX request that might result in a
   change of state for the user's data or settings. Also, make sure the application
@@ -15,5 +17,5 @@ remediation: To mitigate this vulnerability, ensure that the application uses an
 cwe: 352
 severity: High
 references:
-- https://owasp.org/www-community/attacks/csrf
-- https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html
+  - https://owasp.org/www-community/attacks/csrf
+  - https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html

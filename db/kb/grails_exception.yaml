@@ -1,8 +1,10 @@
 code: grails_exception
 title: Grails Runtime Exception Detected
-description: The application exposes Grails runtime exceptions, which could provide
+description:
+  The application exposes Grails runtime exceptions, which could provide
   an attacker with valuable system information.
-remediation: Configure the application to not expose detailed error messages to end
+remediation:
+  Configure the application to not expose detailed error messages to end
   users.
 cwe: 209
 severity: Medium

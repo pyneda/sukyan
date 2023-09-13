@@ -1,13 +1,15 @@
 code: header_insights_report
 title: Header Insights Report
-description: This report offers a comprehensive overview of the HTTP headers used
+description:
+  This report offers a comprehensive overview of the HTTP headers used
   by the application. While HTTP headers can provide important information about security
   controls, technology stacks, and other aspects, this report is intended for informational
   purposes and is not indicative of security vulnerabilities.
-remediation: No remediation steps are required, as this report is intended for informational
+remediation:
+  No remediation steps are required, as this report is intended for informational
   purposes. However, the insights can be valuable for understanding the application's
   behavior, debugging issues, or for future security assessments.
 cwe: 0
 severity: Info
 references:
-- https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers
+  - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers

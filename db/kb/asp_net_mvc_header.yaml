@@ -1,6 +1,7 @@
 code: asp_net_mvc_header
 title: ASP.NET MVC Header Disclosure
-description: The application discloses the use of ASP.NET MVC. This could aid an attacker
+description:
+  The application discloses the use of ASP.NET MVC. This could aid an attacker
   in crafting ASP.NET MVC-specific exploits.
 remediation: Configure ASP.NET MVC to stop disclosing this information through headers.
 cwe: 200

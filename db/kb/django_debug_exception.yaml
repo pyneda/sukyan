@@ -1,8 +1,10 @@
 code: django_debug_exception
 title: Django Debug Page Exception Detected
-description: The application is running in Django's debug mode, which could expose
+description:
+  The application is running in Django's debug mode, which could expose
   sensitive information or debugging data.
-remediation: Ensure the application is running in production mode to prevent the exposure
+remediation:
+  Ensure the application is running in production mode to prevent the exposure
   of sensitive information.
 cwe: 215
 severity: Medium

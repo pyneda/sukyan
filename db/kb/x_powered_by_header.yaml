@@ -1,8 +1,10 @@
 code: x_powered_by_header
 title: X-Powered-By Header Disclosure
-description: The application discloses the technology it's using through the X-Powered-By
+description:
+  The application discloses the technology it's using through the X-Powered-By
   header, potentially aiding attackers in crafting specific exploits.
-remediation: Remove the 'X-Powered-By' header or configure your technology to stop
+remediation:
+  Remove the 'X-Powered-By' header or configure your technology to stop
   disclosing this information.
 cwe: 200
 severity: Low

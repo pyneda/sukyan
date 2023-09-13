@@ -1,9 +1,11 @@
 code: websocket_detected
 title: WebSockets in Use
-description: The application appears to be using WebSockets. This could potentially
+description:
+  The application appears to be using WebSockets. This could potentially
   lead to real-time interaction, data streaming, or possibly real-time vulnerability
   exploitation if not properly secured.
-remediation: Ensure that the WebSocket connection is secure (wss://) and that appropriate
+remediation:
+  Ensure that the WebSocket connection is secure (wss://) and that appropriate
   authentication, authorization, and validation measures are in place for any data
   transmitted over the WebSocket.
 cwe: 749

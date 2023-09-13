@@ -1,10 +1,12 @@
 code: incorrect_content_type_header
 title: Incorrect Content Type Header
-description: The application does not correctly specify the content type of the response,
+description:
+  The application does not correctly specify the content type of the response,
   potentially leading to security vulnerabilities such as MIME sniffing attacks.
-remediation: 'Always specify a correct ''Content-Type'' header in the response. Use
-  ''X-Content-Type-Options: nosniff'' to prevent the browser from MIME-sniffing a
-  response away from the declared content-type.'
+remediation:
+  "Always specify a correct 'Content-Type' header in the response. Use
+  'X-Content-Type-Options: nosniff' to prevent the browser from MIME-sniffing a
+  response away from the declared content-type."
 cwe: 16
 severity: Medium
 references: []

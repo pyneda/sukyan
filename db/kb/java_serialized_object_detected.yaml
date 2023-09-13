@@ -1,6 +1,7 @@
 code: java_serialized_object_detected
 title: Java serialized object resonse detected
-description: A java serialized object response has been detected, this would require
+description:
+  A java serialized object response has been detected, this would require
   further manual investigation to check for possible deserialization vulnerabilities
 remediation: N/A
 cwe: 0

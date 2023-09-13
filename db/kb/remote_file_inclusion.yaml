@@ -1,11 +1,13 @@
 code: remote_file_inclusion
 title: Remote File Inclusion Detected
-description: The application appears to be vulnerable to Remote File Inclusion (RFI)
+description:
+  The application appears to be vulnerable to Remote File Inclusion (RFI)
   attacks. This vulnerability occurs when the application uses user-supplied input
   to include remote files without properly sanitizing or validating the input first.
   An attacker can exploit this vulnerability to inject malicious scripts, potentially
   leading to unauthorized data access, data corruption, or even server takeover.
-remediation: To mitigate this vulnerability, avoid including files from remote servers
+remediation:
+  To mitigate this vulnerability, avoid including files from remote servers
   whenever possible. When it is necessary to do so, ensure that the remote file's
   location is hard-coded or otherwise not influenced by user input. Also, implement
   proper input validation and sanitization procedures. Regular code reviews and penetration
@@ -13,4 +15,4 @@ remediation: To mitigate this vulnerability, avoid including files from remote s
 cwe: 98
 severity: High
 references:
-- https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/07-Input_Validation_Testing/11.2-Testing_for_Remote_File_Inclusion
+  - https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/07-Input_Validation_Testing/11.2-Testing_for_Remote_File_Inclusion

@@ -1,7 +1,8 @@
 code: oob_communications
 title: Out of Band Communications
 description: The application sends sensitive information to an external server.
-remediation: Ensure all sensitive information is kept within the application and not
+remediation:
+  Ensure all sensitive information is kept within the application and not
   sent to external servers.
 cwe: 201
 severity: Medium

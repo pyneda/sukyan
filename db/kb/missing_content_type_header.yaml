@@ -1,18 +1,20 @@
 code: missing_content_type_header
 title: Missing Content Type Header
-description: The application does not appear to be setting a content type in the response
+description:
+  The application does not appear to be setting a content type in the response
   headers. This can lead to security vulnerabilities if the browser attempts to 'sniff'
   the MIME type, potentially leading to situations where content is interpreted and
   executed as a different type than intended. For example, an attacker might be able
   to trick a user's browser into interpreting a response body as HTML or JavaScript,
   leading to cross-site scripting vulnerabilities.
-remediation: 'To mitigate this vulnerability, ensure that all responses include a
+remediation:
+  "To mitigate this vulnerability, ensure that all responses include a
   Content-Type header that accurately reflects the type of content being returned.
-  If the content type is not known in advance, ''application/octet-stream'' can be
-  used as a general fallback. Avoid using ''text/plain'' as this can still be sniffed
-  in some situations. In addition, setting the ''X-Content-Type-Options: nosniff''
-  header will instruct the browser not to attempt to sniff the MIME type.'
+  If the content type is not known in advance, 'application/octet-stream' can be
+  used as a general fallback. Avoid using 'text/plain' as this can still be sniffed
+  in some situations. In addition, setting the 'X-Content-Type-Options: nosniff'
+  header will instruct the browser not to attempt to sniff the MIME type."
 cwe: 16
 severity: Info
 references:
-- https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options
+  - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options

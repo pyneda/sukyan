@@ -1,12 +1,14 @@
 code: crlf_injection
 title: CRLF Injection Detected
-description: The application appears to be vulnerable to CRLF (Carriage Return Line
+description:
+  The application appears to be vulnerable to CRLF (Carriage Return Line
   Feed) injection attacks. This vulnerability occurs when the application does not
   properly sanitize user-supplied input that is then used in HTTP headers. An attacker
   can exploit this vulnerability to manipulate HTTP headers and control the HTTP response
   body, potentially leading to HTTP response splitting, session hijacking, cross-site
   scripting (XSS) attacks, or other injection attacks.
-remediation: To mitigate this vulnerability, sanitize and validate all user-supplied
+remediation:
+  To mitigate this vulnerability, sanitize and validate all user-supplied
   inputs that are incorporated into HTTP headers. Remove or escape CRLF sequences
   and other control characters. Use allowlists of acceptable inputs, rather than denylists
   of bad inputs. In addition, configure your web server to ignore or reject HTTP headers
@@ -15,4 +17,4 @@ remediation: To mitigate this vulnerability, sanitize and validate all user-supp
 cwe: 93
 severity: Medium
 references:
-- https://owasp.org/www-community/vulnerabilities/CRLF_Injection
+  - https://owasp.org/www-community/vulnerabilities/CRLF_Injection

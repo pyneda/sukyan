@@ -1,12 +1,14 @@
 code: client_side_prototype_pollution
 title: Client-Side Prototype Pollution Detected
-description: The application appears to be vulnerable to Client-Side Prototype Pollution
+description:
+  The application appears to be vulnerable to Client-Side Prototype Pollution
   (CSPP) attacks. This vulnerability occurs when the application processes user-supplied
   input with the JavaScript function `Object.assign()`, or uses it to clone an object.
   An attacker can inject properties into object prototypes, potentially leading to
   a variety of impacts, including denial-of-service, alteration of script behavior,
   or cross-site scripting (XSS) if the polluted properties are used in a DOM context.
-remediation: To mitigate this vulnerability, avoid using the `Object.assign()` function
+remediation:
+  To mitigate this vulnerability, avoid using the `Object.assign()` function
   with user-supplied input. If user input must be used, ensure it is thoroughly validated
   and sanitized first. Implement proper input validation and sanitization procedures.
   Also, be aware of how your client-side code handles object properties and ensure
@@ -14,5 +16,5 @@ remediation: To mitigate this vulnerability, avoid using the `Object.assign()` f
 cwe: 20
 severity: Low
 references:
-- https://portswigger.net/web-security/prototype-pollution/client-side
-- https://book.hacktricks.xyz/pentesting-web/deserialization/nodejs-proto-prototype-pollution/client-side-prototype-pollution
+  - https://portswigger.net/web-security/prototype-pollution/client-side
+  - https://book.hacktricks.xyz/pentesting-web/deserialization/nodejs-proto-prototype-pollution/client-side-prototype-pollution

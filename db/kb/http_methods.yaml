@@ -1,7 +1,8 @@
 code: http_methods
 title: HTTP Methods
 description: The application allows the use of potentially dangerous HTTP methods.
-remediation: Make sure the HTTP Methods are properly configured and only the necessary
+remediation:
+  Make sure the HTTP Methods are properly configured and only the necessary
   ones are allowed.
 cwe: 20
 severity: Low

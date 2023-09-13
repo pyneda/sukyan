@@ -1,0 +1,9 @@
+code: strict_transport_security_header
+title: Strict-Transport-Security Header Misconfiguration
+description: The application's HTTP Strict Transport Security (HSTS) policy is misconfigured,
+  potentially leading to man-in-the-middle attacks.
+remediation: Configure your application's headers to properly set the HSTS policy,
+  including 'max-age' and optionally 'includeSubDomains' and 'preload'.
+cwe: 523
+severity: Low
+references: []

@@ -29,7 +29,7 @@ var xAspNetVersionHeaderCheck = HeaderCheck{
 	Headers:        []string{"X-AspNet-Version"},
 	Matchers:       []HeaderCheckMatcher{headerMatchAny},
 	MatchCondition: And,
-	IssueCode:      db.XASPVersionHeaderCode,
+	IssueCode:      db.XAspVersionHeaderCode,
 }
 
 var serverHeaderCheck = HeaderCheck{
@@ -71,7 +71,7 @@ var missingContentTypeHeaderCheck = HeaderCheck{
 		},
 	},
 	MatchCondition: And,
-	IssueCode:      db.MissingContentTypeCode,
+	IssueCode:      db.MissingContentTypeHeaderCode,
 }
 
 var cacheControlHeaderCheck = HeaderCheck{
@@ -127,7 +127,7 @@ var xXSSProtectionHeaderCheck = HeaderCheck{
 		},
 	},
 	MatchCondition: And,
-	IssueCode:      db.XXSSProtectionHeaderCode,
+	IssueCode:      db.XXssProtectionHeaderCode,
 }
 
 var aspNetMvcHeaderCheck = HeaderCheck{

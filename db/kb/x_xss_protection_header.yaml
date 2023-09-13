@@ -1,0 +1,9 @@
+code: x_xss_protection_header
+title: X-XSS-Protection Header Missing or Incorrect
+description: The application does not correctly specify the X-XSS-Protection header,
+  potentially leading to cross-site scripting attacks.
+remediation: 'Always specify ''X-XSS-Protection: 1; mode=block'' in the response header
+  to enable XSS filtering on the client side.'
+cwe: 79
+severity: Info
+references: []

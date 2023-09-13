@@ -1,0 +1,9 @@
+code: email_addresses
+title: Email Addresses Detected
+description: The application exposes email addresses, potentially making users or
+  administrators targets for spam or phishing attacks.
+remediation: Avoid displaying email addresses publicly, or use techniques to obfuscate
+  them to make it harder for automated tools to collect them.
+cwe: 200
+severity: Low
+references: []

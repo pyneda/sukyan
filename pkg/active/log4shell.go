@@ -221,7 +221,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 	interactionData := item.payload.GetInteractionData()
 	insertionPoint := fmt.Sprintf("%s header", item.header)
 	oobTest := db.OOBTest{
-		Code:              db.Log4ShellCode,
+		Code:              db.Log4shellCode,
 		TestName:          "Log4Shell",
 		InteractionDomain: interactionData.InteractionDomain,
 		InteractionFullID: interactionData.InteractionFullID,

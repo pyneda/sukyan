@@ -1,0 +1,10 @@
+code: cache_control_header
+title: Cache Control Header Misconfiguration
+description: The application's response can be cached, potentially leading to information
+  disclosure or stale content.
+remediation: 'Configure your application''s headers to prevent sensitive information
+  from being cached. You can set ''Cache-Control: no-store'' or ''Cache-Control: private''
+  as needed.'
+cwe: 524
+severity: Low
+references: []

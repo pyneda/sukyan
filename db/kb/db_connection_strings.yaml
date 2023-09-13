@@ -1,0 +1,9 @@
+code: db_connection_strings
+title: Database Connection Strings Detected
+description: The application exposes database connection strings, which can provide
+  sensitive information about the database setup, including credentials.
+remediation: Avoid exposing database connection strings publicly to mitigate potential
+  information leakage.
+cwe: 200
+severity: High
+references: []

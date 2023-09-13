@@ -1,0 +1,11 @@
+code: jetty_server_header
+title: Jetty Version Detected
+description: The application's server response header discloses the version of Jetty
+  in use. An attacker can exploit this information to target known vulnerabilities
+  in the disclosed Jetty version.
+remediation: Configure your server to not disclose software version information in
+  its response headers. Alternatively, regularly update your Jetty version to the
+  latest one to reduce the risk of known vulnerabilities.
+cwe: 200
+severity: Low
+references: []

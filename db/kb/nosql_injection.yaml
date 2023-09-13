@@ -1,0 +1,16 @@
+code: nosql_injection
+title: NoSQL Injection Detected
+description: The application appears to be vulnerable to NoSQL injection attacks.
+  This vulnerability occurs when the application uses user-supplied input to construct
+  NoSQL queries without properly sanitizing or validating the input first. An attacker
+  can exploit this vulnerability to manipulate queries, potentially leading to unauthorized
+  data access, data loss, or data corruption.
+remediation: To mitigate this vulnerability, avoid constructing queries with user-supplied
+  input whenever possible. Instead, use parameterized queries, which can help ensure
+  that user input is not interpreted as part of the query. Implement proper input
+  validation and sanitization procedures. Also, ensure that the least privilege principle
+  is followed, and each function of the application has only the necessary access
+  rights it needs to perform its tasks.
+cwe: 943
+severity: High
+references: []

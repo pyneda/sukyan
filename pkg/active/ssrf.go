@@ -96,7 +96,7 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 	// }
 	interactionData := result.Payload.GetInteractionData()
 	oobTest := db.OOBTest{
-		Code:              db.SSRFCode,
+		Code:              db.SsrfCode,
 		TestName:          "Server Side Request Forgery",
 		InteractionDomain: interactionData.InteractionDomain,
 		InteractionFullID: interactionData.InteractionFullID,

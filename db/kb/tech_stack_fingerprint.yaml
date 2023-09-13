@@ -1,0 +1,14 @@
+code: tech_stack_fingerprint
+title: Technology Stack Fingerprint Report
+description: This report provides a detailed fingerprint of the technology stack used
+  by the target application. It identifies various technologies such as CMS platforms,
+  JavaScript libraries, server software, and more. Knowing the technologies in use
+  can offer insights into potential vulnerabilities and areas for further investigation.
+remediation: No remediation steps are required, as this report is intended for informational
+  purposes. However, understanding the technologies in use can be valuable for identifying
+  potential vulnerabilities specific to those technologies.
+cwe: 0
+severity: Info
+references:
+- https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server
+- https://www.wappalyzer.com/

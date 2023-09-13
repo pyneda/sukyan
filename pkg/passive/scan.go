@@ -31,7 +31,7 @@ func ContentTypesScan(item *db.History) {
 	// } else if strings.Contains(contentType, "application/x-java-serialized-object") {
 	if strings.Contains(contentType, "application/x-java-serialized-object") {
 		log.Warn().Str("url", item.URL).Msg("Hijacked java serialized object response")
-		db.CreateIssueFromHistoryAndTemplate(item, db.JavaSerializedObjectCode, "The page responds using the `application/x-java-serialized-object` content type.", 90, "", item.WorkspaceID)
+		db.CreateIssueFromHistoryAndTemplate(item, db.JavaSerializedObjectDetectedCode, "The page responds using the `application/x-java-serialized-object` content type.", 90, "", item.WorkspaceID)
 	}
 	// } else {
 	// 	log.Info().Str("url", ctx.Request.URL().String()).Str("contentType", contentType).Msg("Hijacked non common response")
@@ -130,7 +130,7 @@ func PrivateIPScan(item *db.History) {
 			sb.WriteString(fmt.Sprintf("\n - %s", match))
 		}
 		discoveredIPs := sb.String()
-		db.CreateIssueFromHistoryAndTemplate(item, db.PrivateIPsCode, discoveredIPs, 90, "", item.WorkspaceID)
+		db.CreateIssueFromHistoryAndTemplate(item, db.PrivateIpsCode, discoveredIPs, 90, "", item.WorkspaceID)
 	}
 }
 
@@ -245,7 +245,7 @@ func SessionTokenInURLScan(item *db.History) {
 			sb.WriteString(fmt.Sprintf("\n - Parameter: %s, Value: %s", parameter, value))
 		}
 		details := sb.String()
-		db.CreateIssueFromHistoryAndTemplate(item, db.SessionTokenInURLCode, details, 90, "", item.WorkspaceID)
+		db.CreateIssueFromHistoryAndTemplate(item, db.SessionTokenInUrlCode, details, 90, "", item.WorkspaceID)
 	}
 }
 
@@ -309,7 +309,7 @@ func DBConnectionStringScan(item *db.History) {
 				sb.WriteString(fmt.Sprintf("\n - %s", match))
 			}
 			discoveredStrings := sb.String()
-			db.CreateIssueFromHistoryAndTemplate(item, db.DBConnectionStringsCode, discoveredStrings, 90, "", item.WorkspaceID)
+			db.CreateIssueFromHistoryAndTemplate(item, db.DbConnectionStringsCode, discoveredStrings, 90, "", item.WorkspaceID)
 		}
 	}
 }
@@ -412,7 +412,7 @@ func LeakedApiKeysScan(item *db.History) {
 	details := sb.String()
 
 	if matched {
-		db.CreateIssueFromHistoryAndTemplate(item, db.ExposedAPICredentialsCode, details, 80, "", item.WorkspaceID)
+		db.CreateIssueFromHistoryAndTemplate(item, db.ExposedApiCredentialsCode, details, 80, "", item.WorkspaceID)
 	}
 }
 
@@ -423,6 +423,6 @@ func WebSocketUsageScan(item *db.History) {
 	}
 	if item.StatusCode == 101 && lib.SliceContains(headers["Upgrade"], "websocket") {
 		details := fmt.Sprintf("WebSockets in use detected at %s", item.URL)
-		db.CreateIssueFromHistoryAndTemplate(item, db.WebSocketDetectedCode, details, 90, "", item.WorkspaceID)
+		db.CreateIssueFromHistoryAndTemplate(item, db.WebsocketDetectedCode, details, 90, "", item.WorkspaceID)
 	}
 }

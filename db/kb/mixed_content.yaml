@@ -1,0 +1,9 @@
+code: mixed_content
+title: Mixed Content
+description: The application serves both secure (HTTPS) and insecure (HTTP) content,
+  which may lead to some content being vulnerable to man-in-the-middle attacks.
+remediation: Ensure all content is served over a secure connection. Use HTTPS for
+  all resources and avoid linking to insecure (HTTP) resources.
+cwe: 16
+severity: Medium
+references: []

@@ -1,0 +1,9 @@
+code: ssrf
+title: Server Side Request Forgery
+description: The application can be tricked into making arbitrary HTTP requests to
+  internal services.
+remediation: Ensure the application does not make requests based on user-supplied
+  data. If necessary, use a whitelist of approved domains.
+cwe: 918
+severity: High
+references: []

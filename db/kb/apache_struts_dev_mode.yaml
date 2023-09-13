@@ -1,0 +1,9 @@
+code: apache_struts_dev_mode
+title: Apache Struts Dev Mode Detected
+description: The application is running in Apache Struts development mode, which could
+  expose sensitive information or debugging data.
+remediation: Ensure the application is running in production mode to prevent the exposure
+  of sensitive information.
+cwe: 215
+severity: Medium
+references: []

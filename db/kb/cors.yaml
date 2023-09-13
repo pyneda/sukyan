@@ -1,0 +1,10 @@
+code: cors
+title: Cross Origin Resource Sharing (CORS)
+description: The application has misconfigured Cross-Origin Resource Sharing (CORS)
+  policies, potentially allowing unauthorized domains access to sensitive data.
+remediation: Ensure that the CORS policies are properly configured to only allow trusted
+  domains to access resources. In many cases, it is advisable to use a whitelist approach
+  where only specifically allowed domains are permitted access.
+cwe: 942
+severity: Medium
+references: []

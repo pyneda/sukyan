@@ -7,6 +7,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819
 	github.com/go-playground/validator/v10 v10.14.1
 	github.com/go-rod/rod v0.113.1
+	github.com/gofiber/contrib/fiberzerolog v0.2.1
 	github.com/gofiber/contrib/jwt v1.0.4
 	github.com/gofiber/fiber/v2 v2.49.1
 	github.com/gofiber/swagger v0.1.12
@@ -20,7 +21,7 @@ require (
 	github.com/projectdiscovery/interactsh v1.1.4
 	github.com/projectdiscovery/wappalyzergo v0.0.101
 	github.com/pyneda/nuclei-api v0.0.0-20230715211054-636941207b06
-	github.com/rs/zerolog v1.29.1
+	github.com/rs/zerolog v1.30.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4

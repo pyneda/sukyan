@@ -1,4 +1,3 @@
-basePath: /
 definitions:
   api.ActionResponse:
     properties:
@@ -365,11 +364,8 @@ definitions:
     - workspace_id
     type: object
 info:
-  contact:
-    email: contact@sukyan.com
-    name: Contact
+  contact: {}
   description: The Sukyan API documentation.
-  termsOfService: http://swagger.io/terms/
   title: Sukyan API
   version: "0.1"
 paths:

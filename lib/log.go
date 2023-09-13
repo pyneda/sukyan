@@ -15,7 +15,7 @@ const (
 	LogTimeFormat = "2006-01-02T15:04:05.000"
 )
 
-func ZeroConsoleLog() {
+func ZeroConsoleLog() zerolog.Logger {
 	// zerolog.TimeFieldFormat = LogTimeFormat
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	sysType := runtime.GOOS
@@ -25,10 +25,11 @@ func ZeroConsoleLog() {
 	if sysType == "windows" {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: colorable.NewColorableStdout(), TimeFormat: LogTimeFormat})
 	}
+	return log.Logger
 }
 
 // ZeroConsoleAndFileLog
-func ZeroConsoleAndFileLog() {
+func ZeroConsoleAndFileLog() zerolog.Logger {
 	// zerolog.TimeFieldFormat = LogTimeFormat
 	filename := viper.GetString("logging.file.path")
 	if filename == "" {
@@ -70,6 +71,8 @@ func ZeroConsoleAndFileLog() {
 		writers = append(writers, logFile)
 	}
 	mw := io.MultiWriter(writers...)
+	logger := zerolog.New(mw).With().Timestamp().Logger()
+	log.Logger = logger
+	return logger
 
-	log.Logger = zerolog.New(mw).With().Timestamp().Logger()
 }

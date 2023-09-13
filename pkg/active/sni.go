@@ -54,9 +54,9 @@ func (a *SNIAudit) Run() {
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error reading response")
 	}
-	issueTemplate := db.GetIssueTemplateByCode(db.SNIInjectionCode)
+	issueTemplate := db.GetIssueTemplateByCode(db.SniInjectionCode)
 	oobTest := db.OOBTest{
-		Code:              db.SNIInjectionCode,
+		Code:              db.SniInjectionCode,
 		TestName:          issueTemplate.Title,
 		InteractionDomain: interactionData.URL,
 		InteractionFullID: interactionData.ID,

@@ -6,12 +6,10 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/pyneda/sukyan/db"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestFindHistory(t *testing.T) {
-	db.Connection.CreateDefaultWorkspace()
 	app := fiber.New()
 
 	app.Get("/history", FindHistory)

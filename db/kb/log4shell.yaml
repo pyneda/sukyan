@@ -1,0 +1,8 @@
+code: log4shell
+title: Log4Shell (Log4j Remote Code Execution)
+description: The application uses a vulnerable version of Log4j that allows remote
+  code execution.
+remediation: Update Log4j to a patched version (2.15.0 or later).
+cwe: 502
+severity: Critical
+references: []

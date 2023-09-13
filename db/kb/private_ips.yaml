@@ -1,0 +1,9 @@
+code: private_ips
+title: Private IPs Detected
+description: The application exposes private IP addresses, which can provide useful
+  information for potential attackers and expose the internal network structure.
+remediation: Avoid exposing private IP addresses publicly to mitigate potential information
+  leakage.
+cwe: 200
+severity: Low
+references: []

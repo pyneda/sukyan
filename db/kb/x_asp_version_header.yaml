@@ -1,0 +1,9 @@
+code: x_asp_version_header
+title: X-AspNet-Version Header Disclosure
+description: The application discloses the ASP.NET version it's using through the
+  X-AspNet-Version header, potentially aiding attackers in crafting specific exploits.
+remediation: Remove the 'X-AspNet-Version' header or configure your ASP.NET application
+  to stop disclosing this information.
+cwe: 200
+severity: Low
+references: []

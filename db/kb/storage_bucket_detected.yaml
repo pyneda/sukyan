@@ -1,0 +1,11 @@
+code: storage_bucket_detected
+title: Storage Bucket Detected
+description: The application exposes storage bucket URLs or errors in the response.
+  This can provide sensitive information about the storage setup.
+remediation: Avoid exposing storage bucket URLs or error messages publicly to mitigate
+  potential information leakage. Make sure to handle errors gracefully and avoid revealing
+  any sensitive information in error messages. It's recommended to manually review
+  any detected storage buckets to verify if they are exposing sensitive information.
+cwe: 200
+severity: Info
+references: []

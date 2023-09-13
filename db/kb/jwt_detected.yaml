@@ -1,0 +1,12 @@
+code: jwt_detected
+title: JSON Web Token (JWT) Detected
+description: The application appears to use JSON Web Tokens (JWT). If not properly
+  secured, JWTs can lead to various security issues, including token-based authentication
+  vulnerabilities and identity spoofing.
+remediation: Ensure that JWTs are used securely. Implement proper validation and handling
+  mechanisms. Consider using additional safeguards such as Token Binding, and never
+  expose sensitive information in the payload of the JWT. Always verify the signature
+  of incoming JWTs to confirm they were issued by your system.
+cwe: 347
+severity: Info
+references: []

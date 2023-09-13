@@ -1,0 +1,9 @@
+code: apache_tapestry_exception
+title: Apache Tapestry Exception Detected
+description: The application exposes Apache Tapestry exceptions, potentially revealing
+  sensitive information or system details.
+remediation: Configure the application to not expose detailed error messages to end
+  users.
+cwe: 209
+severity: Medium
+references: []

@@ -1,0 +1,19 @@
+code: server_side_prototype_pollution
+title: Server-Side Prototype Pollution Detected
+description: The application appears to be vulnerable to Server-Side Prototype Pollution
+  (SSPP) attacks. This vulnerability occurs when the application allows modification
+  of a JavaScript object prototype. When a function traverses the entire prototype
+  chain, an attacker can inject properties into this chain, potentially leading to
+  various impacts, such as denial-of-service, property overwrite, or even remote code
+  execution if the polluted properties are used unsafely.
+remediation: To mitigate this vulnerability, avoid using user-supplied input in the
+  object manipulation functions without proper validation. Validate and sanitize the
+  inputs that are used for configuration. Be aware of the libraries or dependencies
+  that your application uses and keep them updated. Regular code reviews and penetration
+  testing can also help to identify and mitigate such issues.
+cwe: 400
+severity: High
+references:
+- https://portswigger.net/web-security/prototype-pollution/server-side
+- https://portswigger.net/research/server-side-prototype-pollution
+- https://arxiv.org/pdf/2207.11171.pdf

@@ -1,0 +1,9 @@
+code: server_header
+title: Server Header Disclosure
+description: The application discloses the server it's using through the Server header,
+  potentially aiding attackers in crafting specific exploits.
+remediation: Remove the 'Server' header or configure your server to stop disclosing
+  this information.
+cwe: 200
+severity: Low
+references: []

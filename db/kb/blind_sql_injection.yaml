@@ -1,0 +1,9 @@
+code: blind_sql_injection
+title: Blind SQL Injection
+description: The application does not properly sanitize user input, potentially allowing
+  for SQL injection attacks.
+remediation: Ensure all user-supplied input is properly sanitized before being used
+  in SQL queries.
+cwe: 89
+severity: High
+references: []

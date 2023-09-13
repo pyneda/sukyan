@@ -104,7 +104,7 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 		// Should improve the issue template and probably all all the instances in the same issue
 		issue := db.FillIssueFromHistoryAndTemplate(
 			history,
-			db.HTTPMethodsCode,
+			db.HttpMethodsCode,
 			fmt.Sprintf("Received a %d status code making an %s request.", history.StatusCode, history.Method),
 			80,
 			"",

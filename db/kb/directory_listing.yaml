@@ -1,0 +1,8 @@
+code: directory_listing
+title: Directory Listing Enabled
+description: The application allows directory listings, which could expose sensitive
+  files or information to attackers.
+remediation: Disable directory listings to prevent unauthorized access to file listings.
+cwe: 538
+severity: Low
+references: []

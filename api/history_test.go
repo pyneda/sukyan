@@ -1,20 +1,23 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/pyneda/sukyan/db"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestFindHistory(t *testing.T) {
+	workspace, _ := db.Connection.CreateDefaultWorkspace()
 	app := fiber.New()
 
 	app.Get("/history", FindHistory)
-
-	req := httptest.NewRequest("GET", "/history?page=1&page_size=10&status=200,404&workspace=1&methods=GET,POST&sources=scan", nil)
+	url := fmt.Sprintf("/history?page=1&page_size=10&status=200,404&workspace=%d&methods=GET,POST&sources=scan", workspace.ID)
+	req := httptest.NewRequest("GET", url, nil)
 	resp, _ := app.Test(req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)

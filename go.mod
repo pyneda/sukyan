@@ -4,12 +4,11 @@ go 1.20
 
 require (
 	github.com/BishopFox/jsluice v0.0.0-20230629150035-2c4584eded5a
-	github.com/elazarl/goproxy v0.0.0-20221015165544-a0805db90819
 	github.com/go-playground/validator/v10 v10.14.1
 	github.com/go-rod/rod v0.113.1
 	github.com/gofiber/contrib/fiberzerolog v0.2.1
 	github.com/gofiber/contrib/jwt v1.0.4
-	github.com/gofiber/fiber/v2 v2.49.1
+	github.com/gofiber/fiber/v2 v2.49.2
 	github.com/gofiber/swagger v0.1.12
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/google/uuid v1.3.1

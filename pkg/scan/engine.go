@@ -159,7 +159,7 @@ type FullScanOptions struct {
 	WorkspaceID     uint                `json:"workspace_id" validate:"required,min=0"`
 	PagesPoolSize   int                 `json:"pages_pool_size" validate:"min=1,max=100"`
 	Headers         map[string][]string `json:"headers" validate:"omitempty"`
-	InsertionPoints []string            `json:"insertion_points" validate:"omitempty,dive,oneof=url body header cookie"`
+	InsertionPoints []string            `json:"insertion_points" validate:"omitempty,dive,oneof=param url body header cookie"`
 	Mode            ScanMode            `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
 }
 

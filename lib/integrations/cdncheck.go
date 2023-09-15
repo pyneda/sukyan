@@ -108,6 +108,7 @@ func CDNCheck(urlStr string, workspaceID uint) ([]db.Issue, error) {
 		}
 
 	}
+	log.Info().Str("check", "cdncheck").Uint("workspace", workspaceID).Int("issues_count", len(issues)).Msg("Finished checks")
 
 	return issues, nil
 }

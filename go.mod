@@ -18,6 +18,7 @@ require (
 	github.com/mingrammer/commonregex v1.0.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/olekukonko/tablewriter v0.0.5
+	github.com/projectdiscovery/cdncheck v1.0.9
 	github.com/projectdiscovery/interactsh v1.1.4
 	github.com/projectdiscovery/wappalyzergo v0.0.101
 	github.com/pyneda/nuclei-api v0.0.0-20230715211054-636941207b06
@@ -136,7 +137,9 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.49.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
+	github.com/weppos/publicsuffix-go v0.30.1-0.20230422193905-8fecedd899db // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
+	github.com/yl2chen/cidranger v1.0.2 // indirect
 	github.com/ysmood/fetchup v0.2.3 // indirect
 	github.com/ysmood/goob v0.4.0 // indirect
 	github.com/ysmood/got v0.34.1 // indirect

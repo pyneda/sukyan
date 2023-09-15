@@ -29,6 +29,10 @@ type Issue struct {
 	WorkspaceID   *uint       `json:"workspace_id"`
 }
 
+func (i Issue) IsEmpty() bool {
+	return i.ID == 0
+}
+
 // IssueFilter represents available issue filters
 type IssueFilter struct {
 	Codes       []string

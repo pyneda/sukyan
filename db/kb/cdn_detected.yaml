@@ -1,0 +1,9 @@
+code: cdn_detected
+title: CDN Detection Report
+description: A Content Delivery Network (CDN) has been detected for the target application. This could indicate enhanced performance and additional security layers.
+remediation: No remediation steps are required, as this report is intended for informational purposes only.
+cwe: 0
+severity: Info
+references:
+  - https://developer.mozilla.org/en-US/docs/Glossary/CDN
+  - https://www.cloudflare.com/learning/cdn/what-is-a-cdn/

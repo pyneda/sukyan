@@ -1,0 +1,10 @@
+code: cloud_detected
+title: Cloud Service Detection Report
+description:
+  The target application is hosted on a cloud service, which could be indicative of specific security configurations or vulnerabilities.
+remediation:
+  No remediation steps are required, as this report is intended for informational purposes only.
+cwe: 0
+severity: Info
+references:
+  - https://cloud.hacktricks.xyz/pentesting-cloud/pentesting-cloud-methodology

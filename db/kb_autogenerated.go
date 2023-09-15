@@ -8,7 +8,9 @@ var (
 	AspNetMvcHeaderCode                  IssueCode = "asp_net_mvc_header"
 	BlindSqlInjectionCode                IssueCode = "blind_sql_injection"
 	CacheControlHeaderCode               IssueCode = "cache_control_header"
+	CdnDetectedCode                      IssueCode = "cdn_detected"
 	ClientSidePrototypePollutionCode     IssueCode = "client_side_prototype_pollution"
+	CloudDetectedCode                    IssueCode = "cloud_detected"
 	CorsCode                             IssueCode = "cors"
 	CrlfInjectionCode                    IssueCode = "crlf_injection"
 	CsrfCode                             IssueCode = "csrf"
@@ -49,6 +51,7 @@ var (
 	StrictTransportSecurityHeaderCode    IssueCode = "strict_transport_security_header"
 	TechStackFingerprintCode             IssueCode = "tech_stack_fingerprint"
 	VulnerableJavascriptDependencyCode   IssueCode = "vulnerable_javascript_dependency"
+	WafDetectedCode                      IssueCode = "waf_detected"
 	WebsocketDetectedCode                IssueCode = "websocket_detected"
 	XAspVersionHeaderCode                IssueCode = "x_asp_version_header"
 	XFrameOptionsHeaderCode              IssueCode = "x_frame_options_header"
@@ -99,12 +102,28 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "Low",
 	},
 	{
+		Code:        CdnDetectedCode,
+		Title:       "CDN Detection Report",
+		Description: "A Content Delivery Network (CDN) has been detected for the target application. This could indicate enhanced performance and additional security layers.",
+		Remediation: "No remediation steps are required, as this report is intended for informational purposes only.",
+		Cwe:         0,
+		Severity:    "Info",
+	},
+	{
 		Code:        ClientSidePrototypePollutionCode,
 		Title:       "Client-Side Prototype Pollution Detected",
 		Description: "The application appears to be vulnerable to Client-Side Prototype Pollution (CSPP) attacks. This vulnerability occurs when the application processes user-supplied input with the JavaScript function `Object.assign()`, or uses it to clone an object. An attacker can inject properties into object prototypes, potentially leading to a variety of impacts, including denial-of-service, alteration of script behavior, or cross-site scripting (XSS) if the polluted properties are used in a DOM context.",
 		Remediation: "To mitigate this vulnerability, avoid using the `Object.assign()` function with user-supplied input. If user input must be used, ensure it is thoroughly validated and sanitized first. Implement proper input validation and sanitization procedures. Also, be aware of how your client-side code handles object properties and ensure that all code which reads from object properties handles unexpected values correctly.",
 		Cwe:         20,
 		Severity:    "Low",
+	},
+	{
+		Code:        CloudDetectedCode,
+		Title:       "Cloud Service Detection Report",
+		Description: "The target application is hosted on a cloud service, which could be indicative of specific security configurations or vulnerabilities.",
+		Remediation: "No remediation steps are required, as this report is intended for informational purposes only.",
+		Cwe:         0,
+		Severity:    "Info",
 	},
 	{
 		Code:        CorsCode,
@@ -425,6 +444,14 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Upgrade the vulnerable library to the latest version or to the minimum secure version. Ensure all other libraries and dependencies are also up-to-date to prevent similar issues. Regular dependency checks and vulnerability scanning can help keep your application secure.",
 		Cwe:         937,
 		Severity:    "Medium",
+	},
+	{
+		Code:        WafDetectedCode,
+		Title:       "Web Application Firewall (WAF) Detection Report",
+		Description: "A Web Application Firewall (WAF) has been detected for the target application, suggesting an additional layer of security.",
+		Remediation: "No remediation steps are required, as this report is intended for informational purposes only.",
+		Cwe:         0,
+		Severity:    "Info",
 	},
 	{
 		Code:        WebsocketDetectedCode,

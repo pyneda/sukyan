@@ -1,0 +1,11 @@
+code: waf_detected
+title: Web Application Firewall (WAF) Detection Report
+description:
+  A Web Application Firewall (WAF) has been detected for the target application, suggesting an additional layer of security.
+remediation:
+  No remediation steps are required, as this report is intended for informational purposes only.
+cwe: 0
+severity: Info
+references:
+  - https://www.cloudflare.com/learning/ddos/glossary/web-application-firewall-waf/
+  - https://owasp.org/www-community/Web_Application_Firewall

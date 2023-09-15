@@ -272,7 +272,8 @@ func (d *DatabaseConnection) GetChildrenHistories(parent *History) ([]*HistorySu
 	query := d.db.Model(&History{}).
 		Select("MIN(id) as id, url, depth, method, status_code, parameters_count").
 		Where("depth >= ? AND depth <= ? AND url LIKE ?", parent.Depth, parent.Depth+1, parent.URL+"%").
-		Group("url, depth, method, status_code, parameters_count")
+		Group("url, depth, method, status_code, parameters_count").
+		Order("url desc")
 
 	if parent.WorkspaceID != nil {
 		query = query.Where("workspace_id = ?", *parent.WorkspaceID)

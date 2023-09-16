@@ -23,7 +23,7 @@ func TestFullScanOptionsValidation(t *testing.T) {
 				WorkspaceID:     1,
 				PagesPoolSize:   1,
 				Headers:         map[string][]string{"key": {"value"}},
-				InsertionPoints: []string{"urlpath", "body", "header", "cookie"},
+				InsertionPoints: []string{"urlpath", "body", "headers", "parameters", "xml", "cookies"},
 				Mode:            "fast",
 			},
 			valid: true,

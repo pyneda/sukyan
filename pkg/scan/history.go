@@ -23,9 +23,14 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 		AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),
 		WorkspaceID:         options.WorkspaceID,
 	}
-	insertionPoints, _ := fuzz.GetInsertionPoints(item)
+	insertionPoints, err := fuzz.GetInsertionPoints(item, options.InsertionPoints)
 	taskLog.Debug().Interface("insertionPoints", insertionPoints).Msg("Insertion points")
-	fuzzer.Run(item, payloadGenerators, insertionPoints)
+	if err != nil {
+		taskLog.Error().Err(err).Msg("Could not get insertion points")
+	}
+	if len(insertionPoints) > 0 {
+		fuzzer.Run(item, payloadGenerators, insertionPoints)
+	}
 
 	cspp := active.ClientSidePrototypePollutionAudit{
 		HistoryItem: item,

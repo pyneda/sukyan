@@ -17,7 +17,7 @@ type FullScanOptions struct {
 	WorkspaceID     uint                `json:"workspace_id" validate:"required,min=0"`
 	PagesPoolSize   int                 `json:"pages_pool_size" validate:"min=1,max=100"`
 	Headers         map[string][]string `json:"headers" validate:"omitempty"`
-	InsertionPoints []string            `json:"insertion_points" validate:"omitempty,dive,oneof=param urlpath body header cookie json xml"`
+	InsertionPoints []string            `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
 	Mode            ScanMode            `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
 }
 
@@ -25,7 +25,7 @@ type HistoryItemScanOptions struct {
 	WorkspaceID     uint     `json:"workspace_id" validate:"required,min=0"`
 	TaskID          uint     `json:"task_id" validate:"required,min=0"`
 	Mode            ScanMode `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
-	InsertionPoints []string `json:"insertion_points" validate:"omitempty,dive,oneof=param urlpath body header cookie json xml"`
+	InsertionPoints []string `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
 }
 
 func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bool {

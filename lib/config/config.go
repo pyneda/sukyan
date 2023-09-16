@@ -73,6 +73,8 @@ func SetDefaultConfig() {
 	viper.SetDefault("scan.concurrency.max_audits", 4)
 	viper.SetDefault("scan.concurrency.per_browser_audit", 4)
 	viper.SetDefault("scan.concurrency.per_http_audit", 16)
+	viper.SetDefault("scan.concurrency.passive", 30)
+	viper.SetDefault("scan.concurrency.active", 15)
 
 	viper.SetDefault("scan.oob.enabled", true)
 	viper.SetDefault("scan.oob.poll_interval", 10)

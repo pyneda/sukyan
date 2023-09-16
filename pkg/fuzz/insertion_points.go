@@ -196,25 +196,26 @@ func GetInsertionPoints(history *db.History) ([]InsertionPoint, error) {
 	points = append(points, urlPoints...)
 
 	// Convert datatypes.JSON to http.Header equivalent
-	if viper.GetBool("scan.insertion_points.headers") {
-		headers, err := history.GetRequestHeadersAsMap()
-		if err != nil {
-			log.Error().Err(err).Interface("headers", history.RequestHeaders).Msg("Error getting request headers as map")
-		} else {
+	headers, err := history.GetRequestHeadersAsMap()
+	if err != nil {
+		log.Error().Err(err).Interface("headers", history.RequestHeaders).Msg("Error getting request headers as map")
+	} else {
+		if viper.GetBool("scan.insertion_points.headers") {
 			// Headers
 			headerPoints, err := handleHeaders(headers)
 			if err != nil {
 				return nil, err
 			}
 			points = append(points, headerPoints...)
-			if viper.GetBool("scan.insertion_points.cookies") {
-				// Cookies
-				cookiePoints, err := handleCookies(headers)
-				if err != nil {
-					return nil, err
-				}
-				points = append(points, cookiePoints...)
+		}
+
+		if viper.GetBool("scan.insertion_points.cookies") {
+			// Cookies
+			cookiePoints, err := handleCookies(headers)
+			if err != nil {
+				return nil, err
 			}
+			points = append(points, cookiePoints...)
 		}
 	}
 

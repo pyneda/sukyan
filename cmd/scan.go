@@ -89,7 +89,7 @@ var scanCmd = &cobra.Command{
 			OnInteractionCallback: scan.SaveInteractionCallback,
 		}
 		interactionsManager.Start()
-		engine := scan.NewScanEngine(generators, 100, 30, interactionsManager)
+		engine := scan.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
 		engine.Start()
 		engine.FullScan(options, true)
 
@@ -104,9 +104,6 @@ var scanCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(scanCmd)
 	scanCmd.Flags().StringArrayVarP(&startURLs, "url", "u", nil, "Target start url(s)")
-	// scanCmd.Flags().BoolVar(&cmdScanner.AuditHeaders, "audit-headers", true, "Audit HTTP headers")
-	// scanCmd.Flags().BoolVar(&cmdScanner.DiscoverParams, "param-discovery", true, "Enables parameter discovery (Not implemented yet)")
-	// scanCmd.Flags().BoolVar(&cmdScanner.ShouldCrawl, "crawl", false, "Enables the crawler")
 	scanCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	scanCmd.Flags().IntVar(&pagesPoolSize, "pool-size", 4, "Page pool size (not used)")
 	scanCmd.Flags().IntVar(&crawlMaxPages, "max-pages", 0, "Max pages to crawl")
@@ -114,7 +111,7 @@ func init() {
 	scanCmd.Flags().IntVar(&crawlDepth, "depth", 5, "Max crawl depth")
 	scanCmd.Flags().StringArrayVar(&scanTests, "test", nil, "Tests to run (all by default)")
 	scanCmd.Flags().StringVarP(&scanTitle, "title", "t", "Scan", "Scan title")
-	scanCmd.Flags().StringVar(&requestsHeadersString, "headers", "H", "Headers to use for requests")
-	scanCmd.Flags().StringArrayVar(&insertionPoints, "insertion-points", nil, "Insertion points (url, body, header, cookie)")
+	scanCmd.Flags().StringVar(&requestsHeadersString, "headers", "", "Headers to use for requests")
+	scanCmd.Flags().StringArrayVar(&insertionPoints, "insertion-points", scan.GetValidInsertionPoints(), "Insertion points to scan (all by default)")
 
 }

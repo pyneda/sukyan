@@ -73,13 +73,6 @@ func SetDefaultConfig() {
 	viper.SetDefault("scan.concurrency.max_audits", 4)
 	viper.SetDefault("scan.concurrency.per_browser_audit", 4)
 	viper.SetDefault("scan.concurrency.per_http_audit", 16)
-	viper.SetDefault("scan.insertion_points.headers", true)
-	viper.SetDefault("scan.insertion_points.parameters", true)
-	viper.SetDefault("scan.insertion_points.body", true)
-	viper.SetDefault("scan.insertion_points.urlpath", true)
-	viper.SetDefault("scan.insertion_points.cookies", true)
-	viper.SetDefault("scan.insertion_points.json", true)
-	viper.SetDefault("scan.insertion_points.xml", true)
 
 	viper.SetDefault("scan.oob.enabled", true)
 	viper.SetDefault("scan.oob.poll_interval", 10)

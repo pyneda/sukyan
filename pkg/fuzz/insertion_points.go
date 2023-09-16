@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 	"mime"
 	"mime/multipart"
 	"net/url"
@@ -181,7 +181,7 @@ func handleBodyParameters(contentType string, body []byte) ([]InsertionPoint, er
 	return points, nil
 }
 
-func GetInsertionPoints(history *db.History) ([]InsertionPoint, error) {
+func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint, error) {
 	var points []InsertionPoint
 
 	// Analyze URL
@@ -200,7 +200,7 @@ func GetInsertionPoints(history *db.History) ([]InsertionPoint, error) {
 	if err != nil {
 		log.Error().Err(err).Interface("headers", history.RequestHeaders).Msg("Error getting request headers as map")
 	} else {
-		if viper.GetBool("scan.insertion_points.headers") {
+		if lib.SliceContains(scoped, "headers") {
 			// Headers
 			headerPoints, err := handleHeaders(headers)
 			if err != nil {
@@ -209,7 +209,7 @@ func GetInsertionPoints(history *db.History) ([]InsertionPoint, error) {
 			points = append(points, headerPoints...)
 		}
 
-		if viper.GetBool("scan.insertion_points.cookies") {
+		if lib.SliceContains(scoped, "cookies") {
 			// Cookies
 			cookiePoints, err := handleCookies(headers)
 			if err != nil {

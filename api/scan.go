@@ -49,11 +49,14 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 	}
 
 	engine := c.Locals("engine").(*scan.ScanEngine)
-	for _, item := range items {
-		// engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypePassive, input.WorkspaceID, input.TaskID)
-		// NOTE: By now, passive scans do not create task jobs, so we pass 0 as task ID
-		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypePassive, *item.WorkspaceID, 0)
 
+	for _, item := range items {
+		// NOTE: By now, passive scans do not create task jobs, so we pass 0 as task ID
+		options := scan.HistoryItemScanOptions{
+			WorkspaceID: *item.WorkspaceID,
+			TaskID:      0,
+		}
+		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypePassive, options)
 	}
 
 	return c.JSON(fiber.Map{
@@ -133,7 +136,11 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 
 	for _, item := range items {
 		// TODO: maybe should validate that the history item and task belongs to the same workspace
-		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypeActive, *item.WorkspaceID, input.TaskID)
+		options := scan.HistoryItemScanOptions{
+			WorkspaceID: *item.WorkspaceID,
+			TaskID:      input.TaskID,
+		}
+		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypeActive, options)
 	}
 
 	return c.JSON(fiber.Map{

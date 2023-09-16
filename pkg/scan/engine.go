@@ -24,9 +24,9 @@ const (
 )
 
 type engineTask struct {
-	item        *db.History
-	workspaceID uint
-	taskJob     *db.TaskJob
+	item    *db.History
+	taskJob *db.TaskJob
+	options HistoryItemScanOptions
 }
 
 type ScanEngine struct {
@@ -58,26 +58,26 @@ func NewScanEngine(payloadGenerators []*generation.PayloadGenerator, maxConcurre
 	}
 }
 
-func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, workspaceID uint, taskID uint) {
+func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, options HistoryItemScanOptions) {
 
 	switch scanJobType {
 	case ScanJobTypePassive:
 		s.passiveScanCh <- item
 	case ScanJobTypeActive:
-		taskJob, err := db.Connection.NewTaskJob(taskID, "Active scan", db.TaskJobScheduled, item.ID)
+		taskJob, err := db.Connection.NewTaskJob(options.TaskID, "Active scan", db.TaskJobScheduled, item.ID)
 		if err != nil {
 			log.Error().Err(err).Interface("type", scanJobType).Uint("history", item.ID).Msg("Could not create task job")
 			return
 		}
-		s.activeScanCh <- &engineTask{item: item, workspaceID: workspaceID, taskJob: taskJob}
+		s.activeScanCh <- &engineTask{item: item, taskJob: taskJob, options: options}
 	case ScanJobTypeAll:
-		taskJob, err := db.Connection.NewTaskJob(taskID, "Active and passive scan", db.TaskJobScheduled, item.ID)
+		taskJob, err := db.Connection.NewTaskJob(options.TaskID, "Active and passive scan", db.TaskJobScheduled, item.ID)
 		if err != nil {
 			log.Error().Err(err).Interface("type", scanJobType).Uint("history", item.ID).Msg("Could not create task job")
 			return
 		}
 		s.passiveScanCh <- item
-		s.activeScanCh <- &engineTask{item: item, workspaceID: workspaceID, taskJob: taskJob}
+		s.activeScanCh <- &engineTask{item: item, taskJob: taskJob, options: options}
 	}
 }
 
@@ -111,7 +111,7 @@ func (s *ScanEngine) run() {
 			s.wg.Add(1)
 			go func(task *engineTask) {
 				defer s.wg.Done()
-				s.scheduleActiveScan(task.item, task.workspaceID, task.taskJob)
+				s.scheduleActiveScan(task.item, task.taskJob, task.options)
 			}(task)
 		case <-s.pauseCh:
 			s.isPaused = true
@@ -133,10 +133,10 @@ func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 	passive.ScanHistoryItem(item)
 }
 
-func (s *ScanEngine) scheduleActiveScan(item *db.History, workspaceID uint, taskJob *db.TaskJob) {
+func (s *ScanEngine) scheduleActiveScan(item *db.History, taskJob *db.TaskJob, options HistoryItemScanOptions) {
 	taskJob.Status = db.TaskJobRunning
 	db.Connection.UpdateTaskJob(taskJob)
-	ActiveScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators, workspaceID)
+	ActiveScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators, options.WorkspaceID)
 	taskJob.Status = db.TaskJobFinished
 	taskJob.CompletedAt = time.Now()
 	db.Connection.UpdateTaskJob(taskJob)
@@ -161,6 +161,22 @@ type FullScanOptions struct {
 	Headers         map[string][]string `json:"headers" validate:"omitempty"`
 	InsertionPoints []string            `json:"insertion_points" validate:"omitempty,dive,oneof=param url body header cookie"`
 	Mode            ScanMode            `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
+}
+
+type HistoryItemScanOptions struct {
+	WorkspaceID     uint     `json:"workspace_id" validate:"required,min=0"`
+	TaskID          uint     `json:"task_id" validate:"required,min=0"`
+	Mode            ScanMode `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
+	InsertionPoints []string `json:"insertion_points" validate:"omitempty,dive,oneof=param url body header cookie"`
+}
+
+func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bool {
+	for _, ip := range o.InsertionPoints {
+		if ip == insertionPoint {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
@@ -209,7 +225,12 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 	retireScanner := integrations.NewRetireScanner()
 
 	db.Connection.SetTaskStatus(task.ID, db.TaskStatusScanning)
-
+	itemScanOptions := HistoryItemScanOptions{
+		WorkspaceID:     options.WorkspaceID,
+		TaskID:          task.ID,
+		Mode:            options.Mode,
+		InsertionPoints: options.InsertionPoints,
+	}
 	for _, historyItem := range uniqueHistoryItems {
 		if historyItem.StatusCode == 404 {
 			continue
@@ -228,7 +249,9 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 		if shouldSkip {
 			continue
 		}
-		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, options.WorkspaceID, task.ID)
+
+		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, itemScanOptions)
+
 	}
 	scanLog.Info().Msg("Active scans scheduled")
 	if waitCompletion {

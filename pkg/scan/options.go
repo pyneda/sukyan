@@ -36,3 +36,7 @@ func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bo
 	}
 	return false
 }
+
+func GetValidInsertionPoints() []string {
+	return []string{"parameters", "urlpath", "body", "headers", "cookies", "json", "xml"}
+}

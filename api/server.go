@@ -46,8 +46,8 @@ func StartAPI() {
 		OnInteractionCallback: scan.SaveInteractionCallback,
 	}
 	interactionsManager.Start()
+	engine := scan.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
 
-	engine := scan.NewScanEngine(generators, 100, 100, interactionsManager)
 	engine.Start()
 
 	apiLogger.Info().Msg("Initialized everything. Starting the API...")

@@ -31,7 +31,7 @@ const (
 	TypeHex     DataType = "Hexadecimal"
 	TypeHTML    DataType = "HTML"
 	TypeJSCode  DataType = "JavaScript Code"
-	TypeUnknown DataType = "Unknown"
+	TypeString  DataType = "String"
 )
 
 func isCommaSeparatedList(s string) bool {
@@ -145,5 +145,5 @@ func GuessDataType(s string) DataType {
 		return TypeBase64
 	}
 
-	return TypeUnknown
+	return TypeString
 }

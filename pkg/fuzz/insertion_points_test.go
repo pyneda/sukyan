@@ -3,6 +3,7 @@ package fuzz
 import (
 	"encoding/json"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"net/http"
 	"reflect"
 	"sort"
@@ -14,8 +15,8 @@ func TestHandleURLParameters(t *testing.T) {
 		URL: "http://example.com/path?param1=value1&param2=value2",
 	}
 	expected := []InsertionPoint{
-		{Type: "Parameter", Name: "param1", Value: "value1", OriginalData: history.URL},
-		{Type: "Parameter", Name: "param2", Value: "value2", OriginalData: history.URL},
+		{Type: "Parameter", Name: "param1", Value: "value1", OriginalData: history.URL, ValueType: lib.TypeString},
+		{Type: "Parameter", Name: "param2", Value: "value2", OriginalData: history.URL, ValueType: lib.TypeString},
 	}
 
 	result, err := GetInsertionPoints(history, []string{"parameters"})
@@ -42,7 +43,7 @@ func TestHandleURLParameters(t *testing.T) {
 
 func TestHandleHeaders(t *testing.T) {
 	headerData := http.Header{
-		"Header1": []string{"value1"},
+		"Header1": []string{"1"},
 		"Header2": []string{"value2"},
 	}
 	jsonHeaderData, _ := json.Marshal(headerData)
@@ -50,8 +51,8 @@ func TestHandleHeaders(t *testing.T) {
 		RequestHeaders: jsonHeaderData,
 	}
 	expected := []InsertionPoint{
-		{Type: "Header", Name: "Header1", Value: "value1", OriginalData: headerData["Header1"][0]},
-		{Type: "Header", Name: "Header2", Value: "value2", OriginalData: headerData["Header2"][0]},
+		{Type: "Header", Name: "Header1", Value: "1", OriginalData: headerData["Header1"][0], ValueType: lib.TypeInt},
+		{Type: "Header", Name: "Header2", Value: "value2", OriginalData: headerData["Header2"][0], ValueType: lib.TypeString},
 	}
 	result, err := GetInsertionPoints(history, []string{"headers"})
 	if err != nil {
@@ -77,15 +78,16 @@ func TestHandleHeaders(t *testing.T) {
 
 func TestHandleCookies(t *testing.T) {
 	headerData := http.Header{
-		"Cookie": []string{"cookie1=value1; cookie2=value2"},
+		"Cookie": []string{"cookie1=value1; cookie2=value2; sessionid=U2Vzc2lvbkNvb2tpZT1zYW1wbGUxMjM0NTY3OA=="},
 	}
 	jsonHeaderData, _ := json.Marshal(headerData)
 	history := &db.History{
 		RequestHeaders: jsonHeaderData,
 	}
 	expected := []InsertionPoint{
-		{Type: "Cookie", Name: "cookie1", Value: "value1", OriginalData: headerData["Cookie"][0]},
-		{Type: "Cookie", Name: "cookie2", Value: "value2", OriginalData: headerData["Cookie"][0]},
+		{Type: "Cookie", Name: "cookie1", Value: "value1", OriginalData: headerData["Cookie"][0], ValueType: lib.TypeString},
+		{Type: "Cookie", Name: "cookie2", Value: "value2", OriginalData: headerData["Cookie"][0], ValueType: lib.TypeString},
+		{Type: "Cookie", Name: "sessionid", Value: "U2Vzc2lvbkNvb2tpZT1zYW1wbGUxMjM0NTY3OA==", OriginalData: headerData["Cookie"][0], ValueType: lib.TypeBase64},
 	}
 
 	result, err := GetInsertionPoints(history, []string{"cookies"})
@@ -103,8 +105,8 @@ func TestHandleBodyParameters(t *testing.T) {
 		RequestContentType: "application/x-www-form-urlencoded",
 	}
 	expected := []InsertionPoint{
-		{Type: "Body", Name: "param1", Value: "value1", OriginalData: string(history.RequestBody)},
-		{Type: "Body", Name: "param2", Value: "value2", OriginalData: string(history.RequestBody)},
+		{Type: "Body", Name: "param1", Value: "value1", OriginalData: string(history.RequestBody), ValueType: lib.TypeString},
+		{Type: "Body", Name: "param2", Value: "value2", OriginalData: string(history.RequestBody), ValueType: lib.TypeString},
 	}
 	result, err := GetInsertionPoints(history, []string{"body"})
 	if err != nil {

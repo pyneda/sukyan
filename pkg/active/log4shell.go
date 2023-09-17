@@ -190,7 +190,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		return
 	}
 
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner, a.WorkspaceID)
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner, a.WorkspaceID, false)
 	isInResponse, err := item.payload.MatchAgainstString(string(history.RawResponse))
 
 	// This might be un-needed

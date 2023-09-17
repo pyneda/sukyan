@@ -130,7 +130,7 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 				taskLog.Error().Err(err).Msg("Error making request")
 				continue
 			}
-			responseData, err := http_utils.ReadFullResponse(response)
+			responseData, _, err := http_utils.ReadFullResponse(response, false)
 			if err != nil {
 				taskLog.Error().Err(err).Msg("Error reading response body, skipping")
 				continue

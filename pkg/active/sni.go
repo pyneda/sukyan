@@ -49,7 +49,7 @@ func (a *SNIAudit) Run() {
 		auditLog.Error().Err(err).Msg("Error during request")
 		return
 	}
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner, a.WorkspaceID)
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner, a.WorkspaceID, false)
 
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error reading response")

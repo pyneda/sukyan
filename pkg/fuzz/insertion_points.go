@@ -15,10 +15,11 @@ import (
 )
 
 type InsertionPoint struct {
-	Type         string // "Parameter", "Header", "Body", or "Cookie"
-	Name         string // the name of the parameter/header/cookie
-	Value        string // the current value
-	OriginalData string // the original data (URL, header string, body, cookie string) in which this insertion point was found
+	Type         string       // "Parameter", "Header", "Body", or "Cookie"
+	Name         string       // the name of the parameter/header/cookie
+	Value        string       // the current value
+	ValueType    lib.DataType // the type of the value (string, int, float, etc.)
+	OriginalData string       // the original data (URL, header string, body, cookie string) in which this insertion point was found
 }
 
 func (i *InsertionPoint) String() string {
@@ -36,6 +37,7 @@ func handleURLParameters(urlData *url.URL) ([]InsertionPoint, error) {
 				Type:         "Parameter",
 				Name:         name,
 				Value:        value,
+				ValueType:    lib.GuessDataType(value),
 				OriginalData: urlData.String(),
 			})
 		}
@@ -53,9 +55,11 @@ func handleHeaders(header map[string][]string) ([]InsertionPoint, error) {
 		}
 		for _, value := range values {
 			points = append(points, InsertionPoint{
-				Type:         "Header",
-				Name:         name,
-				Value:        value,
+				Type:      "Header",
+				Name:      name,
+				Value:     value,
+				ValueType: lib.GuessDataType(value),
+
 				OriginalData: header[name][0],
 			})
 		}
@@ -76,9 +80,11 @@ func handleCookies(header map[string][]string) ([]InsertionPoint, error) {
 				cookieParts := strings.SplitN(strings.TrimSpace(cookieValue), "=", 2)
 				if len(cookieParts) == 2 {
 					points = append(points, InsertionPoint{
-						Type:         "Cookie",
-						Name:         cookieParts[0],
-						Value:        cookieParts[1],
+						Type:      "Cookie",
+						Name:      cookieParts[0],
+						Value:     cookieParts[1],
+						ValueType: lib.GuessDataType(cookieParts[1]),
+
 						OriginalData: cookieString,
 					})
 				}
@@ -103,9 +109,11 @@ func handleBodyParameters(contentType string, body []byte) ([]InsertionPoint, er
 		for name, values := range formData {
 			for _, value := range values {
 				points = append(points, InsertionPoint{
-					Type:         "Body",
-					Name:         name,
-					Value:        value,
+					Type:      "Body",
+					Name:      name,
+					Value:     value,
+					ValueType: lib.GuessDataType(value),
+
 					OriginalData: string(body),
 				})
 			}
@@ -121,10 +129,13 @@ func handleBodyParameters(contentType string, body []byte) ([]InsertionPoint, er
 		}
 
 		for name, value := range jsonData {
+			valueStr := fmt.Sprintf("%v", value)
 			points = append(points, InsertionPoint{
-				Type:         "Body",
-				Name:         name,
-				Value:        fmt.Sprintf("%v", value),
+				Type:      "Body",
+				Name:      name,
+				Value:     valueStr,
+				ValueType: lib.GuessDataType(valueStr),
+
 				OriginalData: string(body),
 			})
 		}
@@ -139,10 +150,14 @@ func handleBodyParameters(contentType string, body []byte) ([]InsertionPoint, er
 		}
 
 		for name, value := range xmlData {
+			valueStr := fmt.Sprintf("%v", value)
+
 			points = append(points, InsertionPoint{
-				Type:         "Body",
-				Name:         name,
-				Value:        fmt.Sprintf("%v", value),
+				Type:      "Body",
+				Name:      name,
+				Value:     valueStr,
+				ValueType: lib.GuessDataType(valueStr),
+
 				OriginalData: string(body),
 			})
 		}
@@ -169,9 +184,11 @@ func handleBodyParameters(contentType string, body []byte) ([]InsertionPoint, er
 		for name, values := range form.Value {
 			for _, value := range values {
 				points = append(points, InsertionPoint{
-					Type:         "Body",
-					Name:         name,
-					Value:        value,
+					Type:      "Body",
+					Name:      name,
+					Value:     value,
+					ValueType: lib.GuessDataType(value),
+
 					OriginalData: string(body),
 				})
 			}

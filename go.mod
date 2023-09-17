@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/BishopFox/jsluice v0.0.0-20230629150035-2c4584eded5a
+	github.com/elazarl/goproxy v0.0.0-20230808193330-2592e75ae04a
 	github.com/go-playground/validator/v10 v10.14.1
 	github.com/go-rod/rod v0.113.1
 	github.com/gofiber/contrib/fiberzerolog v0.2.1

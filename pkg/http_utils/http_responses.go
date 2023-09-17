@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"net/http/httputil"
 
+	"bytes"
 	"encoding/json"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
+	"io/ioutil"
 )
 
 type ResponseBodyData struct {
@@ -43,26 +45,30 @@ type FullResponseData struct {
 }
 
 // ReadResponseBodyData should be replaced by this
-func ReadFullResponse(response *http.Response) (FullResponseData, error) {
-	// Ensure response and response.Body are not nil
+func ReadFullResponse(response *http.Response, createNewBodyStream bool) (FullResponseData, io.ReadCloser, error) {
 	if response == nil {
-		return FullResponseData{}, errors.New("response is nil")
+		return FullResponseData{}, nil, errors.New("response is nil")
 	}
 	if response.Body == nil {
-		return FullResponseData{}, errors.New("response.Body is nil")
+		return FullResponseData{}, nil, errors.New("response.Body is nil")
 	}
 	defer response.Body.Close()
 
 	responseDump, err := httputil.DumpResponse(response, true)
 	if err != nil {
 		log.Error().Err(err).Msg("Error dumping response")
-		return FullResponseData{}, err
+		return FullResponseData{}, nil, err
 	}
 
 	bodyBytes, err := io.ReadAll(response.Body)
 	if err != nil {
 		log.Error().Err(err).Msg("Error reading response body in ReadFullResponse")
-		return FullResponseData{}, err
+		return FullResponseData{}, nil, err
+	}
+
+	var newBody io.ReadCloser
+	if createNewBodyStream {
+		newBody = ioutil.NopCloser(bytes.NewReader(bodyBytes))
 	}
 
 	return FullResponseData{
@@ -71,17 +77,24 @@ func ReadFullResponse(response *http.Response) (FullResponseData, error) {
 		Raw:       responseDump,
 		RawString: string(responseDump),
 		RawSize:   len(responseDump),
-	}, nil
+	}, newBody, nil
 }
 
-func ReadHttpResponseAndCreateHistory(response *http.Response, source string, workspaceID uint) (*db.History, error) {
+func ReadHttpResponseAndCreateHistory(response *http.Response, source string, workspaceID uint, createNewBodyStream bool) (*db.History, error) {
 	if response == nil || response.Request == nil {
 		return nil, errors.New("response or request is nil")
 	}
-	responseData, err := ReadFullResponse(response)
+
+	responseData, newBody, err := ReadFullResponse(response, createNewBodyStream)
 	if err != nil {
 		log.Error().Err(err).Msg("Error reading response body in ReadHttpResponseAndCreateHistory")
+		return nil, err
 	}
+
+	if createNewBodyStream {
+		response.Body = newBody
+	}
+
 	return CreateHistoryFromHttpResponse(response, responseData, source, workspaceID)
 }
 

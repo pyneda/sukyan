@@ -2,6 +2,7 @@ package passive
 
 import (
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,9 +25,14 @@ func TestGetHeadersOccurrences(t *testing.T) {
 
 	result := getHeadersOccurrences(histories)
 
-	// Assert the results
-	assert.Equal(t, 4, result["Header1"].Count)
-	assert.ElementsMatch(t, []string{"Value1", "Value3"}, result["Header1"].Values)
-	assert.Equal(t, 1, result["Header2"].Count)
-	assert.ElementsMatch(t, []string{"Value2"}, result["Header2"].Values)
+	category1 := http_utils.ClassifyHTTPResponseHeader("Header1")
+	category2 := http_utils.ClassifyHTTPResponseHeader("Header2")
+
+	assert.NotNil(t, result[category1]["Header1"])
+	assert.Equal(t, 4, result[category1]["Header1"].Count)
+	assert.ElementsMatch(t, []string{"Value1", "Value3"}, result[category1]["Header1"].Values)
+
+	assert.NotNil(t, result[category2]["Header2"])
+	assert.Equal(t, 1, result[category2]["Header2"].Count)
+	assert.ElementsMatch(t, []string{"Value2"}, result[category2]["Header2"].Values)
 }

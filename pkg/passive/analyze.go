@@ -16,7 +16,7 @@ type HeaderData struct {
 }
 
 type HeaderAnalysisResult struct {
-	Occurrences map[string]*HeaderData
+	Occurrences map[string]map[string]*HeaderData 
 	Details     string
 	Issue       db.Issue
 }
@@ -41,49 +41,8 @@ func AnalyzeHeaders(baseURL string, histories []*db.History) HeaderAnalysisResul
 	}
 }
 
-func getOccurrencesReport(data map[string]*HeaderData) string {
-	var commonHeaders, uncommonHeaders []string
-
-	// Sort keys by Count
-	keys := make([]string, 0, len(data))
-	for k := range data {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		return data[keys[i]].Count > data[keys[j]].Count
-	})
-
-	for _, key := range keys {
-		headerData := data[key]
-		headerInfo := fmt.Sprintf("  * %s (Count: %d)\n", key, headerData.Count)
-		for _, value := range headerData.Values {
-			headerInfo += fmt.Sprintf("      - %s\n", value)
-		}
-
-		if headerData.UncommonHeader {
-			uncommonHeaders = append(uncommonHeaders, headerInfo)
-		} else {
-			commonHeaders = append(commonHeaders, headerInfo)
-		}
-	}
-
-	var reportBuilder strings.Builder
-
-	reportBuilder.WriteString("Find below a list of headers found in the responses of the target application during the crawl phase.\n\n")
-
-	reportBuilder.WriteString("Uncommon Headers:\n")
-	reportBuilder.WriteString("--------------------------------\n\n")
-	reportBuilder.WriteString(strings.Join(uncommonHeaders, "\n"))
-
-	reportBuilder.WriteString("\n\nCommon Headers:\n")
-	reportBuilder.WriteString("--------------------------------\n\n")
-	reportBuilder.WriteString(strings.Join(commonHeaders, "\n"))
-
-	return reportBuilder.String()
-}
-
-func getHeadersOccurrences(histories []*db.History) map[string]*HeaderData {
-	foundHeaders := make(map[string]*HeaderData)
+func getHeadersOccurrences(histories []*db.History) map[string]map[string]*HeaderData {
+	foundHeaders := make(map[string]map[string]*HeaderData)
 
 	for _, item := range histories {
 		headers, err := item.GetResponseHeadersAsMap()
@@ -93,15 +52,19 @@ func getHeadersOccurrences(histories []*db.History) map[string]*HeaderData {
 		}
 
 		for key, values := range headers {
-			headerData, exists := foundHeaders[key]
+			category := http_utils.ClassifyHTTPResponseHeader(key)
+
+			if foundHeaders[category] == nil {
+				foundHeaders[category] = make(map[string]*HeaderData)
+			}
+
+			headerData, exists := foundHeaders[category][key]
 			if !exists {
-				isCommon := http_utils.IsCommonHTTPHeader(key)
 				headerData = &HeaderData{
-					Count:          0,
-					Values:         make([]string, 0),
-					UncommonHeader: !isCommon,
+					Count:  0,
+					Values: make([]string, 0),
 				}
-				foundHeaders[key] = headerData
+				foundHeaders[category][key] = headerData
 			}
 
 			for _, value := range values {
@@ -112,6 +75,39 @@ func getHeadersOccurrences(histories []*db.History) map[string]*HeaderData {
 
 	return foundHeaders
 }
+
+func getOccurrencesReport(data map[string]map[string]*HeaderData) string {
+	var reportBuilder strings.Builder
+
+	reportBuilder.WriteString("Find below a list of headers found in the responses of the target application during the crawl phase, categorized by their purpose.\n\n")
+
+	for category, headers := range data {
+		reportBuilder.WriteString(fmt.Sprintf("%s Headers:\n", category))
+		reportBuilder.WriteString("--------------------------------\n\n")
+
+		keys := make([]string, 0, len(headers))
+		for k := range headers {
+			keys = append(keys, k)
+		}
+		sort.Slice(keys, func(i, j int) bool {
+			return headers[keys[i]].Count > headers[keys[j]].Count
+		})
+
+		for _, key := range keys {
+			headerData := headers[key]
+			headerInfo := fmt.Sprintf("  * %s (Count: %d)\n", key, headerData.Count)
+			for _, value := range headerData.Values {
+				headerInfo += fmt.Sprintf("      - %s\n", value)
+			}
+			reportBuilder.WriteString(headerInfo)
+		}
+
+		reportBuilder.WriteString("\n\n")
+	}
+
+	return reportBuilder.String()
+}
+
 
 func addValueToHeaderData(d *HeaderData, value string) {
 	d.Count++

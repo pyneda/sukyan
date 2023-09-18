@@ -8,4 +8,5 @@ remediation:
   in SQL queries.
 cwe: 89
 severity: High
-references: []
+references:
+  - https://owasp.org/www-community/attacks/Blind_SQL_Injection

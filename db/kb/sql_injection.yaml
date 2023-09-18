@@ -15,4 +15,6 @@ remediation:
   has only the necessary access rights it needs to perform its tasks.
 cwe: 89
 severity: High
-references: []
+references:
+  - https://owasp.org/www-community/attacks/SQL_Injection
+  - https://book.hacktricks.xyz/pentesting-web/sql-injection

@@ -9,4 +9,6 @@ remediation:
   where only specifically allowed domains are permitted access.
 cwe: 942
 severity: Medium
-references: []
+references:
+  - https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+  - https://book.hacktricks.xyz/pentesting-web/cors-bypass

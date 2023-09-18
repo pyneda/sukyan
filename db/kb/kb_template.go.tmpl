@@ -18,6 +18,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "{{ .Original.Remediation }}",
 		Cwe:         {{ .Original.Cwe }},
 		Severity:    "{{ .Original.Severity }}",
+		References:  []string{ {{ range .Original.References }}"{{ . }}",{{ end }} },
 	},
 	{{- end }}
 }

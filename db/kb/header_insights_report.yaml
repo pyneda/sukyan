@@ -13,3 +13,4 @@ cwe: 0
 severity: Info
 references:
   - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers
+  - https://owasp.org/www-project-secure-headers/

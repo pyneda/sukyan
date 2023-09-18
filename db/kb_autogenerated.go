@@ -68,6 +68,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure the application is running in production mode to prevent the exposure of sensitive information.",
 		Cwe:         215,
 		Severity:    "Medium",
+		References:  []string{},
 	},
 	{
 		Code:        ApacheTapestryExceptionCode,
@@ -76,6 +77,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Configure the application to not expose detailed error messages to end users.",
 		Cwe:         209,
 		Severity:    "Medium",
+		References:  []string{},
 	},
 	{
 		Code:        AspNetMvcHeaderCode,
@@ -84,6 +86,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Configure ASP.NET MVC to stop disclosing this information through headers.",
 		Cwe:         200,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        BlindSqlInjectionCode,
@@ -92,6 +95,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure all user-supplied input is properly sanitized before being used in SQL queries.",
 		Cwe:         89,
 		Severity:    "High",
+		References:  []string{"https://owasp.org/www-community/attacks/Blind_SQL_Injection"},
 	},
 	{
 		Code:        CacheControlHeaderCode,
@@ -100,6 +104,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Configure your application's headers to prevent sensitive information from being cached. You can set 'Cache-Control: no-store' or 'Cache-Control: private' as needed.",
 		Cwe:         524,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        CdnDetectedCode,
@@ -108,6 +113,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "No remediation steps are required, as this report is intended for informational purposes only.",
 		Cwe:         0,
 		Severity:    "Info",
+		References:  []string{"https://developer.mozilla.org/en-US/docs/Glossary/CDN", "https://www.cloudflare.com/learning/cdn/what-is-a-cdn/"},
 	},
 	{
 		Code:        ClientSidePrototypePollutionCode,
@@ -116,6 +122,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, avoid using the `Object.assign()` function with user-supplied input. If user input must be used, ensure it is thoroughly validated and sanitized first. Implement proper input validation and sanitization procedures. Also, be aware of how your client-side code handles object properties and ensure that all code which reads from object properties handles unexpected values correctly.",
 		Cwe:         20,
 		Severity:    "Low",
+		References:  []string{"https://portswigger.net/web-security/prototype-pollution/client-side", "https://book.hacktricks.xyz/pentesting-web/deserialization/nodejs-proto-prototype-pollution/client-side-prototype-pollution"},
 	},
 	{
 		Code:        CloudDetectedCode,
@@ -124,6 +131,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "No remediation steps are required, as this report is intended for informational purposes only.",
 		Cwe:         0,
 		Severity:    "Info",
+		References:  []string{"https://cloud.hacktricks.xyz/pentesting-cloud/pentesting-cloud-methodology"},
 	},
 	{
 		Code:        CorsCode,
@@ -132,6 +140,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure that the CORS policies are properly configured to only allow trusted domains to access resources. In many cases, it is advisable to use a whitelist approach where only specifically allowed domains are permitted access.",
 		Cwe:         942,
 		Severity:    "Medium",
+		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS", "https://book.hacktricks.xyz/pentesting-web/cors-bypass"},
 	},
 	{
 		Code:        CrlfInjectionCode,
@@ -140,6 +149,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, sanitize and validate all user-supplied inputs that are incorporated into HTTP headers. Remove or escape CRLF sequences and other control characters. Use allowlists of acceptable inputs, rather than denylists of bad inputs. In addition, configure your web server to ignore or reject HTTP headers that contain CR or LF characters. Regular code reviews and penetration testing can help to identify and mitigate such issues.",
 		Cwe:         93,
 		Severity:    "Medium",
+		References:  []string{"https://owasp.org/www-community/vulnerabilities/CRLF_Injection"},
 	},
 	{
 		Code:        CsrfCode,
@@ -148,6 +158,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, ensure that the application uses anti-CSRF tokens in every form or state changing request. These tokens should be tied to a user's session and included in every form or AJAX request that might result in a change of state for the user's data or settings. Also, make sure the application checks for the presence and correctness of this token before processing any such requests.",
 		Cwe:         352,
 		Severity:    "High",
+		References:  []string{"https://owasp.org/www-community/attacks/csrf", "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"},
 	},
 	{
 		Code:        DatabaseErrorsCode,
@@ -156,6 +167,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Avoid exposing database errors publicly. Consider implementing a global exception handler that can catch any unhandled exceptions and return a generic error message to the user. Detailed error information should be logged for debugging, but should not be exposed to the user or over insecure channels. Regular code reviews and penetration testing can help to identify and mitigate such issues.",
 		Cwe:         209,
 		Severity:    "Medium",
+		References:  []string{},
 	},
 	{
 		Code:        DbConnectionStringsCode,
@@ -164,6 +176,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Avoid exposing database connection strings publicly to mitigate potential information leakage.",
 		Cwe:         200,
 		Severity:    "High",
+		References:  []string{},
 	},
 	{
 		Code:        DirectoryListingCode,
@@ -172,6 +185,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Disable directory listings to prevent unauthorized access to file listings.",
 		Cwe:         538,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        DjangoDebugExceptionCode,
@@ -180,6 +194,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure the application is running in production mode to prevent the exposure of sensitive information.",
 		Cwe:         215,
 		Severity:    "Medium",
+		References:  []string{},
 	},
 	{
 		Code:        EmailAddressesCode,
@@ -188,6 +203,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Avoid displaying email addresses publicly, or use techniques to obfuscate them to make it harder for automated tools to collect them.",
 		Cwe:         200,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        ExposedApiCredentialsCode,
@@ -196,6 +212,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, ensure that API credentials are securely stored and not embedded in the code directly. Environment variables or secure credential storage should be used. Make sure to not commit these credentials in the version control system. If these exposed credentials have been used, consider them compromised and replace them immediately.",
 		Cwe:         798,
 		Severity:    "High",
+		References:  []string{"https://support.google.com/googleapi/answer/6310037?hl=en"},
 	},
 	{
 		Code:        FileUploadDetectedCode,
@@ -204,6 +221,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure that file upload functionality is secured, including validating/sanitizing uploaded files, setting proper file permissions, and storing files in a secure location.",
 		Cwe:         434,
 		Severity:    "Info",
+		References:  []string{},
 	},
 	{
 		Code:        GrailsExceptionCode,
@@ -212,6 +230,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Configure the application to not expose detailed error messages to end users.",
 		Cwe:         209,
 		Severity:    "Medium",
+		References:  []string{},
 	},
 	{
 		Code:        HeaderInsightsReportCode,
@@ -220,6 +239,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "No remediation steps are required, as this report is intended for informational purposes. However, the insights can be valuable for understanding the application's behavior, debugging issues, or for future security assessments.",
 		Cwe:         0,
 		Severity:    "Info",
+		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers", "https://owasp.org/www-project-secure-headers/"},
 	},
 	{
 		Code:        HttpMethodsCode,
@@ -228,6 +248,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Make sure the HTTP Methods are properly configured and only the necessary ones are allowed.",
 		Cwe:         20,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        IncorrectContentTypeHeaderCode,
@@ -236,6 +257,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Always specify a correct 'Content-Type' header in the response. Use 'X-Content-Type-Options: nosniff' to prevent the browser from MIME-sniffing a response away from the declared content-type.",
 		Cwe:         16,
 		Severity:    "Medium",
+		References:  []string{},
 	},
 	{
 		Code:        JavaSerializedObjectDetectedCode,
@@ -244,6 +266,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "N/A",
 		Cwe:         0,
 		Severity:    "Info",
+		References:  []string{},
 	},
 	{
 		Code:        JavaServerHeaderCode,
@@ -252,6 +275,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Configure your server to not disclose software version information in its response headers. Alternatively, ensure your software versions are regularly updated to the latest versions, mitigating the risk of known vulnerabilities.",
 		Cwe:         200,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        JettyServerHeaderCode,
@@ -260,6 +284,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Configure your server to not disclose software version information in its response headers. Alternatively, regularly update your Jetty version to the latest one to reduce the risk of known vulnerabilities.",
 		Cwe:         200,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        JwtDetectedCode,
@@ -268,6 +293,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure that JWTs are used securely. Implement proper validation and handling mechanisms. Consider using additional safeguards such as Token Binding, and never expose sensitive information in the payload of the JWT. Always verify the signature of incoming JWTs to confirm they were issued by your system.",
 		Cwe:         347,
 		Severity:    "Info",
+		References:  []string{"https://jwt.io/", "https://book.hacktricks.xyz/pentesting-web/hacking-jwt-json-web-tokens", "https://github.com/ticarpi/jwt_tool"},
 	},
 	{
 		Code:        Log4shellCode,
@@ -276,6 +302,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Update Log4j to a patched version (2.15.0 or later).",
 		Cwe:         502,
 		Severity:    "Critical",
+		References:  []string{},
 	},
 	{
 		Code:        MissingContentTypeHeaderCode,
@@ -284,6 +311,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, ensure that all responses include a Content-Type header that accurately reflects the type of content being returned. If the content type is not known in advance, 'application/octet-stream' can be used as a general fallback. Avoid using 'text/plain' as this can still be sniffed in some situations. In addition, setting the 'X-Content-Type-Options: nosniff' header will instruct the browser not to attempt to sniff the MIME type.",
 		Cwe:         16,
 		Severity:    "Info",
+		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options"},
 	},
 	{
 		Code:        MixedContentCode,
@@ -292,6 +320,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure all content is served over a secure connection. Use HTTPS for all resources and avoid linking to insecure (HTTP) resources.",
 		Cwe:         16,
 		Severity:    "Medium",
+		References:  []string{},
 	},
 	{
 		Code:        NosqlInjectionCode,
@@ -300,6 +329,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, avoid constructing queries with user-supplied input whenever possible. Instead, use parameterized queries, which can help ensure that user input is not interpreted as part of the query. Implement proper input validation and sanitization procedures. Also, ensure that the least privilege principle is followed, and each function of the application has only the necessary access rights it needs to perform its tasks.",
 		Cwe:         943,
 		Severity:    "High",
+		References:  []string{},
 	},
 	{
 		Code:        OobCommunicationsCode,
@@ -308,6 +338,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure all sensitive information is kept within the application and not sent to external servers.",
 		Cwe:         201,
 		Severity:    "Medium",
+		References:  []string{},
 	},
 	{
 		Code:        OsCmdInjectionCode,
@@ -316,6 +347,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Avoid using shell commands in application code. If unavoidable, use strongly typed parameter APIs to prevent injection.",
 		Cwe:         78,
 		Severity:    "High",
+		References:  []string{"https://owasp.org/www-community/attacks/Command_Injection", "https://book.hacktricks.xyz/pentesting-web/command-injection"},
 	},
 	{
 		Code:        PasswordFieldAutocompleteEnabledCode,
@@ -324,6 +356,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Disable autocomplete on password fields to prevent passwords from being stored and auto-filled by the browser.",
 		Cwe:         200,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        PasswordInGetRequestCode,
@@ -332,6 +365,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Switch to POST method for submitting passwords or sensitive data, and make sure all such communications happen over a secure connection (HTTPS).",
 		Cwe:         598,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        PrivateIpsCode,
@@ -340,6 +374,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Avoid exposing private IP addresses publicly to mitigate potential information leakage.",
 		Cwe:         200,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        PrivateKeysCode,
@@ -348,6 +383,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Private keys must be kept confidential and should never be exposed or sent over insecure channels. If a private key has been exposed, it should be considered compromised and a new key pair should be generated.",
 		Cwe:         522,
 		Severity:    "High",
+		References:  []string{},
 	},
 	{
 		Code:        RemoteFileInclusionCode,
@@ -356,6 +392,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, avoid including files from remote servers whenever possible. When it is necessary to do so, ensure that the remote file's location is hard-coded or otherwise not influenced by user input. Also, implement proper input validation and sanitization procedures. Regular code reviews and penetration testing can help to identify and mitigate such issues.",
 		Cwe:         98,
 		Severity:    "High",
+		References:  []string{"https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/07-Input_Validation_Testing/11.2-Testing_for_Remote_File_Inclusion"},
 	},
 	{
 		Code:        SecretsInJsCode,
@@ -364,6 +401,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this issue, never hard-code secrets into your JavaScript or any other client-side code. Instead, store secrets server-side and ensure they are securely transmitted and only to authenticated and authorized entities. Implement strict access controls and consider using secret management solutions. Regular code reviews can help to identify and remove any accidentally committed secrets.",
 		Cwe:         615,
 		Severity:    "Medium",
+		References:  []string{},
 	},
 	{
 		Code:        ServerHeaderCode,
@@ -372,6 +410,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Remove the 'Server' header or configure your server to stop disclosing this information.",
 		Cwe:         200,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        ServerSidePrototypePollutionCode,
@@ -380,6 +419,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, avoid using user-supplied input in the object manipulation functions without proper validation. Validate and sanitize the inputs that are used for configuration. Be aware of the libraries or dependencies that your application uses and keep them updated. Regular code reviews and penetration testing can also help to identify and mitigate such issues.",
 		Cwe:         400,
 		Severity:    "High",
+		References:  []string{"https://portswigger.net/web-security/prototype-pollution/server-side", "https://portswigger.net/research/server-side-prototype-pollution", "https://arxiv.org/pdf/2207.11171.pdf"},
 	},
 	{
 		Code:        SessionTokenInUrlCode,
@@ -388,6 +428,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Do not include session tokens in URLs. Instead, use secure cookies to manage sessions.",
 		Cwe:         200,
 		Severity:    "Medium",
+		References:  []string{},
 	},
 	{
 		Code:        SniInjectionCode,
@@ -396,6 +437,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Properly validate and sanitize the SNI during the TLS handshake process. Consider implementing additional security measures such as input validation, parameterized queries, or appropriate encoding to prevent injection attacks. Be wary of how your application handles SNI, especially if you are using a Web Application Server (WAS) or Ingress.",
 		Cwe:         91,
 		Severity:    "Medium",
+		References:  []string{"https://www.cloudflare.com/learning/ssl/what-is-sni/", "https://www.hahwul.com/cullinan/sni-injection"},
 	},
 	{
 		Code:        SqlInjectionCode,
@@ -404,6 +446,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, avoid constructing SQL queries with user-supplied input whenever possible. Instead, use parameterized queries or prepared statements, which can help ensure that user input is not interpreted as part of the SQL command. Implement proper input validation and sanitization procedures. Also, ensure that the least privilege principle is followed, and each function of the application has only the necessary access rights it needs to perform its tasks.",
 		Cwe:         89,
 		Severity:    "High",
+		References:  []string{"https://owasp.org/www-community/attacks/SQL_Injection", "https://book.hacktricks.xyz/pentesting-web/sql-injection"},
 	},
 	{
 		Code:        SsrfCode,
@@ -412,6 +455,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure the application does not make requests based on user-supplied data. If necessary, use a whitelist of approved domains.",
 		Cwe:         918,
 		Severity:    "High",
+		References:  []string{"https://owasp.org/www-community/attacks/Server_Side_Request_Forgery", "https://book.hacktricks.xyz/pentesting-web/ssrf-server-side-request-forgery"},
 	},
 	{
 		Code:        StorageBucketDetectedCode,
@@ -420,6 +464,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Avoid exposing storage bucket URLs or error messages publicly to mitigate potential information leakage. Make sure to handle errors gracefully and avoid revealing any sensitive information in error messages. It's recommended to manually review any detected storage buckets to verify if they are exposing sensitive information.",
 		Cwe:         200,
 		Severity:    "Info",
+		References:  []string{},
 	},
 	{
 		Code:        StrictTransportSecurityHeaderCode,
@@ -428,6 +473,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Configure your application's headers to properly set the HSTS policy, including 'max-age' and optionally 'includeSubDomains' and 'preload'.",
 		Cwe:         523,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        TechStackFingerprintCode,
@@ -436,6 +482,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "No remediation steps are required, as this report is intended for informational purposes. However, understanding the technologies in use can be valuable for identifying potential vulnerabilities specific to those technologies.",
 		Cwe:         0,
 		Severity:    "Info",
+		References:  []string{"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server", "https://www.wappalyzer.com/"},
 	},
 	{
 		Code:        VulnerableJavascriptDependencyCode,
@@ -444,6 +491,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Upgrade the vulnerable library to the latest version or to the minimum secure version. Ensure all other libraries and dependencies are also up-to-date to prevent similar issues. Regular dependency checks and vulnerability scanning can help keep your application secure.",
 		Cwe:         937,
 		Severity:    "Medium",
+		References:  []string{"https://owasp.org/www-project-top-ten/OWASP_Top_Ten_2017/Top_10-2017_A9-Using_Components_with_Known_Vulnerabilities"},
 	},
 	{
 		Code:        WafDetectedCode,
@@ -452,6 +500,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "No remediation steps are required, as this report is intended for informational purposes only.",
 		Cwe:         0,
 		Severity:    "Info",
+		References:  []string{"https://www.cloudflare.com/learning/ddos/glossary/web-application-firewall-waf/", "https://owasp.org/www-community/Web_Application_Firewall"},
 	},
 	{
 		Code:        WebsocketDetectedCode,
@@ -460,6 +509,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure that the WebSocket connection is secure (wss://) and that appropriate authentication, authorization, and validation measures are in place for any data transmitted over the WebSocket.",
 		Cwe:         749,
 		Severity:    "Info",
+		References:  []string{},
 	},
 	{
 		Code:        XAspVersionHeaderCode,
@@ -468,6 +518,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Remove the 'X-AspNet-Version' header or configure your ASP.NET application to stop disclosing this information.",
 		Cwe:         200,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        XFrameOptionsHeaderCode,
@@ -476,6 +527,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Always specify a correct 'X-Frame-Options' header in the response. Recommended values are 'DENY' or 'SAMEORIGIN'.",
 		Cwe:         346,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        XPoweredByHeaderCode,
@@ -484,6 +536,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Remove the 'X-Powered-By' header or configure your technology to stop disclosing this information.",
 		Cwe:         200,
 		Severity:    "Low",
+		References:  []string{},
 	},
 	{
 		Code:        XXssProtectionHeaderCode,
@@ -492,6 +545,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Always specify 'X-XSS-Protection: 1; mode=block' in the response header to enable XSS filtering on the client side.",
 		Cwe:         79,
 		Severity:    "Info",
+		References:  []string{},
 	},
 	{
 		Code:        XpathInjectionCode,
@@ -500,5 +554,6 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, avoid constructing XPath queries with user-supplied input whenever possible. Instead, use parameterized queries or prepared statements, which can help ensure that user input is not interpreted as part of the XPath command. Implement proper input validation and sanitization procedures. Also, ensure that the least privilege principle is followed, and each function of the application has only the necessary access rights it needs to perform its tasks.",
 		Cwe:         643,
 		Severity:    "High",
+		References:  []string{"https://owasp.org/www-community/attacks/XPATH_Injection", "https://book.hacktricks.xyz/pentesting-web/xpath-injection"},
 	},
 }

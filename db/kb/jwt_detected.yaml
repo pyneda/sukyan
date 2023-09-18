@@ -11,4 +11,7 @@ remediation:
   of incoming JWTs to confirm they were issued by your system.
 cwe: 347
 severity: Info
-references: []
+references:
+  - https://jwt.io/
+  - https://book.hacktricks.xyz/pentesting-web/hacking-jwt-json-web-tokens
+  - https://github.com/ticarpi/jwt_tool

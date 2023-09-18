@@ -8,4 +8,6 @@ remediation:
   data. If necessary, use a whitelist of approved domains.
 cwe: 918
 severity: High
-references: []
+references:
+  - https://owasp.org/www-community/attacks/Server_Side_Request_Forgery
+  - https://book.hacktricks.xyz/pentesting-web/ssrf-server-side-request-forgery

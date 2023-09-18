@@ -14,4 +14,6 @@ remediation:
   or Ingress.
 cwe: 91
 severity: Medium
-references: []
+references:
+  - https://www.cloudflare.com/learning/ssl/what-is-sni/
+  - https://www.hahwul.com/cullinan/sni-injection

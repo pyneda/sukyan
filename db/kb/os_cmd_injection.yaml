@@ -6,4 +6,6 @@ remediation:
   typed parameter APIs to prevent injection.
 cwe: 78
 severity: High
-references: []
+references:
+  - https://owasp.org/www-community/attacks/Command_Injection
+  - https://book.hacktricks.xyz/pentesting-web/command-injection

@@ -15,4 +15,6 @@ remediation:
   the application has only the necessary access rights it needs to perform its tasks.
 cwe: 643
 severity: High
-references: []
+references:
+  - https://owasp.org/www-community/attacks/XPATH_Injection
+  - https://book.hacktricks.xyz/pentesting-web/xpath-injection

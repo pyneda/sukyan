@@ -16,7 +16,7 @@ type HeaderData struct {
 }
 
 type HeaderAnalysisResult struct {
-	Occurrences map[string]map[string]*HeaderData 
+	Occurrences map[string]map[string]*HeaderData
 	Details     string
 	Issue       db.Issue
 }
@@ -107,7 +107,6 @@ func getOccurrencesReport(data map[string]map[string]*HeaderData) string {
 
 	return reportBuilder.String()
 }
-
 
 func addValueToHeaderData(d *HeaderData, value string) {
 	d.Count++

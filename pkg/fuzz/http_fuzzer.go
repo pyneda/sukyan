@@ -9,7 +9,6 @@ import (
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/rs/zerolog/log"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -135,10 +134,9 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 				taskLog.Error().Err(err).Msg("Error reading response body, skipping")
 				continue
 			}
-
+			result.Duration = time.Since(startTime)
 			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, db.SourceScanner, f.WorkspaceID)
 			taskLog.Debug().Str("rawrequest", string(newHistory.RawRequest)).Msg("Request from history created in http fuzzer")
-			result.Duration = time.Since(startTime)
 			result.Result = newHistory
 			result.Err = err
 			result.Response = *response
@@ -224,6 +222,37 @@ func (f *HttpFuzzer) EvaluateResult(result HistoryFuzzResult) (bool, string, int
 	return vulnerable, sb.String(), confidence, nil
 }
 
+type repeatedHistoryItem struct {
+	history  *db.History
+	duration time.Duration
+}
+
+// repeatHistoryItem repeats a history item and returns the new history item and the duration
+func (f *HttpFuzzer) repeatHistoryItem(history *db.History) (repeatedHistoryItem, error) {
+	request, err := http_utils.BuildRequestFromHistoryItem(history)
+	if err != nil {
+		log.Error().Err(err).Msg("Error building original request from history item to revalidate time based issue")
+		return repeatedHistoryItem{}, err
+	}
+	startTime := time.Now()
+	response, err := http_utils.SendRequest(f.client, request)
+	if err != nil {
+		log.Error().Err(err).Msg("Error making request")
+		return repeatedHistoryItem{}, err
+	}
+	responseData, _, err := http_utils.ReadFullResponse(response, false)
+	if err != nil {
+		log.Error().Err(err).Msg("Error reading response body, skipping")
+		return repeatedHistoryItem{}, err
+	}
+	duration := time.Since(startTime)
+	newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, db.SourceScanner, f.WorkspaceID)
+	return repeatedHistoryItem{
+		history:  newHistory,
+		duration: duration,
+	}, nil
+}
+
 // EvaluateDetectionMethod evaluates a detection method and returns a boolean indicating if it matched, a description of the match, the confidence and a possible error
 func (f *HttpFuzzer) EvaluateDetectionMethod(result HistoryFuzzResult, method generation.DetectionMethod) (bool, string, int, error) {
 	switch m := method.GetMethod().(type) {
@@ -283,26 +312,76 @@ func (f *HttpFuzzer) EvaluateDetectionMethod(result HistoryFuzzResult, method ge
 		log.Warn().Msg("Browser Events detection method not implemented yet")
 		return false, "", 0, nil
 	case *generation.TimeBasedDetectionMethod:
-		sleepInt, err := strconv.Atoi(m.Sleep)
-		if err != nil {
-			log.Error().Err(err).Str("sleep", m.Sleep).Interface("result", result).Msg("Error converting sleep string to int")
-			return false, "", 0, err
-		}
-		// TODO: Improve this, the units should probably be defined in the templates
-		var sleepDuration time.Duration
-		var unit string
-		if sleepInt > 1000 {
-			sleepDuration = time.Duration(sleepInt) * time.Millisecond
-			unit = "ms"
-		} else {
-			sleepDuration = time.Duration(sleepInt) * time.Second
-			unit = "s"
-		}
+		if m.CheckIfResultDurationIsHigher(result.Duration) {
+			var sb strings.Builder
+			defaultDelay := 30
+			attempts := 4
+			finalConfidence := m.Confidence
+			confidenceIncrement := 15
+			confidenceDecrement := 25
+			originalTrueCount := 0
+			payloadTrueCount := 0
+			sb.WriteString(fmt.Sprintf("Response took %s, which is greater than the sleep time injected in the payload of %s\n\n", result.Duration, m.Sleep))
+			var originalResults []bool
+			var payloadResults []bool
 
-		if result.Duration >= sleepDuration {
-			log.Info().Str("duration", result.Duration.String()).Str("sleep", sleepDuration.String()).Str("unit", unit).Msg("Matched Time Based method")
-			description := fmt.Sprintf("Response took %s, which is greater than the sleep time injected in the payload of %s", result.Duration, sleepDuration)
-			return true, description, m.Confidence, nil
+			sb.WriteString("Revalidation results:\n")
+			for i := 1; i < attempts; i++ {
+
+				delay := time.Duration(defaultDelay*i) * time.Second
+
+				originalResult, err := f.repeatHistoryItem(result.Original)
+				if err != nil {
+					sb.WriteString(fmt.Sprintf("Attempt %d: Error making request for original history item\n", i))
+					sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))
+					time.Sleep(delay)
+					continue
+				}
+				withPayloadResult, err := f.repeatHistoryItem(result.Result)
+				if err != nil {
+					sb.WriteString(fmt.Sprintf("Attempt %d: Error making request for history item with payload\n", i))
+					sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))
+					time.Sleep(delay)
+					continue
+				}
+				originalIsHigher := m.CheckIfResultDurationIsHigher(originalResult.duration)
+				if originalIsHigher {
+					originalTrueCount++
+					finalConfidence -= confidenceDecrement
+				}
+				withPayloadIsHigher := m.CheckIfResultDurationIsHigher(withPayloadResult.duration)
+				if withPayloadIsHigher {
+					payloadTrueCount++
+					finalConfidence += confidenceIncrement
+				}
+				originalResults = append(originalResults, originalIsHigher)
+				payloadResults = append(payloadResults, withPayloadIsHigher)
+				sb.WriteString(fmt.Sprintf("Attempt %d: Original took %s, With payload took %s\n", i, originalResult.duration, withPayloadResult.duration))
+				if originalIsHigher {
+					sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))
+					log.Info().Msg("While revalidating time based issue, both the original and the payload requests took longer than the sleep time. Sleeping for 30 seconds and trying again")
+					time.Sleep(delay)
+				}
+			}
+
+			if finalConfidence > 100 {
+				finalConfidence = 100
+			} else if finalConfidence < 0 {
+				finalConfidence = 0
+			}
+
+			if originalTrueCount == 0 && payloadTrueCount > attempts/2 {
+				return true, sb.String(), 100, nil
+			}
+
+			if finalConfidence > 50 {
+				log.Info().Msgf("System is vulnerable with %d%% confidence", finalConfidence)
+				return true, sb.String(), finalConfidence, nil
+			} else {
+				log.Info().Msgf("System is not vulnerable with %d%% confidence", finalConfidence)
+				return false, "", finalConfidence, nil
+			}
+
 		}
 		return false, "", 0, nil
 	case *generation.ResponseCheckDetectionMethod:

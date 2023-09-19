@@ -1,5 +1,11 @@
 package generation
 
+import (
+	"github.com/rs/zerolog/log"
+	"strconv"
+	"time"
+)
+
 type DetectionMethod struct {
 	OOBInteraction    *OOBInteractionDetectionMethod    `yaml:"oob_interaction,omitempty"`
 	ResponseCondition *ResponseConditionDetectionMethod `yaml:"response_condition,omitempty"`
@@ -70,4 +76,27 @@ type BrowserEventsDetectionMethod struct {
 type TimeBasedDetectionMethod struct {
 	Sleep      string `yaml:"sleep"`
 	Confidence int    `yaml:"confidence,omitempty"`
+}
+
+func (t *TimeBasedDetectionMethod) CheckIfResultDurationIsHigher(resultDuration time.Duration) bool {
+	sleepInt, err := strconv.Atoi(t.Sleep)
+	if err != nil {
+		log.Error().Err(err).Str("sleep", t.Sleep).Msg("Error converting sleep string to int")
+		return false
+	}
+	// TODO: Improve this, the units should probably be defined in the templates
+	var sleepDuration time.Duration
+	// var unit string
+	if sleepInt >= 1000 {
+		sleepDuration = time.Duration(sleepInt) * time.Millisecond
+		// unit = "ms"
+	} else {
+		sleepDuration = time.Duration(sleepInt) * time.Second
+		// unit = "s"
+	}
+
+	if resultDuration >= sleepDuration {
+		return true
+	}
+	return false
 }

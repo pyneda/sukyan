@@ -10,13 +10,14 @@ import (
 )
 
 type PayloadGenerator struct {
-	ID                 string             `yaml:"id,omitempty"` // Since it's not used yet, allow it to be empty
-	IssueCode          string             `yaml:"issue_code"`
-	DetectionCondition DetectionCondition `yaml:"detection_condition"`
-	DetectionMethods   []DetectionMethod  `yaml:"detection_methods"`
-	Vars               []PayloadVariable  `yaml:"vars,omitempty"`
-	Templates          []string           `yaml:"templates"`
-	Categories         []string           `yaml:"categories"`
+	ID                 string            `yaml:"id,omitempty"` // Since it's not used yet, allow it to be empty
+	IssueCode          string            `yaml:"issue_code"`
+	DetectionCondition Operator          `yaml:"detection_condition"`
+	DetectionMethods   []DetectionMethod `yaml:"detection_methods"`
+	Launch             LaunchConditions  `yaml:"launch,omitempty"`
+	Vars               []PayloadVariable `yaml:"vars,omitempty"`
+	Templates          []string          `yaml:"templates"`
+	Categories         []string          `yaml:"categories"`
 }
 
 func (generator *PayloadGenerator) BuildPayloads(interactionsManager integrations.InteractionsManager) ([]Payload, error) {

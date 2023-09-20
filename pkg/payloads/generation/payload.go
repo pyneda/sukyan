@@ -6,12 +6,12 @@ import (
 )
 
 type Payload struct {
-	IssueCode          string             `yaml:"issue_code"`
-	Value              string             `yaml:"value"`
-	Vars               []PayloadVariable  `yaml:"vars,omitempty"`
-	DetectionCondition DetectionCondition `yaml:"detection_condition"`
-	DetectionMethods   []DetectionMethod  `yaml:"detection_methods"`
-	Categories         []string           `yaml:"categories"`
+	IssueCode          string            `yaml:"issue_code"`
+	Value              string            `yaml:"value"`
+	Vars               []PayloadVariable `yaml:"vars,omitempty"`
+	DetectionCondition Operator          `yaml:"detection_condition"`
+	DetectionMethods   []DetectionMethod `yaml:"detection_methods"`
+	Categories         []string          `yaml:"categories"`
 	InteractionDomain  integrations.InteractionDomain
 }
 

@@ -1,34 +1,37 @@
 package scan
 
 import (
+	"fmt"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/active"
 	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/web"
-
 	"github.com/spf13/viper"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 )
 
 func analyzeInsertionPoints(item *db.History, insertionPoints []fuzz.InsertionPoint) {
-
-	var base64Data []InsertionPoint
+	var base64Data []fuzz.InsertionPoint
 	for _, insertionPoint := range insertionPoints {
 		if insertionPoint.ValueType == lib.TypeBase64 {
 			base64Data = append(base64Data, insertionPoint)
 			// NOTE: If at some time, we have a way to tell the scanner checks to encode payloads,
-			// we could check which data type is the original data, find insertion points and instruct
+			// we could check which data type is the decoded data, find insertion points and instruct
 			// the scanner checks to base64 encode the original insertion point data.
 		}
 	}
 
 	if len(base64Data) > 0 {
 		var sb strings.Builder
-		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, description, 90, sb.String(), item.WorkspaceID)
-
+		for _, point := range base64Data {
+			sb.WriteString(fmt.Sprintf("Found Base64 encoded data in a %s named '%s'. The current value is '%s'.\n", point.Type, point.Name, point.Value))
+		}
+		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID)
 	}
 }
 

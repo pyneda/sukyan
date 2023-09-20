@@ -6,6 +6,7 @@ var (
 	ApacheStrutsDevModeCode              IssueCode = "apache_struts_dev_mode"
 	ApacheTapestryExceptionCode          IssueCode = "apache_tapestry_exception"
 	AspNetMvcHeaderCode                  IssueCode = "asp_net_mvc_header"
+	Base64EncodedDataInParameterCode     IssueCode = "base64_encoded_data_in_parameter"
 	BlindSqlInjectionCode                IssueCode = "blind_sql_injection"
 	CacheControlHeaderCode               IssueCode = "cache_control_header"
 	CdnDetectedCode                      IssueCode = "cdn_detected"
@@ -87,6 +88,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         200,
 		Severity:    "Low",
 		References:  []string{},
+	},
+	{
+		Code:        Base64EncodedDataInParameterCode,
+		Title:       "Base64 Encoded Data Detected in Parameter",
+		Description: "The application has detected Base64 encoded data in a parameter. While this is not inherently a security vulnerability, it is informational and could be indicative of other issues, such as encoding sensitive information.",
+		Remediation: "Review the reason for using Base64 encoding in a parameter. If it is used to obfuscate sensitive data, consider more secure methods of data protection, such as encryption.",
+		Cwe:         310,
+		Severity:    "Info",
+		References:  []string{"https://owasp.org/www-community/vulnerabilities/Information_exposure_through_query_strings_in_url", "https://base64.guru/blog/base64-encryption-is-a-lie"},
 	},
 	{
 		Code:        BlindSqlInjectionCode,

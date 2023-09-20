@@ -13,6 +13,25 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func analyzeInsertionPoints(item *db.History, insertionPoints []fuzz.InsertionPoint) {
+
+	var base64Data []InsertionPoint
+	for _, insertionPoint := range insertionPoints {
+		if insertionPoint.ValueType == lib.TypeBase64 {
+			base64Data = append(base64Data, insertionPoint)
+			// NOTE: If at some time, we have a way to tell the scanner checks to encode payloads,
+			// we could check which data type is the original data, find insertion points and instruct
+			// the scanner checks to base64 encode the original insertion point data.
+		}
+	}
+
+	if len(base64Data) > 0 {
+		var sb strings.Builder
+		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, description, 90, sb.String(), item.WorkspaceID)
+
+	}
+}
+
 func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options HistoryItemScanOptions) {
 	taskLog := log.With().Uint("workspace", options.WorkspaceID).Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
 	taskLog.Info().Msg("Starting to scan history item")
@@ -28,6 +47,7 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	if err != nil {
 		taskLog.Error().Err(err).Msg("Could not get insertion points")
 	}
+
 	if len(insertionPoints) > 0 {
 		fuzzer.Run(item, payloadGenerators, insertionPoints)
 	}

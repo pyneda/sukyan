@@ -1,10 +1,10 @@
 package generation
 
-type DetectionCondition string
+type Operator string
 
 var (
-	Or  DetectionCondition = "or"
-	And DetectionCondition = "and"
+	Or  Operator = "or"
+	And Operator = "and"
 )
 
 type ResponseConditionCheck string

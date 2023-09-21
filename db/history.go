@@ -330,3 +330,50 @@ func (d *DatabaseConnection) HistoryExists(id uint) (bool, error) {
 	}
 	return count > 0, nil
 }
+
+// HistoryDeletionFilter holds criteria for deleting history items
+type HistoryDeletionFilter struct {
+	StatusCodes          []int    `json:"status_codes"`
+	Methods              []string `json:"methods"`
+	ResponseContentTypes []string `json:"response_content_types"`
+	RequestContentTypes  []string `json:"request_content_types"`
+	Sources              []string `json:"sources"`
+	WorkspaceID          uint     `json:"workspace_id"`
+}
+
+// DeleteHistory deletes history items based on the provided filter
+func (d *DatabaseConnection) DeleteHistory(filter HistoryDeletionFilter) (deletedCount int64, err error) {
+	filterQuery := make(map[string]interface{})
+
+	if len(filter.StatusCodes) > 0 {
+		filterQuery["status_code"] = filter.StatusCodes
+	}
+	if len(filter.Methods) > 0 {
+		filterQuery["method"] = filter.Methods
+	}
+	if len(filter.Sources) > 0 {
+		filterQuery["source"] = filter.Sources
+	}
+	if len(filter.ResponseContentTypes) > 0 {
+		filterQuery["response_content_type"] = filter.ResponseContentTypes
+	}
+	if len(filter.RequestContentTypes) > 0 {
+		filterQuery["request_content_type"] = filter.RequestContentTypes
+	}
+	if filter.WorkspaceID > 0 {
+		filterQuery["workspace_id"] = filter.WorkspaceID
+	}
+
+	// Perform the deletion
+	tx := d.db.Where(filterQuery).Delete(&History{})
+	deletedCount = tx.RowsAffected
+
+	if tx.Error != nil {
+		err = tx.Error
+		return 0, err
+	}
+
+	log.Info().Interface("filters", filter).Int64("deleted_count", deletedCount).Msg("Deleted history items")
+
+	return deletedCount, nil
+}

@@ -6,7 +6,6 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/active"
-	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/web"
 	"github.com/spf13/viper"
@@ -15,8 +14,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func analyzeInsertionPoints(item *db.History, insertionPoints []fuzz.InsertionPoint) {
-	var base64Data []fuzz.InsertionPoint
+func analyzeInsertionPoints(item *db.History, insertionPoints []InsertionPoint) {
+	var base64Data []InsertionPoint
 	for _, insertionPoint := range insertionPoints {
 		if insertionPoint.ValueType == lib.TypeBase64 {
 			base64Data = append(base64Data, insertionPoint)
@@ -39,20 +38,20 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	taskLog := log.With().Uint("workspace", options.WorkspaceID).Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
 	taskLog.Info().Msg("Starting to scan history item")
 
-	fuzzer := fuzz.HttpFuzzer{
-		Concurrency:         10,
-		InteractionsManager: interactionsManager,
-		AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),
-		WorkspaceID:         options.WorkspaceID,
-	}
-	insertionPoints, err := fuzz.GetInsertionPoints(item, options.InsertionPoints)
+	insertionPoints, err := GetInsertionPoints(item, options.InsertionPoints)
 	taskLog.Debug().Interface("insertionPoints", insertionPoints).Msg("Insertion points")
 	if err != nil {
 		taskLog.Error().Err(err).Msg("Could not get insertion points")
 	}
 
 	if len(insertionPoints) > 0 {
-		fuzzer.Run(item, payloadGenerators, insertionPoints)
+		fuzzer := HttpFuzzer{
+			Concurrency:         10,
+			InteractionsManager: interactionsManager,
+			AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),
+			WorkspaceID:         options.WorkspaceID,
+		}
+		fuzzer.Run(item, payloadGenerators, insertionPoints, options)
 	}
 
 	cspp := active.ClientSidePrototypePollutionAudit{

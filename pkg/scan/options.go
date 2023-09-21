@@ -8,6 +8,19 @@ var (
 	ScanModeFuzz  ScanMode = "fuzz"
 )
 
+func (sm ScanMode) String() string {
+	return string(sm)
+}
+
+func (sm ScanMode) IsHigherOrEqual(other ScanMode) bool {
+	order := map[ScanMode]int{
+		ScanModeFast:  1,
+		ScanModeSmart: 2,
+		ScanModeFuzz:  3,
+	}
+	return order[sm] >= order[other]
+}
+
 type FullScanOptions struct {
 	Title           string              `json:"title" validate:"omitempty,min=1,max=255"`
 	StartURLs       []string            `json:"start_urls" validate:"required,dive,url"`
@@ -26,6 +39,7 @@ type HistoryItemScanOptions struct {
 	TaskID          uint     `json:"task_id" validate:"required,min=0"`
 	Mode            ScanMode `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
 	InsertionPoints []string `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
+	FingerprintTags []string `json:"fingerprint_tags" validate:"omitempty,dive"`
 }
 
 func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bool {

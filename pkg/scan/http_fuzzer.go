@@ -1,8 +1,9 @@
-package fuzz
+package scan
 
 import (
 	"fmt"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/passive"
@@ -56,8 +57,52 @@ func (f *HttpFuzzer) checkConfig() {
 
 }
 
+// shouldLaunch checks if the generator should be launched according to the launch conditions
+func (f *HttpFuzzer) shouldLaunch(history *db.History, generator *generation.PayloadGenerator, insertionPoint InsertionPoint, options HistoryItemScanOptions) bool {
+	if generator.Launch.Conditions == nil || len(generator.Launch.Conditions) == 0 {
+		return true
+	}
+	conditionsMet := 0
+	for _, condition := range generator.Launch.Conditions {
+		switch condition.Type {
+		case generation.Platform:
+			if lib.SliceContains(options.FingerprintTags, condition.Value) {
+				conditionsMet++
+			}
+
+		case generation.ScanMode:
+			if condition.Value == options.Mode.String() {
+				conditionsMet++
+			}
+
+		case generation.ParameterValueDataType:
+			if condition.Value == string(insertionPoint.ValueType) {
+				conditionsMet++
+			}
+
+		case generation.ResponseCondition:
+			if condition.ResponseCondition.Check(history) {
+				conditionsMet++
+			}
+		}
+	}
+
+	if generator.Launch.Operator == generation.Or {
+		return conditionsMet > 0
+	}
+
+	return conditionsMet == len(generator.Launch.Conditions)
+}
+
+type FuzzItemOptions struct {
+	WorkspaceID     uint     `json:"workspace_id" validate:"required,min=0"`
+	TaskID          uint     `json:"task_id" validate:"required,min=0"`
+	Mode            ScanMode `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
+	FingerprintTags []string `json:"fingerprint_tags" validate:"omitempty,dive"`
+}
+
 // Run starts the fuzzing job
-func (f *HttpFuzzer) Run(history *db.History, payloadGenerators []*generation.PayloadGenerator, insertionPoints []InsertionPoint) {
+func (f *HttpFuzzer) Run(history *db.History, payloadGenerators []*generation.PayloadGenerator, insertionPoints []InsertionPoint, options HistoryItemScanOptions) {
 
 	var wg sync.WaitGroup
 	f.checkConfig()
@@ -73,19 +118,23 @@ func (f *HttpFuzzer) Run(history *db.History, payloadGenerators []*generation.Pa
 	for _, insertionPoint := range insertionPoints {
 		log.Debug().Str("item", history.URL).Str("method", history.Method).Int("ID", int(history.ID)).Msgf("Scanning insertion point: %s", insertionPoint)
 		for _, generator := range payloadGenerators {
-			payloads, err := generator.BuildPayloads(*f.InteractionsManager)
-			if err != nil {
-				log.Error().Err(err).Interface("generator", generator).Msg("Failed to build payloads")
-				continue
-			}
-			for _, payload := range payloads {
-				wg.Add(1)
-				task := HttpFuzzerTask{
-					history:        history,
-					payload:        payload,
-					insertionPoint: insertionPoint,
+			if f.shouldLaunch(history, generator, insertionPoint, options) {
+				payloads, err := generator.BuildPayloads(*f.InteractionsManager)
+				if err != nil {
+					log.Error().Err(err).Interface("generator", generator).Msg("Failed to build payloads")
+					continue
 				}
-				pendingTasks <- task
+				for _, payload := range payloads {
+					wg.Add(1)
+					task := HttpFuzzerTask{
+						history:        history,
+						payload:        payload,
+						insertionPoint: insertionPoint,
+					}
+					pendingTasks <- task
+				}
+			} else {
+				log.Info().Str("item", history.URL).Str("method", history.Method).Int("ID", int(history.ID)).Str("insertion_point", insertionPoint.String()).Msgf("Skipping generator %s as it does not meet the launch conditions", generator.ID)
 			}
 		}
 	}

@@ -13,6 +13,7 @@ require (
 	github.com/gofiber/swagger v0.1.12
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/google/uuid v1.3.1
+	github.com/gosimple/slug v1.13.1
 	github.com/jpillora/go-tld v1.2.1
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mingrammer/commonregex v1.0.1
@@ -75,6 +76,7 @@ require (
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gorilla/css v1.0.0 // indirect
+	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

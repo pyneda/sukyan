@@ -1,5 +1,12 @@
 package generation
 
+import (
+	"encoding/json"
+	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
+	"strings"
+)
+
 type LaunchConditionType string
 
 const (
@@ -19,6 +26,53 @@ type ResponseConditionLaunchCondition struct {
 	Contains   string               `yaml:"contains,omitempty"`
 	Part       ResponseContainsPart `yaml:"part,omitempty"`
 	StatusCode int                  `yaml:"status_code,omitempty"`
+}
+
+// Check if the condition is met against a history item
+func (rc *ResponseConditionLaunchCondition) Check(history *db.History) bool {
+	statusMatch := false
+	containsMatch := false
+
+	if rc.StatusCode != 0 {
+		if rc.StatusCode == history.StatusCode {
+			statusMatch = true
+		}
+	} else {
+		// If no status is defined, assume it's matched
+		statusMatch = true
+	}
+
+	if rc.Contains != "" {
+		var matchAgainst string
+
+		switch rc.Part {
+		case Body:
+			matchAgainst = string(history.ResponseBody)
+
+		case Headers:
+			headersMap := make(map[string]string)
+			if err := json.Unmarshal(history.ResponseHeaders, &headersMap); err == nil {
+				for _, value := range headersMap {
+					matchAgainst += value
+				}
+			} else {
+				log.Error().Err(err).Msg("Failed to unmarshal response headers")
+			}
+
+		case Raw:
+			matchAgainst = string(history.RawResponse)
+		}
+
+		if strings.Contains(matchAgainst, rc.Contains) {
+			containsMatch = true
+		}
+	} else {
+		// If no contains is defined, assume it's matched
+		containsMatch = true
+	}
+
+	// If both status and contains conditions are met, return true
+	return statusMatch && containsMatch
 }
 
 type LaunchConditions struct {

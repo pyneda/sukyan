@@ -18,6 +18,7 @@ type PayloadGenerator struct {
 	Vars               []PayloadVariable `yaml:"vars,omitempty"`
 	Templates          []string          `yaml:"templates"`
 	Categories         []string          `yaml:"categories"`
+	Platforms          []string          `yaml:"platforms"`
 }
 
 func (generator *PayloadGenerator) BuildPayloads(interactionsManager integrations.InteractionsManager) ([]Payload, error) {

@@ -175,10 +175,11 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 		log.Error().Err(err).Msg("Could not get unique base urls")
 	}
 
+	fingerprintTags := passive.GetUniqueNucleiTags(fingerprints)
+
 	if viper.GetBool("integrations.nuclei.enabled") {
 		db.Connection.SetTaskStatus(task.ID, db.TaskStatusNuclei)
-		nucleiTags := passive.GetUniqueNucleiTags(fingerprints)
-		scanLog.Info().Int("count", len(nucleiTags)).Interface("tags", nucleiTags).Msg("Gathered tags from fingerprints for Nuclei scan")
+		scanLog.Info().Int("count", len(fingerprintTags)).Interface("tags", fingerprintTags).Msg("Gathered tags from fingerprints for Nuclei scan")
 		nucleiScanErr := integrations.NucleiScan(baseURLs, options.WorkspaceID)
 		if nucleiScanErr != nil {
 			scanLog.Error().Err(nucleiScanErr).Msg("Error running nuclei scan")
@@ -193,7 +194,9 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 		TaskID:          task.ID,
 		Mode:            options.Mode,
 		InsertionPoints: options.InsertionPoints,
+		FingerprintTags: fingerprintTags,
 	}
+
 	for _, historyItem := range uniqueHistoryItems {
 		if historyItem.StatusCode == 404 {
 			continue

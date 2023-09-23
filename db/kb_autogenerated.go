@@ -22,6 +22,8 @@ var (
 	DirectoryListingCode                 IssueCode = "directory_listing"
 	DjangoDebugExceptionCode             IssueCode = "django_debug_exception"
 	EmailAddressesCode                   IssueCode = "email_addresses"
+	EsiDetectedCode                      IssueCode = "esi_detected"
+	EsiInjectionCode                     IssueCode = "esi_injection"
 	ExposedApiCredentialsCode            IssueCode = "exposed_api_credentials"
 	FileUploadDetectedCode               IssueCode = "file_upload_detected"
 	GrailsExceptionCode                  IssueCode = "grails_exception"
@@ -234,6 +236,24 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         200,
 		Severity:    "Low",
 		References:  []string{},
+	},
+	{
+		Code:        EsiDetectedCode,
+		Title:       "Edge Side Includes (ESI) Detection",
+		Description: "The application appears to support Edge Side Includes (ESI), although this does not necessarily indicate a vulnerability. ESI can, however, be leveraged in certain scenarios if not properly secured.",
+		Remediation: "Monitor and review the usage of ESI within the application. Ensure that its implementation does not expose sensitive data or functionalities.",
+		Cwe:         918,
+		Severity:    "Info",
+		References:  []string{"https://en.wikipedia.org/wiki/Edge_Side_Includes", "https://www.w3.org/TR/esi-lang/"},
+	},
+	{
+		Code:        EsiInjectionCode,
+		Title:       "Edge Side Includes (ESI) Injection",
+		Description: "The application does not properly sanitize user input, potentially allowing for Edge Side Includes (ESI) injection attacks. This can be exploited to perform actions such as Server Side Request Forgeries (SSRF) or disclose sensitive information.",
+		Remediation: "Ensure all user-supplied input is properly sanitized before being processed by the application. Avoid dynamically constructing ESI tags based on user input.",
+		Cwe:         74,
+		Severity:    "High",
+		References:  []string{"https://www.gosecure.net/blog/2018/04/03/beyond-xss-edge-side-include-injection/", "https://en.wikipedia.org/wiki/Edge_Side_Includes", "https://www.w3.org/TR/esi-lang/"},
 	},
 	{
 		Code:        ExposedApiCredentialsCode,

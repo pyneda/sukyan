@@ -1,0 +1,14 @@
+code: esi_detected
+title: Edge Side Includes (ESI) Detection
+description:
+  The application appears to support Edge Side Includes (ESI), although this
+  does not necessarily indicate a vulnerability. ESI can, however, be leveraged
+  in certain scenarios if not properly secured.
+remediation:
+  Monitor and review the usage of ESI within the application. Ensure that
+  its implementation does not expose sensitive data or functionalities.
+cwe: 918
+severity: Info
+references:
+  - https://en.wikipedia.org/wiki/Edge_Side_Includes
+  - https://www.w3.org/TR/esi-lang/

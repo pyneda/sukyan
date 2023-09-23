@@ -1,7 +1,9 @@
 package lib
 
 import (
+	"encoding/base32"
 	"encoding/base64"
+
 	"encoding/json"
 	"encoding/xml"
 	"net/mail"
@@ -28,6 +30,8 @@ const (
 	TypeEmail   DataType = "Email"
 	TypeURL     DataType = "URL"
 	TypeBase64  DataType = "Base64"
+	TypeBase32  DataType = "Base32"
+	TypeBase36  DataType = "Base36"
 	TypeUUID    DataType = "UUID"
 	TypeHex     DataType = "Hexadecimal"
 	TypeHTML    DataType = "HTML"
@@ -145,6 +149,17 @@ func GuessDataType(s string) DataType {
 	if err == nil {
 		return TypeBase64
 	}
+
+	_, err = base32.StdEncoding.DecodeString(s)
+	if err == nil {
+		return TypeBase32
+	}
+
+	// NOTE: Current function gives too many false positives
+	// _, err = DecodeBase36(s)
+	// if err == nil {
+	// 	return TypeBase36
+	// }
 
 	return TypeString
 }

@@ -6,6 +6,8 @@ var (
 	ApacheStrutsDevModeCode              IssueCode = "apache_struts_dev_mode"
 	ApacheTapestryExceptionCode          IssueCode = "apache_tapestry_exception"
 	AspNetMvcHeaderCode                  IssueCode = "asp_net_mvc_header"
+	Base32EncodedDataInParameterCode     IssueCode = "base32_encoded_data_in_parameter"
+	Base36EncodedDataInParameterCode     IssueCode = "base36_encoded_data_in_parameter"
 	Base64EncodedDataInParameterCode     IssueCode = "base64_encoded_data_in_parameter"
 	BlindSqlInjectionCode                IssueCode = "blind_sql_injection"
 	CacheControlHeaderCode               IssueCode = "cache_control_header"
@@ -90,13 +92,31 @@ var issueTemplates = []IssueTemplate{
 		References:  []string{},
 	},
 	{
+		Code:        Base32EncodedDataInParameterCode,
+		Title:       "Base32 Encoded Data Detected in Parameter",
+		Description: "The application has detected Base32 encoded data in a parameter. While this is not inherently a security vulnerability, it is informational and could be indicative of other issues, such as encoding sensitive information.",
+		Remediation: "Review the reason for using Base32 encoding in a parameter. If it is used to obfuscate sensitive data, consider more secure methods of data protection, such as encryption.",
+		Cwe:         310,
+		Severity:    "Info",
+		References:  []string{"https://owasp.org/www-community/vulnerabilities/Information_exposure_through_query_strings_in_url", "https://auth0.com/blog/encoding-encryption-hashing/"},
+	},
+	{
+		Code:        Base36EncodedDataInParameterCode,
+		Title:       "Base36 Encoded Data Detected in Parameter",
+		Description: "The application has detected Base36 encoded data in a parameter. While this is not inherently a security vulnerability, it is informational and could be indicative of other issues, such as encoding sensitive information.",
+		Remediation: "Review the reason for using Base36 encoding in a parameter. If it is used to obfuscate sensitive data, consider more secure methods of data protection, such as encryption.",
+		Cwe:         310,
+		Severity:    "Info",
+		References:  []string{"https://owasp.org/www-community/vulnerabilities/Information_exposure_through_query_strings_in_url", "https://auth0.com/blog/encoding-encryption-hashing/"},
+	},
+	{
 		Code:        Base64EncodedDataInParameterCode,
 		Title:       "Base64 Encoded Data Detected in Parameter",
 		Description: "The application has detected Base64 encoded data in a parameter. While this is not inherently a security vulnerability, it is informational and could be indicative of other issues, such as encoding sensitive information.",
 		Remediation: "Review the reason for using Base64 encoding in a parameter. If it is used to obfuscate sensitive data, consider more secure methods of data protection, such as encryption.",
 		Cwe:         310,
 		Severity:    "Info",
-		References:  []string{"https://owasp.org/www-community/vulnerabilities/Information_exposure_through_query_strings_in_url", "https://base64.guru/blog/base64-encryption-is-a-lie"},
+		References:  []string{"https://owasp.org/www-community/vulnerabilities/Information_exposure_through_query_strings_in_url", "https://base64.guru/blog/base64-encryption-is-a-lie", "https://auth0.com/blog/encoding-encryption-hashing/"},
 	},
 	{
 		Code:        BlindSqlInjectionCode,

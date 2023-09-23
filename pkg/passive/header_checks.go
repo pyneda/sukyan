@@ -15,6 +15,7 @@ func getHeaderChecks() []HeaderCheck {
 		xFrameOptionsHeaderCheck,
 		xXSSProtectionHeaderCheck,
 		aspNetMvcHeaderCheck,
+		esiDetectionHeaderCheck,
 	}
 }
 
@@ -135,4 +136,16 @@ var aspNetMvcHeaderCheck = HeaderCheck{
 	Matchers:       []HeaderCheckMatcher{headerMatchAny},
 	MatchCondition: And,
 	IssueCode:      db.AspNetMvcHeaderCode,
+}
+
+var esiDetectionHeaderCheck = HeaderCheck{
+	Headers: []string{"Surrogate-Control"},
+	Matchers: []HeaderCheckMatcher{
+		{
+			MatcherType: Equals,
+			Value:       "content=\"ESI/1.0\"",
+		},
+	},
+	MatchCondition: And,
+	IssueCode:      db.EsiDetectedCode,
 }

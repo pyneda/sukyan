@@ -1,0 +1,13 @@
+code: ssi_detected
+title: Server Side Includes (SSI) Detection
+description:
+  The application appears to support Server Side Includes (SSI), although this
+  does not necessarily indicate a vulnerability. Improper implementation or usage
+  of SSI can lead to vulnerabilities if not properly secured.
+remediation:
+  Monitor and review the usage of SSI within the application. Ensure that
+  its implementation does not expose sensitive data or functionalities.
+cwe: 96
+severity: Info
+references:
+  - https://en.wikipedia.org/wiki/Server_Side_Includes

@@ -78,6 +78,7 @@ func ScanHistoryItem(item *db.History) {
 	PasswordInGetRequestScan(item)
 	ContentTypesScan(item)
 	WebSocketUsageScan(item)
+	ServerSideIncludesUsageScan(item)
 
 	if viper.GetBool("passive.checks.exceptions.enabled") {
 		ExceptionsScan(item)
@@ -424,5 +425,20 @@ func WebSocketUsageScan(item *db.History) {
 	if item.StatusCode == 101 && lib.SliceContains(headers["Upgrade"], "websocket") {
 		details := fmt.Sprintf("WebSockets in use detected at %s", item.URL)
 		db.CreateIssueFromHistoryAndTemplate(item, db.WebsocketDetectedCode, details, 90, "", item.WorkspaceID)
+	}
+}
+
+func ServerSideIncludesUsageScan(item *db.History) {
+	extensions := []string{".shtml", ".stm", ".shtm"}
+	parsedURL, err := url.Parse(item.URL)
+	if err != nil {
+		return
+	}
+	for _, ext := range extensions {
+		if strings.HasSuffix(parsedURL.Path, ext) {
+			details := fmt.Sprintf("Extension %s detected, meaning Server Side Includes (SSI) is probably detected by the web server", ext)
+			db.CreateIssueFromHistoryAndTemplate(item, db.SsiDetectedCode, details, 90, "", item.WorkspaceID)
+			return
+		}
 	}
 }

@@ -1,0 +1,13 @@
+code: ssi_injection
+title: Server Side Includes (SSI) Injection
+description:
+  The application does not properly sanitize user input, potentially allowing
+  for Server Side Includes (SSI) injection attacks. This can be exploited to
+  execute server-side commands or disclose sensitive information.
+remediation:
+  Ensure all user-supplied input is properly sanitized before being processed
+  by the application. Avoid dynamically constructing SSI directives based on user input.
+cwe: 96
+severity: High
+references:
+  - https://owasp.org/www-community/attacks/Server-Side_Includes_(SSI)_Injection

@@ -51,6 +51,8 @@ var (
 	SessionTokenInUrlCode                IssueCode = "session_token_in_url"
 	SniInjectionCode                     IssueCode = "sni_injection"
 	SqlInjectionCode                     IssueCode = "sql_injection"
+	SsiDetectedCode                      IssueCode = "ssi_detected"
+	SsiInjectionCode                     IssueCode = "ssi_injection"
 	SsrfCode                             IssueCode = "ssrf"
 	StorageBucketDetectedCode            IssueCode = "storage_bucket_detected"
 	StrictTransportSecurityHeaderCode    IssueCode = "strict_transport_security_header"
@@ -497,6 +499,24 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         89,
 		Severity:    "High",
 		References:  []string{"https://owasp.org/www-community/attacks/SQL_Injection", "https://book.hacktricks.xyz/pentesting-web/sql-injection"},
+	},
+	{
+		Code:        SsiDetectedCode,
+		Title:       "Server Side Includes (SSI) Detection",
+		Description: "The application appears to support Server Side Includes (SSI), although this does not necessarily indicate a vulnerability. Improper implementation or usage of SSI can lead to vulnerabilities if not properly secured.",
+		Remediation: "Monitor and review the usage of SSI within the application. Ensure that its implementation does not expose sensitive data or functionalities.",
+		Cwe:         96,
+		Severity:    "Info",
+		References:  []string{"https://en.wikipedia.org/wiki/Server_Side_Includes"},
+	},
+	{
+		Code:        SsiInjectionCode,
+		Title:       "Server Side Includes (SSI) Injection",
+		Description: "The application does not properly sanitize user input, potentially allowing for Server Side Includes (SSI) injection attacks. This can be exploited to execute server-side commands or disclose sensitive information.",
+		Remediation: "Ensure all user-supplied input is properly sanitized before being processed by the application. Avoid dynamically constructing SSI directives based on user input.",
+		Cwe:         96,
+		Severity:    "High",
+		References:  []string{"https://owasp.org/www-community/attacks/Server-Side_Includes_(SSI)_Injection"},
 	},
 	{
 		Code:        SsrfCode,

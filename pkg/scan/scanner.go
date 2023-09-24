@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-type HistoryFuzzResult struct {
+type TemplateScannerResult struct {
 	Original       *db.History
 	Result         *db.History
 	Response       http.Response
@@ -26,7 +26,7 @@ type HistoryFuzzResult struct {
 	Duration       time.Duration
 }
 
-type HttpFuzzer struct {
+type TemplateScanner struct {
 	Concurrency         int
 	InteractionsManager *integrations.InteractionsManager
 	AvoidRepeatedIssues bool
@@ -35,7 +35,7 @@ type HttpFuzzer struct {
 	issuesFound         sync.Map
 }
 
-type HttpFuzzerTask struct {
+type TemplateScannerTask struct {
 	history        *db.History
 	insertionPoint InsertionPoint
 	payload        generation.Payload
@@ -46,9 +46,9 @@ type DetectedIssue struct {
 	insertionPoint InsertionPoint
 }
 
-func (f *HttpFuzzer) checkConfig() {
+func (f *TemplateScanner) checkConfig() {
 	if f.Concurrency == 0 {
-		log.Info().Interface("fuzzer", f).Msg("Concurrency is not set, setting 4 as default")
+		log.Info().Interface("scanner", f).Msg("Concurrency is not set, setting 4 as default")
 		f.Concurrency = 4
 	}
 	if f.client == nil {
@@ -58,7 +58,7 @@ func (f *HttpFuzzer) checkConfig() {
 }
 
 // shouldLaunch checks if the generator should be launched according to the launch conditions
-func (f *HttpFuzzer) shouldLaunch(history *db.History, generator *generation.PayloadGenerator, insertionPoint InsertionPoint, options HistoryItemScanOptions) bool {
+func (f *TemplateScanner) shouldLaunch(history *db.History, generator *generation.PayloadGenerator, insertionPoint InsertionPoint, options HistoryItemScanOptions) bool {
 	if generator.Launch.Conditions == nil || len(generator.Launch.Conditions) == 0 {
 		return true
 	}
@@ -102,12 +102,12 @@ type FuzzItemOptions struct {
 }
 
 // Run starts the fuzzing job
-func (f *HttpFuzzer) Run(history *db.History, payloadGenerators []*generation.PayloadGenerator, insertionPoints []InsertionPoint, options HistoryItemScanOptions) {
+func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generation.PayloadGenerator, insertionPoints []InsertionPoint, options HistoryItemScanOptions) {
 
 	var wg sync.WaitGroup
 	f.checkConfig()
 	// Declare the channels
-	pendingTasks := make(chan HttpFuzzerTask, f.Concurrency)
+	pendingTasks := make(chan TemplateScannerTask, f.Concurrency)
 	defer close(pendingTasks)
 
 	// Schedule workers
@@ -126,7 +126,7 @@ func (f *HttpFuzzer) Run(history *db.History, payloadGenerators []*generation.Pa
 				}
 				for _, payload := range payloads {
 					wg.Add(1)
-					task := HttpFuzzerTask{
+					task := TemplateScannerTask{
 						history:        history,
 						payload:        payload,
 						insertionPoint: insertionPoint,
@@ -138,16 +138,16 @@ func (f *HttpFuzzer) Run(history *db.History, payloadGenerators []*generation.Pa
 			}
 		}
 	}
-	log.Debug().Msg("Waiting for all the fuzzing tasks to finish")
+	log.Debug().Msg("Waiting for all the template scanner tasks to finish")
 	wg.Wait()
-	log.Debug().Str("item", history.URL).Str("method", history.Method).Int("ID", int(history.ID)).Msg("Finished fuzzing history item")
+	log.Debug().Str("item", history.URL).Str("method", history.Method).Int("ID", int(history.ID)).Msg("Finished running template scanner against history item")
 }
 
 // worker makes the request and processes the result
-func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask) {
+func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateScannerTask) {
 	for task := range pendingTasks {
 		taskLog := log.With().Str("method", task.history.Method).Str("param", task.insertionPoint.Name).Str("payload", task.payload.Value).Str("url", task.history.URL).Logger()
-		taskLog.Debug().Interface("task", task).Msg("New fuzzer task received by parameter worker")
+		taskLog.Debug().Interface("task", task).Msg("New template scanner task received by parameter worker")
 		if f.AvoidRepeatedIssues {
 			_, ok := f.issuesFound.Load(DetectedIssue{
 				code:           db.IssueCode(task.payload.IssueCode),
@@ -159,7 +159,7 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 				continue
 			}
 		}
-		var result HistoryFuzzResult
+		var result TemplateScannerResult
 		builders := []InsertionPointBuilder{
 			InsertionPointBuilder{
 				Point:   task.insertionPoint,
@@ -185,7 +185,7 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 			}
 			result.Duration = time.Since(startTime)
 			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, db.SourceScanner, f.WorkspaceID)
-			taskLog.Debug().Str("rawrequest", string(newHistory.RawRequest)).Msg("Request from history created in http fuzzer")
+			taskLog.Debug().Str("rawrequest", string(newHistory.RawRequest)).Msg("Request from history created in TemplateScanner")
 			result.Result = newHistory
 			result.Err = err
 			result.Response = *response
@@ -237,7 +237,7 @@ func (f *HttpFuzzer) worker(wg *sync.WaitGroup, pendingTasks chan HttpFuzzerTask
 	}
 }
 
-func (f *HttpFuzzer) EvaluateResult(result HistoryFuzzResult) (bool, string, int, error) {
+func (f *TemplateScanner) EvaluateResult(result TemplateScannerResult) (bool, string, int, error) {
 	// Iterate through payload detection methods
 	vulnerable := false
 	condition := result.Payload.DetectionCondition
@@ -277,7 +277,7 @@ type repeatedHistoryItem struct {
 }
 
 // repeatHistoryItem repeats a history item and returns the new history item and the duration
-func (f *HttpFuzzer) repeatHistoryItem(history *db.History) (repeatedHistoryItem, error) {
+func (f *TemplateScanner) repeatHistoryItem(history *db.History) (repeatedHistoryItem, error) {
 	request, err := http_utils.BuildRequestFromHistoryItem(history)
 	if err != nil {
 		log.Error().Err(err).Msg("Error building original request from history item to revalidate time based issue")
@@ -303,7 +303,7 @@ func (f *HttpFuzzer) repeatHistoryItem(history *db.History) (repeatedHistoryItem
 }
 
 // EvaluateDetectionMethod evaluates a detection method and returns a boolean indicating if it matched, a description of the match, the confidence and a possible error
-func (f *HttpFuzzer) EvaluateDetectionMethod(result HistoryFuzzResult, method generation.DetectionMethod) (bool, string, int, error) {
+func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, method generation.DetectionMethod) (bool, string, int, error) {
 	switch m := method.GetMethod().(type) {
 	case *generation.OOBInteractionDetectionMethod:
 		log.Debug().Msg("OOB Interaction detection method not implemented yet")

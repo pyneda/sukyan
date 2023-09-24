@@ -67,7 +67,7 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	}
 
 	if len(insertionPoints) > 0 {
-		fuzzer := HttpFuzzer{
+		fuzzer := TemplateScanner{
 			Concurrency:         10,
 			InteractionsManager: interactionsManager,
 			AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),

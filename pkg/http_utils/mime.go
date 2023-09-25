@@ -33,6 +33,12 @@ type MimeTypeChecker struct {
 	Available []MimeType
 }
 
+func NewMimeTypeChecker() MimeTypeChecker {
+	return MimeTypeChecker{
+		Available: GetMimeTypes(),
+	}
+}
+
 func (c *MimeTypeChecker) init() {
 	if len(c.Available) == 0 {
 		c.Available = GetMimeTypes()
@@ -246,6 +252,14 @@ func GetApplicationMimeTypes() (mimeTypes []MimeType) {
 		Name:                   "Bourne shell script",
 		Extensions:             []string{".sh"},
 		MimeTypes:              []string{"application/x-sh"},
+		CreateIssueOnDetection: true,
+	})
+	mimeTypes = append(mimeTypes, MimeType{
+		Code:                   "flash",
+		Group:                  MimeTypeApplicationGroup,
+		Name:                   "Flash",
+		Extensions:             []string{".swf"},
+		MimeTypes:              []string{"application/x-shockwave-flash"},
 		CreateIssueOnDetection: true,
 	})
 	mimeTypes = append(mimeTypes, MimeType{

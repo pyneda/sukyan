@@ -1,0 +1,18 @@
+code: xslt_injection
+title: XSLT Injection
+description:
+  The application does not properly sanitize user input before processing it
+  with XSLT. This can lead to arbitrary code execution, data extraction, or
+  other unintended behaviors when malicious XSLT content is processed.
+remediation:
+  Ensure all user-supplied input is thoroughly sanitized and validated before
+  being used in XSLT processing. Avoid dynamically constructing XSLT based on
+  user input. If dynamic construction is required, use a safe method for combining
+  XSLT, such as parameterized templates.
+cwe: 91
+severity: High
+references:
+  - https://en.wikipedia.org/wiki/XSLT
+  - https://owasp.org/www-pdf-archive/OWASP_Switzerland_Meeting_2015-06-17_XSLT_SSRF_ENG.pdf
+  - https://www.youtube.com/watch?v=j4vCGtF3a64
+  - https://book.hacktricks.xyz/pentesting-web/xslt-server-side-injection-extensible-stylesheet-languaje-transformations

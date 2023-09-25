@@ -67,13 +67,13 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	}
 
 	if len(insertionPoints) > 0 {
-		fuzzer := TemplateScanner{
+		scanner := TemplateScanner{
 			Concurrency:         10,
 			InteractionsManager: interactionsManager,
 			AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),
 			WorkspaceID:         options.WorkspaceID,
 		}
-		fuzzer.Run(item, payloadGenerators, insertionPoints, options)
+		scanner.Run(item, payloadGenerators, insertionPoints, options)
 	}
 
 	cspp := active.ClientSidePrototypePollutionAudit{

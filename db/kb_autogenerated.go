@@ -65,6 +65,7 @@ var (
 	XPoweredByHeaderCode                 IssueCode = "x_powered_by_header"
 	XXssProtectionHeaderCode             IssueCode = "x_xss_protection_header"
 	XpathInjectionCode                   IssueCode = "xpath_injection"
+	XsltInjectionCode                    IssueCode = "xslt_injection"
 )
 
 var issueTemplates = []IssueTemplate{
@@ -625,5 +626,14 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         643,
 		Severity:    "High",
 		References:  []string{"https://owasp.org/www-community/attacks/XPATH_Injection", "https://book.hacktricks.xyz/pentesting-web/xpath-injection"},
+	},
+	{
+		Code:        XsltInjectionCode,
+		Title:       "XSLT Injection",
+		Description: "The application does not properly sanitize user input before processing it with XSLT. This can lead to arbitrary code execution, data extraction, or other unintended behaviors when malicious XSLT content is processed.",
+		Remediation: "Ensure all user-supplied input is thoroughly sanitized and validated before being used in XSLT processing. Avoid dynamically constructing XSLT based on user input. If dynamic construction is required, use a safe method for combining XSLT, such as parameterized templates.",
+		Cwe:         91,
+		Severity:    "High",
+		References:  []string{"https://en.wikipedia.org/wiki/XSLT", "https://owasp.org/www-pdf-archive/OWASP_Switzerland_Meeting_2015-06-17_XSLT_SSRF_ENG.pdf", "https://www.youtube.com/watch?v=j4vCGtF3a64", "https://book.hacktricks.xyz/pentesting-web/xslt-server-side-injection-extensible-stylesheet-languaje-transformations"},
 	},
 }

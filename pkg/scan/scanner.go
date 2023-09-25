@@ -375,6 +375,8 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 			var payloadResults []bool
 
 			sb.WriteString("Revalidation results:\n")
+			sb.WriteString("=============================\n")
+
 			for i := 1; i < attempts; i++ {
 
 				delay := time.Duration(defaultDelay*i) * time.Second
@@ -405,7 +407,7 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 				}
 				originalResults = append(originalResults, originalIsHigher)
 				payloadResults = append(payloadResults, withPayloadIsHigher)
-				sb.WriteString(fmt.Sprintf("Attempt %d: Original took %s, With payload took %s\n", i, originalResult.duration, withPayloadResult.duration))
+				sb.WriteString(fmt.Sprintf("Attempt %d:\n - Original took %s\n - With payload took %s\n\n", i, originalResult.duration, withPayloadResult.duration))
 				if originalIsHigher {
 					sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))
 					log.Info().Msg("While revalidating time based issue, both the original and the payload requests took longer than the sleep time. Sleeping for 30 seconds and trying again")

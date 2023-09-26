@@ -13,13 +13,13 @@ type TemplateRenderer struct {
 
 func (t *TemplateRenderer) getTemplateFuncs() template.FuncMap {
 	return template.FuncMap{
-		"base64encode":           lib.Base64Encode,
-		"base64decode":           lib.Base64Decode,
-		"genInteractionAddress":  t.genInteractionAddress,
-		"genRandInt":             lib.GenerateRandInt,
-		"genRandString":          lib.GenerateRandomString,
-		"genrandLowercaseString": lib.GenerateRandomLowercaseString,
-		"escapeDots":             lib.EscapeDots,
+		"base64encode":          lib.Base64Encode,
+		"base64decode":          lib.Base64Decode,
+		"interactionAddress":    t.genInteractionAddress,
+		"randomInt":             lib.GenerateRandInt,
+		"randomString":          lib.GenerateRandomString,
+		"randomLowercaseString": lib.GenerateRandomLowercaseString,
+		"escapeDots":            lib.EscapeDots,
 	}
 }
 

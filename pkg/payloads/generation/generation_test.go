@@ -19,11 +19,11 @@ func TestGenerateVars(t *testing.T) {
 			input: []PayloadVariable{
 				{
 					Name:  "var1",
-					Value: "{{genInteractionAddress}}",
+					Value: "{{interactionAddress}}",
 				},
 				{
 					Name:  "var2",
-					Value: "{{genRandInt 1 9}}",
+					Value: "{{randomInt 1 9}}",
 				},
 			},
 			expectError: false,
@@ -43,7 +43,7 @@ func TestGenerateVars(t *testing.T) {
 			input: []PayloadVariable{
 				{
 					Name:  "var1",
-					Value: "{{genRandInt 1 1}}",
+					Value: "{{randomInt 1 1}}",
 				},
 			},
 			expectError: false,

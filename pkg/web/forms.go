@@ -94,14 +94,22 @@ func AutoFillForm(form *rod.Element, page *rod.Page) {
 	// Find all input elements within the form
 	inputs, err := form.Elements("input")
 	if err != nil {
-		log.Error().Msg("Could not find input elements")
-		return
+		log.Debug().Msg("Could not find input elements")
+	} else {
+		for _, input := range inputs {
+			AutoFillInput(input, page)
+		}
 	}
 
-	// Iterate over each input element
-	for _, input := range inputs {
-		AutoFillInput(input, page)
+	textareas, err := form.Elements("textarea")
+	if err != nil {
+		log.Debug().Msg("Could not find textarea elements")
+	} else {
+		for _, textarea := range textareas {
+			AutoFillTextarea(textarea, page)
+		}
 	}
+
 }
 
 func AutoFillInput(input *rod.Element, page *rod.Page) {
@@ -147,4 +155,30 @@ func AutoFillInput(input *rod.Element, page *rod.Page) {
 	if exists {
 		input.Timeout(5 * time.Second).Input(value)
 	}
+}
+
+const defaultTextareaValue = "This is a default textarea input."
+
+func AutoFillTextarea(textarea *rod.Element, page *rod.Page) {
+	if textarea == nil {
+		return
+	}
+	name, _ := textarea.Attribute("name")
+
+	valuesByName := make(map[string]string)
+	for _, v := range predefinedNameValues {
+		valuesByName[v.Name] = v.Value
+	}
+
+	var value string
+	var exists bool
+	if name != nil {
+		value, exists = valuesByName[*name]
+	}
+
+	if !exists {
+		value = defaultTextareaValue
+	}
+
+	textarea.Timeout(5 * time.Second).Input(value)
 }

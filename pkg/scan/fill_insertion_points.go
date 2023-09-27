@@ -208,10 +208,9 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 		if name == "Content-Length" {
 			continue
 		}
-		for _, value := range values {
-			req.Header.Add(name, value)
-		}
+		req.Header[name] = values
 	}
+
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}

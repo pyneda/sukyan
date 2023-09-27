@@ -10,9 +10,20 @@ import (
 
 func TestSetRequestHeadersFromHistoryItem(t *testing.T) {
 	request, _ := http.NewRequest("GET", "http://example.com", nil)
+
+	// Add some initial headers to the request
+	initialHeaders := map[string]string{
+		"Initial-Header-1": "Initial Value 1",
+		"Initial-Header-2": "Initial Value 2",
+	}
+	for key, value := range initialHeaders {
+		request.Header.Set(key, value)
+	}
+
 	headers := RequestHeaders{
 		"Content-Type": []string{"application/json"},
 		"User-Agent":   []string{"test-agent"},
+		"X-Test":       []string{"AAAAAAAAAAAAAAA"},
 	}
 	headersBytes, _ := json.Marshal(headers)
 
@@ -31,6 +42,13 @@ func TestSetRequestHeadersFromHistoryItem(t *testing.T) {
 			if !reflect.DeepEqual(request.Header.Values(key), []string{value}) {
 				t.Errorf("Expected header %s to be set to %s, but got %v", key, value, request.Header.Values(key))
 			}
+		}
+	}
+
+	// Check if the initial headers are still present
+	for key, value := range initialHeaders {
+		if !reflect.DeepEqual(request.Header.Values(key), []string{value}) {
+			t.Errorf("Expected initial header %s to still be set to %s, but got %v", key, value, request.Header.Values(key))
 		}
 	}
 

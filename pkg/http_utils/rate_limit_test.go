@@ -1,12 +1,12 @@
 package http_utils
 
 import (
+	"fmt"
 	"math/rand"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
-	"fmt"
-	"sync"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -100,7 +100,6 @@ func TestQueueDepletionWithSteadyClient(t *testing.T) {
 	assert.Equal(t, 0, len(limiter.requests))
 }
 
-
 func TestResponseReadingFromChannel(t *testing.T) {
 	limiter := NewHostRateLimiter("example.com", 10.0, 100.0)
 
@@ -137,8 +136,6 @@ func TestResponseReadingFromChannel(t *testing.T) {
 	}
 }
 
-
-
 func TestNoRequests(t *testing.T) {
 	limiter := NewHostRateLimiter("example.com", 10.0, 100.0)
 	client := &FastMockClient{}
@@ -149,8 +146,6 @@ func TestNoRequests(t *testing.T) {
 	time.Sleep(1 * time.Second) // Allow some time for processing
 	assert.Equal(t, 10.0, limiter.tokenBucket.rate)
 }
-
-
 
 type ErrorMockClient struct{}
 
@@ -175,7 +170,6 @@ func TestClientErrorHandling(t *testing.T) {
 	}
 }
 
-
 func TestConcurrentRequests(t *testing.T) {
 	limiter := NewHostRateLimiter("example.com", 10.0, 100.0)
 	client := &FastMockClient{}
@@ -196,8 +190,6 @@ func TestConcurrentRequests(t *testing.T) {
 	// Check if rate has been adjusted due to fast responses
 	assert.True(t, limiter.tokenBucket.rate > 10.0)
 }
-
-
 
 // func RateLimiterTestRateAdjustment(t *testing.T) {
 // 	limiter := NewHostRateLimiter("example.com", 10.0, 100.0)

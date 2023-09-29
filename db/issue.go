@@ -7,26 +7,28 @@ import (
 // Issue holds table for storing issues found
 type Issue struct {
 	BaseModel
-	Code          string      `gorm:"index" json:"code"`
-	Title         string      `gorm:"index" json:"title"`
-	Description   string      `json:"description"`
-	Details       string      `json:"details"`
-	Remediation   string      `json:"remediation"`
-	Cwe           int         `json:"cwe"`
-	URL           string      `gorm:"index" json:"url"`
-	StatusCode    int         `gorm:"index" json:"status_code"`
-	HTTPMethod    string      `gorm:"index" json:"http_method"`
-	Payload       string      `json:"payload"`
-	Request       []byte      `json:"request"`
-	Response      []byte      `json:"response"`
-	FalsePositive bool        `gorm:"index" json:"false_positive"`
-	Confidence    int         `gorm:"index" json:"confidence"`
-	References    StringSlice `json:"references"`
-	Severity      severity    `gorm:"type:severity;default:'Info'" json:"severity"`
-	CURLCommand   string      `json:"curl_command"`
-	Note          string      `json:"note"`
-	Workspace     Workspace   `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID   *uint       `json:"workspace_id"`
+	Code          string           `gorm:"index" json:"code"`
+	Title         string           `gorm:"index" json:"title"`
+	Description   string           `json:"description"`
+	Details       string           `json:"details"`
+	Remediation   string           `json:"remediation"`
+	Cwe           int              `json:"cwe"`
+	URL           string           `gorm:"index" json:"url"`
+	StatusCode    int              `gorm:"index" json:"status_code"`
+	HTTPMethod    string           `gorm:"index" json:"http_method"`
+	Payload       string           `json:"payload"`
+	Request       []byte           `json:"request"`
+	Response      []byte           `json:"response"`
+	FalsePositive bool             `gorm:"index" json:"false_positive"`
+	Confidence    int              `gorm:"index" json:"confidence"`
+	References    StringSlice      `json:"references"`
+	Severity      severity         `gorm:"type:severity;default:'Info'" json:"severity"`
+	CURLCommand   string           `json:"curl_command"`
+	Note          string           `json:"note"`
+	Workspace     Workspace        `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	WorkspaceID   *uint            `json:"workspace_id"`
+	Interactions  []OOBInteraction `json:"interactions" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Requests      []History        `json:"requests" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 func (i Issue) IsEmpty() bool {

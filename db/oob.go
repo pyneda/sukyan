@@ -50,6 +50,7 @@ type OOBInteraction struct {
 	Timestamp     time.Time `json:"timestamp"`
 	Workspace     Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID   *uint     `json:"workspace_id"`
+	IssueID       *uint     `json:"issue_id"`
 }
 
 // CreateInteraction saves an issue to the database

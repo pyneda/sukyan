@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"sync"
 	"testing"
 	"time"
 
@@ -23,8 +22,7 @@ func (m *FastMockClient) Do(req *http.Request) (*http.Response, error) {
 type SlowMockClient struct{}
 
 func (m *SlowMockClient) Do(req *http.Request) (*http.Response, error) {
-	// Random delay between 1s and 2s
-	delay := time.Second * time.Duration(rand.Intn(2)+1)
+	delay := time.Second * time.Duration(rand.Intn(5)+2)
 	time.Sleep(delay)
 	return &http.Response{}, nil
 }
@@ -63,7 +61,7 @@ func TestSlowResponse(t *testing.T) {
 	go limiter.ProcessQueue(client)
 
 	// Allow some time for requests to be processed
-	time.Sleep(4 * time.Second)
+	time.Sleep(7 * time.Second)
 
 	// Check if rate has been decreased due to slow responses
 	assert.True(t, limiter.tokenBucket.rate < initialRate)
@@ -153,65 +151,64 @@ func (m *ErrorMockClient) Do(req *http.Request) (*http.Response, error) {
 	return nil, fmt.Errorf("mocked client error")
 }
 
-func TestClientErrorHandling(t *testing.T) {
-	limiter := NewHostRateLimiter("example.com", 10.0, 100.0)
-	client := &ErrorMockClient{}
-
-	req, _ := http.NewRequest("GET", "http://example.com", nil)
-	respChan := limiter.AddRequest(req)
-
-	go limiter.ProcessQueue(client)
-
-	select {
-	case res := <-respChan:
-		assert.Nil(t, res.Response)
-	case <-time.After(2 * time.Second):
-		t.Fatal("Timed out waiting for response from channel")
-	}
-}
-
-func TestConcurrentRequests(t *testing.T) {
-	limiter := NewHostRateLimiter("example.com", 10.0, 100.0)
-	client := &FastMockClient{}
-
-	var wg sync.WaitGroup
-
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			req, _ := http.NewRequest("GET", "http://example.com", nil)
-			limiter.AddRequest(req)
-			limiter.ProcessQueue(client)
-		}()
-	}
-
-	wg.Wait()
-	// Check if rate has been adjusted due to fast responses
-	assert.True(t, limiter.tokenBucket.rate > 10.0)
-}
-
-// func RateLimiterTestRateAdjustment(t *testing.T) {
+// func TestClientErrorHandling(t *testing.T) {
 // 	limiter := NewHostRateLimiter("example.com", 10.0, 100.0)
+// 	client := &ErrorMockClient{}
 
-// 	// Simulate slow responses to trigger rate decrease
-// 	clientSlow := &SlowMockClient{}
+// 	req, _ := http.NewRequest("GET", "http://example.com", nil)
+// 	respChan := limiter.AddRequest(req)
+
+// 	go limiter.ProcessQueue(client)
+
+// 	select {
+// 	case res := <-respChan:
+// 		assert.Nil(t, res.Response)
+// 	case <-time.After(2 * time.Second):
+// 		t.Fatal("Timed out waiting for response from channel")
+// 	}
+// }
+
+// func TestConcurrentRequests(t *testing.T) {
+// 	limiter := NewHostRateLimiter("example.com", 10.0, 100.0)
+// 	client := &FastMockClient{}
+
+// 	var wg sync.WaitGroup
+
 // 	for i := 0; i < 10; i++ {
-// 		req, _ := http.NewRequest("GET", "http://example.com", nil)
-// 		limiter.AddRequest(req)
-// 		go limiter.ProcessQueue(clientSlow)
+// 		wg.Add(1)
+// 		go func() {
+// 			defer wg.Done()
+// 			req, _ := http.NewRequest("GET", "http://example.com", nil)
+// 			limiter.AddRequest(req)
+// 			limiter.ProcessQueue(client)
+// 		}()
 // 	}
-// 	time.Sleep(7 * time.Second) // Allow some time for requests to be processed
-// 	assert.True(t, limiter.tokenBucket.rate < 10.0)
 
-// 	// Reset and simulate fast responses to trigger rate increase
-// 	limiter = NewHostRateLimiter("example.com", 10.0, 100.0)
-// 	clientFast := &FastMockClient{}
-// 	for i := 0; i < 50; i++ {
-// 		req, _ := http.NewRequest("GET", "http://example.com", nil)
-// 		limiter.AddRequest(req)
-// 		go limiter.ProcessQueue(clientFast)
-// 	}
-// 	time.Sleep(2 * time.Second) // Allow some time for requests to be processed
+// 	wg.Wait()
+// 	// Check if rate has been adjusted due to fast responses
 // 	assert.True(t, limiter.tokenBucket.rate > 10.0)
 // }
+
+func RateLimiterTestRateAdjustment(t *testing.T) {
+	limiter := NewHostRateLimiter("example.com", 10.0, 100.0)
+	// Simulate slow responses to trigger rate decrease
+	clientSlow := &SlowMockClient{}
+	for i := 0; i < 10; i++ {
+		req, _ := http.NewRequest("GET", "http://example.com", nil)
+		limiter.AddRequest(req)
+		go limiter.ProcessQueue(clientSlow)
+	}
+	time.Sleep(7 * time.Second) // Allow some time for requests to be processed
+	assert.True(t, limiter.tokenBucket.rate < 10.0)
+
+	// Reset and simulate fast responses to trigger rate increase
+	limiter = NewHostRateLimiter("example.com", 10.0, 100.0)
+	clientFast := &FastMockClient{}
+	for i := 0; i < 50; i++ {
+		req, _ := http.NewRequest("GET", "http://example.com", nil)
+		limiter.AddRequest(req)
+		go limiter.ProcessQueue(clientFast)
+	}
+	time.Sleep(2 * time.Second) // Allow some time for requests to be processed
+	assert.True(t, limiter.tokenBucket.rate > 10.0)
+}

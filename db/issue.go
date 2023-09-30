@@ -28,7 +28,7 @@ type Issue struct {
 	Workspace     Workspace        `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID   *uint            `json:"workspace_id"`
 	Interactions  []OOBInteraction `json:"interactions" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Requests      []History        `json:"requests" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Requests      []History        `json:"requests" gorm:"many2many:issue_requests;"`
 }
 
 func (i Issue) IsEmpty() bool {

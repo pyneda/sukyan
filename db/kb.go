@@ -43,6 +43,7 @@ func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details s
 	issue.Confidence = confidence
 	issue.Details = details
 	issue.WorkspaceID = workspaceID
+	issue.Requests = []History{*history}
 	if severity != "" {
 		issue.Severity = NewSeverity(severity)
 	}

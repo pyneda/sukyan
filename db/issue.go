@@ -31,6 +31,10 @@ type Issue struct {
 	Requests      []History        `json:"requests" gorm:"many2many:issue_requests;"`
 }
 
+func (i Issue) AddInteraction(interaction OOBInteraction) error {
+	return Connection.db.Model(&i).Association("Interactions").Append(&interaction)
+}
+
 func (i Issue) IsEmpty() bool {
 	return i.ID == 0
 }

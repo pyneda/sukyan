@@ -134,7 +134,7 @@ func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generati
 					pendingTasks <- task
 				}
 			} else {
-				log.Info().Str("item", history.URL).Str("method", history.Method).Int("ID", int(history.ID)).Str("insertion_point", insertionPoint.String()).Msgf("Skipping generator %s as it does not meet the launch conditions", generator.ID)
+				log.Debug().Str("item", history.URL).Str("method", history.Method).Int("ID", int(history.ID)).Str("insertion_point", insertionPoint.String()).Msgf("Skipping generator %s as it does not meet the launch conditions", generator.ID)
 			}
 		}
 	}
@@ -410,7 +410,7 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 				sb.WriteString(fmt.Sprintf("Attempt %d:\n - Original took %s\n - With payload took %s\n\n", i, originalResult.duration, withPayloadResult.duration))
 				if originalIsHigher {
 					sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))
-					log.Info().Msg("While revalidating time based issue, both the original and the payload requests took longer than the sleep time. Sleeping for 30 seconds and trying again")
+					log.Debug().Msg("While revalidating time based issue, both the original and the payload requests took longer than the sleep time. Sleeping for 30 seconds and trying again")
 					time.Sleep(delay)
 				}
 			}
@@ -426,10 +426,10 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 			}
 
 			if finalConfidence > 50 {
-				log.Info().Msgf("System is vulnerable with %d%% confidence", finalConfidence)
+				log.Debug().Msgf("System is vulnerable with %d%% confidence", finalConfidence)
 				return true, sb.String(), finalConfidence, nil
 			} else {
-				log.Info().Msgf("System is not vulnerable with %d%% confidence", finalConfidence)
+				log.Debug().Msgf("System is not vulnerable with %d%% confidence", finalConfidence)
 				return false, "", finalConfidence, nil
 			}
 

@@ -77,8 +77,10 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 		issue.Payload = oobTest.Payload
 		issue.URL = oobTest.Target
 		issue.WorkspaceID = oobTest.WorkspaceID
-		issue.Requests = []History{*oobTest.HistoryItem}
-		issue.Interactions = []OOBInteraction{interaction}
+		if oobTest.HistoryItem != nil {
+				issue.Requests = append(issue.Requests, *oobTest.HistoryItem)
+		}
+		issue.Interactions = append(issue.Interactions, interaction)
 
 		var sb strings.Builder
 		sb.WriteString("An out of band " + interaction.Protocol + " interaction has been detected by inserting the following payload `" + oobTest.Payload + "` in " + oobTest.InsertionPoint + "\n\n")

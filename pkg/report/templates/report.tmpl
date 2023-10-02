@@ -12,11 +12,22 @@
   <h1>Sukyan Report - {{ .title }}</h1>
 </header>
 <main>
+<details>
+  <summary>Table of Contents</summary>
+  <section>
+    <ul>
+      {{ range $issue := .issues }}
+        <a href="#issue-{{ $issue.ID }}">{{ $issue.ID }} - {{ $issue.Title }}</a>
+      {{ end }}
+    </ul>
+  </section>
+</details>
+
   <div>
   {{ range $issue := .issues }}
     <div >
-      <h3 id="issue-{{ $issue.ID }} ">
-      {{ $issue.Title }}
+      <h3 id="issue-{{ $issue.ID }}">
+      {{ $issue.ID }} - {{ $issue.Title }}
       </h3>
       <h4>Affected URL</h4>
       <p>{{ $issue.URL }}</p>

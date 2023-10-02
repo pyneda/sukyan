@@ -38,7 +38,7 @@ func (d *DatabaseConnection) CreateOOBTest(item OOBTest) (OOBTest, error) {
 type OOBInteraction struct {
 	BaseModel
 	OOBTestID *uint   `json:"oob_test_id"`
-	OOBTest   OOBTest `json:"-" gorm:"foreignKey:OOBTestID"`
+	OOBTest   OOBTest `json:"oob_test" gorm:"foreignKey:OOBTestID"`
 
 	Protocol      string    `json:"protocol"`
 	FullID        string    `json:"full_id"`

@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
+	"gorm.io/gorm"
 )
 
 // FindInteractions gets interactions with pagination and filtering options
@@ -63,4 +64,38 @@ func FindInteractions(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.Status(http.StatusOK).JSON(fiber.Map{"data": issues, "count": count})
+}
+
+// GetInteractionDetail fetches the details of a specific OOB Interaction by its ID.
+// @Summary Get interaction detail
+// @Description Fetch the detail of an OOB Interaction by its ID
+// @Tags Interactions
+// @Produce json
+// @Param id path int true "Interaction ID"
+// @Success 200 {object} db.OOBInteraction
+// @Failure 404 {object} ErrorResponse "Interaction not found"
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/interactions/{id} [get]
+func GetInteractionDetail(c *fiber.Ctx) error {
+	interactionID, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid interaction ID",
+			"message": "The provided interaction ID does not seem valid",
+		})
+	}
+
+	interaction, err := db.Connection.GetInteraction(uint(interactionID))
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error":   "Interaction not found",
+				"message": "The requested interaction does not exist",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.Status(http.StatusOK).JSON(interaction)
 }

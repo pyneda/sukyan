@@ -480,6 +480,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/interactions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Fetch the detail of an OOB Interaction by its ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Interactions"
+                ],
+                "summary": "Get interaction detail",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Interaction ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.OOBInteraction"
+                        }
+                    },
+                    "404": {
+                        "description": "Interaction not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/issues": {
             "get": {
                 "security": [

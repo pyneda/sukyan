@@ -37,6 +37,7 @@ type FullScanOptions struct {
 type HistoryItemScanOptions struct {
 	WorkspaceID     uint     `json:"workspace_id" validate:"required,min=0"`
 	TaskID          uint     `json:"task_id" validate:"required,min=0"`
+	TaskJobID       uint     `json:"task_job_id" validate:"required,min=0"`
 	Mode            ScanMode `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
 	InsertionPoints []string `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
 	FingerprintTags []string `json:"fingerprint_tags" validate:"omitempty,dive"`

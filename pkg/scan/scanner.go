@@ -39,6 +39,7 @@ type TemplateScannerTask struct {
 	history        *db.History
 	insertionPoint InsertionPoint
 	payload        generation.Payload
+	options        HistoryItemScanOptions
 }
 
 type DetectedIssue struct {
@@ -130,6 +131,7 @@ func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generati
 						history:        history,
 						payload:        payload,
 						insertionPoint: insertionPoint,
+						options:        options,
 					}
 					pendingTasks <- task
 				}
@@ -184,7 +186,7 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 				continue
 			}
 			result.Duration = time.Since(startTime)
-			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, db.SourceScanner, f.WorkspaceID)
+			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, db.SourceScanner, f.WorkspaceID, task.options.TaskID)
 			taskLog.Debug().Str("rawrequest", string(newHistory.RawRequest)).Msg("Request from history created in TemplateScanner")
 			result.Result = newHistory
 			result.Err = err
@@ -295,7 +297,7 @@ func (f *TemplateScanner) repeatHistoryItem(history *db.History) (repeatedHistor
 		return repeatedHistoryItem{}, err
 	}
 	duration := time.Since(startTime)
-	newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, db.SourceScanner, f.WorkspaceID)
+	newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, db.SourceScanner, f.WorkspaceID, 0) // TODO: Should pass the task id here
 	return repeatedHistoryItem{
 		history:  newHistory,
 		duration: duration,

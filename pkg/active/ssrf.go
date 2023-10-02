@@ -83,7 +83,7 @@ func (a *SSRFAudit) ProcessResult(result *fuzz.FuzzResult) {
 		log.Error().Err(result.Err).Str("url", result.URL).Msg("Error sending SSRF test request")
 	}
 
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(&result.Response, db.SourceScanner, a.WorkspaceID, false)
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(&result.Response, db.SourceScanner, a.WorkspaceID, 0, false)
 
 	if err != nil {
 		log.Error().Err(err).Str("url", result.URL).Msg("Error creating history from SSRF test request")

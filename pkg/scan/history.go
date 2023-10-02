@@ -1,60 +1,14 @@
 package scan
 
 import (
-	"fmt"
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/active"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/web"
-	"github.com/spf13/viper"
-	"strings"
-
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
-
-func analyzeInsertionPoints(item *db.History, insertionPoints []InsertionPoint) {
-	var base64Data []InsertionPoint
-	var base32Data []InsertionPoint
-	var base36Data []InsertionPoint
-	for _, insertionPoint := range insertionPoints {
-		if insertionPoint.ValueType == lib.TypeBase64 {
-			base64Data = append(base64Data, insertionPoint)
-			// NOTE: If at some time, we have a way to tell the scanner checks to encode payloads,
-			// we could check which data type is the decoded data, find insertion points and instruct
-			// the scanner checks to base64 encode the original insertion point data.
-		} else if insertionPoint.ValueType == lib.TypeBase32 {
-			base32Data = append(base32Data, insertionPoint)
-		} else if insertionPoint.ValueType == lib.TypeBase36 {
-			base36Data = append(base36Data, insertionPoint)
-		}
-
-	}
-
-	if len(base64Data) > 0 {
-		var sb strings.Builder
-		for _, point := range base64Data {
-			sb.WriteString(fmt.Sprintf("Found Base64 encoded data in a %s named '%s'. The current value is '%s'.\n", point.Type, point.Name, point.Value))
-		}
-		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID)
-	}
-	if len(base32Data) > 0 {
-		var sb strings.Builder
-		for _, point := range base64Data {
-			sb.WriteString(fmt.Sprintf("Found Base32 encoded data in a %s named '%s'. The current value is '%s'.\n", point.Type, point.Name, point.Value))
-		}
-		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID)
-	}
-
-	if len(base36Data) > 0 {
-		var sb strings.Builder
-		for _, point := range base64Data {
-			sb.WriteString(fmt.Sprintf("Found Base36 encoded data in a %s named '%s'. The current value is '%s'.\n", point.Type, point.Name, point.Value))
-		}
-		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID)
-	}
-}
 
 func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options HistoryItemScanOptions) {
 	taskLog := log.With().Uint("workspace", options.WorkspaceID).Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
@@ -118,12 +72,16 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	// 	HistoryItem:         item,
 	// 	InteractionsManager: interactionsManager,
 	// 	WorkspaceID:         options.WorkspaceID,
+	// 	TaskID:      options.TaskID,
+	// TaskJobID:   options.TaskJobID,
 	// }
 	// sni.Run()
 	methods := active.HTTPMethodsAudit{
 		HistoryItem: item,
 		Concurrency: 5,
 		WorkspaceID: options.WorkspaceID,
+		TaskID:      options.TaskID,
+		TaskJobID:   options.TaskJobID,
 	}
 	methods.Run()
 
@@ -133,6 +91,8 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 			Concurrency:         10,
 			InteractionsManager: interactionsManager,
 			WorkspaceID:         options.WorkspaceID,
+			TaskID:              options.TaskID,
+			TaskJobID:           options.TaskJobID,
 		}
 		log4shell.Run()
 		hostHeader := active.HostHeaderInjectionAudit{

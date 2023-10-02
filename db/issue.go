@@ -29,6 +29,10 @@ type Issue struct {
 	WorkspaceID   *uint            `json:"workspace_id"`
 	Interactions  []OOBInteraction `json:"interactions" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Requests      []History        `json:"requests" gorm:"many2many:issue_requests;"`
+	TaskID        *uint            `json:"task_id"`
+	Task          Task             `json:"-" gorm:"foreignKey:TaskID"`
+	TaskJobID     *uint            `json:"task_job_id"`
+	TaskJob       TaskJob          `json:"-" gorm:"foreignKey:TaskJobID"`
 }
 
 // AddInteraction adds an interaction to an issue in the database.

@@ -104,7 +104,7 @@ func (p *Proxy) Run() {
 				return nil
 			}
 			log.Info().Str("url", resp.Request.URL.String()).Msg("Proxy received response")
-			http_utils.ReadHttpResponseAndCreateHistory(ctx.Resp, "Proxy", p.WorkspaceID, true)
+			http_utils.ReadHttpResponseAndCreateHistory(ctx.Resp, "Proxy", p.WorkspaceID, 0, true)
 			return resp
 		},
 	)

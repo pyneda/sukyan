@@ -80,7 +80,7 @@ func ReadFullResponse(response *http.Response, createNewBodyStream bool) (FullRe
 	}, newBody, nil
 }
 
-func ReadHttpResponseAndCreateHistory(response *http.Response, source string, workspaceID uint, createNewBodyStream bool) (*db.History, error) {
+func ReadHttpResponseAndCreateHistory(response *http.Response, source string, workspaceID, taskID uint, createNewBodyStream bool) (*db.History, error) {
 	if response == nil || response.Request == nil {
 		return nil, errors.New("response or request is nil")
 	}
@@ -95,10 +95,10 @@ func ReadHttpResponseAndCreateHistory(response *http.Response, source string, wo
 		response.Body = newBody
 	}
 
-	return CreateHistoryFromHttpResponse(response, responseData, source, workspaceID)
+	return CreateHistoryFromHttpResponse(response, responseData, source, workspaceID, taskID)
 }
 
-func CreateHistoryFromHttpResponse(response *http.Response, responseData FullResponseData, source string, workspaceID uint) (*db.History, error) {
+func CreateHistoryFromHttpResponse(response *http.Response, responseData FullResponseData, source string, workspaceID, taskID uint) (*db.History, error) {
 	if response == nil || response.Request == nil {
 		return nil, errors.New("response or request is nil")
 	}
@@ -140,6 +140,7 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		RawRequest:          requestDump,
 		RawResponse:         responseData.Raw,
 		WorkspaceID:         &workspaceID,
+		TaskID:              &taskID,
 		// Note                 string
 	}
 	return db.Connection.CreateHistory(&record)

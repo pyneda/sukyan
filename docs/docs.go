@@ -1836,6 +1836,9 @@ const docTemplate = `{
                 "issue_id": {
                     "type": "integer"
                 },
+                "oob_test": {
+                    "$ref": "#/definitions/db.OOBTest"
+                },
                 "oob_test_id": {
                     "type": "integer"
                 },
@@ -1858,6 +1861,47 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "unique_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "db.OOBTest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "history_id": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "insertion_point": {
+                    "type": "string"
+                },
+                "interaction_domain": {
+                    "type": "string"
+                },
+                "interaction_id": {
+                    "type": "string"
+                },
+                "payload": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "test_name": {
                     "type": "string"
                 },
                 "updated_at": {

@@ -17,6 +17,8 @@ type SNIAudit struct {
 	HistoryItem         *db.History
 	InteractionsManager *integrations.InteractionsManager
 	WorkspaceID         uint
+	TaskID              uint
+	TaskJobID           uint
 }
 
 // Run starts the audit
@@ -49,7 +51,7 @@ func (a *SNIAudit) Run() {
 		auditLog.Error().Err(err).Msg("Error during request")
 		return
 	}
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner, a.WorkspaceID, false)
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner, a.WorkspaceID, a.TaskID, false)
 
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error reading response")

@@ -134,6 +134,7 @@ func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 }
 
 func (s *ScanEngine) scheduleActiveScan(item *db.History, taskJob *db.TaskJob, options HistoryItemScanOptions) {
+	options.TaskJobID = taskJob.ID
 	taskJob.Status = db.TaskJobRunning
 	db.Connection.UpdateTaskJob(taskJob)
 	ActiveScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators, options)

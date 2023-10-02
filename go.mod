@@ -20,6 +20,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/projectdiscovery/cdncheck v1.0.9
+	github.com/projectdiscovery/dsl v0.0.13-0.20230703115450-39d83b5a7026
 	github.com/projectdiscovery/interactsh v1.1.4
 	github.com/projectdiscovery/wappalyzergo v0.0.101
 	github.com/pyneda/nuclei-api v0.0.0-20230715211054-636941207b06

@@ -1,6 +1,7 @@
 package generation
 
 import (
+	"github.com/projectdiscovery/dsl/deserialization"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"text/template"
@@ -20,6 +21,7 @@ func (t *TemplateRenderer) getTemplateFuncs() template.FuncMap {
 		"randomString":          lib.GenerateRandomString,
 		"randomLowercaseString": lib.GenerateRandomLowercaseString,
 		"escapeDots":            lib.EscapeDots,
+		"generateJavaGadget":    deserialization.GenerateJavaGadget,
 	}
 }
 

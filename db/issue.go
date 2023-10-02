@@ -31,8 +31,15 @@ type Issue struct {
 	Requests      []History        `json:"requests" gorm:"many2many:issue_requests;"`
 }
 
+// AddInteraction adds an interaction to an issue in the database.
 func (i Issue) AddInteraction(interaction OOBInteraction) error {
 	return Connection.db.Model(&i).Association("Interactions").Append(&interaction)
+}
+
+// UpdateFalsePositive updates the FalsePositive attribute of an issue in the database.
+func (i Issue) UpdateFalsePositive(value bool) error {
+	i.FalsePositive = value
+	return Connection.db.Model(&i).Update("false_positive", value).Error
 }
 
 func (i Issue) IsEmpty() bool {

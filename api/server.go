@@ -88,6 +88,8 @@ func StartAPI() {
 	api := app.Group("/api/v1")
 	api.Get("/history", JWTProtected(), FindHistory)
 	api.Get("/issues", JWTProtected(), FindIssues)
+	api.Get("/issues/:id", JWTProtected(), GetIssueDetail)
+	app.Post("/issues/:id/set-false-positive", SetFalsePositive)
 	api.Get("/issues/grouped", JWTProtected(), FindIssuesGrouped)
 	api.Get("/history/:id/children", JWTProtected(), GetChildren)
 	api.Get("/history/root-nodes", JWTProtected(), GetRootNodes)

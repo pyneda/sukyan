@@ -572,6 +572,125 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/issues/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves details of a specific issue by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Issues"
+                ],
+                "summary": "Get details of an issue",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Issue ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.Issue"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/issues/{id}/set-false-positive": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Updates the FalsePositive attribute of a specific issue",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Issues"
+                ],
+                "summary": "Set an issue as a false positive",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Issue ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Boolean value for FalsePositive",
+                        "name": "value",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.IssueUpdateResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/report": {
             "post": {
                 "security": [
@@ -1193,6 +1312,17 @@ const docTemplate = `{
                 }
             }
         },
+        "api.IssueUpdateResponse": {
+            "type": "object",
+            "properties": {
+                "issue": {
+                    "$ref": "#/definitions/db.Issue"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
         "api.PassiveScanInput": {
             "type": "object",
             "required": [
@@ -1355,6 +1485,92 @@ const docTemplate = `{
                 }
             }
         },
+        "db.History": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "depth": {
+                    "type": "integer"
+                },
+                "evaluated": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "json_web_tokens": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.JsonWebToken"
+                    }
+                },
+                "method": {
+                    "type": "string"
+                },
+                "note": {
+                    "type": "string"
+                },
+                "parameters_count": {
+                    "type": "integer"
+                },
+                "raw_request": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "raw_response": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "request_body": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "request_body_size": {
+                    "type": "integer"
+                },
+                "request_content_length": {
+                    "type": "integer"
+                },
+                "request_content_type": {
+                    "type": "string"
+                },
+                "response_body": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "response_body_size": {
+                    "type": "integer"
+                },
+                "response_content_type": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "status_code": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "db.Issue": {
             "type": "object",
             "properties": {
@@ -1388,6 +1604,12 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "interactions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.OOBInteraction"
+                    }
+                },
                 "note": {
                     "type": "string"
                 },
@@ -1409,6 +1631,12 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
+                "requests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.History"
+                    }
+                },
                 "response": {
                     "type": "array",
                     "items": {
@@ -1428,6 +1656,53 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "url": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "db.JsonWebToken": {
+            "type": "object",
+            "properties": {
+                "algorithm": {
+                    "type": "string"
+                },
+                "audience": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "expiration": {
+                    "type": "string"
+                },
+                "histories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.History"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "issued_at": {
+                    "type": "string"
+                },
+                "issuer": {
+                    "type": "string"
+                },
+                "signature": {
+                    "type": "string"
+                },
+                "subject": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 },
                 "workspace_id": {
@@ -1499,6 +1774,53 @@ const docTemplate = `{
                 "MessageSent",
                 "MessageReceived"
             ]
+        },
+        "db.OOBInteraction": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "full_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "issue_id": {
+                    "type": "integer"
+                },
+                "oob_test_id": {
+                    "type": "integer"
+                },
+                "protocol": {
+                    "type": "string"
+                },
+                "qtype": {
+                    "type": "string"
+                },
+                "raw_request": {
+                    "type": "string"
+                },
+                "raw_response": {
+                    "type": "string"
+                },
+                "remote_address": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "unique_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
         },
         "db.Task": {
             "type": "object",

@@ -17,11 +17,11 @@ type History struct {
 	StatusCode           int            `gorm:"index" json:"status_code"`
 	URL                  string         `gorm:"index" json:"url"`
 	Depth                int            `gorm:"index" json:"depth"`
-	RequestHeaders       datatypes.JSON `json:"request_headers" swaggertype:"array`
+	RequestHeaders       datatypes.JSON `json:"request_headers" swaggerignore:"true"`
 	RequestBody          []byte         `json:"request_body"`
 	RequestBodySize      int            `gorm:"index" json:"request_body_size"`
 	RequestContentLength int64          `json:"request_content_length"`
-	ResponseHeaders      datatypes.JSON `json:"response_headers" swaggertype:"array"`
+	ResponseHeaders      datatypes.JSON `json:"response_headers" swaggerignore:"true"`
 	ResponseBody         []byte         `json:"response_body"`
 	RequestContentType   string         `gorm:"index" json:"request_content_type"`
 	ResponseBodySize     int            `gorm:"index" json:"response_body_size"`

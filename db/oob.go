@@ -62,6 +62,17 @@ func (d *DatabaseConnection) CreateInteraction(item *OOBInteraction) (*OOBIntera
 	return item, result.Error
 }
 
+// GetInteraction fetches an OOBInteraction by its ID, including its associated OOBTest.
+func (d *DatabaseConnection) GetInteraction(interactionID uint) (*OOBInteraction, error) {
+	var interaction OOBInteraction
+	result := d.db.Preload("OOBTest").First(&interaction, interactionID)
+	if result.Error != nil {
+		log.Error().Uint("interactionID", interactionID).Err(result.Error).Msg("Failed to fetch interaction")
+		return nil, result.Error
+	}
+	return &interaction, nil
+}
+
 func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteraction) (OOBTest, error) {
 	oobTest := OOBTest{}
 	fullID := strings.ToLower(interaction.FullID)

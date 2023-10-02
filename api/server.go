@@ -101,6 +101,7 @@ func StartAPI() {
 	api.Delete("/workspaces/:id", JWTProtected(), DeleteWorkspace)
 	api.Put("/workspaces/:id", JWTProtected(), UpdateWorkspace)
 	api.Get("/interactions", JWTProtected(), FindInteractions)
+	app.Get("/interactions/:id", GetInteractionDetail)
 	api.Get("/tasks", JWTProtected(), FindTasks)
 	api.Get("/tasks/jobs", JWTProtected(), FindTaskJobs)
 	api.Post("/tokens/jwts", JWTProtected(), JwtListHandler)

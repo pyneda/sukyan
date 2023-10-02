@@ -18,6 +18,7 @@ type ClientSidePrototypePollutionAudit struct {
 	HistoryItem *db.History
 	requests    sync.Map
 	WorkspaceID uint
+	TaskJobID   uint
 }
 
 func (a *ClientSidePrototypePollutionAudit) Run() {
@@ -105,7 +106,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 				}
 			}
 		}
-		db.CreateIssueFromHistoryAndTemplate(history, db.ClientSidePrototypePollutionCode, sb.String(), 90, severity, &a.WorkspaceID)
+		db.CreateIssueFromHistoryAndTemplate(history, db.ClientSidePrototypePollutionCode, sb.String(), 90, severity, &a.WorkspaceID, history.TaskID, &a.TaskJobID)
 		// Issue detected, stop checking
 		return
 	}

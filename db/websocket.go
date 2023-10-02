@@ -9,8 +9,8 @@ import (
 type WebSocketConnection struct {
 	BaseModel
 	URL             string             `json:"url"`
-	RequestHeaders  datatypes.JSON     `json:"request_headers"`
-	ResponseHeaders datatypes.JSON     `json:"response_headers"`
+	RequestHeaders  datatypes.JSON     `json:"request_headers" swaggerignore:"true"`
+	ResponseHeaders datatypes.JSON     `json:"response_headers" swaggerignore:"true"`
 	StatusCode      int                `gorm:"index" json:"status_code"`
 	StatusText      string             `json:"status_text"`
 	Messages        []WebSocketMessage `json:"messages" gorm:"foreignKey:ConnectionID"`

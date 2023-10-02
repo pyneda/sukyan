@@ -78,7 +78,7 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 		issue.URL = oobTest.Target
 		issue.WorkspaceID = oobTest.WorkspaceID
 		if oobTest.HistoryItem != nil {
-				issue.Requests = append(issue.Requests, *oobTest.HistoryItem)
+			issue.Requests = append(issue.Requests, *oobTest.HistoryItem)
 		}
 		issue.Interactions = append(issue.Interactions, interaction)
 

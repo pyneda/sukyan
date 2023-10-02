@@ -14,8 +14,8 @@ import (
 type JsonWebToken struct {
 	BaseModel
 	Token       string         `gorm:"type:text" json:"token"`
-	Header      datatypes.JSON `gorm:"type:json" json:"header"`
-	Payload     datatypes.JSON `gorm:"type:json" json:"payload"`
+	Header      datatypes.JSON `gorm:"type:json" json:"header" swaggerignore:"true"`
+	Payload     datatypes.JSON `gorm:"type:json" json:"payload" swaggerignore:"true"`
 	Signature   string         `gorm:"type:text" json:"signature"`
 	Algorithm   string         `gorm:"type:text" json:"algorithm"`
 	Issuer      string         `gorm:"type:text" json:"issuer"`

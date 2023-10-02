@@ -79,7 +79,7 @@ func GenerateVars(variables []PayloadVariable, interactionsManager integrations.
 		}
 
 		var buf bytes.Buffer
-		err = t.Execute(&buf, nil)
+		err = t.Execute(&buf, vars)
 		if err != nil {
 			log.Error().Err(err).Str("template", v.Value).Msg("Failed to execute template when generating vars")
 			return nil, integrations.InteractionDomain{}, fmt.Errorf("failed to execute template when generating vars: %v", err)

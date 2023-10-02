@@ -40,15 +40,6 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	p := web.WebPage{URL: item.URL}
 	hasParams, _ := p.HasParameters()
 	if hasParams && options.IsScopedInsertionPoint("param") {
-		// ssrf := active.SSRFAudit{
-		// 	URL:                 item.URL,
-		// 	ParamsToTest:        specificParamsToTest,
-		// 	Concurrency:         5,
-		// 	StopAfterSuccess:    false,
-		// 	InteractionsManager: interactionsManager,
-		// 	WorkspaceID:         options.WorkspaceID,
-		// }
-		// ssrf.Run()
 		active.TestXSS(item.URL, specificParamsToTest, "default.txt", false)
 		// ssti := active.SSTIAudit{
 		// 	URL:              item.URL,

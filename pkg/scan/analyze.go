@@ -11,6 +11,7 @@ func analyzeInsertionPoints(item *db.History, insertionPoints []InsertionPoint) 
 	var base64Data []InsertionPoint
 	var base32Data []InsertionPoint
 	var base36Data []InsertionPoint
+	var taskJobID uint
 	for _, insertionPoint := range insertionPoints {
 		if insertionPoint.ValueType == lib.TypeBase64 {
 			base64Data = append(base64Data, insertionPoint)
@@ -30,14 +31,14 @@ func analyzeInsertionPoints(item *db.History, insertionPoints []InsertionPoint) 
 		for _, point := range base64Data {
 			sb.WriteString(fmt.Sprintf("Found Base64 encoded data in a %s named '%s'. The current value is '%s'.\n", point.Type, point.Name, point.Value))
 		}
-		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID)
+		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID, item.TaskID, &taskJobID)
 	}
 	if len(base32Data) > 0 {
 		var sb strings.Builder
 		for _, point := range base64Data {
 			sb.WriteString(fmt.Sprintf("Found Base32 encoded data in a %s named '%s'. The current value is '%s'.\n", point.Type, point.Name, point.Value))
 		}
-		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID)
+		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID, item.TaskID, &taskJobID)
 	}
 
 	if len(base36Data) > 0 {
@@ -45,6 +46,6 @@ func analyzeInsertionPoints(item *db.History, insertionPoints []InsertionPoint) 
 		for _, point := range base64Data {
 			sb.WriteString(fmt.Sprintf("Found Base36 encoded data in a %s named '%s'. The current value is '%s'.\n", point.Type, point.Name, point.Value))
 		}
-		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID)
+		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID, item.TaskID, &taskJobID)
 	}
 }

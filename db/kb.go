@@ -33,7 +33,7 @@ func GetIssueTemplateByCode(code IssueCode) *Issue {
 	return nil
 }
 
-func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID *uint) *Issue {
+func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID *uint) *Issue {
 	issue := GetIssueTemplateByCode(code)
 	issue.URL = history.URL
 	issue.Request = history.RawRequest
@@ -50,8 +50,8 @@ func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details s
 	return issue
 }
 
-func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID *uint) {
-	issue := FillIssueFromHistoryAndTemplate(history, code, details, confidence, severity, workspaceID)
+func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID *uint) {
+	issue := FillIssueFromHistoryAndTemplate(history, code, details, confidence, severity, workspaceID, taskID, taskJobID)
 	log.Warn().Str("issue", issue.Title).Str("url", history.URL).Uint("workspace", *workspaceID).Msg("New issue found")
 	Connection.CreateIssue(*issue)
 }

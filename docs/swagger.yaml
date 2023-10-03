@@ -188,6 +188,8 @@ definitions:
         type: string
       status_code:
         type: integer
+      task_id:
+        type: integer
       updated_at:
         type: string
       url:
@@ -246,6 +248,10 @@ definitions:
       severity:
         $ref: '#/definitions/db.severity'
       status_code:
+        type: integer
+      task_id:
+        type: integer
+      task_job_id:
         type: integer
       title:
         type: string
@@ -630,6 +636,10 @@ paths:
         in: query
         name: workspace
         required: true
+        type: integer
+      - description: Task ID
+        in: query
+        name: task
         type: integer
       - default: '"id"'
         description: Field to sort by

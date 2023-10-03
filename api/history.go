@@ -31,6 +31,7 @@ func IsValidFilterHTTPMethod(method string) bool {
 // @Param methods query string false "Comma-separated list of HTTP methods to filter by"
 // @Param sources query string false "Comma-separated list of sources to filter by"
 // @Param workspace query integer true "Workspace ID to filter by"
+// @Param task query int false "Task ID"
 // @Param sort_by query string false "Field to sort by" Enums(id,created_at,updated_at,status_code,request_body_size,url,response_body_size,parameters_count,method) default("id")
 // @Param sort_order query string false "Sort order" Enums(asc, desc) default("desc")
 // @Failure 500 {object} ErrorResponse
@@ -49,6 +50,14 @@ func FindHistory(c *fiber.Ctx) error {
 			"message": "The provided workspace ID does not seem valid",
 		})
 	}
+	taskID, err := parseTaskID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid task",
+			"message": "The provided task ID does not seem valid",
+		})
+	}
+
 	var statusCodes []int
 	var httpMethods []string
 	var sources []string
@@ -106,6 +115,7 @@ func FindHistory(c *fiber.Ctx) error {
 		WorkspaceID: workspaceID,
 		SortBy:      c.Query("sort_by", "id"),
 		SortOrder:   c.Query("sort_order", "desc"),
+		TaskID:      &taskID,
 	}
 	validate := validator.New()
 	if err := validate.Struct(filters); err != nil {

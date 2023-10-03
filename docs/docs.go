@@ -179,6 +179,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+                        "type": "integer",
+                        "description": "Task ID",
+                        "name": "task",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "id",
                             "created_at",
@@ -1606,6 +1612,9 @@ const docTemplate = `{
                 "status_code": {
                     "type": "integer"
                 },
+                "task_id": {
+                    "type": "integer"
+                },
                 "updated_at": {
                     "type": "string"
                 },
@@ -1693,6 +1702,12 @@ const docTemplate = `{
                     "$ref": "#/definitions/db.severity"
                 },
                 "status_code": {
+                    "type": "integer"
+                },
+                "task_id": {
+                    "type": "integer"
+                },
+                "task_job_id": {
                     "type": "integer"
                 },
                 "title": {

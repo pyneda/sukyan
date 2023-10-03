@@ -146,7 +146,7 @@ type HistoryFilter struct {
 	WorkspaceID          uint   `json:"workspace_id" validate:"omitempty,numeric"`
 	SortBy               string `json:"sort_by" validate:"omitempty,oneof=id created_at updated_at status_code request_body_size url response_body_size parameters_count method"` // Validate to be one of the listed fields
 	SortOrder            string `json:"sort_order" validate:"omitempty,oneof=asc desc"`                                                                                           // Validate to be either "asc" or "desc"
-	TaskID               *uint  `json:"task_id" validate:"omitempty,numeric"`
+	TaskID               uint   `json:"task_id" validate:"omitempty,numeric"`
 }
 
 // ListHistory Lists history
@@ -176,8 +176,8 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 		filterQuery["workspace_id"] = filter.WorkspaceID
 	}
 
-	if filter.TaskID != nil {
-		filterQuery["task_id"] = *filter.TaskID
+	if filter.TaskID > 0 {
+		filterQuery["task_id"] = filter.TaskID
 	}
 
 	validSortBy := map[string]bool{

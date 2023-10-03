@@ -115,7 +115,7 @@ func FindHistory(c *fiber.Ctx) error {
 		WorkspaceID: workspaceID,
 		SortBy:      c.Query("sort_by", "id"),
 		SortOrder:   c.Query("sort_order", "desc"),
-		TaskID:      &taskID,
+		TaskID:      taskID,
 	}
 	validate := validator.New()
 	if err := validate.Struct(filters); err != nil {

@@ -1,0 +1,20 @@
+code: parameter_pollution
+title: Parameter Pollution Detected
+description:
+  The application appears to be vulnerable to Parameter Pollution. This vulnerability
+  occurs when the application does not properly validate or handle multiple instances
+  of the same parameter. An attacker can exploit this by injecting additional parameters
+  or by manipulating existing ones, potentially leading to a variety of impacts such as
+  bypassing input validation, manipulating application logic, or accessing unauthorized data.
+remediation:
+  Ensure that the application properly handles, validates, and sanitizes all parameters.
+  Implement strict rules for processing incoming parameters and reject any requests with 
+  unexpected or repeated parameters. Regularly review application logic to ensure consistent
+  handling of parameters throughout the application.
+cwe: 235
+severity: Medium
+references:
+  - https://en.wikipedia.org/wiki/HTTP_parameter_pollution
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/04-Testing_for_HTTP_Parameter_Pollution
+  - https://book.hacktricks.xyz/pentesting-web/parameter-pollution
+  - https://securityintelligence.com/posts/how-to-prevent-http-parameter-pollution/

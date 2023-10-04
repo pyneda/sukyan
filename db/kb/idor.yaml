@@ -1,0 +1,21 @@
+code: idor
+title: Insecure Direct Object Reference (IDOR) Detected
+description:
+  The application appears to be vulnerable to Insecure Direct Object References (IDOR).
+  This vulnerability occurs when an attacker can access or modify objects (e.g., database records,
+  files) directly by manipulating input parameters, such as URLs or form fields, without proper
+  authorization checks. IDOR can lead to unauthorized data disclosure, data tampering, or other
+  unintended actions.
+remediation:
+  To mitigate this vulnerability, implement proper access controls for all application objects.
+  Ensure that each request for a specific object is accompanied by an authorization check to determine
+  if the user has the necessary permissions to access or modify the object. Use indirect references,
+  like session-based mappings, instead of direct object references in URLs or form fields. Regularly
+  review application logs for suspicious activity and conduct thorough testing to identify potential
+  IDOR vulnerabilities.
+cwe: 639
+severity: High
+references:
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/05-Authorization_Testing/04-Testing_for_Insecure_Direct_Object_References
+  - https://cheatsheetseries.owasp.org/cheatsheets/Insecure_Direct_Object_Reference_Prevention_Cheat_Sheet.html
+  - https://en.wikipedia.org/wiki/Insecure_direct_object_reference

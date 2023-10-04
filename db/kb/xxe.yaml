@@ -1,0 +1,17 @@
+code: xxe
+title: XML External Entity (XXE) Detected
+description:
+  The application appears to be vulnerable to XML External Entity (XXE) attacks. This vulnerability
+  occurs when an application processes XML input containing a reference to an external entity. It
+  can lead to disclosure of internal files, internal port scanning, remote code execution, and denial
+  of service attacks.
+remediation:
+  Disable the processing of external entities in your XML parser. Ensure that any XML parsing libraries
+  or frameworks used by the application are configured securely. Regularly update and patch XML libraries 
+  to protect against known XXE exploits. If possible, use JSON or other data formats instead of XML.
+cwe: 611
+severity: High
+references:
+  - https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing
+  - https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html
+  - https://owasp.org/www-project-top-ten/2017/A4_2017-XML_External_Entities_(XXE)

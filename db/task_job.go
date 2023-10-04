@@ -163,3 +163,13 @@ func (d *DatabaseConnection) GetTaskJobByID(id uint) (*TaskJob, error) {
 	err := d.db.Where("id = ?", id).First(&item).Error
 	return &item, err
 }
+
+// TaskJobExists checks if a task job exists
+func (d *DatabaseConnection) TaskJobExists(id uint) (bool, error) {
+	var count int64
+	err := d.db.Model(&TaskJob{}).Where("id = ?", id).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

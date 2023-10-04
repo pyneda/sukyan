@@ -886,6 +886,14 @@ paths:
         name: workspace
         required: true
         type: integer
+      - description: Task ID
+        in: query
+        name: task
+        type: integer
+      - description: Task Job ID
+        in: query
+        name: taskjob
+        type: integer
       produces:
       - application/json
       responses:
@@ -990,6 +998,14 @@ paths:
         in: query
         name: workspace
         required: true
+        type: integer
+      - description: Task ID
+        in: query
+        name: task
+        type: integer
+      - description: Task Job ID
+        in: query
+        name: taskjob
         type: integer
       produces:
       - application/json

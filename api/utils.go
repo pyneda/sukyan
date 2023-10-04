@@ -47,3 +47,25 @@ func parseTaskID(c *fiber.Ctx) (uint, error) {
 	}
 	return taskID, nil
 }
+
+func parseTaskJobID(c *fiber.Ctx) (uint, error) {
+	unparsed := c.Query("taskjobid")
+	if unparsed == "" {
+		return 0, nil
+	}
+	taskJobID64, err := strconv.ParseUint(unparsed, 10, strconv.IntSize)
+	if err != nil {
+		log.Error().Err(err).Msg("Error parsing task job parameter query")
+		return 0, err
+	}
+
+	taskJobID := uint(taskJobID64)
+	if taskJobID == 0 {
+		return 0, nil
+	}
+	taskJobExists, _ := db.Connection.TaskJobExists(taskJobID)
+	if !taskJobExists {
+		return 0, errors.New("Invalid task job")
+	}
+	return taskJobID, nil
+}

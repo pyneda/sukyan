@@ -22,7 +22,7 @@ var describeIssueCmd = &cobra.Command{
 			fmt.Println("An ID needs to be provided")
 			os.Exit(0)
 		}
-		issue, err := db.Connection.GetIssue(describeIssueID)
+		issue, err := db.Connection.GetIssue(describeIssueID, true)
 		if err != nil {
 			log.Panic().Err(err).Msg("Could not find a issue with the provided ID")
 		}

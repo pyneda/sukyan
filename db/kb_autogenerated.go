@@ -30,6 +30,7 @@ var (
 	HeaderInsightsReportCode             IssueCode = "header_insights_report"
 	HttpMethodsCode                      IssueCode = "http_methods"
 	IncorrectContentTypeHeaderCode       IssueCode = "incorrect_content_type_header"
+	JavaDeserializationCode              IssueCode = "java_deserialization"
 	JavaSerializedObjectDetectedCode     IssueCode = "java_serialized_object_detected"
 	JavaServerHeaderCode                 IssueCode = "java_server_header"
 	JettyServerHeaderCode                IssueCode = "jetty_server_header"
@@ -311,6 +312,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         16,
 		Severity:    "Medium",
 		References:  []string{},
+	},
+	{
+		Code:        JavaDeserializationCode,
+		Title:       "Insecure Java Deserialization Detected",
+		Description: "The application appears to be vulnerable to insecure Java deserialization attacks. This vulnerability arises when an application deserializes untrusted data without proper validation. An attacker can exploit this vulnerability to execute arbitrary code, bypass authentication, or perform other malicious activities.",
+		Remediation: "To mitigate this vulnerability, avoid deserializing untrusted data. Use safe serialization libraries or frameworks that do not allow the execution of arbitrary code. Implement strong type-checking during deserialization and apply the principle of least privilege. Regularly update and patch Java libraries to protect against known deserialization exploits.",
+		Cwe:         502,
+		Severity:    "Critical",
+		References:  []string{"https://owasp.org/www-project-top-ten/2017/A8_2017-Insecure_Deserialization", "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html", "https://snyk.io/blog/serialization-and-deserialization-in-java/", "https://github.com/frohoff/ysoserial"},
 	},
 	{
 		Code:        JavaSerializedObjectDetectedCode,

@@ -1,0 +1,20 @@
+code: java_deserialization
+title: Insecure Java Deserialization Detected
+description:
+  The application appears to be vulnerable to insecure Java deserialization attacks.
+  This vulnerability arises when an application deserializes untrusted data without
+  proper validation. An attacker can exploit this vulnerability to execute arbitrary
+  code, bypass authentication, or perform other malicious activities.
+remediation:
+  To mitigate this vulnerability, avoid deserializing untrusted data.
+  Use safe serialization libraries or frameworks that do not allow the execution
+  of arbitrary code. Implement strong type-checking during deserialization and
+  apply the principle of least privilege. Regularly update and patch Java libraries 
+  to protect against known deserialization exploits.
+cwe: 502
+severity: Critical
+references:
+  - https://owasp.org/www-project-top-ten/2017/A8_2017-Insecure_Deserialization
+  - https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html
+  - https://snyk.io/blog/serialization-and-deserialization-in-java/
+  - https://github.com/frohoff/ysoserial

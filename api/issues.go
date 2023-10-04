@@ -89,7 +89,7 @@ func GetIssueDetail(c *fiber.Ctx) error {
 		})
 	}
 
-	issue, err := db.Connection.GetIssue(issueID)
+	issue, err := db.Connection.GetIssue(issueID, true)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -141,7 +141,7 @@ func SetFalsePositive(c *fiber.Ctx) error {
 		})
 	}
 
-	issue, err := db.Connection.GetIssue(issueID)
+	issue, err := db.Connection.GetIssue(issueID, false)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{

@@ -35,6 +35,13 @@ type Issue struct {
 	TaskJob       TaskJob          `json:"-" gorm:"foreignKey:TaskJobID"`
 }
 
+type GroupedIssue struct {
+	Title    string `json:"title"`
+	Code     string `json:"code"`
+	Count    int    `json:"count"`
+	Severity string `json:"severity"`
+}
+
 // AddInteraction adds an interaction to an issue in the database.
 func (i Issue) AddInteraction(interaction OOBInteraction) error {
 	return Connection.db.Model(&i).Association("Interactions").Append(&interaction)
@@ -54,6 +61,8 @@ func (i Issue) IsEmpty() bool {
 type IssueFilter struct {
 	Codes       []string
 	WorkspaceID uint
+	TaskID      uint
+	TaskJobID   uint
 }
 
 // ListIssues Lists issues
@@ -68,6 +77,14 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 		query = query.Where("workspace_id = ?", filter.WorkspaceID)
 	}
 
+	if filter.TaskID != 0 {
+		query = query.Where("task_id = ?", filter.TaskID)
+	}
+
+	if filter.TaskJobID != 0 {
+		query = query.Where("task_job_id = ?", filter.TaskJobID)
+	}
+
 	result := query.Order("severity desc, created_at desc").Find(&issues).Count(&count)
 	if result.Error != nil {
 		err = result.Error
@@ -76,20 +93,28 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 	return issues, count, err
 }
 
-type GroupedIssue struct {
-	Title    string `json:"title"`
-	Code     string `json:"code"`
-	Count    int    `json:"count"`
-	Severity string `json:"severity"`
-}
-
-// ListIssues Lists issues
+// ListIssuesGrouped Lists grouped issues
 func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) (issues []*GroupedIssue, err error) {
+	query := d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Group("title,severity,code")
+
 	if len(filter.Codes) > 0 {
-		err = d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Where("workspace_id = ?", filter.WorkspaceID).Where("code IN ?", filter.Codes).Group("title,severity,code").Find(&issues).Error
-	} else {
-		err = d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Where("workspace_id = ?", filter.WorkspaceID).Group("title,severity,code").Find(&issues).Error
+		query = query.Where("code IN ?", filter.Codes)
 	}
+
+	if filter.WorkspaceID != 0 {
+		query = query.Where("workspace_id = ?", filter.WorkspaceID)
+	}
+
+	if filter.TaskID != 0 {
+		query = query.Where("task_id = ?", filter.TaskID)
+	}
+
+	if filter.TaskJobID != 0 {
+		query = query.Where("task_job_id = ?", filter.TaskJobID)
+	}
+
+	err = query.Find(&issues).Error
+
 	return issues, err
 }
 
@@ -104,7 +129,13 @@ func (d *DatabaseConnection) CreateIssue(issue Issue) (Issue, error) {
 }
 
 // GetIssue get a single issue by ID
-func (d *DatabaseConnection) GetIssue(id int) (issue Issue, err error) {
-	err = d.db.First(&issue, id).Error
+func (d *DatabaseConnection) GetIssue(id int, includeRelated bool) (issue Issue, err error) {
+	query := d.db
+
+	if includeRelated {
+		query = query.Preload("Interactions").Preload("Requests")
+	}
+
+	err = query.First(&issue, id).Error
 	return issue, err
 }

@@ -55,6 +55,7 @@ func FindIssues(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get issues"})
 	}
+	log.Info().Int64("count", count).Uint("task", taskID).Msg("Found issues")
 	return c.Status(http.StatusOK).JSON(fiber.Map{"data": issues, "count": count})
 }
 

@@ -18,6 +18,7 @@ type ClientSidePrototypePollutionAudit struct {
 	HistoryItem *db.History
 	requests    sync.Map
 	WorkspaceID uint
+	TaskID      uint
 	TaskJobID   uint
 }
 

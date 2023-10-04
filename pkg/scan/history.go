@@ -33,6 +33,8 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	cspp := active.ClientSidePrototypePollutionAudit{
 		HistoryItem: item,
 		WorkspaceID: options.WorkspaceID,
+		TaskID:      options.TaskID,
+		TaskJobID:   options.TaskJobID,
 	}
 	cspp.Run()
 
@@ -90,6 +92,8 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 			URL:         item.URL,
 			Concurrency: 10,
 			WorkspaceID: options.WorkspaceID,
+			TaskID:      options.TaskID,
+			TaskJobID:   options.TaskJobID,
 		}
 		hostHeader.Run()
 	}

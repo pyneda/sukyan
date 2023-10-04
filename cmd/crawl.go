@@ -34,7 +34,7 @@ to quickly create a Cobra application.`,
 		headers := lib.ParseHeadersStringToMap(requestsHeadersString)
 
 		log.Info().Strs("startUrls", startUrls).Int("count", len(startUrls)).Msg("Creating and scheduling the crawler")
-		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, headers)
+		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, 0, headers)
 		crawler.Run()
 	},
 }

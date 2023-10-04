@@ -151,7 +151,7 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 	ignoredExtensions := viper.GetStringSlice("crawl.ignored_extensions")
 
 	scanLog := log.With().Uint("task", task.ID).Str("title", options.Title).Uint("workspace", options.WorkspaceID).Logger()
-	crawler := crawl.NewCrawler(options.StartURLs, options.MaxPagesToCrawl, options.MaxDepth, options.PagesPoolSize, options.ExcludePatterns, options.WorkspaceID, options.Headers)
+	crawler := crawl.NewCrawler(options.StartURLs, options.MaxPagesToCrawl, options.MaxDepth, options.PagesPoolSize, options.ExcludePatterns, options.WorkspaceID, task.ID, options.Headers)
 	historyItems := crawler.Run()
 	if len(historyItems) == 0 {
 		scanLog.Info().Msg("No history items gathered during crawl, exiting")

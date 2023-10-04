@@ -18,6 +18,7 @@ type PagePoolManager struct {
 	pool                 rod.PagePool
 	config               PagePoolManagerConfig
 	workspaceID          uint
+	taskID               uint
 	HijackResultsChannel chan HijackResult
 }
 
@@ -30,11 +31,12 @@ func NewPagePoolManager(config PagePoolManagerConfig, source string) *PagePoolMa
 	return &manager
 }
 
-func NewHijackedPagePoolManager(config PagePoolManagerConfig, source string, hijackResultsChannel chan HijackResult, workspaceID uint) *PagePoolManager {
+func NewHijackedPagePoolManager(config PagePoolManagerConfig, source string, hijackResultsChannel chan HijackResult, workspaceID, taskID uint) *PagePoolManager {
 	manager := PagePoolManager{
 		config:               config,
 		HijackResultsChannel: hijackResultsChannel,
 		workspaceID:          workspaceID,
+		taskID:               taskID,
 	}
 	manager.Start(true, source)
 
@@ -54,7 +56,7 @@ func (b *PagePoolManager) Start(hijack bool, source string) {
 		poolSize = b.config.PoolSize
 	}
 	if hijack {
-		Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, b.browser, source, b.HijackResultsChannel, b.workspaceID)
+		Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, b.browser, source, b.HijackResultsChannel, b.workspaceID, b.taskID)
 	}
 	// b.pool = rod.NewPagePool(poolSize)
 	b.pool = rod.NewPagePool(poolSize)

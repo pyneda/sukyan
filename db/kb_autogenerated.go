@@ -29,6 +29,7 @@ var (
 	GrailsExceptionCode                  IssueCode = "grails_exception"
 	HeaderInsightsReportCode             IssueCode = "header_insights_report"
 	HttpMethodsCode                      IssueCode = "http_methods"
+	IdorCode                             IssueCode = "idor"
 	IncorrectContentTypeHeaderCode       IssueCode = "incorrect_content_type_header"
 	JavaDeserializationCode              IssueCode = "java_deserialization"
 	JavaSerializedObjectDetectedCode     IssueCode = "java_serialized_object_detected"
@@ -40,7 +41,9 @@ var (
 	MixedContentCode                     IssueCode = "mixed_content"
 	NosqlInjectionCode                   IssueCode = "nosql_injection"
 	OobCommunicationsCode                IssueCode = "oob_communications"
+	OpenRedirectCode                     IssueCode = "open_redirect"
 	OsCmdInjectionCode                   IssueCode = "os_cmd_injection"
+	ParameterPollutionCode               IssueCode = "parameter_pollution"
 	PasswordFieldAutocompleteEnabledCode IssueCode = "password_field_autocomplete_enabled"
 	PasswordInGetRequestCode             IssueCode = "password_in_get_request"
 	PrivateIpsCode                       IssueCode = "private_ips"
@@ -67,6 +70,7 @@ var (
 	XXssProtectionHeaderCode             IssueCode = "x_xss_protection_header"
 	XpathInjectionCode                   IssueCode = "xpath_injection"
 	XsltInjectionCode                    IssueCode = "xslt_injection"
+	XxeCode                              IssueCode = "xxe"
 )
 
 var issueTemplates = []IssueTemplate{
@@ -305,6 +309,15 @@ var issueTemplates = []IssueTemplate{
 		References:  []string{},
 	},
 	{
+		Code:        IdorCode,
+		Title:       "Insecure Direct Object Reference (IDOR) Detected",
+		Description: "The application appears to be vulnerable to Insecure Direct Object References (IDOR). This vulnerability occurs when an attacker can access or modify objects (e.g., database records, files) directly by manipulating input parameters, such as URLs or form fields, without proper authorization checks. IDOR can lead to unauthorized data disclosure, data tampering, or other unintended actions.",
+		Remediation: "To mitigate this vulnerability, implement proper access controls for all application objects. Ensure that each request for a specific object is accompanied by an authorization check to determine if the user has the necessary permissions to access or modify the object. Use indirect references, like session-based mappings, instead of direct object references in URLs or form fields. Regularly review application logs for suspicious activity and conduct thorough testing to identify potential IDOR vulnerabilities.",
+		Cwe:         639,
+		Severity:    "High",
+		References:  []string{"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/05-Authorization_Testing/04-Testing_for_Insecure_Direct_Object_References", "https://cheatsheetseries.owasp.org/cheatsheets/Insecure_Direct_Object_Reference_Prevention_Cheat_Sheet.html", "https://en.wikipedia.org/wiki/Insecure_direct_object_reference"},
+	},
+	{
 		Code:        IncorrectContentTypeHeaderCode,
 		Title:       "Incorrect Content Type Header",
 		Description: "The application does not correctly specify the content type of the response, potentially leading to security vulnerabilities such as MIME sniffing attacks.",
@@ -404,6 +417,15 @@ var issueTemplates = []IssueTemplate{
 		References:  []string{},
 	},
 	{
+		Code:        OpenRedirectCode,
+		Title:       "Open Redirect Detected",
+		Description: "The application appears to be vulnerable to open redirect attacks. This vulnerability occurs when an application accepts untrusted input that can cause the web application to redirect the request to a URL contained within untrusted input. This can be used in phishing attacks to redirect users to malicious sites.",
+		Remediation: "Ensure that all redirection URLs are validated against a white-list of trusted URLs. Avoid using user-supplied input to determine the destination of redirection without validation. If user input is utilized, ensure it is properly sanitized and validated against expected inputs.",
+		Cwe:         601,
+		Severity:    "Medium",
+		References:  []string{"https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html", "https://owasp.org/www-project-web-security-testing-guide/v41/4-Web_Application_Security_Testing/11-Client_Side_Testing/04-Testing_for_Client_Side_URL_Redirect", "https://learn.snyk.io/lesson/open-redirect/"},
+	},
+	{
 		Code:        OsCmdInjectionCode,
 		Title:       "OS Command Injection",
 		Description: "The application allows the execution of arbitrary operating system commands.",
@@ -411,6 +433,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         78,
 		Severity:    "High",
 		References:  []string{"https://owasp.org/www-community/attacks/Command_Injection", "https://book.hacktricks.xyz/pentesting-web/command-injection"},
+	},
+	{
+		Code:        ParameterPollutionCode,
+		Title:       "Parameter Pollution Detected",
+		Description: "The application appears to be vulnerable to Parameter Pollution. This vulnerability occurs when the application does not properly validate or handle multiple instances of the same parameter. An attacker can exploit this by injecting additional parameters or by manipulating existing ones, potentially leading to a variety of impacts such as bypassing input validation, manipulating application logic, or accessing unauthorized data.",
+		Remediation: "Ensure that the application properly handles, validates, and sanitizes all parameters. Implement strict rules for processing incoming parameters and reject any requests with unexpected or repeated parameters. Regularly review application logic to ensure consistent handling of parameters throughout the application.",
+		Cwe:         235,
+		Severity:    "Medium",
+		References:  []string{"https://en.wikipedia.org/wiki/HTTP_parameter_pollution", "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/04-Testing_for_HTTP_Parameter_Pollution", "https://book.hacktricks.xyz/pentesting-web/parameter-pollution", "https://securityintelligence.com/posts/how-to-prevent-http-parameter-pollution/"},
 	},
 	{
 		Code:        PasswordFieldAutocompleteEnabledCode,
@@ -645,5 +676,14 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         91,
 		Severity:    "High",
 		References:  []string{"https://en.wikipedia.org/wiki/XSLT", "https://owasp.org/www-pdf-archive/OWASP_Switzerland_Meeting_2015-06-17_XSLT_SSRF_ENG.pdf", "https://www.youtube.com/watch?v=j4vCGtF3a64", "https://book.hacktricks.xyz/pentesting-web/xslt-server-side-injection-extensible-stylesheet-languaje-transformations"},
+	},
+	{
+		Code:        XxeCode,
+		Title:       "XML External Entity (XXE) Detected",
+		Description: "The application appears to be vulnerable to XML External Entity (XXE) attacks. This vulnerability occurs when an application processes XML input containing a reference to an external entity. It can lead to disclosure of internal files, internal port scanning, remote code execution, and denial of service attacks.",
+		Remediation: "Disable the processing of external entities in your XML parser. Ensure that any XML parsing libraries or frameworks used by the application are configured securely. Regularly update and patch XML libraries to protect against known XXE exploits. If possible, use JSON or other data formats instead of XML.",
+		Cwe:         611,
+		Severity:    "High",
+		References:  []string{"https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing", "https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html", "https://owasp.org/www-project-top-ten/2017/A4_2017-XML_External_Entities_(XXE)"},
 	},
 }

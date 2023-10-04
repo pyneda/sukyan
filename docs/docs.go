@@ -557,6 +557,18 @@ const docTemplate = `{
                         "name": "workspace",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Task ID",
+                        "name": "task",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Task Job ID",
+                        "name": "taskjob",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -603,6 +615,18 @@ const docTemplate = `{
                         "name": "workspace",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Task ID",
+                        "name": "task",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Task Job ID",
+                        "name": "taskjob",
+                        "in": "query"
                     }
                 ],
                 "responses": {

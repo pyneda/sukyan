@@ -16,6 +16,8 @@ import (
 // @Accept  json
 // @Produce  json
 // @Param workspace query int true "Workspace ID"
+// @Param task query int false "Task ID"
+// @Param taskjob query int false "Task Job ID"
 // @Success 200 {array} db.Issue
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
@@ -28,11 +30,29 @@ func FindIssues(c *fiber.Ctx) error {
 			"message": "The provided workspace ID does not seem valid",
 		})
 	}
+
+	taskID, err := parseTaskID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid task",
+			"message": "The provided task ID does not seem valid",
+		})
+	}
+
+	taskJobID, err := parseTaskJobID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid task job",
+			"message": "The provided task job ID does not seem valid",
+		})
+	}
+
 	issues, count, err := db.Connection.ListIssues(db.IssueFilter{
 		WorkspaceID: workspaceID,
+		TaskID:      taskID,
+		TaskJobID:   taskJobID,
 	})
 	if err != nil {
-		// Should handle this better
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get issues"})
 	}
 	return c.Status(http.StatusOK).JSON(fiber.Map{"data": issues, "count": count})
@@ -45,6 +65,8 @@ func FindIssues(c *fiber.Ctx) error {
 // @Accept  json
 // @Produce  json
 // @Param workspace query int true "Workspace ID"
+// @Param task query int false "Task ID"
+// @Param taskjob query int false "Task Job ID"
 // @Success 200 {array} db.GroupedIssue
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
@@ -57,11 +79,29 @@ func FindIssuesGrouped(c *fiber.Ctx) error {
 			"message": "The provided workspace ID does not seem valid",
 		})
 	}
+
+	taskID, err := parseTaskID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid task",
+			"message": "The provided task ID does not seem valid",
+		})
+	}
+
+	taskJobID, err := parseTaskJobID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid task job",
+			"message": "The provided task job ID does not seem valid",
+		})
+	}
+
 	issues, err := db.Connection.ListIssuesGrouped(db.IssueFilter{
 		WorkspaceID: workspaceID,
+		TaskID:      taskID,
+		TaskJobID:   taskJobID,
 	})
 	if err != nil {
-		// Should handle this better
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get issues grouped"})
 	}
 	return c.Status(http.StatusOK).JSON(fiber.Map{"data": issues})

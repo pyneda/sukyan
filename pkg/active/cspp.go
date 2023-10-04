@@ -48,7 +48,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 	}
 	b := browser.NewBrowser()
 	hijackResultsChannel := make(chan browser.HijackResult)
-	browser.Hijack(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, a.WorkspaceID)
+	browser.Hijack(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, a.WorkspaceID, a.TaskID)
 	defer b.MustClose()
 	page := b.MustIncognito().MustPage("")
 	web.IgnoreCertificateErrors(page)

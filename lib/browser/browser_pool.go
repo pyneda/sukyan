@@ -20,12 +20,14 @@ type BrowserPoolManager struct {
 	HijackResultsChannel chan HijackResult
 	hijack               bool
 	workspaceID          uint
+	taskID               uint
 }
 
-func NewBrowserPoolManager(config BrowserPoolManagerConfig, workspaceID uint) *BrowserPoolManager {
+func NewBrowserPoolManager(config BrowserPoolManagerConfig, workspaceID, taskID uint) *BrowserPoolManager {
 	manager := BrowserPoolManager{
 		config:      config,
 		workspaceID: workspaceID,
+		taskID:      taskID,
 	}
 	manager.Start()
 
@@ -75,7 +77,7 @@ func (b *BrowserPoolManager) createBrowser() *rod.Browser {
 	browser := rod.New().ControlURL(controlURL).MustConnect()
 	go browser.HandleAuth(viper.GetString("navigation.auth.basic.username"), viper.GetString("navigation.auth.basic.password"))()
 	if b.hijack {
-		Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, browser, b.config.Source, b.HijackResultsChannel, b.workspaceID)
+		Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, browser, b.config.Source, b.HijackResultsChannel, b.workspaceID, b.taskID)
 	}
 	return browser
 }

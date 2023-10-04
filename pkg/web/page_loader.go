@@ -17,6 +17,7 @@ type PageLoader struct {
 	Timezone    string
 	Source      string
 	WorkspaceID uint
+	TaskID      uint
 }
 
 func (l *PageLoader) GetPage() (*rod.Browser, *rod.Page, error) {
@@ -25,7 +26,7 @@ func (l *PageLoader) GetPage() (*rod.Browser, *rod.Page, error) {
 
 	hijackResultsChannel := make(chan browser.HijackResult)
 	if l.HijackEnabled {
-		browser.Hijack(l.HijackConfig, b, l.Source, hijackResultsChannel, l.WorkspaceID)
+		browser.Hijack(l.HijackConfig, b, l.Source, hijackResultsChannel, l.WorkspaceID, l.TaskID)
 	}
 	page := b.MustPage("")
 	if l.IgnoreCertCerrors == true {

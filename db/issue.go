@@ -86,6 +86,7 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 	}
 
 	result := query.Order("severity desc, created_at desc").Find(&issues).Count(&count)
+
 	if result.Error != nil {
 		err = result.Error
 	}
@@ -121,6 +122,14 @@ func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) (issues []*Gr
 // CreateIssue saves an issue to the database
 func (d *DatabaseConnection) CreateIssue(issue Issue) (Issue, error) {
 	// result := d.db.Create(&issue)
+
+	if issue.TaskID != nil && *issue.TaskID == 0 {
+		issue.TaskID = nil
+	}
+	if issue.TaskJobID != nil && *issue.TaskJobID == 0 {
+		issue.TaskJobID = nil
+	}
+
 	result := d.db.FirstOrCreate(&issue, issue)
 	if result.Error != nil {
 		log.Error().Err(result.Error).Interface("issue", issue).Msg("Failed to create web issue")

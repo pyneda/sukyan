@@ -43,6 +43,8 @@ func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details s
 	issue.Confidence = confidence
 	issue.Details = details
 	issue.WorkspaceID = workspaceID
+	issue.TaskID = taskID
+	issue.TaskJobID = taskJobID
 	issue.Requests = []History{*history}
 	if severity != "" {
 		issue.Severity = NewSeverity(severity)
@@ -50,8 +52,24 @@ func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details s
 	return issue
 }
 
-func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID *uint) {
+func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID *uint) (Issue, error) {
 	issue := FillIssueFromHistoryAndTemplate(history, code, details, confidence, severity, workspaceID, taskID, taskJobID)
-	log.Warn().Str("issue", issue.Title).Str("url", history.URL).Uint("workspace", *workspaceID).Msg("New issue found")
-	Connection.CreateIssue(*issue)
+	createdIssue, err := Connection.CreateIssue(*issue)
+	if err != nil {
+		log.Error().Err(err).Str("issue", issue.Title).Str("url", history.URL).Msg("Failed to create issue")
+		return createdIssue, err
+	}
+
+	workspaceIDValue := uint(0)
+	if workspaceID != nil {
+		workspaceIDValue = *workspaceID
+	}
+
+	taskIDValue := uint(0)
+	if taskID != nil {
+		taskIDValue = *taskID
+	}
+
+	log.Warn().Uint("id", createdIssue.ID).Str("issue", issue.Title).Str("url", history.URL).Uint("workspace", workspaceIDValue).Uint("task", taskIDValue).Msg("New issue found")
+	return createdIssue, nil
 }

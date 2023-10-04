@@ -24,6 +24,8 @@ type HostHeaderInjectionAudit struct {
 	ExpectedResponses  fuzz.ExpectedResponses
 	ExtraHeadersToTest []string
 	WorkspaceID        uint
+	TaskID             uint
+	TaskJobID          uint
 }
 
 type hostHeaderInjectionAuditItem struct {
@@ -176,6 +178,8 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 			Confidence:    75,
 			Severity:      "Medium",
 			WorkspaceID:   &a.WorkspaceID,
+			TaskID:        &a.TaskID,
+			TaskJobID:     &a.TaskJobID,
 		}
 		log.Warn().Str("issue", issue.Title).Str("url", a.URL).Msg("New issue found")
 		db.Connection.CreateIssue(issue)

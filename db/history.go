@@ -227,6 +227,9 @@ func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
 	// conditions, attrs := record.getCreateQueryData()
 
 	// result := d.db.Where(conditions).Attrs(attrs).FirstOrCreate(&record)
+	if record.TaskID != nil && *record.TaskID == 0 {
+		record.TaskID = nil
+	}
 	record.ID = 0
 	enhanceHistoryItem(record)
 	result := d.db.Create(&record)

@@ -22,16 +22,16 @@ type Issue struct {
 	FalsePositive bool             `gorm:"index" json:"false_positive"`
 	Confidence    int              `gorm:"index" json:"confidence"`
 	References    StringSlice      `json:"references"`
-	Severity      severity         `gorm:"type:severity;default:'Info'" json:"severity"`
+	Severity      severity         `gorm:"index,type:severity;default:'Info'" json:"severity"`
 	CURLCommand   string           `json:"curl_command"`
 	Note          string           `json:"note"`
 	Workspace     Workspace        `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID   *uint            `json:"workspace_id"`
+	WorkspaceID   *uint            `json:"workspace_id" gorm:"index"`
 	Interactions  []OOBInteraction `json:"interactions" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Requests      []History        `json:"requests" gorm:"many2many:issue_requests;"`
-	TaskID        *uint            `json:"task_id"`
+	TaskID        *uint            `json:"task_id" gorm:"index"`
 	Task          Task             `json:"-" gorm:"foreignKey:TaskID"`
-	TaskJobID     *uint            `json:"task_job_id"`
+	TaskJobID     *uint            `json:"task_job_id" gorm:"index"`
 	TaskJob       TaskJob          `json:"-" gorm:"foreignKey:TaskJobID"`
 }
 

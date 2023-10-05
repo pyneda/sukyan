@@ -431,16 +431,8 @@ definitions:
         type: string
       finished_at:
         type: string
-      histories:
-        items:
-          $ref: '#/definitions/db.History'
-        type: array
       id:
         type: integer
-      issues:
-        items:
-          $ref: '#/definitions/db.Issue'
-        type: array
       started_at:
         type: string
       stats:

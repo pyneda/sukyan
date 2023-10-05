@@ -1748,6 +1748,29 @@ const docTemplate = `{
                 }
             }
         },
+        "db.IssuesStats": {
+            "type": "object",
+            "properties": {
+                "critical": {
+                    "type": "integer"
+                },
+                "high": {
+                    "type": "integer"
+                },
+                "info": {
+                    "type": "integer"
+                },
+                "low": {
+                    "type": "integer"
+                },
+                "medium": {
+                    "type": "integer"
+                },
+                "unknown": {
+                    "type": "integer"
+                }
+            }
+        },
         "db.JsonWebToken": {
             "type": "object",
             "properties": {
@@ -1951,6 +1974,17 @@ const docTemplate = `{
                 }
             }
         },
+        "db.RequestsStats": {
+            "type": "object",
+            "properties": {
+                "crawler": {
+                    "type": "integer"
+                },
+                "scanner": {
+                    "type": "integer"
+                }
+            }
+        },
         "db.Task": {
             "type": "object",
             "properties": {
@@ -1960,11 +1994,26 @@ const docTemplate = `{
                 "finished_at": {
                     "type": "string"
                 },
+                "histories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.History"
+                    }
+                },
                 "id": {
                     "type": "integer"
                 },
+                "issues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.Issue"
+                    }
+                },
                 "started_at": {
                     "type": "string"
+                },
+                "stats": {
+                    "$ref": "#/definitions/db.TaskStats"
                 },
                 "status": {
                     "type": "string"
@@ -1977,6 +2026,17 @@ const docTemplate = `{
                 },
                 "workspace_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "db.TaskStats": {
+            "type": "object",
+            "properties": {
+                "issues": {
+                    "$ref": "#/definitions/db.IssuesStats"
+                },
+                "requests": {
+                    "$ref": "#/definitions/db.RequestsStats"
                 }
             }
         },

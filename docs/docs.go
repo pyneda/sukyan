@@ -1994,20 +1994,8 @@ const docTemplate = `{
                 "finished_at": {
                     "type": "string"
                 },
-                "histories": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/db.History"
-                    }
-                },
                 "id": {
                     "type": "integer"
-                },
-                "issues": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/db.Issue"
-                    }
                 },
                 "started_at": {
                     "type": "string"

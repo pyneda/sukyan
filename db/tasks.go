@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-
-
 type Task struct {
 	BaseModel
 	Title       string    `json:"title"`
@@ -24,7 +22,7 @@ type TaskFilter struct {
 	Statuses    []string
 	Pagination  Pagination
 	WorkspaceID uint
-	FetchStats bool
+	FetchStats  bool
 }
 
 var (
@@ -57,8 +55,6 @@ type IssuesStats struct {
 	Critical int64 `json:"critical"`
 }
 
-
-
 func (d *DatabaseConnection) NewTask(workspaceID uint, title, status string) (*Task, error) {
 	task := &Task{
 		WorkspaceID: workspaceID,
@@ -87,6 +83,7 @@ func (d *DatabaseConnection) CreateTask(task *Task) (*Task, error) {
 	}
 	return task, result.Error
 }
+
 func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count int64, err error) {
 	filterQuery := make(map[string]interface{})
 
@@ -98,13 +95,9 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 		filterQuery["workspace_id"] = filter.WorkspaceID
 	}
 
-	query := d.db.Scopes(Paginate(&filter.Pagination)).Order("created_at desc")
+	query := d.db.Debug().Scopes(Paginate(&filter.Pagination)).Order("created_at desc")
 	if len(filterQuery) > 0 {
 		query = query.Where(filterQuery)
-	}
-
-	if filter.FetchStats {
-		query = query.Preload("Histories").Preload("Issues")
 	}
 
 	err = query.Find(&items).Error
@@ -120,7 +113,31 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 
 	if filter.FetchStats {
 		for _, task := range items {
-			task.Stats = calculateStatsForTask(task)
+			var crawlerCount, scannerCount int64
+			d.db.Debug().Model(&History{}).Where("task_id = ? AND source = ?", task.ID, "Crawler").Count(&crawlerCount)
+			d.db.Debug().Model(&History{}).Where("task_id = ? AND source = ?", task.ID, "Scanner").Count(&scannerCount)
+
+			var issueCounts map[severity]int64 = make(map[severity]int64)
+			for _, sev := range []severity{Unknown, Info, Low, Medium, High, Critical} {
+				var count int64
+				d.db.Debug().Model(&Issue{}).Where("task_id = ? AND severity = ?", task.ID, sev).Count(&count)
+				issueCounts[sev] = count
+			}
+
+			task.Stats = TaskStats{
+				Requests: RequestsStats{
+					Crawler: crawlerCount,
+					Scanner: scannerCount,
+				},
+				Issues: IssuesStats{
+					Unknown:  issueCounts[Unknown],
+					Info:     issueCounts[Info],
+					Low:      issueCounts[Low],
+					Medium:   issueCounts[Medium],
+					High:     issueCounts[High],
+					Critical: issueCounts[Critical],
+				},
+			}
 		}
 	}
 

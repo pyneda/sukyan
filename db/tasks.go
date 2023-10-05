@@ -12,7 +12,7 @@ type Task struct {
 	StartedAt   time.Time `json:"started_at"`
 	FinishedAt  time.Time `json:"finished_at"`
 	Workspace   Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID uint      `json:"workspace_id"`
+	WorkspaceID uint      `json:"workspace_id" gorm:"index" `
 	Histories   []History `gorm:"foreignKey:TaskID" json:"-"`
 	Issues      []Issue   `gorm:"foreignKey:TaskID" json:"-"`
 	Stats       TaskStats `gorm:"-" json:"stats,omitempty"`
@@ -95,7 +95,7 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 		filterQuery["workspace_id"] = filter.WorkspaceID
 	}
 
-	query := d.db.Debug().Scopes(Paginate(&filter.Pagination)).Order("created_at desc")
+	query := d.db.Scopes(Paginate(&filter.Pagination)).Order("created_at desc")
 	if len(filterQuery) > 0 {
 		query = query.Where(filterQuery)
 	}
@@ -106,28 +106,38 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 	}
 
 	if len(filterQuery) > 0 {
-		d.db.Debug().Model(&Task{}).Where(filterQuery).Count(&count)
+		d.db.Model(&Task{}).Where(filterQuery).Count(&count)
 	} else {
-		d.db.Debug().Model(&Task{}).Count(&count)
+		d.db.Model(&Task{}).Count(&count)
 	}
 
 	if filter.FetchStats {
 		for _, task := range items {
-			var crawlerCount, scannerCount int64
-			d.db.Debug().Model(&History{}).Where("task_id = ? AND source = ?", task.ID, "Crawler").Count(&crawlerCount)
-			d.db.Debug().Model(&History{}).Where("task_id = ? AND source = ?", task.ID, "Scanner").Count(&scannerCount)
-
-			var issueCounts map[severity]int64 = make(map[severity]int64)
-			for _, sev := range []severity{Unknown, Info, Low, Medium, High, Critical} {
+			historyCounts := map[string]int64{}
+			rows, _ := d.db.Model(&History{}).Select("source, COUNT(*) as count").Where("task_id = ?", task.ID).Group("source").Rows()
+			for rows.Next() {
+				var source string
 				var count int64
-				d.db.Debug().Model(&Issue{}).Where("task_id = ? AND severity = ?", task.ID, sev).Count(&count)
+				rows.Scan(&source, &count)
+				historyCounts[source] = count
+			}
+			rows.Close()
+
+			issueCounts := map[severity]int64{}
+			rows, _ = d.db.Model(&Issue{}).Select("severity, COUNT(*) as count").Where("task_id = ?", task.ID).Group("severity").Rows()
+
+			for rows.Next() {
+				var sev severity
+				var count int64
+				rows.Scan(&sev, &count)
 				issueCounts[sev] = count
 			}
+			rows.Close()
 
 			task.Stats = TaskStats{
 				Requests: RequestsStats{
-					Crawler: crawlerCount,
-					Scanner: scannerCount,
+					Crawler: historyCounts["Crawler"],
+					Scanner: historyCounts["Scanner"],
 				},
 				Issues: IssuesStats{
 					Unknown:  issueCounts[Unknown],
@@ -142,51 +152,6 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 	}
 
 	return items, count, nil
-}
-
-func calculateStatsForTask(task *Task) TaskStats {
-	crawlerCount := countHistoriesBySource(task.Histories, "Crawler")
-	scannerCount := countHistoriesBySource(task.Histories, "Scanner")
-
-	issueCounts := make(map[severity]int64)
-	for _, sev := range []severity{Unknown, Info, Low, Medium, High, Critical} {
-		issueCounts[sev] = countIssuesBySeverity(task.Issues, sev)
-	}
-
-	return TaskStats{
-		Requests: RequestsStats{
-			Crawler: crawlerCount,
-			Scanner: scannerCount,
-		},
-		Issues: IssuesStats{
-			Unknown:  issueCounts[Unknown],
-			Info:     issueCounts[Info],
-			Low:      issueCounts[Low],
-			Medium:   issueCounts[Medium],
-			High:     issueCounts[High],
-			Critical: issueCounts[Critical],
-		},
-	}
-}
-
-func countHistoriesBySource(histories []History, source string) int64 {
-	count := 0
-	for _, history := range histories {
-		if history.Source == source {
-			count++
-		}
-	}
-	return int64(count)
-}
-
-func countIssuesBySeverity(issues []Issue, severityType severity) int64 {
-	count := 0
-	for _, issue := range issues {
-		if issue.Severity == severityType {
-			count++
-		}
-	}
-	return int64(count)
 }
 
 func (d *DatabaseConnection) UpdateTask(id uint, task *Task) (*Task, error) {

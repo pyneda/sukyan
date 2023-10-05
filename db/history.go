@@ -17,7 +17,7 @@ type History struct {
 	StatusCode           int            `gorm:"index" json:"status_code"`
 	URL                  string         `gorm:"index" json:"url"`
 	Depth                int            `gorm:"index" json:"depth"`
-	RequestHeaders       datatypes.JSON `json:"request_headers" swaggerignore:"true"`
+	RequestHeaders       datatypes.JSON `json:"request_headers"  swaggerignore:"true"`
 	RequestBody          []byte         `json:"request_body"`
 	RequestBodySize      int            `gorm:"index" json:"request_body_size"`
 	RequestContentLength int64          `json:"request_content_length"`
@@ -36,7 +36,7 @@ type History struct {
 	JsonWebTokens        []JsonWebToken `gorm:"many2many:json_web_token_histories" json:"json_web_tokens"`
 	Workspace            Workspace      `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID          *uint          `json:"workspace_id" gorm:"index"`
-	TaskID               *uint          `json:"task_id"`
+	TaskID               *uint          `json:"task_id" gorm:"index" `
 	Task                 Task           `json:"-" gorm:"foreignKey:TaskID"`
 }
 

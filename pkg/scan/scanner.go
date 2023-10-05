@@ -368,7 +368,7 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 			defaultDelay := 30
 			attempts := 4
 			finalConfidence := m.Confidence
-			confidenceIncrement := 15
+			confidenceIncrement := 20
 			confidenceDecrement := 25
 			originalTrueCount := 0
 			payloadTrueCount := 0
@@ -406,6 +406,10 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 				if withPayloadIsHigher {
 					payloadTrueCount++
 					finalConfidence += confidenceIncrement
+				}
+
+				if originalResult.duration > withPayloadResult.duration {
+					finalConfidence -= confidenceDecrement
 				}
 				originalResults = append(originalResults, originalIsHigher)
 				payloadResults = append(payloadResults, withPayloadIsHigher)

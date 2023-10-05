@@ -55,3 +55,15 @@ func (s *severity) Scan(value interface{}) error {
 func (s severity) Value() (driver.Value, error) {
 	return string(s), nil
 }
+
+const severityOrderQuery = `
+		CASE 
+			WHEN severity = 'Critical' THEN 1
+			WHEN severity = 'High' THEN 2
+			WHEN severity = 'Medium' THEN 3
+			WHEN severity = 'Low' THEN 4
+			WHEN severity = 'Info' THEN 5
+			WHEN severity = 'Unknown' THEN 6
+			ELSE 7
+		END
+	`

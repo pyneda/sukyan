@@ -49,7 +49,7 @@ func parseTaskID(c *fiber.Ctx) (uint, error) {
 }
 
 func parseTaskJobID(c *fiber.Ctx) (uint, error) {
-	unparsed := c.Query("taskjobid")
+	unparsed := c.Query("taskjob")
 	if unparsed == "" {
 		return 0, nil
 	}

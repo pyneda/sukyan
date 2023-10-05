@@ -85,7 +85,7 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 		query = query.Where("task_job_id = ?", filter.TaskJobID)
 	}
 
-	result := query.Order("severity desc, created_at desc").Find(&issues).Count(&count)
+	result := query.Order(severityOrderQuery).Order("title ASC, created_at DESC").Find(&issues).Count(&count)
 
 	if result.Error != nil {
 		err = result.Error
@@ -97,6 +97,8 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 // ListIssuesGrouped Lists grouped issues
 func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) (issues []*GroupedIssue, err error) {
 	query := d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Group("title,severity,code")
+
+	query = query.Order(severityOrderQuery).Order("title ASC")
 
 	if len(filter.Codes) > 0 {
 		query = query.Where("code IN ?", filter.Codes)
@@ -115,7 +117,6 @@ func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) (issues []*Gr
 	}
 
 	err = query.Find(&issues).Error
-
 	return issues, err
 }
 

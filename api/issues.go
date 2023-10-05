@@ -103,6 +103,8 @@ func FindIssuesGrouped(c *fiber.Ctx) error {
 		TaskJobID:   taskJobID,
 	})
 	if err != nil {
+		log.Error().Err(err).Msg("Failed to get issues grouped")
+
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get issues grouped"})
 	}
 	return c.Status(http.StatusOK).JSON(fiber.Map{"data": issues})

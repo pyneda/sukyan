@@ -366,7 +366,7 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 		if m.CheckIfResultDurationIsHigher(result.Duration) {
 			var sb strings.Builder
 			defaultDelay := 30
-			attempts := 4
+			attempts := 6
 			finalConfidence := m.Confidence
 			confidenceIncrement := 20
 			confidenceDecrement := 25

@@ -59,6 +59,7 @@ func FindTasks(c *fiber.Ctx) error {
 		},
 		Statuses:    statuses,
 		WorkspaceID: workspaceID,
+		FetchStats:  true,
 	})
 
 	if err != nil {

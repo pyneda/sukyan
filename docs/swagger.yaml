@@ -262,6 +262,21 @@ definitions:
       workspace_id:
         type: integer
     type: object
+  db.IssuesStats:
+    properties:
+      critical:
+        type: integer
+      high:
+        type: integer
+      info:
+        type: integer
+      low:
+        type: integer
+      medium:
+        type: integer
+      unknown:
+        type: integer
+    type: object
   db.JsonWebToken:
     properties:
       algorithm:
@@ -403,16 +418,33 @@ definitions:
       workspace_id:
         type: integer
     type: object
+  db.RequestsStats:
+    properties:
+      crawler:
+        type: integer
+      scanner:
+        type: integer
+    type: object
   db.Task:
     properties:
       created_at:
         type: string
       finished_at:
         type: string
+      histories:
+        items:
+          $ref: '#/definitions/db.History'
+        type: array
       id:
         type: integer
+      issues:
+        items:
+          $ref: '#/definitions/db.Issue'
+        type: array
       started_at:
         type: string
+      stats:
+        $ref: '#/definitions/db.TaskStats'
       status:
         type: string
       title:
@@ -421,6 +453,13 @@ definitions:
         type: string
       workspace_id:
         type: integer
+    type: object
+  db.TaskStats:
+    properties:
+      issues:
+        $ref: '#/definitions/db.IssuesStats'
+      requests:
+        $ref: '#/definitions/db.RequestsStats'
     type: object
   db.WebSocketMessage:
     properties:

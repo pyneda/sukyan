@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+
+
 type Task struct {
 	BaseModel
 	Title       string    `json:"title"`
@@ -13,12 +15,16 @@ type Task struct {
 	FinishedAt  time.Time `json:"finished_at"`
 	Workspace   Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID uint      `json:"workspace_id"`
+	Histories   []History `gorm:"foreignKey:TaskID" json:"-"`
+	Issues      []Issue   `gorm:"foreignKey:TaskID" json:"-"`
+	Stats       TaskStats `gorm:"-" json:"stats,omitempty"`
 }
 
 type TaskFilter struct {
 	Statuses    []string
 	Pagination  Pagination
 	WorkspaceID uint
+	FetchStats bool
 }
 
 var (
@@ -31,6 +37,27 @@ var (
 	TaskStatusPaused          string = "paused"
 	DefaultWorkspaceTaskTitle string = "Default task"
 )
+
+type TaskStats struct {
+	Requests RequestsStats `json:"requests"`
+	Issues   IssuesStats   `json:"issues"`
+}
+
+type RequestsStats struct {
+	Crawler int64 `json:"crawler"`
+	Scanner int64 `json:"scanner"`
+}
+
+type IssuesStats struct {
+	Unknown  int64 `json:"unknown"`
+	Info     int64 `json:"info"`
+	Low      int64 `json:"low"`
+	Medium   int64 `json:"medium"`
+	High     int64 `json:"high"`
+	Critical int64 `json:"critical"`
+}
+
+
 
 func (d *DatabaseConnection) NewTask(workspaceID uint, title, status string) (*Task, error) {
 	task := &Task{
@@ -60,7 +87,6 @@ func (d *DatabaseConnection) CreateTask(task *Task) (*Task, error) {
 	}
 	return task, result.Error
 }
-
 func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count int64, err error) {
 	filterQuery := make(map[string]interface{})
 
@@ -72,18 +98,78 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 		filterQuery["workspace_id"] = filter.WorkspaceID
 	}
 
-	if filterQuery != nil && len(filterQuery) > 0 {
-		err = d.db.Scopes(Paginate(&filter.Pagination)).Where(filterQuery).Order("created_at desc").Find(&items).Error
-		d.db.Model(&Task{}).Where(filterQuery).Count(&count)
-
-	} else {
-		err = d.db.Scopes(Paginate(&filter.Pagination)).Order("created_at desc").Find(&items).Error
-		d.db.Model(&Task{}).Count(&count)
+	query := d.db.Scopes(Paginate(&filter.Pagination)).Order("created_at desc")
+	if len(filterQuery) > 0 {
+		query = query.Where(filterQuery)
 	}
 
-	log.Info().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Int("total_results", len(items)).Msg("Getting task items")
+	if filter.FetchStats {
+		query = query.Preload("Histories").Preload("Issues")
+	}
 
-	return items, count, err
+	err = query.Find(&items).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	if len(filterQuery) > 0 {
+		d.db.Debug().Model(&Task{}).Where(filterQuery).Count(&count)
+	} else {
+		d.db.Debug().Model(&Task{}).Count(&count)
+	}
+
+	if filter.FetchStats {
+		for _, task := range items {
+			task.Stats = calculateStatsForTask(task)
+		}
+	}
+
+	return items, count, nil
+}
+
+func calculateStatsForTask(task *Task) TaskStats {
+	crawlerCount := countHistoriesBySource(task.Histories, "Crawler")
+	scannerCount := countHistoriesBySource(task.Histories, "Scanner")
+
+	issueCounts := make(map[severity]int64)
+	for _, sev := range []severity{Unknown, Info, Low, Medium, High, Critical} {
+		issueCounts[sev] = countIssuesBySeverity(task.Issues, sev)
+	}
+
+	return TaskStats{
+		Requests: RequestsStats{
+			Crawler: crawlerCount,
+			Scanner: scannerCount,
+		},
+		Issues: IssuesStats{
+			Unknown:  issueCounts[Unknown],
+			Info:     issueCounts[Info],
+			Low:      issueCounts[Low],
+			Medium:   issueCounts[Medium],
+			High:     issueCounts[High],
+			Critical: issueCounts[Critical],
+		},
+	}
+}
+
+func countHistoriesBySource(histories []History, source string) int64 {
+	count := 0
+	for _, history := range histories {
+		if history.Source == source {
+			count++
+		}
+	}
+	return int64(count)
+}
+
+func countIssuesBySeverity(issues []Issue, severityType severity) int64 {
+	count := 0
+	for _, issue := range issues {
+		if issue.Severity == severityType {
+			count++
+		}
+	}
+	return int64(count)
 }
 
 func (d *DatabaseConnection) UpdateTask(id uint, task *Task) (*Task, error) {

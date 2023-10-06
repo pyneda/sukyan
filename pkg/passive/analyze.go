@@ -28,6 +28,7 @@ func AnalyzeHeaders(baseURL string, histories []*db.History) HeaderAnalysisResul
 	issue.Details = details
 	issue.Confidence = 100
 	issue.WorkspaceID = histories[0].WorkspaceID
+	issue.TaskID = histories[0].TaskID
 	issue.URL = baseURL
 	created, err := db.Connection.CreateIssue(*issue)
 	if err != nil {

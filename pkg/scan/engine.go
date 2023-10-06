@@ -166,9 +166,9 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 	for baseURL, histories := range historiesByBaseURL {
 		passive.AnalyzeHeaders(baseURL, histories)
 		newFingerprints := passive.FingerprintHistoryItems(histories)
-		passive.ReportFingerprints(baseURL, newFingerprints, options.WorkspaceID)
+		passive.ReportFingerprints(baseURL, newFingerprints, options.WorkspaceID, task.ID)
 		fingerprints = append(fingerprints, newFingerprints...)
-		integrations.CDNCheck(baseURL, options.WorkspaceID)
+		integrations.CDNCheck(baseURL, options.WorkspaceID, task.ID)
 	}
 
 	baseURLs, err := lib.GetUniqueBaseURLs(options.StartURLs)

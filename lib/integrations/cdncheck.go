@@ -25,6 +25,7 @@ func checkCDN(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID, ta
 		issue.URL = urlStr
 		issue.TaskID = &taskID
 		issue.WorkspaceID = &workspaceID
+		issue.Confidence = 90
 		extraInfo := "This issue has been detected by using cdncheck (https://github.com/projectdiscovery/cdncheck)"
 		issue.Details = buildDetails(ip, val, extraInfo)
 		createdIssue, err := db.Connection.CreateIssue(*issue)
@@ -49,6 +50,7 @@ func checkCloud(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID, 
 		issue.URL = urlStr
 		issue.TaskID = &taskID
 		issue.WorkspaceID = &workspaceID
+		issue.Confidence = 90
 		extraInfo := "This issue has been detected by using cdncheck (https://github.com/projectdiscovery/cdncheck)"
 		issue.Details = buildDetails(ip, val, extraInfo)
 		createdIssue, err := db.Connection.CreateIssue(*issue)
@@ -73,6 +75,7 @@ func checkWAF(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID, ta
 		issue.URL = urlStr
 		issue.TaskID = &taskID
 		issue.WorkspaceID = &workspaceID
+		issue.Confidence = 90
 		extraInfo := "This issue has been detected by using cdncheck (https://github.com/projectdiscovery/cdncheck)"
 		issue.Details = buildDetails(ip, val, extraInfo)
 		createdIssue, err := db.Connection.CreateIssue(*issue)

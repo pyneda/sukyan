@@ -13,7 +13,7 @@ func buildDetails(ip net.IP, val string, extraInfo string) string {
 	return ip.String() + " (" + val + ")\n\n" + extraInfo
 }
 
-func checkCDN(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID uint) (db.Issue, error) {
+func checkCDN(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID, taskID uint) (db.Issue, error) {
 	matched, val, err := client.CheckCDN(ip)
 	if err != nil {
 		log.Error().Err(err).Str("check", "cdncheck").Uint("workspace", workspaceID).Msg("Error during CDN check")
@@ -23,6 +23,8 @@ func checkCDN(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID uin
 	if matched {
 		issue := db.GetIssueTemplateByCode(db.CdnDetectedCode)
 		issue.URL = urlStr
+		issue.TaskID = &taskID
+		issue.WorkspaceID = &workspaceID
 		extraInfo := "This issue has been detected by using cdncheck (https://github.com/projectdiscovery/cdncheck)"
 		issue.Details = buildDetails(ip, val, extraInfo)
 		createdIssue, err := db.Connection.CreateIssue(*issue)
@@ -35,7 +37,7 @@ func checkCDN(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID uin
 	return db.Issue{}, nil
 }
 
-func checkCloud(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID uint) (db.Issue, error) {
+func checkCloud(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID, taskID uint) (db.Issue, error) {
 	matched, val, err := client.CheckCloud(ip)
 	if err != nil {
 		log.Error().Err(err).Str("check", "cdncheck").Uint("workspace", workspaceID).Msg("Error during Cloud check")
@@ -45,6 +47,8 @@ func checkCloud(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID u
 	if matched {
 		issue := db.GetIssueTemplateByCode(db.CloudDetectedCode)
 		issue.URL = urlStr
+		issue.TaskID = &taskID
+		issue.WorkspaceID = &workspaceID
 		extraInfo := "This issue has been detected by using cdncheck (https://github.com/projectdiscovery/cdncheck)"
 		issue.Details = buildDetails(ip, val, extraInfo)
 		createdIssue, err := db.Connection.CreateIssue(*issue)
@@ -57,7 +61,7 @@ func checkCloud(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID u
 	return db.Issue{}, nil
 }
 
-func checkWAF(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID uint) (db.Issue, error) {
+func checkWAF(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID, taskID uint) (db.Issue, error) {
 	matched, val, err := client.CheckWAF(ip)
 	if err != nil {
 		log.Error().Err(err).Str("check", "cdncheck").Uint("workspace", workspaceID).Msg("Error during WAF check")
@@ -67,6 +71,8 @@ func checkWAF(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID uin
 	if matched {
 		issue := db.GetIssueTemplateByCode(db.WafDetectedCode)
 		issue.URL = urlStr
+		issue.TaskID = &taskID
+		issue.WorkspaceID = &workspaceID
 		extraInfo := "This issue has been detected by using cdncheck (https://github.com/projectdiscovery/cdncheck)"
 		issue.Details = buildDetails(ip, val, extraInfo)
 		createdIssue, err := db.Connection.CreateIssue(*issue)
@@ -79,36 +85,36 @@ func checkWAF(client *cdncheck.Client, ip net.IP, urlStr string, workspaceID uin
 	return db.Issue{}, nil
 }
 
-func CDNCheck(urlStr string, workspaceID uint) ([]db.Issue, error) {
+func CDNCheck(urlStr string, workspaceID, taskID uint) ([]db.Issue, error) {
 	var issues []db.Issue
 
 	ips, err := lib.GetIPFromURL(urlStr)
 	if err != nil {
-		log.Error().Err(err).Str("check", "cdncheck").Uint("workspace", workspaceID).Msg("Error resolving URL to IP")
+		log.Error().Err(err).Str("check", "cdncheck").Uint("workspace", workspaceID).Uint("task", taskID).Msg("Error resolving URL to IP")
 		return issues, err
 	}
 
 	client := cdncheck.New()
 	for _, ip := range ips {
-		log.Info().Str("check", "cdncheck").Uint("workspace", workspaceID).Msgf("Performing checks for IP: %v", ip)
+		log.Debug().Str("check", "cdncheck").Uint("workspace", workspaceID).Uint("task", taskID).Msgf("Performing checks for IP: %v", ip)
 
-		issue, err := checkCDN(client, ip, urlStr, workspaceID)
+		issue, err := checkCDN(client, ip, urlStr, workspaceID, taskID)
 		if err == nil && !issue.IsEmpty() {
 			issues = append(issues, issue)
 		}
 
-		issue, err = checkCloud(client, ip, urlStr, workspaceID)
+		issue, err = checkCloud(client, ip, urlStr, workspaceID, taskID)
 		if err == nil && !issue.IsEmpty() {
 			issues = append(issues, issue)
 		}
 
-		issue, err = checkWAF(client, ip, urlStr, workspaceID)
+		issue, err = checkWAF(client, ip, urlStr, workspaceID, taskID)
 		if err == nil && !issue.IsEmpty() {
 			issues = append(issues, issue)
 		}
 
 	}
-	log.Info().Str("check", "cdncheck").Uint("workspace", workspaceID).Int("issues_count", len(issues)).Msg("Finished checks")
+	log.Info().Str("check", "cdncheck").Uint("workspace", workspaceID).Uint("task", taskID).Int("issues_count", len(issues)).Msg("Finished checks")
 
 	return issues, nil
 }

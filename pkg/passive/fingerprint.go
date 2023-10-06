@@ -74,16 +74,17 @@ func GetUniqueNucleiTags(fingerprints []Fingerprint) []string {
 	return uniqueTags
 }
 
-func ReportFingerprints(baseURL string, fingerprints []Fingerprint, workspaceID uint) {
+func ReportFingerprints(baseURL string, fingerprints []Fingerprint, workspaceID, taskID uint) {
 	details := getFingerprintsReport(fingerprints)
 
-	issueTemplate := db.GetIssueTemplateByCode(db.TechStackFingerprintCode)
-	issueTemplate.Details = details
-	issueTemplate.Confidence = 100
-	issueTemplate.WorkspaceID = &workspaceID
-	issueTemplate.URL = baseURL
+	issue := db.GetIssueTemplateByCode(db.TechStackFingerprintCode)
+	issue.Details = details
+	issue.Confidence = 100
+	issue.WorkspaceID = &workspaceID
+	issue.URL = baseURL
+	issue.TaskID = &taskID
 
-	created, err := db.Connection.CreateIssue(*issueTemplate)
+	created, err := db.Connection.CreateIssue(*issue)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create TechStackFingerprintCode issue")
 		return

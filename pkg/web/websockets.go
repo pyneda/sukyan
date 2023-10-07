@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func ListenForWebSocketEvents(page *rod.Page, workspaceID uint) {
+func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID uint, source string) {
 	wsConnections := make(map[proto.NetworkRequestID]*db.WebSocketConnection)
 
 	go page.EachEvent(func(e *proto.NetworkWebSocketCreated) {
@@ -19,6 +19,8 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID uint) {
 			URL:            e.URL,
 			RequestHeaders: datatypes.JSON(headers),
 			WorkspaceID:    &workspaceID,
+			TaskID:         &taskID,
+			Source:         source,
 		}
 		err := db.Connection.CreateWebSocketConnection(connection)
 		if err != nil {

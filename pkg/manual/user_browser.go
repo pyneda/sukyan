@@ -1,9 +1,9 @@
 package manual
 
 import (
+	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/browser"
-
 	"github.com/pyneda/sukyan/pkg/web"
 	"time"
 
@@ -25,14 +25,14 @@ func LaunchUserBrowser(workspaceID uint, initialURL string) {
 	}
 	hijackResultsChannel := make(chan browser.HijackResult)
 
-	browser.Hijack(hc, b, "Browser", hijackResultsChannel, workspaceID, 0)
+	browser.Hijack(hc, b, db.SourceBrowser, hijackResultsChannel, workspaceID, 0)
 	var page *rod.Page
 	if initialURL != "" {
 		page = b.MustPage(initialURL)
 	} else {
 		page = b.MustPage("")
 	}
-	web.ListenForWebSocketEvents(page, workspaceID)
+	web.ListenForWebSocketEvents(page, workspaceID, 0, db.SourceBrowser)
 	log.Info().Interface("url", page).Msg("Browser loaded")
 	lib.SetupCloseHandler()
 	for {

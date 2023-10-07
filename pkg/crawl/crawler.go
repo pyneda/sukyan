@@ -246,7 +246,7 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	defer c.browser.ReleasePage(page)
 
 	// There's another implementation which applies to the whole browser which might be better ()
-	web.ListenForPageEvents(url, page, c.workspaceID)
+	web.ListenForPageEvents(url, page, c.workspaceID, c.taskID, db.SourceCrawler)
 
 	urlData := c.loadPageAndGetAnchors(url, page)
 

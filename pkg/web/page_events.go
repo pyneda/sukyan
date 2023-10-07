@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func ListenForPageEvents(url string, page *rod.Page, workspaceID uint) {
+func ListenForPageEvents(url string, page *rod.Page, workspaceID, taskID uint, source string) {
 	// The URL could also be gathered doing page.Info().URL
 	// https://pkg.go.dev/github.com/go-rod/rod#Page.Info
 
@@ -124,5 +124,5 @@ func ListenForPageEvents(url string, page *rod.Page, workspaceID uint) {
 	// 	log.Warn().Str("source", string(e.Source)).Str("origin", e.Origin).Str("realm", e.Realm).Str("scheme", e.Scheme).Msg("Network auth challange received")
 	// }
 	)()
-	ListenForWebSocketEvents(page, workspaceID)
+	ListenForWebSocketEvents(page, workspaceID, taskID, source)
 }

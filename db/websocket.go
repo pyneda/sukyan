@@ -57,6 +57,7 @@ func (d *DatabaseConnection) UpdateWebSocketConnection(connection *WebSocketConn
 type WebSocketConnectionFilter struct {
 	Pagination
 	WorkspaceID uint     `json:"workspace_id" validate:"required"`
+	TaskID      uint     `json:"task_id"`
 	Sources     []string `json:"sources" validate:"omitempty,dive,ascii"`
 }
 
@@ -69,6 +70,10 @@ func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnection
 
 	if len(filter.Sources) > 0 {
 		query = query.Where("source IN ?", filter.Sources)
+	}
+
+	if filter.TaskID > 0 {
+		query = query.Where("task_id = ?", filter.TaskID)
 	}
 
 	err := query.Count(&count).

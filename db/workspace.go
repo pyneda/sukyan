@@ -102,7 +102,7 @@ func (d *DatabaseConnection) GetOrCreateWorkspace(workspace *Workspace) (*Worksp
 // DeleteWorkspace deletes a workspace by ID
 func (d *DatabaseConnection) DeleteWorkspace(id uint) error {
 	var workspace Workspace
-	if err := d.db.Where("id = ?", id).Delete(&workspace).Error; err != nil {
+	if err := d.db.Unscoped().Where("id = ?", id).Delete(&workspace).Error; err != nil {
 		log.Error().Err(err).Interface("id", id).Msg("Unable to delete workspace by ID")
 		return err
 	}

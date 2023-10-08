@@ -15,12 +15,15 @@ import (
 // @Param page_size query integer false "Size of each page" default(50)
 // @Param page query integer false "Page number" default(1)
 // @Param workspace query int true "Workspace ID"
+// @Param sources query string false "Comma-separated list of sources to filter by"
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history/websocket/connections [get]
 func FindWebSocketConnections(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")
+	unparsedSources := c.Query("sources")
+	var sources []string
 
 	pageSize, err := strconv.Atoi(unparsedPageSize)
 	if err != nil {
@@ -42,12 +45,22 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 		})
 	}
 
+	if unparsedSources != "" {
+		for _, source := range strings.Split(unparsedSources, ",") {
+			if db.IsValidSource(source) {
+				sources = append(sources, source)
+			} else {
+				log.Warn().Str("source", source).Msg("Invalid filter source provided")
+			}
+		}
+	}
 	connections, count, err := db.Connection.ListWebSocketConnections(db.WebSocketConnectionFilter{
 		Pagination: db.Pagination{
 			Page:     page,
 			PageSize: pageSize,
 		},
 		WorkspaceID: workspaceID,
+		Sources:     sources,
 	})
 
 	if err != nil {

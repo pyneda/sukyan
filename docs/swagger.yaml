@@ -793,6 +793,10 @@ paths:
         name: workspace
         required: true
         type: integer
+      - description: Comma-separated list of sources to filter by
+        in: query
+        name: sources
+        type: string
       produces:
       - application/json
       responses:

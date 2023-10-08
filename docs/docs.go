@@ -312,6 +312,12 @@ const docTemplate = `{
                         "name": "workspace",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of sources to filter by",
+                        "name": "sources",
+                        "in": "query"
                     }
                 ],
                 "responses": {

@@ -56,32 +56,39 @@ func (d *DatabaseConnection) UpdateWebSocketConnection(connection *WebSocketConn
 
 type WebSocketConnectionFilter struct {
 	Pagination
-	WorkspaceID uint
-}
-
-type WebSocketMessageFilter struct {
-	Pagination
-	ConnectionID uint
+	WorkspaceID uint     `json:"workspace_id" validate:"required"`
+	Sources     []string `json:"sources" validate:"omitempty,dive,ascii"`
 }
 
 func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnectionFilter) ([]WebSocketConnection, int64, error) {
 	var connections []WebSocketConnection
 	var count int64
 
-	err := d.db.Model(&WebSocketConnection{}).
-		Count(&count).
+	query := d.db.Model(&WebSocketConnection{}).
+		Where("workspace_id = ?", filter.WorkspaceID)
+
+	if len(filter.Sources) > 0 {
+		query = query.Where("source IN ?", filter.Sources)
+	}
+
+	err := query.Count(&count).
 		Order("id desc").
-		Where("workspace_id = ?", filter.WorkspaceID).
 		Limit(filter.PageSize).
 		Offset((filter.Page - 1) * filter.PageSize).
 		Find(&connections).
 		Error
+
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to list WebSocket connections")
 		return nil, 0, err
 	}
 
 	return connections, count, nil
+}
+
+type WebSocketMessageFilter struct {
+	Pagination
+	ConnectionID uint
 }
 
 func (d *DatabaseConnection) ListWebSocketMessages(filter WebSocketMessageFilter) ([]WebSocketMessage, int64, error) {

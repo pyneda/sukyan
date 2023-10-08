@@ -314,6 +314,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+                        "type": "integer",
+                        "description": "Task ID",
+                        "name": "task",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "Comma-separated list of sources to filter by",
                         "name": "sources",

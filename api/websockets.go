@@ -16,6 +16,7 @@ import (
 // @Param page_size query integer false "Size of each page" default(50)
 // @Param page query integer false "Page number" default(1)
 // @Param workspace query int true "Workspace ID"
+// @Param task query int false "Task ID"
 // @Param sources query string false "Comma-separated list of sources to filter by"
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
@@ -46,6 +47,14 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 		})
 	}
 
+	taskID, err := parseTaskID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid task",
+			"message": "The provided task ID does not seem valid",
+		})
+	}
+
 	if unparsedSources != "" {
 		for _, source := range strings.Split(unparsedSources, ",") {
 			if db.IsValidSource(source) {
@@ -61,6 +70,7 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 			PageSize: pageSize,
 		},
 		WorkspaceID: workspaceID,
+		TaskID:      taskID,
 		Sources:     sources,
 	})
 

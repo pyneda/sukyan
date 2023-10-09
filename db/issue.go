@@ -28,10 +28,10 @@ type Issue struct {
 	Workspace     Workspace        `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID   *uint            `json:"workspace_id" gorm:"index"`
 	Interactions  []OOBInteraction `json:"interactions" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Requests      []History        `json:"requests" gorm:"many2many:issue_requests;"`
+	Requests      []History        `json:"requests" gorm:"many2many:issue_requests;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	TaskID        *uint            `json:"task_id" gorm:"index"`
 	Task          Task             `json:"-" gorm:"foreignKey:TaskID"`
-	TaskJobID     *uint            `json:"task_job_id" gorm:"index"`
+	TaskJobID     *uint            `json:"task_job_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	TaskJob       TaskJob          `json:"-" gorm:"foreignKey:TaskJobID"`
 }
 

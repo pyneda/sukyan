@@ -19,12 +19,12 @@ type TaskJob struct {
 	BaseModel
 	Title       string        `json:"title"`
 	TaskID      uint          `json:"task_id"`
-	Task        Task          `json:"-" gorm:"foreignKey:TaskID"`
+	Task        Task          `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Status      TaskJobStatus `gorm:"index" json:"status"`
 	StartedAt   time.Time     `json:"started_at"`
 	CompletedAt time.Time     `json:"completed_at"`
 	HistoryID   uint          `json:"history_id"`
-	History     History       `json:"history" gorm:"foreignKey:HistoryID"`
+	History     History       `json:"history" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 type TaskJobFilter struct {

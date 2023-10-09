@@ -424,6 +424,10 @@ definitions:
         type: string
       target:
         type: string
+      task_id:
+        type: integer
+      task_job_id:
+        type: integer
       test_name:
         type: string
       updated_at:
@@ -1201,6 +1205,10 @@ paths:
       - application/json
       description: Retrieves tasks based on pagination and status filters
       parameters:
+      - description: Query string to search for
+        in: query
+        name: query
+        type: string
       - default: 50
         description: Number of items per page
         in: query

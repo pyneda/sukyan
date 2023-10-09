@@ -19,10 +19,11 @@ type Task struct {
 }
 
 type TaskFilter struct {
-	Statuses    []string
-	Pagination  Pagination
-	WorkspaceID uint
-	FetchStats  bool
+	Query       string     `json:"query" validate:"omitempty,dive,ascii"`
+	Statuses    []string   `json:"statuses" validate:"omitempty,dive,oneof=crawling scanning nuclei running finished failed paused"`
+	Pagination  Pagination `json:"pagination"`
+	WorkspaceID uint       `json:"workspace_id" validate:"omitempty,numeric"`
+	FetchStats  bool       `json:"fetch_stats"`
 }
 
 var (
@@ -98,6 +99,11 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 	query := d.db.Scopes(Paginate(&filter.Pagination)).Order("created_at desc")
 	if len(filterQuery) > 0 {
 		query = query.Where(filterQuery)
+	}
+
+	if filter.Query != "" {
+		likeQuery := "%" + filter.Query + "%"
+		query = query.Where("title LIKE ?", likeQuery)
 	}
 
 	err = query.Find(&items).Error

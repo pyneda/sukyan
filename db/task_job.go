@@ -28,6 +28,7 @@ type TaskJob struct {
 }
 
 type TaskJobFilter struct {
+	Query       string     `json:"query" validate:"omitempty,dive,ascii"`
 	Statuses    []string   `json:"statuses" validate:"omitempty,dive,oneof=scheduled running finished failed"`
 	Titles      []string   `json:"titles" validate:"omitempty,dive,ascii"`
 	Pagination  Pagination `json:"pagination"`
@@ -62,6 +63,7 @@ func (d *DatabaseConnection) ListTaskJobs(filter TaskJobFilter) (items []*TaskJo
 	if len(filter.Titles) > 0 {
 		query = query.Where("title IN ?", filter.Titles)
 	}
+
 	if filter.TaskID != 0 {
 		query = query.Where("task_id = ?", filter.TaskID)
 	}
@@ -100,36 +102,6 @@ func (d *DatabaseConnection) ListTaskJobs(filter TaskJobFilter) (items []*TaskJo
 
 	return items, count, err
 }
-
-// func (d *DatabaseConnection) ListTaskJobs(filter TaskJobFilter) (items []*TaskJob, count int64, err error) {
-// 	filterQuery := make(map[string]interface{})
-
-// 	if len(filter.Statuses) > 0 {
-// 		filterQuery["status"] = filter.Statuses
-// 	}
-
-// 	if len(filter.Titles) > 0 {
-// 		filterQuery["title"] = filter.Titles
-// 	}
-
-// 	if filter.TaskID != 0 {
-// 		filterQuery["task_id"] = filter.TaskID
-// 	}
-
-// 	query := d.db.Preload("History") // Eager load History
-
-// 	if filterQuery != nil && len(filterQuery) > 0 {
-// 		err = query.Scopes(Paginate(&filter.Pagination)).Where(filterQuery).Order("created_at desc").Find(&items).Error
-// 		d.db.Model(&TaskJob{}).Where(filterQuery).Count(&count)
-// 	} else {
-// 		err = query.Scopes(Paginate(&filter.Pagination)).Order("created_at desc").Find(&items).Error
-// 		d.db.Model(&TaskJob{}).Count(&count)
-// 	}
-
-// 	log.Info().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Int("total_results", len(items)).Msg("Getting task job items")
-
-// 	return items, count, err
-// }
 
 func (d *DatabaseConnection) NewTaskJob(taskID uint, title string, status TaskJobStatus, historyID uint) (*TaskJob, error) {
 	task := &TaskJob{

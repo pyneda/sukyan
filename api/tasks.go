@@ -16,6 +16,7 @@ import (
 // @Tags Tasks
 // @Accept  json
 // @Produce  json
+// @Param query query string false "Query string to search for"
 // @Param page_size query int false "Number of items per page" default(50)
 // @Param page query int false "Page number" default(1)
 // @Param workspace query int true "Workspace ID"
@@ -36,6 +37,7 @@ func FindTasks(c *fiber.Ctx) error {
 	unparsedPage := c.Query("page", "1")
 	unparsedStatuses := c.Query("status")
 	var statuses []string
+	query := c.Query("query")
 
 	pageSize, err := strconv.Atoi(unparsedPageSize)
 	if err != nil {
@@ -60,6 +62,7 @@ func FindTasks(c *fiber.Ctx) error {
 		Statuses:    statuses,
 		WorkspaceID: workspaceID,
 		FetchStats:  true,
+		Query:       query,
 	})
 
 	if err != nil {

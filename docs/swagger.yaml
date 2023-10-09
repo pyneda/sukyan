@@ -933,6 +933,10 @@ paths:
         in: query
         name: taskjob
         type: integer
+      - description: Comma-separated list of issue codes to filter by
+        in: query
+        name: codes
+        type: string
       produces:
       - application/json
       responses:

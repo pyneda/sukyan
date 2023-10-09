@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"gorm.io/gorm"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 // @Param workspace query int true "Workspace ID"
 // @Param task query int false "Task ID"
 // @Param taskjob query int false "Task Job ID"
+// @Param codes query string false "Comma-separated list of issue codes to filter by"
 // @Success 200 {array} db.Issue
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
@@ -47,10 +49,18 @@ func FindIssues(c *fiber.Ctx) error {
 		})
 	}
 
+	unparsedIssueCodes := c.Query("codes")
+	var issueCodes []string
+	if unparsedIssueCodes != "" {
+		// TODO: Validate issue codes
+		issueCodes = strings.Split(unparsedIssueCodes, ",")
+	}
+
 	issues, count, err := db.Connection.ListIssues(db.IssueFilter{
 		WorkspaceID: workspaceID,
 		TaskID:      taskID,
 		TaskJobID:   taskJobID,
+		Codes:       issueCodes,
 	})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get issues"})

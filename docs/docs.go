@@ -581,6 +581,12 @@ const docTemplate = `{
                         "description": "Task Job ID",
                         "name": "taskjob",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of issue codes to filter by",
+                        "name": "codes",
+                        "in": "query"
                     }
                 ],
                 "responses": {

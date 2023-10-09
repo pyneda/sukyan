@@ -67,6 +67,8 @@ func (a *SNIAudit) Run() {
 		HistoryID:         &history.ID,
 		InsertionPoint:    "sni",
 		WorkspaceID:       &a.WorkspaceID,
+		TaskID:            &a.TaskID,
+		TaskJobID:         &a.TaskJobID,
 	}
 	db.Connection.CreateOOBTest(oobTest)
 

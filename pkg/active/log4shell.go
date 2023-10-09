@@ -232,6 +232,8 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		HistoryID:         &history.ID,
 		InsertionPoint:    insertionPoint,
 		WorkspaceID:       &a.WorkspaceID,
+		TaskID:            &a.TaskID,
+		TaskJobID:         &a.TaskJobID,
 	}
 	db.Connection.CreateOOBTest(oobTest)
 }

@@ -23,6 +23,10 @@ type OOBTest struct {
 	InsertionPoint    string    `json:"insertion_point"`
 	Workspace         Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID       *uint     `json:"workspace_id"`
+	Task              Task      `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	TaskID            *uint     `json:"task_id"`
+	TaskJobID         *uint     `json:"task_job_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	TaskJob           TaskJob   `json:"-" gorm:"foreignKey:TaskJobID"`
 }
 
 // CreateOOBTest saves an OOBTest to the database
@@ -88,6 +92,8 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 		issue.Payload = oobTest.Payload
 		issue.URL = oobTest.Target
 		issue.WorkspaceID = oobTest.WorkspaceID
+		issue.TaskID = oobTest.TaskID
+		issue.TaskJobID = oobTest.TaskJobID
 		if oobTest.HistoryItem != nil {
 			issue.Requests = append(issue.Requests, *oobTest.HistoryItem)
 		}

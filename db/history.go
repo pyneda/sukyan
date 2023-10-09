@@ -37,7 +37,7 @@ type History struct {
 	Workspace            Workspace      `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID          *uint          `json:"workspace_id" gorm:"index"`
 	TaskID               *uint          `json:"task_id" gorm:"index" `
-	Task                 Task           `json:"-" gorm:"foreignKey:TaskID"`
+	Task                 Task           `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 func (h *History) GetResponseHeadersAsMap() (map[string][]string, error) {

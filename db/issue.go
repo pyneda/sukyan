@@ -2,6 +2,7 @@ package db
 
 import (
 	"github.com/rs/zerolog/log"
+	"sort"
 )
 
 // Issue holds table for storing issues found
@@ -36,10 +37,17 @@ type Issue struct {
 }
 
 type GroupedIssue struct {
-	Title    string `json:"title"`
-	Code     string `json:"code"`
-	Count    int    `json:"count"`
-	Severity string `json:"severity"`
+	Title    string       `json:"title"`
+	Code     string       `json:"code"`
+	Count    int          `json:"count"`
+	Severity string       `json:"severity"`
+	Items    []*IssueItem `json:"items"`
+}
+
+type IssueItem struct {
+	ID         uint   `json:"id"`
+	URL        string `json:"url"`
+	Confidence int    `json:"confidence"`
 }
 
 // AddInteraction adds an interaction to an issue in the database.
@@ -94,31 +102,93 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 	return issues, count, err
 }
 
-// ListIssuesGrouped Lists grouped issues
-func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) (issues []*GroupedIssue, err error) {
-	query := d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Group("title,severity,code")
+func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) ([]*GroupedIssue, error) {
+	var issues []Issue
+	query := d.db.Model(&Issue{}).Select("id, url, confidence, title, code, severity")
 
-	query = query.Order(severityOrderQuery).Order("title ASC")
-
+	// Apply filters
 	if len(filter.Codes) > 0 {
 		query = query.Where("code IN ?", filter.Codes)
 	}
-
 	if filter.WorkspaceID != 0 {
 		query = query.Where("workspace_id = ?", filter.WorkspaceID)
 	}
-
 	if filter.TaskID != 0 {
 		query = query.Where("task_id = ?", filter.TaskID)
 	}
-
 	if filter.TaskJobID != 0 {
 		query = query.Where("task_job_id = ?", filter.TaskJobID)
 	}
 
-	err = query.Find(&issues).Error
-	return issues, err
+	// Execute the query
+	err := query.Find(&issues).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Post-process to build grouped structure
+	issueMap := make(map[string]*GroupedIssue)
+
+	for _, issue := range issues {
+		// Create a composite key from Code, Severity, and Title
+		key := issue.Code + "|" + issue.Severity.String() + "|" + issue.Title
+
+		grouped, exists := issueMap[key]
+		if !exists {
+			grouped = &GroupedIssue{
+				Title:    issue.Title,
+				Code:     issue.Code,
+				Severity: issue.Severity.String(),
+				Items:    []*IssueItem{},
+			}
+			issueMap[key] = grouped
+		}
+
+		item := &IssueItem{
+			ID:         issue.ID,
+			URL:        issue.URL,
+			Confidence: issue.Confidence,
+		}
+		grouped.Items = append(grouped.Items, item)
+		grouped.Count = len(grouped.Items) // Update the count
+	}
+
+	var groupedIssues []*GroupedIssue
+	for _, v := range issueMap {
+		groupedIssues = append(groupedIssues, v)
+	}
+
+	sort.Slice(groupedIssues, func(i, j int) bool {
+		return GetSeverityOrder(groupedIssues[i].Severity) < GetSeverityOrder(groupedIssues[j].Severity)
+	})
+	return groupedIssues, nil
 }
+
+// ListIssuesGrouped Lists grouped issues
+// func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) (issues []*GroupedIssue, err error) {
+// 	query := d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Group("title,severity,code")
+
+// 	query = query.Order(severityOrderQuery).Order("title ASC")
+
+// 	if len(filter.Codes) > 0 {
+// 		query = query.Where("code IN ?", filter.Codes)
+// 	}
+
+// 	if filter.WorkspaceID != 0 {
+// 		query = query.Where("workspace_id = ?", filter.WorkspaceID)
+// 	}
+
+// 	if filter.TaskID != 0 {
+// 		query = query.Where("task_id = ?", filter.TaskID)
+// 	}
+
+// 	if filter.TaskJobID != 0 {
+// 		query = query.Where("task_job_id = ?", filter.TaskJobID)
+// 	}
+
+// 	err = query.Find(&issues).Error
+// 	return issues, err
+// }
 
 // CreateIssue saves an issue to the database
 func (d *DatabaseConnection) CreateIssue(issue Issue) (Issue, error) {

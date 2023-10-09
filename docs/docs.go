@@ -1571,6 +1571,12 @@ const docTemplate = `{
                 "count": {
                     "type": "integer"
                 },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.IssueItem"
+                    }
+                },
                 "severity": {
                     "type": "string"
                 },
@@ -1763,6 +1769,20 @@ const docTemplate = `{
                 },
                 "workspace_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "db.IssueItem": {
+            "type": "object",
+            "properties": {
+                "confidence": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
                 }
             }
         },

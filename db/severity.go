@@ -67,3 +67,23 @@ const severityOrderQuery = `
 			ELSE 7
 		END
 	`
+
+// Helper function to get severity order based on the given severity string
+func GetSeverityOrder(severityStr string) int {
+	switch severityStr {
+	case "Critical":
+		return 1
+	case "High":
+		return 2
+	case "Medium":
+		return 3
+	case "Low":
+		return 4
+	case "Info":
+		return 5
+	case "Unknown":
+		return 6
+	default:
+		return 7
+	}
+}

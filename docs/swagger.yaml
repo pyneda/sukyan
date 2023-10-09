@@ -133,6 +133,10 @@ definitions:
         type: string
       count:
         type: integer
+      items:
+        items:
+          $ref: '#/definitions/db.IssueItem'
+        type: array
       severity:
         type: string
       title:
@@ -261,6 +265,15 @@ definitions:
         type: string
       workspace_id:
         type: integer
+    type: object
+  db.IssueItem:
+    properties:
+      confidence:
+        type: integer
+      id:
+        type: integer
+      url:
+        type: string
     type: object
   db.IssuesStats:
     properties:

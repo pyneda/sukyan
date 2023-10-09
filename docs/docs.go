@@ -985,6 +985,12 @@ const docTemplate = `{
                 "summary": "List tasks with pagination and filtering",
                 "parameters": [
                     {
+                        "type": "string",
+                        "description": "Query string to search for",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "default": 50,
                         "description": "Number of items per page",
@@ -2000,6 +2006,12 @@ const docTemplate = `{
                 },
                 "target": {
                     "type": "string"
+                },
+                "task_id": {
+                    "type": "integer"
+                },
+                "task_job_id": {
+                    "type": "integer"
                 },
                 "test_name": {
                     "type": "string"

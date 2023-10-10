@@ -43,13 +43,6 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	hasParams, _ := p.HasParameters()
 	if hasParams && options.IsScopedInsertionPoint("param") {
 		active.TestXSS(item.URL, specificParamsToTest, "default.txt", false)
-		// ssti := active.SSTIAudit{
-		// 	URL:              item.URL,
-		// 	Params:           specificParamsToTest,
-		// 	Concurrency:      20,
-		// 	StopAfterSuccess: false,
-		// }
-		// ssti.Run()
 		// pathTraversal := active.PathTraversalAudit{
 		// 	URL:              item.URL,
 		// 	Params:           specificParamsToTest,

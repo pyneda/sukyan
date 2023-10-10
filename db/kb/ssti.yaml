@@ -1,0 +1,19 @@
+code: ssti
+title: Server-Side Template Injection (SSTI) Detected
+description:
+  The application appears to be vulnerable to Server-Side Template Injection (SSTI).
+  This vulnerability occurs when an attacker can inject arbitrary template code into 
+  a template engine, resulting in unintended code execution on the server. Exploiting 
+  this vulnerability could allow attackers to execute arbitrary commands, read sensitive 
+  server-side files, or perform other malicious actions.
+remediation:
+  To mitigate this vulnerability, ensure that user inputs are strictly sanitized before 
+  being passed to a template engine. Avoid using raw user input within templates without 
+  validation or sanitization. Implement strict input validation mechanisms and consider 
+  using safer template systems or configurations that restrict the capabilities of templates.
+cwe: 94
+severity: High
+references:
+  - https://portswigger.net/research/server-side-template-injection
+  - https://owasp.org/www-project-web-security-testing-guide/v41/4-Web_Application_Security_Testing/07-Input_Validation_Testing/18-Testing_for_Server_Side_Template_Injection
+  - https://book.hacktricks.xyz/pentesting-web/ssti-server-side-template-injection

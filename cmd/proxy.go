@@ -11,6 +11,8 @@ import (
 
 var proxyHost string
 var proxyPort int
+var proxyVerbose bool
+var proxyIntercept bool
 
 // proxyCmd represents the proxy command
 var proxyCmd = &cobra.Command{
@@ -35,9 +37,10 @@ var proxyCmd = &cobra.Command{
 		proxy := proxy.Proxy{
 			Host:                  proxyHost,
 			Port:                  proxyPort,
-			Verbose:               true,
+			Verbose:               proxyVerbose,
 			LogOutOfScopeRequests: true,
 			WorkspaceID:           workspaceID,
+			Intercept:             proxyIntercept,
 		}
 		proxy.Run()
 	},
@@ -48,5 +51,6 @@ func init() {
 	proxyCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace to save requests to")
 	proxyCmd.Flags().StringVarP(&proxyHost, "host", "H", "localhost", "Proxy host")
 	proxyCmd.Flags().IntVarP(&proxyPort, "port", "p", 8008, "Proxy port")
-
+	proxyCmd.Flags().BoolVarP(&proxyVerbose, "verbose", "v", false, "Verbose logging")
+	proxyCmd.Flags().BoolVarP(&proxyIntercept, "intercept", "i", false, "Intercept requests")
 }

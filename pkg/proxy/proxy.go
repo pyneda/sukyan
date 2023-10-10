@@ -2,12 +2,9 @@ package proxy
 
 import (
 	"fmt"
-	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"net/http"
 
-	"crypto/tls"
-	"crypto/x509"
 	"github.com/elazarl/goproxy"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -21,45 +18,9 @@ type Proxy struct {
 	Verbose               bool
 	LogOutOfScopeRequests bool
 	WorkspaceID           uint
-	//Scope or workspace
-}
-
-func setCA(caCert, caKey []byte) error {
-	goproxyCa, err := tls.X509KeyPair(caCert, caKey)
-	if err != nil {
-		return err
-	}
-	if goproxyCa.Leaf, err = x509.ParseCertificate(goproxyCa.Certificate[0]); err != nil {
-		return err
-	}
-	goproxy.GoproxyCa = goproxyCa
-	goproxy.OkConnect = &goproxy.ConnectAction{Action: goproxy.ConnectAccept, TLSConfig: goproxy.TLSConfigFromCA(&goproxyCa)}
-	goproxy.MitmConnect = &goproxy.ConnectAction{Action: goproxy.ConnectMitm, TLSConfig: goproxy.TLSConfigFromCA(&goproxyCa)}
-	return nil
-}
-
-func (p *Proxy) SetCA() error {
-	certPath := viper.GetString("server.cert.file")
-	keyPath := viper.GetString("server.key.file")
-	caCertPath := viper.GetString("server.caCert.file")
-	caKeyPath := viper.GetString("server.caKey.file")
-
-	_, _, err := lib.EnsureCertificatesExist(certPath, keyPath, caCertPath, caKeyPath)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to load or generate certificates")
-	}
-
-	// Load CA certificate and key
-	caCert, err := ioutil.ReadFile(caCertPath)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to read CA certificate")
-	}
-
-	caKey, err := ioutil.ReadFile(caKeyPath)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to read CA key")
-	}
-	return setCA(caCert, caKey)
+	Intercept             bool
+	ReqChannel            chan *http.Request
+	DecisionChannel       chan WSMessage
 }
 
 func (p *Proxy) Run() {
@@ -69,10 +30,16 @@ func (p *Proxy) Run() {
 		return
 	}
 	listenAddress := fmt.Sprintf("%s:%d", p.Host, p.Port)
+	apiAddress := fmt.Sprintf("%s:%d", p.Host, p.Port+1)
 	log.Info().Str("address", listenAddress).Uint("workspace", p.WorkspaceID).Msg("Proxy starting up")
+	mux := http.NewServeMux()
+	mux.HandleFunc("/intercept/api", p.InterceptEndpoint)
+
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Verbose = p.Verbose
 
+	p.ReqChannel = make(chan *http.Request)
+	p.DecisionChannel = make(chan WSMessage)
 	proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
 	proxy.OnRequest(goproxy.DstHostIs("sukyan")).DoFunc(
 		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
@@ -88,13 +55,35 @@ func (p *Proxy) Run() {
 				return nil, resp
 
 			}
+
+			if r.URL.Path == "/intercept" {
+				resp := goproxy.NewResponse(r, goproxy.ContentTypeHtml, http.StatusOK, generateProxyInterceptHtml(apiAddress))
+				return nil, resp
+			}
 			return nil, goproxy.NewResponse(r, goproxy.ContentTypeHtml, http.StatusOK, proxyHomepageHtml)
 		},
 	)
 
 	proxy.OnRequest().DoFunc(
 		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-			r.Header.Set("X-sukyan", "yxorPoG-X")
+			log.Info().Str("url", r.URL.String()).Msg("Proxy received request")
+			if p.Intercept {
+				log.Info().Str("url", r.URL.String()).Msg("Proxy intercepting request")
+				p.ReqChannel <- r
+
+				decision := <-p.DecisionChannel
+				if decision.Action == "drop" {
+					// Drop the request
+					return r, goproxy.NewResponse(r, goproxy.ContentTypeText, http.StatusForbidden, "Request dropped by user")
+				}
+
+				// If decision is forward, use the actual request (if provided)
+				if decision.Actual != nil {
+					r = decision.Actual
+				}
+			}
+
+			// r.Header.Set("X-sukyan", "yxorPoG-X")
 			log.Info().Msg("Proxy sending request")
 			return r, nil
 		})
@@ -108,7 +97,20 @@ func (p *Proxy) Run() {
 			return resp
 		},
 	)
-	if err := http.ListenAndServe(listenAddress, proxy); err != nil {
-		log.Fatal().Err(err).Msg("Proxy startup failed")
+
+	mux.Handle("/", proxy)
+	// if err := http.ListenAndServe(listenAddress, proxy); err != nil {
+	// 	log.Fatal().Err(err).Msg("Proxy startup failed")
+	// }
+	go func() {
+		log.Info().Str("address", listenAddress).Uint("workspace", p.WorkspaceID).Msg("Proxy starting up")
+		if err := http.ListenAndServe(listenAddress, proxy); err != nil {
+			log.Fatal().Err(err).Msg("Proxy startup failed")
+		}
+	}()
+
+	log.Info().Str("address", apiAddress).Uint("workspace", p.WorkspaceID).Msg("WebSocket server starting up")
+	if err := http.ListenAndServe(apiAddress, mux); err != nil {
+		log.Fatal().Err(err).Msg("WebSocket server startup failed")
 	}
 }

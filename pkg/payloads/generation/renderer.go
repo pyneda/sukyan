@@ -22,6 +22,10 @@ func (t *TemplateRenderer) getTemplateFuncs() template.FuncMap {
 		"randomLowercaseString": lib.GenerateRandomLowercaseString,
 		"escapeDots":            lib.EscapeDots,
 		"generateJavaGadget":    deserialization.GenerateJavaGadget,
+		"multiply":              multiply,
+		"sum":                   sum,
+		"divide":                divide,
+		"subtract":              subtract,
 	}
 }
 
@@ -29,4 +33,20 @@ func (t *TemplateRenderer) genInteractionAddress() string {
 	data := t.interactionsManager.GetURL()
 	t.interactionDomain = data
 	return data.URL
+}
+
+func multiply(a, b float64) float64 {
+	return a * b
+}
+
+func sum(a, b float64) float64 {
+	return a + b
+}
+
+func divide(a, b float64) float64 {
+	return a / b
+}
+
+func subtract(a, b float64) float64 {
+	return a - b
 }

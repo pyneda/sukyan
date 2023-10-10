@@ -58,6 +58,7 @@ var (
 	SsiDetectedCode                      IssueCode = "ssi_detected"
 	SsiInjectionCode                     IssueCode = "ssi_injection"
 	SsrfCode                             IssueCode = "ssrf"
+	SstiCode                             IssueCode = "ssti"
 	StorageBucketDetectedCode            IssueCode = "storage_bucket_detected"
 	StrictTransportSecurityHeaderCode    IssueCode = "strict_transport_security_header"
 	TechStackFingerprintCode             IssueCode = "tech_stack_fingerprint"
@@ -568,6 +569,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         918,
 		Severity:    "High",
 		References:  []string{"https://owasp.org/www-community/attacks/Server_Side_Request_Forgery", "https://book.hacktricks.xyz/pentesting-web/ssrf-server-side-request-forgery"},
+	},
+	{
+		Code:        SstiCode,
+		Title:       "Server-Side Template Injection (SSTI) Detected",
+		Description: "The application appears to be vulnerable to Server-Side Template Injection (SSTI). This vulnerability occurs when an attacker can inject arbitrary template code into a template engine, resulting in unintended code execution on the server. Exploiting this vulnerability could allow attackers to execute arbitrary commands, read sensitive server-side files, or perform other malicious actions.",
+		Remediation: "To mitigate this vulnerability, ensure that user inputs are strictly sanitized before being passed to a template engine. Avoid using raw user input within templates without validation or sanitization. Implement strict input validation mechanisms and consider using safer template systems or configurations that restrict the capabilities of templates.",
+		Cwe:         94,
+		Severity:    "High",
+		References:  []string{"https://portswigger.net/research/server-side-template-injection", "https://owasp.org/www-project-web-security-testing-guide/v41/4-Web_Application_Security_Testing/07-Input_Validation_Testing/18-Testing_for_Server_Side_Template_Injection", "https://book.hacktricks.xyz/pentesting-web/ssti-server-side-template-injection"},
 	},
 	{
 		Code:        StorageBucketDetectedCode,

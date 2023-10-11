@@ -1,0 +1,14 @@
+id: "xpath-oob"
+issue_code: "xpath_injection"
+detection_condition: "or"
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 100
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+templates:
+  - "* and doc('//{{.oob_address}}/SHARE')"
+categories:
+  - xpath

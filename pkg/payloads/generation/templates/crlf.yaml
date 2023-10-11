@@ -1,0 +1,32 @@
+id: crlf
+issue_code: crlf_injection
+detection_conditions: or
+detection_methods:
+  - response_condition:
+      contains: "{{.header_key}}: {{.header_value}}"
+      part: headers
+      confidence: 70
+  - response_condition:
+      contains: "{{.header_key}}:{{.header_value}}"
+      part: headers
+      confidence: 70
+  - response_condition:
+      contains: "{{.header_key}}:%20{{.header_value}}"
+      part: headers
+      confidence: 70
+  - response_condition:
+      contains: "{{.header_key}}:%20 {{.header_value}}"
+      part: headers
+      confidence: 70
+vars:
+  - name: header_key
+    value: "X-Key"
+  - name: header_value
+    value: "{{randomLowercaseString 10}}"
+templates:
+  - "%0D%0A{{.header_key}}:{{.header_value}}"
+  - "%E5%98%8A%E5%98%8D{{.header_key}}:%20{{.header_value}}"
+categories:
+  - headers
+  - crlf
+  - injection

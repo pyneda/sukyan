@@ -1,0 +1,26 @@
+id: perl-code-injection-oob
+issue_code: perl_code_injection
+detection_conditions: or
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 90
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+launch:
+  operator: or
+  conditions:
+    - type: platform
+    - type: scan_mode
+      value: fuzz
+templates:
+  - ' use Socket; inet_aton("{{.oob_address}}")'
+  - ;use Socket; inet_aton("{{.oob_address}}")
+  - '";use Socket; inet_aton("{{.oob_address}}")#'
+  - ''';use Socket; inet_aton("{{.oob_address}}")#'
+categories:
+  - oob
+  - injection
+platforms:
+  - perl

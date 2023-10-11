@@ -1,0 +1,40 @@
+id: java-deserialization-groovy1
+issue_code: java_deserialization
+detection_conditions: or
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 90
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+  - name: gadget_hex
+    value: '{{ $oob_address := .oob_address }}{{ generateJavaGadget "groovy1" $oob_address "hex" }}'
+  - name: gadget_base64
+    value: '{{ $oob_address := .oob_address }}{{ generateJavaGadget "groovy1" $oob_address "base64" }}'
+  - name: gadget_raw
+    value: '{{ $oob_address := .oob_address }}{{ generateJavaGadget "groovy1" $oob_address "raw" }}'
+  - name: gadget_gzip
+    value: '{{ $oob_address := .oob_address }}{{ generateJavaGadget "groovy1" $oob_address "gzip" }}'
+  - name: gadget_gzip_base64
+    value: '{{ $oob_address := .oob_address }}{{ generateJavaGadget "groovy1" $oob_address "gzip-base64" }}'
+  - name: gadget_base64_raw
+    value: '{{ $oob_address := .oob_address }}{{ generateJavaGadget "groovy1" $oob_address "base64-raw" }}'
+launch:
+  operator: or
+  conditions:
+    - type: platform
+    - type: scan_mode
+      value: fuzz
+templates:
+  - "{{.gadget_base64}}"
+  - "{{.gadget_hex}}"
+  - "{{.gadget_gzip}}"
+  - "{{.gadget_gzip_base64}}"
+  - "{{.gadget_base64_raw}}"
+  - "{{.gadget_raw}}"
+categories:
+  - oob
+  - deserialization
+platforms:
+  - java

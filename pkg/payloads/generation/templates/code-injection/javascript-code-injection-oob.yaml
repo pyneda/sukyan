@@ -1,0 +1,26 @@
+id: javascript-code-injection-oob
+issue_code: javascript_code_injection
+detection_conditions: or
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 90
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+launch:
+  operator: or
+  conditions:
+    - type: platform
+    - type: scan_mode
+      value: fuzz
+templates:
+  - ' fetch("http://{{.oob_address}}")'
+  - ;fetch("http://{{.oob_address}}")
+  - '";fetch("http://{{.oob_address}}")#'
+  - ''';fetch("http://{{.oob_address}}")#'
+categories:
+  - oob
+  - injection
+platforms:
+  - javascript

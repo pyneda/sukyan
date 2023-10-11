@@ -1,0 +1,26 @@
+id: java-code-injection-oob
+issue_code: java_code_injection
+detection_conditions: or
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 90
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+launch:
+  operator: or
+  conditions:
+    - type: platform
+    - type: scan_mode
+      value: fuzz
+templates:
+  - ' InetAddress.getByName("{{.oob_address}}")'
+  - ;InetAddress.getByName("{{.oob_address}}")
+  - '";InetAddress.getByName("{{.oob_address}}")#'
+  - ''';InetAddress.getByName("{{.oob_address}}")#'
+categories:
+  - oob
+  - injection
+platforms:
+  - java

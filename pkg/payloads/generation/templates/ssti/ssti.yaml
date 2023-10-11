@@ -1,0 +1,45 @@
+id: "ssti"
+issue_code: "ssti"
+detection_condition: "or"
+detection_methods:
+  - response_condition:
+      contains: "{{.prefix}}{{.result}}{{.suffix}}"
+      confidence: 100
+  - response_condition:
+      contains: "{{.prefix}} {{.result}} {{.suffix}}"
+      confidence: 100
+  - response_condition:
+      contains: "{{.result}}"
+      confidence: 40
+vars:
+  - name: value1
+    value: "{{randomInt 10 999}}"
+  - name: value2
+    value: "{{randomInt 10 999}}"
+  - name: prefix
+    value: "{{randomLowercaseString 4}}"
+  - name: suffix
+    value: "{{randomLowercaseString 4}}"
+  - name: result
+    value: "{{multiply .value1 .value2}}"
+templates:
+  - '{{.prefix}}{{"{{"}}{{.value1}}*{{.value2}}{{"}}"}}{{.suffix}}'
+  - '{{.prefix}}{{"${{"}}{{.value1}}*{{.value2}}{{"}}"}}{{.suffix}}'
+  - '{{.prefix}}{{"${"}}{{.value1}}*{{.value2}}{{"}"}}{{.suffix}}'
+  - '{{.prefix}}{{"#{"}}{{.value1}}*{{.value2}}{{"}"}}{{.suffix}}'
+  - '{{.prefix}}{{"*{"}}{{.value1}}*{{.value2}}{{"}"}}{{.suffix}}'
+  - "{{.prefix}}<%= {{.value1}}*{{.value2}} %>{{.suffix}}"
+  - "{{.prefix}}@({{.value1}}*{{.value2}}){{.suffix}}"
+categories:
+  - ssti
+  - injection
+platforms:
+  - java
+  - php
+  - python
+  - ruby
+  - javascript
+  - nodejs
+  - go
+  - asp
+  - aspx

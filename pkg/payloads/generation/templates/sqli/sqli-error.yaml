@@ -1,0 +1,31 @@
+id: "sqli-error"
+issue_code: "sql_injection"
+detection_condition: "or"
+detection_methods:
+  - response_check:
+      check: "database_error"
+      confidence: 80
+  - response_condition:
+      status_code: 500
+      confidence: 25
+templates:
+  - "' or "
+  - "-- or "
+  - "\\"
+  - "//"
+  - "/"
+  - "OR 1=1"
+  - "OR 1=0"
+  - "OR x=x"
+  - "ORDER BY 1-- "
+  - " and (select substring(@@version,1,1))='X'"
+  - " and (select substring(@@version,3,1))='c'"
+  - "%' AND 8310=8310 AND '%'='"
+  - " AND 1=1--"
+  - " AND 1=0--"
+  - " HAVING 1=1#"
+  - " HAVING 1=0#"
+  - "1' or '1'='1"
+  - "1/*!1111'*/"
+categories:
+  - sql_injection

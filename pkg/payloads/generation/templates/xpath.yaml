@@ -1,0 +1,14 @@
+id: "xpath"
+issue_code: "xpath_injection"
+detection_condition: "or"
+detection_methods:
+  - response_check:
+      check: "xpath_error"
+      confidence: 90
+templates:
+  - "'\" ]]]]]]]]] <!--"
+  - "<!--'\"x]"
+categories:
+  - xpath
+credits:
+  - "Expected errors and payload taken from arachni"

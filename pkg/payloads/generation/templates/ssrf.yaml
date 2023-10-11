@@ -1,0 +1,22 @@
+id: "ssrf"
+issue_code: "ssrf"
+detection_condition: "or"
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 100
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+templates:
+  - "https://{{.oob_address}}"
+  - "ftp://{{.oob_address}}"
+  - "http://{{.oob_address}}"
+  - "dict://{{.oob_address}}"
+  - "file://{{.oob_address}}"
+  - "imap://{{.oob_address}}"
+  - "ldap://{{.oob_address}}"
+  - "ldaps://{{.oob_address}}"
+  - "gopher://{{.oob_address}}"
+categories:
+  - ssrf

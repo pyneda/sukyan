@@ -1,11 +1,9 @@
 package generation
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
-		"github.com/stretchr/testify/assert"
-
 )
-
 
 func TestMergeGenerators(t *testing.T) {
 	local := []*PayloadGenerator{
@@ -13,7 +11,7 @@ func TestMergeGenerators(t *testing.T) {
 		{ID: "2", IssueCode: "Local2"},
 	}
 	user := []*PayloadGenerator{
-		{ID: "2", IssueCode: "User2"},  
+		{ID: "2", IssueCode: "User2"},
 		{ID: "3", IssueCode: "User3"},
 	}
 
@@ -30,7 +28,6 @@ func TestMergeGenerators(t *testing.T) {
 	}
 	assert.True(t, found, "Overlapping generator was not found in the merged result.")
 }
-
 
 func TestLoadGenerators(t *testing.T) {
 	gens, err := LoadGenerators("")

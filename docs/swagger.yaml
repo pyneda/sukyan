@@ -743,6 +743,10 @@ paths:
         in: query
         name: sources
         type: string
+      - description: Comma-separated list of history IDs to filter by
+        in: query
+        name: ids
+        type: string
       - description: Workspace ID to filter by
         in: query
         name: workspace

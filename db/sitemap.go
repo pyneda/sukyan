@@ -49,7 +49,7 @@ const (
 )
 
 func (d *DatabaseConnection) getSitemapData(filter SitemapFilter) ([]History, error) {
-	query := d.db.Model(&History{})
+	query := d.db.Model(&History{}).Select("id, url, depth")
 	if filter.WorkspaceID != 0 {
 		query = query.Where("workspace_id = ?", filter.WorkspaceID)
 	}

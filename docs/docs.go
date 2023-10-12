@@ -172,6 +172,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Comma-separated list of history IDs to filter by",
+                        "name": "ids",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Workspace ID to filter by",
                         "name": "workspace",

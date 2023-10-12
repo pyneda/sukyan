@@ -30,6 +30,7 @@ func IsValidFilterHTTPMethod(method string) bool {
 // @Param status query string false "Comma-separated list of status codes to filter by"
 // @Param methods query string false "Comma-separated list of HTTP methods to filter by"
 // @Param sources query string false "Comma-separated list of sources to filter by"
+// @Param ids query string false "Comma-separated list of history IDs to filter by"
 // @Param workspace query integer true "Workspace ID to filter by"
 // @Param task query int false "Task ID"
 // @Param sort_by query string false "Field to sort by" Enums(id,created_at,updated_at,status_code,request_body_size,url,response_body_size,parameters_count,method) default("id")
@@ -43,6 +44,7 @@ func FindHistory(c *fiber.Ctx) error {
 	unparsedStatusCodes := c.Query("status")
 	unparsedHttpMethods := c.Query("methods")
 	unparsedSources := c.Query("sources")
+	unparsedIDs := c.Query("ids", "")
 	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -61,6 +63,13 @@ func FindHistory(c *fiber.Ctx) error {
 	var statusCodes []int
 	var httpMethods []string
 	var sources []string
+	log.Info().Str("ids", unparsedIDs).Msg("IDS codes")
+
+	filterIDs, err := stringToUintSlice(unparsedIDs, []uint{}, false)
+	if err != nil {
+		log.Error().Err(err).Str("unparsed", unparsedIDs).Msg("Error parsing filter IDs parameter query")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid filter IDs parameter"})
+	}
 
 	pageSize, err := strconv.Atoi(unparsedPageSize)
 	if err != nil {
@@ -116,6 +125,7 @@ func FindHistory(c *fiber.Ctx) error {
 		SortBy:      c.Query("sort_by", "id"),
 		SortOrder:   c.Query("sort_order", "desc"),
 		TaskID:      taskID,
+		IDs:         filterIDs,
 	}
 	validate := validator.New()
 	if err := validate.Struct(filters); err != nil {
@@ -124,7 +134,7 @@ func FindHistory(c *fiber.Ctx) error {
 			errors[err.Field()] = "Invalid value"
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Validation failed",
+			"error":   "Filters validation failed",
 			"message": errors,
 		})
 	}

@@ -36,6 +36,28 @@ func SliceContains(slice []string, item string) bool {
 	return ok
 }
 
+// SliceContainsInt utility function to check if a slice of integers contains the specified integer
+func SliceContainsInt(slice []int, item int) bool {
+	set := make(map[int]struct{}, len(slice))
+	for _, s := range slice {
+		set[s] = struct{}{}
+	}
+
+	_, ok := set[item]
+	return ok
+}
+
+// SliceContainsUint utility function to check if a slice of uints contains the specified uint
+func SliceContainsUint(slice []uint, item uint) bool {
+	set := make(map[uint]struct{}, len(slice))
+	for _, s := range slice {
+		set[s] = struct{}{}
+	}
+
+	_, ok := set[item]
+	return ok
+}
+
 // GenerateRandomString returns a random string of the defined length
 func GenerateRandomString(length int) string {
 	var output strings.Builder

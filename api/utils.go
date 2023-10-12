@@ -4,8 +4,10 @@ import (
 	"errors"
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 	"strconv"
+	"strings"
 )
 
 func parseWorkspaceID(c *fiber.Ctx) (uint, error) {
@@ -68,4 +70,88 @@ func parseTaskJobID(c *fiber.Ctx) (uint, error) {
 		return 0, errors.New("Invalid task job")
 	}
 	return taskJobID, nil
+}
+
+func stringToUintSlice(input string, acceptedValues []uint, silentFail bool) ([]uint, error) {
+	var output []uint
+
+	if input == "" {
+		return output, nil
+	}
+	log.Info().Msg(input)
+	for _, item := range strings.Split(input, ",") {
+		parsed, err := parseUint(item)
+		if err != nil {
+			if silentFail {
+				continue
+			}
+			return nil, err
+		}
+		if len(acceptedValues) > 0 && !lib.SliceContainsUint(acceptedValues, parsed) {
+			if silentFail {
+				continue
+			}
+			log.Info().Uint("value", parsed).Str("input", input).Msg("Invalid value")
+			return nil, errors.New("Invalid value")
+		}
+		output = append(output, parsed)
+	}
+	return output, nil
+}
+
+func stringToIntSlice(input string, acceptedValues []int, silentFail bool) ([]int, error) {
+	var output []int
+
+	if input == "" {
+		return output, nil
+	}
+
+	for _, item := range strings.Split(input, ",") {
+		parsed, err := parseInt(item)
+		if err != nil {
+			if silentFail {
+				continue
+			}
+			return nil, err
+		}
+		if len(acceptedValues) > 0 && !lib.SliceContainsInt(acceptedValues, parsed) {
+			if silentFail {
+				continue
+			}
+			return nil, errors.New("Invalid value")
+		}
+		output = append(output, parsed)
+	}
+	return output, nil
+}
+
+func stringToSlice(input string, acceptedValues []string, silentFail bool) ([]string, error) {
+	var output []string
+
+	if input == "" {
+		return output, nil
+	}
+
+	for _, item := range strings.Split(input, ",") {
+		if len(acceptedValues) > 0 && !lib.SliceContains(acceptedValues, item) {
+			if silentFail {
+				continue
+			}
+			return nil, errors.New("Invalid value")
+		}
+		output = append(output, item)
+	}
+	return output, nil
+}
+
+func parseInt(input string) (int, error) {
+	return strconv.Atoi(input)
+}
+
+func parseUint(input string) (uint, error) {
+	val, err := strconv.ParseUint(input, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint(val), nil
 }

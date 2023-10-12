@@ -956,6 +956,57 @@
                 }
             }
         },
+        "/api/v1/sitemap": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves sitemap based on workspace and task ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sitemap"
+                ],
+                "summary": "Retrieve sitemap based on filters",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID filter",
+                        "name": "workspace",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Task ID filter",
+                        "name": "task",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/db.SitemapNode"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/tasks": {
             "get": {
                 "security": [
@@ -2025,6 +2076,83 @@
                     "type": "integer"
                 }
             }
+        },
+        "db.SitemapNode": {
+            "type": "object",
+            "properties": {
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.SitemapNode"
+                    }
+                },
+                "depth": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "other_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "path": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/db.SitemapNodeType"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.SitemapNodeType": {
+            "type": "string",
+            "enum": [
+                "root",
+                "directory",
+                "file",
+                "query",
+                "php",
+                "asp",
+                "jsp",
+                "js",
+                "css",
+                "html",
+                "xml",
+                "json",
+                "yaml",
+                "sql",
+                "image",
+                "video",
+                "audio",
+                "markdown",
+                "font"
+            ],
+            "x-enum-varnames": [
+                "SitemapNodeTypeRoot",
+                "SitemapNodeTypeDirectory",
+                "SitemapNodeTypeFile",
+                "SitemapNodeTypeQuery",
+                "SitemapNodeTypePhp",
+                "SitemapNodeTypeAsp",
+                "SitemapNodeTypeJsp",
+                "SitemapNodeTypeJs",
+                "SitemapNodeTypeCss",
+                "SitemapNodeTypeHtml",
+                "SitemapNodeTypeXml",
+                "SitemapNodeTypeJson",
+                "SitemapNodeTypeYaml",
+                "SitemapNodeTypeSql",
+                "SitemapNodeTypeImage",
+                "SitemapNodeTypeVideo",
+                "SitemapNodeTypeAudio",
+                "SitemapNodeTypeMarkdown",
+                "SitemapNodeTypeFont"
+            ]
         },
         "db.Task": {
             "type": "object",

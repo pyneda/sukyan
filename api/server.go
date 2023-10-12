@@ -106,7 +106,7 @@ func StartAPI() {
 	api.Get("/tasks/jobs", JWTProtected(), FindTaskJobs)
 	api.Post("/tokens/jwts", JWTProtected(), JwtListHandler)
 	api.Post("/report", JWTProtected(), ReportHandler)
-
+	api.Get("/sitemap", JWTProtected(), GetSitemap)
 	// Auth related endpoints
 	auth_app := api.Group("/auth")
 	auth_app.Use(limiter.New(limiter.Config{

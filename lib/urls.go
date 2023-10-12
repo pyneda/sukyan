@@ -166,6 +166,20 @@ func GetUniqueBaseURLs(urls []string) ([]string, error) {
 	return GetUniqueItems(baseURLs), nil
 }
 
+func GetLastPathSegment(rawurl string) (string, error) {
+	parsedURL, err := url.Parse(rawurl)
+	if err != nil {
+		return "", err
+	}
+	pathSegments := strings.Split(parsedURL.Path, "/")
+	for i := len(pathSegments) - 1; i >= 0; i-- {
+		if pathSegments[i] != "" {
+			return pathSegments[i], nil
+		}
+	}
+	return "", nil
+}
+
 // GetHostFromURL extracts the host from the given URL.
 func GetHostFromURL(u string) (string, error) {
 	parsedURL, err := url.Parse(u)

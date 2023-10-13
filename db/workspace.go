@@ -44,12 +44,17 @@ func (d *DatabaseConnection) WorkspaceExists(id uint) (bool, error) {
 }
 
 type WorkspaceFilters struct {
-	Query string `json:"query" validate:"omitempty,dive,ascii"`
+	Query      string `json:"query" validate:"omitempty,dive,ascii"`
+	Pagination Pagination
 }
 
 // ListWorkspaces Lists workspaces
 func (d *DatabaseConnection) ListWorkspaces(filters WorkspaceFilters) (items []*Workspace, count int64, err error) {
 	query := d.db
+
+	if filters.Pagination.Page > 0 && filters.Pagination.PageSize > 0 {
+		query = query.Scopes(Paginate(&filters.Pagination))
+	}
 	if filters.Query != "" {
 		likeQuery := "%" + filters.Query + "%"
 		query = query.Where("code LIKE ? OR title LIKE ? OR description LIKE ?", likeQuery, likeQuery, likeQuery)

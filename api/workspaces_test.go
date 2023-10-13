@@ -87,3 +87,44 @@ func TestDeleteWorkspace(t *testing.T) {
 	// assert.False(t, historyExists)
 
 }
+
+func TestGetWorkspaceByID(t *testing.T) {
+	app := fiber.New()
+	app.Get("/api/v1/workspaces/:id", GetWorkspaceByID)
+
+	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+		Code:        "test-get",
+		Title:       "test-get",
+		Description: "test-get",
+	})
+	assert.NotNil(t, workspace)
+	assert.Nil(t, err)
+	assert.NotEqual(t, 0, workspace.ID)
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/workspaces/%d", workspace.ID), nil)
+	resp, _ := app.Test(req)
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	retrievedWorkspace, err := db.Connection.GetWorkspaceByID(workspace.ID)
+	assert.Nil(t, err)
+	assert.Equal(t, "test-get", retrievedWorkspace.Code)
+	assert.Equal(t, "test-get", retrievedWorkspace.Title)
+	assert.Equal(t, "test-get", retrievedWorkspace.Description)
+}
+
+func TestGetWorkspaceByInvalidIDFormat(t *testing.T) {
+	app := fiber.New()
+	app.Get("/api/v1/workspaces/:id", GetWorkspaceByID)
+	req := httptest.NewRequest("GET", "/api/v1/workspaces/abc", nil)
+	resp, _ := app.Test(req)
+	assert.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode)
+}
+
+func TestGetWorkspaceByNonExistentID(t *testing.T) {
+	app := fiber.New()
+	app.Get("/api/v1/workspaces/:id", GetWorkspaceByID)
+	req := httptest.NewRequest("GET", "/api/v1/workspaces/99999", nil)
+	resp, _ := app.Test(req)
+	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
+}

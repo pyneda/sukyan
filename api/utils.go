@@ -78,7 +78,6 @@ func stringToUintSlice(input string, acceptedValues []uint, silentFail bool) ([]
 	if input == "" {
 		return output, nil
 	}
-	log.Info().Msg(input)
 	for _, item := range strings.Split(input, ",") {
 		parsed, err := parseUint(item)
 		if err != nil {

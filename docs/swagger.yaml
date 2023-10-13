@@ -1554,6 +1554,36 @@ paths:
       summary: Delete a workspace
       tags:
       - Workspaces
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a workspace by ID
+      parameters:
+      - description: Workspace ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Workspace'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get a single workspace
+      tags:
+      - Workspaces
     put:
       consumes:
       - application/json

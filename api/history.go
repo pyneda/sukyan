@@ -63,7 +63,6 @@ func FindHistory(c *fiber.Ctx) error {
 	var statusCodes []int
 	var httpMethods []string
 	var sources []string
-	log.Info().Str("ids", unparsedIDs).Msg("IDS codes")
 
 	filterIDs, err := stringToUintSlice(unparsedIDs, []uint{}, false)
 	if err != nil {

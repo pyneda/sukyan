@@ -160,3 +160,29 @@ func UpdateWorkspace(c *fiber.Ctx) error {
 
 	return c.JSON(workspace)
 }
+
+// GetWorkspaceDetail godoc
+// @Summary Get a single workspace
+// @Description Retrieves a workspace by ID
+// @Tags Workspaces
+// @Accept  json
+// @Produce  json
+// @Param id path string true "Workspace ID"
+// @Success 200 {object} db.Workspace
+// @Failure 404 {object} ErrorResponse
+// @Failure 422 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/workspaces/{id} [get]
+func GetWorkspaceDetail(c *fiber.Ctx) error {
+	id, err := parseUint(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})
+	}
+
+	workspace, err := db.Connection.GetWorkspaceByID(id)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Workspace not found", "error": "Workspace not found"})
+	}
+
+	return c.JSON(workspace)
+}

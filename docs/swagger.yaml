@@ -1455,6 +1455,16 @@ paths:
         in: query
         name: query
         type: string
+      - default: 20
+        description: Size of each page
+        in: query
+        name: page_size
+        type: integer
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
       produces:
       - application/json
       responses:
@@ -1464,6 +1474,10 @@ paths:
             items:
               $ref: '#/definitions/db.Workspace'
             type: array
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -1491,6 +1505,10 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/db.Workspace'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
@@ -1523,6 +1541,14 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/api.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
       security:
       - ApiKeyAuth: []
       summary: Delete a workspace
@@ -1553,6 +1579,10 @@ paths:
             $ref: '#/definitions/db.Workspace'
         "404":
           description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
           schema:
             $ref: '#/definitions/api.ErrorResponse'
       security:

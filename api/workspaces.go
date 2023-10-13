@@ -15,13 +15,30 @@ import (
 // @Accept  json
 // @Produce  json
 // @Param query query string false "Search query"
+// @Param page_size query integer false "Size of each page" default(20)
+// @Param page query integer false "Page number" default(1)
 // @Success 200 {array} db.Workspace
+// @Failure 422 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces [get]
 func FindWorkspaces(c *fiber.Ctx) error {
 	query := c.Query("query", "")
-	filters := db.WorkspaceFilters{}
+	pageSize, err := parseInt(c.Query("page_size", "20"))
+	if err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"error": "Invalid page size parameter"})
+	}
+	page, err := parseInt(c.Query("page", "1"))
+	if err != nil {
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"error": "Invalid page parameter"})
+	}
+
+	filters := db.WorkspaceFilters{
+		Pagination: db.Pagination{
+			PageSize: pageSize,
+			Page:     page,
+		},
+	}
 	if query != "" {
 		filters.Query = query
 	}
@@ -48,6 +65,7 @@ type WorkspaceCreateInput struct {
 // @Produce  json
 // @Param workspace body WorkspaceCreateInput true "Workspace to create"
 // @Success 201 {object} db.Workspace
+// @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces [post]
@@ -80,12 +98,14 @@ func CreateWorkspace(c *fiber.Ctx) error {
 // @Param id path string true "Workspace ID"
 // @Success 200 {object} map[string]interface{} "message": "Workspace successfully deleted"
 // @Failure 404 {object} ErrorResponse
+// @Failure 422 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{id} [delete]
 func DeleteWorkspace(c *fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})
 	}
 	exists, err := db.Connection.WorkspaceExists(uint(id))
 	if err != nil || !exists {
@@ -116,17 +136,18 @@ type WorkspaceUpdateInput struct {
 // @Param workspace body WorkspaceUpdateInput true "Workspace object"
 // @Success 200 {object} db.Workspace
 // @Failure 404 {object} ErrorResponse
+// @Failure 422 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{id} [put]
 func UpdateWorkspace(c *fiber.Ctx) error {
 	var updatedWorkspace db.Workspace
 	if err := c.BodyParser(&updatedWorkspace); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Cannot parse JSON", "error": "Bad request"})
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"message": "Cannot parse JSON", "error": "Bad request"})
 	}
 
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})
+		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})
 	}
 	if err := db.Connection.UpdateWorkspace(uint(id), &updatedWorkspace); err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Failed to update workspace", "error": "Failed to update workspace"})

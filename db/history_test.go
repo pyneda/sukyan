@@ -21,7 +21,9 @@ func TestGetChildrenHistories(t *testing.T) {
 }
 
 func TestGetRootHistoryNodes(t *testing.T) {
-	workspaceID := uint(1)
+	workspace, err := Connection.CreateDefaultWorkspace()
+	assert.Nil(t, err)
+	workspaceID := workspace.ID
 	root1 := &History{Depth: 0, URL: "/root1/", WorkspaceID: &workspaceID}
 	root2 := &History{Depth: 0, URL: "/root2/", WorkspaceID: &workspaceID}
 	Connection.CreateHistory(root1)

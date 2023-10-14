@@ -73,12 +73,18 @@ func parseTaskJobID(c *fiber.Ctx) (uint, error) {
 }
 
 func stringToUintSlice(input string, acceptedValues []uint, silentFail bool) ([]uint, error) {
-	var output []uint
+	output := make([]uint, 0)
 
 	if input == "" {
 		return output, nil
 	}
 	for _, item := range strings.Split(input, ",") {
+		if item == "" {
+			if silentFail {
+				continue
+			}
+			return nil, errors.New("Invalid value")
+		}
 		parsed, err := parseUint(item)
 		if err != nil {
 			if silentFail {
@@ -99,13 +105,20 @@ func stringToUintSlice(input string, acceptedValues []uint, silentFail bool) ([]
 }
 
 func stringToIntSlice(input string, acceptedValues []int, silentFail bool) ([]int, error) {
-	var output []int
+	output := make([]int, 0)
 
 	if input == "" {
 		return output, nil
 	}
 
 	for _, item := range strings.Split(input, ",") {
+		if item == "" {
+			if silentFail {
+				continue
+			}
+			return nil, errors.New("Invalid value")
+		}
+
 		parsed, err := parseInt(item)
 		if err != nil {
 			if silentFail {
@@ -121,17 +134,25 @@ func stringToIntSlice(input string, acceptedValues []int, silentFail bool) ([]in
 		}
 		output = append(output, parsed)
 	}
+
 	return output, nil
 }
 
 func stringToSlice(input string, acceptedValues []string, silentFail bool) ([]string, error) {
-	var output []string
+	output := make([]string, 0)
 
 	if input == "" {
 		return output, nil
 	}
 
 	for _, item := range strings.Split(input, ",") {
+		if item == "" {
+			if silentFail {
+				continue
+			}
+			return nil, errors.New("Invalid value")
+		}
+
 		if len(acceptedValues) > 0 && !lib.SliceContains(acceptedValues, item) {
 			if silentFail {
 				continue
@@ -140,6 +161,7 @@ func stringToSlice(input string, acceptedValues []string, silentFail bool) ([]st
 		}
 		output = append(output, item)
 	}
+
 	return output, nil
 }
 

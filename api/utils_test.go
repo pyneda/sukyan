@@ -1,7 +1,7 @@
 package api
 
 import (
-	"reflect"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -25,12 +25,8 @@ func TestStringToUintSlice(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			output, err := stringToUintSlice(tt.input, tt.acceptedValues, tt.silentFail)
-			if (err != nil) != tt.expectError {
-				t.Errorf("expected error, got %v", err)
-			}
-			if !reflect.DeepEqual(output, tt.expectedOutput) {
-				t.Errorf("expected %v, got %v", tt.expectedOutput, output)
-			}
+			assert.Equal(t, tt.expectError, err != nil, "Error mismatch")
+			assert.Equal(t, tt.expectedOutput, output, "Output mismatch")
 		})
 	}
 }
@@ -55,12 +51,8 @@ func TestStringToIntSlice(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			output, err := stringToIntSlice(tt.input, tt.acceptedValues, tt.silentFail)
-			if (err != nil) != tt.expectError {
-				t.Errorf("expected error, got %v", err)
-			}
-			if !reflect.DeepEqual(output, tt.expectedOutput) {
-				t.Errorf("expected %v, got %v", tt.expectedOutput, output)
-			}
+			assert.Equal(t, tt.expectError, err != nil, "Error mismatch")
+			assert.Equal(t, tt.expectedOutput, output, "Output mismatch")
 		})
 	}
 }
@@ -85,12 +77,8 @@ func TestStringToSlice(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			output, err := stringToSlice(tt.input, tt.acceptedValues, tt.silentFail)
-			if (err != nil) != tt.expectError {
-				t.Errorf("expected error, got %v", err)
-			}
-			if !reflect.DeepEqual(output, tt.expectedOutput) {
-				t.Errorf("expected %v, got %v", tt.expectedOutput, output)
-			}
+			assert.Equal(t, tt.expectError, err != nil, "Error mismatch")
+			assert.Equal(t, tt.expectedOutput, output, "Output mismatch")
 		})
 	}
 }

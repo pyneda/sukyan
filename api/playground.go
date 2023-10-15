@@ -67,7 +67,7 @@ func CreatePlaygroundCollection(c *fiber.Ctx) error {
 type CreatePlaygroundSessionInput struct {
 	Name              string                   `json:"name" validate:"required"`
 	Type              db.PlaygroundSessionType `json:"type"`
-	OriginalRequestID uint                     `json:"original_request_id" validate:"required,min=0"`
+	OriginalRequestID uint                     `json:"original_request_id" validate:"omitempty,min=0"`
 	CollectionID      uint                     `json:"collection_id" validate:"required,min=0"`
 }
 
@@ -100,6 +100,7 @@ func CreatePlaygroundSession(c *fiber.Ctx) error {
 
 	collection, err := db.Connection.GetPlaygroundCollection(input.CollectionID)
 	if err != nil {
+		log.Error().Err(err).Interface("input", input).Msg("Failed to retrieve Playground Collection")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid collection",
 			"message": "The provided collection ID does not seem valid",
@@ -109,11 +110,11 @@ func CreatePlaygroundSession(c *fiber.Ctx) error {
 	// original request id should be validated - but probably is gonna be removed.
 
 	session := &db.PlaygroundSession{
-		Name:              input.Name,
-		Type:              input.Type,
-		OriginalRequestID: &input.OriginalRequestID,
-		CollectionID:      input.CollectionID,
-		WorkspaceID:       collection.WorkspaceID,
+		Name: input.Name,
+		Type: input.Type,
+		// OriginalRequestID: &input.OriginalRequestID,
+		CollectionID: input.CollectionID,
+		WorkspaceID:  collection.WorkspaceID,
 	}
 
 	if err := db.Connection.CreatePlaygroundSession(session); err != nil {

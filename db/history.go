@@ -252,7 +252,6 @@ func (d *DatabaseConnection) GetHistory(id uint) (history History, err error) {
 
 // GetHistory get a single history record by URL
 func (d *DatabaseConnection) GetHistoryFromURL(urlString string) (history History, err error) {
-	// err = d.db.First(&history, id).Error
 	err = d.db.Where("url = ?", urlString).Order("created_at ASC").First(&history).Error
 	return history, err
 }
@@ -262,10 +261,8 @@ func (d *DatabaseConnection) GetHistoryByID(id uint) (*History, error) {
 	err := d.db.First(&history, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// you can handle 'record not found' error here if you want to
 			return nil, errors.New("record not found")
 		}
-		// other type of error
 		return nil, err
 	}
 

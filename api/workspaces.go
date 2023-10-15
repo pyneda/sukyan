@@ -86,6 +86,8 @@ func CreateWorkspace(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
+	db.Connection.InitializeWorkspacePlayground(workspace.ID)
+
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": workspace})
 }
 

@@ -22,6 +22,7 @@ require (
 	github.com/projectdiscovery/cdncheck v1.0.9
 	github.com/projectdiscovery/dsl v0.0.24
 	github.com/projectdiscovery/interactsh v1.1.7
+	github.com/projectdiscovery/rawhttp v0.1.16-0.20230703065054-806b4fcfab11
 	github.com/projectdiscovery/wappalyzergo v0.0.109
 	github.com/pyneda/nuclei-api v0.0.0-20230715211054-636941207b06
 	github.com/rs/zerolog v1.31.0

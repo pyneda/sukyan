@@ -95,7 +95,6 @@ func StartAPI() {
 	api.Get("/history/root-nodes", JWTProtected(), GetRootNodes)
 	api.Get("/history/websocket/connections", JWTProtected(), FindWebSocketConnections)
 	api.Get("/history/websocket/messages", JWTProtected(), FindWebSocketMessages)
-
 	api.Get("/workspaces", JWTProtected(), FindWorkspaces)
 	api.Post("/workspaces", JWTProtected(), CreateWorkspace)
 	api.Get("/workspaces/:id", JWTProtected(), GetWorkspaceDetail)
@@ -108,6 +107,11 @@ func StartAPI() {
 	api.Post("/tokens/jwts", JWTProtected(), JwtListHandler)
 	api.Post("/report", JWTProtected(), ReportHandler)
 	api.Get("/sitemap", JWTProtected(), GetSitemap)
+	api.Post("/playground/replay", JWTProtected(), ReplayRequest)
+	api.Get("/playground/collections", JWTProtected(), ListPlaygroundCollections)
+	api.Post("/playground/collections", JWTProtected(), CreatePlaygroundCollection)
+	api.Get("/playground/sessions", JWTProtected(), ListPlaygroundSessions)
+	api.Post("/playground/sessions", JWTProtected(), CreatePlaygroundSession)
 	// Auth related endpoints
 	auth_app := api.Group("/auth")
 	auth_app.Use(limiter.New(limiter.Config{

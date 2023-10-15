@@ -148,6 +148,7 @@ func TestCreatePlaygroundCollectionAndSession(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
+	assert.NotZero(t, workspace.ID)
 	t.Run("ValidInput", func(t *testing.T) {
 		collectionInput := CreatePlaygroundCollectionInput{
 			Name:        "Test Collection",
@@ -168,10 +169,10 @@ func TestCreatePlaygroundCollectionAndSession(t *testing.T) {
 
 		// Create a Playground Session using the collection ID
 		sessionInput := CreatePlaygroundSessionInput{
-			Name:              "Test Session",
-			Type:              "manual",
-			OriginalRequestID: workspace.ID,
-			CollectionID:      collectionResponse.ID,
+			Name: "Test Session",
+			Type: "manual",
+			// OriginalRequestID: workspace.ID,
+			CollectionID: collectionResponse.ID,
 		}
 
 		sessionReq := httptest.NewRequest(http.MethodPost, "/api/v1/playground/sessions", toJSON(sessionInput))

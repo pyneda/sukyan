@@ -70,6 +70,10 @@ func InitDb() *DatabaseConnection {
 		os.Exit(1)
 	}
 
+	if err := db.AutoMigrate(&PlaygroundCollection{}, &PlaygroundSession{}); err != nil {
+		log.Error().Err(err).Msg("Failed to migrate Issue table")
+		os.Exit(1)
+	}
 	sqlDB, err := db.DB()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get underlying database connection")

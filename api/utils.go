@@ -27,6 +27,28 @@ func parseWorkspaceID(c *fiber.Ctx) (uint, error) {
 	return workspaceID, nil
 }
 
+func parsePlaygroundCollectionID(c *fiber.Ctx) (uint, error) {
+	unparsed := c.Query("collection")
+	if unparsed == "" {
+		return 0, nil
+	}
+	collectionID64, err := strconv.ParseUint(unparsed, 10, strconv.IntSize)
+	if err != nil {
+		log.Error().Err(err).Msg("Error parsing playground collection parameter query")
+		return 0, err
+	}
+
+	collectionID := uint(collectionID64)
+	if collectionID == 0 {
+		return 0, nil
+	}
+	_, err = db.Connection.GetPlaygroundCollection(collectionID)
+	if err != nil {
+		return 0, err
+	}
+	return collectionID, nil
+}
+
 func parseTaskID(c *fiber.Ctx) (uint, error) {
 	unparsed := c.Query("task")
 	if unparsed == "" {

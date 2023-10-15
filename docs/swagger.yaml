@@ -4,6 +4,36 @@ definitions:
       message:
         type: string
     type: object
+  api.CreatePlaygroundCollectionInput:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      workspace_id:
+        minimum: 0
+        type: integer
+    required:
+    - name
+    - workspace_id
+    type: object
+  api.CreatePlaygroundSessionInput:
+    properties:
+      collection_id:
+        minimum: 0
+        type: integer
+      name:
+        type: string
+      original_request_id:
+        minimum: 0
+        type: integer
+      type:
+        $ref: '#/definitions/db.PlaygroundSessionType'
+    required:
+    - collection_id
+    - name
+    - original_request_id
+    type: object
   api.ErrorResponse:
     properties:
       error:
@@ -41,6 +71,18 @@ definitions:
         type: array
     required:
     - items
+    type: object
+  api.PlaygroundReplayInput:
+    properties:
+      options:
+        $ref: '#/definitions/manual.RequestOptions'
+      request:
+        $ref: '#/definitions/manual.Request'
+      session_id:
+        type: integer
+    required:
+    - request
+    - session_id
     type: object
   api.Renew:
     properties:
@@ -435,6 +477,64 @@ definitions:
       workspace_id:
         type: integer
     type: object
+  db.PlaygroundCollection:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      sessions:
+        items:
+          $ref: '#/definitions/db.PlaygroundSession'
+        type: array
+      updated_at:
+        type: string
+      workspace:
+        $ref: '#/definitions/db.Workspace'
+      workspace_id:
+        type: integer
+    type: object
+  db.PlaygroundSession:
+    properties:
+      collection:
+        $ref: '#/definitions/db.PlaygroundCollection'
+      collection_id:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      original_request:
+        $ref: '#/definitions/db.History'
+      original_request_id:
+        type: integer
+      task:
+        $ref: '#/definitions/db.Task'
+      task_id:
+        type: integer
+      type:
+        $ref: '#/definitions/db.PlaygroundSessionType'
+      updated_at:
+        type: string
+      workspace:
+        $ref: '#/definitions/db.Workspace'
+      workspace_id:
+        type: integer
+    type: object
+  db.PlaygroundSessionType:
+    enum:
+    - manual
+    - fuzz
+    type: string
+    x-enum-varnames:
+    - ManualType
+    - FuzzType
   db.RequestsStats:
     properties:
       crawler:
@@ -588,6 +688,39 @@ definitions:
     - Medium
     - High
     - Critical
+  manual.Request:
+    properties:
+      body:
+        type: string
+      headers:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      method:
+        type: string
+      uri:
+        type: string
+      url:
+        type: string
+    required:
+    - headers
+    - method
+    - url
+    type: object
+  manual.RequestOptions:
+    properties:
+      follow_redirects:
+        type: boolean
+      max_redirects:
+        minimum: 0
+        type: integer
+      update_content_length:
+        type: boolean
+      update_host_header:
+        type: boolean
+    type: object
   report.ReportFormat:
     enum:
     - html
@@ -1152,6 +1285,203 @@ paths:
       summary: List all issues grouped
       tags:
       - Issues
+  /api/v1/playground/collections:
+    get:
+      consumes:
+      - application/json
+      description: List playground collections
+      parameters:
+      - description: Search by name or description
+        in: query
+        name: query
+        type: string
+      - description: Filter by workspace id
+        in: query
+        name: workspace
+        required: true
+        type: integer
+      - description: Sort by field (id, name, description, workspace_id)
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order (asc, desc)
+        in: query
+        name: sort_order
+        type: string
+      - description: Page number for pagination
+        in: query
+        name: page
+        type: integer
+      - description: Page size for pagination
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.PlaygroundCollection'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List playground collections
+      tags:
+      - Playground
+    post:
+      consumes:
+      - application/json
+      description: Create a new playground collection
+      parameters:
+      - description: Create Playground Collection Input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreatePlaygroundCollectionInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/db.PlaygroundCollection'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a new playground collection
+      tags:
+      - Playground
+  /api/v1/playground/replay:
+    post:
+      consumes:
+      - application/json
+      description: Sends a request to a target and returns the response
+      parameters:
+      - description: Set the request configuration
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.PlaygroundReplayInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.History'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Sends a request to a target
+      tags:
+      - Playground
+  /api/v1/playground/sessions:
+    get:
+      consumes:
+      - application/json
+      description: List Playground Sessions
+      parameters:
+      - description: Filter by session type (manual, fuzz)
+        in: query
+        name: type
+        type: string
+      - description: Filter by original request ID
+        in: query
+        name: original_request_id
+        type: integer
+      - description: Filter by task ID
+        in: query
+        name: task
+        type: integer
+      - description: Filter by collection ID
+        in: query
+        name: collection
+        type: integer
+      - description: Filter by workspace ID
+        in: query
+        name: workspace
+        required: true
+        type: integer
+      - description: Search by name
+        in: query
+        name: query
+        type: string
+      - description: Page number for pagination
+        in: query
+        name: page
+        type: integer
+      - description: Page size for pagination
+        in: query
+        name: page_size
+        type: integer
+      - description: Sort by field (id, name, type, original_request_id, task, collection,
+          workspace)
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort order (asc, desc)
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/db.PlaygroundSession'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List Playground Sessions
+      tags:
+      - Playground
+    post:
+      consumes:
+      - application/json
+      description: Create a new playground session
+      parameters:
+      - description: Create Playground Session Input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreatePlaygroundSessionInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/db.PlaygroundSession'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a new playground session
+      tags:
+      - Playground
   /api/v1/report:
     post:
       consumes:

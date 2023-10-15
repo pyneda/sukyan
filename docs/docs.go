@@ -791,6 +791,313 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/playground/collections": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "List playground collections",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "List playground collections",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search by name or description",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by workspace id",
+                        "name": "workspace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort by field (id, name, description, workspace_id)",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order (asc, desc)",
+                        "name": "sort_order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number for pagination",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size for pagination",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/db.PlaygroundCollection"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Create a new playground collection",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Create a new playground collection",
+                "parameters": [
+                    {
+                        "description": "Create Playground Collection Input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.CreatePlaygroundCollectionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/db.PlaygroundCollection"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/replay": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Sends a request to a target and returns the response",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Sends a request to a target",
+                "parameters": [
+                    {
+                        "description": "Set the request configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.PlaygroundReplayInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.History"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/sessions": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "List Playground Sessions",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "List Playground Sessions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by session type (manual, fuzz)",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by original request ID",
+                        "name": "original_request_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by task ID",
+                        "name": "task",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by collection ID",
+                        "name": "collection",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by workspace ID",
+                        "name": "workspace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by name",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number for pagination",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size for pagination",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort by field (id, name, type, original_request_id, task, collection, workspace)",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order (asc, desc)",
+                        "name": "sort_order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/db.PlaygroundSession"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Create a new playground session",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Create a new playground session",
+                "parameters": [
+                    {
+                        "description": "Create Playground Session Input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.CreatePlaygroundSessionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/db.PlaygroundSession"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/report": {
             "post": {
                 "security": [
@@ -1526,6 +1833,49 @@ const docTemplate = `{
                 }
             }
         },
+        "api.CreatePlaygroundCollectionInput": {
+            "type": "object",
+            "required": [
+                "name",
+                "workspace_id"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "api.CreatePlaygroundSessionInput": {
+            "type": "object",
+            "required": [
+                "collection_id",
+                "name",
+                "original_request_id"
+            ],
+            "properties": {
+                "collection_id": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "name": {
+                    "type": "string"
+                },
+                "original_request_id": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "type": {
+                    "$ref": "#/definitions/db.PlaygroundSessionType"
+                }
+            }
+        },
         "api.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -1582,6 +1932,24 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                }
+            }
+        },
+        "api.PlaygroundReplayInput": {
+            "type": "object",
+            "required": [
+                "request",
+                "session_id"
+            ],
+            "properties": {
+                "options": {
+                    "$ref": "#/definitions/manual.RequestOptions"
+                },
+                "request": {
+                    "$ref": "#/definitions/manual.Request"
+                },
+                "session_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -2172,6 +2540,93 @@ const docTemplate = `{
                 }
             }
         },
+        "db.PlaygroundCollection": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.PlaygroundSession"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace": {
+                    "$ref": "#/definitions/db.Workspace"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "db.PlaygroundSession": {
+            "type": "object",
+            "properties": {
+                "collection": {
+                    "$ref": "#/definitions/db.PlaygroundCollection"
+                },
+                "collection_id": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "original_request": {
+                    "$ref": "#/definitions/db.History"
+                },
+                "original_request_id": {
+                    "type": "integer"
+                },
+                "task": {
+                    "$ref": "#/definitions/db.Task"
+                },
+                "task_id": {
+                    "type": "integer"
+                },
+                "type": {
+                    "$ref": "#/definitions/db.PlaygroundSessionType"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace": {
+                    "$ref": "#/definitions/db.Workspace"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "db.PlaygroundSessionType": {
+            "type": "string",
+            "enum": [
+                "manual",
+                "fuzz"
+            ],
+            "x-enum-varnames": [
+                "ManualType",
+                "FuzzType"
+            ]
+        },
         "db.RequestsStats": {
             "type": "object",
             "properties": {
@@ -2382,6 +2837,55 @@ const docTemplate = `{
                 "High",
                 "Critical"
             ]
+        },
+        "manual.Request": {
+            "type": "object",
+            "required": [
+                "headers",
+                "method",
+                "url"
+            ],
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "method": {
+                    "type": "string"
+                },
+                "uri": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "manual.RequestOptions": {
+            "type": "object",
+            "properties": {
+                "follow_redirects": {
+                    "type": "boolean"
+                },
+                "max_redirects": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "update_content_length": {
+                    "type": "boolean"
+                },
+                "update_host_header": {
+                    "type": "boolean"
+                }
+            }
         },
         "report.ReportFormat": {
             "type": "string",

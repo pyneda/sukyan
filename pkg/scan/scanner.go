@@ -186,7 +186,13 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 				continue
 			}
 			result.Duration = time.Since(startTime)
-			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, db.SourceScanner, f.WorkspaceID, task.options.TaskID)
+			options := http_utils.HistoryCreationOptions{
+				Source:              db.SourceScanner,
+				WorkspaceID:         f.WorkspaceID,
+				TaskID:              task.options.TaskID,
+				CreateNewBodyStream: false,
+			}
+			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, options)
 			taskLog.Debug().Str("rawrequest", string(newHistory.RawRequest)).Msg("Request from history created in TemplateScanner")
 			result.Result = newHistory
 			result.Err = err
@@ -299,7 +305,14 @@ func (f *TemplateScanner) repeatHistoryItem(history *db.History) (repeatedHistor
 		return repeatedHistoryItem{}, err
 	}
 	duration := time.Since(startTime)
-	newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, db.SourceScanner, f.WorkspaceID, 0) // TODO: Should pass the task id here
+
+	options := http_utils.HistoryCreationOptions{
+		Source:              db.SourceScanner,
+		WorkspaceID:         f.WorkspaceID,
+		TaskID:              0, // TODO: Should pass the task id here
+		CreateNewBodyStream: false,
+	}
+	newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, options)
 	return repeatedHistoryItem{
 		history:  newHistory,
 		duration: duration,

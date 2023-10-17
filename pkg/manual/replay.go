@@ -74,8 +74,14 @@ func Replay(input RequestReplayOptions) (ReplayResult, error) {
 		taskID = new(uint)
 	}
 
-	// NOTE: Could probably use rawhttp.DumpRequestRaw to dump a better representation of the request
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(resp, db.SourceRepeater, input.Session.WorkspaceID, *taskID, false)
+	options := http_utils.HistoryCreationOptions{
+		Source:              db.SourceRepeater,
+		WorkspaceID:         input.Session.WorkspaceID,
+		TaskID:              *taskID,
+		CreateNewBodyStream: false,
+		PlaygroundSessionID: input.Session.ID,
+	}
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(resp, options)
 	if err != nil {
 		log.Error().Msgf("Error creating history item: %s", err)
 		return ReplayResult{}, err

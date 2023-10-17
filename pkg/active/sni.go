@@ -51,8 +51,14 @@ func (a *SNIAudit) Run() {
 		auditLog.Error().Err(err).Msg("Error during request")
 		return
 	}
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner, a.WorkspaceID, a.TaskID, false)
+	options := http_utils.HistoryCreationOptions{
+		Source:              db.SourceScanner,
+		WorkspaceID:         a.WorkspaceID,
+		TaskID:              a.TaskID,
+		CreateNewBodyStream: false,
+	}
 
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, options)
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error reading response")
 	}

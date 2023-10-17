@@ -191,8 +191,14 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		auditLog.Error().Err(err).Msg("Error during request")
 		return
 	}
+	options := http_utils.HistoryCreationOptions{
+		Source:              db.SourceScanner,
+		WorkspaceID:         a.WorkspaceID,
+		TaskID:              a.TaskID,
+		CreateNewBodyStream: false,
+	}
 
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner, a.WorkspaceID, a.TaskID, false)
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, options)
 	isInResponse, err := item.payload.MatchAgainstString(string(history.RawResponse))
 
 	// This might be un-needed

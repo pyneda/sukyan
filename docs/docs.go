@@ -186,6 +186,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "description": "Playground session ID to filter by",
+                        "name": "playground_session",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
                         "description": "Task ID",
                         "name": "task",
                         "in": "query"
@@ -943,7 +949,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/db.History"
+                            "$ref": "#/definitions/manual.ReplayResult"
                         }
                     },
                     "400": {
@@ -1856,8 +1862,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "collection_id",
-                "name",
-                "original_request_id"
+                "name"
             ],
             "properties": {
                 "collection_id": {
@@ -2135,6 +2140,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "parameters_count": {
+                    "type": "integer"
+                },
+                "playground_session_id": {
                     "type": "integer"
                 },
                 "raw_request": {
@@ -2555,17 +2563,8 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "sessions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/db.PlaygroundSession"
-                    }
-                },
                 "updated_at": {
                     "type": "string"
-                },
-                "workspace": {
-                    "$ref": "#/definitions/db.Workspace"
                 },
                 "workspace_id": {
                     "type": "integer"
@@ -2575,9 +2574,6 @@ const docTemplate = `{
         "db.PlaygroundSession": {
             "type": "object",
             "properties": {
-                "collection": {
-                    "$ref": "#/definitions/db.PlaygroundCollection"
-                },
                 "collection_id": {
                     "type": "integer"
                 },
@@ -2590,14 +2586,9 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "original_request": {
-                    "$ref": "#/definitions/db.History"
-                },
                 "original_request_id": {
+                    "description": "OriginalRequest   History               ` + "`" + `json:\"-\" gorm:\"foreignKey:OriginalRequestID\"` + "`" + `",
                     "type": "integer"
-                },
-                "task": {
-                    "$ref": "#/definitions/db.Task"
                 },
                 "task_id": {
                     "type": "integer"
@@ -2607,9 +2598,6 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
-                },
-                "workspace": {
-                    "$ref": "#/definitions/db.Workspace"
                 },
                 "workspace_id": {
                     "type": "integer"
@@ -2837,6 +2825,14 @@ const docTemplate = `{
                 "High",
                 "Critical"
             ]
+        },
+        "manual.ReplayResult": {
+            "type": "object",
+            "properties": {
+                "result": {
+                    "$ref": "#/definitions/db.History"
+                }
+            }
         },
         "manual.Request": {
             "type": "object",

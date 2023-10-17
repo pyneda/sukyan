@@ -10,9 +10,9 @@ type PlaygroundCollection struct {
 	BaseModel
 	Name        string              `json:"name"`
 	Description string              `json:"description"`
-	Sessions    []PlaygroundSession `json:"sessions" gorm:"foreignKey:CollectionID"`
+	Sessions    []PlaygroundSession `json:"-" gorm:"foreignKey:CollectionID"`
 	WorkspaceID uint                `json:"workspace_id" gorm:"index"`
-	Workspace   Workspace           `json:"workspace" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Workspace   Workspace           `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 // PlaygroundSessionType represents the type of a playground session.
@@ -26,16 +26,17 @@ const (
 // PlaygroundSession represents a playground session.
 type PlaygroundSession struct {
 	BaseModel
-	Name              string                `json:"name"`
-	Type              PlaygroundSessionType `json:"type"`
-	OriginalRequest   History               `json:"original_request" gorm:"foreignKey:OriginalRequestID"`
-	OriginalRequestID *uint                 `json:"original_request_id"`
-	Task              Task                  `json:"task" gorm:"foreignKey:TaskID"`
-	TaskID            *uint                 `json:"task_id"`
-	CollectionID      uint                  `json:"collection_id"`
-	Collection        PlaygroundCollection  `json:"collection" gorm:"foreignKey:CollectionID"`
-	WorkspaceID       uint                  `json:"workspace_id" gorm:"index"`
-	Workspace         Workspace             `json:"workspace" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Name string                `json:"name"`
+	Type PlaygroundSessionType `json:"type"`
+	// OriginalRequest   History               `json:"-" gorm:"foreignKey:OriginalRequestID"`
+	OriginalRequestID *uint                `json:"original_request_id"`
+	Task              Task                 `json:"-" gorm:"foreignKey:TaskID"`
+	TaskID            *uint                `json:"task_id"`
+	CollectionID      uint                 `json:"collection_id"`
+	Collection        PlaygroundCollection `json:"-" gorm:"foreignKey:CollectionID"`
+	WorkspaceID       uint                 `json:"workspace_id" gorm:"index"`
+	Workspace         Workspace            `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Histories         []History            `gorm:"foreignKey:PlaygroundSessionID" json:"-"`
 }
 
 // PlaygroundCollectionFilters contains filters for listing PlaygroundCollections.
@@ -52,7 +53,7 @@ func (d *DatabaseConnection) ListPlaygroundCollections(filters PlaygroundCollect
 	query := d.db.Model(&PlaygroundCollection{})
 
 	if filters.Query != "" {
-		query = query.Where("name LIKE ?", "%"+filters.Query+"%")
+		query = query.Where("name ILIKE ? OR description ILIKE ?", "%"+filters.Query+"%", "%"+filters.Query+"%")
 	}
 
 	sortColumn := "id"
@@ -115,7 +116,7 @@ func (d *DatabaseConnection) ListPlaygroundSessions(filters PlaygroundSessionFil
 	}
 
 	if filters.Query != "" {
-		query = query.Where("name LIKE ?", "%"+filters.Query+"%")
+		query = query.Where("name ILIKE ?", "%"+filters.Query+"%")
 	}
 
 	sortColumn := "id"

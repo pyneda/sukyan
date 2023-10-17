@@ -32,7 +32,6 @@ definitions:
     required:
     - collection_id
     - name
-    - original_request_id
     type: object
   api.ErrorResponse:
     properties:
@@ -203,6 +202,8 @@ definitions:
       note:
         type: string
       parameters_count:
+        type: integer
+      playground_session_id:
         type: integer
       raw_request:
         items:
@@ -487,21 +488,13 @@ definitions:
         type: integer
       name:
         type: string
-      sessions:
-        items:
-          $ref: '#/definitions/db.PlaygroundSession'
-        type: array
       updated_at:
         type: string
-      workspace:
-        $ref: '#/definitions/db.Workspace'
       workspace_id:
         type: integer
     type: object
   db.PlaygroundSession:
     properties:
-      collection:
-        $ref: '#/definitions/db.PlaygroundCollection'
       collection_id:
         type: integer
       created_at:
@@ -510,20 +503,15 @@ definitions:
         type: integer
       name:
         type: string
-      original_request:
-        $ref: '#/definitions/db.History'
       original_request_id:
+        description: OriginalRequest   History               `json:"-" gorm:"foreignKey:OriginalRequestID"`
         type: integer
-      task:
-        $ref: '#/definitions/db.Task'
       task_id:
         type: integer
       type:
         $ref: '#/definitions/db.PlaygroundSessionType'
       updated_at:
         type: string
-      workspace:
-        $ref: '#/definitions/db.Workspace'
       workspace_id:
         type: integer
     type: object
@@ -688,6 +676,11 @@ definitions:
     - Medium
     - High
     - Critical
+  manual.ReplayResult:
+    properties:
+      result:
+        $ref: '#/definitions/db.History'
+    type: object
   manual.Request:
     properties:
       body:
@@ -884,6 +877,10 @@ paths:
         in: query
         name: workspace
         required: true
+        type: integer
+      - description: Playground session ID to filter by
+        in: query
+        name: playground_session
         type: integer
       - description: Task ID
         in: query
@@ -1379,7 +1376,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/db.History'
+            $ref: '#/definitions/manual.ReplayResult'
         "400":
           description: Bad Request
           schema:

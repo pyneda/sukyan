@@ -19,7 +19,7 @@ type PlaygroundReplayInput struct {
 // @Accept  json
 // @Produce  json
 // @Param input body PlaygroundReplayInput true "Set the request configuration"
-// @Success 200 {object} db.History
+// @Success 200 {object} manual.ReplayResult
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/replay [post]

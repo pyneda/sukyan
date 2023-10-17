@@ -80,25 +80,33 @@ func ReadFullResponse(response *http.Response, createNewBodyStream bool) (FullRe
 	}, newBody, nil
 }
 
-func ReadHttpResponseAndCreateHistory(response *http.Response, source string, workspaceID, taskID uint, createNewBodyStream bool) (*db.History, error) {
+type HistoryCreationOptions struct {
+	Source              string
+	WorkspaceID         uint
+	TaskID              uint
+	CreateNewBodyStream bool
+	PlaygroundSessionID uint
+}
+
+func ReadHttpResponseAndCreateHistory(response *http.Response, options HistoryCreationOptions) (*db.History, error) {
 	if response == nil || response.Request == nil {
 		return nil, errors.New("response or request is nil")
 	}
 
-	responseData, newBody, err := ReadFullResponse(response, createNewBodyStream)
+	responseData, newBody, err := ReadFullResponse(response, options.CreateNewBodyStream)
 	if err != nil {
 		log.Error().Err(err).Msg("Error reading response body in ReadHttpResponseAndCreateHistory")
 		return nil, err
 	}
 
-	if createNewBodyStream {
+	if options.CreateNewBodyStream {
 		response.Body = newBody
 	}
 
-	return CreateHistoryFromHttpResponse(response, responseData, source, workspaceID, taskID)
+	return CreateHistoryFromHttpResponse(response, responseData, options)
 }
 
-func CreateHistoryFromHttpResponse(response *http.Response, responseData FullResponseData, source string, workspaceID, taskID uint) (*db.History, error) {
+func CreateHistoryFromHttpResponse(response *http.Response, responseData FullResponseData, options HistoryCreationOptions) (*db.History, error) {
 	if response == nil || response.Request == nil {
 		return nil, errors.New("response or request is nil")
 	}
@@ -136,12 +144,12 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		ResponseContentType: response.Header.Get("Content-Type"),
 		RequestContentType:  response.Request.Header.Get("Content-Type"),
 		Evaluated:           false,
-		Source:              source,
+		Source:              options.Source,
 		RawRequest:          requestDump,
 		RawResponse:         responseData.Raw,
-		WorkspaceID:         &workspaceID,
-		TaskID:              &taskID,
-		// Note                 string
+		WorkspaceID:         &options.WorkspaceID,
+		TaskID:              &options.TaskID,
+		PlaygroundSessionID: &options.PlaygroundSessionID,
 	}
 	return db.Connection.CreateHistory(&record)
 }

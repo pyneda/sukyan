@@ -101,7 +101,14 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 		return
 	}
 
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, db.SourceScanner, a.WorkspaceID, a.TaskID, false)
+	options := http_utils.HistoryCreationOptions{
+		Source:              db.SourceScanner,
+		WorkspaceID:         a.WorkspaceID,
+		TaskID:              a.TaskID,
+		CreateNewBodyStream: false,
+	}
+
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, options)
 	if history.StatusCode != 405 && history.StatusCode != 404 {
 		// Should improve the issue template and probably all all the instances in the same issue
 		issue := db.FillIssueFromHistoryAndTemplate(

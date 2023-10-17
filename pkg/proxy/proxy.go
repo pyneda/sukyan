@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"fmt"
+	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"net/http"
@@ -94,7 +95,6 @@ func (p *Proxy) Run() {
 
 	proxy.OnRequest().DoFunc(
 		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
-			r.Header.Set("X-sukyan", "yxorPoG-X")
 			log.Info().Msg("Proxy sending request")
 			return r, nil
 		})
@@ -104,7 +104,14 @@ func (p *Proxy) Run() {
 				return nil
 			}
 			log.Info().Str("url", resp.Request.URL.String()).Msg("Proxy received response")
-			http_utils.ReadHttpResponseAndCreateHistory(ctx.Resp, "Proxy", p.WorkspaceID, 0, true)
+			options := http_utils.HistoryCreationOptions{
+				Source:              db.SourceProxy,
+				WorkspaceID:         p.WorkspaceID,
+				TaskID:              0,
+				CreateNewBodyStream: true,
+			}
+
+			http_utils.ReadHttpResponseAndCreateHistory(ctx.Resp, options)
 			return resp
 		},
 	)

@@ -21,7 +21,7 @@ type Request struct {
 
 type RequestOptions struct {
 	FollowRedirects     bool `json:"follow_redirects"`
-	MaxRedirects        int  `json:"max_redirects" validate:"min=0,de"`
+	MaxRedirects        int  `json:"max_redirects" validate:"min=0"`
 	UpdateHostHeader    bool `json:"update_host_header"`
 	UpdateContentLength bool `json:"update_content_length"`
 }
@@ -33,8 +33,7 @@ type RequestReplayOptions struct {
 }
 
 type ReplayResult struct {
-	Result *db.
-		History `json:"result"`
+	Result *db.History `json:"result"`
 }
 
 var defaultMaxRedirects = 10
@@ -70,9 +69,13 @@ func Replay(input RequestReplayOptions) (ReplayResult, error) {
 		Header: input.Request.Headers,
 		Body:   ioutil.NopCloser(bytes.NewReader([]byte(input.Request.Body))),
 	}
+	taskID := input.Session.TaskID
+	if taskID == nil {
+		taskID = new(uint)
+	}
 
 	// NOTE: Could probably use rawhttp.DumpRequestRaw to dump a better representation of the request
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(resp, db.SourceRepeater, input.Session.WorkspaceID, *input.Session.TaskID, false)
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(resp, db.SourceRepeater, input.Session.WorkspaceID, *taskID, false)
 	if err != nil {
 		log.Error().Msgf("Error creating history item: %s", err)
 		return ReplayResult{}, err

@@ -49,6 +49,28 @@ func parsePlaygroundCollectionID(c *fiber.Ctx) (uint, error) {
 	return collectionID, nil
 }
 
+func parsePlaygroundSessionID(c *fiber.Ctx) (uint, error) {
+	unparsed := c.Query("playground_session")
+	if unparsed == "" {
+		return 0, nil
+	}
+	sessionID64, err := strconv.ParseUint(unparsed, 10, strconv.IntSize)
+	if err != nil {
+		log.Error().Err(err).Msg("Error parsing playground session parameter query")
+		return 0, err
+	}
+
+	sessionID := uint(sessionID64)
+	if sessionID == 0 {
+		return 0, nil
+	}
+	_, err = db.Connection.GetPlaygroundSession(sessionID)
+	if err != nil {
+		return 0, err
+	}
+	return sessionID, nil
+}
+
 func parseTaskID(c *fiber.Ctx) (uint, error) {
 	unparsed := c.Query("task")
 	if unparsed == "" {

@@ -14,30 +14,32 @@ import (
 type History struct {
 	// Similar schema: https://github.com/gilcrest/httplog
 	BaseModel
-	StatusCode           int            `gorm:"index" json:"status_code"`
-	URL                  string         `gorm:"index" json:"url"`
-	Depth                int            `gorm:"index" json:"depth"`
-	RequestHeaders       datatypes.JSON `json:"request_headers"  swaggerignore:"true"`
-	RequestBody          []byte         `json:"request_body"`
-	RequestBodySize      int            `gorm:"index" json:"request_body_size"`
-	RequestContentLength int64          `json:"request_content_length"`
-	ResponseHeaders      datatypes.JSON `json:"response_headers" swaggerignore:"true"`
-	ResponseBody         []byte         `json:"response_body"`
-	RequestContentType   string         `gorm:"index" json:"request_content_type"`
-	ResponseBodySize     int            `gorm:"index" json:"response_body_size"`
-	ResponseContentType  string         `gorm:"index" json:"response_content_type"`
-	RawRequest           []byte         `json:"raw_request"`
-	RawResponse          []byte         `json:"raw_response"`
-	Method               string         `gorm:"index" json:"method"`
-	ParametersCount      int            `gorm:"index" json:"parameters_count"`
-	Evaluated            bool           `gorm:"index" json:"evaluated"`
-	Note                 string         `json:"note"`
-	Source               string         `gorm:"index" json:"source"`
-	JsonWebTokens        []JsonWebToken `gorm:"many2many:json_web_token_histories" json:"json_web_tokens"`
-	Workspace            Workspace      `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID          *uint          `json:"workspace_id" gorm:"index"`
-	TaskID               *uint          `json:"task_id" gorm:"index" `
-	Task                 Task           `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	StatusCode           int               `gorm:"index" json:"status_code"`
+	URL                  string            `gorm:"index" json:"url"`
+	Depth                int               `gorm:"index" json:"depth"`
+	RequestHeaders       datatypes.JSON    `json:"request_headers"  swaggerignore:"true"`
+	RequestBody          []byte            `json:"request_body"`
+	RequestBodySize      int               `gorm:"index" json:"request_body_size"`
+	RequestContentLength int64             `json:"request_content_length"`
+	ResponseHeaders      datatypes.JSON    `json:"response_headers" swaggerignore:"true"`
+	ResponseBody         []byte            `json:"response_body"`
+	RequestContentType   string            `gorm:"index" json:"request_content_type"`
+	ResponseBodySize     int               `gorm:"index" json:"response_body_size"`
+	ResponseContentType  string            `gorm:"index" json:"response_content_type"`
+	RawRequest           []byte            `json:"raw_request"`
+	RawResponse          []byte            `json:"raw_response"`
+	Method               string            `gorm:"index" json:"method"`
+	ParametersCount      int               `gorm:"index" json:"parameters_count"`
+	Evaluated            bool              `gorm:"index" json:"evaluated"`
+	Note                 string            `json:"note"`
+	Source               string            `gorm:"index" json:"source"`
+	JsonWebTokens        []JsonWebToken    `gorm:"many2many:json_web_token_histories" json:"json_web_tokens"`
+	Workspace            Workspace         `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	WorkspaceID          *uint             `json:"workspace_id" gorm:"index"`
+	TaskID               *uint             `json:"task_id" gorm:"index" `
+	Task                 Task              `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	PlaygroundSessionID  *uint             `json:"playground_session_id" gorm:"index" `
+	PlaygroundSession    PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 func (h *History) GetResponseHeadersAsMap() (map[string][]string, error) {
@@ -148,6 +150,7 @@ type HistoryFilter struct {
 	SortOrder            string `json:"sort_order" validate:"omitempty,oneof=asc desc"`                                                                                           // Validate to be either "asc" or "desc"
 	TaskID               uint   `json:"task_id" validate:"omitempty,numeric"`
 	IDs                  []uint `json:"ids" validate:"omitempty,dive,numeric"`
+	PlaygroundSessionID  uint   `json:"playground_session_id" validate:"omitempty,numeric"`
 }
 
 // ListHistory Lists history
@@ -183,6 +186,10 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 
 	if len(filter.IDs) > 0 {
 		filterQuery["id"] = filter.IDs
+	}
+
+	if filter.PlaygroundSessionID > 0 {
+		filterQuery["playground_session_id"] = filter.PlaygroundSessionID
 	}
 
 	validSortBy := map[string]bool{

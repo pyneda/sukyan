@@ -60,6 +60,16 @@ func CreatePlaygroundCollection(c *fiber.Ctx) error {
 			"message": err.Error(),
 		})
 	}
+	session := db.PlaygroundSession{
+		Name:         "Default session",
+		Type:         db.ManualType,
+		WorkspaceID:  input.WorkspaceID,
+		CollectionID: collection.ID,
+	}
+	err = db.Connection.CreatePlaygroundSession(&session)
+	if err != nil {
+		log.Error().Err(err).Uint("collection", collection.ID).Msg("Failed to create initial collection playground session")
+	}
 	return c.Status(fiber.StatusCreated).JSON(collection)
 }
 

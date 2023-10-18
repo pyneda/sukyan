@@ -1,16 +1,18 @@
 module github.com/pyneda/sukyan
 
-go 1.20
+go 1.21
+
+toolchain go1.21.3
 
 require (
-	github.com/BishopFox/jsluice v0.0.0-20230919151349-0dc9d20d1909
-	github.com/elazarl/goproxy v0.0.0-20230808193330-2592e75ae04a
+	github.com/BishopFox/jsluice v0.0.0-20231013132104-82a564a1ae0a
+	github.com/elazarl/goproxy v0.0.0-20231017160920-1fe6677f404d
 	github.com/go-playground/validator/v10 v10.15.5
-	github.com/go-rod/rod v0.114.3
+	github.com/go-rod/rod v0.114.4
 	github.com/gofiber/contrib/fiberzerolog v0.2.2
 	github.com/gofiber/contrib/jwt v1.0.7
 	github.com/gofiber/fiber/v2 v2.50.0
-	github.com/gofiber/swagger v0.1.13
+	github.com/gofiber/swagger v0.1.14
 	github.com/golang-jwt/jwt/v5 v5.0.0
 	github.com/google/uuid v1.3.1
 	github.com/gosimple/slug v1.13.1
@@ -20,9 +22,9 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/projectdiscovery/cdncheck v1.0.9
-	github.com/projectdiscovery/dsl v0.0.24
+	github.com/projectdiscovery/dsl v0.0.26
 	github.com/projectdiscovery/interactsh v1.1.7
-	github.com/projectdiscovery/rawhttp v0.1.16-0.20230703065054-806b4fcfab11
+	github.com/projectdiscovery/rawhttp v0.1.22
 	github.com/projectdiscovery/wappalyzergo v0.0.109
 	github.com/pyneda/nuclei-api v0.0.0-20230715211054-636941207b06
 	github.com/rs/zerolog v1.31.0
@@ -32,11 +34,11 @@ require (
 	github.com/swaggo/swag v1.16.2
 	github.com/ysmood/gson v0.7.3
 	golang.org/x/crypto v0.14.0
-	google.golang.org/grpc v1.58.2
+	google.golang.org/grpc v1.59.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.2.0
-	gorm.io/driver/postgres v1.5.2
-	gorm.io/gorm v1.25.4
+	gorm.io/driver/postgres v1.5.3
+	gorm.io/gorm v1.25.5
 	mvdan.cc/xurls/v2 v2.5.0
 )
 
@@ -60,7 +62,7 @@ require (
 	github.com/caddyserver/certmagic v0.19.2 // indirect
 	github.com/charmbracelet/glamour v0.6.0 // indirect
 	github.com/cheggaaa/pb/v3 v3.1.4 // indirect
-	github.com/cloudflare/circl v1.3.3 // indirect
+	github.com/cloudflare/circl v1.3.5 // indirect
 	github.com/cnf/structhash v0.0.0-20201127153200-e1b16c1ebc08 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/denisbrodbeck/machineid v1.0.1 // indirect
@@ -70,7 +72,7 @@ require (
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
 	github.com/go-openapi/jsonpointer v0.20.0 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
@@ -110,7 +112,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.17 // indirect
 	github.com/mholt/acmez v1.2.0 // indirect
 	github.com/mholt/archiver v3.1.1+incompatible // indirect
-	github.com/microcosm-cc/bluemonday v1.0.25 // indirect
+	github.com/microcosm-cc/bluemonday v1.0.26 // indirect
 	github.com/miekg/dns v1.1.56 // indirect
 	github.com/minio/selfupdate v0.6.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
@@ -126,17 +128,17 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/projectdiscovery/asnmap v1.0.5 // indirect
 	github.com/projectdiscovery/blackrock v0.0.1 // indirect
-	github.com/projectdiscovery/fastdialer v0.0.38 // indirect
-	github.com/projectdiscovery/goflags v0.1.22 // indirect
+	github.com/projectdiscovery/fastdialer v0.0.40 // indirect
+	github.com/projectdiscovery/goflags v0.1.24 // indirect
 	github.com/projectdiscovery/gologger v1.1.11 // indirect
-	github.com/projectdiscovery/hmap v0.0.21 // indirect
-	github.com/projectdiscovery/mapcidr v1.1.10 // indirect
+	github.com/projectdiscovery/hmap v0.0.22 // indirect
+	github.com/projectdiscovery/mapcidr v1.1.12 // indirect
 	github.com/projectdiscovery/networkpolicy v0.0.6 // indirect
-	github.com/projectdiscovery/retryabledns v1.0.37 // indirect
-	github.com/projectdiscovery/retryablehttp-go v1.0.29 // indirect
-	github.com/projectdiscovery/utils v0.0.57 // indirect
-	github.com/quic-go/quic-go v0.39.0 // indirect
-	github.com/refraction-networking/utls v1.5.3 // indirect
+	github.com/projectdiscovery/retryabledns v1.0.39 // indirect
+	github.com/projectdiscovery/retryablehttp-go v1.0.31 // indirect
+	github.com/projectdiscovery/utils v0.0.58 // indirect
+	github.com/quic-go/quic-go v0.39.1 // indirect
+	github.com/refraction-networking/utls v1.5.4 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/sagikazarmark/locafero v0.3.0 // indirect
@@ -169,13 +171,13 @@ require (
 	github.com/yl2chen/cidranger v1.0.2 // indirect
 	github.com/ysmood/fetchup v0.2.3 // indirect
 	github.com/ysmood/goob v0.4.0 // indirect
-	github.com/ysmood/got v0.36.1 // indirect
+	github.com/ysmood/got v0.36.3 // indirect
 	github.com/ysmood/leakless v0.8.0 // indirect
 	github.com/yuin/goldmark v1.5.6 // indirect
 	github.com/yuin/goldmark-emoji v1.0.2 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
 	github.com/zmap/rc2 v0.0.0-20190804163417-abaa70531248 // indirect
-	github.com/zmap/zcrypto v0.0.0-20230927041405-ed2f02cd393d // indirect
+	github.com/zmap/zcrypto v0.0.0-20231018155041-c1c1128be414 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
@@ -188,11 +190,11 @@ require (
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/tools v0.14.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20231002182017-d307bd883b97 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20231016165738-49dd2c1f3d0b // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/corvus-ch/zbase32.v1 v1.0.0 // indirect
 	gopkg.in/djherbis/times.v1 v1.3.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gorm.io/driver/mysql v1.5.1 // indirect
+	gorm.io/driver/mysql v1.5.2 // indirect
 	gorm.io/driver/sqlite v1.5.1 // indirect
 )

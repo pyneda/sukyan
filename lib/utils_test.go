@@ -143,3 +143,28 @@ func TestFilterOutString(t *testing.T) {
 		})
 	}
 }
+
+func TestBytesCountToHumanReadable(t *testing.T) {
+	tests := []struct {
+		input    int64
+		expected string
+	}{
+		{1, "1 B"},
+		{1023, "1023 B"},
+		{1024, "1.0 KB"},
+		{1025, "1.0 KB"},
+		{1_048_576, "1.0 MB"},
+		{2_621_440, "2.5 MB"},
+		{1_073_741_824, "1.0 GB"},
+		{1_099_511_627_776, "1.0 TB"},
+		{1_125_899_906_842_624, "1.0 PB"},
+		{1_152_921_504_606_846_976, "1.0 EB"},
+	}
+
+	for _, test := range tests {
+		output := BytesCountToHumanReadable(test.input)
+		if output != test.expected {
+			t.Errorf("For input %d expected %s but got %s", test.input, test.expected, output)
+		}
+	}
+}

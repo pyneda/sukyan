@@ -140,6 +140,9 @@ func SetDefaultConfig() {
 	viper.SetDefault("integrations.nuclei.protocols", []string{})
 	viper.SetDefault("integrations.nuclei.exclude_protocols", []string{})
 
+	viper.SetDefault("wordlists.directory", "/etc/sukyan/wordlists")
+	viper.SetDefault("wordlists.extensions", []string{".txt", ".lst", ".wordlist", ".list", "wordlists"})
+
 	viper.SetDefault("server.cert.file", "server.crt")
 	viper.SetDefault("server.key.file", "server.key")
 	viper.SetDefault("server.caCert.file", "ca.crt")

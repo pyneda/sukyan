@@ -714,6 +714,17 @@ definitions:
       update_host_header:
         type: boolean
     type: object
+  manual.Wordlist:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      size_bytes:
+        type: integer
+      size_human:
+        type: string
+    type: object
   report.ReportFormat:
     enum:
     - html
@@ -1477,6 +1488,33 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Create a new playground session
+      tags:
+      - Playground
+  /api/v1/playground/wordlists:
+    get:
+      consumes:
+      - application/json
+      description: List all wordlists available for use in the playground
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/manual.Wordlist'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List available wordlists
       tags:
       - Playground
   /api/v1/report:

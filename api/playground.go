@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/manual"
 	"github.com/rs/zerolog/log"
 )
 
@@ -278,5 +279,33 @@ func ListPlaygroundSessions(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"data":  sessions,
 		"count": count,
+	})
+}
+
+// ListAvailableWordlists godoc
+// @Summary List available wordlists
+// @Description List all wordlists available for use in the playground
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Success 200 {array} manual.Wordlist
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/wordlists [get]
+func ListAvailableWordlists(c *fiber.Ctx) error {
+	storage := manual.NewFilesystemWordlistStorage()
+	wordlists, err := storage.GetWordlists()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to retrieve available wordlists")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to retrieve available wordlists",
+			"message": "There has been an error retrieving the wordlists",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"data":  wordlists,
+		"count": len(wordlists),
 	})
 }

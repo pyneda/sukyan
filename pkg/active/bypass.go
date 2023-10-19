@@ -8,6 +8,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc/pool"
 	"net/http"
+	"net/url"
+	"strings"
 )
 
 type ActiveModuleOptions struct {
@@ -110,7 +112,7 @@ func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 	p := pool.New().WithMaxGoroutines(options.Concurrency)
 
 	allHeaderTypes := [][]HeaderTest{ipBasedHeaders, urlBasedHeaders, portBasedHeaders, pathBasedHeaders}
-
+	// header bypass checks
 	for _, headers := range allHeaderTypes {
 		valueCombinations := generateCombinations(headers)
 
@@ -128,6 +130,29 @@ func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 				sendRequestAndCheckBypass(request, history, options, auditLog)
 			})
 		}
+	}
+	// url bypass checks
+	bypassURLs, err := generateBypassURLs(history)
+	if err != nil {
+		auditLog.Error().Err(err).Msg("Error generating bypass URLs")
+		return
+	}
+
+	for _, bypassURL := range bypassURLs {
+		p.Go(func() {
+			request, err := http_utils.BuildRequestFromHistoryItem(history)
+			if err != nil {
+				auditLog.Error().Err(err).Msgf("Error creating request for bypass URL: %s", bypassURL)
+				return
+			}
+			parsed, err := url.Parse(bypassURL)
+			if err != nil {
+				auditLog.Error().Err(err).Msgf("Error parsing bypass URL: %s", bypassURL)
+				return
+			}
+			request.URL = parsed
+			sendRequestAndCheckBypass(request, history, options, auditLog)
+		})
 	}
 	p.Wait()
 	auditLog.Info().Msg("Finished auth bypass scan")
@@ -158,6 +183,58 @@ func generateCombinations(headers []HeaderTest) []map[string]string {
 		}
 	}
 	return combinations
+}
+
+// Get the list of bypass URLs based on provided payloads.
+func generateBypassURLs(history *db.History) ([]string, error) {
+	originalURL, err := url.Parse(history.URL)
+	if err != nil {
+		return nil, err
+	}
+	urlPath := originalURL.Path
+
+	if urlPath == "" {
+		return nil, nil
+	}
+
+	segments := strings.Split(urlPath, "/")
+	if len(segments) < 2 {
+		return nil, nil
+	}
+	lastSegment := segments[len(segments)-1]
+	basePath := strings.Join(segments[:len(segments)-1], "/")
+
+	var pathPayloads = []string{
+		"/%2e/" + lastSegment,
+		lastSegment + "/./",
+		"/." + lastSegment + "/./",
+		lastSegment + "%20/",
+		"/%20" + lastSegment + "%20/",
+		lastSegment + "%09/",
+		"/%09" + lastSegment + "%09/",
+		lastSegment + "..;/",
+		lastSegment + "?",
+		lastSegment + "??",
+		"/" + lastSegment + "//",
+		lastSegment + "/",
+		strings.ToUpper(lastSegment),
+		lastSegment + "/.",
+		"//" + lastSegment + "//",
+		"/./" + lastSegment + "/..",
+		";/" + lastSegment,
+		".;/" + lastSegment,
+		"//;//" + lastSegment,
+	}
+
+	var bypassURLs []string
+	for _, payload := range pathPayloads {
+		newURL := *originalURL
+		newPath := basePath + payload
+		newURL.Path = newPath
+		bypassURLs = append(bypassURLs, newURL.String())
+	}
+
+	return bypassURLs, nil
 }
 
 func sendRequestAndCheckBypass(request *http.Request, original *db.History, options ActiveModuleOptions, auditLog zerolog.Logger) {
@@ -195,12 +272,12 @@ Bypassed Request:
 	Response Headers:
 	%s
 `, original.URL, original.Method, original.StatusCode, original.ResponseBodySize, originalHeaders, request.Header, history.StatusCode, history.ResponseBodySize, newHeaders)
-	
-	confidence := 75
-	if history.StatusCode >= 200 && history.StatusCode < 300 {
-		confidence = 90
-	}
 
-	db.CreateIssueFromHistoryAndTemplate(history, db.ForbiddenBypassCode, details, confidence, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
+		confidence := 75
+		if history.StatusCode >= 200 && history.StatusCode < 300 {
+			confidence = 90
+		}
+
+		db.CreateIssueFromHistoryAndTemplate(history, db.ForbiddenBypassCode, details, confidence, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
 	}
 }

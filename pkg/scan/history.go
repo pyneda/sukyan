@@ -21,7 +21,7 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 		TaskJobID:   options.TaskJobID,
 	}
 	if item.StatusCode == 401 || item.StatusCode == 403 {
-		active.AuthBypassScan(item, activeOptions)
+		active.ForbiddenBypassScan(item, activeOptions)
 	}
 
 	insertionPoints, err := GetInsertionPoints(item, options.InsertionPoints)

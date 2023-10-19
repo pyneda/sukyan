@@ -97,10 +97,10 @@ var pathBasedHeaders = []HeaderTest{
 	{"X-Real-URL", bypassPaths},
 }
 
-func AuthBypassScan(history *db.History, options ActiveModuleOptions) {
+func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 	auditLog := log.With().Str("audit", "bypass").Str("url", history.URL).Uint("workspace", options.WorkspaceID).Logger()
 
-	if history.StatusCode != 401 || history.StatusCode != 403 {
+	if history.StatusCode != 401 && history.StatusCode != 403 {
 		auditLog.Warn().Msg("Skipping auth bypass scan because the status code is not 401 or 403")
 		return
 	}
@@ -195,6 +195,12 @@ Bypassed Request:
 	Response Headers:
 	%s
 `, original.URL, original.Method, original.StatusCode, original.ResponseBodySize, originalHeaders, request.Header, history.StatusCode, history.ResponseBodySize, newHeaders)
-		db.CreateIssueFromHistoryAndTemplate(history, db.ForbiddenBypassCode, details, 80, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
+	
+	confidence := 75
+	if history.StatusCode >= 200 && history.StatusCode < 300 {
+		confidence = 90
+	}
+
+	db.CreateIssueFromHistoryAndTemplate(history, db.ForbiddenBypassCode, details, confidence, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
 	}
 }

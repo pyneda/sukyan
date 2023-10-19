@@ -1,0 +1,16 @@
+code: forbidden_bypass
+title: Forbidden Bypass (401/403)
+description:
+  The application fails to properly enforce access restrictions, allowing attackers 
+  to bypass 401 Unauthorized or 403 Forbidden responses. This vulnerability can 
+  lead to unauthorized access to protected resources.
+remediation:
+  Ensure strict access controls are in place and effectively enforced. Audit and 
+  review all endpoints that return 401 or 403 responses to validate their security 
+  against bypass attempts.
+cwe: 285
+severity: High
+references:
+  - https://owasp.org/Top10/A01_2021-Broken_Access_Control/
+  - https://book.hacktricks.xyz/network-services-pentesting/pentesting-web/403-and-401-bypasses
+  - https://blog.vidocsecurity.com/blog/401-and-403-bypass-how-to-do-it-right

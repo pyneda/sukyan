@@ -26,6 +26,7 @@ var (
 	EsiInjectionCode                     IssueCode = "esi_injection"
 	ExposedApiCredentialsCode            IssueCode = "exposed_api_credentials"
 	FileUploadDetectedCode               IssueCode = "file_upload_detected"
+	ForbiddenBypassCode                  IssueCode = "forbidden_bypass"
 	GrailsExceptionCode                  IssueCode = "grails_exception"
 	HeaderInsightsReportCode             IssueCode = "header_insights_report"
 	HttpMethodsCode                      IssueCode = "http_methods"
@@ -281,6 +282,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         434,
 		Severity:    "Info",
 		References:  []string{},
+	},
+	{
+		Code:        ForbiddenBypassCode,
+		Title:       "Forbidden Bypass (401/403)",
+		Description: "The application fails to properly enforce access restrictions, allowing attackers to bypass 401 Unauthorized or 403 Forbidden responses. This vulnerability can lead to unauthorized access to protected resources.",
+		Remediation: "Ensure strict access controls are in place and effectively enforced. Audit and review all endpoints that return 401 or 403 responses to validate their security against bypass attempts.",
+		Cwe:         285,
+		Severity:    "High",
+		References:  []string{"https://owasp.org/Top10/A01_2021-Broken_Access_Control/", "https://book.hacktricks.xyz/network-services-pentesting/pentesting-web/403-and-401-bypasses", "https://blog.vidocsecurity.com/blog/401-and-403-bypass-how-to-do-it-right"},
 	},
 	{
 		Code:        GrailsExceptionCode,

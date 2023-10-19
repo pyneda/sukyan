@@ -14,6 +14,16 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	taskLog := log.With().Uint("workspace", options.WorkspaceID).Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
 	taskLog.Info().Msg("Starting to scan history item")
 
+	activeOptions := active.ActiveModuleOptions{
+		Concurrency: 10,
+		WorkspaceID: options.WorkspaceID,
+		TaskID:      options.TaskID,
+		TaskJobID:   options.TaskJobID,
+	}
+	if item.StatusCode == 401 || item.StatusCode == 403 {
+		active.AuthBypassScan(item, activeOptions)
+	}
+
 	insertionPoints, err := GetInsertionPoints(item, options.InsertionPoints)
 	taskLog.Debug().Interface("insertionPoints", insertionPoints).Msg("Insertion points")
 	if err != nil {

@@ -149,8 +149,9 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		RawRequest:  []byte(rawRequest),
 		RawResponse: []byte(rawResponse),
 		// ResponseContentLength: response.ContentLength,
-		WorkspaceID: &workspaceID,
-		TaskID:      &taskID,
+		WorkspaceID:         &workspaceID,
+		TaskID:              &taskID,
+		PlaygroundSessionID: nil,
 	}
 	createdHistory, _ := db.Connection.CreateHistory(&history)
 	log.Debug().Interface("history", history).Msg("New history record created")

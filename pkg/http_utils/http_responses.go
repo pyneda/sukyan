@@ -130,6 +130,11 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		defer response.Request.Body.Close()
 	}
 
+	var playgroundSessionID *uint
+	if options.PlaygroundSessionID > 0 {
+		playgroundSessionID = &options.PlaygroundSessionID
+	}
+
 	record := db.History{
 		URL:                 response.Request.URL.String(),
 		Depth:               lib.CalculateURLDepth(response.Request.URL.String()),
@@ -149,7 +154,7 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		RawResponse:         responseData.Raw,
 		WorkspaceID:         &options.WorkspaceID,
 		TaskID:              &options.TaskID,
-		PlaygroundSessionID: &options.PlaygroundSessionID,
+		PlaygroundSessionID: playgroundSessionID,
 	}
 	return db.Connection.CreateHistory(&record)
 }

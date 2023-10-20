@@ -58,6 +58,7 @@ var ipBasedHeaders = []HeaderTest{
 	{"X-Host", bypassIPs},
 	{"X-Forwarded-Host", bypassIPs},
 	{"X-ProxyUser-Ip", bypassIPs},
+	{"X-Real-IP", bypassIPs},
 }
 
 var bypassURLs = []string{
@@ -66,8 +67,6 @@ var bypassURLs = []string{
 	"http://localhost",
 	"https://localhost",
 	"http://127.0.0.1:80",
-	"http://127.0.0.1:443",
-	"https://127.0.0.1:80",
 	"https://127.0.0.1:443",
 }
 
@@ -109,12 +108,14 @@ func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 	if options.Concurrency == 0 {
 		options.Concurrency = 5
 	}
+	client := http_utils.CreateHttpClient()
+
 	p := pool.New().WithMaxGoroutines(options.Concurrency)
 
 	allHeaderTypes := [][]HeaderTest{ipBasedHeaders, urlBasedHeaders, portBasedHeaders, pathBasedHeaders}
 	// header bypass checks
 	for _, headers := range allHeaderTypes {
-		valueCombinations := generateCombinations(headers)
+		valueCombinations := flattenHeaders(headers)
 
 		for _, combination := range valueCombinations {
 			comb := combination
@@ -127,7 +128,7 @@ func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 				for header, value := range comb {
 					request.Header.Set(header, value)
 				}
-				sendRequestAndCheckBypass(request, history, options, auditLog)
+				sendRequestAndCheckBypass(client, request, history, options, auditLog)
 			})
 		}
 	}
@@ -151,38 +152,22 @@ func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 				return
 			}
 			request.URL = parsed
-			sendRequestAndCheckBypass(request, history, options, auditLog)
+			sendRequestAndCheckBypass(client, request, history, options, auditLog)
 		})
 	}
 	p.Wait()
 	auditLog.Info().Msg("Finished auth bypass scan")
 }
 
-func generateCombinations(headers []HeaderTest) []map[string]string {
-	if len(headers) == 0 {
-		return []map[string]string{}
-	}
-
-	currentHeader := headers[0]
-	remainingHeaders := headers[1:]
-
-	subCombinations := generateCombinations(remainingHeaders)
-	if len(subCombinations) == 0 {
-		subCombinations = append(subCombinations, make(map[string]string))
-	}
-
-	var combinations []map[string]string
-	for _, value := range currentHeader.Values {
-		for _, subCombination := range subCombinations {
-			newCombination := make(map[string]string)
-			for k, v := range subCombination {
-				newCombination[k] = v
-			}
-			newCombination[currentHeader.HeaderName] = value
-			combinations = append(combinations, newCombination)
+// Flatten headers into a slice of individual header-value pairs
+func flattenHeaders(headerTests []HeaderTest) []map[string]string {
+	var flat []map[string]string
+	for _, ht := range headerTests {
+		for _, val := range ht.Values {
+			flat = append(flat, map[string]string{ht.HeaderName: val})
 		}
 	}
-	return combinations
+	return flat
 }
 
 // Get the list of bypass URLs based on provided payloads.
@@ -237,8 +222,7 @@ func generateBypassURLs(history *db.History) ([]string, error) {
 	return bypassURLs, nil
 }
 
-func sendRequestAndCheckBypass(request *http.Request, original *db.History, options ActiveModuleOptions, auditLog zerolog.Logger) {
-	client := http_utils.CreateHttpClient()
+func sendRequestAndCheckBypass(client *http.Client, request *http.Request, original *db.History, options ActiveModuleOptions, auditLog zerolog.Logger) {
 	response, err := client.Do(request)
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error during request")
@@ -251,27 +235,26 @@ func sendRequestAndCheckBypass(request *http.Request, original *db.History, opti
 		TaskID:              options.TaskID,
 		CreateNewBodyStream: false,
 	})
-	if history.StatusCode != 401 && history.StatusCode != 403 {
-		originalHeaders, _ := original.GetResponseHeadersAsString()
-		newHeaders, _ := history.GetResponseHeadersAsString()
+	if history.StatusCode != 401 && history.StatusCode != 403 && history.StatusCode != 404 {
+		bypassHeaders := http_utils.HeadersToString(request.Header)
+
 		details := fmt.Sprintf(`
 Original Request:
-	URL: %s
-	Method: %s
-	Status Code: %d
-	Response Size: %d bytes
-	Response Headers:
-	%s
+	-	URL: %s
+	-	Method: %s
+	-	Status Code: %d
+	-	Response Size: %d bytes
 
-Attempted Bypass with Headers:
-	%s
 
-Bypassed Request:
-	Status Code: %d
-	Response Size: %d bytes
-	Response Headers:
-	%s
-`, original.URL, original.Method, original.StatusCode, original.ResponseBodySize, originalHeaders, request.Header, history.StatusCode, history.ResponseBodySize, newHeaders)
+Attempted the bypass by making a request to %s with the following headers:
+
+%s
+
+
+Response received:
+	-	Status Code: %d
+	-	Response Size: %d bytes
+`, original.URL, original.Method, original.StatusCode, original.ResponseBodySize, request.URL, request.Header, history.StatusCode, history.ResponseBodySize)
 
 		confidence := 75
 		if history.StatusCode >= 200 && history.StatusCode < 300 {

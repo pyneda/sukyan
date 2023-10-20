@@ -32,6 +32,16 @@ func SetRequestHeadersFromHistoryItem(request *http.Request, historyItem *db.His
 	return nil
 }
 
+func HeadersToString(headersMap map[string][]string) {
+	headers := make([]string, 0, len(headersMap))
+	for name, values := range headersMap {
+		for _, value := range values {
+			headers = append(headers, fmt.Sprintf("%s: %s", name, value))
+		}
+	}
+	return strings.Join(headers, "\n")
+}
+
 // ClassifyHTTPResponseHeader classifies a given HTTP response header key by its purpose.
 func ClassifyHTTPResponseHeader(headerKey string) string {
 	headerCategories := map[string]map[string]bool{

@@ -254,7 +254,7 @@ Attempted the bypass by making a request to %s with the following headers:
 Response received:
 	-	Status Code: %d
 	-	Response Size: %d bytes
-`, original.URL, original.Method, original.StatusCode, original.ResponseBodySize, request.URL, request.Header, history.StatusCode, history.ResponseBodySize)
+`, original.URL, original.Method, original.StatusCode, original.ResponseBodySize, request.URL, bypassHeaders, history.StatusCode, history.ResponseBodySize)
 
 		confidence := 75
 		if history.StatusCode >= 200 && history.StatusCode < 300 {

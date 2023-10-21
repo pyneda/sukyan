@@ -6,6 +6,7 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -26,6 +27,19 @@ type RequestOptions struct {
 	UpdateContentLength bool `json:"update_content_length"`
 }
 
+func (o *RequestOptions) ToRawHTTPOptions() rawhttp.Options {
+	requestOptions := rawhttp.DefaultOptions
+	requestOptions.FollowRedirects = o.FollowRedirects
+	if o.MaxRedirects == 0 && o.FollowRedirects {
+		requestOptions.MaxRedirects = viper.GetInt("navigation.max_redirects")
+	} else {
+		requestOptions.MaxRedirects = o.MaxRedirects
+	}
+	requestOptions.AutomaticHostHeader = o.UpdateHostHeader
+	requestOptions.AutomaticContentLength = o.UpdateContentLength
+	return requestOptions
+}
+
 type RequestReplayOptions struct {
 	Request Request              `json:"request" validate:"required"`
 	Session db.PlaygroundSession `json:"session" validate:"required"`
@@ -36,19 +50,9 @@ type ReplayResult struct {
 	Result *db.History `json:"result"`
 }
 
-var defaultMaxRedirects = 10
-
 func Replay(input RequestReplayOptions) (ReplayResult, error) {
 	client := rawhttp.NewClient(rawhttp.DefaultOptions)
-	requestOptions := rawhttp.DefaultOptions
-	requestOptions.FollowRedirects = input.Options.FollowRedirects
-	if input.Options.MaxRedirects == 0 && input.Options.FollowRedirects {
-		requestOptions.MaxRedirects = defaultMaxRedirects
-	} else {
-		requestOptions.MaxRedirects = input.Options.MaxRedirects
-	}
-	requestOptions.AutomaticHostHeader = input.Options.UpdateHostHeader
-	requestOptions.AutomaticContentLength = input.Options.UpdateContentLength
+	requestOptions := input.Options.ToRawHTTPOptions()
 	bodyReader := bytes.NewReader([]byte(input.Request.Body))
 	resp, err := client.DoRawWithOptions(input.Request.Method, input.Request.URL, input.Request.URI, input.Request.Headers, bodyReader, requestOptions)
 

@@ -27,7 +27,7 @@ type RequestOptions struct {
 	UpdateContentLength bool `json:"update_content_length"`
 }
 
-func (o *RequestOptions) ToRawHTTPOptions() rawhttp.Options {
+func (o *RequestOptions) ToRawHTTPOptions() *rawhttp.Options {
 	requestOptions := rawhttp.DefaultOptions
 	requestOptions.FollowRedirects = o.FollowRedirects
 	if o.MaxRedirects == 0 && o.FollowRedirects {

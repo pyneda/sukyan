@@ -2,6 +2,7 @@ package http_utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"net/http"
@@ -32,7 +33,7 @@ func SetRequestHeadersFromHistoryItem(request *http.Request, historyItem *db.His
 	return nil
 }
 
-func HeadersToString(headersMap map[string][]string) {
+func HeadersToString(headersMap map[string][]string) string {
 	headers := make([]string, 0, len(headersMap))
 	for name, values := range headersMap {
 		for _, value := range values {

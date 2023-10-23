@@ -907,6 +907,51 @@
                 }
             }
         },
+        "/api/v1/playground/fuzz": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Schedules a new task to fuzz the provided request with the provided insertion points, payloads, etc and returns the task ID to filter the results",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Schedules a new task to fuzz the provided request",
+                "parameters": [
+                    {
+                        "description": "Set the fuzzing request configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.PlaygroundFuzzInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/playground/replay": {
             "post": {
                 "security": [
@@ -1974,6 +2019,37 @@
                 }
             }
         },
+        "api.PlaygroundFuzzInput": {
+            "type": "object",
+            "required": [
+                "insertion_points",
+                "raw_request",
+                "session_id",
+                "url"
+            ],
+            "properties": {
+                "insertion_points": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/manual.FuzzerInsertionPoint"
+                    }
+                },
+                "options": {
+                    "$ref": "#/definitions/manual.RequestOptions"
+                },
+                "raw_request": {
+                    "type": "string",
+                    "example": "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+                },
+                "session_id": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string",
+                    "example": "https://example.com/"
+                }
+            }
+        },
         "api.PlaygroundReplayInput": {
             "type": "object",
             "required": [
@@ -2859,6 +2935,52 @@
                 "High",
                 "Critical"
             ]
+        },
+        "manual.FuzzerInsertionPoint": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "integer"
+                },
+                "originalValue": {
+                    "type": "string"
+                },
+                "payloadGroups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/manual.FuzzerPayloadsGroup"
+                    }
+                },
+                "start": {
+                    "type": "integer"
+                }
+            }
+        },
+        "manual.FuzzerPayloadsGroup": {
+            "type": "object",
+            "properties": {
+                "payloads": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "processors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "base64encode"
+                    ]
+                },
+                "type": {
+                    "type": "string"
+                },
+                "wordlist": {
+                    "type": "string"
+                }
+            }
         },
         "manual.ReplayResult": {
             "type": "object",

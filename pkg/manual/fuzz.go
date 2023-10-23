@@ -5,6 +5,7 @@ import (
 )
 
 type RequestFuzzOptions struct {
+	URL             string                 `json:"url" validate:"required"`
 	Raw             string                 `json:"raw" validate:"required"`
 	InsertionPoints []FuzzerInsertionPoint `json:"insertion_points" validate:"required"`
 	Session         db.PlaygroundSession   `json:"session" validate:"required"`
@@ -14,7 +15,7 @@ type RequestFuzzOptions struct {
 type FuzzerPayloadsGroup struct {
 	Payloads   []string `json:"payloads"`
 	Type       string   `json:"type"`
-	Processors []string `json:"processors,omitempty" validate:"omitempty,dive,oneof=base64encode base64decode urlencode urldecode sha1hash sha256hash md5hash`
+	Processors []string `json:"processors,omitempty" validate:"omitempty,dive,oneof=base64encode base64decode urlencode urldecode sha1hash sha256hash md5hash" example:"base64encode"`
 	Wordlist   string   `json:"wordlist,omitempty"`
 }
 

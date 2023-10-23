@@ -27,6 +27,7 @@ type TaskFilter struct {
 }
 
 var (
+	TaskStatusPending         string = "pending"
 	TaskStatusCrawling        string = "crawling"
 	TaskStatusScanning        string = "scanning"
 	TaskStatusNuclei          string = "nuclei"

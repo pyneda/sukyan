@@ -71,6 +71,28 @@ definitions:
     required:
     - items
     type: object
+  api.PlaygroundFuzzInput:
+    properties:
+      insertion_points:
+        items:
+          $ref: '#/definitions/manual.FuzzerInsertionPoint'
+        type: array
+      options:
+        $ref: '#/definitions/manual.RequestOptions'
+      raw_request:
+        example: "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+        type: string
+      session_id:
+        type: integer
+      url:
+        example: https://example.com/
+        type: string
+    required:
+    - insertion_points
+    - raw_request
+    - session_id
+    - url
+    type: object
   api.PlaygroundReplayInput:
     properties:
       options:
@@ -676,6 +698,36 @@ definitions:
     - Medium
     - High
     - Critical
+  manual.FuzzerInsertionPoint:
+    properties:
+      end:
+        type: integer
+      originalValue:
+        type: string
+      payloadGroups:
+        items:
+          $ref: '#/definitions/manual.FuzzerPayloadsGroup'
+        type: array
+      start:
+        type: integer
+    type: object
+  manual.FuzzerPayloadsGroup:
+    properties:
+      payloads:
+        items:
+          type: string
+        type: array
+      processors:
+        example:
+        - base64encode
+        items:
+          type: string
+        type: array
+      type:
+        type: string
+      wordlist:
+        type: string
+    type: object
   manual.ReplayResult:
     properties:
       result:
@@ -1367,6 +1419,35 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Create a new playground collection
+      tags:
+      - Playground
+  /api/v1/playground/fuzz:
+    post:
+      consumes:
+      - application/json
+      description: Schedules a new task to fuzz the provided request with the provided
+        insertion points, payloads, etc and returns the task ID to filter the results
+      parameters:
+      - description: Set the fuzzing request configuration
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.PlaygroundFuzzInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Schedules a new task to fuzz the provided request
       tags:
       - Playground
   /api/v1/playground/replay:

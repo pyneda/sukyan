@@ -6,39 +6,10 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 )
-
-type Request struct {
-	URL     string              `json:"url" validate:"required"`
-	URI     string              `json:"uri" validate:"omitempty"`
-	Method  string              `json:"method" validate:"required"`
-	Headers map[string][]string `json:"headers" validate:"required"`
-	Body    string              `json:"body" validate:"omitempty"`
-}
-
-type RequestOptions struct {
-	FollowRedirects     bool `json:"follow_redirects"`
-	MaxRedirects        int  `json:"max_redirects" validate:"min=0"`
-	UpdateHostHeader    bool `json:"update_host_header"`
-	UpdateContentLength bool `json:"update_content_length"`
-}
-
-func (o *RequestOptions) ToRawHTTPOptions() *rawhttp.Options {
-	requestOptions := rawhttp.DefaultOptions
-	requestOptions.FollowRedirects = o.FollowRedirects
-	if o.MaxRedirects == 0 && o.FollowRedirects {
-		requestOptions.MaxRedirects = viper.GetInt("navigation.max_redirects")
-	} else {
-		requestOptions.MaxRedirects = o.MaxRedirects
-	}
-	requestOptions.AutomaticHostHeader = o.UpdateHostHeader
-	requestOptions.AutomaticContentLength = o.UpdateContentLength
-	return requestOptions
-}
 
 type RequestReplayOptions struct {
 	Request Request              `json:"request" validate:"required"`

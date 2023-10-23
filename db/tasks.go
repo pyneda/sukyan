@@ -7,15 +7,17 @@ import (
 
 type Task struct {
 	BaseModel
-	Title       string    `json:"title"`
-	Status      string    `gorm:"index" json:"status"`
-	StartedAt   time.Time `json:"started_at"`
-	FinishedAt  time.Time `json:"finished_at"`
-	Workspace   Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID uint      `json:"workspace_id" gorm:"index" `
-	Histories   []History `gorm:"foreignKey:TaskID" json:"-"`
-	Issues      []Issue   `gorm:"foreignKey:TaskID" json:"-"`
-	Stats       TaskStats `gorm:"-" json:"stats,omitempty"`
+	Title               string            `json:"title"`
+	Status              string            `gorm:"index" json:"status"`
+	StartedAt           time.Time         `json:"started_at"`
+	FinishedAt          time.Time         `json:"finished_at"`
+	Workspace           Workspace         `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	WorkspaceID         uint              `json:"workspace_id" gorm:"index" `
+	Histories           []History         `gorm:"foreignKey:TaskID" json:"-"`
+	Issues              []Issue           `gorm:"foreignKey:TaskID" json:"-"`
+	Stats               TaskStats         `gorm:"-" json:"stats,omitempty"`
+	PlaygroundSessionID *uint             `json:"playground_session_id"`
+	PlaygroundSession   PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID"`
 }
 
 type TaskFilter struct {

@@ -108,6 +108,7 @@ func StartAPI() {
 	api.Post("/report", JWTProtected(), ReportHandler)
 	api.Get("/sitemap", JWTProtected(), GetSitemap)
 	api.Post("/playground/replay", JWTProtected(), ReplayRequest)
+	api.Post("/playground/fuzz", JWTProtected(), FuzzRequest)
 	api.Get("/playground/collections", JWTProtected(), ListPlaygroundCollections)
 	api.Post("/playground/collections", JWTProtected(), CreatePlaygroundCollection)
 	api.Get("/playground/sessions", JWTProtected(), ListPlaygroundSessions)

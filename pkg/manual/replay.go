@@ -73,10 +73,11 @@ func Replay(input RequestReplayOptions) (ReplayResult, error) {
 		Header: input.Request.Headers,
 		Body:   ioutil.NopCloser(bytes.NewReader([]byte(input.Request.Body))),
 	}
-	taskID := input.Session.TaskID
-	if taskID == nil {
-		taskID = new(uint)
-	}
+	// taskID := input.Session.TaskID
+	// if taskID == nil {
+	// 	taskID = new(uint)
+	// }
+	taskID := new(uint)
 
 	options := http_utils.HistoryCreationOptions{
 		Source:              db.SourceRepeater,

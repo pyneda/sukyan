@@ -1039,12 +1039,6 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Filter by task ID",
-                        "name": "task",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
                         "description": "Filter by collection ID",
                         "name": "collection",
                         "in": "query"
@@ -1076,7 +1070,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Sort by field (id, name, type, original_request_id, task, collection, workspace)",
+                        "description": "Sort by field (id, name, type, original_request_id, collection, workspace)",
                         "name": "sort_by",
                         "in": "query"
                     },
@@ -2694,6 +2688,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "collection_id": {
+                    "description": "Task              Task                 ` + "`" + `json:\"-\" gorm:\"foreignKey:TaskID\"` + "`" + `\nTaskID            *uint                ` + "`" + `json:\"task_id\"` + "`" + `",
                     "type": "integer"
                 },
                 "created_at": {
@@ -2707,9 +2702,6 @@ const docTemplate = `{
                 },
                 "original_request_id": {
                     "description": "OriginalRequest   History               ` + "`" + `json:\"-\" gorm:\"foreignKey:OriginalRequestID\"` + "`" + `",
-                    "type": "integer"
-                },
-                "task_id": {
                     "type": "integer"
                 },
                 "type": {

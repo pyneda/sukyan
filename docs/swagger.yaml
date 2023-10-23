@@ -518,6 +518,9 @@ definitions:
   db.PlaygroundSession:
     properties:
       collection_id:
+        description: |-
+          Task              Task                 `json:"-" gorm:"foreignKey:TaskID"`
+          TaskID            *uint                `json:"task_id"`
         type: integer
       created_at:
         type: string
@@ -527,8 +530,6 @@ definitions:
         type: string
       original_request_id:
         description: OriginalRequest   History               `json:"-" gorm:"foreignKey:OriginalRequestID"`
-        type: integer
-      task_id:
         type: integer
       type:
         $ref: '#/definitions/db.PlaygroundSessionType'
@@ -1492,10 +1493,6 @@ paths:
         in: query
         name: original_request_id
         type: integer
-      - description: Filter by task ID
-        in: query
-        name: task
-        type: integer
       - description: Filter by collection ID
         in: query
         name: collection
@@ -1517,7 +1514,7 @@ paths:
         in: query
         name: page_size
         type: integer
-      - description: Sort by field (id, name, type, original_request_id, task, collection,
+      - description: Sort by field (id, name, type, original_request_id, collection,
           workspace)
         in: query
         name: sort_by

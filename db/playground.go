@@ -29,14 +29,14 @@ type PlaygroundSession struct {
 	Name string                `json:"name"`
 	Type PlaygroundSessionType `json:"type"`
 	// OriginalRequest   History               `json:"-" gorm:"foreignKey:OriginalRequestID"`
-	OriginalRequestID *uint                `json:"original_request_id"`
-	Task              Task                 `json:"-" gorm:"foreignKey:TaskID"`
-	TaskID            *uint                `json:"task_id"`
-	CollectionID      uint                 `json:"collection_id"`
-	Collection        PlaygroundCollection `json:"-" gorm:"foreignKey:CollectionID"`
-	WorkspaceID       uint                 `json:"workspace_id" gorm:"index"`
-	Workspace         Workspace            `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Histories         []History            `gorm:"foreignKey:PlaygroundSessionID" json:"-"`
+	OriginalRequestID *uint `json:"original_request_id"`
+	// Task              Task                 `json:"-" gorm:"foreignKey:TaskID"`
+	// TaskID            *uint                `json:"task_id"`
+	CollectionID uint                 `json:"collection_id"`
+	Collection   PlaygroundCollection `json:"-" gorm:"foreignKey:CollectionID"`
+	WorkspaceID  uint                 `json:"workspace_id" gorm:"index"`
+	Workspace    Workspace            `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Histories    []History            `gorm:"foreignKey:PlaygroundSessionID" json:"-"`
 }
 
 // PlaygroundCollectionFilters contains filters for listing PlaygroundCollections.
@@ -87,11 +87,11 @@ type PlaygroundSessionFilters struct {
 	Query             string                `json:"query"`
 	Type              PlaygroundSessionType `json:"type"`
 	OriginalRequestID uint                  `json:"original_request_id"`
-	TaskID            uint                  `json:"task_id"`
-	CollectionID      uint                  `json:"collection_id"`
-	WorkspaceID       uint                  `json:"workspace_id"`
-	SortBy            string                `json:"sort_by" validate:"omitempty,oneof=id name type workspace_id collection_id created_at updated_at"`
-	SortOrder         string                `json:"sort_order" validate:"omitempty,oneof=asc desc"`
+	// TaskID            uint                  `json:"task_id"`
+	CollectionID uint   `json:"collection_id"`
+	WorkspaceID  uint   `json:"workspace_id"`
+	SortBy       string `json:"sort_by" validate:"omitempty,oneof=id name type workspace_id collection_id created_at updated_at"`
+	SortOrder    string `json:"sort_order" validate:"omitempty,oneof=asc desc"`
 	Pagination
 }
 
@@ -105,9 +105,9 @@ func (d *DatabaseConnection) ListPlaygroundSessions(filters PlaygroundSessionFil
 	if filters.OriginalRequestID > 0 {
 		query = query.Where("original_request_id = ?", filters.OriginalRequestID)
 	}
-	if filters.TaskID > 0 {
-		query = query.Where("task_id = ?", filters.TaskID)
-	}
+	// if filters.TaskID > 0 {
+	// 	query = query.Where("task_id = ?", filters.TaskID)
+	// }
 	if filters.CollectionID > 0 {
 		query = query.Where("collection_id = ?", filters.CollectionID)
 	}

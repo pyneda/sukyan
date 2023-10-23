@@ -201,13 +201,12 @@ func ListPlaygroundCollections(c *fiber.Ctx) error {
 // @Produce json
 // @Param type query string false "Filter by session type (manual, fuzz)"
 // @Param original_request_id query uint false "Filter by original request ID"
-// @Param task query uint false "Filter by task ID"
 // @Param collection query uint false "Filter by collection ID"
 // @Param workspace query uint true "Filter by workspace ID"
 // @Param query query string false "Search by name"
 // @Param page query int false "Page number for pagination"
 // @Param page_size query int false "Page size for pagination"
-// @Param sort_by query string false "Sort by field (id, name, type, original_request_id, task, collection, workspace)"
+// @Param sort_by query string false "Sort by field (id, name, type, original_request_id, collection, workspace)"
 // @Param sort_order query string false "Sort order (asc, desc)"
 // @Success 200 {array} db.PlaygroundSession
 // @Failure 400 {object} ErrorResponse
@@ -220,18 +219,6 @@ func ListPlaygroundSessions(c *fiber.Ctx) error {
 			"error":   "Invalid workspace",
 			"message": "The provided workspace ID does not seem valid",
 		})
-	}
-
-	taskID, err := parseTaskID(c)
-	if err != nil {
-		if c.Query("task") != "" {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error":   "Invalid task",
-				"message": "The provided task ID does not seem valid",
-			})
-		} else {
-			taskID = uint(0)
-		}
 	}
 
 	collectionID, err := parsePlaygroundCollectionID(c)
@@ -249,7 +236,6 @@ func ListPlaygroundSessions(c *fiber.Ctx) error {
 	input := db.PlaygroundSessionFilters{
 		Type:              db.PlaygroundSessionType(c.Query("type")),
 		OriginalRequestID: uint(c.QueryInt("original_request_id", 0)),
-		TaskID:            taskID,
 		CollectionID:      collectionID,
 		WorkspaceID:       workspaceID,
 		Query:             c.Query("query"),

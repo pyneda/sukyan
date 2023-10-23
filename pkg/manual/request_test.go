@@ -222,3 +222,71 @@ func TestInvalidParseRawRequest(t *testing.T) {
 	}
 
 }
+
+func TestInsertPayloadIntoRawRequest(t *testing.T) {
+	tests := []struct {
+		name     string
+		raw      string
+		point    FuzzerInsertionPoint
+		payload  string
+		expected string
+	}{
+		{
+			name: "insert at beginning",
+			raw:  "original content",
+			point: FuzzerInsertionPoint{
+				Start: 0,
+				End:   0,
+			},
+			payload:  "payload ",
+			expected: "payload original content",
+		},
+		{
+			name: "insert at end",
+			raw:  "original content",
+			point: FuzzerInsertionPoint{
+				Start: 16,
+				End:   16,
+			},
+			payload:  " appended",
+			expected: "original content appended",
+		},
+		{
+			name: "replace in the middle",
+			raw:  "original content here",
+			point: FuzzerInsertionPoint{
+				Start: 9,
+				End:   16,
+			},
+			payload:  "replacement",
+			expected: "original replacement here",
+		},
+		{
+			name: "replace entire content",
+			raw:  "replace me",
+			point: FuzzerInsertionPoint{
+				Start: 0,
+				End:   10,
+			},
+			payload:  "I'm new",
+			expected: "I'm new",
+		},
+		{
+			name: "insert between characters",
+			raw:  "123456",
+			point: FuzzerInsertionPoint{
+				Start: 3,
+				End:   3,
+			},
+			payload:  "ABC",
+			expected: "123ABC456",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := InsertPayloadIntoRawRequest(tt.raw, tt.point, tt.payload)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

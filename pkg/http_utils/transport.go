@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
+	"golang.org/x/net/http2"
 	"net"
 	"net/http"
 	"net/url"
@@ -46,11 +47,40 @@ func CreateHttpTransport() *http.Transport {
 	return transport
 }
 
+func CreateHttp2Transport() *http2.Transport {
+	return &http2.Transport{
+		// Ensure the connection uses only HTTP/2 without falling back.
+		AllowHTTP: false,
+		DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+			if cfg == nil {
+				cfg = &tls.Config{}
+			}
+			cfg.NextProtos = []string{"h2"} // Enforce HTTP/2.0
+			return tls.DialWithDialer(&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}, network, addr, cfg)
+		},
+		TLSClientConfig: &tls.Config{
+			Renegotiation:      tls.RenegotiateOnceAsClient,
+			InsecureSkipVerify: true,
+		},
+	}
+}
+
 func CreateHttpClient() *http.Client {
 	transport := CreateHttpTransport()
 	client := &http.Client{
 		Transport: transport,
 		// Timeout:   time.Duration(viper.GetInt("navigation.timeout")) * time.Second,
+	}
+	return client
+}
+
+func CreateHttp2Client() *http.Client {
+	transport := CreateHttp2Transport()
+	client := &http.Client{
+		Transport: transport,
 	}
 	return client
 }

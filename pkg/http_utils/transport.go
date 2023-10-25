@@ -2,8 +2,10 @@ package http_utils
 
 import (
 	"crypto/tls"
+	"github.com/quic-go/quic-go/http3"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
+
 	"golang.org/x/net/http2"
 	"net"
 	"net/http"
@@ -24,6 +26,7 @@ func getProxyFunc() func(*http.Request) (*url.URL, error) {
 	return http.ProxyURL(proxyURL)
 }
 
+// CreateHttpTransport creates an HTTP transport with no pre-defined http version.
 func CreateHttpTransport() *http.Transport {
 	transport := &http.Transport{
 		Proxy: getProxyFunc(),
@@ -47,6 +50,7 @@ func CreateHttpTransport() *http.Transport {
 	return transport
 }
 
+// CreateHttp2Transport creates an HTTP/2 transport.
 func CreateHttp2Transport() *http2.Transport {
 	return &http2.Transport{
 		// Ensure the connection uses only HTTP/2 without falling back.
@@ -68,6 +72,7 @@ func CreateHttp2Transport() *http2.Transport {
 	}
 }
 
+// CreateHttpClient creates a regular HTTP client.
 func CreateHttpClient() *http.Client {
 	transport := CreateHttpTransport()
 	client := &http.Client{
@@ -77,10 +82,30 @@ func CreateHttpClient() *http.Client {
 	return client
 }
 
+// CreateHttp2Client creates an HTTP/2 client.
 func CreateHttp2Client() *http.Client {
 	transport := CreateHttp2Transport()
 	client := &http.Client{
 		Transport: transport,
 	}
 	return client
+}
+
+// CreateHTTP3Transport creates an HTTP/3 transport.
+func CreateHTTP3Transport() *http3.RoundTripper {
+	return &http3.RoundTripper{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+		DisableCompression: false,
+		EnableDatagrams:    true,
+	}
+}
+
+// CreateHTTP3Client creates an HTTP/3 client.
+func CreateHTTP3Client() *http.Client {
+	transport := CreateHTTP3Transport()
+	return &http.Client{
+		Transport: transport,
+	}
 }

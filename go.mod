@@ -27,6 +27,7 @@ require (
 	github.com/projectdiscovery/rawhttp v0.1.22
 	github.com/projectdiscovery/wappalyzergo v0.0.109
 	github.com/pyneda/nuclei-api v0.0.0-20230715211054-636941207b06
+	github.com/quic-go/quic-go v0.39.1
 	github.com/rs/zerolog v1.31.0
 	github.com/sourcegraph/conc v0.3.0
 	github.com/spf13/cobra v1.7.0
@@ -35,6 +36,7 @@ require (
 	github.com/swaggo/swag v1.16.2
 	github.com/ysmood/gson v0.7.3
 	golang.org/x/crypto v0.14.0
+	golang.org/x/net v0.17.0
 	google.golang.org/grpc v1.59.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.2.0
@@ -82,11 +84,13 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-sql-driver/mysql v1.7.1 // indirect
+	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/goburrow/cache v0.1.4 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
 	github.com/gorilla/css v1.0.0 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -122,6 +126,7 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
+	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
@@ -138,7 +143,8 @@ require (
 	github.com/projectdiscovery/retryabledns v1.0.39 // indirect
 	github.com/projectdiscovery/retryablehttp-go v1.0.31 // indirect
 	github.com/projectdiscovery/utils v0.0.58 // indirect
-	github.com/quic-go/quic-go v0.39.1 // indirect
+	github.com/quic-go/qpack v0.4.0 // indirect
+	github.com/quic-go/qtls-go1-20 v0.3.4 // indirect
 	github.com/refraction-networking/utls v1.5.4 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rs/xid v1.5.0 // indirect
@@ -179,12 +185,12 @@ require (
 	github.com/zmap/rc2 v0.0.0-20190804163417-abaa70531248 // indirect
 	github.com/zmap/zcrypto v0.0.0-20231018155041-c1c1128be414 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
+	go.uber.org/mock v0.3.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
 	goftp.io/server/v2 v2.0.1 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/mod v0.13.0 // indirect
-	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.13.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect

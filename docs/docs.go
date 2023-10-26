@@ -2258,6 +2258,9 @@ const docTemplate = `{
                 "playground_session_id": {
                     "type": "integer"
                 },
+                "proto": {
+                    "type": "string"
+                },
                 "raw_request": {
                     "type": "array",
                     "items": {
@@ -2826,6 +2829,9 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "playground_session_id": {
+                    "type": "integer"
+                },
                 "started_at": {
                     "type": "string"
                 },
@@ -3010,6 +3016,9 @@ const docTemplate = `{
                             "type": "string"
                         }
                     }
+                },
+                "http_version": {
+                    "type": "string"
                 },
                 "method": {
                     "type": "string"

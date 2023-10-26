@@ -29,6 +29,7 @@ type History struct {
 	RawRequest           []byte            `json:"raw_request"`
 	RawResponse          []byte            `json:"raw_response"`
 	Method               string            `gorm:"index" json:"method"`
+	Proto                string            `json:"proto" gorm:"index"`
 	ParametersCount      int               `gorm:"index" json:"parameters_count"`
 	Evaluated            bool              `gorm:"index" json:"evaluated"`
 	Note                 string            `json:"note"`

@@ -155,6 +155,7 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		WorkspaceID:         &options.WorkspaceID,
 		TaskID:              &options.TaskID,
 		PlaygroundSessionID: playgroundSessionID,
+		Proto:               response.Proto,
 	}
 	return db.Connection.CreateHistory(&record)
 }

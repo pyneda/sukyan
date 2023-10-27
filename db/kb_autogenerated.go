@@ -29,6 +29,8 @@ var (
 	ForbiddenBypassCode                  IssueCode = "forbidden_bypass"
 	GrailsExceptionCode                  IssueCode = "grails_exception"
 	HeaderInsightsReportCode             IssueCode = "header_insights_report"
+	Http2DetectedCode                    IssueCode = "http2_detected"
+	Http3DetectedCode                    IssueCode = "http3_detected"
 	HttpMethodsCode                      IssueCode = "http_methods"
 	IdorCode                             IssueCode = "idor"
 	IncorrectContentTypeHeaderCode       IssueCode = "incorrect_content_type_header"
@@ -309,6 +311,24 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         0,
 		Severity:    "Info",
 		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers", "https://owasp.org/www-project-secure-headers/"},
+	},
+	{
+		Code:        Http2DetectedCode,
+		Title:       "HTTP/2 Protocol in Use",
+		Description: "The application has been detected using the HTTP/2 protocol. While HTTP/2 provides significant benefits in performance and features, like header compression, multiplexing, and prioritization, it's not without some HTTP/2 specific vulnerabilities such as certain request smuggling techniques.",
+		Remediation: "Ensure that the server appropriately announces its support for HTTP/2 and that the HTTP/2 implementation adheres to best practices. Keep server software or supporting libraries updated to receive the latest security patches.",
+		Cwe:         0,
+		Severity:    "Info",
+		References:  []string{"https://portswigger.net/research/http2", "https://tools.ietf.org/html/rfc7540", "https://developers.google.com/web/fundamentals/performance/http2"},
+	},
+	{
+		Code:        Http3DetectedCode,
+		Title:       "HTTP/3 Protocol in Use",
+		Description: "The application is utilizing the HTTP/3 protocol. HTTP/3, the successor to HTTP/2, offers performance enhancements and operates over the QUIC transport protocol, which aims to improve upon the shortcomings of TCP. This includes benefits like reduced latency and better congestion control. However, as with any protocol, incorrect implementations or configurations can introduce vulnerabilities specific to HTTP/3 and QUIC.",
+		Remediation: "Ensure the server signals its support for HTTP/3 correctly and that the HTTP/3 and QUIC implementations align with best practices. Regularly update server software or libraries that handle HTTP/3 to incorporate the latest security improvements.",
+		Cwe:         0,
+		Severity:    "Info",
+		References:  []string{"https://www.cloudflare.com/learning/performance/what-is-http3/", "https://www.rfc-editor.org/rfc/rfc9114.html", "https://portswigger.net/research/http-3-connection-contamination"},
 	},
 	{
 		Code:        HttpMethodsCode,

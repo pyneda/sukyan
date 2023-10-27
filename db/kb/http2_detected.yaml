@@ -1,0 +1,12 @@
+code: http2_detected
+title: HTTP/2 Protocol in Use
+description:
+  The application has been detected using the HTTP/2 protocol. While HTTP/2 provides significant benefits in performance and features, like header compression, multiplexing, and prioritization, it's not without some HTTP/2 specific vulnerabilities such as certain request smuggling techniques.
+remediation:
+  Ensure that the server appropriately announces its support for HTTP/2 and that the HTTP/2 implementation adheres to best practices. Keep server software or supporting libraries updated to receive the latest security patches.
+cwe: 0
+severity: Info
+references:
+  - https://portswigger.net/research/http2
+  - https://tools.ietf.org/html/rfc7540
+  - https://developers.google.com/web/fundamentals/performance/http2

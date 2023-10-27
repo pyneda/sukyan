@@ -64,23 +64,6 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 		// pathTraversal.Run()
 	}
 
-	// sni := active.SNIAudit{
-	// 	HistoryItem:         item,
-	// 	InteractionsManager: interactionsManager,
-	// 	WorkspaceID:         options.WorkspaceID,
-	// 	TaskID:      options.TaskID,
-	// TaskJobID:   options.TaskJobID,
-	// }
-	// sni.Run()
-	methods := active.HTTPMethodsAudit{
-		HistoryItem: item,
-		Concurrency: 5,
-		WorkspaceID: options.WorkspaceID,
-		TaskID:      options.TaskID,
-		TaskJobID:   options.TaskJobID,
-	}
-	methods.Run()
-
 	if options.IsScopedInsertionPoint("headers") {
 		log4shell := active.Log4ShellInjectionAudit{
 			URL:                 item.URL,
@@ -100,5 +83,27 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 		}
 		hostHeader.Run()
 	}
+
+	// NOTE: Checks below is probably not worth to run against every history item,
+	// but also not only once per target. Should find a way to run them only in some cases
+	// but ensuring they are checked against X different history items per target.
+	sni := active.SNIAudit{
+		HistoryItem:         item,
+		InteractionsManager: interactionsManager,
+		WorkspaceID:         options.WorkspaceID,
+		TaskID:              options.TaskID,
+		TaskJobID:           options.TaskJobID,
+	}
+	sni.Run()
+
+	active.HttpVersionsScan(item, activeOptions)
+	methods := active.HTTPMethodsAudit{
+		HistoryItem: item,
+		Concurrency: 5,
+		WorkspaceID: options.WorkspaceID,
+		TaskID:      options.TaskID,
+		TaskJobID:   options.TaskJobID,
+	}
+	methods.Run()
 	log.Info().Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Msg("Finished scanning history item")
 }

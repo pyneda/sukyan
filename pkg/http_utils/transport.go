@@ -91,8 +91,8 @@ func CreateHttp2Client() *http.Client {
 	return client
 }
 
-// CreateHTTP3Transport creates an HTTP/3 transport.
-func CreateHTTP3Transport() *http3.RoundTripper {
+// CreateHttp3Transport creates an HTTP/3 transport.
+func CreateHttp3Transport() *http3.RoundTripper {
 	return &http3.RoundTripper{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
@@ -102,9 +102,9 @@ func CreateHTTP3Transport() *http3.RoundTripper {
 	}
 }
 
-// CreateHTTP3Client creates an HTTP/3 client.
-func CreateHTTP3Client() *http.Client {
-	transport := CreateHTTP3Transport()
+// CreateHttp3Client creates an HTTP/3 client.
+func CreateHttp3Client() *http.Client {
+	transport := CreateHttp3Transport()
 	return &http.Client{
 		Transport: transport,
 	}

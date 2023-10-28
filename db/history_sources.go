@@ -6,6 +6,7 @@ var SourceCrawler = "Crawler"
 var SourceHijack = "Hijack"
 var SourceRepeater = "Repeater"
 var SourceBrowser = "Browser"
+var SourceFuzzer = "Fuzzer"
 
 var Sources = []string{
 	SourceScanner,
@@ -14,6 +15,7 @@ var Sources = []string{
 	SourceHijack,
 	SourceRepeater,
 	SourceBrowser,
+	SourceFuzzer,
 }
 
 func IsValidSource(source string) bool {

@@ -5,6 +5,8 @@ import (
 	"github.com/projectdiscovery/rawhttp"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
+	"github.com/sourcegraph/conc/pool"
+
 	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"net/http"
@@ -60,6 +62,8 @@ func Fuzz(input RequestFuzzOptions, taskID uint) error {
 	pipeOptions.Host = parsedUrl.Host
 	pipeOptions.AutomaticHostHeader = false
 	pipeClient := rawhttp.NewPipelineClient(pipeOptions)
+	// NOTE: Concurrency should be provided as option. Same as other pipeline options.
+	p := pool.New().WithMaxGoroutines(30)
 
 	// Determine the smallest payload set
 	smallestPayloadSetSize := len(input.InsertionPoints[0].generatePayloads())
@@ -82,40 +86,42 @@ func Fuzz(input RequestFuzzOptions, taskID uint) error {
 			allPayloads := point.generatePayloads()
 			payloadsForThisRequest[j] = allPayloads[i]
 		}
+		p.Go(func() {
+			fuzzedRawRequest := replacePayloadsInRaw(input.Raw, input.InsertionPoints, payloadsForThisRequest)
+			log.Info().Msgf("Fuzzed request: %s", fuzzedRawRequest)
+			parsedRequest, err := ParseRawRequest(fuzzedRawRequest, input.URL)
+			if err != nil {
+				log.Error().Err(err).Msg("Error parsing fuzzed request")
+				return
+			}
+			log.Info().Interface("parsedRequest", parsedRequest).Msg("Parsed fuzzed request")
+			bodyReader := bytes.NewReader([]byte(parsedRequest.Body))
+			response, err := pipeClient.DoRaw(parsedRequest.Method, parsedRequest.URL, parsedRequest.URI, parsedRequest.Headers, bodyReader)
+			if err != nil {
+				log.Error().Err(err).Msg("Error sending fuzzed request")
+				return
+			}
+			// NOTE: rawhttp doesn't set the http.Response.Request field, so we need to do it manually
 
-		fuzzedRawRequest := replacePayloadsInRaw(input.Raw, input.InsertionPoints, payloadsForThisRequest)
-		log.Info().Msgf("Fuzzed request: %s", fuzzedRawRequest)
-		parsedRequest, err := ParseRawRequest(fuzzedRawRequest, input.URL)
-		if err != nil {
-			log.Error().Err(err).Msg("Error parsing fuzzed request")
-			continue
-		}
-		log.Info().Interface("parsedRequest", parsedRequest).Msg("Parsed fuzzed request")
-		bodyReader := bytes.NewReader([]byte(parsedRequest.Body))
-		response, err := pipeClient.DoRaw(parsedRequest.Method, parsedRequest.URL, parsedRequest.URI, parsedRequest.Headers, bodyReader)
-		if err != nil {
-			log.Error().Err(err).Msg("Error sending fuzzed request")
-			continue
-		}
-		// NOTE: rawhttp doesn't set the http.Response.Request field, so we need to do it manually
+			reqUrl, err := url.Parse(parsedRequest.URL + parsedRequest.URI)
+			if err != nil {
+				reqUrl = parsedUrl
+			}
 
-		reqUrl, err := url.Parse(parsedRequest.URL + parsedRequest.URI)
-		if err != nil {
-			reqUrl = parsedUrl
-		}
+			response.Request = &http.Request{
+				Method: parsedRequest.Method,
+				URL:    reqUrl,
+				Header: parsedRequest.Headers,
+				Body:   ioutil.NopCloser(bytes.NewReader([]byte(parsedRequest.Body))),
+			}
 
-		response.Request = &http.Request{
-			Method: parsedRequest.Method,
-			URL:    reqUrl,
-			Header: parsedRequest.Headers,
-			Body:   ioutil.NopCloser(bytes.NewReader([]byte(parsedRequest.Body))),
-		}
-
-		_, err = http_utils.ReadHttpResponseAndCreateHistory(response, historyOptions)
-		if err != nil {
-			log.Error().Err(err).Msg("Error creating history from fuzzed response")
-		}
+			_, err = http_utils.ReadHttpResponseAndCreateHistory(response, historyOptions)
+			if err != nil {
+				log.Error().Err(err).Msg("Error creating history from fuzzed response")
+			}
+		})
 	}
 
+	// p.Wait()
 	return nil
 }

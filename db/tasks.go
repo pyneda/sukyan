@@ -21,11 +21,12 @@ type Task struct {
 }
 
 type TaskFilter struct {
-	Query       string     `json:"query" validate:"omitempty,dive,ascii"`
-	Statuses    []string   `json:"statuses" validate:"omitempty,dive,oneof=crawling scanning nuclei running finished failed paused"`
-	Pagination  Pagination `json:"pagination"`
-	WorkspaceID uint       `json:"workspace_id" validate:"omitempty,numeric"`
-	FetchStats  bool       `json:"fetch_stats"`
+	Query               string     `json:"query" validate:"omitempty,dive,ascii"`
+	Statuses            []string   `json:"statuses" validate:"omitempty,dive,oneof=crawling scanning nuclei running finished failed paused"`
+	Pagination          Pagination `json:"pagination"`
+	WorkspaceID         uint       `json:"workspace_id" validate:"omitempty,numeric"`
+	FetchStats          bool       `json:"fetch_stats"`
+	PlaygroundSessionID uint       `json:"playground_session_id"`
 }
 
 var (
@@ -97,6 +98,10 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 
 	if filter.WorkspaceID > 0 {
 		filterQuery["workspace_id"] = filter.WorkspaceID
+	}
+
+	if filter.PlaygroundSessionID > 0 {
+		filterQuery["playground_session_id"] = filter.PlaygroundSessionID
 	}
 
 	query := d.db.Scopes(Paginate(&filter.Pagination)).Order("created_at desc")

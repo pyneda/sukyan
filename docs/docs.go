@@ -1468,6 +1468,12 @@ const docTemplate = `{
                         "description": "Comma-separated list of statuses to filter",
                         "name": "status",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Playground session ID to filter by",
+                        "name": "playground_session",
+                        "in": "query"
                     }
                 ],
                 "responses": {

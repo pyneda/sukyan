@@ -1776,6 +1776,10 @@ paths:
         in: query
         name: status
         type: string
+      - description: Playground session ID to filter by
+        in: query
+        name: playground_session
+        type: integer
       produces:
       - application/json
       responses:

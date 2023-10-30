@@ -116,10 +116,11 @@ func Fuzz(input RequestFuzzOptions, taskID uint) (int, error) {
 				Body:   ioutil.NopCloser(bytes.NewReader([]byte(parsedRequest.Body))),
 			}
 
-			_, err = http_utils.ReadHttpResponseAndCreateHistory(response, historyOptions)
+			history, err := http_utils.ReadHttpResponseAndCreateHistory(response, historyOptions)
 			if err != nil {
 				log.Error().Err(err).Msg("Error creating history from fuzzed response")
 			}
+			log.Info().Uint("historyID", history.ID).Msg("Created history from fuzzed response")
 		})
 		scheduledRequests++
 	}

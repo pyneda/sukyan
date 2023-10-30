@@ -15,7 +15,7 @@ func TestFindTaskJobs(t *testing.T) {
 	app := fiber.New()
 
 	app.Get("/taskjobs", FindTaskJobs)
-	task, err := db.Connection.NewTask(1, 0, "Test task", "crawl")
+	task, err := db.Connection.NewTask(1, nil, "Test task", "crawl")
 	assert.Nil(t, err)
 	path := fmt.Sprintf("/taskjobs?page=1&page_size=10&status=Completed&title=JobTitle&task=%d", task.ID)
 	req := httptest.NewRequest("GET", path, nil)

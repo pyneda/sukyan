@@ -16,7 +16,7 @@ type Task struct {
 	Histories           []History         `gorm:"foreignKey:TaskID" json:"-"`
 	Issues              []Issue           `gorm:"foreignKey:TaskID" json:"-"`
 	Stats               TaskStats         `gorm:"-" json:"stats,omitempty"`
-	PlaygroundSessionID *uint             `json:"playground_session_id"`
+	PlaygroundSessionID *uint             `gorm:"index" json:"playground_session_id"`
 	PlaygroundSession   PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID"`
 }
 
@@ -60,13 +60,13 @@ type IssuesStats struct {
 	Critical int64 `json:"critical"`
 }
 
-func (d *DatabaseConnection) NewTask(workspaceID, playgroundSessionID uint, title, status string) (*Task, error) {
+func (d *DatabaseConnection) NewTask(workspaceID uint, playgroundSessionID *uint, title, status string) (*Task, error) {
 	task := &Task{
 		WorkspaceID:         workspaceID,
 		Status:              status,
 		StartedAt:           time.Now(),
 		Title:               title,
-		PlaygroundSessionID: &playgroundSessionID,
+		PlaygroundSessionID: playgroundSessionID,
 	}
 	return d.CreateTask(task)
 }

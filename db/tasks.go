@@ -60,12 +60,13 @@ type IssuesStats struct {
 	Critical int64 `json:"critical"`
 }
 
-func (d *DatabaseConnection) NewTask(workspaceID uint, title, status string) (*Task, error) {
+func (d *DatabaseConnection) NewTask(workspaceID, playgroundSessionID uint, title, status string) (*Task, error) {
 	task := &Task{
-		WorkspaceID: workspaceID,
-		Status:      status,
-		StartedAt:   time.Now(),
-		Title:       title,
+		WorkspaceID:         workspaceID,
+		Status:              status,
+		StartedAt:           time.Now(),
+		Title:               title,
+		PlaygroundSessionID: &playgroundSessionID,
 	}
 	return d.CreateTask(task)
 }

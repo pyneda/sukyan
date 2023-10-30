@@ -63,7 +63,8 @@ func FuzzRequest(c *fiber.Ctx) error {
 		Session:         *session,
 		Options:         input.Options,
 	}
-	task, err := db.Connection.NewTask(session.WorkspaceID, "Fuzzing", db.TaskStatusPending)
+	title := "Fuzz: " + input.URL
+	task, err := db.Connection.NewTask(session.WorkspaceID, session.ID, title, db.TaskStatusPending)
 	if err != nil {
 		log.Error().Err(err).Interface("task", task).Msg("Task creation failed")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

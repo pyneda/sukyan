@@ -52,10 +52,10 @@ func replacePayloadsInRaw(raw string, points []FuzzerInsertionPoint, payloads []
 	return raw
 }
 
-func Fuzz(input RequestFuzzOptions, taskID uint) error {
+func Fuzz(input RequestFuzzOptions, taskID uint) (int, error) {
 	parsedUrl, err := url.Parse(input.URL)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	// https://github.com/projectdiscovery/rawhttp/blob/acd587a6157ef709f2fb6ba25866bfffc28b7594/pipelineoptions.go#L20C5-L20C27
 	pipeOptions := rawhttp.DefaultPipelineOptions
@@ -64,6 +64,7 @@ func Fuzz(input RequestFuzzOptions, taskID uint) error {
 	pipeClient := rawhttp.NewPipelineClient(pipeOptions)
 	// NOTE: Concurrency should be provided as option. Same as other pipeline options.
 	p := pool.New().WithMaxGoroutines(30)
+	scheduledRequests := 0
 
 	// Determine the smallest payload set
 	smallestPayloadSetSize := len(input.InsertionPoints[0].generatePayloads())
@@ -120,8 +121,9 @@ func Fuzz(input RequestFuzzOptions, taskID uint) error {
 				log.Error().Err(err).Msg("Error creating history from fuzzed response")
 			}
 		})
+		scheduledRequests++
 	}
 
 	// p.Wait()
-	return nil
+	return scheduledRequests, nil
 }

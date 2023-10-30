@@ -16,8 +16,9 @@ type PlaygroundFuzzInput struct {
 }
 
 type PlaygroundFuzzResponse struct {
-	Message string `json:"message"`
-	TaskID  uint   `json:"task_id"`
+	Message       string `json:"message"`
+	TaskID        uint   `json:"task_id"`
+	RequestsCount int    `json:"requests_count"`
 }
 
 // FuzzRequest godoc
@@ -70,7 +71,7 @@ func FuzzRequest(c *fiber.Ctx) error {
 			"message": "Cannot create a new task",
 		})
 	}
-	err = manual.Fuzz(fuzzOptions, task.ID)
+	requestsCount, err := manual.Fuzz(fuzzOptions, task.ID)
 	if err != nil {
 		log.Error().Err(err).Interface("options", fuzzOptions).Msg("Failed to initiate playground fuzzing")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -80,8 +81,9 @@ func FuzzRequest(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"message": "Fuzzing initiated successfully",
-		"task_id": task.ID,
+		"message":        "Fuzzing initiated successfully",
+		"task_id":        task.ID,
+		"requests_count": requestsCount,
 	})
 
 }

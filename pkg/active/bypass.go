@@ -259,6 +259,8 @@ Response received:
 		confidence := 75
 		if history.StatusCode >= 200 && history.StatusCode < 300 {
 			confidence = 90
+		} else if history.StatusCode >= 400 {
+			confidence = 40
 		}
 
 		db.CreateIssueFromHistoryAndTemplate(history, db.ForbiddenBypassCode, details, confidence, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)

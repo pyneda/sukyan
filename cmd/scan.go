@@ -25,6 +25,7 @@ var scanTests []string
 var scanTitle string
 var requestsHeadersString string
 var insertionPoints []string
+var urlFile string
 
 var validate = validator.New()
 
@@ -34,6 +35,17 @@ var scanCmd = &cobra.Command{
 	Short: "Full site scan: including crawl + scan each url",
 	Long:  `Runs a configurable audit either to a simple url or to different sites if crawl and multiple initial urls domains are provided`,
 	Run: func(cmd *cobra.Command, args []string) {
+
+		if urlFile != "" {
+			urlsFromFile, err := lib.ReadFileByLines(urlFile)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to read URLs from file")
+				os.Exit(1)
+			}
+			startURLs = append(startURLs, urlsFromFile...)
+		}
+
+		startURLs = lib.GetUniqueItems(startURLs)
 
 		if len(startURLs) == 0 {
 			log.Error().Msg("At least one crawl starting url should be provided")
@@ -104,6 +116,7 @@ var scanCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(scanCmd)
 	scanCmd.Flags().StringArrayVarP(&startURLs, "url", "u", nil, "Target start url(s)")
+	scanCmd.Flags().StringVarP(&urlFile, "file", "f", "", "File containing multiple URLs to scan")
 	scanCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	scanCmd.Flags().IntVar(&pagesPoolSize, "pool-size", 4, "Page pool size (not used)")
 	scanCmd.Flags().IntVar(&crawlMaxPages, "max-pages", 0, "Max pages to crawl")

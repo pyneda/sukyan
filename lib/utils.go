@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"bufio"
 	"fmt"
 	"math/rand"
 	"os"
@@ -160,4 +161,23 @@ func BytesCountToHumanReadable(b int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
+func ReadFileByLines(filename string) ([]string, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var urls []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		urls = append(urls, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return urls, nil
 }

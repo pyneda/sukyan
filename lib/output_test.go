@@ -21,9 +21,11 @@ func (m MockData) Pretty() string {
 }
 
 func TestFormatOutput(t *testing.T) {
-	data := MockData{
-		Name:    "Test",
-		Content: "Sample Content",
+	data := []MockData{
+		{
+			Name:    "Test",
+			Content: "Sample Content",
+		},
 	}
 
 	tests := []struct {
@@ -33,11 +35,13 @@ func TestFormatOutput(t *testing.T) {
 	}{
 		{Text, "Test", false},
 		{Pretty, "Name: Test | Content: Sample Content", false},
-		{JSON, `{
-  "Name": "Test",
-  "Content": "Sample Content"
-}`, false},
-		{YAML, "name: Test\ncontent: Sample Content\n", false},
+		{JSON, `[
+  {
+    "Name": "Test",
+    "Content": "Sample Content"
+  }
+]`, false},
+		{YAML, "- name: Test\n  content: Sample Content\n", false},
 		{FormatType("unknown"), "", true},
 	}
 
@@ -53,9 +57,11 @@ func TestFormatOutput(t *testing.T) {
 }
 
 func TestFormatOutputToFile(t *testing.T) {
-	data := MockData{
-		Name:    "Test",
-		Content: "Sample Content",
+	data := []MockData{
+		{
+			Name:    "Test",
+			Content: "Sample Content",
+		},
 	}
 
 	filepath := "sukyan_testing_file_test_output.txt"

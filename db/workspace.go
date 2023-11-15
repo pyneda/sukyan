@@ -1,6 +1,8 @@
 package db
 
 import (
+	"fmt"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
@@ -11,6 +13,20 @@ type Workspace struct {
 	Code        string `gorm:"index,unique" json:"code"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
+}
+
+// String provides a basic textual representation of the Workspace.
+func (w Workspace) String() string {
+	return fmt.Sprintf("ID: %d, Code: %s, Title: %s, Description: %s", w.ID, w.Code, w.Title, w.Description)
+}
+
+// Pretty provides a more formatted, user-friendly representation of the Workspace.
+func (w Workspace) Pretty() string {
+	return fmt.Sprintf("%sID:%s %d, %sCode:%s %s, %sTitle:%s %s, %sDescription:%s %s",
+		lib.Blue, lib.ResetColor, w.ID,
+		lib.Blue, lib.ResetColor, w.Code,
+		lib.Blue, lib.ResetColor, w.Title,
+		lib.Blue, lib.ResetColor, w.Description)
 }
 
 // GetWorkspaceByID gets a workspace by ID

@@ -47,4 +47,5 @@ var getWorkspacesCmd = &cobra.Command{
 
 func init() {
 	getCmd.AddCommand(getWorkspacesCmd)
+	getWorkspacesCmd.PersistentFlags().StringVarP(&query, "query", "q", "", "Search query")
 }

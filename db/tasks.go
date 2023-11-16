@@ -1,6 +1,8 @@
 package db
 
 import (
+	"fmt"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 	"time"
 )
@@ -18,6 +20,27 @@ type Task struct {
 	Stats               TaskStats         `gorm:"-" json:"stats,omitempty"`
 	PlaygroundSessionID *uint             `gorm:"index" json:"playground_session_id"`
 	PlaygroundSession   PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID"`
+}
+
+// String provides a basic textual representation of the Task.
+func (t Task) String() string {
+	return fmt.Sprintf("ID: %d, Title: %s, Status: %s, StartedAt: %s, FinishedAt: %s, WorkspaceID: %d",
+		t.ID, t.Title, t.Status, t.StartedAt.Format(time.RFC3339), t.FinishedAt.Format(time.RFC3339), t.WorkspaceID)
+}
+
+// Pretty provides a more formatted, user-friendly representation of the Task.
+func (t Task) Pretty() string {
+	return fmt.Sprintf(
+		"%sID:%s %d\n%sTitle:%s %s\n%sStatus:%s %s\n%sStartedAt:%s %s\n%sFinishedAt:%s %s\n%sWorkspaceID:%s %d\n%sStats:%s\n  Requests: Crawler: %d, Scanner: %d\n  Issues: Unknown: %d, Info: %d, Low: %d, Medium: %d, High: %d, Critical: %d\n",
+		lib.Blue, lib.ResetColor, t.ID,
+		lib.Blue, lib.ResetColor, t.Title,
+		lib.Blue, lib.ResetColor, t.Status,
+		lib.Blue, lib.ResetColor, t.StartedAt.Format(time.RFC3339),
+		lib.Blue, lib.ResetColor, t.FinishedAt.Format(time.RFC3339),
+		lib.Blue, lib.ResetColor, t.WorkspaceID,
+		lib.Blue, lib.ResetColor,
+		t.Stats.Requests.Crawler, t.Stats.Requests.Scanner,
+		t.Stats.Issues.Unknown, t.Stats.Issues.Info, t.Stats.Issues.Low, t.Stats.Issues.Medium, t.Stats.Issues.High, t.Stats.Issues.Critical)
 }
 
 type TaskFilter struct {

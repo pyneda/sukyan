@@ -27,7 +27,7 @@ require (
 	github.com/projectdiscovery/rawhttp v0.1.22
 	github.com/projectdiscovery/wappalyzergo v0.0.109
 	github.com/pyneda/nuclei-api v0.0.0-20230715211054-636941207b06
-	github.com/quic-go/quic-go v0.39.1
+	github.com/quic-go/quic-go v0.39.4
 	github.com/rs/zerolog v1.31.0
 	github.com/sourcegraph/conc v0.3.0
 	github.com/spf13/cobra v1.7.0

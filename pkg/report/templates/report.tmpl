@@ -17,7 +17,7 @@
   <section>
     <ul>
       {{ range $issue := .issues }}
-        <a href="#issue-{{ $issue.ID }}">{{ $issue.ID }} - {{ $issue.Title }}</a>
+        <li><a href="#issue-{{ $issue.ID }}">{{ $issue.ID }} - {{ $issue.Title }}</a></li>
       {{ end }}
     </ul>
   </section>
@@ -32,11 +32,11 @@
       <h4>Affected URL</h4>
       <p>{{ $issue.URL }}</p>
       <h4>Description</h4>
-      <p>{{ $issue.Description }}</p>
+      <p style="white-space: pre-line;">{{ $issue.Description }}</p>
       {{ if $issue.Details }}
         <div>
           <h4>Details</h4>
-          <p>{{ $issue.Details }}</p>
+          <p style="white-space: pre-line;">{{ $issue.Details }}</p>
         </div>
       {{ end }}
       {{ if $issue.Payload }}

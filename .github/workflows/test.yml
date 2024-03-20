@@ -21,7 +21,10 @@ jobs:
     env:
       POSTGRES_DSN: postgres://sukyan:sukyantest1234@localhost:5432/sukyantestdb
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
@@ -33,5 +36,7 @@ jobs:
       - name: Test with the Go CLI
         run: go test -v ./...
       - name: TruffleHog
-        uses: trufflesecurity/trufflehog@v3.60.1
-            
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+              

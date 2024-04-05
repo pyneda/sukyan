@@ -40,13 +40,13 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 		scanner.Run(item, payloadGenerators, insertionPoints, options)
 	}
 
-	cspp := active.ClientSidePrototypePollutionAudit{
-		HistoryItem: item,
-		WorkspaceID: options.WorkspaceID,
-		TaskID:      options.TaskID,
-		TaskJobID:   options.TaskJobID,
-	}
-	cspp.Run()
+	// cspp := active.ClientSidePrototypePollutionAudit{
+	// 	HistoryItem: item,
+	// 	WorkspaceID: options.WorkspaceID,
+	// 	TaskID:      options.TaskID,
+	// 	TaskJobID:   options.TaskJobID,
+	// }
+	// cspp.Run()
 
 	var specificParamsToTest []string
 	p := web.WebPage{URL: item.URL}

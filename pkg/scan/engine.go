@@ -5,14 +5,15 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/pyneda/sukyan/pkg/crawl"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-	"strings"
-	"sync"
-	"time"
 )
 
 type ScanJobType string
@@ -225,6 +226,13 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 		time.Sleep(3 * time.Second)
 		s.wg.Wait()
 		scanLog.Info().Msg("Active scans finished")
+		db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
+
+	} else {
+		go func() {
+			s.wg.Wait()
+			scanLog.Info().Msg("Active scans finished")
+			db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
+		}()
 	}
-	db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
 }

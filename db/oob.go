@@ -1,9 +1,10 @@
 package db
 
 import (
-	"github.com/rs/zerolog/log"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // type OOBSession struct {
@@ -101,7 +102,7 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 
 		var sb strings.Builder
 		sb.WriteString("An out of band " + interaction.Protocol + " interaction has been detected by inserting the following payload `" + oobTest.Payload + "` in " + oobTest.InsertionPoint + "\n\n")
-		sb.WriteString("The interaction originated from " + interaction.RemoteAddress + " and was performed at " + interaction.Timestamp.String() + ".\n\nFind below the request data:\n")
+		sb.WriteString("The interaction originated from " + interaction.RemoteAddress + " and was performed at " + interaction.Timestamp.String() + ".\n\nFind below the interaction request data:\n")
 		sb.WriteString(interaction.RawRequest + "\n\n")
 		sb.WriteString("The server responded with the following data:\n")
 		sb.WriteString(interaction.RawResponse + "\n")

@@ -2,10 +2,15 @@ package api
 
 import (
 	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
+	"github.com/gofiber/fiber/v2/middleware/pprof"
+
+	"os"
+	"strings"
 
 	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/swagger"
@@ -17,8 +22,6 @@ import (
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-	"os"
-	"strings"
 
 	"time"
 )
@@ -83,6 +86,10 @@ func StartAPI() {
 
 	if viper.GetBool("api.metrics.enabled") {
 		app.Get(fmt.Sprintf("%v/*", viper.GetString("api.metrics.path")), monitor.New(monitor.Config{Title: viper.GetString("api.metrics.title")}))
+	}
+
+	if viper.GetBool("api.pprof.enabled") {
+		app.Use(pprof.New(pprof.Config{Prefix: viper.GetString("api.pprof.prefix")}))
 	}
 
 	api := app.Group("/api/v1")

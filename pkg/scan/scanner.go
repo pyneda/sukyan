@@ -2,6 +2,11 @@ package scan
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
@@ -9,10 +14,6 @@ import (
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/rs/zerolog/log"
-	"net/http"
-	"strings"
-	"sync"
-	"time"
 )
 
 type TemplateScannerResult struct {
@@ -163,7 +164,7 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 		}
 		var result TemplateScannerResult
 		builders := []InsertionPointBuilder{
-			InsertionPointBuilder{
+			{
 				Point:   task.insertionPoint,
 				Payload: task.payload.Value,
 			},
@@ -178,11 +179,13 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 			response, err := http_utils.SendRequest(f.client, req)
 			if err != nil {
 				taskLog.Error().Err(err).Msg("Error making request")
+				wg.Done()
 				continue
 			}
 			responseData, _, err := http_utils.ReadFullResponse(response, false)
 			if err != nil {
 				taskLog.Error().Err(err).Msg("Error reading response body, skipping")
+				wg.Done()
 				continue
 			}
 			result.Duration = time.Since(startTime)
@@ -204,6 +207,7 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 			vulnerable, details, confidence, err := f.EvaluateResult(result)
 			if err != nil {
 				taskLog.Error().Err(err).Msg("Error evaluating result")
+				wg.Done()
 				continue
 			}
 			issueCode := db.IssueCode(task.payload.IssueCode)

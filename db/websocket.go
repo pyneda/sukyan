@@ -1,9 +1,13 @@
 package db
 
 import (
+	"fmt"
+	"time"
+
+	"github.com/pyneda/sukyan/lib"
+
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
-	"time"
 )
 
 type WebSocketConnection struct {
@@ -22,6 +26,23 @@ type WebSocketConnection struct {
 	Source          string             `json:"source"`
 }
 
+func (c WebSocketConnection) String() string {
+	return fmt.Sprintf("ID: %d, URL: %s, StatusCode: %d, StatusText: %s, ClosedAt: %s, WorkspaceID: %d, TaskID: %d, Source: %s", c.ID, c.URL, c.StatusCode, c.StatusText, c.ClosedAt.Format(time.RFC3339), c.WorkspaceID, c.TaskID, c.Source)
+}
+
+func (c WebSocketConnection) Pretty() string {
+	return fmt.Sprintf(
+		"%sID:%s %d\n%sURL:%s %s\n%sStatusCode:%s %d\n%sStatusText:%s %s\n%sClosedAt:%s %s\n%sWorkspaceID:%s %d\n%sTaskID:%s %d\n%sSource:%s %s\n",
+		lib.Blue, lib.ResetColor, c.ID,
+		lib.Blue, lib.ResetColor, c.URL,
+		lib.Blue, lib.ResetColor, c.StatusCode,
+		lib.Blue, lib.ResetColor, c.StatusText,
+		lib.Blue, lib.ResetColor, c.ClosedAt.Format(time.RFC3339),
+		lib.Blue, lib.ResetColor, c.WorkspaceID,
+		lib.Blue, lib.ResetColor, c.TaskID,
+		lib.Blue, lib.ResetColor, c.Source)
+}
+
 type MessageDirection string
 
 const (
@@ -37,6 +58,22 @@ type WebSocketMessage struct {
 	PayloadData  string           `json:"payload_data"`
 	Timestamp    time.Time        `json:"timestamp"`              // timestamp for when the message was sent/received
 	Direction    MessageDirection `gorm:"index" json:"direction"` // direction of the message
+}
+
+func (m WebSocketMessage) String() string {
+	return fmt.Sprintf("ID: %d, ConnectionID: %d, Opcode: %f, Mask: %t, PayloadData: %s, Timestamp: %s, Direction: %s", m.ID, m.ConnectionID, m.Opcode, m.Mask, m.PayloadData, m.Timestamp.Format(time.RFC3339), m.Direction)
+}
+
+func (m WebSocketMessage) Pretty() string {
+	return fmt.Sprintf(
+		"%sID:%s %d\n%sConnectionID:%s %d\n%sOpcode:%s %f\n%sMask:%s %t\n%sPayloadData:%s %s\n%sTimestamp:%s %s\n%sDirection:%s %s\n",
+		lib.Blue, lib.ResetColor, m.ID,
+		lib.Blue, lib.ResetColor, m.ConnectionID,
+		lib.Blue, lib.ResetColor, m.Opcode,
+		lib.Blue, lib.ResetColor, m.Mask,
+		lib.Blue, lib.ResetColor, m.PayloadData,
+		lib.Blue, lib.ResetColor, m.Timestamp.Format(time.RFC3339),
+		lib.Blue, lib.ResetColor, m.Direction)
 }
 
 func (d *DatabaseConnection) CreateWebSocketConnection(connection *WebSocketConnection) error {

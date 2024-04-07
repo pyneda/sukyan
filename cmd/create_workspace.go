@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/spf13/cobra"
 )
@@ -12,8 +13,9 @@ var newWorkspaceDescription string
 
 // createWorkspaceCmd represents the createWorkspace command
 var createWorkspaceCmd = &cobra.Command{
-	Use:   "workspace",
-	Short: "Creates a new workspace",
+	Use:     "workspace",
+	Aliases: []string{"workspaces", "w"},
+	Short:   "Creates a new workspace",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if newWorkspaceCode == "" {
 			return fmt.Errorf("workspace code cannot be empty")

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/spf13/cobra"
@@ -11,8 +12,9 @@ var query string
 
 // getWorkspacesCmd represents the get workspaces command
 var getWorkspacesCmd = &cobra.Command{
-	Use:   "workspaces",
-	Short: "List workspaces",
+	Use:     "workspaces",
+	Aliases: []string{"workspace", "w"},
+	Short:   "List workspaces",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		filters := db.WorkspaceFilters{
 			Pagination: db.Pagination{

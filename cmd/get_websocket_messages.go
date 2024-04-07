@@ -12,8 +12,9 @@ import (
 var filterWebSocketConnectionID uint
 
 var listWebSocketMessagesCmd = &cobra.Command{
-	Use:   "messages",
-	Short: "List WebSocket messages",
+	Use:     "messages",
+	Aliases: []string{"message", "msg", "websocket-messages", "websocket-message", "ws-messages", "ws-message"},
+	Short:   "List WebSocket messages",
 	Run: func(cmd *cobra.Command, args []string) {
 		filters := db.WebSocketMessageFilter{
 			Pagination: db.Pagination{

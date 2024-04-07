@@ -1,9 +1,12 @@
 package db
 
 import (
+	"testing"
+
+	"github.com/spf13/viper"
+
 	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
-	"testing"
 )
 
 func TestGetChildrenHistories(t *testing.T) {
@@ -18,6 +21,36 @@ func TestGetChildrenHistories(t *testing.T) {
 	children, err := Connection.GetChildrenHistories(parent)
 	assert.Nil(t, err)
 	assert.Equal(t, true, len(children) >= 2)
+}
+
+func TestCreateHistoryIgnoredExtensions(t *testing.T) {
+	viper.Set("history.responses.ignored.extensions", []string{".jpg", ".png"})
+	ignoredExtensions := viper.GetStringSlice("history.responses.ignored.extensions")
+	assert.Contains(t, ignoredExtensions, ".jpg")
+	history := &History{URL: "/test.jpg", ResponseBody: []byte("image data")}
+	Connection.CreateHistory(history)
+	assert.Equal(t, "", string(history.ResponseBody))
+	assert.Equal(t, "Response body was removed due to ignored file extension: .jpg", history.Note)
+}
+
+func TestCreateHistoryIgnoredContentTypes(t *testing.T) {
+	viper.Set("history.responses.ignored.content_types", []string{"image"})
+	ignoredContentTypes := viper.GetStringSlice("history.responses.ignored.content_types")
+	assert.Contains(t, ignoredContentTypes, "image")
+	history := &History{URL: "/test-image", ResponseContentType: "image/jpeg", ResponseBody: []byte("image data")}
+	Connection.CreateHistory(history)
+	assert.Equal(t, "", string(history.ResponseBody))
+	assert.Equal(t, "Response body was removed due to ignored content type: image", history.Note)
+}
+
+func TestCreateHistoryIgnoredMaxSize(t *testing.T) {
+	viper.Set("history.responses.ignored.max_size", 10)
+	maxSize := viper.GetInt("history.responses.ignored.max_size")
+	assert.Equal(t, 10, maxSize)
+	history := &History{URL: "/test.html", ResponseBody: []byte("12345678901")}
+	Connection.CreateHistory(history)
+	assert.Equal(t, "", string(history.ResponseBody))
+	assert.Equal(t, "Response body was removed due to exceeding max size limit.", history.Note)
 }
 
 func TestGetRootHistoryNodes(t *testing.T) {

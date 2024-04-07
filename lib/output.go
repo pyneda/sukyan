@@ -3,9 +3,10 @@ package lib
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 type FormatType string
@@ -36,6 +37,29 @@ func FormatOutput[T Formattable](data []T, format FormatType) (string, error) {
 			prettyOutput = append(prettyOutput, item.Pretty())
 		}
 		return strings.Join(prettyOutput, "\n"), nil
+	case JSON:
+		j, err := json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			return "", err
+		}
+		return string(j), nil
+	case YAML:
+		y, err := yaml.Marshal(data)
+		if err != nil {
+			return "", err
+		}
+		return string(y), nil
+	default:
+		return "", fmt.Errorf("unknown format: %v", format)
+	}
+}
+
+func FormatSingleOutput[T Formattable](data T, format FormatType) (string, error) {
+	switch format {
+	case Text:
+		return data.String(), nil
+	case Pretty:
+		return data.Pretty(), nil
 	case JSON:
 		j, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {

@@ -2,22 +2,32 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/pyneda/sukyan/db"
 	"os"
+	"strconv"
+
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
-var describeIssueID int
+// var describeIssueID int
 
 // describeIssueCmd represents the issue command
 var describeIssueCmd = &cobra.Command{
-	Use:     "issue",
-	Aliases: []string{"i"},
-	Short:   "Get details of a detected issue",
-	Long:    `List issue details.`,
+	Use:        "issue [id]",
+	Aliases:    []string{"i"},
+	Short:      "Get details of a detected issue",
+	Long:       `List issue details.`,
+	Args:       cobra.ExactArgs(1),
+	ArgAliases: []string{"id"},
 	Run: func(cmd *cobra.Command, args []string) {
+		describeIssueID, err := strconv.Atoi(args[0])
+		if err != nil {
+			fmt.Println("Invalid ID provided")
+			os.Exit(0)
+		}
 		if describeIssueID == 0 {
 			fmt.Println("An ID needs to be provided")
 			os.Exit(0)
@@ -26,22 +36,24 @@ var describeIssueCmd = &cobra.Command{
 		if err != nil {
 			log.Panic().Err(err).Msg("Could not find a issue with the provided ID")
 		}
-		db.PrintIssue(issue)
-		// log.Info().Interface("issue", issue).Msg("Issue")
+		// db.PrintIssue(issue)
+		formatType, err := lib.ParseFormatType(format)
+		if err != nil {
+			fmt.Println("Error parsing format type")
+			os.Exit(0)
+		}
+		formattedOutput, err := lib.FormatSingleOutput(issue, formatType)
+		if err != nil {
+			fmt.Println("Error formatting output")
+			return
+		}
+
+		fmt.Println(formattedOutput)
 	},
 }
 
 func init() {
 	describeCmd.AddCommand(describeIssueCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// issueCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// issueCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	describeIssueCmd.Flags().IntVarP(&describeIssueID, "id", "i", 0, "Issue ID")
+	// describeIssueCmd.Flags().IntVarP(&describeIssueID, "id", "i", 0, "Issue ID")
 }

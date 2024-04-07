@@ -17,4 +17,6 @@ var describeCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(describeCmd)
+	describeCmd.PersistentFlags().StringVarP(&format, "format", "f", "json", "Output format (json, yaml, text, pretty)")
+
 }

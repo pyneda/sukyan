@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+
+	"github.com/pyneda/sukyan/lib"
+
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
-	"strings"
 )
 
 // History holds table for storing requests history found
@@ -41,6 +44,28 @@ type History struct {
 	Task                 Task              `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	PlaygroundSessionID  *uint             `json:"playground_session_id" gorm:"index" `
 	PlaygroundSession    PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+func (h History) String() string {
+	return fmt.Sprintf(
+		"ID: %d\nWorkspace: %d\nTask: %d\nSource: %s\nURL: %s\nMethod: %s\nResponse Body Size: %d\nRequest:\n%s\nResponse:\n%s",
+		h.ID, *h.WorkspaceID, *h.TaskID, h.Source, h.URL, h.Method, h.ResponseBodySize, string(h.RawRequest), string(h.RawResponse),
+	)
+}
+
+func (h History) Pretty() string {
+	return fmt.Sprintf(
+		"%sID:%s %d\n%sWorkspace:%s %d\n%sTask:%s %d\n%sSource:%s %s\n%sURL:%s %s\n%sMethod:%s %s\n%sResponseBodySize:%s %d\n%sRequest:\n%s%s\n%sResponse:\n%s%s\n",
+		lib.Blue, lib.ResetColor, h.ID,
+		lib.Blue, lib.ResetColor, *h.WorkspaceID,
+		lib.Blue, lib.ResetColor, *h.TaskID,
+		lib.Blue, lib.ResetColor, h.Source,
+		lib.Blue, lib.ResetColor, h.URL,
+		lib.Blue, lib.ResetColor, h.Method,
+		lib.Blue, lib.ResetColor, h.ResponseBodySize,
+		lib.Blue, lib.ResetColor, string(h.RawRequest),
+		lib.Blue, lib.ResetColor, string(h.RawResponse),
+	)
 }
 
 func (h *History) GetResponseHeadersAsMap() (map[string][]string, error) {

@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
-	"strings"
-	"time"
 )
 
 type JsonWebToken struct {
@@ -26,6 +27,24 @@ type JsonWebToken struct {
 	Histories   []History      `gorm:"many2many:json_web_token_histories" json:"histories"`
 	Workspace   Workspace      `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID *uint          `json:"workspace_id"`
+}
+
+func (j JsonWebToken) String() string {
+	return fmt.Sprintf("ID: %d, Token: %s, Algorithm: %s, Issuer: %s, Subject: %s, Audience: %s, Expiration: %s, IssuedAt: %s, WorkspaceID: %d", j.ID, j.Token, j.Algorithm, j.Issuer, j.Subject, j.Audience, j.Expiration.Format(time.RFC3339), j.IssuedAt.Format(time.RFC3339), j.WorkspaceID)
+}
+
+func (j JsonWebToken) Pretty() string {
+	return fmt.Sprintf(
+		"%sID:%s %d\n%sToken:%s %s\n%sAlgorithm:%s %s\n%sIssuer:%s %s\n%sSubject:%s %s\n%sAudience:%s %s\n%sExpiration:%s %s\n%sIssuedAt:%s %s\n%sWorkspaceID:%s %d\n",
+		lib.Blue, lib.ResetColor, j.ID,
+		lib.Blue, lib.ResetColor, j.Token,
+		lib.Blue, lib.ResetColor, j.Algorithm,
+		lib.Blue, lib.ResetColor, j.Issuer,
+		lib.Blue, lib.ResetColor, j.Subject,
+		lib.Blue, lib.ResetColor, j.Audience,
+		lib.Blue, lib.ResetColor, j.Expiration.Format(time.RFC3339),
+		lib.Blue, lib.ResetColor, j.IssuedAt.Format(time.RFC3339),
+		lib.Blue, lib.ResetColor, j.WorkspaceID)
 }
 
 // FillJwtFromToken fills a JsonWebToken struct with data extracted from the given JWT token.

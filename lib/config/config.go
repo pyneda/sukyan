@@ -38,7 +38,7 @@ func SetDefaultConfig() {
 
 	// Storage
 	viper.SetDefault("history.responses.ignored.max_size", 5*1024*1024)
-	viper.SetDefault("history.responses.ignored.extensions", []string{".jpg", ".webp"})
+	viper.SetDefault("history.responses.ignored.extensions", []string{".jpg", ".jpeg", ".webp", ".png", ".gif", ".ico", ".mp4", ".mov", ".avi"})
 	viper.SetDefault("history.responses.ignored.content_types", []string{"video", "audio", "image"})
 
 	// Navigation

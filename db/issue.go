@@ -1,8 +1,12 @@
 package db
 
 import (
-	"github.com/rs/zerolog/log"
+	"fmt"
 	"sort"
+
+	"github.com/pyneda/sukyan/lib"
+
+	"github.com/rs/zerolog/log"
 )
 
 // Issue holds table for storing issues found
@@ -34,6 +38,40 @@ type Issue struct {
 	Task          Task             `json:"-" gorm:"foreignKey:TaskID"`
 	TaskJobID     *uint            `json:"task_job_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	TaskJob       TaskJob          `json:"-" gorm:"foreignKey:TaskJobID"`
+}
+
+func (i Issue) String() string {
+	return fmt.Sprintf(
+		"ID: %d\nCode: %s\nTitle: %s\nCWE: %d\nURL: %s\nStatus Code: %d\nHTTP Method: %s\nPayload: %s\nFalse Positive: %t\nConfidence: %d\nReferences: %v\nSeverity: %s\nCURL Command: %s\nNote: %s\nWorkspace ID: %v\nTask ID: %v\nDescription: %s\nDetails: %s\nRemediation: %s\nRequest: %s\nResponse: %s",
+		i.ID, i.Code, i.Title, i.Cwe, i.URL, i.StatusCode, i.HTTPMethod, i.Payload, i.FalsePositive, i.Confidence, i.References, i.Severity, i.CURLCommand, i.Note, *i.WorkspaceID, *i.TaskID, i.Description, i.Details, i.Remediation, string(i.Request), string(i.Response),
+	)
+}
+
+func (i Issue) Pretty() string {
+	return fmt.Sprintf(
+		"%sID:%s %d\n%sCode:%s %s\n%sTitle:%s %s\n%sCWE:%s %d\n%sURL:%s %s\n%sStatus Code:%s %d\n%sHTTP Method:%s %s\n%sPayload:%s %s\n%sFalse Positive:%s %t\n%sConfidence:%s %d\n%sReferences:%s %v\n%sSeverity:%s %s\n%sCURL Command:%s %s\n%sNote:%s %s\n%sWorkspace ID:%s %v\n%sTask ID:%s %v\n\n%sDescription:%s %s\n\n%sDetails:%s %s\n\n%sRemediation:%s %s\n\n%sRequest:%s %s\n\n%sResponse:%s %s\n",
+		lib.Blue, lib.ResetColor, i.ID,
+		lib.Blue, lib.ResetColor, i.Code,
+		lib.Blue, lib.ResetColor, i.Title,
+		lib.Blue, lib.ResetColor, i.Cwe,
+		lib.Blue, lib.ResetColor, i.URL,
+		lib.Blue, lib.ResetColor, i.StatusCode,
+		lib.Blue, lib.ResetColor, i.HTTPMethod,
+		lib.Blue, lib.ResetColor, i.Payload,
+		lib.Blue, lib.ResetColor, i.FalsePositive,
+		lib.Blue, lib.ResetColor, i.Confidence,
+		lib.Blue, lib.ResetColor, i.References,
+		lib.Blue, lib.ResetColor, i.Severity,
+		lib.Blue, lib.ResetColor, i.CURLCommand,
+		lib.Blue, lib.ResetColor, i.Note,
+		lib.Blue, lib.ResetColor, *i.WorkspaceID,
+		lib.Blue, lib.ResetColor, *i.TaskID,
+		lib.Blue, lib.ResetColor, i.Description,
+		lib.Blue, lib.ResetColor, i.Details,
+		lib.Blue, lib.ResetColor, i.Remediation,
+		lib.Blue, lib.ResetColor, string(i.Request),
+		lib.Blue, lib.ResetColor, string(i.Response),
+	)
 }
 
 type GroupedIssue struct {

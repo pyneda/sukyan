@@ -2,10 +2,11 @@ package db
 
 import (
 	"fmt"
-	"github.com/pyneda/sukyan/lib"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/pyneda/sukyan/lib"
 
 	"github.com/olekukonko/tablewriter"
 )
@@ -27,14 +28,16 @@ func PrintHistoryTable(records []*History) {
 
 		tableData = append(tableData, []string{
 			strconv.FormatUint(uint64(record.ID), 10),
+			record.Source,
 			formattedURL,
 			strconv.Itoa(record.StatusCode),
 			record.Method,
 			record.ResponseContentType,
+			strconv.Itoa(record.ResponseBodySize),
 		})
 	}
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"ID", "URL", "Status", "Method", "Content Type"})
+	table.SetHeader([]string{"ID", "Source", "URL", "Status", "Method", "Content Type", "Response Body Size"})
 	table.SetBorder(true)
 	table.AppendBulk(tableData)
 	table.Render()

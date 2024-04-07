@@ -8,7 +8,7 @@ import (
 var deleteCmd = &cobra.Command{
 	Use:     "delete",
 	Aliases: []string{"delete", "remove", "rm"},
-	Short:   "Used to persist resources",
+	Short:   "Used to delete resources",
 }
 
 func init() {

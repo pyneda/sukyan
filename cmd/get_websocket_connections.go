@@ -15,8 +15,9 @@ var (
 
 // getWebSocketConnectionsCmd represents the get WebSocket connections command
 var getWebSocketConnectionsCmd = &cobra.Command{
-	Use:   "websockets",
-	Short: "List WebSocket connections",
+	Use:     "websockets",
+	Aliases: []string{"websocket", "ws"},
+	Short:   "List WebSocket connections",
 	Run: func(cmd *cobra.Command, args []string) {
 		for _, source := range filterHistorySources {
 			if !db.IsValidSource(source) {

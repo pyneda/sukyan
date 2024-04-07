@@ -18,9 +18,10 @@ var filterHistorySources []string
 
 // historyCmd represents the history command
 var historyCmd = &cobra.Command{
-	Use:   "history",
-	Short: "Display HTTP history records stored in database",
-	Long:  `Allows to filter and display HTTP history records stored in database`,
+	Use:     "history",
+	Aliases: []string{"hist", "h", "requests"},
+	Short:   "Display HTTP history records stored in database",
+	Long:    `Allows to filter and display HTTP history records stored in database`,
 	Run: func(cmd *cobra.Command, args []string) {
 		for _, source := range filterHistorySources {
 			if !db.IsValidSource(source) {

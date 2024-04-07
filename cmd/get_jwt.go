@@ -21,8 +21,9 @@ var (
 )
 
 var getJwtCmd = &cobra.Command{
-	Use:   "jwt",
-	Short: "List JSON Web Tokens",
+	Use:     "jwt",
+	Aliases: []string{"jwts", "j"},
+	Short:   "List JSON Web Tokens",
 	Run: func(cmd *cobra.Command, args []string) {
 		filters := db.JwtFilters{
 			Algorithm:   filterAlgorithm,

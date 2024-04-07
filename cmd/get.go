@@ -12,9 +12,10 @@ var (
 
 // getCmd represents the get command
 var getCmd = &cobra.Command{
-	Use:   "get",
-	Short: "List resources",
-	Long:  `Get is used to retrieve resources like workspaces, issues, etc.`,
+	Use:     "get",
+	Aliases: []string{"g", "list", "ls"},
+	Short:   "List resources",
+	Long:    `Get is used to retrieve resources like workspaces, issues, etc.`,
 }
 
 func init() {

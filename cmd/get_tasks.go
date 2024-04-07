@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/spf13/cobra"
-	"strings"
 )
 
 var (
@@ -15,8 +16,9 @@ var (
 
 // getTasksCmd represents the get tasks command
 var getTasksCmd = &cobra.Command{
-	Use:   "tasks",
-	Short: "List tasks",
+	Use:     "tasks",
+	Aliases: []string{"task", "t"},
+	Short:   "List tasks",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		statuses := []string{}
 

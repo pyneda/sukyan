@@ -2,11 +2,12 @@ package generation
 
 import (
 	"embed"
-	"github.com/rs/zerolog/log"
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v3"
 )
 
 //go:embed templates/*
@@ -48,24 +49,38 @@ func LoadLocalGenerators() ([]*PayloadGenerator, error) {
 }
 
 // loadGeneratorsFromFS loads all generators from the specified FS
-func loadGeneratorsFromFS(fs embed.FS, root string) ([]*PayloadGenerator, error) {
-	entries, err := fs.ReadDir(root)
+func loadGeneratorsFromFS(efs embed.FS, root string) ([]*PayloadGenerator, error) {
+	var generators []*PayloadGenerator
+	err := loadGeneratorsRecursiveFromFS(efs, root, &generators)
 	if err != nil {
 		return nil, err
 	}
+	return generators, nil
+}
 
-	var generators []*PayloadGenerator
+func loadGeneratorsRecursiveFromFS(efs embed.FS, root string, generators *[]*PayloadGenerator) error {
+	entries, err := efs.ReadDir(root)
+	if err != nil {
+		return err
+	}
+
 	for _, entry := range entries {
-		if !entry.IsDir() && (strings.HasSuffix(entry.Name(), ".yaml") || strings.HasSuffix(entry.Name(), ".yml")) {
-			pg, err := loadGeneratorFromFS(fs, filepath.Join(root, entry.Name()))
+		path := filepath.Join(root, entry.Name())
+		if entry.IsDir() {
+			err := loadGeneratorsRecursiveFromFS(efs, path, generators)
+			if err != nil {
+				return err
+			}
+		} else if strings.HasSuffix(entry.Name(), ".yaml") || strings.HasSuffix(entry.Name(), ".yml") {
+			pg, err := loadGeneratorFromFS(efs, path)
 			if err != nil {
 				log.Error().Err(err).Msgf("Failed to load generator %s", entry.Name())
 			} else {
-				generators = append(generators, pg)
+				*generators = append(*generators, pg)
 			}
 		}
 	}
-	return generators, nil
+	return nil
 }
 
 // LoadUserGenerators loads all generators from the user specified directory

@@ -3,8 +3,9 @@ package cmd
 import (
 	//_ "embed"
 	"fmt"
-	"github.com/pyneda/sukyan/pkg/active"
 	"os"
+
+	"github.com/pyneda/sukyan/pkg/active"
 
 	"github.com/spf13/cobra"
 )
@@ -47,17 +48,7 @@ sukyan xss [url]`,
 }
 
 func init() {
-	rootCmd.AddCommand(xssCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// xssCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// xssCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	utilsCmd.AddCommand(xssCmd)
 	xssCmd.Flags().BoolP("screenshot", "s", false, "Screenshot when an XSS is validated")
 	xssCmd.Flags().BoolVarP(&urlEncode, "encode", "e", false, "URL encode the whole path (including the payload)")
 	xssCmd.Flags().StringVar(&wordlist, "wordlist", "default.txt", "XSS payloads wordlist")

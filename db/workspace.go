@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"

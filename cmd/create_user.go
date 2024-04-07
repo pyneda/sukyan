@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/auth"
 	"github.com/spf13/cobra"
@@ -9,8 +10,9 @@ import (
 
 // createUserCmd represents the createUser command
 var createUserCmd = &cobra.Command{
-	Use:   "user",
-	Short: "Creates a new user",
+	Use:     "user",
+	Aliases: []string{"users", "u"},
+	Short:   "Creates a new user",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		email, err := cmd.Flags().GetString("email")
 		if err != nil {

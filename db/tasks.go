@@ -2,9 +2,10 @@ package db
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
-	"time"
 )
 
 type Task struct {
@@ -20,6 +21,21 @@ type Task struct {
 	Stats               TaskStats         `gorm:"-" json:"stats,omitempty"`
 	PlaygroundSessionID *uint             `gorm:"index" json:"playground_session_id"`
 	PlaygroundSession   PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID"`
+}
+
+func (t Task) TableHeaders() []string {
+	return []string{"ID", "Title", "Status", "StartedAt", "FinishedAt", "WorkspaceID"}
+}
+
+func (t Task) TableRow() []string {
+	return []string{
+		fmt.Sprintf("%d", t.ID),
+		t.Title,
+		t.Status,
+		t.StartedAt.Format(time.RFC3339),
+		t.FinishedAt.Format(time.RFC3339),
+		fmt.Sprintf("%d", t.WorkspaceID),
+	}
 }
 
 // String provides a basic textual representation of the Task.

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -46,8 +47,21 @@ var historyCmd = &cobra.Command{
 		})
 		if err != nil {
 			log.Error().Err(err).Msg("Error received trying to get issues from db")
+			return
 		}
-		db.PrintHistoryTable(items)
+		formatType, err := lib.ParseFormatType(format)
+		if err != nil {
+			log.Error().Err(err).Msg("Error parsing format type")
+			return
+		}
+
+		formattedOutput, err := lib.FormatOutput(items, formatType)
+		if err != nil {
+			log.Error().Err(err).Msg("Error formatting output")
+			return
+		}
+
+		fmt.Println(formattedOutput)
 	},
 }
 

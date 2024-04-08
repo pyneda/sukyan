@@ -2,13 +2,10 @@ package db
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/pyneda/sukyan/lib"
-
-	"github.com/olekukonko/tablewriter"
 )
 
 // PrintMaxURLLength max length a URL can have when printing as table
@@ -16,60 +13,6 @@ const PrintMaxURLLength = 65
 
 // PrintMaxDescriptionLength max length a description can have when printing as table
 const PrintMaxDescriptionLength = 200
-
-// PrintHistoryTable prints a list of history records as a table
-func PrintHistoryTable(records []*History) {
-	var tableData [][]string
-	for _, record := range records {
-		formattedURL := record.URL
-		if len(record.URL) > PrintMaxURLLength {
-			formattedURL = record.URL[0:PrintMaxURLLength] + "..."
-		}
-
-		tableData = append(tableData, []string{
-			strconv.FormatUint(uint64(record.ID), 10),
-			record.Source,
-			formattedURL,
-			strconv.Itoa(record.StatusCode),
-			record.Method,
-			record.ResponseContentType,
-			strconv.Itoa(record.ResponseBodySize),
-		})
-	}
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"ID", "Source", "URL", "Status", "Method", "Content Type", "Response Body Size"})
-	table.SetBorder(true)
-	table.AppendBulk(tableData)
-	table.Render()
-}
-
-// PrintIssueTable print a list of issues as a table
-func PrintIssueTable(records []*Issue) {
-	var tableData [][]string
-	for _, record := range records {
-		formattedURL := record.URL
-		if len(record.URL) > PrintMaxURLLength {
-			formattedURL = record.URL[0:PrintMaxURLLength] + "..."
-		}
-		formattedDescription := record.Description
-		if len(record.Description) > PrintMaxDescriptionLength {
-			formattedDescription = record.Description[0:PrintMaxDescriptionLength] + "..."
-		}
-		tableData = append(tableData, []string{
-			strconv.FormatUint(uint64(record.ID), 10),
-			string(record.Code),
-			record.Title,
-			formattedURL,
-			record.HTTPMethod,
-			formattedDescription,
-		})
-	}
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"ID", "Code", "Title", "URL", "Method", "Description"})
-	table.SetBorder(true)
-	table.AppendBulk(tableData)
-	table.Render()
-}
 
 func PrintIssue(issue Issue) {
 	var sb strings.Builder

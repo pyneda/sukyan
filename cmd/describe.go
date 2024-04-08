@@ -10,13 +10,10 @@ var describeCmd = &cobra.Command{
 	Aliases: []string{"d", "desc", "show"},
 	Short:   "Describes a resource stored in the database",
 	Long:    `Describes a resource.`,
-	// Run: func(cmd *cobra.Command, args []string) {
-	// 	fmt.Println("describe called")
-	// },
 }
 
 func init() {
 	rootCmd.AddCommand(describeCmd)
-	describeCmd.PersistentFlags().StringVarP(&format, "format", "f", "json", "Output format (json, yaml, text, pretty)")
+	describeCmd.PersistentFlags().StringVarP(&format, "format", "f", "json", "Output format (json, yaml, table, text, pretty)")
 
 }

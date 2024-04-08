@@ -29,6 +29,24 @@ type JsonWebToken struct {
 	WorkspaceID *uint          `json:"workspace_id"`
 }
 
+func (j JsonWebToken) TableHeaders() []string {
+	return []string{"ID", "Token", "Algorithm", "Issuer", "Subject", "Audience", "Expiration", "IssuedAt", "WorkspaceID"}
+}
+
+func (j JsonWebToken) TableRow() []string {
+	return []string{
+		fmt.Sprintf("%d", j.ID),
+		j.Token,
+		j.Algorithm,
+		j.Issuer,
+		j.Subject,
+		j.Audience,
+		j.Expiration.Format(time.RFC3339),
+		j.IssuedAt.Format(time.RFC3339),
+		fmt.Sprintf("%d", *j.WorkspaceID),
+	}
+}
+
 func (j JsonWebToken) String() string {
 	return fmt.Sprintf("ID: %d, Token: %s, Algorithm: %s, Issuer: %s, Subject: %s, Audience: %s, Expiration: %s, IssuedAt: %s, WorkspaceID: %d", j.ID, j.Token, j.Algorithm, j.Issuer, j.Subject, j.Audience, j.Expiration.Format(time.RFC3339), j.IssuedAt.Format(time.RFC3339), j.WorkspaceID)
 }

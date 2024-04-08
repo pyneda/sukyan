@@ -16,6 +16,19 @@ type Workspace struct {
 	Description string `json:"description"`
 }
 
+func (w Workspace) TableHeaders() []string {
+	return []string{"ID", "Code", "Title", "Description"}
+}
+
+func (w Workspace) TableRow() []string {
+	return []string{
+		fmt.Sprintf("%d", w.ID),
+		w.Code,
+		w.Title,
+		w.Description,
+	}
+}
+
 // String provides a basic textual representation of the Workspace.
 func (w Workspace) String() string {
 	return fmt.Sprintf("ID: %d, Code: %s, Title: %s, Description: %s", w.ID, w.Code, w.Title, w.Description)

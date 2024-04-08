@@ -46,6 +46,26 @@ type History struct {
 	PlaygroundSession    PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
+func (h History) TableHeaders() []string {
+	return []string{"ID", "URL", "Method", "Response Body Size", "Workspace", "Task", "Source"}
+}
+
+func (h History) TableRow() []string {
+	formattedURL := h.URL
+	if len(h.URL) > PrintMaxURLLength {
+		formattedURL = h.URL[0:PrintMaxURLLength] + "..."
+	}
+	return []string{
+		fmt.Sprintf("%d", h.ID),
+		formattedURL,
+		h.Method,
+		fmt.Sprintf("%d", h.ResponseBodySize),
+		fmt.Sprintf("%d", *h.WorkspaceID),
+		fmt.Sprintf("%d", *h.TaskID),
+		h.Source,
+	}
+}
+
 func (h History) String() string {
 	return fmt.Sprintf(
 		"ID: %d\nWorkspace: %d\nTask: %d\nSource: %s\nURL: %s\nMethod: %s\nResponse Body Size: %d\nRequest:\n%s\nResponse:\n%s",

@@ -26,6 +26,23 @@ type WebSocketConnection struct {
 	Source          string             `json:"source"`
 }
 
+func (c WebSocketConnection) TableHeaders() []string {
+	return []string{"ID", "URL", "StatusCode", "StatusText", "ClosedAt", "WorkspaceID", "TaskID", "Source"}
+}
+
+func (c WebSocketConnection) TableRow() []string {
+	return []string{
+		fmt.Sprintf("%d", c.ID),
+		c.URL,
+		fmt.Sprintf("%d", c.StatusCode),
+		c.StatusText,
+		c.ClosedAt.Format(time.RFC3339),
+		fmt.Sprintf("%d", *c.WorkspaceID),
+		fmt.Sprintf("%d", *c.TaskID),
+		c.Source,
+	}
+}
+
 func (c WebSocketConnection) String() string {
 	return fmt.Sprintf("ID: %d, URL: %s, StatusCode: %d, StatusText: %s, ClosedAt: %s, WorkspaceID: %d, TaskID: %d, Source: %s", c.ID, c.URL, c.StatusCode, c.StatusText, c.ClosedAt.Format(time.RFC3339), c.WorkspaceID, c.TaskID, c.Source)
 }
@@ -58,6 +75,22 @@ type WebSocketMessage struct {
 	PayloadData  string           `json:"payload_data"`
 	Timestamp    time.Time        `json:"timestamp"`              // timestamp for when the message was sent/received
 	Direction    MessageDirection `gorm:"index" json:"direction"` // direction of the message
+}
+
+func (m WebSocketMessage) TableHeaders() []string {
+	return []string{"ID", "ConnectionID", "Opcode", "Mask", "PayloadData", "Timestamp", "Direction"}
+}
+
+func (m WebSocketMessage) TableRow() []string {
+	return []string{
+		fmt.Sprintf("%d", m.ID),
+		fmt.Sprintf("%d", m.ConnectionID),
+		fmt.Sprintf("%f", m.Opcode),
+		fmt.Sprintf("%t", m.Mask),
+		m.PayloadData,
+		m.Timestamp.Format(time.RFC3339),
+		string(m.Direction),
+	}
 }
 
 func (m WebSocketMessage) String() string {

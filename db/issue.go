@@ -40,6 +40,33 @@ type Issue struct {
 	TaskJob       TaskJob          `json:"-" gorm:"foreignKey:TaskJobID"`
 }
 
+func (i Issue) TableHeaders() []string {
+	return []string{"ID", "Title", "Code", "Severity", "Confidence", "False Positive", "URL", "Status Code", "HTTP Method", "Description"}
+}
+
+func (i Issue) TableRow() []string {
+	formattedURL := i.URL
+	if len(i.URL) > PrintMaxURLLength {
+		formattedURL = i.URL[0:PrintMaxURLLength] + "..."
+	}
+	formattedDescription := i.Description
+	if len(i.Description) > PrintMaxDescriptionLength {
+		formattedDescription = i.Description[0:PrintMaxDescriptionLength] + "..."
+	}
+	return []string{
+		fmt.Sprintf("%d", i.ID),
+		i.Title,
+		i.Code,
+		i.Severity.String(),
+		fmt.Sprintf("%d", i.Confidence),
+		fmt.Sprintf("%t", i.FalsePositive),
+		formattedURL,
+		fmt.Sprintf("%d", i.StatusCode),
+		i.HTTPMethod,
+		formattedDescription,
+	}
+}
+
 func (i Issue) String() string {
 	return fmt.Sprintf(
 		"ID: %d\nCode: %s\nTitle: %s\nCWE: %d\nURL: %s\nStatus Code: %d\nHTTP Method: %s\nPayload: %s\nFalse Positive: %t\nConfidence: %d\nReferences: %v\nSeverity: %s\nCURL Command: %s\nNote: %s\nWorkspace ID: %v\nTask ID: %v\nDescription: %s\nDetails: %s\nRemediation: %s\nRequest: %s\nResponse: %s",

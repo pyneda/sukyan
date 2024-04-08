@@ -1,10 +1,13 @@
 package lib
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"strings"
+
+	"github.com/olekukonko/tablewriter"
 
 	"gopkg.in/yaml.v3"
 )
@@ -16,11 +19,14 @@ const (
 	Text   FormatType = "text"
 	JSON   FormatType = "json"
 	YAML   FormatType = "yaml"
+	Table  FormatType = "table"
 )
 
 type Formattable interface {
 	String() string
 	Pretty() string
+	TableHeaders() []string
+	TableRow() []string
 }
 
 func FormatOutput[T Formattable](data []T, format FormatType) (string, error) {
@@ -49,6 +55,24 @@ func FormatOutput[T Formattable](data []T, format FormatType) (string, error) {
 			return "", err
 		}
 		return string(y), nil
+	case Table:
+		var tableData [][]string
+		for _, item := range data {
+			row := item.TableRow()
+			tableData = append(tableData, row)
+		}
+
+		buffer := new(bytes.Buffer)
+		table := tablewriter.NewWriter(buffer)
+
+		if len(data) > 0 {
+			table.SetHeader(data[0].TableHeaders())
+		}
+		table.SetBorder(true)
+		table.AppendBulk(tableData)
+		table.Render()
+
+		return buffer.String(), nil
 	default:
 		return "", fmt.Errorf("unknown format: %v", format)
 	}
@@ -72,6 +96,14 @@ func FormatSingleOutput[T Formattable](data T, format FormatType) (string, error
 			return "", err
 		}
 		return string(y), nil
+	case Table:
+		buffer := new(bytes.Buffer)
+		table := tablewriter.NewWriter(buffer)
+		table.SetHeader(data.TableHeaders())
+		table.Append(data.TableRow())
+		table.SetBorder(true)
+		table.Render()
+		return buffer.String(), nil
 	default:
 		return "", fmt.Errorf("unknown format: %v", format)
 	}
@@ -98,6 +130,8 @@ func ParseFormatType(format string) (FormatType, error) {
 		return JSON, nil
 	case "yaml":
 		return YAML, nil
+	case "table":
+		return Table, nil
 	default:
 		return "", fmt.Errorf("unknown format: %s", format)
 	}

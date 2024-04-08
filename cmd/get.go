@@ -22,5 +22,5 @@ func init() {
 	rootCmd.AddCommand(getCmd)
 	getCmd.PersistentFlags().IntVarP(&pageSize, "page-size", "s", 100, "Size of each page")
 	getCmd.PersistentFlags().IntVarP(&page, "page", "p", 1, "Page number")
-	getCmd.PersistentFlags().StringVarP(&format, "format", "f", "json", "Output format (json, yaml, text, pretty)")
+	getCmd.PersistentFlags().StringVarP(&format, "format", "f", "json", "Output format (json, yaml, table, text, pretty)")
 }

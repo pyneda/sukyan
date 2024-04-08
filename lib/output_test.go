@@ -12,6 +12,14 @@ type MockData struct {
 	Content string
 }
 
+func (m MockData) TableHeaders() []string {
+	return []string{"Name", "Content"}
+}
+
+func (m MockData) TableRow() []string {
+	return []string{m.Name, m.Content}
+}
+
 func (m MockData) String() string {
 	return m.Name
 }

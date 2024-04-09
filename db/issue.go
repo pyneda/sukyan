@@ -35,9 +35,9 @@ type Issue struct {
 	Interactions  []OOBInteraction `json:"interactions" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Requests      []History        `json:"requests" gorm:"many2many:issue_requests;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	TaskID        *uint            `json:"task_id" gorm:"index"`
-	Task          Task             `json:"-" gorm:"foreignKey:TaskID"`
+	Task          Task             `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	TaskJobID     *uint            `json:"task_job_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	TaskJob       TaskJob          `json:"-" gorm:"foreignKey:TaskJobID"`
+	TaskJob       TaskJob          `json:"-" gorm:"foreignKey:TaskJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 func (i Issue) TableHeaders() []string {

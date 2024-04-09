@@ -2,13 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -26,21 +24,21 @@ var describeIssueCmd = &cobra.Command{
 		describeIssueID, err := strconv.Atoi(args[0])
 		if err != nil {
 			fmt.Println("Invalid ID provided")
-			os.Exit(0)
+			return
 		}
 		if describeIssueID == 0 {
 			fmt.Println("An ID needs to be provided")
-			os.Exit(0)
+			return
 		}
 		issue, err := db.Connection.GetIssue(describeIssueID, true)
 		if err != nil {
-			log.Panic().Err(err).Msg("Could not find a issue with the provided ID")
+			fmt.Println("Could not find a issue with the provided ID")
+			return
 		}
-		// db.PrintIssue(issue)
 		formatType, err := lib.ParseFormatType(format)
 		if err != nil {
 			fmt.Println("Error parsing format type")
-			os.Exit(0)
+			return
 		}
 		formattedOutput, err := lib.FormatSingleOutput(issue, formatType)
 		if err != nil {

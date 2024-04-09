@@ -1,12 +1,14 @@
 package api
 
 import (
-	"github.com/pyneda/sukyan/db"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/pyneda/sukyan/db"
+
 	"fmt"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -45,7 +47,7 @@ func TestGetIssueDetail(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
 	// Test with non-existing ID
-	req = httptest.NewRequest("GET", "/api/v1/issues/9999", nil)
+	req = httptest.NewRequest("GET", "/api/v1/issues/999999", nil)
 	resp, _ = app.Test(req)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 

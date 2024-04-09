@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
@@ -10,9 +8,6 @@ import (
 var utilsCmd = &cobra.Command{
 	Use:   "utils",
 	Short: "Utility commands",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("utils called")
-	},
 }
 
 func init() {

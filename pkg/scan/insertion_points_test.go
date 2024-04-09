@@ -2,12 +2,13 @@ package scan
 
 import (
 	"encoding/json"
-	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/lib"
 	"net/http"
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 )
 
 func TestHandleURLParameters(t *testing.T) {

@@ -37,7 +37,7 @@ type History struct {
 	Evaluated            bool              `gorm:"index" json:"evaluated"`
 	Note                 string            `json:"note"`
 	Source               string            `gorm:"index" json:"source"`
-	JsonWebTokens        []JsonWebToken    `gorm:"many2many:json_web_token_histories" json:"json_web_tokens"`
+	JsonWebTokens        []JsonWebToken    `gorm:"many2many:json_web_token_histories;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"json_web_tokens"`
 	Workspace            Workspace         `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID          *uint             `json:"workspace_id" gorm:"index"`
 	TaskID               *uint             `json:"task_id" gorm:"index" `

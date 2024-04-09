@@ -19,7 +19,7 @@ type OOBTest struct {
 	TestName          string    `json:"test_name"`
 	Target            string    `json:"target"`
 	HistoryID         *uint     `json:"history_id"`
-	HistoryItem       *History  `gorm:"foreignKey:HistoryID" json:"-"`
+	HistoryItem       *History  `gorm:"foreignKey:HistoryID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 	InteractionDomain string    `gorm:"index" json:"interaction_domain"`
 	InteractionFullID string    `gorm:"index" json:"interaction_id"`
 	Payload           string    `json:"payload"`
@@ -85,7 +85,7 @@ func (d *DatabaseConnection) CreateOOBTest(item OOBTest) (OOBTest, error) {
 type OOBInteraction struct {
 	BaseModel
 	OOBTestID *uint   `json:"oob_test_id"`
-	OOBTest   OOBTest `json:"oob_test" gorm:"foreignKey:OOBTestID"`
+	OOBTest   OOBTest `gorm:"foreignKey:OOBTestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 
 	Protocol      string    `json:"protocol"`
 	FullID        string    `json:"full_id"`

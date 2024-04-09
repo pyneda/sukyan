@@ -17,12 +17,12 @@ type WebSocketConnection struct {
 	ResponseHeaders datatypes.JSON     `json:"response_headers" swaggerignore:"true"`
 	StatusCode      int                `gorm:"index" json:"status_code"`
 	StatusText      string             `json:"status_text"`
-	Messages        []WebSocketMessage `json:"messages" gorm:"foreignKey:ConnectionID"`
+	Messages        []WebSocketMessage `json:"messages" gorm:"foreignKey:ConnectionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	ClosedAt        time.Time          `json:"closed_at"` // timestamp for when the connection is closed
 	Workspace       Workspace          `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID     *uint              `json:"workspace_id"`
 	TaskID          *uint              `json:"task_id" gorm:"index" `
-	Task            Task               `json:"-" gorm:"foreignKey:TaskID"`
+	Task            Task               `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Source          string             `json:"source"`
 }
 

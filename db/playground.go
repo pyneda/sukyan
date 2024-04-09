@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -10,7 +11,7 @@ type PlaygroundCollection struct {
 	BaseModel
 	Name        string              `json:"name"`
 	Description string              `json:"description"`
-	Sessions    []PlaygroundSession `json:"-" gorm:"foreignKey:CollectionID"`
+	Sessions    []PlaygroundSession `gorm:"foreignKey:CollectionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	WorkspaceID uint                `json:"workspace_id" gorm:"index"`
 	Workspace   Workspace           `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
@@ -33,7 +34,7 @@ type PlaygroundSession struct {
 	// Task              Task                 `json:"-" gorm:"foreignKey:TaskID"`
 	// TaskID            *uint                `json:"task_id"`
 	CollectionID uint                 `json:"collection_id"`
-	Collection   PlaygroundCollection `json:"-" gorm:"foreignKey:CollectionID"`
+	Collection   PlaygroundCollection `json:"-" gorm:"foreignKey:CollectionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	WorkspaceID  uint                 `json:"workspace_id" gorm:"index"`
 	Workspace    Workspace            `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Histories    []History            `gorm:"foreignKey:PlaygroundSessionID" json:"-"`

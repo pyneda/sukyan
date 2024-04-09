@@ -8,7 +8,6 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +31,8 @@ var describeWorkspaceCmd = &cobra.Command{
 		}
 		workspace, err := db.Connection.GetWorkspaceByID(uint(describeWorkspaceID))
 		if err != nil {
-			log.Panic().Err(err).Msg("Could not find a workspace with the provided ID")
+			fmt.Println("Could not find a workspace with the provided ID")
+			os.Exit(0)
 		}
 		formatType, err := lib.ParseFormatType(format)
 		if err != nil {

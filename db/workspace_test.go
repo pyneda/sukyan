@@ -1,8 +1,10 @@
 package db
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetWorkspaceByID(t *testing.T) {
@@ -106,13 +108,41 @@ func TestDeleteWorkspace(t *testing.T) {
 	workspace, err := Connection.GetOrCreateWorkspace(newWorkspace)
 	assert.NotNil(t, workspace)
 	assert.Nil(t, err)
+	// Create various objects to validate CASCADE constraint
+
+	history, err := Connection.CreateHistory(&History{URL: "http://example.com", StatusCode: 200, Method: "GET", WorkspaceID: &workspace.ID})
+	assert.Nil(t, err)
+	assert.NotNil(t, history)
+	historyID := history.ID
+	history, err = Connection.GetHistoryByID(historyID)
+	assert.Nil(t, err)
+	assert.NotNil(t, history)
+
+	issue, err := CreateIssueFromHistoryAndTemplate(history, SqlInjectionCode, "details", 100, "High", &workspace.ID, nil, nil)
+	assert.Nil(t, err)
+	assert.NotNil(t, issue)
+	issueID := issue.ID
+	issue, err = Connection.GetIssue(int(issueID), true)
+	assert.Nil(t, err)
+	assert.NotNil(t, issue)
 	// Delete the workspace
 	err = Connection.DeleteWorkspace(workspace.ID)
 	assert.Nil(t, err)
 
-	// // Try deleting the same workspace again
-	// err = Connection.DeleteWorkspace(workspace.ID)
-	// assert.NotNil(t, err)
+	// Try fetching the deleted workspace
+	_, err = Connection.GetWorkspaceByID(workspace.ID)
+	assert.NotNil(t, err)
+	// Try fetching the deleted history to validate CASCADE constraint
+	history, err = Connection.GetHistoryByID(historyID)
+	assert.NotNil(t, err)
+	assert.Nil(t, history)
+	// Try fetching the deleted issue to validate CASCADE constraint
+	issue, err = Connection.GetIssue(int(issueID), true)
+	assert.NotNil(t, err)
+	log.Warn().Interface("issue", issue).Msg("issue")
+	assert.Equal(t, issue.ID, uint(0))
+	assert.Equal(t, issue.Title, "")
+
 }
 
 func TestUpdateWorkspace(t *testing.T) {

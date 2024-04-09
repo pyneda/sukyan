@@ -10,9 +10,9 @@ import (
 
 // getDatabaseSizeCmd represents the getDatabaseSize command
 var getDatabaseSizeCmd = &cobra.Command{
-	Use:     "db_size",
+	Use:     "dbsize",
 	Short:   "Get the database size",
-	Aliases: []string{"db-size", "db_s", "dbs"},
+	Aliases: []string{"db-size", "db_s", "dbs", "db_size"},
 	Run: func(cmd *cobra.Command, args []string) {
 		dbSize, err := db.GetDatabaseSize()
 		if err != nil {

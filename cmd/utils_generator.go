@@ -15,8 +15,8 @@ import (
 
 // generatorCmd represents the generator command
 var generatorCmd = &cobra.Command{
-	Use:   "generator",
-	Short: "Generate payloads using internal templates for testing purposes",
+	Use:   "payloads",
+	Short: "Generate payloads using internal generator templates for testing purposes",
 	Run: func(cmd *cobra.Command, args []string) {
 		manager := integrations.InteractionsManager{
 			GetAsnInfo:            false,

@@ -60,25 +60,25 @@ func (h History) TableRow() []string {
 		formattedURL,
 		h.Method,
 		fmt.Sprintf("%d", h.ResponseBodySize),
-		fmt.Sprintf("%d", *h.WorkspaceID),
-		fmt.Sprintf("%d", *h.TaskID),
+		formatUintPointer(h.WorkspaceID),
+		formatUintPointer(h.TaskID),
 		h.Source,
 	}
 }
 
 func (h History) String() string {
 	return fmt.Sprintf(
-		"ID: %d\nWorkspace: %d\nTask: %d\nSource: %s\nURL: %s\nMethod: %s\nResponse Body Size: %d\nRequest:\n%s\nResponse:\n%s",
-		h.ID, *h.WorkspaceID, *h.TaskID, h.Source, h.URL, h.Method, h.ResponseBodySize, string(h.RawRequest), string(h.RawResponse),
+		"ID: %d\nWorkspace: %s\nTask: %s\nSource: %s\nURL: %s\nMethod: %s\nResponse Body Size: %d\nRequest:\n%s\nResponse:\n%s",
+		h.ID, formatUintPointer(h.WorkspaceID), formatUintPointer(h.TaskID), h.Source, h.URL, h.Method, h.ResponseBodySize, string(h.RawRequest), string(h.RawResponse),
 	)
 }
 
 func (h History) Pretty() string {
 	return fmt.Sprintf(
-		"%sID:%s %d\n%sWorkspace:%s %d\n%sTask:%s %d\n%sSource:%s %s\n%sURL:%s %s\n%sMethod:%s %s\n%sResponseBodySize:%s %d\n%sRequest:\n%s%s\n%sResponse:\n%s%s\n",
+		"%sID:%s %d\n%sWorkspace:%s %s\n%sTask:%s %s\n%sSource:%s %s\n%sURL:%s %s\n%sMethod:%s %s\n%sResponseBodySize:%s %d\n%sRequest:\n%s%s\n%sResponse:\n%s%s\n",
 		lib.Blue, lib.ResetColor, h.ID,
-		lib.Blue, lib.ResetColor, *h.WorkspaceID,
-		lib.Blue, lib.ResetColor, *h.TaskID,
+		lib.Blue, lib.ResetColor, formatUintPointer(h.WorkspaceID),
+		lib.Blue, lib.ResetColor, formatUintPointer(h.TaskID),
 		lib.Blue, lib.ResetColor, h.Source,
 		lib.Blue, lib.ResetColor, h.URL,
 		lib.Blue, lib.ResetColor, h.Method,

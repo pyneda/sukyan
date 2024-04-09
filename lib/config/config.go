@@ -161,7 +161,7 @@ func SetDefaultConfig() {
 	viper.SetDefault("api.metrics.enabled", false)
 	viper.SetDefault("api.metrics.path", "/metrics")
 	viper.SetDefault("api.metrics.title", "Sukyan Metrics")
-	viper.SetDefault("api.pprof.enabled", true)
+	viper.SetDefault("api.pprof.enabled", false)
 	viper.SetDefault("api.pprof.prefix", "")
 
 	viper.SetDefault("api.cors.origins", []string{"http://localhost:3001", "http://127.0.0.1:3001"})

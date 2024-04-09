@@ -1,9 +1,11 @@
 package db
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
+	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 )
 
@@ -28,6 +30,46 @@ type OOBTest struct {
 	TaskID            *uint     `json:"task_id"`
 	TaskJobID         *uint     `json:"task_job_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	TaskJob           TaskJob   `json:"-" gorm:"foreignKey:TaskJobID"`
+}
+
+func (o OOBTest) TableHeaders() []string {
+	return []string{"ID", "Test Name", "Target", "Interaction Domain", "Interaction Full ID", "Payload", "Insertion Point", "Workspace ID", "Task ID"}
+}
+
+func (o OOBTest) TableRow() []string {
+	return []string{
+		fmt.Sprintf("%d", o.ID),
+		o.TestName,
+		o.Target,
+		o.InteractionDomain,
+		o.InteractionFullID,
+		o.Payload,
+		o.InsertionPoint,
+		formatUintPointer(o.WorkspaceID),
+		formatUintPointer(o.TaskID),
+	}
+}
+
+func (o OOBTest) String() string {
+	return fmt.Sprintf(
+		"ID: %d\nTest Name: %s\nTarget: %s\nInteraction Domain: %s\nInteraction Full ID: %s\nPayload: %s\nInsertion Point: %s\nWorkspace ID: %s\nTask ID: %s",
+		o.ID, o.TestName, o.Target, o.InteractionDomain, o.InteractionFullID, o.Payload, o.InsertionPoint, formatUintPointer(o.WorkspaceID), formatUintPointer(o.TaskID),
+	)
+}
+
+func (o OOBTest) Pretty() string {
+	return fmt.Sprintf(
+		"%sID:%s %d\n%sTest Name:%s %s\n%sTarget:%s %s\n%sInteraction Domain:%s %s\n%sInteraction Full ID:%s %s\n%sPayload:%s %s\n%sInsertion Point:%s %s\n%sWorkspace ID:%s %s\n%sTask ID:%s %s\n",
+		lib.Blue, lib.ResetColor, o.ID,
+		lib.Blue, lib.ResetColor, o.TestName,
+		lib.Blue, lib.ResetColor, o.Target,
+		lib.Blue, lib.ResetColor, o.InteractionDomain,
+		lib.Blue, lib.ResetColor, o.InteractionFullID,
+		lib.Blue, lib.ResetColor, o.Payload,
+		lib.Blue, lib.ResetColor, o.InsertionPoint,
+		lib.Blue, lib.ResetColor, formatUintPointer(o.WorkspaceID),
+		lib.Blue, lib.ResetColor, formatUintPointer(o.TaskID),
+	)
 }
 
 // CreateOOBTest saves an OOBTest to the database
@@ -56,6 +98,48 @@ type OOBInteraction struct {
 	Workspace     Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID   *uint     `json:"workspace_id"`
 	IssueID       *uint     `json:"issue_id"`
+}
+
+func (o OOBInteraction) TableHeaders() []string {
+	return []string{"ID", "Protocol", "Full ID", "Unique ID", "QType", "Timestamp", "Remote Address", "Workspace ID", "Issue ID"}
+}
+
+func (o OOBInteraction) TableRow() []string {
+	return []string{
+		fmt.Sprintf("%d", o.ID),
+		o.Protocol,
+		o.FullID,
+		o.UniqueID,
+		o.QType,
+		o.Timestamp.Format(time.RFC3339),
+		o.RemoteAddress,
+		formatUintPointer(o.WorkspaceID),
+		formatUintPointer(o.IssueID),
+	}
+}
+
+func (o OOBInteraction) Pretty() string {
+	return fmt.Sprintf(
+		"%sID:%s %d\n%sProtocol:%s %s\n%sFull ID:%s %s\n%sUnique ID:%s %s\n%sQType:%s %s\n%sRaw Request:%s %s\n%sRaw Response:%s %s\n%sRemote Address:%s %s\n%sTimestamp:%s %s\n%sWorkspace ID:%s %s\n%sIssue ID:%s %s\n",
+		lib.Blue, lib.ResetColor, o.ID,
+		lib.Blue, lib.ResetColor, o.Protocol,
+		lib.Blue, lib.ResetColor, o.FullID,
+		lib.Blue, lib.ResetColor, o.UniqueID,
+		lib.Blue, lib.ResetColor, o.QType,
+		lib.Blue, lib.ResetColor, o.RawRequest,
+		lib.Blue, lib.ResetColor, o.RawResponse,
+		lib.Blue, lib.ResetColor, o.RemoteAddress,
+		lib.Blue, lib.ResetColor, o.Timestamp.Format(time.RFC3339),
+		lib.Blue, lib.ResetColor, formatUintPointer(o.WorkspaceID),
+		lib.Blue, lib.ResetColor, formatUintPointer(o.IssueID),
+	)
+}
+
+func (o OOBInteraction) String() string {
+	return fmt.Sprintf(
+		"ID: %d\nProtocol: %s\nFull ID: %s\nUnique ID: %s\nQType: %s\nRaw Request: %s\nRaw Response: %s\nRemote Address: %s\nTimestamp: %s\nWorkspace ID: %s\nIssue ID: %s",
+		o.ID, o.Protocol, o.FullID, o.UniqueID, o.QType, o.RawRequest, o.RawResponse, o.RemoteAddress, o.Timestamp.Format(time.RFC3339), formatUintPointer(o.WorkspaceID), formatUintPointer(o.IssueID),
+	)
 }
 
 // CreateInteraction saves an issue to the database

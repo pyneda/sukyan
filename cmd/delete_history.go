@@ -23,28 +23,31 @@ var deleteHistoryCmd = &cobra.Command{
 		fmt.Printf("Sources: %s\n", strings.Join(deleteHistoryFilterSources, ","))
 		fmt.Printf("Workspace ID: %d\n", workspaceID)
 
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Print("Are you sure you want to proceed with deletion? (yes/no): ")
-		confirmation, _ := reader.ReadString('\n')
-		confirmation = strings.TrimSpace(confirmation)
+		if !noConfirmDelete {
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Print("Are you sure you want to proceed with deletion? (yes/no): ")
+			confirmation, _ := reader.ReadString('\n')
+			confirmation = strings.TrimSpace(confirmation)
 
-		if confirmation == "yes" {
-			filter := db.HistoryDeletionFilter{
-				StatusCodes:          deleteHistoryFilterStatusCodes,
-				Methods:              deleteHistoryFilterMethods,
-				ResponseContentTypes: deleteHistoryFilterResponseContentTypes,
-				RequestContentTypes:  deleteHistoryFilterRequestContentTypes,
-				Sources:              deleteHistoryFilterSources,
-				WorkspaceID:          workspaceID,
+			if confirmation != "yes" {
+				fmt.Println("Deletion aborted.")
+				return
 			}
-			deletedCount, err := db.Connection.DeleteHistory(filter)
-			if err != nil {
-				fmt.Printf("Error during deletion: %s\n", err)
-			} else {
-				fmt.Printf("Successfully deleted %d history items.\n", deletedCount)
-			}
+		}
+
+		filter := db.HistoryDeletionFilter{
+			StatusCodes:          deleteHistoryFilterStatusCodes,
+			Methods:              deleteHistoryFilterMethods,
+			ResponseContentTypes: deleteHistoryFilterResponseContentTypes,
+			RequestContentTypes:  deleteHistoryFilterRequestContentTypes,
+			Sources:              deleteHistoryFilterSources,
+			WorkspaceID:          workspaceID,
+		}
+		deletedCount, err := db.Connection.DeleteHistory(filter)
+		if err != nil {
+			fmt.Printf("Error during deletion: %s\n", err)
 		} else {
-			fmt.Println("Deletion aborted.")
+			fmt.Printf("Successfully deleted %d history items.\n", deletedCount)
 		}
 	},
 }

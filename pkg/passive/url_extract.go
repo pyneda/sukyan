@@ -2,12 +2,13 @@ package passive
 
 import (
 	"fmt"
-	"github.com/pyneda/sukyan/db"
-	"github.com/rs/zerolog/log"
-	"mvdan.cc/xurls/v2"
 	"net/url"
 	"path"
 	"strings"
+
+	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
+	"mvdan.cc/xurls/v2"
 )
 
 type ExtractedURLS struct {
@@ -151,6 +152,8 @@ func analyzeURL(rawURL string, base *url.URL) (string, string, error) {
 	} else if u, err := url.Parse(rawURL); err == nil && (u.Scheme == "http" || u.Scheme == "https") {
 		return rawURL, "web", nil
 	} else if strings.Contains(rawURL, "://") {
+		return rawURL, "non-web", nil
+	} else if strings.HasPrefix(rawURL, "mailto:") {
 		return rawURL, "non-web", nil
 	} else {
 		return "", "", fmt.Errorf("could not determine URL type")

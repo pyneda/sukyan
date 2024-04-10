@@ -8,12 +8,10 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
-// deleteWorkspaceCmd represents the workspace command
+// deleteWorkspaceCmd representa el comando workspace
 var deleteWorkspaceCmd = &cobra.Command{
 	Use:        "workspace [id]",
 	Aliases:    []string{"w"},
@@ -33,27 +31,30 @@ var deleteWorkspaceCmd = &cobra.Command{
 		}
 		workspace, err := db.Connection.GetWorkspaceByID(uint(deleteWorkspaceID))
 		if err != nil {
-			log.Panic().Err(err).Msg("Could not find a workspace with the provided ID")
+			fmt.Println("Could not find a workspace with the provided ID")
+			os.Exit(0)
 		}
 
 		fmt.Printf("Deleting the following workspace:\n  - ID: %d\n  - Code: %s\n  - Title: %s\n\n", workspace.ID, workspace.Code, workspace.Title)
 
-		reader := bufio.NewReader(os.Stdin)
-		fmt.Println("WARNING: This will delete the workspace and all associated data such as detected issues, tasks, history, etc. This action cannot be undone.")
-		fmt.Print("\nAre you sure you want to proceed with deletion? (yes/no): ")
-		confirmation, _ := reader.ReadString('\n')
-		confirmation = strings.TrimSpace(confirmation)
+		if !noConfirmDelete {
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Println("WARNING: This will delete the workspace and all associated data such as detected issues, tasks, history, etc. This action cannot be undone.")
+			fmt.Print("\nAre you sure you want to proceed with deletion? (yes/no): ")
+			confirmation, _ := reader.ReadString('\n')
+			confirmation = strings.TrimSpace(confirmation)
 
-		if confirmation == "yes" {
-
-			err := db.Connection.DeleteWorkspace(uint(deleteWorkspaceID))
-			if err != nil {
-				fmt.Printf("Error during deletion: %s\n", err)
-			} else {
-				fmt.Println("Workspace has been sucessfully deleted!")
+			if confirmation != "yes" {
+				fmt.Println("Deletion aborted.")
+				return
 			}
+		}
+
+		err = db.Connection.DeleteWorkspace(uint(deleteWorkspaceID))
+		if err != nil {
+			fmt.Printf("Error during deletion: %s\n", err)
 		} else {
-			fmt.Println("Deletion aborted.")
+			fmt.Println("Workspace has been successfully deleted!")
 		}
 	},
 }

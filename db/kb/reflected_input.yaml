@@ -1,0 +1,8 @@
+code: "reflected_input"
+title: "Input reflected in response"
+description: "Input reflection arises when data originating from a user request is directly echoed back in the application's immediate response. While not inherently a vulnerability, it serves as a crucial step for several client-side vulnerabilities abd certain server-side vulnerabilities like SQL injection become more discernible and exploitable when input is echoed back in responses."
+remediation: "To avoid vulnerabilities raised due to input returned in response, implement robust input validation and output encoding mechanisms. Ensure that user-supplied data is thoroughly sanitized and validated before being echoed back in application responses. Employ context-aware encoding techniques to prevent various types of injection attacks and security misconfigurations."
+cwe: 20
+severity: Info
+references:
+  - https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html

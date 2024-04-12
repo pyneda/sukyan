@@ -7,5 +7,5 @@ remediation:
   Remove the 'Server' header or configure your server to stop disclosing
   this information.
 cwe: 200
-severity: Low
+severity: Info
 references: []

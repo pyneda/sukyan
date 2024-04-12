@@ -1,0 +1,14 @@
+id: "reflected_input"
+issue_code: "reflected_input"
+detection_condition: "or"
+detection_methods:
+  - response_condition:
+      contains: "{{.input}}"
+      confidence: 90
+vars:
+  - name: input
+    value: "{{randomString 10}}"
+templates:
+  - '{{.input}}'
+categories:
+  - injection

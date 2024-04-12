@@ -7,5 +7,5 @@ remediation:
   Remove the 'X-Powered-By' header or configure your technology to stop
   disclosing this information.
 cwe: 200
-severity: Low
+severity: Info
 references: []

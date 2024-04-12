@@ -136,6 +136,7 @@ type IssueFilter struct {
 	WorkspaceID uint
 	TaskID      uint
 	TaskJobID   uint
+	URL         string
 }
 
 // ListIssues Lists issues
@@ -150,6 +151,9 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 		query = query.Where("workspace_id = ?", filter.WorkspaceID)
 	}
 
+	if filter.URL != "" {
+		query = query.Where("url = ?", filter.URL)
+	}
 	if filter.TaskID != 0 {
 		query = query.Where("task_id = ?", filter.TaskID)
 	}

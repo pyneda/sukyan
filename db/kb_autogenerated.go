@@ -66,6 +66,7 @@ var (
 	StorageBucketDetectedCode            IssueCode = "storage_bucket_detected"
 	StrictTransportSecurityHeaderCode    IssueCode = "strict_transport_security_header"
 	TechStackFingerprintCode             IssueCode = "tech_stack_fingerprint"
+	UnencryptedPasswordSubmissionCode    IssueCode = "unencrypted_password_submission"
 	VulnerableJavascriptDependencyCode   IssueCode = "vulnerable_javascript_dependency"
 	WafDetectedCode                      IssueCode = "waf_detected"
 	WebsocketDetectedCode                IssueCode = "websocket_detected"
@@ -581,7 +582,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, avoid constructing SQL queries with user-supplied input whenever possible. Instead, use parameterized queries or prepared statements, which can help ensure that user input is not interpreted as part of the SQL command. Implement proper input validation and sanitization procedures. Also, ensure that the least privilege principle is followed, and each function of the application has only the necessary access rights it needs to perform its tasks.",
 		Cwe:         89,
 		Severity:    "High",
-		References:  []string{"https://owasp.org/www-community/attacks/SQL_Injection", "https://book.hacktricks.xyz/pentesting-web/sql-injection"},
+		References:  []string{"https://owasp.org/www-community/attacks/SQL_Injection", "https://book.hacktricks.xyz/pentesting-web/sql-injection", "https://sqlmap.org/"},
 	},
 	{
 		Code:        SsiDetectedCode,
@@ -645,6 +646,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         0,
 		Severity:    "Info",
 		References:  []string{"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server", "https://www.wappalyzer.com/"},
+	},
+	{
+		Code:        UnencryptedPasswordSubmissionCode,
+		Title:       "Unencrypted Password Submission Detected",
+		Description: "The application allows users to submit passwords over an unencrypted connection (HTTP), which poses a significant security risk. Passwords transmitted over HTTP are sent in plain text and can be intercepted by attackers monitoring network traffic. This vulnerability could lead to unauthorized access to user accounts and compromise sensitive information.",
+		Remediation: "To mitigate this vulnerability, ensure that all sensitive data, including passwords, is transmitted over a secure connection (HTTPS). Implement SSL/TLS encryption to protect data in transit and prevent eavesdropping. Additionally, enforce HTTPS redirection to automatically redirect users from HTTP to HTTPS to ensure secure communication. Regularly audit network configurations and monitor for any insecure communication channels.",
+		Cwe:         319,
+		Severity:    "High",
+		References:  []string{"https://owasp.org/www-community/vulnerabilities/Insecure_Transport", "https://letsencrypt.org/", "https://www.cloudflare.com/learning/ssl/why-is-http-not-secure/"},
 	},
 	{
 		Code:        VulnerableJavascriptDependencyCode,

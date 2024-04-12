@@ -2,13 +2,14 @@ package passive
 
 import (
 	"fmt"
+	"net/url"
+	"regexp"
+	"strings"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-	"net/url"
-	"regexp"
-	"strings"
 )
 
 func ContentTypesScan(item *db.History) {
@@ -59,6 +60,7 @@ func ScanHistoryItem(item *db.History) {
 			PassiveJavascriptScan(item)
 		}
 		DirectoryListingScan(item)
+		UnencryptedPasswordFormDetectionScan(item)
 	} else if strings.Contains(item.ResponseContentType, "javascript") || strings.Contains(item.ResponseContentType, "ecmascript") {
 		if viper.GetBool("passive.checks.js.enabled") {
 			passiveJavascriptSecretsScan(item)

@@ -44,6 +44,10 @@ type HistoryItemScanOptions struct {
 }
 
 func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bool {
+	if len(o.InsertionPoints) == 0 {
+		return true
+	}
+
 	for _, ip := range o.InsertionPoints {
 		if ip == insertionPoint {
 			return true

@@ -23,9 +23,6 @@ var urlEncode bool
 var xssCmd = &cobra.Command{
 	Use:   "xss",
 	Short: "Test a list of XSS payloads against a parameter",
-	Long: `Test a list of XSS payloads against a parameter. For example:
-
-sukyan xss [url]`,
 	Args: func(cmd *cobra.Command, urls []string) error {
 
 		return nil
@@ -41,7 +38,10 @@ sukyan xss [url]`,
 		}
 		fmt.Println("Checking XSS with payloads...")
 		for _, target := range targets {
-			active.TestXSS(target, testParams, wordlist, urlEncode)
+			xss := active.XSSAudit{
+				WorkspaceID: workspaceID,
+			}
+			xss.Run(target, testParams, wordlist, urlEncode)
 		}
 
 	},
@@ -54,4 +54,5 @@ func init() {
 	xssCmd.Flags().StringVar(&wordlist, "wordlist", "default.txt", "XSS payloads wordlist")
 	xssCmd.Flags().StringArrayVarP(&targets, "url", "u", nil, "Targets")
 	xssCmd.Flags().StringSliceVarP(&testParams, "params", "p", testParams, "Parameters to test.")
+	xssCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 }

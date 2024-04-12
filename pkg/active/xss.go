@@ -3,127 +3,129 @@ package active
 import (
 	"bufio"
 	"context"
-	"fmt"
-	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/lib"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/pyneda/sukyan/pkg/web"
+
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/lib/browser"
 	"github.com/rs/zerolog/log"
+	"github.com/sourcegraph/conc/pool"
 )
 
-// TestXSS : Tests xss
-func TestXSS(targetUrl string, params []string, wordlist string, urlEncode bool) error {
+type XSSAudit struct {
+	requests    sync.Map
+	WorkspaceID uint
+	TaskID      uint
+	TaskJobID   uint
+}
+
+func (x *XSSAudit) Run(targetUrl string, params []string, wordlistPath string, urlEncode bool) {
+	taskLog := log.With().Str("url", targetUrl).Str("audit", "xss-reflected").Logger()
 	parsedURL, err := url.ParseRequestURI(targetUrl)
-	testQueryParams := make([]string, len(params))
-	var wg sync.WaitGroup
 	if err != nil {
-		fmt.Printf("Error Invalid URL: %s\n", targetUrl)
-		return err
+		taskLog.Error().Err(err).Msg("Invalid URL")
+		return
 	}
-	fmt.Println(parsedURL.RawQuery)
+
 	query, err := url.ParseQuery(parsedURL.RawQuery)
 	if err != nil {
-		log.Warn().Str("url", targetUrl).Msg("Could not parse url query")
+		taskLog.Warn().Err(err).Msg("Could not parse URL query")
+		return
 	}
-	// fmt.Println("Query: ", query)
-	for key, element := range query {
-		fmt.Println("Key: ", key, "=>", "Element", element)
-		if len(params) > 0 {
-			if lib.Contains(params, key) == true {
+
+	var testQueryParams []string
+	if len(params) > 0 {
+		for _, key := range params {
+			if _, exists := query[key]; exists {
 				testQueryParams = append(testQueryParams, key)
 			}
-		} else {
-			// If no params to test, we test all
+		}
+	} else {
+		for key := range query {
 			testQueryParams = append(testQueryParams, key)
 		}
 	}
-	//log.Printf("URL Params to test: %s\n", testQueryParams)
-	log.Info().Strs("params", testQueryParams).Str("url", targetUrl).Msg("testing url params for XSS")
-	f, err := os.Open(wordlist)
+	f, err := os.Open(wordlistPath)
 	if err != nil {
-		log.Fatal().Err(err)
+		taskLog.Fatal().Err(err).Msg("Failed to open wordlist file")
+		return
 	}
-	defer func() {
-		if err = f.Close(); err != nil {
-			log.Fatal().Err(err)
-		}
-	}()
-	s := bufio.NewScanner(f)
+	defer f.Close()
 
-	// Create channel to transfer audit items to workers
-	auditItemsChannel := make(chan lib.ParameterAuditItem)
-	pendingChannel := make(chan int)
-	go XSSParameterAuditMonitor(pendingChannel, auditItemsChannel)
-	// Start 4 hard coded XSS audit workers
-	for i := 0; i < 2; i++ {
-		wg.Add(1)
-		go XSSParameterAuditWorker(auditItemsChannel, pendingChannel, &wg)
+	scanner := bufio.NewScanner(f)
+	p := pool.New().WithMaxGoroutines(3)
+	for scanner.Scan() {
+		payload := scanner.Text()
+		p.Go(func() {
+			x.testPayload(targetUrl, testQueryParams, payload, urlEncode)
+		})
 	}
 
-	for s.Scan() {
-		// log.Printf("Testing payload: %s\n", s.Text())
-		log.Debug().Str("url", targetUrl).Str("payload", s.Text()).Msg("Testing payload on url parameters")
-		for _, tp := range testQueryParams {
-			auditItem := lib.ParameterAuditItem{
-				Parameter: tp,
-				URL:       targetUrl,
-				Payload:   s.Text(),
-				URLEncode: urlEncode,
-			}
-			pendingChannel <- 1
-			auditItemsChannel <- auditItem
-		}
+	p.Wait()
+	if err := scanner.Err(); err != nil {
+		taskLog.Error().Err(err).Msg("Error reading from scanner")
 	}
-	wg.Wait()
-	err = s.Err()
-	if err != nil {
-		log.Fatal().Err(err)
-	}
-	log.Info().Str("url", targetUrl).Msg("Completed XSS tests")
-	return nil
+
+	taskLog.Info().Str("url", targetUrl).Msg("Completed XSS tests")
 }
 
-func XSSParameterAuditMonitor(pendingChannel chan int, auditItemsChanell chan lib.ParameterAuditItem) {
-	count := 0
-	log.Debug().Msg("Crawl monitor started")
-	for c := range pendingChannel {
-		log.Debug().Int("count", count).Int("received", c).Msg("XSSParameterAuditMonitor received from pendingChannel")
-		count += c
-		if count == 0 {
-			log.Debug().Msg("XSS evaluation finished, closing communication channels")
-			close(auditItemsChanell)
-			close(pendingChannel)
+func (x *XSSAudit) testPayload(targetUrl string, params []string, payload string, urlEncode bool) {
+	for _, param := range params {
+		item := lib.ParameterAuditItem{
+			Parameter: param,
+			URL:       targetUrl,
+			Payload:   payload,
+			URLEncode: urlEncode,
+		}
+		err := x.TestUrlParamWithAlertPayload(item)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to test URL with payload")
 		}
 	}
 }
 
-func XSSParameterAuditWorker(auditItems chan lib.ParameterAuditItem, pendingChannel chan int, wg *sync.WaitGroup) {
-	for auditItem := range auditItems {
-		TestUrlParamWithAlertPayload(auditItem)
-		pendingChannel <- -1
+func (x *XSSAudit) GetHistory(url string) *db.History {
+	history, ok := x.requests.Load(url)
+	if ok {
+		return history.(*db.History)
 	}
-	wg.Done()
+	return &db.History{}
 }
 
 // TestUrlParamWithAlertPayload opens a browser and sends a payload to a param and check if alert has opened
-func TestUrlParamWithAlertPayload(item lib.ParameterAuditItem) error {
-	log.Debug().Msg("Launching browser to connect to page")
-	browser := rod.New().MustConnect()
-	defer browser.MustClose()
+func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem) error {
+	taskLog := log.With().Str("url", item.URL).Str("param", item.Parameter).Str("payload", item.Payload).Str("audit", "xss-reflected").Logger()
+
+	taskLog.Debug().Msg("Launching browser to connect to page")
+	l := browser.GetBrowserLauncher()
+	controlURL := l.MustLaunch()
+	b := rod.New().ControlURL(controlURL).MustConnect()
+	hijackResultsChannel := make(chan browser.HijackResult)
+
+	browser.Hijack(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, x.WorkspaceID, x.TaskID)
+	go func() {
+		for hijackResult := range hijackResultsChannel {
+			x.requests.Store(hijackResult.History.URL, hijackResult.History)
+		}
+	}()
+	defer b.MustClose()
 	testurl, err := lib.BuildURLWithParam(item.URL, item.Parameter, item.Payload, item.URLEncode)
 	if err != nil {
 		return err
 	}
-	//log.Printf("Testing XSS on parameter `%s` with final url: %s", param, testurl)
-	log.Debug().Msg("Getting a browser page")
-	page := browser.MustIncognito().MustPage("")
-	//log.Printf("page created: %s", testurl)
-	log.Debug().Msg("Browser page gathered")
+	taskLog.Debug().Msg("Getting a browser page")
+	page := b.MustIncognito().MustPage("")
+	web.IgnoreCertificateErrors(page)
+
+	taskLog.Debug().Msg("Browser page gathered")
 
 	//wait := page.MustWaitNavigation()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -136,7 +138,7 @@ func TestUrlParamWithAlertPayload(item lib.ParameterAuditItem) error {
 		time.Sleep(60 * time.Second)
 		cancel()
 	}()
-	log.Debug().Str("url", testurl).Msg("Navigating to the page")
+	taskLog.Debug().Str("url", testurl).Msg("Navigating to the page")
 	go pageWithCancel.EachEvent(func(e *proto.RuntimeConsoleAPICalled) {
 		// consoleData := pageWithCancel.MustObjectsToJSON(e.Args)
 
@@ -152,24 +154,27 @@ func TestUrlParamWithAlertPayload(item lib.ParameterAuditItem) error {
 			//log.Printf("XSS Verified on url: %s - PageHandleJavaScriptDialog triggered!!!", testurl)
 			//log.Printf("[XSS Verified] - Dialog type: %s - Message: %s - Has Browser Handler: %t - URL: %s", e.Type, e.Message, e.HasBrowserHandler, e.URL)
 
-			log.Warn().Str("url", testurl).Str("browser_url", e.URL).Str("payload", item.Payload).Str("param", item.Parameter).Str("type", string(e.Type)).Str("dialog_text", e.Message).Bool("has_browser_handler", e.HasBrowserHandler).Msg("Reflected XSS Verified")
-			issueDescription := fmt.Sprintf("A reflected XSS has been detected affecting `%s` parameter. The POC verified an alert dialog of type %s that has been triggered with text `%s`\n", item.Parameter, e.Type, e.Message)
-			xssIssue := db.Issue{
-				Title:         "Reflected Cross-Site Scripting (XSS)",
-				Description:   issueDescription,
-				Code:          "xss-reflected",
-				Cwe:           79,
-				Payload:       item.Payload,
-				URL:           e.URL,
-				StatusCode:    200,
-				HTTPMethod:    "GET",
-				Request:       []byte("not implemented"),
-				Response:      []byte("Not implemented"),
-				FalsePositive: false,
-				Confidence:    99,
-				Severity:      "High",
+			taskLog.Warn().Str("browser_url", e.URL).Str("param", item.Parameter).Str("type", string(e.Type)).Str("dialog_text", e.Message).Bool("has_browser_handler", e.HasBrowserHandler).Msg("Reflected XSS Verified")
+			history := x.GetHistory(e.URL)
+			if history.ID == 0 {
+				history = x.GetHistory(testurl)
 			}
-			db.Connection.CreateIssue(xssIssue)
+
+			var sb strings.Builder
+
+			sb.WriteString("A reflected XSS has been detected affecting the `" + item.Parameter + "` parameter. The POC verified an alert dialog of type " + string(e.Type) + " that has been triggered.\n\n")
+
+			if e.Message != "" {
+				sb.WriteString("The alert contained the following text `" + e.Message + "`\n")
+			}
+
+			if e.URL != testurl {
+				sb.WriteString("\nThe original request performed has been to the URL:\n" + testurl + "\n\n")
+				sb.WriteString("The payload has probably been encoded by the browser and the alert has been triggered at URL:\n" + e.URL + "\n")
+			} else {
+				sb.WriteString("\nThe following URL can be used to reproduce the issue: " + testurl)
+			}
+			db.CreateIssueFromHistoryAndTemplate(history, db.XssReflectedCode, sb.String(), 90, "", &x.WorkspaceID, &x.TaskID, &x.TaskJobID)
 
 			// urlSlug := slug.Make(testurl)
 			// screenshot := fmt.Sprintf("%s.png", urlSlug)
@@ -182,26 +187,25 @@ func TestUrlParamWithAlertPayload(item lib.ParameterAuditItem) error {
 			}.Call(pageWithCancel)
 			if err != nil {
 				//log.Printf("Dialog from %s was already closed when attempted to close: %s", e.URL, err)
-				log.Error().Err(err).Msg("Error handling javascript dialog")
+				taskLog.Error().Err(err).Msg("Error handling javascript dialog")
 				// return true
 			} else {
-				log.Debug().Msg("PageHandleJavaScriptDialog succedded")
+				taskLog.Debug().Msg("PageHandleJavaScriptDialog succedded")
 			}
 
 			return true
 		})()
 	navigationErr := pageWithCancel.Navigate(testurl)
 	if navigationErr != nil {
-		log.Error().Str("url", testurl).Msg("Navigation error")
+		taskLog.Error().Str("url", testurl).Msg("Navigation error")
 	}
-	log.Debug().Str("url", testurl).Msg("Navigated to the page completed")
+	taskLog.Debug().Str("url", testurl).Msg("Navigated to the page completed")
 	loadError := pageWithCancel.WaitLoad()
 	if loadError != nil {
-		log.Error().Err(err).Msg("Error waiting for page complete load")
+		taskLog.Error().Err(err).Msg("Error waiting for page complete load")
 	} else {
-		log.Debug().Str("url", testurl).Msg("Page fully loaded on browser")
+		taskLog.Debug().Str("url", testurl).Msg("Page fully loaded on browser")
 	}
-	//wait()
 
 	return nil
 }

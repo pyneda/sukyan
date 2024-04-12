@@ -18,3 +18,4 @@ severity: High
 references:
   - https://owasp.org/www-community/attacks/SQL_Injection
   - https://book.hacktricks.xyz/pentesting-web/sql-injection
+  - https://sqlmap.org/

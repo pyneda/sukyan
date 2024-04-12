@@ -76,6 +76,7 @@ var (
 	XXssProtectionHeaderCode             IssueCode = "x_xss_protection_header"
 	XpathInjectionCode                   IssueCode = "xpath_injection"
 	XsltInjectionCode                    IssueCode = "xslt_injection"
+	XssReflectedCode                     IssueCode = "xss_reflected"
 	XxeCode                              IssueCode = "xxe"
 )
 
@@ -736,6 +737,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         91,
 		Severity:    "High",
 		References:  []string{"https://en.wikipedia.org/wiki/XSLT", "https://owasp.org/www-pdf-archive/OWASP_Switzerland_Meeting_2015-06-17_XSLT_SSRF_ENG.pdf", "https://www.youtube.com/watch?v=j4vCGtF3a64", "https://book.hacktricks.xyz/pentesting-web/xslt-server-side-injection-extensible-stylesheet-languaje-transformations"},
+	},
+	{
+		Code:        XssReflectedCode,
+		Title:       "Reflected XSS",
+		Description: "The application appears to be vulnerable to Reflected Cross-Site Scripting (XSS) attacks. This vulnerability occurs when user-supplied input is incorporated into web pages without proper sanitization and is then returned to the user in the web page. An attacker can exploit this by crafting malicious links containing script code which executes in the victim's browser when clicked, potentially leading to unauthorized access, data theft, or malicious actions on behalf of the user.",
+		Remediation: "To mitigate this vulnerability, ensure all user-supplied input is encoded or escaped before being included in output. Implement content security policies that restrict the sources of executable scripts. Use frameworks that automatically handle these encodings. Validate and sanitize all user input to remove or encode potentially dangerous characters. Regularly update and review web applications for XSS vulnerabilities.",
+		Cwe:         79,
+		Severity:    "High",
+		References:  []string{"https://owasp.org/www-community/attacks/xss/", "https://en.wikipedia.org/wiki/Cross-site_scripting", "https://portswigger.net/web-security/cross-site-scripting/reflected"},
 	},
 	{
 		Code:        XxeCode,

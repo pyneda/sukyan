@@ -7,5 +7,5 @@ remediation:
   Remove the 'X-AspNet-Version' header or configure your ASP.NET application
   to stop disclosing this information.
 cwe: 200
-severity: Low
+severity: Info
 references: []

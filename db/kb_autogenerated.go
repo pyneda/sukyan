@@ -51,6 +51,7 @@ var (
 	PasswordInGetRequestCode             IssueCode = "password_in_get_request"
 	PrivateIpsCode                       IssueCode = "private_ips"
 	PrivateKeysCode                      IssueCode = "private_keys"
+	ReflectedInputCode                   IssueCode = "reflected_input"
 	RemoteFileInclusionCode              IssueCode = "remote_file_inclusion"
 	SecretsInJsCode                      IssueCode = "secrets_in_js"
 	ServerHeaderCode                     IssueCode = "server_header"
@@ -511,6 +512,15 @@ var issueTemplates = []IssueTemplate{
 		References:  []string{},
 	},
 	{
+		Code:        ReflectedInputCode,
+		Title:       "Input reflected in response",
+		Description: "Input reflection arises when data originating from a user request is directly echoed back in the application's immediate response. While not inherently a vulnerability, it serves as a crucial step for several client-side vulnerabilities abd certain server-side vulnerabilities like SQL injection become more discernible and exploitable when input is echoed back in responses.",
+		Remediation: "To avoid vulnerabilities raised due to input returned in response, implement robust input validation and output encoding mechanisms. Ensure that user-supplied data is thoroughly sanitized and validated before being echoed back in application responses. Employ context-aware encoding techniques to prevent various types of injection attacks and security misconfigurations.",
+		Cwe:         20,
+		Severity:    "Info",
+		References:  []string{"https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html"},
+	},
+	{
 		Code:        RemoteFileInclusionCode,
 		Title:       "Remote File Inclusion Detected",
 		Description: "The application appears to be vulnerable to Remote File Inclusion (RFI) attacks. This vulnerability occurs when the application uses user-supplied input to include remote files without properly sanitizing or validating the input first. An attacker can exploit this vulnerability to inject malicious scripts, potentially leading to unauthorized data access, data corruption, or even server takeover.",
@@ -534,7 +544,7 @@ var issueTemplates = []IssueTemplate{
 		Description: "The application discloses the server it's using through the Server header, potentially aiding attackers in crafting specific exploits.",
 		Remediation: "Remove the 'Server' header or configure your server to stop disclosing this information.",
 		Cwe:         200,
-		Severity:    "Low",
+		Severity:    "Info",
 		References:  []string{},
 	},
 	{
@@ -669,7 +679,7 @@ var issueTemplates = []IssueTemplate{
 		Description: "The application discloses the ASP.NET version it's using through the X-AspNet-Version header, potentially aiding attackers in crafting specific exploits.",
 		Remediation: "Remove the 'X-AspNet-Version' header or configure your ASP.NET application to stop disclosing this information.",
 		Cwe:         200,
-		Severity:    "Low",
+		Severity:    "Info",
 		References:  []string{},
 	},
 	{
@@ -687,7 +697,7 @@ var issueTemplates = []IssueTemplate{
 		Description: "The application discloses the technology it's using through the X-Powered-By header, potentially aiding attackers in crafting specific exploits.",
 		Remediation: "Remove the 'X-Powered-By' header or configure your technology to stop disclosing this information.",
 		Cwe:         200,
-		Severity:    "Low",
+		Severity:    "Info",
 		References:  []string{},
 	},
 	{

@@ -49,10 +49,18 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 	// cspp.Run()
 
 	var specificParamsToTest []string
+	// NOTE: This should be deprecated
 	p := web.WebPage{URL: item.URL}
 	hasParams, _ := p.HasParameters()
-	if hasParams && options.IsScopedInsertionPoint("param") {
-		active.TestXSS(item.URL, specificParamsToTest, "default.txt", false)
+	if hasParams && options.IsScopedInsertionPoint("parameters") {
+		// active.TestXSS(item.URL, specificParamsToTest, "default.txt", false)
+		log.Warn().Msg("Starting XSS Audit")
+		xss := active.XSSAudit{
+			WorkspaceID: options.WorkspaceID,
+			TaskID:      options.TaskID,
+			TaskJobID:   options.TaskJobID,
+		}
+		xss.Run(item.URL, specificParamsToTest, "default.txt", false)
 		// pathTraversal := active.PathTraversalAudit{
 		// 	URL:              item.URL,
 		// 	Params:           specificParamsToTest,
@@ -84,7 +92,7 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 		hostHeader.Run()
 	}
 
-	// NOTE: Checks below is probably not worth to run against every history item,
+	// NOTE: Checks below are probably not worth to run against every history item,
 	// but also not only once per target. Should find a way to run them only in some cases
 	// but ensuring they are checked against X different history items per target.
 	sni := active.SNIAudit{

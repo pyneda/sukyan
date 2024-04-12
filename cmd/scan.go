@@ -8,9 +8,10 @@ import (
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
 
-	"github.com/spf13/viper"
 	"os"
 	"time"
+
+	"github.com/spf13/viper"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -125,6 +126,6 @@ func init() {
 	scanCmd.Flags().StringArrayVar(&scanTests, "test", nil, "Tests to run (all by default)")
 	scanCmd.Flags().StringVarP(&scanTitle, "title", "t", "Scan", "Scan title")
 	scanCmd.Flags().StringVar(&requestsHeadersString, "headers", "", "Headers to use for requests")
-	scanCmd.Flags().StringArrayVar(&insertionPoints, "insertion-points", scan.GetValidInsertionPoints(), "Insertion points to scan (all by default)")
+	scanCmd.Flags().StringArrayVarP(&insertionPoints, "insertion-points", "I", scan.GetValidInsertionPoints(), "Insertion points to scan (all by default)")
 
 }

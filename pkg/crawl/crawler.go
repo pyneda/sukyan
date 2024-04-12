@@ -1,6 +1,10 @@
 package crawl
 
 import (
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/pyneda/sukyan/db"
@@ -10,9 +14,6 @@ import (
 	"github.com/pyneda/sukyan/pkg/web"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-	"strings"
-	"sync"
-	"time"
 )
 
 type CrawlOptions struct {
@@ -20,6 +21,7 @@ type CrawlOptions struct {
 	MaxDepth        int
 	MaxPagesToCrawl int
 }
+
 type Crawler struct {
 	Options                 CrawlOptions
 	scope                   scope.Scope
@@ -38,13 +40,16 @@ type Crawler struct {
 	wg                      sync.WaitGroup
 	concLimit               chan struct{}
 	hijackChan              chan browser.HijackResult
+	normalizedURLCounts     sync.Map
+	maxPagesWithSameParams  int
 }
 
 type CrawlItem struct {
-	url     string
-	depth   int
-	visited bool
-	isError bool
+	url       string
+	depth     int
+	visited   bool
+	scheduled bool
+	isError   bool
 }
 
 type CrawledPageResut struct {
@@ -78,15 +83,16 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 		taskID,
 	)
 	return &Crawler{
-		Options:           options,
-		startURLs:         startURLs,
-		excludePatterns:   excludePatterns,
-		concLimit:         make(chan struct{}, poolSize+2), // Set max concurrency
-		hijackChan:        hijackChan,
-		browser:           browser,
-		ignoredExtensions: viper.GetStringSlice("crawl.ignored_extensions"),
-		workspaceID:       workspaceID,
-		taskID:            taskID,
+		Options:                options,
+		startURLs:              startURLs,
+		excludePatterns:        excludePatterns,
+		concLimit:              make(chan struct{}, poolSize+2), // Set max concurrency
+		hijackChan:             hijackChan,
+		browser:                browser,
+		ignoredExtensions:      viper.GetStringSlice("crawl.ignored_extensions"),
+		workspaceID:            workspaceID,
+		taskID:                 taskID,
+		maxPagesWithSameParams: viper.GetInt("crawl.max_pages_with_same_params"),
 	}
 }
 
@@ -183,12 +189,30 @@ func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
 			return false
 		}
 	}
+	if c.maxPagesWithSameParams > 0 {
+		// Check how many times the URL with the same parameters has been crawled
+		normalizedURL, err := normalizeURLParams(item.url)
+		if err != nil {
+			log.Error().Err(err).Str("url", item.url).Msg("Error normalizing URL")
+			return false
+		}
+
+		count, _ := c.normalizedURLCounts.Load(normalizedURL)
+
+		if count != nil && count.(int) >= c.maxPagesWithSameParams {
+			log.Debug().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Int("maxPagesWithSameParams", c.maxPagesWithSameParams).Str("normalized", normalizedURL).Str("url", item.url).Msg("Skipping page because it has reached the maximum count of crawled pages with the same parameters")
+			return false
+		}
+	}
+
 	// Check if the url is in scope and if it's within the max depth
 	if c.scope.IsInScope(item.url) && c.isAllowedCrawlDepth(item) {
 		if value, ok := c.pages.Load(item.url); ok {
-			if value.(*CrawlItem).visited {
-				log.Debug().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Str("url", item.url).Msg("Skipping page because it has been crawled before")
+			if value.(*CrawlItem).visited || value.(*CrawlItem).scheduled {
+				log.Debug().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Str("url", item.url).Msg("Skipping page because it has been visited or scheduled")
 				return false // If this page has been crawled before, skip it
+			} else {
+				value.(*CrawlItem).scheduled = true
 			}
 		}
 		return true
@@ -240,6 +264,19 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	c.counterLock.Unlock()
 
 	c.pages.Store(item.url, item)
+
+	if c.maxPagesWithSameParams > 0 {
+		// Track the URL with the same parameters values to avoid crawling the same URL a high amount of times
+		normalizedURL, err := normalizeURLParams(item.url)
+		if err != nil {
+			log.Error().Err(err).Str("url", item.url).Msg("Error normalizing URL")
+		} else {
+			// Increment or initialize count for normalized URL
+			count, _ := c.normalizedURLCounts.LoadOrStore(normalizedURL, 0)
+			c.normalizedURLCounts.Store(normalizedURL, count.(int)+1)
+		}
+	}
+
 	url := item.url
 
 	page := c.getBrowserPage()

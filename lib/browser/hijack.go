@@ -1,14 +1,17 @@
 package browser
 
 import (
+	"context"
 	"encoding/json"
-	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/lib"
-	"github.com/pyneda/sukyan/pkg/passive"
 	"net/http"
 	"strings"
 
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/passive"
+
 	"fmt"
+
 	"github.com/go-rod/rod"
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
@@ -25,6 +28,74 @@ type HijackResult struct {
 	DiscoveredURLs []string
 }
 
+func HijackWithContext(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, ctx context.Context, workspaceID, taskID uint) *rod.HijackRouter {
+	router := browser.HijackRequests()
+	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
+	router.MustAdd("*", func(hj *rod.Hijack) {
+		select {
+		case <-ctx.Done():
+			router.Stop()
+			return // Stop processing if context is cancelled
+		default:
+			// Continue as usual
+		}
+
+		err := hj.LoadResponse(http.DefaultClient, true)
+		mustSkip := false
+
+		if err != nil {
+			log.Error().Err(err).Str("url", hj.Request.URL().String()).Msg("Error loading hijacked response")
+			mustSkip = true
+		}
+
+		for _, skipWord := range ignoreKeywords {
+			if strings.Contains(hj.Request.URL().Host, skipWord) {
+				mustSkip = true
+			}
+		}
+		if mustSkip {
+			log.Debug().Str("url", hj.Request.URL().String()).Msg("Skipping processing of hijacked response")
+		} else {
+			go func() {
+				defer func() {
+					// recover from potential panics (such as sending on closed channel, though it should be avoided by context check)
+					if recover() != nil {
+						log.Warn().Msg("Recovered from panic in a hijack goroutine, possibly due to closed channel")
+					}
+				}()
+				// Additional check for context cancellation
+				history := CreateHistoryFromHijack(hj.Request, hj.Response, source, "Create history from hijack", workspaceID, taskID)
+				linksFound := passive.ExtractedURLS{}
+				if hj.Request.Type() != "Image" && hj.Request.Type() != "Font" && hj.Request.Type() != "Media" {
+					linksFound = passive.ExtractURLsFromHistoryItem(history)
+				}
+				hijackResult := HijackResult{
+					History:        history,
+					DiscoveredURLs: linksFound.Web,
+				}
+
+				select {
+				case resultsChannel <- hijackResult:
+				case <-ctx.Done():
+					router.Stop()
+					return // Stop processing if context is cancelled
+				}
+			}()
+		}
+	})
+
+	// go func() {
+	// 	defer func() {
+	// 		router.Stop()
+	// 		close(resultsChannel)
+	// 	}()
+	// 	router.Run()
+	// }()
+	go router.Run()
+	return router
+
+}
+
 func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, workspaceID, taskID uint) {
 	router := browser.HijackRequests()
 	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
@@ -39,9 +110,8 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 			mustSkip = true
 		}
 
-		// contentType := ctx.Response.Headers().Get("Content-Type")
 		for _, skipWord := range ignoreKeywords {
-			if strings.Contains(ctx.Request.URL().Host, skipWord) == true {
+			if strings.Contains(ctx.Request.URL().Host, skipWord) {
 				mustSkip = true
 			}
 		}
@@ -50,10 +120,8 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 		} else {
 			go func() {
 				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack", workspaceID, taskID)
-				// passive.ScanHistoryItem(history)
 				linksFound := passive.ExtractedURLS{}
 				if ctx.Request.Type() != "Image" && ctx.Request.Type() != "Font" && ctx.Request.Type() != "Media" {
-					// linksFound = passive.ExtractAndAnalyzeURLS(string(history.RawResponse), history.URL)
 					linksFound = passive.ExtractURLsFromHistoryItem(history)
 
 				}

@@ -191,7 +191,7 @@ func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
 	}
 	if c.maxPagesWithSameParams > 0 {
 		// Check how many times the URL with the same parameters has been crawled
-		normalizedURL, err := normalizeURLParams(item.url)
+		normalizedURL, err := lib.NormalizeURLParams(item.url)
 		if err != nil {
 			log.Error().Err(err).Str("url", item.url).Msg("Error normalizing URL")
 			return false
@@ -267,7 +267,7 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 
 	if c.maxPagesWithSameParams > 0 {
 		// Track the URL with the same parameters values to avoid crawling the same URL a high amount of times
-		normalizedURL, err := normalizeURLParams(item.url)
+		normalizedURL, err := lib.NormalizeURLParams(item.url)
 		if err != nil {
 			log.Error().Err(err).Str("url", item.url).Msg("Error normalizing URL")
 		} else {

@@ -385,15 +385,15 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 		if m.CheckIfResultDurationIsHigher(result.Duration) {
 			var sb strings.Builder
 			defaultDelay := 30
-			attempts := 6
+			attempts := 8
 			finalConfidence := m.Confidence
 			confidenceIncrement := 20
 			confidenceDecrement := 25
 			originalTrueCount := 0
 			payloadTrueCount := 0
 			sb.WriteString(fmt.Sprintf("Response took %s, which is greater than the sleep time injected in the payload of %s\n\n", result.Duration, m.Sleep))
-			var originalResults []bool
-			var payloadResults []bool
+			// var originalResults []bool
+			// var payloadResults []bool
 
 			sb.WriteString("Revalidation results:\n")
 			sb.WriteString("=============================\n")
@@ -430,8 +430,8 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 				if originalResult.duration > withPayloadResult.duration {
 					finalConfidence -= confidenceDecrement
 				}
-				originalResults = append(originalResults, originalIsHigher)
-				payloadResults = append(payloadResults, withPayloadIsHigher)
+				// originalResults = append(originalResults, originalIsHigher)
+				// payloadResults = append(payloadResults, withPayloadIsHigher)
 				sb.WriteString(fmt.Sprintf("Attempt %d:\n - Original took %s\n - With payload took %s\n\n", i, originalResult.duration, withPayloadResult.duration))
 				if originalIsHigher {
 					sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))

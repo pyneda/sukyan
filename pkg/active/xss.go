@@ -21,10 +21,11 @@ import (
 )
 
 type XSSAudit struct {
-	requests    sync.Map
-	WorkspaceID uint
-	TaskID      uint
-	TaskJobID   uint
+	requests          sync.Map
+	WorkspaceID       uint
+	TaskID            uint
+	TaskJobID         uint
+	detectedLocations sync.Map
 }
 
 func (x *XSSAudit) Run(targetUrl string, params []string, wordlistPath string, urlEncode bool) {
@@ -62,10 +63,37 @@ func (x *XSSAudit) Run(targetUrl string, params []string, wordlistPath string, u
 
 	scanner := bufio.NewScanner(f)
 	p := pool.New().WithMaxGoroutines(3)
+	browserPool := browser.GetScannerBrowserPoolManager()
+
 	for scanner.Scan() {
 		payload := scanner.Text()
 		p.Go(func() {
-			x.testPayload(targetUrl, testQueryParams, payload, urlEncode)
+			b := browserPool.NewBrowser()
+			taskLog.Debug().Msg("Got scan browser from the pool")
+			hijackResultsChannel := make(chan browser.HijackResult)
+			hijackContext, hijackCancel := context.WithCancel(context.Background())
+			// hijackRouter := browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID)
+			browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID)
+
+			go func() {
+				for {
+					select {
+					case hijackResult, ok := <-hijackResultsChannel:
+						if !ok {
+							return
+						}
+						x.requests.Store(hijackResult.History.URL, hijackResult.History)
+					case <-hijackContext.Done():
+						return
+					}
+				}
+			}()
+			x.testPayload(targetUrl, testQueryParams, payload, urlEncode, b)
+			taskLog.Debug().Msg("Scan browser released")
+			browserPool.ReleaseBrowser(b)
+			hijackCancel()
+			// close(hijackResultsChannel)
+
 		})
 	}
 
@@ -75,17 +103,22 @@ func (x *XSSAudit) Run(targetUrl string, params []string, wordlistPath string, u
 	}
 
 	taskLog.Info().Str("url", targetUrl).Msg("Completed XSS tests")
+
 }
 
-func (x *XSSAudit) testPayload(targetUrl string, params []string, payload string, urlEncode bool) {
+func (x *XSSAudit) testPayload(targetUrl string, params []string, payload string, urlEncode bool, b *rod.Browser) {
 	for _, param := range params {
+		if x.IsDetectedLocation(targetUrl, param) {
+			log.Warn().Str("url", targetUrl).Str("param", param).Msg("Skipping testing reflected XSS in already detected location")
+			continue
+		}
 		item := lib.ParameterAuditItem{
 			Parameter: param,
 			URL:       targetUrl,
 			Payload:   payload,
 			URLEncode: urlEncode,
 		}
-		err := x.TestUrlParamWithAlertPayload(item)
+		err := x.TestUrlParamWithAlertPayload(item, b)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to test URL with payload")
 		}
@@ -101,28 +134,38 @@ func (x *XSSAudit) GetHistory(url string) *db.History {
 }
 
 // TestUrlParamWithAlertPayload opens a browser and sends a payload to a param and check if alert has opened
-func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem) error {
+func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem, b *rod.Browser) error {
 	taskLog := log.With().Str("url", item.URL).Str("param", item.Parameter).Str("payload", item.Payload).Str("audit", "xss-reflected").Logger()
 
-	taskLog.Debug().Msg("Launching browser to connect to page")
-	l := browser.GetBrowserLauncher()
-	controlURL := l.MustLaunch()
-	b := rod.New().ControlURL(controlURL).MustConnect()
-	hijackResultsChannel := make(chan browser.HijackResult)
+	// taskLog.Info().Msg("Launching browser to connect to page")
+	// l := browser.GetBrowserLauncher()
+	// controlURL := l.MustLaunch()
+	// b := rod.New().ControlURL(controlURL).MustConnect()
+	// defer b.MustClose()
 
-	browser.Hijack(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, x.WorkspaceID, x.TaskID)
-	go func() {
-		for hijackResult := range hijackResultsChannel {
-			x.requests.Store(hijackResult.History.URL, hijackResult.History)
-		}
-	}()
-	defer b.MustClose()
+	// browserPool := browser.GetScannerBrowserPoolManager()
+	// b := browserPool.NewBrowser()
+	// log.Warn().Msg("Scan Browser created")
+	// defer browserPool.ReleaseBrowser(b)
+	// hijackResultsChannel := make(chan browser.HijackResult)
+	// hijackContext, hijackCancel := context.WithCancel(context.Background())
+	// defer hijackCancel()
+	// go browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID)
+
+	// go func() {
+	// 	for hijackResult := range hijackResultsChannel {
+	// 		x.requests.Store(hijackResult.History.URL, hijackResult.History)
+	// 	}
+	// 	close(hijackResultsChannel)
+	// }()
+
 	testurl, err := lib.BuildURLWithParam(item.URL, item.Parameter, item.Payload, item.URLEncode)
 	if err != nil {
 		return err
 	}
 	taskLog.Debug().Msg("Getting a browser page")
-	page := b.MustIncognito().MustPage("")
+	// page := b.MustIncognito().MustPage("")
+	page := b.MustPage("")
 	web.IgnoreCertificateErrors(page)
 
 	taskLog.Debug().Msg("Browser page gathered")
@@ -135,7 +178,7 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem) err
 	//page.MustNavigate(testurl)
 	go func() {
 		// Cancel timeout
-		time.Sleep(60 * time.Second)
+		time.Sleep(30 * time.Second)
 		cancel()
 	}()
 	taskLog.Debug().Str("url", testurl).Msg("Navigating to the page")
@@ -159,7 +202,8 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem) err
 			if history.ID == 0 {
 				history = x.GetHistory(testurl)
 			}
-
+			// Save as detected location to avoid duplicate alerts
+			x.StoreDetectedLocation(e.URL, item.Parameter)
 			var sb strings.Builder
 
 			sb.WriteString("A reflected XSS has been detected affecting the `" + item.Parameter + "` parameter. The POC verified an alert dialog of type " + string(e.Type) + " that has been triggered.\n\n")
@@ -206,6 +250,25 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem) err
 	} else {
 		taskLog.Debug().Str("url", testurl).Msg("Page fully loaded on browser")
 	}
-
+	pageWithCancel.MustClose()
 	return nil
+}
+
+func (x *XSSAudit) StoreDetectedLocation(url, parameter string) {
+	normalizedUrl, err := lib.NormalizeURLParams(url)
+	if err != nil {
+		return
+	}
+	key := normalizedUrl + ":" + parameter
+	x.detectedLocations.Store(key, true)
+}
+
+func (x *XSSAudit) IsDetectedLocation(url, parameter string) bool {
+	normalizedUrl, err := lib.NormalizeURLParams(url)
+	if err != nil {
+		return false
+	}
+	key := normalizedUrl + ":" + parameter
+	_, ok := x.detectedLocations.Load(key)
+	return ok
 }

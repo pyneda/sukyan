@@ -1,11 +1,26 @@
 package browser
 
 import (
+	"sync"
+
 	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/launcher"
-	// "github.com/go-rod/rod/lib/proto"
+	"github.com/pyneda/sukyan/db"
 	"github.com/spf13/viper"
+	// "github.com/go-rod/rod/lib/proto"
 )
+
+var (
+	scannerBrowserPool *BrowserPoolManager
+	once               sync.Once
+)
+
+// GetBrowserPoolManager returns a singleton instance of BrowserPoolManager used by active scanners
+func GetScannerBrowserPoolManager() *BrowserPoolManager {
+	once.Do(func() {
+		scannerBrowserPool = NewBrowserPoolManager(BrowserPoolManagerConfig{PoolSize: 6, Source: db.SourceScanner}, 0, 0)
+	})
+	return scannerBrowserPool
+}
 
 type BrowserPoolManagerConfig struct {
 	PoolSize int
@@ -13,7 +28,7 @@ type BrowserPoolManagerConfig struct {
 }
 
 type BrowserPoolManager struct {
-	launcher             *launcher.Launcher
+	// launcher             *launcher.Launcher
 	browser              *rod.Browser
 	pool                 rod.BrowserPool
 	config               BrowserPoolManagerConfig
@@ -85,4 +100,8 @@ func (b *BrowserPoolManager) createBrowser() *rod.Browser {
 func (b *BrowserPoolManager) Close() {
 	b.pool.Cleanup(func(p *rod.Browser) { p.MustClose() })
 	b.browser.Close()
+}
+
+func (b *BrowserPoolManager) Cleanup() {
+	b.pool.Cleanup(func(p *rod.Browser) { p.MustClose() })
 }

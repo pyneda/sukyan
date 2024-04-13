@@ -188,3 +188,24 @@ func GetHostFromURL(u string) (string, error) {
 	}
 	return parsedURL.Hostname(), nil
 }
+
+// NormalizeURLParams normalizes the URL parameters by appending an "X" to each value.
+func NormalizeURLParams(rawURL string) (string, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return "", err
+	}
+
+	queryParams := u.Query()
+
+	for key, values := range queryParams {
+		for i := range values {
+			values[i] = "X"
+		}
+		queryParams[key] = values
+	}
+
+	u.RawQuery = queryParams.Encode()
+
+	return u.String(), nil
+}

@@ -61,6 +61,8 @@ func ActiveScanHistoryItem(item *db.History, interactionsManager *integrations.I
 			TaskJobID:   options.TaskJobID,
 		}
 		xss.Run(item.URL, specificParamsToTest, "default.txt", false)
+		log.Warn().Msg("Completed XSS Audit")
+
 		// pathTraversal := active.PathTraversalAudit{
 		// 	URL:              item.URL,
 		// 	Params:           specificParamsToTest,

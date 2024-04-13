@@ -1,9 +1,10 @@
 package browser
 
 import (
+	"strings"
+
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/ysmood/gson"
-	"strings"
 )
 
 // ConvertToNetworkHeaders converts map[string][]string to NetworkHeaders

@@ -66,6 +66,7 @@ var (
 	StorageBucketDetectedCode            IssueCode = "storage_bucket_detected"
 	StrictTransportSecurityHeaderCode    IssueCode = "strict_transport_security_header"
 	TechStackFingerprintCode             IssueCode = "tech_stack_fingerprint"
+	Text4shellCode                       IssueCode = "text4shell"
 	UnencryptedPasswordSubmissionCode    IssueCode = "unencrypted_password_submission"
 	VulnerableJavascriptDependencyCode   IssueCode = "vulnerable_javascript_dependency"
 	WafDetectedCode                      IssueCode = "waf_detected"
@@ -647,6 +648,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         0,
 		Severity:    "Info",
 		References:  []string{"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server", "https://www.wappalyzer.com/"},
+	},
+	{
+		Code:        Text4shellCode,
+		Title:       "Text4Shell Vulnerability Detected",
+		Description: "The application appears to be vulnerable to Text4Shell, a remote code execution vulnerability identified as CVE-2022-42889. This vulnerability affects Apache Commons Text versions 1.5 through 1.9 and occurs due to unsafe string interpolation methods that can execute arbitrary code if manipulated. Key interpolators involved are 'script', 'dns', and 'url' which, if exploited, could allow attackers to execute commands or access data remotely.",
+		Remediation: "Immediately update to Apache Commons Text version 1.10 or newer, which removes dangerous default interpolators. Ensure that all data entering string interpolation functions is sanitized and validate inputs to mitigate any potential exploitation. Review and restrict the use of interpolators in your environment to trusted functionality only.",
+		Cwe:         502,
+		Severity:    "High",
+		References:  []string{"https://security.apache.org/blog/cve-2022-42889/", "https://nvd.nist.gov/vuln/detail/cve-2022-42889"},
 	},
 	{
 		Code:        UnencryptedPasswordSubmissionCode,

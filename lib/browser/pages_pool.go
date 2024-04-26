@@ -85,6 +85,6 @@ func (b *PagePoolManager) createPage() *rod.Page {
 }
 
 func (b *PagePoolManager) Close() {
-	b.pool.Cleanup(func(p *rod.Page) { p.MustClose() })
+	b.pool.Cleanup(func(p *rod.Page) { p.Close() })
 	b.browser.Close()
 }

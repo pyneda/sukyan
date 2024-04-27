@@ -2,17 +2,19 @@ package active
 
 import (
 	"fmt"
+	"net/http"
+	"sync"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
-	"net/http"
-	"net/http/httputil"
-	"sync"
 
 	"github.com/rs/zerolog/log"
 )
+
+// TODO: Refactor required to work with History items, simpler concurrency and maybe even move to a YAML template
 
 // https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection.html
 
@@ -129,59 +131,30 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 	auditLog := log.With().Str("audit", "host-header-injection").Interface("auditItem", item).Str("url", a.URL).Logger()
 	request, err := http.NewRequest("GET", a.URL, nil)
 	if err != nil {
-		fmt.Println("Error:", err)
+		auditLog.Error().Err(err).Msg("Error creating request")
 		return
 	}
 
 	request.Header.Set(item.header, item.payload.GetValue())
-	requestDump, _ := httputil.DumpRequestOut(request, true)
-
 	response, err := client.Do(request)
 
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error during request")
 		return
 	}
-	responseDump, err := httputil.DumpResponse(response, true)
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, http_utils.HistoryCreationOptions{
+		Source:              db.SourceScanner,
+		WorkspaceID:         uint(a.WorkspaceID),
+		TaskID:              uint(a.TaskID),
+		CreateNewBodyStream: true,
+	})
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error reading response body data")
 	}
-	isInResponse, err := item.payload.MatchAgainstString(string(responseDump))
-	// isInBody, err := item.payload.MatchAgainstString(body)
-	// isInHeaders := false
-	// for header, values := range response.Header {
-	// 	for _, value := range values {
-	// 		isIncluded, _ := item.payload.MatchAgainstString(value)
-	// 		if isIncluded {
-	// 			isInHeaders = true
-	// 			log.Info().Str("header", header).Str("value", value).Msg("Host header injection detected")
-	// 			break
-	// 		}
-	// 	}
-	// }
-	// if isInBody || isInHeaders {
-	if isInResponse {
-		issueDescription := fmt.Sprintf("A host header injection vulnerability has been detected in %s. The audit test send the following payload `%s` in `%s` header and it has been verified is included back in the response", a.URL, item.payload.GetValue(), item.header)
+	isInResponse, _ := item.payload.MatchAgainstString(string(history.RawResponse))
 
-		issue := db.Issue{
-			Title:         "Host Header Injection",
-			Description:   issueDescription,
-			Code:          "host-header-injection",
-			Cwe:           20,
-			Payload:       item.payload.GetValue(),
-			URL:           a.URL,
-			StatusCode:    response.StatusCode,
-			HTTPMethod:    "GET",
-			Request:       requestDump,
-			Response:      responseDump, // body,
-			FalsePositive: false,
-			Confidence:    75,
-			Severity:      "Medium",
-			WorkspaceID:   &a.WorkspaceID,
-			TaskID:        &a.TaskID,
-			TaskJobID:     &a.TaskJobID,
-		}
-		log.Warn().Str("issue", issue.Title).Str("url", a.URL).Msg("New issue found")
-		db.Connection.CreateIssue(issue)
+	if isInResponse {
+		details := fmt.Sprintf("A host header injection vulnerability has been detected in %s. The audit test send the following payload `%s` in `%s` header and it has been verified is included back in the response", a.URL, item.payload.GetValue(), item.header)
+		db.CreateIssueFromHistoryAndTemplate(history, db.HostHeaderInjectionCode, details, 75, "", &a.WorkspaceID, &a.TaskID, &a.TaskJobID)
 	}
 }

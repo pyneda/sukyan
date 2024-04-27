@@ -155,6 +155,7 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 	crawler := crawl.NewCrawler(options.StartURLs, options.MaxPagesToCrawl, options.MaxDepth, options.PagesPoolSize, options.ExcludePatterns, options.WorkspaceID, task.ID, options.Headers)
 	historyItems := crawler.Run()
 	if len(historyItems) == 0 {
+		db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
 		scanLog.Info().Msg("No history items gathered during crawl, exiting")
 		return
 	}

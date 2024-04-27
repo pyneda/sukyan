@@ -29,6 +29,7 @@ var (
 	ForbiddenBypassCode                  IssueCode = "forbidden_bypass"
 	GrailsExceptionCode                  IssueCode = "grails_exception"
 	HeaderInsightsReportCode             IssueCode = "header_insights_report"
+	HostHeaderInjectionCode              IssueCode = "host_header_injection"
 	Http2DetectedCode                    IssueCode = "http2_detected"
 	Http3DetectedCode                    IssueCode = "http3_detected"
 	HttpMethodsCode                      IssueCode = "http_methods"
@@ -317,6 +318,15 @@ var issueTemplates = []IssueTemplate{
 		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers", "https://owasp.org/www-project-secure-headers/"},
 	},
 	{
+		Code:        HostHeaderInjectionCode,
+		Title:       "Host Header Injection",
+		Description: "The application appears to be vulnerable to Host Header Injection. This vulnerability occurs when a user is able to manipulate the Host header and the application trusts the header without proper validation. This can lead to vulnerabilities such as web cache poisoning, password reset poisoning, and malicious redirections.",
+		Remediation: "To mitigate this vulnerability, validate and sanitize incoming Host headers. Use a whitelist of allowed domains and hostnames. Ensure that the application generates absolute URLs using a known good base URL, rather than relying on the incoming Host header. Additionally, implement proper logging of incorrect Host header attempts and regularly review for suspicious activities.",
+		Cwe:         601,
+		Severity:    "Medium",
+		References:  []string{"https://cheatsheetseries.owasp.org/cheatsheets/Host_Header_Injection_Prevention_Cheat_Sheet.html", "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection", "https://portswigger.net/web-security/host-header"},
+	},
+	{
 		Code:        Http2DetectedCode,
 		Title:       "HTTP/2 Protocol in Use",
 		Description: "The application has been detected using the HTTP/2 protocol. While HTTP/2 provides significant benefits in performance and features, like header compression, multiplexing, and prioritization, it's not without some HTTP/2 specific vulnerabilities such as certain request smuggling techniques.",
@@ -431,7 +441,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure all content is served over a secure connection. Use HTTPS for all resources and avoid linking to insecure (HTTP) resources.",
 		Cwe:         16,
 		Severity:    "Medium",
-		References:  []string{},
+		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content", "https://web.dev/articles/what-is-mixed-content"},
 	},
 	{
 		Code:        NosqlInjectionCode,

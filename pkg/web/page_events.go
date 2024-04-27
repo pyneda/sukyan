@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
@@ -65,7 +64,7 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 				}.Call(page)
 				if err != nil {
 					log.Error().Err(err).Msg("Could not handle javascript dialog")
-					page.KeyActions().Press(input.Enter).Type(input.Enter).Do()
+					// page.KeyActions().Press(input.Enter).Type(input.Enter).Do()
 				} else {
 					log.Debug().Msg("Handled javascript dialog")
 				}

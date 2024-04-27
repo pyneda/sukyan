@@ -318,6 +318,7 @@ func DBConnectionStringScan(item *db.History) {
 }
 
 func PasswordInGetRequestScan(item *db.History) {
+	// NOTE: This is also cheked looking for forms in the page in: UnencryptedPasswordFormDetectionScan
 	if item.Method != "GET" {
 		return
 	}

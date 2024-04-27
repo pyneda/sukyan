@@ -51,8 +51,20 @@ func UnencryptedPasswordFormDetectionScan(item *db.History) {
 					details.WriteString(fmt.Sprintf("Form attributes: %s\n", formAttrs))
 				}
 				confidence = 90
+				// Also check if the form is submitted via GET request and report if so
+				method, _ := form.Attr("method")
+				if method == "GET" {
+					var sb strings.Builder
+					sb.WriteString("A form containing a password input is submitted via GET request.\n\n")
+					sb.WriteString(fmt.Sprintf("Form action resolves to: %s\n", resolvedAction))
+					if formAttrs != "" {
+						sb.WriteString(fmt.Sprintf("Form attributes: %s\n", formAttrs))
+					}
+					db.CreateIssueFromHistoryAndTemplate(item, db.PasswordInGetRequestCode, sb.String(), 90, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID)
+				}
 			}
 		}
+
 	})
 
 	if numIssues > 0 {

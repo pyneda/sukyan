@@ -1,13 +1,14 @@
 package web
 
 import (
-	"github.com/go-rod/rod/lib/proto"
-	"github.com/pyneda/sukyan/db"
 	"strconv"
 	"strings"
+
+	"github.com/go-rod/rod/lib/proto"
+	"github.com/pyneda/sukyan/db"
 )
 
-func handleBrowserAuditIssues(url string, e *proto.AuditsIssueAdded) {
+func handleBrowserAuditIssues(url string, e *proto.AuditsIssueAdded, workspaceID, taskID uint) db.Issue {
 	// Check if it is a Mixed Content Issue Details
 	// Codes in: https://github.com/go-rod/rod/blob/ba02d6c76c1e2ef7ab4a58909c58877b34761fd9/lib/proto/audits.go#L809
 	if e.Issue.Details.MixedContentIssueDetails != nil {
@@ -29,8 +30,10 @@ func handleBrowserAuditIssues(url string, e *proto.AuditsIssueAdded) {
 		browserAuditIssue.URL = url
 		browserAuditIssue.Details = details.String()
 		browserAuditIssue.Confidence = 80
-		db.Connection.CreateIssue(*browserAuditIssue)
-
+		browserAuditIssue.WorkspaceID = &workspaceID
+		browserAuditIssue.TaskID = &taskID
+		issue, _ := db.Connection.CreateIssue(*browserAuditIssue)
+		return issue
 	} else if e.Issue.Details.CorsIssueDetails != nil {
 		var details strings.Builder
 		if e.Issue.Details.CorsIssueDetails.CorsErrorStatus != nil {
@@ -60,7 +63,11 @@ func handleBrowserAuditIssues(url string, e *proto.AuditsIssueAdded) {
 		browserAuditIssue.URL = url
 		browserAuditIssue.Details = details.String()
 		browserAuditIssue.Confidence = 80
-		db.Connection.CreateIssue(*browserAuditIssue)
+		browserAuditIssue.WorkspaceID = &workspaceID
+		browserAuditIssue.TaskID = &taskID
+		issue, _ := db.Connection.CreateIssue(*browserAuditIssue)
+		return issue
 
 	}
+	return db.Issue{}
 }

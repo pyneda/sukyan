@@ -12,7 +12,7 @@ import (
 const PrintMaxURLLength = 65
 
 // PrintMaxDescriptionLength max length a description can have when printing as table
-const PrintMaxDescriptionLength = 200
+const PrintMaxDescriptionLength = 150
 
 func formatUintPointer(ptr *uint) string {
 	if ptr != nil {

@@ -1,128 +1,306 @@
 package web
 
 import (
+	"context"
 	"fmt"
-	"github.com/pyneda/sukyan/db"
+	"strings"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 )
 
-func ListenForPageEvents(url string, page *rod.Page, workspaceID, taskID uint, source string) {
-	// The URL could also be gathered doing page.Info().URL
-	// https://pkg.go.dev/github.com/go-rod/rod#Page.Info
+type PageEventType string
 
-	go page.EachEvent(
-		func(e *proto.PageJavascriptDialogOpening) (stop bool) {
-			// Here we could make configurable if we want to accept or not the dialog
-			// And could even allow to receive a callback function
-			log.Warn().Interface("event", e).Msg("Received PageJavascriptDialogOpening event (alert, prompt, confirm)")
+type PageEvent struct {
+	Type        PageEventType
+	URL         string
+	Description string
+	Data        map[string]interface{}
+	Issue       db.Issue
+}
 
-			err := proto.PageHandleJavaScriptDialog{
-				Accept:     true,
-				PromptText: "",
-			}.Call(page)
-			if err != nil {
-				log.Error().Err(err).Msg("Could not handle javascript dialog")
-				// page.Activate()
-				page.KeyActions().Press(input.Enter).Type(input.Enter).Do()
-			} else {
-				log.Debug().Msg("Handled javascript dialog")
-			}
-			return true
-		},
-		func(e *proto.BackgroundServiceBackgroundServiceEventReceived) {
-			log.Debug().Interface("event", e).Msg("Received background service event")
-		},
-		func(e *proto.StorageIndexedDBContentUpdated) {
-			log.Debug().Interface("event", e).Msg("Received StorageIndexedDBContentUpdated event")
-		},
-		func(e *proto.StorageCacheStorageListUpdated) {
-			log.Debug().Interface("event", e).Msg("Received StorageCacheStorageListUpdated event")
-		},
-		func(e *proto.StorageIndexedDBContentUpdated) {
-			log.Debug().Interface("event", e).Msg("Received StorageIndexedDBContentUpdated event")
-		},
-		func(e *proto.StorageIndexedDBListUpdated) {
-			log.Debug().Interface("event", e).Msg("Received StorageIndexedDBListUpdated event")
-		},
-		func(e *proto.DatabaseAddDatabase) {
-			log.Warn().Interface("database", e).Msg("Client side database has been added")
-			dbIssueDescription := fmt.Sprintf("Dynamic analisis has detected that a client side database with name %s and ID %s has been registered on domain %s. This is not an issue bug might require further investigation.", e.Database.Name, e.Database.ID, e.Database.Domain)
-			dbAddedIssue := db.Issue{
-				Code:        "client-db-added",
-				URL:         url,
-				Title:       "A client side database event has been triggered",
-				Cwe:         1,
-				StatusCode:  200,
-				HTTPMethod:  "GET?",
-				Description: dbIssueDescription,
-				Payload:     "N/A",
-				Confidence:  99,
-				Severity:    "Info",
-			}
-			db.Connection.CreateIssue(dbAddedIssue)
-		},
-		// func(e *proto.DebuggerScriptParsed) {
-		// 	log.Debug().Interface("parsed script data", e).Msg("Debugger script parsed")
-		// },
-		func(e *proto.AuditsIssueAdded) {
-			// log.Warn().Interface("issue", e.Issue).Str("url", url).Msg("Received a new browser audits issue")
-			handleBrowserAuditIssues(url, e)
-		},
-		func(e *proto.SecuritySecurityStateChanged) (stop bool) {
-			if e.Summary == "all served securely" {
-				log.Warn().Interface("state", e).Str("url", url).Msg("Received a new browser SecuritySecurityStateChanged event without issues")
+const (
+	JavaScriptDialogOpening          PageEventType = "PageJavascriptDialogOpening"
+	BackgroundServiceEventReceived   PageEventType = "BackgroundServiceBackgroundServiceEventReceived"
+	StorageIndexedDBContentUpdated   PageEventType = "StorageIndexedDBContentUpdated"
+	StorageCacheStorageListUpdated   PageEventType = "StorageCacheStorageListUpdated"
+	StorageIndexedDBListUpdated      PageEventType = "StorageIndexedDBListUpdated"
+	DatabaseAddDatabase              PageEventType = "DatabaseAddDatabase"
+	DebuggerScriptParsed             PageEventType = "DebuggerScriptParsed"
+	AuditsIssueAdded                 PageEventType = "AuditsIssueAdded"
+	SecuritySecurityStateChanged     PageEventType = "SecuritySecurityStateChanged"
+	SecurityHandleCertificateError   PageEventType = "SecurityHandleCertificateError"
+	DOMStorageDomStorageItemAdded    PageEventType = "DOMStorageDomStorageItemAdded"
+	DOMStorageDomStorageItemRemoved  PageEventType = "DOMStorageDomStorageItemRemoved"
+	DOMStorageDomStorageItemsCleared PageEventType = "DOMStorageDomStorageItemsCleared"
+	DOMStorageDomStorageItemUpdated  PageEventType = "DOMStorageDomStorageItemUpdated"
+	SecurityCertificateError         PageEventType = "SecurityCertificateError"
+	NetworkAuthChallenge             PageEventType = "NetworkAuthChallenge"
+)
+
+func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, workspaceID, taskID uint, source string) <-chan PageEvent {
+	eventChan := make(chan PageEvent)
+
+	go func() {
+		defer close(eventChan)
+
+		page.EachEvent(
+			func(e *proto.PageJavascriptDialogOpening) (stop bool) {
+				pageEvent := PageEvent{
+					Type:        JavaScriptDialogOpening,
+					URL:         url,
+					Description: "Dialog opened on the page",
+					Data:        map[string]interface{}{"message": e.Message, "type": e.Type, "url": e.URL, "defaultPrompt": e.DefaultPrompt, "hasBrowserHanlder": e.HasBrowserHandler},
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+				err := proto.PageHandleJavaScriptDialog{
+					Accept:     true,
+					PromptText: "",
+				}.Call(page)
+				if err != nil {
+					log.Error().Err(err).Msg("Could not handle javascript dialog")
+					page.KeyActions().Press(input.Enter).Type(input.Enter).Do()
+				} else {
+					log.Debug().Msg("Handled javascript dialog")
+				}
 				return true
-			} else {
-				log.Warn().Interface("state", e).Str("url", url).Msg("Received a new browser SecuritySecurityStateChanged event")
-			}
-			return false
-		},
-		// func(e *proto.SecurityHandleCertificateError) {
-		// 	log.Warn().Interface("issue", e).Str("url", url).Msg("Received a new browser SecurityHandleCertificateError")
-		// },
-		func(e *proto.DOMStorageDomStorageItemAdded) {
-			log.Debug().Interface("dom_storage_item_added", e).Str("url", url).Msg("Received a new DOMStorageDomStorageItemAdded event")
-		},
-		func(e *proto.DOMStorageDomStorageItemRemoved) {
-			log.Debug().Interface("dom_storage_item_removed", e).Str("url", url).Msg("Received a new DOMStorageDomStorageItemRemoved event")
-		},
-		func(e *proto.DOMStorageDomStorageItemsCleared) {
-			log.Debug().Interface("dom_storage_items_cleared", e).Str("url", url).Msg("Received a new DOMStorageDomStorageItemsCleared event")
-		},
-		func(e *proto.DOMStorageDomStorageItemUpdated) {
-			log.Debug().Interface("dom_storage_item_updated", e).Str("url", url).Msg("Received a new DOMStorageDomStorageItemUpdated event")
-		},
-		func(e *proto.SecurityCertificateError) bool {
-			// If IgnoreCertificateErrors are permanently added, this can be deleted
-			log.Warn().Interface("issue", e).Str("url", url).Msg("Received a new browser SecurityCertificateError")
+			},
+			func(e *proto.BackgroundServiceBackgroundServiceEventReceived) {
+				var sb strings.Builder
+				sb.WriteString("Background service event received in page " + url + "\n\n")
+				sb.WriteString("Event data:\n")
+				sb.WriteString("Timestamp: " + e.BackgroundServiceEvent.Timestamp.String() + "\n")
+				sb.WriteString("Event name: " + e.BackgroundServiceEvent.EventName + "\n")
+				sb.WriteString("Origin: " + e.BackgroundServiceEvent.Origin + "\n")
+				sb.WriteString("Service worker registration ID: " + string(e.BackgroundServiceEvent.ServiceWorkerRegistrationID) + "\n")
+				sb.WriteString("Service: " + string(e.BackgroundServiceEvent.Service) + "\n")
+				sb.WriteString("Instance ID: " + e.BackgroundServiceEvent.InstanceID + "\n")
+				if len(e.BackgroundServiceEvent.EventMetadata) > 0 {
+					sb.WriteString("Event metadata:\n")
+					for _, metadata := range e.BackgroundServiceEvent.EventMetadata {
+						sb.WriteString("  - " + metadata.Key + ": " + metadata.Value + "\n")
+					}
+				}
+				pageEvent := PageEvent{
+					Type:        BackgroundServiceEventReceived,
+					URL:         url,
+					Description: sb.String(),
+					Data: map[string]interface{}{
+						"timestamp":                   e.BackgroundServiceEvent.Timestamp,
+						"eventName":                   e.BackgroundServiceEvent.EventName,
+						"origin":                      e.BackgroundServiceEvent.Origin,
+						"serviceWorkerRegistrationID": e.BackgroundServiceEvent.ServiceWorkerRegistrationID,
+						"service":                     e.BackgroundServiceEvent.Service,
+						"instanceID":                  e.BackgroundServiceEvent.InstanceID,
+						"eventMetadata":               e.BackgroundServiceEvent.EventMetadata,
+						"storageKey":                  e.BackgroundServiceEvent.StorageKey,
+					},
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+			},
+			func(e *proto.StorageIndexedDBContentUpdated) {
+				var sb strings.Builder
+				sb.WriteString("IndexedDB content updated in page " + url + "\n\n")
+				sb.WriteString("Database name: " + e.DatabaseName + "\n")
+				sb.WriteString("Object store name: " + e.ObjectStoreName + "\n")
+				sb.WriteString("Storage key: " + e.StorageKey + "\n")
+				sb.WriteString("Origin: " + e.Origin + "\n")
 
-			err := proto.SecurityHandleCertificateError{
-				EventID: e.EventID,
-				Action:  proto.SecurityCertificateErrorActionContinue,
-			}.Call(page)
-			if err != nil {
-				log.Error().Err(err).Msg("Could not handle security certificate error")
-			} else {
-				log.Debug().Msg("Handled security certificate error")
-			}
+				pageEvent := PageEvent{
+					Type:        StorageIndexedDBContentUpdated,
+					URL:         url,
+					Description: sb.String(),
+					Data:        map[string]interface{}{"databaseName": e.DatabaseName, "objectStoreName": e.ObjectStoreName, "storageKey": e.StorageKey, "origin": e.Origin},
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+			},
+			func(e *proto.StorageCacheStorageListUpdated) {
+				var sb strings.Builder
+				sb.WriteString("Cache storage list updated in page " + url + "\n\n")
+				sb.WriteString("Origin: " + e.Origin + "\n")
+				sb.WriteString("Storage key: " + e.StorageKey + "\n")
+				pageEvent := PageEvent{
+					Type:        StorageCacheStorageListUpdated,
+					URL:         url,
+					Description: sb.String(),
+					Data:        map[string]interface{}{"origin": e.Origin, "storageKey": e.StorageKey},
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+			},
+			func(e *proto.StorageIndexedDBListUpdated) {
+				var sb strings.Builder
+				sb.WriteString("IndexedDB list updated in page " + url + "\n\n")
+				sb.WriteString("Origin: " + e.Origin + "\n")
+				sb.WriteString("Storage key: " + e.StorageKey + "\n")
+				pageEvent := PageEvent{
+					Type:        StorageIndexedDBListUpdated,
+					URL:         url,
+					Description: sb.String(),
+					Data:        map[string]interface{}{"origin": e.Origin, "storageKey": e.StorageKey},
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+			},
+			func(e *proto.DatabaseAddDatabase) {
+				var sb strings.Builder
+				sb.WriteString("Database added in page " + url + "\n\n")
+				sb.WriteString("Database name: " + e.Database.Name + "\n")
+				sb.WriteString("Database ID: " + string(e.Database.ID) + "\n")
+				sb.WriteString("Database domain: " + e.Database.Domain + "\n")
+				sb.WriteString("Database version: " + e.Database.Version + "\n")
 
-			// certificate, err := proto.NetworkGetCertificate{}.Call(page)
-			// if err != nil {
-			// 	log.Warn().Str("url", url).Msg("Error getting certificate data")
-			// } else {
-			// 	log.Info().Msgf("Certificate data gathered: %s", certificate)
-			// }
-			return true
+				pageEvent := PageEvent{
+					Type:        DatabaseAddDatabase,
+					URL:         url,
+					Description: sb.String(),
+					Data:        map[string]interface{}{"databaseName": e.Database.Name, "databaseId": e.Database.ID, "databaseDomain": e.Database.Domain, "databaseVersion": e.Database.Version},
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+			},
+			func(e *proto.AuditsIssueAdded) {
+				issue := handleBrowserAuditIssues(url, e, workspaceID, taskID)
+				if issue.ID != 0 {
+					pageEvent := PageEvent{
+						Type:        AuditsIssueAdded,
+						URL:         url,
+						Issue:       issue,
+						Description: "Security issue added",
+						Data:        map[string]interface{}{"auditIssue": e.Issue},
+					}
+					select {
+					case eventChan <- pageEvent:
+					case <-ctx.Done():
+					}
+				}
+			},
+			func(e *proto.SecuritySecurityStateChanged) {
+				var sb strings.Builder
+				sb.WriteString("Security state changed in page " + url + "\n\n")
+				sb.WriteString("State: " + string(e.SecurityState) + "\n")
+				sb.WriteString("Summary: " + e.Summary + "\n")
+				sb.WriteString("Ran mixed content: " + fmt.Sprint(e.InsecureContentStatus.RanMixedContent) + "\n")
+				sb.WriteString("Displayed mixed content: " + fmt.Sprint(e.InsecureContentStatus.DisplayedMixedContent) + "\n")
+				sb.WriteString("Contained mixed form: " + fmt.Sprint(e.InsecureContentStatus.ContainedMixedForm) + "\n")
+				sb.WriteString("Ran content with cert errors: " + fmt.Sprint(e.InsecureContentStatus.RanContentWithCertErrors) + "\n")
+				sb.WriteString("Displayed content with cert errors: " + fmt.Sprint(e.InsecureContentStatus.DisplayedContentWithCertErrors) + "\n")
+				sb.WriteString("Ran insecure content style: " + fmt.Sprint(e.InsecureContentStatus.RanInsecureContentStyle) + "\n")
+				sb.WriteString("Displayed insecure content style: " + fmt.Sprint(e.InsecureContentStatus.DisplayedInsecureContentStyle) + "\n")
 
-		},
-	// func(e *proto.NetworkAuthChallenge) {
-	// Should probably listen to: proto.FetchAuthRequired
-	// 	log.Warn().Str("source", string(e.Source)).Str("origin", e.Origin).Str("realm", e.Realm).Str("scheme", e.Scheme).Msg("Network auth challange received")
-	// }
-	)()
-	ListenForWebSocketEvents(page, workspaceID, taskID, source)
+				pageEvent := PageEvent{
+					Type:        SecuritySecurityStateChanged,
+					URL:         url,
+					Description: sb.String(),
+					Data: map[string]interface{}{
+						"state":                          e.SecurityState,
+						"summary":                        e.Summary,
+						"ranMixedContent":                e.InsecureContentStatus.RanMixedContent,
+						"displayedMixedContent":          e.InsecureContentStatus.DisplayedMixedContent,
+						"containedMixedForm":             e.InsecureContentStatus.ContainedMixedForm,
+						"ranContentWithCertErrors":       e.InsecureContentStatus.RanContentWithCertErrors,
+						"displayedContentWithCertErrors": e.InsecureContentStatus.DisplayedContentWithCertErrors,
+						"ranInsecureContentStyle":        e.InsecureContentStatus.RanInsecureContentStyle,
+						"displayedInsecureContentStyle":  e.InsecureContentStatus.DisplayedInsecureContentStyle,
+					},
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+			},
+			func(e *proto.DOMStorageDomStorageItemAdded) {
+				pageEvent := PageEvent{
+					Type:        DOMStorageDomStorageItemAdded,
+					URL:         url,
+					Description: "DOM Storage item added",
+					Data:        map[string]interface{}{"key": e.Key, "newValue": e.NewValue},
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+			},
+			func(e *proto.DOMStorageDomStorageItemRemoved) {
+				pageEvent := PageEvent{
+					Type:        DOMStorageDomStorageItemRemoved,
+					URL:         url,
+					Description: "DOM Storage item removed",
+					Data:        map[string]interface{}{"key": e.Key},
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+			},
+			func(e *proto.DOMStorageDomStorageItemsCleared) {
+				pageEvent := PageEvent{
+					Type:        DOMStorageDomStorageItemsCleared,
+					URL:         url,
+					Description: "DOM Storage items cleared",
+					Data:        nil,
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+			},
+			func(e *proto.DOMStorageDomStorageItemUpdated) {
+				pageEvent := PageEvent{
+					Type:        DOMStorageDomStorageItemUpdated,
+					URL:         url,
+					Description: "DOM Storage item updated",
+					Data:        map[string]interface{}{"key": e.Key, "oldValue": e.OldValue, "newValue": e.NewValue},
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+			},
+			func(e *proto.SecurityCertificateError) bool {
+				pageEvent := PageEvent{
+					Type:        SecurityCertificateError,
+					URL:         url,
+					Description: "A security certificate error has been received",
+					Data:        map[string]interface{}{"errorType": e.ErrorType, "eventID": e.EventID, "url": e.RequestURL},
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+				err := proto.SecurityHandleCertificateError{
+					EventID: e.EventID,
+					Action:  proto.SecurityCertificateErrorActionContinue,
+				}.Call(page)
+				if err != nil {
+					log.Error().Err(err).Msg("Could not handle security certificate error")
+				} else {
+					log.Debug().Msg("Handled security certificate error")
+				}
+				return true
+			},
+		)()
+		ListenForWebSocketEvents(page, workspaceID, taskID, source)
+		<-ctx.Done()
+	}()
+
+	return eventChan
 }

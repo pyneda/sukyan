@@ -1,6 +1,7 @@
 package crawl
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -41,6 +42,7 @@ type Crawler struct {
 	concLimit               chan struct{}
 	hijackChan              chan browser.HijackResult
 	normalizedURLCounts     sync.Map
+	eventStore              sync.Map
 	maxPagesWithSameParams  int
 }
 
@@ -282,8 +284,18 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	page := c.getBrowserPage()
 	defer c.browser.ReleasePage(page)
 
-	// There's another implementation which applies to the whole browser which might be better ()
-	web.ListenForPageEvents(url, page, c.workspaceID, c.taskID, db.SourceCrawler)
+	ctx, cancel := context.WithCancel(context.Background())
+	eventStream := web.ListenForPageEvents(ctx, item.url, page, c.workspaceID, c.taskID, db.SourceCrawler)
+	go func() {
+		for event := range eventStream {
+			log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Str("url", item.url).Interface("event", event).Msg("Received page event")
+			val, _ := c.eventStore.LoadOrStore(event.Type, &[]web.PageEvent{})
+			events := val.(*[]web.PageEvent)
+			*events = append(*events, event)
+			c.eventStore.Store(event.Type, events)
+		}
+	}()
+	defer cancel()
 
 	urlData := c.loadPageAndGetAnchors(url, page)
 

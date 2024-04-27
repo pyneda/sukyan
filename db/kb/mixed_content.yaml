@@ -8,4 +8,6 @@ remediation:
   all resources and avoid linking to insecure (HTTP) resources.
 cwe: 16
 severity: Medium
-references: []
+references:
+  - https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content
+  - https://web.dev/articles/what-is-mixed-content

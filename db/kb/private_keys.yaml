@@ -9,4 +9,7 @@ remediation:
   compromised and a new key pair should be generated.
 cwe: 522
 severity: High
-references: []
+references: 
+  - https://en.wikipedia.org/wiki/Public-key_cryptography
+  - https://cheatsheetseries.owasp.org/cheatsheets/Key_Management_Cheat_Sheet.html
+

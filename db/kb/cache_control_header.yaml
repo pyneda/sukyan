@@ -9,4 +9,5 @@ remediation:
   as needed."
 cwe: 524
 severity: Low
-references: []
+references: 
+  - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control

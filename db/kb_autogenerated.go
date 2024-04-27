@@ -90,7 +90,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure the application is running in production mode to prevent the exposure of sensitive information.",
 		Cwe:         215,
 		Severity:    "Medium",
-		References:  []string{},
+		References:  []string{"https://struts.apache.org/core-developers/development-mode"},
 	},
 	{
 		Code:        ApacheTapestryExceptionCode,
@@ -153,7 +153,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Configure your application's headers to prevent sensitive information from being cached. You can set 'Cache-Control: no-store' or 'Cache-Control: private' as needed.",
 		Cwe:         524,
 		Severity:    "Low",
-		References:  []string{},
+		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control"},
 	},
 	{
 		Code:        CdnDetectedCode,
@@ -225,16 +225,16 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Avoid exposing database connection strings publicly to mitigate potential information leakage.",
 		Cwe:         200,
 		Severity:    "High",
-		References:  []string{},
+		References:  []string{"https://en.wikipedia.org/wiki/Connection_string", "https://www.connectionstrings.com/"},
 	},
 	{
 		Code:        DirectoryListingCode,
 		Title:       "Directory Listing Enabled",
 		Description: "The application allows directory listings, which could expose sensitive files or information to attackers.",
 		Remediation: "Disable directory listings to prevent unauthorized access to file listings.",
-		Cwe:         538,
+		Cwe:         548,
 		Severity:    "Low",
-		References:  []string{},
+		References:  []string{"https://wiki.owasp.org/index.php/OWASP_Periodic_Table_of_Vulnerabilities_-_Directory_Indexing"},
 	},
 	{
 		Code:        DjangoDebugExceptionCode,
@@ -243,7 +243,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure the application is running in production mode to prevent the exposure of sensitive information.",
 		Cwe:         215,
 		Severity:    "Medium",
-		References:  []string{},
+		References:  []string{"https://docs.djangoproject.com/en/stable/ref/settings/#debug"},
 	},
 	{
 		Code:        EmailAddressesCode,
@@ -288,7 +288,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Ensure that file upload functionality is secured, including validating/sanitizing uploaded files, setting proper file permissions, and storing files in a secure location.",
 		Cwe:         434,
 		Severity:    "Info",
-		References:  []string{},
+		References:  []string{"https://book.hacktricks.xyz/pentesting-web/file-upload", "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html"},
 	},
 	{
 		Code:        ForbiddenBypassCode,
@@ -324,7 +324,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, validate and sanitize incoming Host headers. Use a whitelist of allowed domains and hostnames. Ensure that the application generates absolute URLs using a known good base URL, rather than relying on the incoming Host header. Additionally, implement proper logging of incorrect Host header attempts and regularly review for suspicious activities.",
 		Cwe:         601,
 		Severity:    "Medium",
-		References:  []string{"https://cheatsheetseries.owasp.org/cheatsheets/Host_Header_Injection_Prevention_Cheat_Sheet.html", "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection", "https://portswigger.net/web-security/host-header"},
+		References:  []string{"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection", "https://portswigger.net/web-security/host-header"},
 	},
 	{
 		Code:        Http2DetectedCode,
@@ -387,7 +387,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "N/A",
 		Cwe:         0,
 		Severity:    "Info",
-		References:  []string{},
+		References:  []string{"https://docs.oracle.com/javase/tutorial/jndi/objects/serial.html", "https://maxchadwick.xyz/blog/java-serialized-object-detection", "https://portswigger.net/web-security/deserialization/exploiting"},
 	},
 	{
 		Code:        JavaServerHeaderCode,
@@ -423,7 +423,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Update Log4j to a patched version (2.15.0 or later).",
 		Cwe:         502,
 		Severity:    "Critical",
-		References:  []string{},
+		References:  []string{"https://logging.apache.org/log4j/2.x/security.html", "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"},
 	},
 	{
 		Code:        MissingContentTypeHeaderCode,
@@ -450,7 +450,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "To mitigate this vulnerability, avoid constructing queries with user-supplied input whenever possible. Instead, use parameterized queries, which can help ensure that user input is not interpreted as part of the query. Implement proper input validation and sanitization procedures. Also, ensure that the least privilege principle is followed, and each function of the application has only the necessary access rights it needs to perform its tasks.",
 		Cwe:         943,
 		Severity:    "High",
-		References:  []string{},
+		References:  []string{"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/05.6-Testing_for_NoSQL_Injection", "https://book.hacktricks.xyz/pentesting-web/nosql-injection"},
 	},
 	{
 		Code:        OobCommunicationsCode,
@@ -495,16 +495,16 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Disable autocomplete on password fields to prevent passwords from being stored and auto-filled by the browser.",
 		Cwe:         200,
 		Severity:    "Low",
-		References:  []string{},
+		References:  []string{"https://wiki.owasp.org/index.php/Testing_for_Vulnerable_Remember_Password_(OTG-AUTHN-005)"},
 	},
 	{
 		Code:        PasswordInGetRequestCode,
 		Title:       "Password Submitted in GET Request",
-		Description: "The application sends password using GET method, which can lead to sensitive information being logged or leaked.",
-		Remediation: "Switch to POST method for submitting passwords or sensitive data, and make sure all such communications happen over a secure connection (HTTPS).",
+		Description: "The application allows users to submit passwords using the GET method in URLs, which poses a significant security risk. Passwords transmitted in URLs are easily exposed in browser history, server logs, and can be intercepted by attackers. This vulnerability could lead to unauthorized access to user accounts and compromise sensitive information.",
+		Remediation: "To mitigate this vulnerability, never use the GET method to transmit sensitive data, including passwords. Use the POST method with HTTPS to ensure that data is not exposed in URLs and is encrypted during transmission. Additionally, review and sanitize server logs to prevent storing sensitive information and enforce strict guidelines for handling sensitive data transmission securely.",
 		Cwe:         598,
 		Severity:    "Low",
-		References:  []string{},
+		References:  []string{"https://owasp.org/www-community/vulnerabilities/Information_exposure_through_query_strings_in_url", "https://cheatsheetseries.owasp.org/cheatsheets/Query_Parameterization_Cheat_Sheet.html"},
 	},
 	{
 		Code:        PrivateIpsCode,
@@ -513,7 +513,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Avoid exposing private IP addresses publicly to mitigate potential information leakage.",
 		Cwe:         200,
 		Severity:    "Low",
-		References:  []string{},
+		References:  []string{"https://en.wikipedia.org/wiki/Private_network", "https://datatracker.ietf.org/doc/html/rfc1918"},
 	},
 	{
 		Code:        PrivateKeysCode,
@@ -522,7 +522,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Private keys must be kept confidential and should never be exposed or sent over insecure channels. If a private key has been exposed, it should be considered compromised and a new key pair should be generated.",
 		Cwe:         522,
 		Severity:    "High",
-		References:  []string{},
+		References:  []string{"https://en.wikipedia.org/wiki/Public-key_cryptography", "https://cheatsheetseries.owasp.org/cheatsheets/Key_Management_Cheat_Sheet.html"},
 	},
 	{
 		Code:        ReflectedInputCode,
@@ -576,7 +576,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Do not include session tokens in URLs. Instead, use secure cookies to manage sessions.",
 		Cwe:         200,
 		Severity:    "Medium",
-		References:  []string{},
+		References:  []string{"https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html"},
 	},
 	{
 		Code:        SniInjectionCode,
@@ -720,7 +720,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Always specify a correct 'X-Frame-Options' header in the response. Recommended values are 'DENY' or 'SAMEORIGIN'.",
 		Cwe:         346,
 		Severity:    "Low",
-		References:  []string{},
+		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options"},
 	},
 	{
 		Code:        XPoweredByHeaderCode,
@@ -738,7 +738,7 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Always specify 'X-XSS-Protection: 1; mode=block' in the response header to enable XSS filtering on the client side.",
 		Cwe:         79,
 		Severity:    "Info",
-		References:  []string{},
+		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection"},
 	},
 	{
 		Code:        XpathInjectionCode,

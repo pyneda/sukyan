@@ -8,4 +8,5 @@ remediation:
   to enable XSS filtering on the client side."
 cwe: 79
 severity: Info
-references: []
+references: 
+  - https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection

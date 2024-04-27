@@ -8,4 +8,6 @@ remediation:
   leakage.
 cwe: 200
 severity: Low
-references: []
+references:
+  - https://en.wikipedia.org/wiki/Private_network
+  - https://datatracker.ietf.org/doc/html/rfc1918

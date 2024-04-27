@@ -6,4 +6,6 @@ description:
 remediation: Update Log4j to a patched version (2.15.0 or later).
 cwe: 502
 severity: Critical
-references: []
+references: 
+  - https://logging.apache.org/log4j/2.x/security.html
+  - https://nvd.nist.gov/vuln/detail/CVE-2021-44228

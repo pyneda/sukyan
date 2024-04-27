@@ -6,4 +6,7 @@ description:
 remediation: N/A
 cwe: 0
 severity: Info
-references: []
+references: 
+  - https://docs.oracle.com/javase/tutorial/jndi/objects/serial.html
+  - https://maxchadwick.xyz/blog/java-serialized-object-detection
+  - https://portswigger.net/web-security/deserialization/exploiting

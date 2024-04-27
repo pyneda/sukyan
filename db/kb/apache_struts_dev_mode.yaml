@@ -8,4 +8,5 @@ remediation:
   of sensitive information.
 cwe: 215
 severity: Medium
-references: []
+references: 
+  - https://struts.apache.org/core-developers/development-mode

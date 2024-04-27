@@ -8,4 +8,6 @@ remediation:
   uploaded files, setting proper file permissions, and storing files in a secure location.
 cwe: 434
 severity: Info
-references: []
+references: 
+  - https://book.hacktricks.xyz/pentesting-web/file-upload
+  - https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html

@@ -8,4 +8,6 @@ remediation:
   information leakage.
 cwe: 200
 severity: High
-references: []
+references: 
+  - https://en.wikipedia.org/wiki/Connection_string
+  - https://www.connectionstrings.com/

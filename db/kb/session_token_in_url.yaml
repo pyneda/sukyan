@@ -8,4 +8,5 @@ remediation:
   manage sessions.
 cwe: 200
 severity: Medium
-references: []
+references: 
+  - https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html

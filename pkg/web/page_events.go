@@ -228,11 +228,24 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 				}
 			},
 			func(e *proto.DOMStorageDomStorageItemAdded) {
+				var sb strings.Builder
+				sb.WriteString("DOM storage item added in page " + url + "\n\n")
+				sb.WriteString("Key: " + e.Key + "\n")
+				sb.WriteString("New value: " + e.NewValue + "\n")
+				sb.WriteString("Security origin: " + e.StorageID.SecurityOrigin + "\n")
+				sb.WriteString("Is local storage: " + fmt.Sprint(e.StorageID.IsLocalStorage) + "\n")
+				sb.WriteString("Storage key: " + string(e.StorageID.StorageKey) + "\n")
 				pageEvent := PageEvent{
 					Type:        DOMStorageDomStorageItemAdded,
 					URL:         url,
-					Description: "DOM Storage item added",
-					Data:        map[string]interface{}{"key": e.Key, "newValue": e.NewValue},
+					Description: sb.String(),
+					Data: map[string]interface{}{
+						"key":            e.Key,
+						"newValue":       e.NewValue,
+						"securityOrigin": e.StorageID.SecurityOrigin,
+						"isLocalStorage": e.StorageID.IsLocalStorage,
+						"storageKey":     e.StorageID.StorageKey,
+					},
 				}
 				select {
 				case eventChan <- pageEvent:
@@ -240,11 +253,22 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 				}
 			},
 			func(e *proto.DOMStorageDomStorageItemRemoved) {
+				var sb strings.Builder
+				sb.WriteString("DOM storage item removed in page " + url + "\n\n")
+				sb.WriteString("Key: " + e.Key + "\n")
+				sb.WriteString("Security origin: " + e.StorageID.SecurityOrigin + "\n")
+				sb.WriteString("Is local storage: " + fmt.Sprint(e.StorageID.IsLocalStorage) + "\n")
+				sb.WriteString("Storage key: " + string(e.StorageID.StorageKey) + "\n")
 				pageEvent := PageEvent{
 					Type:        DOMStorageDomStorageItemRemoved,
 					URL:         url,
-					Description: "DOM Storage item removed",
-					Data:        map[string]interface{}{"key": e.Key},
+					Description: sb.String(),
+					Data: map[string]interface{}{
+						"key":            e.Key,
+						"securityOrigin": e.StorageID.SecurityOrigin,
+						"isLocalStorage": e.StorageID.IsLocalStorage,
+						"storageKey":     e.StorageID.StorageKey,
+					},
 				}
 				select {
 				case eventChan <- pageEvent:
@@ -252,11 +276,20 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 				}
 			},
 			func(e *proto.DOMStorageDomStorageItemsCleared) {
+				var sb strings.Builder
+				sb.WriteString("DOM storage items cleared in page " + url + "\n\n")
+				sb.WriteString("Security origin: " + e.StorageID.SecurityOrigin + "\n")
+				sb.WriteString("Is local storage: " + fmt.Sprint(e.StorageID.IsLocalStorage) + "\n")
+				sb.WriteString("Storage key: " + string(e.StorageID.StorageKey) + "\n")
 				pageEvent := PageEvent{
 					Type:        DOMStorageDomStorageItemsCleared,
 					URL:         url,
 					Description: "DOM Storage items cleared",
-					Data:        nil,
+					Data: map[string]interface{}{
+						"securityOrigin": e.StorageID.SecurityOrigin,
+						"isLocalStorage": e.StorageID.IsLocalStorage,
+						"storageKey":     e.StorageID.StorageKey,
+					},
 				}
 				select {
 				case eventChan <- pageEvent:
@@ -264,11 +297,26 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 				}
 			},
 			func(e *proto.DOMStorageDomStorageItemUpdated) {
+				var sb strings.Builder
+				sb.WriteString("DOM storage item updated in page " + url + "\n\n")
+				sb.WriteString("Key: " + e.Key + "\n")
+				sb.WriteString("New value: " + e.NewValue + "\n")
+				sb.WriteString("Old value: " + e.OldValue + "\n")
+				sb.WriteString("Security origin: " + e.StorageID.SecurityOrigin + "\n")
+				sb.WriteString("Is local storage: " + fmt.Sprint(e.StorageID.IsLocalStorage) + "\n")
+				sb.WriteString("Storage key: " + string(e.StorageID.StorageKey) + "\n")
 				pageEvent := PageEvent{
 					Type:        DOMStorageDomStorageItemUpdated,
 					URL:         url,
-					Description: "DOM Storage item updated",
-					Data:        map[string]interface{}{"key": e.Key, "oldValue": e.OldValue, "newValue": e.NewValue},
+					Description: sb.String(),
+					Data: map[string]interface{}{
+						"key":            e.Key,
+						"newValue":       e.NewValue,
+						"oldValue":       e.OldValue,
+						"securityOrigin": e.StorageID.SecurityOrigin,
+						"isLocalStorage": e.StorageID.IsLocalStorage,
+						"storageKey":     e.StorageID.StorageKey,
+					},
 				}
 				select {
 				case eventChan <- pageEvent:
@@ -276,11 +324,17 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 				}
 			},
 			func(e *proto.SecurityCertificateError) bool {
+				var sb strings.Builder
+				sb.WriteString("Security certificate error of type " + e.ErrorType + " has been received")
 				pageEvent := PageEvent{
 					Type:        SecurityCertificateError,
 					URL:         url,
 					Description: "A security certificate error has been received",
-					Data:        map[string]interface{}{"errorType": e.ErrorType, "eventID": e.EventID, "url": e.RequestURL},
+					Data: map[string]interface{}{
+						"errorType": e.ErrorType,
+						"eventID":   e.EventID,
+						"url":       e.RequestURL,
+					},
 				}
 				select {
 				case eventChan <- pageEvent:

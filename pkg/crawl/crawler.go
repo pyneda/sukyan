@@ -105,7 +105,7 @@ func (c *Crawler) Run() []*db.History {
 	var inScopeHistoryItems []*db.History
 	go func() {
 		for hijackResult := range c.hijackChan {
-			log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Msg("Received hijack result")
+			log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Int("response_body_size", hijackResult.History.ResponseBodySize).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Msg("Received crawl response")
 			if hijackResult.History.Method != "GET" {
 				item := &CrawlItem{url: hijackResult.History.URL, depth: lib.CalculateURLDepth(hijackResult.History.URL), visited: true, isError: false}
 				c.pages.Store(item.url, item)
@@ -283,20 +283,27 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 
 	page := c.getBrowserPage()
 	defer c.browser.ReleasePage(page)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	eventStream := web.ListenForPageEvents(ctx, item.url, page, c.workspaceID, c.taskID, db.SourceCrawler)
-	go func() {
-		for event := range eventStream {
-			log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Str("url", item.url).Interface("event", event).Msg("Received page event")
-			val, _ := c.eventStore.LoadOrStore(event.Type, &[]web.PageEvent{})
-			events := val.(*[]web.PageEvent)
-			*events = append(*events, event)
-			c.eventStore.Store(event.Type, events)
-		}
-	}()
 	defer cancel()
 
+	go func() {
+		for {
+			select {
+			case event, ok := <-eventStream:
+				if !ok {
+					return // exit if channel is closed
+				}
+				log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Str("url", item.url).Interface("event", event).Msg("Received page event")
+				val, _ := c.eventStore.LoadOrStore(event.Type, &[]web.PageEvent{})
+				events := val.(*[]web.PageEvent)
+				*events = append(*events, event)
+				c.eventStore.Store(event.Type, events)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 	urlData := c.loadPageAndGetAnchors(url, page)
 
 	if value, ok := c.pages.Load(item.url); ok {

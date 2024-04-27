@@ -1,9 +1,10 @@
 package db
 
 import (
-	"github.com/rs/zerolog/log"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type TaskJobStatus string
@@ -98,7 +99,7 @@ func (d *DatabaseConnection) ListTaskJobs(filter TaskJobFilter) (items []*TaskJo
 	err = query.Scopes(Paginate(&filter.Pagination)).Find(&items).Error
 	d.db.Model(&TaskJob{}).Count(&count)
 
-	log.Info().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Int("total_results", len(items)).Msg("Getting task job items")
+	log.Debug().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Int("total_results", len(items)).Msg("Getting task job items")
 
 	return items, count, err
 }

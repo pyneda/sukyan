@@ -1,0 +1,16 @@
+code: host_header_injection
+title: Host Header Injection
+description:
+  The application appears to be vulnerable to Host Header Injection. This vulnerability occurs when
+  a user is able to manipulate the Host header and the application trusts the header without proper
+  validation. This can lead to vulnerabilities such as web cache poisoning, password reset poisoning, and malicious redirections.
+remediation:
+  To mitigate this vulnerability, validate and sanitize incoming Host headers. Use a whitelist of
+  allowed domains and hostnames. Ensure that the application generates absolute URLs using a known
+  good base URL, rather than relying on the incoming Host header. Additionally, implement proper
+  logging of incorrect Host header attempts and regularly review for suspicious activities.
+cwe: 601
+severity: Medium
+references:
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection
+  - https://portswigger.net/web-security/host-header

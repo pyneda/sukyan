@@ -2,10 +2,11 @@ package active
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
-	"sync"
 )
 
 // HTTPMethodsAudit configuration
@@ -109,6 +110,10 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 	}
 
 	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, options)
+	if err != nil {
+		auditLog.Error().Err(err).Msg("Error creating the history")
+		return
+	}
 	if history.StatusCode != 405 && history.StatusCode != 404 {
 		// Should improve the issue template and probably all all the instances in the same issue
 		issue := db.FillIssueFromHistoryAndTemplate(

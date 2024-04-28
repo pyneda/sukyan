@@ -38,6 +38,7 @@ const (
 	DOMStorageDomStorageItemUpdated  PageEventType = "DOMStorageDomStorageItemUpdated"
 	SecurityCertificateError         PageEventType = "SecurityCertificateError"
 	NetworkAuthChallenge             PageEventType = "NetworkAuthChallenge"
+	RuntimeConsoleAPICalled          PageEventType = "RuntimeConsoleAPICalled"
 )
 
 func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, workspaceID, taskID uint, source string) <-chan PageEvent {
@@ -349,6 +350,49 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 					log.Debug().Msg("Handled security certificate error")
 				}
 				return true
+			},
+			func(e *proto.RuntimeConsoleAPICalled) {
+				var sb strings.Builder
+				sb.WriteString("Console API called in page " + url + "\n\n")
+				sb.WriteString("Type: " + string(e.Type) + "\n")
+				if e.Context != "" {
+					sb.WriteString("Context: " + e.Context + "\n")
+				}
+				if len(e.Args) > 0 {
+					sb.WriteString("Arguments:\n")
+					for _, arg := range e.Args {
+						sb.WriteString("  - " + string(arg.Type) + "\n")
+					}
+				}
+				if e.StackTrace != nil {
+					if e.StackTrace.Description != "" {
+						sb.WriteString("Stack trace description: " + e.StackTrace.Description + "\n")
+					}
+					sb.WriteString("Stack trace:\n")
+
+					for _, callFrame := range e.StackTrace.CallFrames {
+						sb.WriteString("  - " + callFrame.URL + ":" + fmt.Sprint(callFrame.LineNumber) + ":" + fmt.Sprint(callFrame.ColumnNumber) + "\n")
+					}
+				}
+
+				sb.WriteString("\n")
+				pageEvent := PageEvent{
+					Type:        RuntimeConsoleAPICalled,
+					URL:         url,
+					Description: sb.String(),
+					Data: map[string]interface{}{
+						"type":               e.Type,
+						"args":               e.Args,
+						"executionContextID": e.ExecutionContextID,
+						"stackTrace":         e.StackTrace,
+						"context":            e.Context,
+					},
+				}
+				select {
+				case eventChan <- pageEvent:
+				case <-ctx.Done():
+				}
+
 			},
 		)()
 		ListenForWebSocketEvents(page, workspaceID, taskID, source)

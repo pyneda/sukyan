@@ -6,7 +6,6 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/pyneda/sukyan/db"
 	"github.com/spf13/viper"
-	// "github.com/go-rod/rod/lib/proto"
 )
 
 var (
@@ -17,7 +16,7 @@ var (
 // GetBrowserPoolManager returns a singleton instance of BrowserPoolManager used by active scanners
 func GetScannerBrowserPoolManager() *BrowserPoolManager {
 	once.Do(func() {
-		scannerBrowserPool = NewBrowserPoolManager(BrowserPoolManagerConfig{PoolSize: 6, Source: db.SourceScanner}, 0, 0)
+		scannerBrowserPool = NewBrowserPoolManager(BrowserPoolManagerConfig{PoolSize: viper.GetInt("scan.browser.pool_size"), Source: db.SourceScanner}, 0, 0)
 	})
 	return scannerBrowserPool
 }
@@ -29,7 +28,6 @@ type BrowserPoolManagerConfig struct {
 
 type BrowserPoolManager struct {
 	// launcher             *launcher.Launcher
-	browser              *rod.Browser
 	pool                 rod.BrowserPool
 	config               BrowserPoolManagerConfig
 	HijackResultsChannel chan HijackResult
@@ -97,11 +95,6 @@ func (b *BrowserPoolManager) createBrowser() *rod.Browser {
 	return browser
 }
 
-func (b *BrowserPoolManager) Close() {
-	b.pool.Cleanup(func(p *rod.Browser) { p.MustClose() })
-	b.browser.Close()
-}
-
 func (b *BrowserPoolManager) Cleanup() {
-	b.pool.Cleanup(func(p *rod.Browser) { p.MustClose() })
+	b.pool.Cleanup(func(p *rod.Browser) { p.Close() })
 }

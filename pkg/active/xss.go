@@ -137,34 +137,11 @@ func (x *XSSAudit) GetHistory(url string) *db.History {
 func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem, b *rod.Browser) error {
 	taskLog := log.With().Str("url", item.URL).Str("param", item.Parameter).Str("payload", item.Payload).Str("audit", "xss-reflected").Logger()
 
-	// taskLog.Info().Msg("Launching browser to connect to page")
-	// l := browser.GetBrowserLauncher()
-	// controlURL := l.MustLaunch()
-	// b := rod.New().ControlURL(controlURL).MustConnect()
-	// defer b.MustClose()
-
-	// browserPool := browser.GetScannerBrowserPoolManager()
-	// b := browserPool.NewBrowser()
-	// log.Warn().Msg("Scan Browser created")
-	// defer browserPool.ReleaseBrowser(b)
-	// hijackResultsChannel := make(chan browser.HijackResult)
-	// hijackContext, hijackCancel := context.WithCancel(context.Background())
-	// defer hijackCancel()
-	// go browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID)
-
-	// go func() {
-	// 	for hijackResult := range hijackResultsChannel {
-	// 		x.requests.Store(hijackResult.History.URL, hijackResult.History)
-	// 	}
-	// 	close(hijackResultsChannel)
-	// }()
-
 	testurl, err := lib.BuildURLWithParam(item.URL, item.Parameter, item.Payload, item.URLEncode)
 	if err != nil {
 		return err
 	}
 	taskLog.Debug().Msg("Getting a browser page")
-	// page := b.MustIncognito().MustPage("")
 	page := b.MustPage("")
 	web.IgnoreCertificateErrors(page)
 
@@ -175,7 +152,6 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem, b *
 	pageWithCancel := page.Context(ctx)
 	//restore := pageWithCancel.EnableDomain(&proto.PageEnable{})
 
-	//page.MustNavigate(testurl)
 	go func() {
 		// Cancel timeout
 		time.Sleep(30 * time.Second)
@@ -202,6 +178,19 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem, b *
 			if history.ID == 0 {
 				history = x.GetHistory(testurl)
 			}
+
+			if history.ID == 0 {
+				taskLog.Warn().Str("url", testurl).Msg("Could not find history for XSS, sleeping and trying again")
+				time.Sleep(4 * time.Second)
+				history = x.GetHistory(e.URL)
+				if history.ID == 0 {
+					history.URL = e.URL
+					taskLog.Warn().Str("url", testurl).Msg("Couldn't find history for XSS after sleep")
+				} else {
+					taskLog.Warn().Str("url", testurl).Msg("Found history for XSS after sleep")
+				}
+			}
+
 			// Save as detected location to avoid duplicate alerts
 			x.StoreDetectedLocation(e.URL, item.Parameter)
 			var sb strings.Builder

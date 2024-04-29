@@ -51,8 +51,11 @@ func (c EventCategory) ReportEvents(history *db.History, events []PageEvent) {
 	}
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("The following %s events have been detectedn\n\n", c))
-	for _, event := range events {
-		sb.WriteString(fmt.Sprintf(event.Description, "----------------------------------------------\n\n"))
+	for i, event := range events {
+		if i > 0 {
+			sb.WriteString("\n----------------------------------------------\n\n")
+		}
+		sb.WriteString(event.Description)
 	}
 	db.CreateIssueFromHistoryAndTemplate(history, issueCode, sb.String(), 75, "", history.WorkspaceID, history.TaskID, nil)
 }
@@ -428,18 +431,18 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 			func(e *proto.RuntimeConsoleAPICalled) {
 				var sb strings.Builder
 				sb.WriteString("Console API called in page " + url + "\n\n")
-				sb.WriteString("Type: " + string(e.Type) + "\n")
+				sb.WriteString("API call type: " + string(e.Type) + "\n")
 				if e.Context != "" {
 					sb.WriteString("Context: " + e.Context + "\n")
 				}
 				if len(e.Args) > 0 {
-					sb.WriteString("Arguments:\n")
-					for i, arg := range e.Args {
+					sb.WriteString("Messages detected:\n")
+					for _, arg := range e.Args {
 						obj, err := page.ObjectToJSON(arg)
 						if err != nil {
 							log.Error().Err(err).Msg("Could not convert object to JSON")
 						} else {
-							sb.WriteString(fmt.Sprintf("  - %d: %s\n", i, obj))
+							sb.WriteString(fmt.Sprintf("  - %s\n", obj))
 						}
 					}
 
@@ -448,14 +451,17 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 					if e.StackTrace.Description != "" {
 						sb.WriteString("Stack trace description: " + e.StackTrace.Description + "\n")
 					}
-					sb.WriteString("Stack trace:\n")
+					sb.WriteString("Stack trace call frames:\n")
 
 					for _, callFrame := range e.StackTrace.CallFrames {
-						sb.WriteString("  - " + callFrame.URL + ":" + fmt.Sprint(callFrame.FunctionName) + ":" + fmt.Sprint(callFrame.LineNumber) + ":" + fmt.Sprint(callFrame.ColumnNumber) + "\n")
+						functionName := fmt.Sprint(callFrame.FunctionName)
+						if functionName == "" {
+							functionName = "inline"
+						}
+						sb.WriteString("  - " + callFrame.URL + ":" + functionName + ":" + fmt.Sprint(callFrame.LineNumber) + ":" + fmt.Sprint(callFrame.ColumnNumber) + "\n")
 					}
 				}
 
-				sb.WriteString("\n")
 				pageEvent := PageEvent{
 					Type:        RuntimeConsoleAPICalled,
 					URL:         url,

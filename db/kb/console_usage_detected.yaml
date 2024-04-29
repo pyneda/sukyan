@@ -1,0 +1,9 @@
+code: console_usage_detected
+title: Console Usage Detection Report
+description: This report identifies instances of console usage within the application. Console logs are often used for debugging purposes and can inadvertently expose sensitive information in the JavaScript code that is accessible to end users through the browser's developer tools. This exposure can pose security risks if logs contain data like user tokens, passwords, or other sensitive details.
+remediation: To mitigate the risks associated with console log usage, developers should remove or mask console logs before deploying applications to production. Implement a logging strategy that directs sensitive or debug-level information to secure, server-side logs instead of client-facing consoles. Use environment-based conditional logging to ensure that detailed logs are only available during development or testing phases and not in production.
+cwe: 532
+severity: Info
+references:
+  - https://developer.mozilla.org/en-US/docs/Web/API/console/log_static
+  - https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html

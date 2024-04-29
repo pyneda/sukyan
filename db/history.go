@@ -275,7 +275,7 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 
 	// Add pagination: https://gorm.io/docs/scopes.html#pagination
 
-	log.Info().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Int("total_results", len(items)).Msg("Getting history items")
+	log.Debug().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Int("total_results", len(items)).Msg("Getting history items")
 
 	return items, count, err
 }

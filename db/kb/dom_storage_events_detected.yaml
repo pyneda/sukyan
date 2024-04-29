@@ -1,0 +1,15 @@
+code: dom_storage_events_detected
+title: DOM Storage Events Detection Report
+description: This report identifies the detection of DOM Storage events on a specific page of the application.
+  DOM Storage, including LocalStorage and SessionStorage, allows websites to store data in the user's browser.
+  Monitoring these storage events can provide insights into how data is stored and managed by the application,
+  which may indicate potential security concerns or privacy issues if sensitive data is handled improperly.
+remediation: No specific remediation steps are required as this report serves purely informational purposes. However,
+  it is recommended to review the usage of DOM Storage to ensure that sensitive information is not being
+  stored insecurely or without proper encryption. Regular audits and compliance checks should be conducted
+  to ensure that data storage practices adhere to relevant data protection standards and regulations.
+cwe: 0
+severity: Info
+references:
+  - https://developer.mozilla.org/en-US/docs/Web/API/Window/DOMStorage
+  - https://portswigger.net/web-security/dom-based/html5-storage-manipulation

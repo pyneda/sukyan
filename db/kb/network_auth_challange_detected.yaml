@@ -1,0 +1,9 @@
+code: network_auth_challenge_detected
+title: Network Authentication Challenge Detection
+description: This report details instances where network authentication challenges (e.g., HTTP Basic Authentication, Digest Authentication) have been detected within the application. These authentication mechanisms prompt users to provide credentials to access certain network resources. While effective for simple authentication needs, these methods can expose credentials to risks if not used over secure connections or if implemented without additional security measures.
+remediation: To address potential security concerns associated with basic or digest authentication challenges, ensure all authentication processes occur over HTTPS to protect credentials in transit. Consider upgrading to more secure authentication methods, such as OAuth or JWTs, which provide enhanced security features and better user experience. Regularly review and update authentication protocols to adhere to current security best practices and mitigate potential vulnerabilities.
+cwe: 303
+severity: Info
+references:
+  - https://datatracker.ietf.org/doc/html/rfc2617
+  - https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication

@@ -1,0 +1,9 @@
+code: certificate_errors
+title: Certificate Errors
+description: This report aggregates and highlights events related to security certificate errors within the applicationificate. These events are reported automatically by the browser and typically indicate problems with SSL/TLS certificates, such as expiration, misconfiguration, or untrusted issuers, which can undermine the security of communications and erode user trust.
+remediation: Address certificate-related issues promptly to maintain secure, encrypted channels for user communications. Verify that all certificates are up-to-date, properly configured, and issued by a trusted Certificate Authority (CA). Implement automated alerts and renewals for certificates to avoid expirations. Consider using tools for continuous monitoring and validation of certificate status across your digital assets.
+cwe: 295
+severity: Medium
+references:
+  - https://owasp.org/www-community/controls/Certificate_and_Public_Key_Pinning
+  - https://letsencrypt.org/docs/certificate-errors/

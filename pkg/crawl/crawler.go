@@ -155,10 +155,16 @@ func (c *Crawler) Run() []*db.History {
 		}
 	}
 
-	time.Sleep(5 * time.Second)
 	c.wg.Wait()
 	log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Msg("Finished crawling")
 	c.browser.Close()
+	for _, item := range inScopeHistoryItems {
+		events, ok := c.eventStore.Load(item.URL)
+		if ok {
+			eventsList := events.(*[]web.PageEvent)
+			web.AnalyzeGatheredEvents(item, *eventsList)
+		}
+	}
 	return inScopeHistoryItems
 }
 
@@ -295,10 +301,10 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 					return // exit if channel is closed
 				}
 				log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Str("url", item.url).Interface("event", event).Msg("Received page event")
-				val, _ := c.eventStore.LoadOrStore(event.Type, &[]web.PageEvent{})
+				val, _ := c.eventStore.LoadOrStore(event.URL, &[]web.PageEvent{})
 				events := val.(*[]web.PageEvent)
 				*events = append(*events, event)
-				c.eventStore.Store(event.Type, events)
+				c.eventStore.Store(event.URL, events)
 			case <-ctx.Done():
 				return
 			}

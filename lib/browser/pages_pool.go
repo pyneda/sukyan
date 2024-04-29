@@ -51,6 +51,7 @@ func (b *PagePoolManager) Start(hijack bool, source string) {
 		MustConnect()
 
 	go b.browser.HandleAuth(viper.GetString("navigation.auth.basic.username"), viper.GetString("navigation.auth.basic.password"))()
+	// b.browser.IgnoreCertErrors(true)
 	poolSize := 4
 	if b.config.PoolSize > 0 {
 		poolSize = b.config.PoolSize

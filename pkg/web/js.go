@@ -34,7 +34,6 @@ function getLinks() {
 
     var applets = document.querySelectorAll("applet");
     for (var el of applets) {
-        console.log(el.attributes.archive)
         if (el.attributes.archive && typeof el.attributes.archive.value === 'string') {
             array.push(absolutePath(el.attributes.archive.value));
         } else if (el.attributes.codebase && typeof el.attributes.codebase.value === 'string') {
@@ -48,7 +47,6 @@ function getLinks() {
         var elements = document.querySelectorAll('[' + attr + ']');
         for (var i = 0; i < elements.length; i++) {
             var attrValue = elements[i].getAttribute(attr);
-            console.log(attrValue)
             if (attrValue && typeof attrValue === 'string') {
                 var absolute = absolutePath(attrValue);
                 array.push(absolute);

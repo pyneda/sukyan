@@ -11,9 +11,12 @@ var (
 	Base64EncodedDataInParameterCode     IssueCode = "base64_encoded_data_in_parameter"
 	BlindSqlInjectionCode                IssueCode = "blind_sql_injection"
 	CacheControlHeaderCode               IssueCode = "cache_control_header"
+	CacheStorageUsageDetectedCode        IssueCode = "cache_storage_usage_detected"
 	CdnDetectedCode                      IssueCode = "cdn_detected"
+	CertificateErrorsCode                IssueCode = "certificate_errors"
 	ClientSidePrototypePollutionCode     IssueCode = "client_side_prototype_pollution"
 	CloudDetectedCode                    IssueCode = "cloud_detected"
+	ConsoleUsageDetectedCode             IssueCode = "console_usage_detected"
 	CorsCode                             IssueCode = "cors"
 	CrlfInjectionCode                    IssueCode = "crlf_injection"
 	CsrfCode                             IssueCode = "csrf"
@@ -21,6 +24,7 @@ var (
 	DbConnectionStringsCode              IssueCode = "db_connection_strings"
 	DirectoryListingCode                 IssueCode = "directory_listing"
 	DjangoDebugExceptionCode             IssueCode = "django_debug_exception"
+	DomStorageEventsDetectedCode         IssueCode = "dom_storage_events_detected"
 	EmailAddressesCode                   IssueCode = "email_addresses"
 	EsiDetectedCode                      IssueCode = "esi_detected"
 	EsiInjectionCode                     IssueCode = "esi_injection"
@@ -35,6 +39,7 @@ var (
 	HttpMethodsCode                      IssueCode = "http_methods"
 	IdorCode                             IssueCode = "idor"
 	IncorrectContentTypeHeaderCode       IssueCode = "incorrect_content_type_header"
+	IndexeddbUsageDetectedCode           IssueCode = "indexeddb_usage_detected"
 	JavaDeserializationCode              IssueCode = "java_deserialization"
 	JavaSerializedObjectDetectedCode     IssueCode = "java_serialized_object_detected"
 	JavaServerHeaderCode                 IssueCode = "java_server_header"
@@ -43,6 +48,7 @@ var (
 	Log4shellCode                        IssueCode = "log4shell"
 	MissingContentTypeHeaderCode         IssueCode = "missing_content_type_header"
 	MixedContentCode                     IssueCode = "mixed_content"
+	NetworkAuthChallengeDetectedCode     IssueCode = "network_auth_challenge_detected"
 	NosqlInjectionCode                   IssueCode = "nosql_injection"
 	OobCommunicationsCode                IssueCode = "oob_communications"
 	OpenRedirectCode                     IssueCode = "open_redirect"
@@ -156,6 +162,15 @@ var issueTemplates = []IssueTemplate{
 		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control"},
 	},
 	{
+		Code:        CacheStorageUsageDetectedCode,
+		Title:       "Cache Storage Usage Detection Report",
+		Description: "This report documents the detection of Cache Storage usage on specific pages of the application. Cache Storage is part of the Service Worker API and allows web applications to store and manage resources, such as files and data, in an efficient, versioned cache. Utilizing Cache Storage can significantly enhance performance by reducing load times and providing offline content access. However, improper management of cache storage can lead to security vulnerabilities, such as stale or sensitive data being inadvertently cached.",
+		Remediation: "While this report is primarily for informational purposes, it is recommended to periodically review the contents and management strategies of cache storage to ensure data integrity and security. Developers should implement and enforce policies for cache expiration and data sanitation to prevent leakage of sensitive information. Regular security audits should be performed to ensure that cached data does not expose the application to additional attack vectors.",
+		Cwe:         0,
+		Severity:    "Info",
+		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/API/CacheStorage"},
+	},
+	{
 		Code:        CdnDetectedCode,
 		Title:       "CDN Detection Report",
 		Description: "A Content Delivery Network (CDN) has been detected for the target application. This could indicate enhanced performance and additional security layers.",
@@ -163,6 +178,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         0,
 		Severity:    "Info",
 		References:  []string{"https://developer.mozilla.org/en-US/docs/Glossary/CDN", "https://www.cloudflare.com/learning/cdn/what-is-a-cdn/"},
+	},
+	{
+		Code:        CertificateErrorsCode,
+		Title:       "Certificate Errors",
+		Description: "This report aggregates and highlights events related to security certificate errors within the applicationificate. These events are reported automatically by the browser and typically indicate problems with SSL/TLS certificates, such as expiration, misconfiguration, or untrusted issuers, which can undermine the security of communications and erode user trust.",
+		Remediation: "Address certificate-related issues promptly to maintain secure, encrypted channels for user communications. Verify that all certificates are up-to-date, properly configured, and issued by a trusted Certificate Authority (CA). Implement automated alerts and renewals for certificates to avoid expirations. Consider using tools for continuous monitoring and validation of certificate status across your digital assets.",
+		Cwe:         295,
+		Severity:    "Medium",
+		References:  []string{"https://owasp.org/www-community/controls/Certificate_and_Public_Key_Pinning", "https://letsencrypt.org/docs/certificate-errors/"},
 	},
 	{
 		Code:        ClientSidePrototypePollutionCode,
@@ -181,6 +205,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         0,
 		Severity:    "Info",
 		References:  []string{"https://cloud.hacktricks.xyz/pentesting-cloud/pentesting-cloud-methodology"},
+	},
+	{
+		Code:        ConsoleUsageDetectedCode,
+		Title:       "Console Usage Detection Report",
+		Description: "This report identifies instances of console usage within the application. Console logs are often used for debugging purposes and can inadvertently expose sensitive information in the JavaScript code that is accessible to end users through the browser's developer tools. This exposure can pose security risks if logs contain data like user tokens, passwords, or other sensitive details.",
+		Remediation: "To mitigate the risks associated with console log usage, developers should remove or mask console logs before deploying applications to production. Implement a logging strategy that directs sensitive or debug-level information to secure, server-side logs instead of client-facing consoles. Use environment-based conditional logging to ensure that detailed logs are only available during development or testing phases and not in production.",
+		Cwe:         532,
+		Severity:    "Info",
+		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/API/console/log_static", "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html"},
 	},
 	{
 		Code:        CorsCode,
@@ -244,6 +277,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         215,
 		Severity:    "Medium",
 		References:  []string{"https://docs.djangoproject.com/en/stable/ref/settings/#debug"},
+	},
+	{
+		Code:        DomStorageEventsDetectedCode,
+		Title:       "DOM Storage Events Detection Report",
+		Description: "This report identifies the detection of DOM Storage events on a specific page of the application. DOM Storage, including LocalStorage and SessionStorage, allows websites to store data in the user's browser. Monitoring these storage events can provide insights into how data is stored and managed by the application, which may indicate potential security concerns or privacy issues if sensitive data is handled improperly.",
+		Remediation: "No specific remediation steps are required as this report serves purely informational purposes. However, it is recommended to review the usage of DOM Storage to ensure that sensitive information is not being stored insecurely or without proper encryption. Regular audits and compliance checks should be conducted to ensure that data storage practices adhere to relevant data protection standards and regulations.",
+		Cwe:         0,
+		Severity:    "Info",
+		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/API/Window/DOMStorage", "https://portswigger.net/web-security/dom-based/html5-storage-manipulation"},
 	},
 	{
 		Code:        EmailAddressesCode,
@@ -372,6 +414,15 @@ var issueTemplates = []IssueTemplate{
 		References:  []string{},
 	},
 	{
+		Code:        IndexeddbUsageDetectedCode,
+		Title:       "IndexedDB Usage Detection Report",
+		Description: "This report highlights the usage of IndexedDB on specific pages of the application. IndexedDB is a low-level API for client-side storage of significant amounts of structured data, including files/blobs. This allows web applications to store data persistently in a user's browser, and to function efficiently without an internet connection. Monitoring IndexedDB usage can provide insights into the application's data storage capabilities and potential areas where sensitive data might be stored or exposed.",
+		Remediation: "No specific remediation steps are required as this report is intended for informational purposes only. It is advisable for developers and security teams to ensure that IndexedDB is used securely and in compliance with data protection standards. Data stored using IndexedDB should be encrypted if it contains sensitive or personal information. Regular security reviews and audits should be performed to validate data handling practices and to mitigate potential exposure risks.",
+		Cwe:         0,
+		Severity:    "Info",
+		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API", "https://www.researchgate.net/publication/259081595_An_Investigation_into_Possible_Attacks_on_HTML5_IndexedDB_and_their_Prevention"},
+	},
+	{
 		Code:        JavaDeserializationCode,
 		Title:       "Insecure Java Deserialization Detected",
 		Description: "The application appears to be vulnerable to insecure Java deserialization attacks. This vulnerability arises when an application deserializes untrusted data without proper validation. An attacker can exploit this vulnerability to execute arbitrary code, bypass authentication, or perform other malicious activities.",
@@ -442,6 +493,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         16,
 		Severity:    "Medium",
 		References:  []string{"https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content", "https://web.dev/articles/what-is-mixed-content"},
+	},
+	{
+		Code:        NetworkAuthChallengeDetectedCode,
+		Title:       "Network Authentication Challenge Detection",
+		Description: "This report details instances where network authentication challenges (e.g., HTTP Basic Authentication, Digest Authentication) have been detected within the application. These authentication mechanisms prompt users to provide credentials to access certain network resources. While effective for simple authentication needs, these methods can expose credentials to risks if not used over secure connections or if implemented without additional security measures.",
+		Remediation: "To address potential security concerns associated with basic or digest authentication challenges, ensure all authentication processes occur over HTTPS to protect credentials in transit. Consider upgrading to more secure authentication methods, such as OAuth or JWTs, which provide enhanced security features and better user experience. Regularly review and update authentication protocols to adhere to current security best practices and mitigate potential vulnerabilities.",
+		Cwe:         303,
+		Severity:    "Info",
+		References:  []string{"https://datatracker.ietf.org/doc/html/rfc2617", "https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication"},
 	},
 	{
 		Code:        NosqlInjectionCode,

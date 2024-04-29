@@ -8,6 +8,7 @@ import (
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/passive"
 
 	"fmt"
@@ -99,10 +100,10 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, workspaceID, taskID uint) {
 	router := browser.HijackRequests()
 	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
-
+	httpClient := http_utils.CreateHttpClient()
 	router.MustAdd("*", func(ctx *rod.Hijack) {
 
-		err := ctx.LoadResponse(http.DefaultClient, true)
+		err := ctx.LoadResponse(httpClient, true)
 		mustSkip := false
 
 		if err != nil {

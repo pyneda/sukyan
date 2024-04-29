@@ -1,0 +1,17 @@
+code: cache_storage_usage_detected
+title: Cache Storage Usage Detection Report
+description: This report documents the detection of Cache Storage usage on specific pages of the application.
+  Cache Storage is part of the Service Worker API and allows web applications to store and manage
+  resources, such as files and data, in an efficient, versioned cache. Utilizing Cache Storage
+  can significantly enhance performance by reducing load times and providing offline content access.
+  However, improper management of cache storage can lead to security vulnerabilities, such as stale
+  or sensitive data being inadvertently cached.
+remediation: While this report is primarily for informational purposes, it is recommended to periodically review
+  the contents and management strategies of cache storage to ensure data integrity and security.
+  Developers should implement and enforce policies for cache expiration and data sanitation to prevent
+  leakage of sensitive information. Regular security audits should be performed to ensure that cached
+  data does not expose the application to additional attack vectors.
+cwe: 0
+severity: Info
+references:
+  - https://developer.mozilla.org/en-US/docs/Web/API/CacheStorage

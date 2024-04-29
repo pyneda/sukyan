@@ -1,0 +1,18 @@
+code: indexeddb_usage_detected
+title: IndexedDB Usage Detection Report
+description: This report highlights the usage of IndexedDB on specific pages of the application.
+  IndexedDB is a low-level API for client-side storage of significant amounts of structured data,
+  including files/blobs. This allows web applications to store data persistently in a user's browser,
+  and to function efficiently without an internet connection. Monitoring IndexedDB usage can provide
+  insights into the application's data storage capabilities and potential areas where sensitive data
+  might be stored or exposed.
+remediation: No specific remediation steps are required as this report is intended for informational purposes only.
+  It is advisable for developers and security teams to ensure that IndexedDB is used securely and
+  in compliance with data protection standards. Data stored using IndexedDB should be encrypted if it
+  contains sensitive or personal information. Regular security reviews and audits should be performed
+  to validate data handling practices and to mitigate potential exposure risks.
+cwe: 0
+severity: Info
+references:
+  - https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API
+  - https://www.researchgate.net/publication/259081595_An_Investigation_into_Possible_Attacks_on_HTML5_IndexedDB_and_their_Prevention

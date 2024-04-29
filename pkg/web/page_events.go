@@ -41,6 +41,80 @@ const (
 	RuntimeConsoleAPICalled          PageEventType = "RuntimeConsoleAPICalled"
 )
 
+type EventCategory string
+
+func (c EventCategory) ReportEvents(history *db.History, events []PageEvent) {
+	issueCode, ok := eventCategoryIssueCodeMap[c]
+	if !ok {
+		log.Warn().Str("category", string(c)).Msg("No issue code found for category")
+		return
+	}
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("The following %s events have been detectedn\n\n", c))
+	for _, event := range events {
+		sb.WriteString(fmt.Sprintf(event.Description, "----------------------------------------------\n\n"))
+	}
+	db.CreateIssueFromHistoryAndTemplate(history, issueCode, sb.String(), 75, "", history.WorkspaceID, history.TaskID, nil)
+}
+
+const (
+	DOM          EventCategory = "DOM"
+	DOMStorage   EventCategory = "DOMStorage"
+	NetworkAuth  EventCategory = "NetworkAuth"
+	Debugger     EventCategory = "Debugger"
+	Security     EventCategory = "Security"
+	Runtime      EventCategory = "Runtime"
+	Services     EventCategory = "Services"
+	IndexedDB    EventCategory = "IndexedDB"
+	CacheStorage EventCategory = "CacheStorage"
+	Database     EventCategory = "Database"
+	Audits       EventCategory = "Audits"
+	Console      EventCategory = "Console"
+	Certificate  EventCategory = "Certificate"
+)
+
+var eventTypeToCategory = map[PageEventType]EventCategory{
+	JavaScriptDialogOpening:          Runtime,
+	DOMStorageDomStorageItemAdded:    DOMStorage,
+	DOMStorageDomStorageItemRemoved:  DOMStorage,
+	DOMStorageDomStorageItemsCleared: DOMStorage,
+	DOMStorageDomStorageItemUpdated:  DOMStorage,
+	DebuggerScriptParsed:             Debugger,
+	SecuritySecurityStateChanged:     Security,
+	SecurityHandleCertificateError:   Certificate,
+	SecurityCertificateError:         Certificate,
+	NetworkAuthChallenge:             NetworkAuth,
+	RuntimeConsoleAPICalled:          Console,
+	BackgroundServiceEventReceived:   Services,
+	StorageIndexedDBContentUpdated:   IndexedDB,
+	StorageCacheStorageListUpdated:   CacheStorage,
+	StorageIndexedDBListUpdated:      IndexedDB,
+	DatabaseAddDatabase:              Database,
+	AuditsIssueAdded:                 Audits,
+}
+
+var eventCategoryIssueCodeMap = map[EventCategory]db.IssueCode{
+	DOMStorage:   db.DomStorageEventsDetectedCode,
+	IndexedDB:    db.IndexeddbUsageDetectedCode,
+	CacheStorage: db.CacheStorageUsageDetectedCode,
+	NetworkAuth:  db.NetworkAuthChallengeDetectedCode,
+	Console:      db.ConsoleUsageDetectedCode,
+	Certificate:  db.CertificateErrorsCode,
+}
+
+func AnalyzeGatheredEvents(history *db.History, events []PageEvent) {
+	eventCategoryMap := make(map[EventCategory][]PageEvent)
+
+	for _, event := range events {
+		category := eventTypeToCategory[event.Type]
+		eventCategoryMap[category] = append(eventCategoryMap[category], event)
+	}
+
+	for category, events := range eventCategoryMap {
+		category.ReportEvents(history, events)
+	}
+}
+
 func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, workspaceID, taskID uint, source string) <-chan PageEvent {
 	eventChan := make(chan PageEvent)
 
@@ -360,9 +434,15 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 				}
 				if len(e.Args) > 0 {
 					sb.WriteString("Arguments:\n")
-					for _, arg := range e.Args {
-						sb.WriteString("  - " + string(arg.Type) + "\n")
+					for i, arg := range e.Args {
+						obj, err := page.ObjectToJSON(arg)
+						if err != nil {
+							log.Error().Err(err).Msg("Could not convert object to JSON")
+						} else {
+							sb.WriteString(fmt.Sprintf("  - %d: %s\n", i, obj))
+						}
 					}
+
 				}
 				if e.StackTrace != nil {
 					if e.StackTrace.Description != "" {
@@ -371,7 +451,7 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 					sb.WriteString("Stack trace:\n")
 
 					for _, callFrame := range e.StackTrace.CallFrames {
-						sb.WriteString("  - " + callFrame.URL + ":" + fmt.Sprint(callFrame.LineNumber) + ":" + fmt.Sprint(callFrame.ColumnNumber) + "\n")
+						sb.WriteString("  - " + callFrame.URL + ":" + fmt.Sprint(callFrame.FunctionName) + ":" + fmt.Sprint(callFrame.LineNumber) + ":" + fmt.Sprint(callFrame.ColumnNumber) + "\n")
 					}
 				}
 
@@ -388,6 +468,7 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 						"context":            e.Context,
 					},
 				}
+				log.Info().Msg(pageEvent.Description)
 				select {
 				case eventChan <- pageEvent:
 				case <-ctx.Done():

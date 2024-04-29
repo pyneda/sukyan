@@ -3,11 +3,12 @@ package passive
 import (
 	"errors"
 	"fmt"
+	"sort"
+
 	wappalyzer "github.com/projectdiscovery/wappalyzergo"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
-	"sort"
 
 	"strings"
 )
@@ -75,6 +76,10 @@ func GetUniqueNucleiTags(fingerprints []Fingerprint) []string {
 }
 
 func ReportFingerprints(baseURL string, fingerprints []Fingerprint, workspaceID, taskID uint) {
+	if len(fingerprints) == 0 {
+		log.Info().Msg("No fingerprints found")
+		return
+	}
 	details := getFingerprintsReport(fingerprints)
 
 	issue := db.GetIssueTemplateByCode(db.TechStackFingerprintCode)

@@ -50,7 +50,7 @@ func (c EventCategory) ReportEvents(history *db.History, events []PageEvent) {
 		return
 	}
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("The following %s events have been detectedn\n\n", c))
+	sb.WriteString(fmt.Sprintf("The following %s events have been detected:\n\n", c))
 	for i, event := range events {
 		if i > 0 {
 			sb.WriteString("\n----------------------------------------------\n\n")

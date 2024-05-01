@@ -2,15 +2,16 @@ package scan
 
 import (
 	"encoding/json"
-	"github.com/pyneda/sukyan/db"
-	"gorm.io/datatypes"
 	"io"
 	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/pyneda/sukyan/db"
+	"gorm.io/datatypes"
 )
 
-func TestCreateRequestFromURL(t *testing.T) {
+func TestCreateRequestFromURLParameter(t *testing.T) {
 	history := &db.History{
 		URL: "http://example.com",
 	}
@@ -23,7 +24,31 @@ func TestCreateRequestFromURL(t *testing.T) {
 	}
 	expectedURL := "http://example.com?param=value"
 
-	result, err := createRequestFromURL(history, builder)
+	result, err := createRequestFromURLParameter(history, builder)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if result != expectedURL {
+		t.Errorf("Expected URL: %s, Got: %s", expectedURL, result)
+	}
+
+}
+
+func TestCreateRequestFromURLPath(t *testing.T) {
+	history := &db.History{
+		URL: "http://example.com/path1/path2",
+	}
+	builder := InsertionPointBuilder{
+		Point: InsertionPoint{
+			Type: "Urlpath",
+			Name: "path1",
+		},
+		Payload: "modified_path1",
+	}
+	expectedURL := "http://example.com/modified_path1/path2"
+
+	result, err := createRequestFromURLPath(history, builder)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -5,17 +5,18 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/lib"
-	"github.com/rs/zerolog/log"
 	"mime"
 	"mime/multipart"
 	"net/url"
 	"strings"
+
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
+	"github.com/rs/zerolog/log"
 )
 
 type InsertionPoint struct {
-	Type         string       // "Parameter", "Header", "Body", or "Cookie"
+	Type         string       // "Parameter", "Header", "Body", or "Cookie", "Urlpath"
 	Name         string       // the name of the parameter/header/cookie
 	Value        string       // the current value
 	ValueType    lib.DataType // the type of the value (string, int, float, etc.)
@@ -41,6 +42,24 @@ func handleURLParameters(urlData *url.URL) ([]InsertionPoint, error) {
 				OriginalData: urlData.String(),
 			})
 		}
+	}
+
+	return points, nil
+}
+
+// Handle URL paths
+func handleURLPaths(urlData *url.URL) ([]InsertionPoint, error) {
+	var points []InsertionPoint
+
+	// URL parameters
+	for _, pathPart := range strings.Split(urlData.Path, "/") {
+		points = append(points, InsertionPoint{
+			Type:         "Urlpath",
+			Name:         pathPart,
+			Value:        pathPart,
+			ValueType:    lib.GuessDataType(pathPart),
+			OriginalData: urlData.String(),
+		})
 	}
 
 	return points, nil
@@ -206,11 +225,21 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 	if err != nil {
 		return nil, err
 	}
-	urlPoints, err := handleURLParameters(urlData)
-	if err != nil {
-		return nil, err
+	if lib.SliceContains(scoped, "parameters") {
+		urlPoints, err := handleURLParameters(urlData)
+		if err != nil {
+			return nil, err
+		}
+		points = append(points, urlPoints...)
 	}
-	points = append(points, urlPoints...)
+
+	if lib.SliceContains(scoped, "urlpath") {
+		urlPathPoints, err := handleURLPaths(urlData)
+		if err != nil {
+			return nil, err
+		}
+		points = append(points, urlPathPoints...)
+	}
 
 	// Convert datatypes.JSON to http.Header equivalent
 	headers, err := history.GetRequestHeadersAsMap()

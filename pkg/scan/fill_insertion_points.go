@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/lib"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -14,6 +11,10 @@ import (
 	"net/textproto"
 	"net/url"
 	"strings"
+
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
 type InsertionPointBuilder struct {
@@ -21,8 +22,23 @@ type InsertionPointBuilder struct {
 	Payload string
 }
 
-func createRequestFromURL(history *db.History, builder InsertionPointBuilder) (string, error) {
+func createRequestFromURLParameter(history *db.History, builder InsertionPointBuilder) (string, error) {
 	return lib.BuildURLWithParam(history.URL, builder.Point.Name, builder.Payload, false)
+}
+
+func createRequestFromURLPath(history *db.History, builder InsertionPointBuilder) (string, error) {
+	initialUrl, err := url.Parse(history.URL)
+	if err != nil {
+		return "", err
+	}
+	pathParts := strings.Split(initialUrl.Path, "/")
+	for i, part := range pathParts {
+		if part == builder.Point.Name {
+			pathParts[i] = builder.Payload
+		}
+	}
+	initialUrl.Path = strings.Join(pathParts, "/")
+	return initialUrl.String(), nil
 }
 
 func createRequestFromHeader(history *db.History, builder InsertionPointBuilder) (http.Header, error) {
@@ -151,7 +167,7 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 	for _, builder := range builders {
 		switch builder.Point.Type {
 		case "Parameter":
-			urlStr, err = createRequestFromURL(history, builder)
+			urlStr, err = createRequestFromURLParameter(history, builder)
 			if err != nil {
 				return nil, err
 			}

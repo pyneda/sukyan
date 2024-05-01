@@ -125,6 +125,12 @@ func (c *Crawler) Run() []*db.History {
 					if c.Options.MaxPagesToCrawl != 0 && c.pageCounter >= c.Options.MaxPagesToCrawl {
 						log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Stopping crawler hijacking due to max pages to crawl")
 						c.counterLock.Unlock()
+						if c.browser != nil {
+							time.Sleep(5 * time.Second)
+							log.Info().Msg("Closing crawler browser")
+							c.browser.Close()
+							log.Info().Msg("Closed crawler browser")
+						}
 						return // terminate the goroutine
 					}
 					c.counterLock.Unlock()
@@ -233,17 +239,17 @@ func (c *Crawler) getBrowserPage() *rod.Page {
 	page := c.browser.NewPage()
 	web.IgnoreCertificateErrors(page)
 	// Enabling audits, security, etc
-	auditEnableError := proto.AuditsEnable{}.Call(page)
-	if auditEnableError != nil {
-		log.Error().Err(auditEnableError).Msg("Error enabling browser audit events")
-	}
-	securityEnableError := proto.SecurityEnable{}.Call(page)
-	if securityEnableError != nil {
-		log.Error().Err(securityEnableError).Msg("Error enabling browser security events")
-	}
+	// auditEnableError := proto.AuditsEnable{}.Call(page)
+	// if auditEnableError != nil {
+	// 	log.Error().Err(auditEnableError).Msg("Error enabling browser audit events")
+	// }
+	// securityEnableError := proto.SecurityEnable{}.Call(page)
+	// if securityEnableError != nil {
+	// 	log.Error().Err(securityEnableError).Msg("Error enabling browser security events")
+	// }
 	if c.Options.ExtraHeaders != nil {
 		extraHeaders := browser.ConvertToNetworkHeaders(c.Options.ExtraHeaders)
-		page.EnableDomain(&proto.NetworkEnable{})
+		// page.EnableDomain(&proto.NetworkEnable{})
 		err := proto.NetworkSetExtraHTTPHeaders{Headers: extraHeaders}.Call(page)
 		if err != nil {
 			log.Error().Err(err).Interface("headers", extraHeaders).Msg("Error setting extra HTTP headers")

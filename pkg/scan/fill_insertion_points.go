@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -166,12 +167,19 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 
 	for _, builder := range builders {
 		switch builder.Point.Type {
-		case "Parameter":
+		case InsertionPointTypeParameter:
 			urlStr, err = createRequestFromURLParameter(history, builder)
 			if err != nil {
 				return nil, err
 			}
-		case "Header":
+
+		case InsertionPointTypeURLPath:
+			urlStr, err = createRequestFromURLPath(history, builder)
+			if err != nil {
+				return nil, err
+			}
+
+		case InsertionPointTypeHeader:
 			h, err := createRequestFromHeader(history, builder)
 			if err != nil {
 				return nil, err
@@ -179,7 +187,7 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 			for name, values := range h {
 				headers[name] = values
 			}
-		case "Cookie":
+		case InsertionPointTypeCookie:
 			h, err := createRequestFromCookie(history, builder)
 			if err != nil {
 				return nil, err
@@ -187,15 +195,15 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 			for name, values := range h {
 				headers[name] = values
 			}
-		case "Body":
+		case InsertionPointTypeBody:
 			bodyBuilders = append(bodyBuilders, builder)
 
 		default:
-			return nil, errors.New("unsupported insertion point type")
+			return nil, fmt.Errorf("unsupported insertion point type: %s", builder.Point.Type)
 		}
 	}
 
-	requestBody, contentType, err = createRequestFromBody(history, bodyBuilders)
+	requestBody, contentType, _ = createRequestFromBody(history, bodyBuilders)
 	// if err != nil {
 	// 	return nil, err
 	// }
@@ -221,7 +229,7 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 	http_utils.SetRequestHeadersFromHistoryItem(req, history)
 
 	for name, values := range headers {
-		if name == "Content-Length" {
+		if name == "Content-Length" || name == "content-length" {
 			continue
 		}
 		req.Header[name] = values

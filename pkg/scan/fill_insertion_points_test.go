@@ -17,7 +17,7 @@ func TestCreateRequestFromURLParameter(t *testing.T) {
 	}
 	builder := InsertionPointBuilder{
 		Point: InsertionPoint{
-			Type: "Parameter",
+			Type: InsertionPointTypeParameter,
 			Name: "param",
 		},
 		Payload: "value",
@@ -41,7 +41,7 @@ func TestCreateRequestFromURLPath(t *testing.T) {
 	}
 	builder := InsertionPointBuilder{
 		Point: InsertionPoint{
-			Type: "Urlpath",
+			Type: InsertionPointTypeURLPath,
 			Name: "path1",
 		},
 		Payload: "modified_path1",
@@ -69,7 +69,7 @@ func TestCreateRequestFromHeader(t *testing.T) {
 	}
 	builder := InsertionPointBuilder{
 		Point: InsertionPoint{
-			Type: "Header",
+			Type: InsertionPointTypeHeader,
 			Name: "Header1",
 		},
 		Payload: "modified_value1",
@@ -99,7 +99,7 @@ func TestCreateRequestFromCookie(t *testing.T) {
 	}
 	builder := InsertionPointBuilder{
 		Point: InsertionPoint{
-			Type: "Cookie",
+			Type: InsertionPointTypeCookie,
 			Name: "cookie1",
 		},
 		Payload: "modified_value",
@@ -124,7 +124,7 @@ func TestCreateRequestFromBody_FormUrlEncoded(t *testing.T) {
 	}
 	builder := InsertionPointBuilder{
 		Point: InsertionPoint{
-			Type: "Body",
+			Type: InsertionPointTypeBody,
 			Name: "param2",
 		},
 		Payload: "modified_value",
@@ -156,7 +156,7 @@ func TestCreateRequestFromBody_JSON(t *testing.T) {
 	}
 	builder := InsertionPointBuilder{
 		Point: InsertionPoint{
-			Type: "Body",
+			Type: InsertionPointTypeBody,
 			Name: "param2",
 		},
 		Payload: "modified_value",
@@ -193,28 +193,28 @@ func TestCreateRequestFromInsertionPoints(t *testing.T) {
 	builders := []InsertionPointBuilder{
 		{
 			Point: InsertionPoint{
-				Type: "Parameter",
+				Type: InsertionPointTypeParameter,
 				Name: "param1",
 			},
 			Payload: "modified_value1",
 		},
 		{
 			Point: InsertionPoint{
-				Type: "Body",
+				Type: InsertionPointTypeBody,
 				Name: "param1",
 			},
 			Payload: "modified_value1",
 		},
 		{
 			Point: InsertionPoint{
-				Type: "Header",
+				Type: InsertionPointTypeHeader,
 				Name: "Authorization",
 			},
 			Payload: "Bearer token",
 		},
 		{
 			Point: InsertionPoint{
-				Type: "Body",
+				Type: InsertionPointTypeBody,
 				Name: "param2",
 			},
 			Payload: "modified_value2",
@@ -259,14 +259,14 @@ func TestCreateRequestFromInsertionPoints_NoURLBuilder(t *testing.T) {
 	builders := []InsertionPointBuilder{
 		{
 			Point: InsertionPoint{
-				Type: "Header",
+				Type: InsertionPointTypeHeader,
 				Name: "Authorization",
 			},
 			Payload: "Bearer token",
 		},
 		{
 			Point: InsertionPoint{
-				Type: "Body",
+				Type: InsertionPointTypeBody,
 				Name: "param2",
 			},
 			Payload: "modified_value2",

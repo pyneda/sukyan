@@ -238,7 +238,7 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 				}
 				s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, scanOptions)
 			} else {
-				s.ScheduleHistoryItemScan(historyItem, ScanJobTypePassive, itemScanOptions)
+				s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, itemScanOptions)
 				scheduledURLPaths[normalizedURLPath] = true
 			}
 		} else {

@@ -116,7 +116,7 @@ func mergeURLs(arr1, arr2 []string) []string {
 		log.Warn().Msg("Integer overflow detected when merging URL lists. Limiting capacity.")
 		totalLength = maxInt
 	}
-	merged := make([]string, 0, len(arr1)+len(arr2))
+	merged := make([]string, 0, totalLength)
 	seen := make(map[string]bool)
 
 	for _, array := range [][]string{arr1, arr2} {

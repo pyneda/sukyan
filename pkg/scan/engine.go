@@ -200,6 +200,8 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 		FingerprintTags: fingerprintTags,
 	}
 
+	scheduledURLPaths := make(map[string]bool)
+
 	for _, historyItem := range uniqueHistoryItems {
 		if historyItem.StatusCode == 404 {
 			continue
@@ -219,7 +221,29 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 			continue
 		}
 
-		s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, itemScanOptions)
+		// schedule the active scan trying to avoid scanning the same URL path multiple times
+		if lib.SliceContains(itemScanOptions.InsertionPoints, "urlpath") {
+			normalizedURLPath, err := lib.NormalizeURLPath(historyItem.URL)
+			if err != nil {
+				scanLog.Error().Err(err).Str("url", historyItem.URL).Uint("history", historyItem.ID).Msg("Skipping scanning history item as could not normalize URL path")
+				continue
+			}
+			if _, exists := scheduledURLPaths[normalizedURLPath]; exists {
+				scanOptions := HistoryItemScanOptions{
+					WorkspaceID:     options.WorkspaceID,
+					TaskID:          task.ID,
+					Mode:            options.Mode,
+					InsertionPoints: lib.FilterOutString(options.InsertionPoints, "urlpath"),
+					FingerprintTags: fingerprintTags,
+				}
+				s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, scanOptions)
+			} else {
+				s.ScheduleHistoryItemScan(historyItem, ScanJobTypePassive, itemScanOptions)
+				scheduledURLPaths[normalizedURLPath] = true
+			}
+		} else {
+			s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, itemScanOptions)
+		}
 
 	}
 	scanLog.Info().Msg("Active scans scheduled")

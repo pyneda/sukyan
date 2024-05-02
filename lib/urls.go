@@ -204,3 +204,32 @@ func NormalizeURLParams(rawURL string) (string, error) {
 
 	return u.String(), nil
 }
+
+// NormalizeURLPath normalizes the URL path by replacing the last segment with "X".
+func NormalizeURLPath(urlStr string) (string, error) {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return "", err
+	}
+
+	segments := strings.Split(u.Path, "/")
+	if len(segments) > 1 {
+		segments[len(segments)-1] = "X"
+	}
+	u.Path = strings.Join(segments, "/")
+
+	return u.String(), nil
+}
+
+// NormalizeURL normalizes the URL by adding an "X" to the last path segment and replacing the query parameter values with "X".
+func NormalizeURL(urlStr string) (string, error) {
+	normalizedPathURL, err := NormalizeURLPath(urlStr)
+	if err != nil {
+		return "", err
+	}
+	normalizedFullURL, err := NormalizeURLParams(normalizedPathURL)
+	if err != nil {
+		return "", err
+	}
+	return normalizedFullURL, nil
+}

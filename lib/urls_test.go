@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBuildUrlWithParam(t *testing.T) {
@@ -341,5 +343,158 @@ func TestGetHostFromURL(t *testing.T) {
 		if result != tc.expected {
 			t.Errorf("expected %s for url: %s, got: %s", tc.expected, tc.url, result)
 		}
+	}
+}
+
+func TestNormalizeURLParams(t *testing.T) {
+	tests := []struct {
+		name     string
+		rawURL   string
+		expected string
+		wantErr  bool
+	}{
+		{
+			name:     "Simple URL with one param",
+			rawURL:   "https://example.com/page?param=value",
+			expected: "https://example.com/page?param=X",
+			wantErr:  false,
+		},
+		{
+			name:     "URL with multiple params",
+			rawURL:   "https://example.com/page?param1=value1&param2=value2",
+			expected: "https://example.com/page?param1=X&param2=X",
+			wantErr:  false,
+		},
+		{
+			name:     "URL with no params",
+			rawURL:   "https://example.com/page",
+			expected: "https://example.com/page",
+			wantErr:  false,
+		},
+		{
+			name:     "Invalid URL",
+			rawURL:   "htp:/example.com/page",
+			expected: "",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := NormalizeURLParams(tt.rawURL)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NormalizeURLParams() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNormalizeURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		urlStr   string
+		expected string
+		wantErr  bool
+	}{
+		{
+			name:     "URL with path and single param",
+			urlStr:   "https://example.com/resource/id?param=value",
+			expected: "https://example.com/resource/X?param=X",
+			wantErr:  false,
+		},
+		{
+			name:     "URL with multiple segments and params",
+			urlStr:   "https://example.com/dir/subdir/resource?id=123&data=value",
+			expected: "https://example.com/dir/subdir/X?id=X&data=X",
+			wantErr:  false,
+		},
+		{
+			name:     "URL with empty path and params",
+			urlStr:   "https://example.com/?id=123",
+			expected: "https://example.com/?id=X",
+			wantErr:  false,
+		},
+		{
+			name:     "Complex URL with multiple query parameters",
+			urlStr:   "https://example.com/path/to/resource/page?query1=param1&query2=param2",
+			expected: "https://example.com/path/to/resource/X?query1=X&query2=X",
+			wantErr:  false,
+		},
+		{
+			name:     "URL with no path and no query",
+			urlStr:   "https://example.com",
+			expected: "https://example.com",
+			wantErr:  false,
+		},
+		{
+			name:     "Invalid URL format",
+			urlStr:   "htp://bad.url",
+			expected: "",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := NormalizeURL(tt.urlStr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NormalizeURL() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNormalizeURLPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		urlStr   string
+		expected string
+		wantErr  bool
+	}{
+		{
+			name:     "URL with simple path",
+			urlStr:   "https://example.com/resource",
+			expected: "https://example.com/X",
+			wantErr:  false,
+		},
+		{
+			name:     "URL with longer path",
+			urlStr:   "https://example.com/path/to/resource",
+			expected: "https://example.com/path/to/X",
+			wantErr:  false,
+		},
+		{
+			name:     "URL with no path",
+			urlStr:   "https://example.com/",
+			expected: "https://example.com/",
+			wantErr:  false,
+		},
+		{
+			name:     "URL with path and query",
+			urlStr:   "https://example.com/path/resource?query=param",
+			expected: "https://example.com/path/X?query=param",
+			wantErr:  false,
+		},
+		{
+			name:     "Invalid URL",
+			urlStr:   "htp://bad.url",
+			expected: "",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := NormalizeURLPath(tt.urlStr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NormalizeURLPath() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Equal(t, tt.expected, result)
+		})
 	}
 }

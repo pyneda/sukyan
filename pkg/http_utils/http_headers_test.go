@@ -2,10 +2,11 @@ package http_utils
 
 import (
 	"encoding/json"
-	"github.com/pyneda/sukyan/db"
 	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/pyneda/sukyan/db"
 )
 
 func TestSetRequestHeadersFromHistoryItem(t *testing.T) {
@@ -20,10 +21,10 @@ func TestSetRequestHeadersFromHistoryItem(t *testing.T) {
 		request.Header.Set(key, value)
 	}
 
-	headers := RequestHeaders{
-		"Content-Type": []string{"application/json"},
-		"User-Agent":   []string{"test-agent"},
-		"X-Test":       []string{"AAAAAAAAAAAAAAA"},
+	headers := map[string][]string{
+		"Content-Type": {"application/json"},
+		"User-Agent":   {"test-agent"},
+		"X-Test":       {"AAAAAAAAAAAAAAA"},
 	}
 	headersBytes, _ := json.Marshal(headers)
 

@@ -317,7 +317,7 @@ func TestCreateRequestFromInsertionPoints_UnsupportedType(t *testing.T) {
 			Payload: "modified_value1",
 		},
 	}
-	expectedErrMsg := "unsupported insertion point type"
+	expectedErrMsg := "unsupported insertion point type: InvalidType"
 
 	_, err := CreateRequestFromInsertionPoints(history, builders)
 	if err == nil || err.Error() != expectedErrMsg {
@@ -330,6 +330,7 @@ func TestCreateRequestFromInsertionPoints_UnsupportedType(t *testing.T) {
 // 		URL:                "http://example.com",
 // 		RequestHeaders:     datatypes.JSON(json.RawMessage(`{"Content-Type": ["application/aaa"]}`)),
 // 		RequestContentType: "application/aaaa",
+
 // 		RequestBody:        []byte(`{"param1":"value1","param2":"value2"}`),
 // 		Method:             "POST",
 // 	}

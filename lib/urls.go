@@ -213,7 +213,7 @@ func NormalizeURLPath(urlStr string) (string, error) {
 	}
 
 	segments := strings.Split(u.Path, "/")
-	if len(segments) > 1 {
+	if len(segments) > 1 && segments[len(segments)-1] != "" {
 		segments[len(segments)-1] = "X"
 	}
 	u.Path = strings.Join(segments, "/")

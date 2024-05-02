@@ -110,11 +110,12 @@ func extractURLsGeneric(response string) []string {
 }
 
 func mergeURLs(arr1, arr2 []string) []string {
-
-	totalLength := len(arr1) + len(arr2)
-	if totalLength < len(arr1) || totalLength < len(arr2) {
-		log.Warn().Msg("Integer overflow detected when merging URL lists. Limiting capacity.")
+	var totalLength int
+	if len(arr1) > maxInt-len(arr2) {
+		log.Warn().Msg("Potential integer overflow detected when merging URL lists. Limiting capacity.")
 		totalLength = maxInt
+	} else {
+		totalLength = len(arr1) + len(arr2)
 	}
 	merged := make([]string, 0, totalLength)
 	seen := make(map[string]bool)

@@ -16,6 +16,8 @@ type ExtractedURLS struct {
 	NonWeb []string
 }
 
+const maxInt = int(^uint(0) >> 1)
+
 func ExtractURLsFromHistoryItem(history *db.History) ExtractedURLS {
 	responseLinks := ExtractAndAnalyzeURLS(string(history.ResponseBody), history.URL)
 	headers, err := history.GetResponseHeadersAsMap()
@@ -108,31 +110,31 @@ func extractURLsGeneric(response string) []string {
 }
 
 func mergeURLs(arr1, arr2 []string) []string {
+
+	totalLength := len(arr1) + len(arr2)
+	if totalLength < len(arr1) || totalLength < len(arr2) {
+		log.Warn().Msg("Integer overflow detected when merging URL lists. Limiting capacity.")
+		totalLength = maxInt
+	}
 	merged := make([]string, 0, len(arr1)+len(arr2))
 	seen := make(map[string]bool)
 
-	for _, s := range arr1 {
-		rawURL := strings.Trim(s, "'\"")
-		if strings.HasPrefix(rawURL, "tel:") {
-			continue
-		}
-		if !seen[rawURL] {
-			merged = append(merged, rawURL)
-			seen[rawURL] = true
-		}
-	}
-
-	for _, s := range arr2 {
-		rawURL := strings.Trim(s, "'\"")
-		if strings.HasPrefix(rawURL, "tel:") {
-			continue
-		}
-		if !seen[rawURL] {
-			merged = append(merged, rawURL)
-			seen[rawURL] = true
+	for _, array := range [][]string{arr1, arr2} {
+		for _, s := range array {
+			rawURL := strings.Trim(s, "'\"")
+			if strings.HasPrefix(rawURL, "tel:") || seen[rawURL] {
+				continue
+			}
+			if len(merged) >= totalLength {
+				log.Warn().Msg("Reached maximum safe capacity of URL list.")
+				break
+			}
+			if !seen[rawURL] {
+				merged = append(merged, rawURL)
+				seen[rawURL] = true
+			}
 		}
 	}
-
 	return merged
 }
 

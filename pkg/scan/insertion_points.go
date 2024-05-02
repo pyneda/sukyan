@@ -63,6 +63,9 @@ func handleURLPaths(urlData *url.URL) ([]InsertionPoint, error) {
 
 	// URL parameters
 	for _, pathPart := range strings.Split(urlData.Path, "/") {
+		if pathPart == "" {
+			continue
+		}
 		points = append(points, InsertionPoint{
 			Type:         InsertionPointTypeURLPath,
 			Name:         pathPart,

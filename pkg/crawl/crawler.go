@@ -239,17 +239,23 @@ func (c *Crawler) getBrowserPage() *rod.Page {
 	page := c.browser.NewPage()
 	web.IgnoreCertificateErrors(page)
 	// Enabling audits, security, etc
-	// auditEnableError := proto.AuditsEnable{}.Call(page)
-	// if auditEnableError != nil {
-	// 	log.Error().Err(auditEnableError).Msg("Error enabling browser audit events")
-	// }
-	// securityEnableError := proto.SecurityEnable{}.Call(page)
-	// if securityEnableError != nil {
-	// 	log.Error().Err(securityEnableError).Msg("Error enabling browser security events")
-	// }
+	if !page.LoadState(&proto.AuditsEnable{}) {
+		auditEnableError := proto.AuditsEnable{}.Call(page)
+		if auditEnableError != nil {
+			log.Error().Err(auditEnableError).Msg("Error enabling browser audit events")
+		}
+	}
+
+	if !page.LoadState(&proto.SecurityEnable{}) {
+		securityEnableError := proto.SecurityEnable{}.Call(page)
+		if securityEnableError != nil {
+			log.Error().Err(securityEnableError).Msg("Error enabling browser security events")
+		}
+	}
+
 	if c.Options.ExtraHeaders != nil {
 		extraHeaders := browser.ConvertToNetworkHeaders(c.Options.ExtraHeaders)
-		// page.EnableDomain(&proto.NetworkEnable{})
+		page.EnableDomain(&proto.NetworkEnable{})
 		err := proto.NetworkSetExtraHTTPHeaders{Headers: extraHeaders}.Call(page)
 		if err != nil {
 			log.Error().Err(err).Interface("headers", extraHeaders).Msg("Error setting extra HTTP headers")

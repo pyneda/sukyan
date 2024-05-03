@@ -207,6 +207,10 @@ func NormalizeURLParams(rawURL string) (string, error) {
 
 // NormalizeURLPath normalizes the URL path by replacing the last segment with "X".
 func NormalizeURLPath(urlStr string) (string, error) {
+	return NormalizeURLPathWithProvidedString(urlStr, "X")
+}
+
+func NormalizeURLPathWithProvidedString(urlStr string, providedString string) (string, error) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		return "", err
@@ -214,7 +218,7 @@ func NormalizeURLPath(urlStr string) (string, error) {
 
 	segments := strings.Split(u.Path, "/")
 	if len(segments) > 1 && segments[len(segments)-1] != "" {
-		segments[len(segments)-1] = "X"
+		segments[len(segments)-1] = providedString
 	}
 	u.Path = strings.Join(segments, "/")
 

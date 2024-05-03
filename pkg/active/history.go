@@ -3,9 +3,9 @@ package active
 import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/payloads"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
-	"github.com/pyneda/sukyan/pkg/web"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
@@ -38,6 +38,16 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			WorkspaceID:         options.WorkspaceID,
 		}
 		scanner.Run(item, payloadGenerators, insertionPoints, options)
+
+		alert := AlertAudit{
+			WorkspaceID: options.WorkspaceID,
+			TaskID:      options.TaskID,
+			TaskJobID:   options.TaskJobID,
+		}
+		alert.Run(item, insertionPoints, "default.txt", db.XssReflectedCode)
+
+		cstiPayloads := payloads.GetCSTIPayloads()
+		alert.RunWithPayloads(item, insertionPoints, cstiPayloads, db.XssReflectedCode)
 	}
 
 	// cspp := ClientSidePrototypePollutionAudit{
@@ -48,31 +58,31 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	// }
 	// cspp.Run()
 
-	var specificParamsToTest []string
-	// NOTE: This should be deprecated
-	p := web.WebPage{URL: item.URL}
-	hasParams, _ := p.HasParameters()
-	if hasParams && options.IsScopedInsertionPoint("parameters") {
-		// TestXSS(item.URL, specificParamsToTest, "default.txt", false)
-		log.Warn().Msg("Starting XSS Audit")
-		xss := XSSAudit{
-			WorkspaceID: options.WorkspaceID,
-			TaskID:      options.TaskID,
-			TaskJobID:   options.TaskJobID,
-		}
-		xss.Run(item.URL, specificParamsToTest, "default.txt", false)
-		log.Warn().Msg("Completed XSS Audit")
+	// var specificParamsToTest []string
+	// // NOTE: This should be deprecated
+	// p := web.WebPage{URL: item.URL}
+	// hasParams, _ := p.HasParameters()
+	// if hasParams && options.IsScopedInsertionPoint("parameters") {
+	// 	// TestXSS(item.URL, specificParamsToTest, "default.txt", false)
+	// 	// log.Warn().Msg("Starting XSS Audit")
+	// 	// xss := XSSAudit{
+	// 	// 	WorkspaceID: options.WorkspaceID,
+	// 	// 	TaskID:      options.TaskID,
+	// 	// 	TaskJobID:   options.TaskJobID,
+	// 	// }
+	// 	// xss.Run(item.URL, specificParamsToTest, "default.txt", false)
+	// 	// log.Warn().Msg("Completed XSS Audit")
 
-		// pathTraversal := PathTraversalAudit{
-		// 	URL:              item.URL,
-		// 	Params:           specificParamsToTest,
-		// 	Concurrency:      20,
-		// 	PayloadsDepth:    5,
-		// 	Platform:         "all",
-		// 	StopAfterSuccess: false,
-		// }
-		// pathTraversal.Run()
-	}
+	// 	// pathTraversal := PathTraversalAudit{
+	// 	// 	URL:              item.URL,
+	// 	// 	Params:           specificParamsToTest,
+	// 	// 	Concurrency:      20,
+	// 	// 	PayloadsDepth:    5,
+	// 	// 	Platform:         "all",
+	// 	// 	StopAfterSuccess: false,
+	// 	// }
+	// 	// pathTraversal.Run()
+	// }
 
 	if options.IsScopedInsertionPoint("headers") {
 		log4shell := Log4ShellInjectionAudit{

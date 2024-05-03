@@ -7,6 +7,8 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/pyneda/sukyan/pkg/http_utils"
+	"github.com/rs/zerolog/log"
 	"github.com/ysmood/gson"
 )
 
@@ -51,7 +53,12 @@ func ReplayRequestInBrowser(page *rod.Page, req *http.Request) error {
 			}
 			ctx.Request.SetBody(bodyBytes)
 		}
-		ctx.MustLoadResponse()
+		// ctx.MustLoadResponse()
+		client := http_utils.CreateHttpClient()
+		err := ctx.LoadResponse(client, true)
+		if err != nil {
+			log.Error().Err(err).Msg("Error loading hijacked response in replay function")
+		}
 		// history := CreateHistoryFromHijack(ctx.Request, ctx.Response, db.SourceScanner, "Create history from replay in browser", workspaceID, taskID)
 
 	})

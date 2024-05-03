@@ -3,10 +3,11 @@ package manual
 import (
 	"errors"
 	"fmt"
-	"github.com/projectdiscovery/rawhttp"
-	"github.com/spf13/viper"
 	"net/url"
 	"strings"
+
+	"github.com/projectdiscovery/rawhttp"
+	"github.com/spf13/viper"
 )
 
 type Request struct {
@@ -35,6 +36,7 @@ func (o *RequestOptions) ToRawHTTPOptions() *rawhttp.Options {
 	}
 	requestOptions.AutomaticHostHeader = o.UpdateHostHeader
 	requestOptions.AutomaticContentLength = o.UpdateContentLength
+	requestOptions.ForceReadAllBody = true
 	return requestOptions
 }
 

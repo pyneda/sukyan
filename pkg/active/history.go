@@ -47,7 +47,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		alert.Run(item, insertionPoints, "default.txt", db.XssReflectedCode)
 
 		cstiPayloads := payloads.GetCSTIPayloads()
-		alert.RunWithPayloads(item, insertionPoints, cstiPayloads, db.XssReflectedCode)
+		alert.RunWithPayloads(item, insertionPoints, cstiPayloads, db.CstiCode)
 	}
 
 	// cspp := ClientSidePrototypePollutionAudit{

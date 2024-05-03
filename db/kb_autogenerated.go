@@ -20,6 +20,7 @@ var (
 	CorsCode                             IssueCode = "cors"
 	CrlfInjectionCode                    IssueCode = "crlf_injection"
 	CsrfCode                             IssueCode = "csrf"
+	CstiCode                             IssueCode = "csti"
 	DatabaseErrorsCode                   IssueCode = "database_errors"
 	DbConnectionStringsCode              IssueCode = "db_connection_strings"
 	DirectoryListingCode                 IssueCode = "directory_listing"
@@ -241,6 +242,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         352,
 		Severity:    "High",
 		References:  []string{"https://owasp.org/www-community/attacks/csrf", "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"},
+	},
+	{
+		Code:        CstiCode,
+		Title:       "Client-Side Template Injection",
+		Description: "The application appears to be vulnerable to Client-Side Template Injection (CSTI). This vulnerability occurs when an attacker manipulates client-side templating engines by injecting malicious content into templates. Such actions can lead to Cross-Site Scripting (XSS) and other client-side vulnerabilities. This typically arises from the application dynamically inserting untrusted data into templates without adequate sanitization or validation.",
+		Remediation: "To mitigate CSTI vulnerabilities, ensure all user input is thoroughly sanitized before being processed by client-side templating engines. Employ Content Security Policy (CSP) headers to lessen the impact of any successful injections. Opt for templating libraries that automatically handle encoding and escaping of user-supplied data. Regularly perform code audits to identify and secure potential injection points.",
+		Cwe:         116,
+		Severity:    "High",
+		References:  []string{"https://book.hacktricks.xyz/pentesting-web/client-side-template-injection-csti", "https://ryhanson.com/angular-expression-injection-walkthrough/", "https://portswigger.net/research/xss-without-html-client-side-template-injection-with-angularjs"},
 	},
 	{
 		Code:        DatabaseErrorsCode,

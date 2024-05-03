@@ -316,7 +316,7 @@ func (f *TemplateScanner) repeatHistoryItem(history *db.History) (repeatedHistor
 		TaskID:              0, // TODO: Should pass the task id here
 		CreateNewBodyStream: false,
 	}
-	newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, options)
+	newHistory, _ := http_utils.CreateHistoryFromHttpResponse(response, responseData, options)
 	return repeatedHistoryItem{
 		history:  newHistory,
 		duration: duration,

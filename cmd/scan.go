@@ -7,6 +7,7 @@ import (
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
+	"github.com/pyneda/sukyan/pkg/scan/engine"
 
 	"os"
 	"time"
@@ -102,7 +103,7 @@ var scanCmd = &cobra.Command{
 			OnInteractionCallback: scan.SaveInteractionCallback,
 		}
 		interactionsManager.Start()
-		engine := scan.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
+		engine := engine.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
 		engine.Start()
 		engine.FullScan(options, true)
 

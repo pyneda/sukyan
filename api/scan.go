@@ -5,6 +5,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/scan"
+	"github.com/pyneda/sukyan/pkg/scan/engine"
 )
 
 type PassiveScanInput struct {
@@ -48,7 +49,7 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	engine := c.Locals("engine").(*scan.ScanEngine)
+	e := c.Locals("engine").(*engine.ScanEngine)
 
 	for _, item := range items {
 		// NOTE: By now, passive scans do not create task jobs, so we pass 0 as task ID
@@ -56,7 +57,7 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 			WorkspaceID: *item.WorkspaceID,
 			TaskID:      0,
 		}
-		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypePassive, options)
+		e.ScheduleHistoryItemScan(&item, engine.ScanJobTypePassive, options)
 	}
 
 	return c.JSON(fiber.Map{
@@ -132,7 +133,7 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	engine := c.Locals("engine").(*scan.ScanEngine)
+	e := c.Locals("engine").(*engine.ScanEngine)
 
 	for _, item := range items {
 		// TODO: maybe should validate that the history item and task belongs to the same workspace
@@ -140,7 +141,7 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 			WorkspaceID: *item.WorkspaceID,
 			TaskID:      input.TaskID,
 		}
-		engine.ScheduleHistoryItemScan(&item, scan.ScanJobTypeActive, options)
+		e.ScheduleHistoryItemScan(&item, engine.ScanJobTypeActive, options)
 	}
 
 	return c.JSON(fiber.Map{
@@ -187,8 +188,8 @@ func FullScanHandler(c *fiber.Ctx) error {
 		input.Title = "Full scan"
 	}
 
-	engine := c.Locals("engine").(*scan.ScanEngine)
-	go engine.FullScan(*input, false)
+	e := c.Locals("engine").(*engine.ScanEngine)
+	go e.FullScan(*input, false)
 
 	return c.JSON(fiber.Map{
 		"message": "Full scan scheduled",

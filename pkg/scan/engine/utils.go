@@ -1,9 +1,10 @@
-package scan
+package engine
 
 import (
+	"net/url"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
-	"net/url"
 )
 
 type UniqueHistoryidentifiers struct {

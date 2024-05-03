@@ -7,6 +7,7 @@ type ParameterAuditItem struct {
 	Parameter string
 	Payload   string
 	URL       string
+	TestURL   string
 	URLEncode bool
 }
 

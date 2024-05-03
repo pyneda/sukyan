@@ -1,4 +1,4 @@
-package scan
+package engine
 
 import (
 	"github.com/pyneda/sukyan/db"
@@ -8,6 +8,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/pyneda/sukyan/pkg/active"
+	"github.com/pyneda/sukyan/pkg/scan"
 
 	"github.com/pyneda/sukyan/pkg/crawl"
 	"github.com/pyneda/sukyan/pkg/passive"
@@ -27,7 +30,7 @@ const (
 type engineTask struct {
 	item    *db.History
 	taskJob *db.TaskJob
-	options HistoryItemScanOptions
+	options scan.HistoryItemScanOptions
 }
 
 type ScanEngine struct {
@@ -59,7 +62,7 @@ func NewScanEngine(payloadGenerators []*generation.PayloadGenerator, maxConcurre
 	}
 }
 
-func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, options HistoryItemScanOptions) {
+func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, options scan.HistoryItemScanOptions) {
 
 	switch scanJobType {
 	case ScanJobTypePassive:
@@ -134,17 +137,17 @@ func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 	passive.ScanHistoryItem(item)
 }
 
-func (s *ScanEngine) scheduleActiveScan(item *db.History, taskJob *db.TaskJob, options HistoryItemScanOptions) {
+func (s *ScanEngine) scheduleActiveScan(item *db.History, taskJob *db.TaskJob, options scan.HistoryItemScanOptions) {
 	options.TaskJobID = taskJob.ID
 	taskJob.Status = db.TaskJobRunning
 	db.Connection.UpdateTaskJob(taskJob)
-	ActiveScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators, options)
+	active.ScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators, options)
 	taskJob.Status = db.TaskJobFinished
 	taskJob.CompletedAt = time.Now()
 	db.Connection.UpdateTaskJob(taskJob)
 }
 
-func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
+func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool) {
 	task, err := db.Connection.NewTask(options.WorkspaceID, nil, options.Title, db.TaskStatusCrawling)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not create task")
@@ -192,7 +195,7 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 	retireScanner := integrations.NewRetireScanner()
 
 	db.Connection.SetTaskStatus(task.ID, db.TaskStatusScanning)
-	itemScanOptions := HistoryItemScanOptions{
+	itemScanOptions := scan.HistoryItemScanOptions{
 		WorkspaceID:     options.WorkspaceID,
 		TaskID:          task.ID,
 		Mode:            options.Mode,
@@ -229,7 +232,7 @@ func (s *ScanEngine) FullScan(options FullScanOptions, waitCompletion bool) {
 				continue
 			}
 			if _, exists := scheduledURLPaths[normalizedURLPath]; exists {
-				scanOptions := HistoryItemScanOptions{
+				scanOptions := scan.HistoryItemScanOptions{
 					WorkspaceID:     options.WorkspaceID,
 					TaskID:          task.ID,
 					Mode:            options.Mode,

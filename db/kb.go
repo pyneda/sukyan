@@ -1,10 +1,16 @@
 package db
 
 import (
+	"strings"
+
 	"github.com/rs/zerolog/log"
 )
 
 type IssueCode string
+
+func (i IssueCode) Name() string {
+	return strings.ReplaceAll(string(i), "-", " ")
+}
 
 type IssueTemplate struct {
 	Code        IssueCode `json:"code"`

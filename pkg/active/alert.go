@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pyneda/sukyan/pkg/payloads"
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/pyneda/sukyan/pkg/web"
 
@@ -21,7 +22,7 @@ import (
 	"github.com/sourcegraph/conc/pool"
 )
 
-type NewXSSAudit struct {
+type AlertAudit struct {
 	requests          sync.Map
 	WorkspaceID       uint
 	TaskID            uint
@@ -29,9 +30,52 @@ type NewXSSAudit struct {
 	detectedLocations sync.Map
 }
 
-func (x *NewXSSAudit) Run(history db.History, insertionPoints []scan.InsertionPoint, wordlistPath string, urlEncode bool) {
-	targetUrl := history.URL
-	taskLog := log.With().Str("url", targetUrl).Str("audit", "xss-reflected").Logger()
+func (x *AlertAudit) RunWithPayloads(history *db.History, insertionPoints []scan.InsertionPoint, payloads []payloads.PayloadInterface, issueCode db.IssueCode) {
+	taskLog := log.With().Str("url", history.URL).Str("audit", string(issueCode)).Logger()
+
+	p := pool.New().WithMaxGoroutines(3)
+	browserPool := browser.GetScannerBrowserPoolManager()
+
+	for _, payload := range payloads {
+		p.Go(func() {
+			value := payload.GetValue()
+			x.testPayload(browserPool, history, insertionPoints, value, issueCode)
+			taskLog.Debug().Str("payload", value).Msg("Finished testing payload")
+		})
+	}
+
+	p.Wait()
+	taskLog.Info().Msg("Completed tests")
+}
+
+func (x *AlertAudit) testPayload(browserPool *browser.BrowserPoolManager, history *db.History, insertionPoints []scan.InsertionPoint, payload string, issueCode db.IssueCode) {
+	b := browserPool.NewBrowser()
+	log.Debug().Msg("Got scan browser from the pool")
+
+	hijackResultsChannel := make(chan browser.HijackResult)
+	hijackContext, hijackCancel := context.WithCancel(context.Background())
+	browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID)
+	defer browserPool.ReleaseBrowser(b)
+	defer hijackCancel()
+	go func() {
+		for {
+			select {
+			case hijackResult, ok := <-hijackResultsChannel:
+				if !ok {
+					return
+				}
+				x.requests.Store(hijackResult.History.URL, hijackResult.History)
+			case <-hijackContext.Done():
+				return
+			}
+		}
+	}()
+	x.testPayloadInInsertionPoint(history, insertionPoints, payload, b, issueCode)
+	log.Debug().Msg("Scan browser released")
+}
+
+func (x *AlertAudit) Run(history *db.History, insertionPoints []scan.InsertionPoint, wordlistPath string, issueCode db.IssueCode) {
+	taskLog := log.With().Str("url", history.URL).Str("audit", string(issueCode)).Logger()
 
 	f, err := os.Open(wordlistPath)
 	if err != nil {
@@ -47,31 +91,8 @@ func (x *NewXSSAudit) Run(history db.History, insertionPoints []scan.InsertionPo
 	for scanner.Scan() {
 		payload := scanner.Text()
 		p.Go(func() {
-			b := browserPool.NewBrowser()
-			taskLog.Debug().Msg("Got scan browser from the pool")
-			hijackResultsChannel := make(chan browser.HijackResult)
-			hijackContext, hijackCancel := context.WithCancel(context.Background())
-			browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID)
-			defer browserPool.ReleaseBrowser(b)
-			defer hijackCancel()
-			go func() {
-				for {
-					select {
-					case hijackResult, ok := <-hijackResultsChannel:
-						if !ok {
-							return
-						}
-						x.requests.Store(hijackResult.History.URL, hijackResult.History)
-					case <-hijackContext.Done():
-						return
-					}
-				}
-			}()
-			x.testPayloadInInsertionPoint(history, insertionPoints, payload, b)
-			taskLog.Debug().Msg("Scan browser released")
-
-			// close(hijackResultsChannel)
-
+			x.testPayload(browserPool, history, insertionPoints, payload, issueCode)
+			taskLog.Debug().Str("payload", payload).Msg("Finished testing payload")
 		})
 	}
 
@@ -80,11 +101,11 @@ func (x *NewXSSAudit) Run(history db.History, insertionPoints []scan.InsertionPo
 		taskLog.Error().Err(err).Msg("Error reading from scanner")
 	}
 
-	taskLog.Info().Str("url", targetUrl).Msg("Completed XSS tests")
+	taskLog.Info().Msg("Completed XSS tests")
 
 }
 
-func (x *NewXSSAudit) testPayloadInInsertionPoint(history db.History, insertionPoints []scan.InsertionPoint, payload string, b *rod.Browser) {
+func (x *AlertAudit) testPayloadInInsertionPoint(history *db.History, insertionPoints []scan.InsertionPoint, payload string, b *rod.Browser, issueCode db.IssueCode) {
 	for _, insertionPoint := range insertionPoints {
 		if x.isDetecteLocation(history.URL, insertionPoint) {
 			log.Warn().Str("url", history.URL).Interface("insertionPoint", insertionPoint).Msg("Skipping testing reflected XSS in already detected location")
@@ -96,19 +117,19 @@ func (x *NewXSSAudit) testPayloadInInsertionPoint(history db.History, insertionP
 				Payload: payload,
 			},
 		}
-		request, err := scan.CreateRequestFromInsertionPoints(&history, builders)
+		request, err := scan.CreateRequestFromInsertionPoints(history, builders)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to create request from insertion points")
 			continue
 		}
-		x.testRequest(request, insertionPoint, payload, b)
+		x.testRequest(request, insertionPoint, payload, b, issueCode)
 
 	}
 }
 
-func (x *NewXSSAudit) testRequest(scanRequest *http.Request, insertionPoint scan.InsertionPoint, payload string, b *rod.Browser) error {
+func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.InsertionPoint, payload string, b *rod.Browser, issueCode db.IssueCode) error {
 	testurl := scanRequest.URL.String()
-	taskLog := log.With().Str("url", testurl).Interface("insertionPoint", insertionPoint).Str("payload", payload).Str("audit", "xss-reflected").Logger()
+	taskLog := log.With().Str("url", testurl).Interface("insertionPoint", insertionPoint).Str("payload", payload).Str("audit", string(issueCode)).Logger()
 
 	taskLog.Debug().Msg("Getting a browser page")
 	page := b.MustPage("")
@@ -151,7 +172,7 @@ func (x *NewXSSAudit) testRequest(scanRequest *http.Request, insertionPoint scan
 			x.storeDetectedLocation(e.URL, insertionPoint)
 			var sb strings.Builder
 
-			sb.WriteString("A reflected XSS has been detected affecting the `" + insertionPoint.Name + "` " + string(insertionPoint.Type) + ". The POC verified an alert dialog of type " + string(e.Type) + " that has been triggered.\n\n")
+			sb.WriteString("A " + issueCode.Name() + " has been detected affecting the `" + insertionPoint.Name + "` " + string(insertionPoint.Type) + ". The POC verified an alert dialog of type " + string(e.Type) + " that has been triggered.\n\n")
 
 			if e.Message != "" {
 				sb.WriteString("The alert contained the following text `" + e.Message + "`\n")
@@ -163,7 +184,7 @@ func (x *NewXSSAudit) testRequest(scanRequest *http.Request, insertionPoint scan
 			} else {
 				sb.WriteString("\nThe following URL can be used to reproduce the issue: " + testurl)
 			}
-			db.CreateIssueFromHistoryAndTemplate(history, db.XssReflectedCode, sb.String(), 90, "", &x.WorkspaceID, &x.TaskID, &x.TaskJobID)
+			db.CreateIssueFromHistoryAndTemplate(history, issueCode, sb.String(), 90, "", &x.WorkspaceID, &x.TaskID, &x.TaskJobID)
 			err := proto.PageHandleJavaScriptDialog{
 				Accept: true,
 				// PromptText: "",
@@ -189,11 +210,11 @@ func (x *NewXSSAudit) testRequest(scanRequest *http.Request, insertionPoint scan
 	} else {
 		taskLog.Debug().Str("url", testurl).Msg("Page fully loaded on browser")
 	}
-	pageWithCancel.MustClose()
+	pageWithCancel.Close()
 	return nil
 }
 
-func (x *NewXSSAudit) GetHistory(url string) *db.History {
+func (x *AlertAudit) GetHistory(url string) *db.History {
 	// NOTE: This won't work anmyore if trying to also test insertion points outside of the URL (ex. headers, cookies, etc)
 	history, ok := x.requests.Load(url)
 	if ok {
@@ -202,7 +223,7 @@ func (x *NewXSSAudit) GetHistory(url string) *db.History {
 	return &db.History{}
 }
 
-func (x *NewXSSAudit) storeDetectedLocation(url string, insertionPoint scan.InsertionPoint) {
+func (x *AlertAudit) storeDetectedLocation(url string, insertionPoint scan.InsertionPoint) {
 	normalizedUrl, err := lib.NormalizeURL(url)
 	if err != nil {
 		return
@@ -211,7 +232,7 @@ func (x *NewXSSAudit) storeDetectedLocation(url string, insertionPoint scan.Inse
 	x.detectedLocations.Store(key, true)
 }
 
-func (x *NewXSSAudit) isDetecteLocation(url string, insertionPoint scan.InsertionPoint) bool {
+func (x *AlertAudit) isDetecteLocation(url string, insertionPoint scan.InsertionPoint) bool {
 	normalizedUrl, err := lib.NormalizeURL(url)
 	if err != nil {
 		return false

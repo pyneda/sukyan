@@ -147,7 +147,7 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History, taskJob *db.TaskJob, o
 	db.Connection.UpdateTaskJob(taskJob)
 }
 
-func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool) {
+func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool) (*db.Task, error) {
 	task, err := db.Connection.NewTask(options.WorkspaceID, nil, options.Title, db.TaskStatusCrawling)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not create task")
@@ -160,7 +160,7 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 	if len(historyItems) == 0 {
 		db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
 		scanLog.Info().Msg("No history items gathered during crawl, exiting")
-		return
+		return task, nil
 	}
 	uniqueHistoryItems := removeDuplicateHistoryItems(historyItems)
 	scanLog.Info().Int("count", len(uniqueHistoryItems)).Msg("Crawling finished, scheduling active scans")
@@ -263,4 +263,5 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 			db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
 		}()
 	}
+	return task, nil
 }

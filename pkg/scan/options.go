@@ -2,7 +2,7 @@ package scan
 
 type ScanMode string
 
-var (
+const (
 	ScanModeFast  ScanMode = "fast"
 	ScanModeSmart ScanMode = "smart"
 	ScanModeFuzz  ScanMode = "fuzz"
@@ -58,4 +58,30 @@ type FullScanOptions struct {
 
 func GetValidInsertionPoints() []string {
 	return []string{"parameters", "urlpath", "body", "headers", "cookies", "json", "xml"}
+}
+
+func GetValidScanModes() []string {
+	return []string{ScanModeFast.String(), ScanModeSmart.String(), ScanModeFuzz.String()}
+}
+
+func IsValidScanMode(mode string) bool {
+	for _, validMode := range GetValidScanModes() {
+		if mode == validMode {
+			return true
+		}
+	}
+	return false
+}
+
+func GetScanMode(mode string) ScanMode {
+	switch mode {
+	case ScanModeFast.String():
+		return ScanModeFast
+	case ScanModeSmart.String():
+		return ScanModeSmart
+	case ScanModeFuzz.String():
+		return ScanModeFuzz
+	default:
+		return ScanModeSmart
+	}
 }

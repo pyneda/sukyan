@@ -85,6 +85,10 @@ type TaskStats struct {
 	Issues   IssuesStats   `json:"issues"`
 }
 
+func (s TaskStats) Summary() string {
+	return fmt.Sprintf("Requests:\n - Crawler: %d\n - Scanner: %d\n\nIssues:\n - Unknown: %d\n - Info: %d\n - Low: %d\n - Medium: %d\n - High: %d\n - Critical: %d\n", s.Requests.Crawler, s.Requests.Scanner, s.Issues.Unknown, s.Issues.Info, s.Issues.Low, s.Issues.Medium, s.Issues.High, s.Issues.Critical)
+}
+
 type RequestsStats struct {
 	Crawler int64 `json:"crawler"`
 	Scanner int64 `json:"scanner"`
@@ -206,6 +210,52 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 	}
 
 	return items, count, nil
+}
+
+func (d *DatabaseConnection) GetTaskStats(id uint) (TaskStats, error) {
+	var stats TaskStats
+
+	task, err := d.GetTaskByID(id)
+	if err != nil {
+		return stats, err
+	}
+
+	historyCounts := map[string]int64{}
+	rows, _ := d.db.Model(&History{}).Select("source, COUNT(*) as count").Where("task_id = ?", task.ID).Group("source").Rows()
+	for rows.Next() {
+		var source string
+		var count int64
+		rows.Scan(&source, &count)
+		historyCounts[source] = count
+	}
+	rows.Close()
+
+	issueCounts := map[severity]int64{}
+	rows, _ = d.db.Model(&Issue{}).Select("severity, COUNT(*) as count").Where("task_id = ?", task.ID).Group("severity").Rows()
+
+	for rows.Next() {
+		var sev severity
+		var count int64
+		rows.Scan(&sev, &count)
+		issueCounts[sev] = count
+	}
+	rows.Close()
+
+	stats = TaskStats{
+		Requests: RequestsStats{
+			Crawler: historyCounts["Crawler"],
+			Scanner: historyCounts["Scanner"],
+		},
+		Issues: IssuesStats{
+			Unknown:  issueCounts[Unknown],
+			Info:     issueCounts[Info],
+			Low:      issueCounts[Low],
+			Medium:   issueCounts[Medium],
+			High:     issueCounts[High],
+			Critical: issueCounts[Critical],
+		},
+	}
+	return stats, nil
 }
 
 func (d *DatabaseConnection) UpdateTask(id uint, task *Task) (*Task, error) {

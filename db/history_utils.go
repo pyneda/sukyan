@@ -1,10 +1,11 @@
 package db
 
 import (
-	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 	"net/url"
 	"strings"
+
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 // Update History item based on viper configuration
@@ -52,7 +53,7 @@ func enhanceHistoryItem(record *History) {
 		}
 	}
 
-	if record.ResponseBodySize > maxSize {
+	if maxSize > 0 && record.ResponseBodySize > maxSize {
 		log.Debug().Interface("history", record).Int("size", record.ResponseBodySize).Msg("Response body was removed due to exceeding max size limit.")
 		record.ResponseBody = []byte("")
 		record.Note = "Response body was removed due to exceeding max size limit."

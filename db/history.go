@@ -297,6 +297,15 @@ func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
 	return record, result.Error
 }
 
+func (d *DatabaseConnection) UpdateHistory(record *History) (*History, error) {
+	enhanceHistoryItem(record)
+	result := d.db.Save(&record)
+	if result.Error != nil {
+		log.Error().Err(result.Error).Interface("history", record).Msg("Failed to update web history record")
+	}
+	return record, result.Error
+}
+
 // GetHistory get a single history record by ID
 func (d *DatabaseConnection) GetHistory(id uint) (history History, err error) {
 	err = d.db.First(&history, id).Error

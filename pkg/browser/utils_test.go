@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,4 +64,44 @@ func TestReplayRequestInBrowser(t *testing.T) {
 	err = ReplayRequestInBrowser(page, putReq)
 	assert.Nil(t, err)
 	assert.Equal(t, "received a PUT request", page.MustElement("body").MustText())
+}
+
+func TestReplayRequestInBrowserAndCreateHistory(t *testing.T) {
+	page, server := setupMockServer()
+	defer server.Close()
+	// Test 1: POST request that triggers redirection
+	postReq, _ := http.NewRequest("POST", server.URL, bytes.NewBufferString("trigger bingo"))
+	history, err := ReplayRequestInBrowserAndCreateHistory(page, postReq, 0, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, "bingo", page.MustElement("body").MustText())
+	assert.Equal(t, history.Method, "POST")
+	assert.Equal(t, true, strings.Contains(string(history.RawResponse), "bingo"))
+	// assert.Equal(t, true, strings.Contains(string(history.RawRequest), "bingo"))
+
+	// Test 2: Normal POST request
+	normalPostReq, _ := http.NewRequest("POST", server.URL, bytes.NewBufferString("normal post"))
+	history, err = ReplayRequestInBrowserAndCreateHistory(page, normalPostReq, 0, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, "received a POST request", page.MustElement("body").MustText())
+	assert.Equal(t, history.Method, "POST")
+
+	// Test 3: GET request
+	getReq, _ := http.NewRequest("GET", server.URL, nil)
+	history, err = ReplayRequestInBrowserAndCreateHistory(page, getReq, 0, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, "received a GET request", page.MustElement("body").MustText())
+	assert.Equal(t, history.Method, "GET")
+	assert.Equal(t, history.StatusCode, 200)
+
+	// Test 4: PUT request
+	putReq, _ := http.NewRequest(http.MethodPut, server.URL, nil)
+	history, err = ReplayRequestInBrowserAndCreateHistory(page, putReq, 0, 0)
+	assert.Nil(t, err)
+	assert.Equal(t, "received a PUT request", page.MustElement("body").MustText())
+	assert.Equal(t, history.Method, "PUT")
+	assert.Equal(t, history.StatusCode, 200)
+	assert.Equal(t, true, strings.Contains(string(history.RawResponse), "received a PUT request"))
+
+	// assert.Equal(t, "received a PUT request", string(history.ResponseBody))
+
 }

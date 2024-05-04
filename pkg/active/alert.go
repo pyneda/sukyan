@@ -3,6 +3,7 @@ package active
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -63,7 +64,8 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 		taskLog.Error().Err(err).Msg("Failed to create request from history item")
 		return hasAlert
 	}
-	navigationErr := browser.ReplayRequestInBrowser(pageWithCancel, request)
+	// navigationErr := browser.ReplayRequestInBrowser(pageWithCancel, request)
+	_, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, request, x.WorkspaceID, x.TaskID)
 	if navigationErr != nil {
 		taskLog.Error().Msg("Navigation error")
 	}
@@ -117,6 +119,7 @@ func (x *AlertAudit) testPayload(browserPool *browser.BrowserPoolManager, histor
 				if !ok {
 					return
 				}
+
 				x.requests.Store(hijackResult.History.URL, hijackResult.History)
 			case <-hijackContext.Done():
 				return
@@ -187,6 +190,46 @@ func (x *AlertAudit) testPayloadInInsertionPoint(history *db.History, insertionP
 	}
 }
 
+// const requestIDHeader = "x-sukyan-request-id"
+
+func (x *AlertAudit) reportIssue(history *db.History, scanRequest *http.Request, e proto.PageJavascriptDialogOpening, insertionPoint scan.InsertionPoint, payload string, issueCode db.IssueCode) {
+	// taskLog := log.With().Uint("history", history.ID).Str("method", history.Method).Str("url", history.URL).Str("audit", string(issueCode)).Logger()
+	// if history.ID == 0 {
+	// 	taskLog.Warn().Str("url", testurl).Msg("Could not find history for XSS, sleeping and trying again")
+	// 	time.Sleep(4 * time.Second)
+	// 	history = x.GetHistory(requestID)
+	// 	if history.ID == 0 {
+	// 		history.URL = e.URL
+	// 		taskLog.Warn().Str("url", testurl).Msg("Couldn't find history for XSS after sleep")
+	// 	} else {
+	// 		taskLog.Warn().Str("url", testurl).Msg("Found history for XSS after sleep")
+	// 	}
+	// }
+
+	log.Warn().Str("url", history.URL).Interface("insertionPoint", insertionPoint).Str("payload", payload).Str("audit", string(issueCode)).Msg("Reflected XSS detected")
+	testurl := scanRequest.URL.String()
+	x.storeDetectedLocation(e.URL, insertionPoint)
+	var sb strings.Builder
+
+	sb.WriteString("A " + issueCode.Name() + " has been detected affecting the `" + insertionPoint.Name + "` " + string(insertionPoint.Type) + ". The POC submitted a " + history.Method + " request to the URL below and verified that an alert dialog of type " + string(e.Type) + " has been triggered.\n\n")
+
+	if e.Message != "" {
+		sb.WriteString("The alert contained the following text `" + e.Message + "`\n")
+	}
+
+	if e.URL != testurl {
+		sb.WriteString("\nThe original request performed has been to the URL:\n" + testurl + "\n\n")
+		sb.WriteString("The payload has probably been encoded by the browser and the alert has been triggered at URL:\n" + e.URL + "\n")
+	} else {
+		sb.WriteString("\nThe following URL can be used to reproduce the issue: " + testurl)
+	}
+
+	if string(history.RequestBody) != "" {
+		sb.WriteString("\n\nThe request body:\n```\n" + string(history.RequestBody) + "\n```\n")
+	}
+	db.CreateIssueFromHistoryAndTemplate(history, issueCode, sb.String(), 90, "", &x.WorkspaceID, &x.TaskID, &x.TaskJobID)
+}
+
 func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.InsertionPoint, payload string, b *rod.Browser, issueCode db.IssueCode) error {
 	testurl := scanRequest.URL.String()
 	taskLog := log.With().Str("method", scanRequest.Method).Str("url", testurl).Interface("insertionPoint", insertionPoint).Str("payload", payload).Str("audit", string(issueCode)).Logger()
@@ -197,69 +240,57 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 
 	taskLog.Debug().Msg("Browser page gathered")
 
+	alertOpenEventChan := make(chan *proto.PageJavascriptDialogOpening, 1)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	pageWithCancel := page.Context(ctx)
-
+	defer pageWithCancel.Close()
 	go func() {
 		time.Sleep(30 * time.Second)
 		cancel()
 	}()
 	taskLog.Debug().Str("url", testurl).Msg("Navigating to the page")
-	go pageWithCancel.EachEvent(
-		func(e *proto.PageJavascriptDialogOpening) (stop bool) {
-			//log.Printf("XSS Verified on url: %s - PageHandleJavaScriptDialog triggered!!!", testurl)
-			//log.Printf("[XSS Verified] - Dialog type: %s - Message: %s - Has Browser Handler: %t - URL: %s", e.Type, e.Message, e.HasBrowserHandler, e.URL)
 
-			taskLog.Warn().Str("browser_url", e.URL).Str("type", string(e.Type)).Str("dialog_text", e.Message).Bool("has_browser_handler", e.HasBrowserHandler).Msg("Reflected XSS Verified")
-			history := x.GetHistory(e.URL)
-			if history.ID == 0 {
-				history = x.GetHistory(testurl)
-			}
+	go func() {
+		defer close(alertOpenEventChan)
+		pageWithCancel.EachEvent(
+			func(e *proto.PageJavascriptDialogOpening) (stop bool) {
+				alertOpenEventChan <- e
+				taskLog.Warn().Str("browser_url", e.URL).Str("type", string(e.Type)).Str("dialog_text", e.Message).Bool("has_browser_handler", e.HasBrowserHandler).Msg("Reflected XSS Verified")
 
-			if history.ID == 0 {
-				taskLog.Warn().Str("url", testurl).Msg("Could not find history for XSS, sleeping and trying again")
-				time.Sleep(4 * time.Second)
-				history = x.GetHistory(e.URL)
-				if history.ID == 0 {
-					history.URL = e.URL
-					taskLog.Warn().Str("url", testurl).Msg("Couldn't find history for XSS after sleep")
+				// history := x.GetHistory(requestID)
+
+				// if history.ID == 0 {
+				// 	taskLog.Warn().Str("url", testurl).Msg("Could not find history for XSS, sleeping and trying again")
+				// 	time.Sleep(4 * time.Second)
+				// 	history = x.GetHistory(requestID)
+				// 	if history.ID == 0 {
+				// 		history.URL = e.URL
+				// 		taskLog.Warn().Str("url", testurl).Msg("Couldn't find history for XSS after sleep")
+				// 	} else {
+				// 		taskLog.Warn().Str("url", testurl).Msg("Found history for XSS after sleep")
+				// 	}
+				// }
+
+				err := proto.PageHandleJavaScriptDialog{
+					Accept: true,
+					// PromptText: "",
+				}.Call(pageWithCancel)
+				if err != nil {
+					//log.Printf("Dialog from %s was already closed when attempted to close: %s", e.URL, err)
+					taskLog.Error().Err(err).Msg("Error handling javascript dialog")
+					// return true
 				} else {
-					taskLog.Warn().Str("url", testurl).Msg("Found history for XSS after sleep")
+					taskLog.Debug().Msg("PageHandleJavaScriptDialog succedded")
 				}
-			}
 
-			// Save as detected location to avoid duplicate alerts
-			x.storeDetectedLocation(e.URL, insertionPoint)
-			var sb strings.Builder
+				return true
+			})()
+	}()
 
-			sb.WriteString("A " + issueCode.Name() + " has been detected affecting the `" + insertionPoint.Name + "` " + string(insertionPoint.Type) + ". The POC verified an alert dialog of type " + string(e.Type) + " that has been triggered.\n\n")
+	// navigationErr := browser.ReplayRequestInBrowser(pageWithCancel, scanRequest)
+	history, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, scanRequest, x.WorkspaceID, x.TaskID)
 
-			if e.Message != "" {
-				sb.WriteString("The alert contained the following text `" + e.Message + "`\n")
-			}
-
-			if e.URL != testurl {
-				sb.WriteString("\nThe original request performed has been to the URL:\n" + testurl + "\n\n")
-				sb.WriteString("The payload has probably been encoded by the browser and the alert has been triggered at URL:\n" + e.URL + "\n")
-			} else {
-				sb.WriteString("\nThe following URL can be used to reproduce the issue: " + testurl)
-			}
-			db.CreateIssueFromHistoryAndTemplate(history, issueCode, sb.String(), 90, "", &x.WorkspaceID, &x.TaskID, &x.TaskJobID)
-			err := proto.PageHandleJavaScriptDialog{
-				Accept: true,
-				// PromptText: "",
-			}.Call(pageWithCancel)
-			if err != nil {
-				//log.Printf("Dialog from %s was already closed when attempted to close: %s", e.URL, err)
-				taskLog.Error().Err(err).Msg("Error handling javascript dialog")
-				// return true
-			} else {
-				taskLog.Debug().Msg("PageHandleJavaScriptDialog succedded")
-			}
-
-			return true
-		})()
-	navigationErr := browser.ReplayRequestInBrowser(pageWithCancel, scanRequest)
 	if navigationErr != nil {
 		taskLog.Error().Str("url", testurl).Msg("Navigation error")
 	}
@@ -270,13 +301,22 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 	} else {
 		taskLog.Debug().Str("url", testurl).Msg("Page fully loaded on browser")
 	}
-	pageWithCancel.Close()
-	return nil
+
+	select {
+	case alertOpenEvent, ok := <-alertOpenEventChan:
+		if !ok {
+			return fmt.Errorf("no events received before channel was closed")
+		}
+		x.reportIssue(history, scanRequest, *alertOpenEvent, insertionPoint, payload, issueCode)
+		return nil
+	case <-time.After(3 * time.Second):
+		return fmt.Errorf("operation timed out while waiting for events")
+	}
+
 }
 
-func (x *AlertAudit) GetHistory(url string) *db.History {
-	// NOTE: This won't work anmyore if trying to also test insertion points outside of the URL (ex. headers, cookies, etc)
-	history, ok := x.requests.Load(url)
+func (x *AlertAudit) GetHistory(id string) *db.History {
+	history, ok := x.requests.Load(id)
 	if ok {
 		return history.(*db.History)
 	}

@@ -4,16 +4,18 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"errors"
-	"gorm.io/datatypes"
 	"io"
 	"net/http"
 	"net/http/httputil"
 
+	"gorm.io/datatypes"
+
 	"bytes"
 	"encoding/json"
+	"io/ioutil"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
-	"io/ioutil"
 )
 
 type ResponseBodyData struct {

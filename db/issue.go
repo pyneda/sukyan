@@ -12,32 +12,34 @@ import (
 // Issue holds table for storing issues found
 type Issue struct {
 	BaseModel
-	Code          string           `gorm:"index" json:"code"`
-	Title         string           `gorm:"index" json:"title"`
-	Description   string           `json:"description"`
-	Details       string           `json:"details"`
-	Remediation   string           `json:"remediation"`
-	Cwe           int              `json:"cwe"`
-	URL           string           `gorm:"index" json:"url"`
-	StatusCode    int              `gorm:"index" json:"status_code"`
-	HTTPMethod    string           `gorm:"index" json:"http_method"`
-	Payload       string           `json:"payload"`
-	Request       []byte           `json:"request"`
-	Response      []byte           `json:"response"`
-	FalsePositive bool             `gorm:"index" json:"false_positive"`
-	Confidence    int              `gorm:"index" json:"confidence"`
-	References    StringSlice      `json:"references"`
-	Severity      severity         `gorm:"index,type:severity;default:'Info'" json:"severity"`
-	CURLCommand   string           `json:"curl_command"`
-	Note          string           `json:"note"`
-	Workspace     Workspace        `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID   *uint            `json:"workspace_id" gorm:"index"`
-	Interactions  []OOBInteraction `json:"interactions" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Requests      []History        `json:"requests" gorm:"many2many:issue_requests;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	TaskID        *uint            `json:"task_id" gorm:"index"`
-	Task          Task             `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	TaskJobID     *uint            `json:"task_job_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	TaskJob       TaskJob          `json:"-" gorm:"foreignKey:TaskJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	Code          string      `gorm:"index" json:"code"`
+	Title         string      `gorm:"index" json:"title"`
+	Description   string      `json:"description"`
+	Details       string      `json:"details"`
+	Remediation   string      `json:"remediation"`
+	Cwe           int         `json:"cwe"`
+	URL           string      `gorm:"index" json:"url"`
+	StatusCode    int         `gorm:"index" json:"status_code"`
+	HTTPMethod    string      `gorm:"index" json:"http_method"`
+	Payload       string      `json:"payload"`
+	Request       []byte      `json:"request"`
+	Response      []byte      `json:"response"`
+	FalsePositive bool        `gorm:"index" json:"false_positive"`
+	Confidence    int         `gorm:"index" json:"confidence"`
+	References    StringSlice `json:"references"`
+	Severity      severity    `gorm:"index,type:severity;default:'Info'" json:"severity"`
+	CURLCommand   string      `json:"curl_command"`
+	Note          string      `json:"note"`
+	Workspace     Workspace   `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	WorkspaceID   *uint       `json:"workspace_id" gorm:"index"`
+	// OriginalHistory   History          `json:"original_history" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	// OriginalHistoryID *uint            `json:"original_history_id" gorm:"index"`
+	Interactions []OOBInteraction `json:"interactions" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Requests     []History        `json:"requests" gorm:"many2many:issue_requests;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	TaskID       *uint            `json:"task_id" gorm:"index"`
+	Task         Task             `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	TaskJobID    *uint            `json:"task_job_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	TaskJob      TaskJob          `json:"-" gorm:"foreignKey:TaskJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 func (i Issue) TableHeaders() []string {

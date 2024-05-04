@@ -28,6 +28,7 @@ var scanTitle string
 var requestsHeadersString string
 var insertionPoints []string
 var urlFile string
+var scanMode string
 
 var validate = validator.New()
 
@@ -51,6 +52,11 @@ var scanCmd = &cobra.Command{
 
 		if len(startURLs) == 0 {
 			log.Error().Msg("At least one crawl starting url should be provided")
+			os.Exit(1)
+		}
+
+		if !scan.IsValidScanMode(scanMode) {
+			log.Error().Str("mode", scanMode).Interface("valid", scan.GetValidScanModes()).Msg("Invalid scan mode")
 			os.Exit(1)
 		}
 
@@ -89,6 +95,7 @@ var scanCmd = &cobra.Command{
 			PagesPoolSize:   pagesPoolSize,
 			Headers:         headers,
 			InsertionPoints: insertionPoints,
+			Mode:            scan.GetScanMode(scanMode),
 		}
 		if err := validate.Struct(options); err != nil {
 			log.Error().Err(err).Msg("Validation failed")
@@ -105,10 +112,17 @@ var scanCmd = &cobra.Command{
 		interactionsManager.Start()
 		engine := engine.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
 		engine.Start()
-		engine.FullScan(options, true)
+		task, _ := engine.FullScan(options, true)
+		log.Info().Msg("Scan completed")
+		stats, err := db.Connection.GetTaskStats(uint(task.ID))
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to get task stats")
+		} else {
+			log.Info().Interface("stats", stats).Msg("Scan stats")
+		}
 
 		oobWait := time.Duration(viper.GetInt("scan.oob.wait_after_scan"))
-		log.Info().Msgf("Audit finished, waiting %d seconds for possible interactions...", oobWait)
+		log.Info().Msgf("Waiting %d seconds for possible interactions...", oobWait)
 		time.Sleep(oobWait * time.Second)
 		engine.Stop()
 		interactionsManager.Stop()
@@ -127,6 +141,7 @@ func init() {
 	scanCmd.Flags().StringArrayVar(&scanTests, "test", nil, "Tests to run (all by default)")
 	scanCmd.Flags().StringVarP(&scanTitle, "title", "t", "Scan", "Scan title")
 	scanCmd.Flags().StringVar(&requestsHeadersString, "headers", "", "Headers to use for requests")
+	scanCmd.Flags().StringVarP(&scanMode, "mode", "m", "smart", "Scan mode (fast, smart, fuzz)")
 	scanCmd.Flags().StringArrayVarP(&insertionPoints, "insertion-points", "I", scan.GetValidInsertionPoints(), "Insertion points to scan (all by default)")
 
 }

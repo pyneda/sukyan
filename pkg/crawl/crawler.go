@@ -99,13 +99,14 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 }
 
 func (c *Crawler) Run() []*db.History {
-	log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Msg("Starting crawler")
+	taskLog := log.With().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Logger()
+	taskLog.Info().Msg("Starting crawler")
 	c.CreateScopeFromProvidedUrls()
 	// Spawn a goroutine to listen to hijack results and schedule new pages for crawling
 	var inScopeHistoryItems []*db.History
 	go func() {
 		for hijackResult := range c.hijackChan {
-			log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Int("response_body_size", hijackResult.History.ResponseBodySize).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Msg("Received crawl response")
+			taskLog.Info().Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Int("response_body_size", hijackResult.History.ResponseBodySize).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Msg("Received crawl response")
 			if hijackResult.History.Method != "GET" {
 				item := &CrawlItem{url: hijackResult.History.URL, depth: lib.CalculateURLDepth(hijackResult.History.URL), visited: true, isError: false}
 				c.pages.Store(item.url, item)
@@ -123,13 +124,13 @@ func (c *Crawler) Run() []*db.History {
 					// Checking if max pages to crawl are reached
 					c.counterLock.Lock()
 					if c.Options.MaxPagesToCrawl != 0 && c.pageCounter >= c.Options.MaxPagesToCrawl {
-						log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Stopping crawler hijacking due to max pages to crawl")
+						taskLog.Info().Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Stopping crawler hijacking due to max pages to crawl")
 						c.counterLock.Unlock()
 						if c.browser != nil {
-							time.Sleep(5 * time.Second)
-							log.Info().Msg("Closing crawler browser")
+							time.Sleep(10 * time.Second)
+							taskLog.Info().Msg("Closing crawler browser")
 							c.browser.Close()
-							log.Info().Msg("Closed crawler browser")
+							taskLog.Info().Msg("Closed crawler browser")
 						}
 						return // terminate the goroutine
 					}
@@ -141,13 +142,13 @@ func (c *Crawler) Run() []*db.History {
 					if c.Options.MaxDepth == 0 || depth <= c.Options.MaxDepth {
 						c.wg.Add(1)
 						go c.crawlPage(&CrawlItem{url: url, depth: depth})
-						log.Debug().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Str("url", url).Msg("Scheduled page to crawl from hijack result")
+						taskLog.Debug().Str("url", url).Msg("Scheduled page to crawl from hijack result")
 					}
 				}
 			}
 		}
 	}()
-	log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Interface("start_urls", c.startURLs).Msg("Crawling start urls")
+	taskLog.Info().Interface("start_urls", c.startURLs).Msg("Crawling start urls")
 	for _, url := range c.startURLs {
 		c.wg.Add(1)
 		go c.crawlPage(&CrawlItem{url: url, depth: lib.CalculateURLDepth(url)})
@@ -162,7 +163,7 @@ func (c *Crawler) Run() []*db.History {
 	}
 
 	c.wg.Wait()
-	log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Msg("Finished crawling")
+	taskLog.Info().Msg("Finished crawling")
 	c.browser.Close()
 	for _, item := range inScopeHistoryItems {
 		events, ok := c.eventStore.Load(item.URL)

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-rod/rod"
+	"github.com/pyneda/sukyan/db"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,6 +40,14 @@ func setupHijackMockServer() *httptest.Server {
 
 // TestHijackWithContext tests the HijackWithContext function for different HTTP scenarios
 func TestHijackWithContext(t *testing.T) {
+
+	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+		Code:        "test-hijack",
+		Title:       "test-hijack",
+		Description: "test-hijack",
+	})
+	assert.NoError(t, err)
+
 	server := setupHijackMockServer()
 	defer server.Close()
 
@@ -50,7 +59,7 @@ func TestHijackWithContext(t *testing.T) {
 	defer cancel()
 
 	config := HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}
-	router := HijackWithContext(config, rodBrowser.Browser(), server.URL, resultsChannel, ctx, 0, 0)
+	router := HijackWithContext(config, rodBrowser.Browser(), server.URL, resultsChannel, ctx, workspace.ID, 0)
 	defer router.Stop()
 
 	wg := sync.WaitGroup{}
@@ -100,6 +109,14 @@ func TestHijackWithContext(t *testing.T) {
 
 func TestHijack(t *testing.T) {
 	server := setupHijackMockServer()
+	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+		Code:        "test-hijack",
+		Title:       "test-hijack",
+		Description: "test-hijack",
+	})
+
+	assert.NoError(t, err)
+
 	defer server.Close()
 
 	rodBrowser := rod.New().MustConnect().MustPage(server.URL)
@@ -108,7 +125,7 @@ func TestHijack(t *testing.T) {
 	resultsChannel := make(chan HijackResult)
 
 	config := HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}
-	Hijack(config, rodBrowser.Browser(), "test", resultsChannel, 0, 0)
+	Hijack(config, rodBrowser.Browser(), "test", resultsChannel, workspace.ID, 0)
 
 	wg := sync.WaitGroup{}
 	wg.Add(3)

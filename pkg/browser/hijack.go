@@ -3,6 +3,7 @@ package browser
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 
@@ -140,11 +141,13 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 	go router.Run()
 }
 
-func DumpHijackRequest(req *rod.HijackRequest) string {
+func DumpHijackRequest(req *rod.HijackRequest) (raw string, body string) {
 	var dump strings.Builder
 
 	// Request Line
-	dump.WriteString(fmt.Sprintf("%s %s %s\n", req.Method(), req.URL(), "HTTP/1.1")) // Using HTTP/1.1 as a placeholder
+	// dump.WriteString(fmt.Sprintf("%s %s %s\n", req.Method(), req.URL(), "HTTP/1.1")) // Using HTTP/1.1 as a placeholder
+	method := req.Req().Method
+	dump.WriteString(fmt.Sprintf("%s %s %s\n", method, req.URL(), "HTTP/1.1")) // Using HTTP/1.1 as a placeholder
 
 	// Headers
 	for k, v := range req.Headers() {
@@ -152,16 +155,26 @@ func DumpHijackRequest(req *rod.HijackRequest) string {
 	}
 
 	// Body
-	body := req.Body()
+	body = req.Body()
 	if len(body) > 0 {
 		dump.WriteString("\n")
 		dump.WriteString(string(body))
+	} else {
+		reader := req.Req().Body
+		if reader != nil {
+			bodyBytes, _ := io.ReadAll(reader)
+			body = string(bodyBytes)
+			if len(bodyBytes) > 0 {
+				dump.WriteString("\n")
+				dump.WriteString(body)
+			}
+		}
 	}
-
-	return dump.String()
+	raw = dump.String()
+	return raw, body
 }
 
-func DumpHijackResponse(res *rod.HijackResponse) string {
+func DumpHijackResponse(res *rod.HijackResponse) (rawResponse string, body string) {
 	var dump strings.Builder
 
 	// Status Line
@@ -175,13 +188,13 @@ func DumpHijackResponse(res *rod.HijackResponse) string {
 	}
 
 	// Body
-	body := res.Body()
+	body = res.Body()
 	if len(body) > 0 {
 		dump.WriteString("\n")
-		dump.WriteString(string(body))
+		dump.WriteString(body)
 	}
 
-	return dump.String()
+	return dump.String(), body
 }
 
 // CreateHistoryFromHijack saves a history request from hijack request/response items.
@@ -194,10 +207,9 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 	if err != nil {
 		log.Error().Err(err).Msg("Error converting response headers to json")
 	}
-	rawRequest := DumpHijackRequest(request)
-	rawResponse := DumpHijackResponse(response)
+	rawRequest, reqBody := DumpHijackRequest(request)
+	rawResponse, responseBody := DumpHijackResponse(response)
 	historyUrl := request.URL().String()
-	reqBody := request.Body()
 	history := db.History{
 		StatusCode:           response.Payload().ResponseCode,
 		URL:                  historyUrl,
@@ -208,10 +220,10 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		RequestContentLength: request.Req().ContentLength,
 		RequestContentType:   request.Req().Header.Get("Content-Type"),
 		ResponseHeaders:      datatypes.JSON(responseHeaders),
-		ResponseBody:         []byte(response.Body()),
+		ResponseBody:         []byte(responseBody), // []byte(response.Body()),
 		ResponseContentType:  response.Headers().Get("Content-Type"),
 		Evaluated:            false,
-		Method:               request.Method(),
+		Method:               request.Req().Method,
 		// ParametersCount:      len(request.URL().Query()),
 		Note:        note,
 		Source:      source,

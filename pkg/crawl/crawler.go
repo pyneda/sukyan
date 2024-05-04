@@ -237,7 +237,19 @@ func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
 
 func (c *Crawler) getBrowserPage() *rod.Page {
 	page := c.browser.NewPage()
+	setupTimeout := time.Duration(viper.GetInt("crawl.page_setup_timeout"))
+	page = page.Timeout(setupTimeout * time.Second)
+
 	web.IgnoreCertificateErrors(page)
+	// Set extra headers if provided
+	if c.Options.ExtraHeaders != nil {
+		extraHeaders := browser.ConvertToNetworkHeaders(c.Options.ExtraHeaders)
+		page.EnableDomain(&proto.NetworkEnable{})
+		err := proto.NetworkSetExtraHTTPHeaders{Headers: extraHeaders}.Call(page)
+		if err != nil {
+			log.Error().Err(err).Interface("headers", extraHeaders).Msg("Error setting extra HTTP headers")
+		}
+	}
 	// Enabling audits, security, etc
 	if !page.LoadState(&proto.AuditsEnable{}) {
 		auditEnableError := proto.AuditsEnable{}.Call(page)
@@ -253,14 +265,8 @@ func (c *Crawler) getBrowserPage() *rod.Page {
 		}
 	}
 
-	if c.Options.ExtraHeaders != nil {
-		extraHeaders := browser.ConvertToNetworkHeaders(c.Options.ExtraHeaders)
-		page.EnableDomain(&proto.NetworkEnable{})
-		err := proto.NetworkSetExtraHTTPHeaders{Headers: extraHeaders}.Call(page)
-		if err != nil {
-			log.Error().Err(err).Interface("headers", extraHeaders).Msg("Error setting extra HTTP headers")
-		}
-	}
+	page = page.CancelTimeout()
+
 	return page
 }
 

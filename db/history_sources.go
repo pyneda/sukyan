@@ -26,3 +26,13 @@ func IsValidSource(source string) bool {
 	}
 	return false
 }
+
+// GetSitemapSources returns a list of sources that will be used to generate the sitemap
+func GetSitemapSources() []string {
+	return []string{
+		SourceHijack,
+		SourceCrawler,
+		SourceBrowser,
+		SourceProxy,
+	}
+}

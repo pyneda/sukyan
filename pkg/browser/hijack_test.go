@@ -70,7 +70,7 @@ func TestHijackWithContext(t *testing.T) {
 		processed := 0
 		for res := range resultsChannel {
 			wg.Done()
-			t.Log("Received hijack result:", res)
+			// t.Log("Received hijack result:", res)
 			assert.NotNil(t, res.History)
 			assert.NotEmpty(t, res.History.URL)
 			assert.Greater(t, res.History.StatusCode, 0)
@@ -135,7 +135,7 @@ func TestHijack(t *testing.T) {
 		processed := 0
 		for res := range resultsChannel {
 			wg.Done()
-			t.Log("Received hijack result:", res)
+			// t.Log("Received hijack result:", res)
 			assert.NotNil(t, res.History)
 			assert.NotEmpty(t, res.History.URL)
 			assert.Greater(t, res.History.StatusCode, 0)

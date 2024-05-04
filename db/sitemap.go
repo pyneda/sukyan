@@ -1,10 +1,11 @@
 package db
 
 import (
-	"github.com/pyneda/sukyan/lib"
 	"net/url"
 	"path/filepath"
 	"strings"
+
+	"github.com/pyneda/sukyan/lib"
 )
 
 type SitemapNode struct {
@@ -49,6 +50,7 @@ const (
 )
 
 func (d *DatabaseConnection) getSitemapData(filter SitemapFilter) ([]History, error) {
+
 	query := d.db.Model(&History{}).Select("id, url, depth")
 	if filter.WorkspaceID != 0 {
 		query = query.Where("workspace_id = ?", filter.WorkspaceID)
@@ -56,6 +58,10 @@ func (d *DatabaseConnection) getSitemapData(filter SitemapFilter) ([]History, er
 	if filter.TaskID != 0 {
 		query = query.Where("task_id = ?", filter.TaskID)
 	}
+
+	sources := GetSitemapSources()
+	query = query.Where("source IN ?", sources)
+
 	var histories []History
 	err := query.Find(&histories).Error
 	if err != nil {

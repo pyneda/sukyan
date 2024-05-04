@@ -40,9 +40,10 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		scanner.Run(item, payloadGenerators, insertionPoints, options)
 
 		alert := AlertAudit{
-			WorkspaceID: options.WorkspaceID,
-			TaskID:      options.TaskID,
-			TaskJobID:   options.TaskJobID,
+			WorkspaceID:                options.WorkspaceID,
+			TaskID:                     options.TaskID,
+			TaskJobID:                  options.TaskJobID,
+			SkipInitialAlertValidation: false,
 		}
 		alert.Run(item, insertionPoints, "default.txt", db.XssReflectedCode)
 

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/pyneda/sukyan/pkg/web"
@@ -23,18 +24,70 @@ import (
 )
 
 type AlertAudit struct {
-	requests          sync.Map
-	WorkspaceID       uint
-	TaskID            uint
-	TaskJobID         uint
-	detectedLocations sync.Map
+	requests                   sync.Map
+	WorkspaceID                uint
+	TaskID                     uint
+	TaskJobID                  uint
+	SkipInitialAlertValidation bool
+	detectedLocations          sync.Map
+}
+
+func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.BrowserPoolManager) bool {
+	b := browserPool.NewBrowser()
+	page := b.MustPage("")
+	defer browserPool.ReleaseBrowser(b)
+
+	taskLog := log.With().Uint("history", history.ID).Str("method", history.Method).Str("task", "ensure no alert").Str("url", history.URL).Logger()
+	hasAlert := false
+
+	taskLog.Debug().Msg("Getting a browser page")
+	web.IgnoreCertificateErrors(page)
+
+	taskLog.Debug().Msg("Browser page gathered")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	pageWithCancel := page.Context(ctx)
+	defer pageWithCancel.Close()
+	go func() {
+		time.Sleep(30 * time.Second)
+		cancel()
+	}()
+	go pageWithCancel.EachEvent(
+		func(e *proto.PageJavascriptDialogOpening) (stop bool) {
+			hasAlert = true
+			return true
+		})()
+
+	request, err := http_utils.BuildRequestFromHistoryItem(history)
+	if err != nil {
+		taskLog.Error().Err(err).Msg("Failed to create request from history item")
+		return hasAlert
+	}
+	navigationErr := browser.ReplayRequestInBrowser(pageWithCancel, request)
+	if navigationErr != nil {
+		taskLog.Error().Msg("Navigation error")
+	}
+	taskLog.Debug().Msg("Navigated to the page completed")
+	loadError := pageWithCancel.WaitLoad()
+	if loadError != nil {
+		taskLog.Error().Err(loadError).Msg("Error waiting for page complete load")
+	} else {
+		taskLog.Debug().Msg("Page fully loaded on browser")
+	}
+
+	return hasAlert
 }
 
 func (x *AlertAudit) RunWithPayloads(history *db.History, insertionPoints []scan.InsertionPoint, payloads []payloads.PayloadInterface, issueCode db.IssueCode) {
-	taskLog := log.With().Str("url", history.URL).Str("audit", string(issueCode)).Logger()
+	taskLog := log.With().Uint("history", history.ID).Str("method", history.Method).Str("url", history.URL).Str("audit", string(issueCode)).Logger()
 
 	p := pool.New().WithMaxGoroutines(3)
 	browserPool := browser.GetScannerBrowserPoolManager()
+
+	if x.requestHasAlert(history, browserPool) {
+		taskLog.Warn().Msg("Skipping XSS tests as the original request triggers an alert dialog")
+		return
+	}
 
 	for _, payload := range payloads {
 		p.Go(func() {
@@ -75,8 +128,15 @@ func (x *AlertAudit) testPayload(browserPool *browser.BrowserPoolManager, histor
 }
 
 func (x *AlertAudit) Run(history *db.History, insertionPoints []scan.InsertionPoint, wordlistPath string, issueCode db.IssueCode) {
-	taskLog := log.With().Str("url", history.URL).Str("audit", string(issueCode)).Logger()
+	taskLog := log.With().Uint("history", history.ID).Str("method", history.Method).Str("url", history.URL).Str("audit", string(issueCode)).Logger()
 
+	p := pool.New().WithMaxGoroutines(3)
+	browserPool := browser.GetScannerBrowserPoolManager()
+
+	if x.requestHasAlert(history, browserPool) {
+		taskLog.Warn().Msg("Skipping XSS tests as the original request triggers an alert dialog")
+		return
+	}
 	f, err := os.Open(wordlistPath)
 	if err != nil {
 		taskLog.Fatal().Err(err).Msg("Failed to open wordlist file")
@@ -85,8 +145,8 @@ func (x *AlertAudit) Run(history *db.History, insertionPoints []scan.InsertionPo
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
-	p := pool.New().WithMaxGoroutines(3)
-	browserPool := browser.GetScannerBrowserPoolManager()
+
+	taskLog.Info().Msg("Starting XSS tests")
 
 	for scanner.Scan() {
 		payload := scanner.Text()
@@ -129,7 +189,7 @@ func (x *AlertAudit) testPayloadInInsertionPoint(history *db.History, insertionP
 
 func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.InsertionPoint, payload string, b *rod.Browser, issueCode db.IssueCode) error {
 	testurl := scanRequest.URL.String()
-	taskLog := log.With().Str("url", testurl).Interface("insertionPoint", insertionPoint).Str("payload", payload).Str("audit", string(issueCode)).Logger()
+	taskLog := log.With().Str("method", scanRequest.Method).Str("url", testurl).Interface("insertionPoint", insertionPoint).Str("payload", payload).Str("audit", string(issueCode)).Logger()
 
 	taskLog.Debug().Msg("Getting a browser page")
 	page := b.MustPage("")

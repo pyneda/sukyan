@@ -9,7 +9,7 @@ import (
 type IssueCode string
 
 func (i IssueCode) Name() string {
-	return strings.ReplaceAll(string(i), "-", " ")
+	return strings.ReplaceAll(string(i), "_", " ")
 }
 
 type IssueTemplate struct {

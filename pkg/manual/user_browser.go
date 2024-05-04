@@ -1,11 +1,12 @@
 package manual
 
 import (
+	"time"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
-	"github.com/pyneda/sukyan/lib/browser"
+	"github.com/pyneda/sukyan/pkg/browser"
 	"github.com/pyneda/sukyan/pkg/web"
-	"time"
 
 	"github.com/go-rod/rod"
 	// "github.com/go-rod/rod/lib/launcher"

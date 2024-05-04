@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 )

@@ -47,10 +47,16 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 		"constructor.prototype.sukyan=reserved",
 		"__proto__%5Bsukyan%5D=reserved",
 	}
-	b := browser.NewBrowser()
+	timeout := 30 * time.Second
+	b, err := browser.NewBrowserWithTimeout(timeout)
+	if err != nil {
+		log.Warn().Err(err).Uint("history", a.HistoryItem.ID).Msg("Canceling client-side prototype pollution tests due to an error launching a new browser")
+		return
+	}
+	defer b.Close()
+
 	hijackResultsChannel := make(chan browser.HijackResult)
 	browser.Hijack(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, a.WorkspaceID, a.TaskID)
-	defer b.MustClose()
 	page := b.MustIncognito().MustPage("")
 	web.IgnoreCertificateErrors(page)
 	go func() {

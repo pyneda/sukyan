@@ -76,13 +76,15 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		alert.RunWithPayloads(item, xssInsertionPoints, cstiPayloads, db.CstiCode)
 	}
 
-	cspp := ClientSidePrototypePollutionAudit{
-		HistoryItem: item,
-		WorkspaceID: options.WorkspaceID,
-		TaskID:      options.TaskID,
-		TaskJobID:   options.TaskJobID,
+	if options.ExperimentalAudits {
+		cspp := ClientSidePrototypePollutionAudit{
+			HistoryItem: item,
+			WorkspaceID: options.WorkspaceID,
+			TaskID:      options.TaskID,
+			TaskJobID:   options.TaskJobID,
+		}
+		cspp.Run()
 	}
-	cspp.Run()
 
 	// var specificParamsToTest []string
 	// // NOTE: This should be deprecated
@@ -120,16 +122,15 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			TaskJobID:           options.TaskJobID,
 		}
 		log4shell.Run()
-		hostHeader := HostHeaderInjectionAudit{
-			URL:         item.URL,
-			Concurrency: 10,
-			WorkspaceID: options.WorkspaceID,
-			TaskID:      options.TaskID,
-			TaskJobID:   options.TaskJobID,
-		}
-		hostHeader.Run()
 	}
-
+	hostHeader := HostHeaderInjectionAudit{
+		URL:         item.URL,
+		Concurrency: 10,
+		WorkspaceID: options.WorkspaceID,
+		TaskID:      options.TaskID,
+		TaskJobID:   options.TaskJobID,
+	}
+	hostHeader.Run()
 	// NOTE: Checks below are probably not worth to run against every history item,
 	// but also not only once per target. Should find a way to run them only in some cases
 	// but ensuring they are checked against X different history items per target.

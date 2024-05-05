@@ -75,13 +75,13 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		alert.RunWithPayloads(item, xssInsertionPoints, cstiPayloads, db.CstiCode)
 	}
 
-	// cspp := ClientSidePrototypePollutionAudit{
-	// 	HistoryItem: item,
-	// 	WorkspaceID: options.WorkspaceID,
-	// 	TaskID:      options.TaskID,
-	// 	TaskJobID:   options.TaskJobID,
-	// }
-	// cspp.Run()
+	cspp := ClientSidePrototypePollutionAudit{
+		HistoryItem: item,
+		WorkspaceID: options.WorkspaceID,
+		TaskID:      options.TaskID,
+		TaskJobID:   options.TaskJobID,
+	}
+	cspp.Run()
 
 	// var specificParamsToTest []string
 	// // NOTE: This should be deprecated

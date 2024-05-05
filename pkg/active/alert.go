@@ -64,7 +64,6 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 		taskLog.Error().Err(err).Msg("Failed to create request from history item")
 		return hasAlert
 	}
-	// navigationErr := browser.ReplayRequestInBrowser(pageWithCancel, request)
 	_, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, request, x.WorkspaceID, x.TaskID)
 	if navigationErr != nil {
 		taskLog.Error().Msg("Navigation error")
@@ -80,6 +79,7 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 	return hasAlert
 }
 
+// RunWithPayloads runs the audit using the given payloads
 func (x *AlertAudit) RunWithPayloads(history *db.History, insertionPoints []scan.InsertionPoint, payloads []payloads.PayloadInterface, issueCode db.IssueCode) {
 	taskLog := log.With().Uint("history", history.ID).Str("method", history.Method).Str("url", history.URL).Str("audit", string(issueCode)).Logger()
 
@@ -130,6 +130,7 @@ func (x *AlertAudit) testPayload(browserPool *browser.BrowserPoolManager, histor
 	log.Debug().Msg("Scan browser released")
 }
 
+// Run runs the audit using the given filesytem path to a wordlist
 func (x *AlertAudit) Run(history *db.History, insertionPoints []scan.InsertionPoint, wordlistPath string, issueCode db.IssueCode) {
 	taskLog := log.With().Uint("history", history.ID).Str("method", history.Method).Str("url", history.URL).Str("audit", string(issueCode)).Logger()
 
@@ -190,21 +191,7 @@ func (x *AlertAudit) testPayloadInInsertionPoint(history *db.History, insertionP
 	}
 }
 
-// const requestIDHeader = "x-sukyan-request-id"
-
 func (x *AlertAudit) reportIssue(history *db.History, scanRequest *http.Request, e proto.PageJavascriptDialogOpening, insertionPoint scan.InsertionPoint, payload string, issueCode db.IssueCode) {
-	// taskLog := log.With().Uint("history", history.ID).Str("method", history.Method).Str("url", history.URL).Str("audit", string(issueCode)).Logger()
-	// if history.ID == 0 {
-	// 	taskLog.Warn().Str("url", testurl).Msg("Could not find history for XSS, sleeping and trying again")
-	// 	time.Sleep(4 * time.Second)
-	// 	history = x.GetHistory(requestID)
-	// 	if history.ID == 0 {
-	// 		history.URL = e.URL
-	// 		taskLog.Warn().Str("url", testurl).Msg("Couldn't find history for XSS after sleep")
-	// 	} else {
-	// 		taskLog.Warn().Str("url", testurl).Msg("Found history for XSS after sleep")
-	// 	}
-	// }
 
 	log.Warn().Str("url", history.URL).Interface("insertionPoint", insertionPoint).Str("payload", payload).Str("audit", string(issueCode)).Msg("Reflected XSS detected")
 	testurl := scanRequest.URL.String()
@@ -257,29 +244,12 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 			func(e *proto.PageJavascriptDialogOpening) (stop bool) {
 				alertOpenEventChan <- e
 				taskLog.Warn().Str("browser_url", e.URL).Str("type", string(e.Type)).Str("dialog_text", e.Message).Bool("has_browser_handler", e.HasBrowserHandler).Msg("Reflected XSS Verified")
-
-				// history := x.GetHistory(requestID)
-
-				// if history.ID == 0 {
-				// 	taskLog.Warn().Str("url", testurl).Msg("Could not find history for XSS, sleeping and trying again")
-				// 	time.Sleep(4 * time.Second)
-				// 	history = x.GetHistory(requestID)
-				// 	if history.ID == 0 {
-				// 		history.URL = e.URL
-				// 		taskLog.Warn().Str("url", testurl).Msg("Couldn't find history for XSS after sleep")
-				// 	} else {
-				// 		taskLog.Warn().Str("url", testurl).Msg("Found history for XSS after sleep")
-				// 	}
-				// }
-
 				err := proto.PageHandleJavaScriptDialog{
 					Accept: true,
 					// PromptText: "",
 				}.Call(pageWithCancel)
 				if err != nil {
-					//log.Printf("Dialog from %s was already closed when attempted to close: %s", e.URL, err)
 					taskLog.Error().Err(err).Msg("Error handling javascript dialog")
-					// return true
 				} else {
 					taskLog.Debug().Msg("PageHandleJavaScriptDialog succedded")
 				}
@@ -288,7 +258,6 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 			})()
 	}()
 
-	// navigationErr := browser.ReplayRequestInBrowser(pageWithCancel, scanRequest)
 	history, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, scanRequest, x.WorkspaceID, x.TaskID)
 
 	if navigationErr != nil {

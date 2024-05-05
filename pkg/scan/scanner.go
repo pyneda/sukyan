@@ -25,6 +25,7 @@ type TemplateScannerResult struct {
 	Payload        generation.Payload
 	InsertionPoint InsertionPoint
 	Duration       time.Duration
+	Issue          *db.Issue
 }
 
 type TemplateScanner struct {
@@ -34,6 +35,7 @@ type TemplateScanner struct {
 	WorkspaceID         uint
 	client              *http.Client
 	issuesFound         sync.Map
+	results             sync.Map
 }
 
 type TemplateScannerTask struct {
@@ -104,7 +106,7 @@ type FuzzItemOptions struct {
 }
 
 // Run starts the fuzzing job
-func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generation.PayloadGenerator, insertionPoints []InsertionPoint, options HistoryItemScanOptions) {
+func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generation.PayloadGenerator, insertionPoints []InsertionPoint, options HistoryItemScanOptions) map[db.IssueCode][]TemplateScannerResult {
 
 	var wg sync.WaitGroup
 	f.checkConfig()
@@ -143,7 +145,23 @@ func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generati
 	}
 	log.Debug().Msg("Waiting for all the template scanner tasks to finish")
 	wg.Wait()
-	log.Debug().Str("item", history.URL).Str("method", history.Method).Int("ID", int(history.ID)).Msg("Finished running template scanner against history item")
+	totalIssues := 0
+	resultsMap := make(map[db.IssueCode][]TemplateScannerResult)
+	f.results.Range(func(key, value interface{}) bool {
+		if code, ok := key.(db.IssueCode); ok {
+			if result, ok := value.(TemplateScannerResult); ok {
+				if _, exists := resultsMap[code]; !exists {
+					resultsMap[code] = make([]TemplateScannerResult, 0)
+				}
+				resultsMap[code] = append(resultsMap[code], result)
+				totalIssues++
+			}
+		}
+		return true
+	})
+	log.Info().Int("total_issues", totalIssues).Str("item", history.URL).Str("method", history.Method).Int("ID", int(history.ID)).Msg("Finished running template scanner against history item")
+
+	return resultsMap
 }
 
 // worker makes the request and processes the result
@@ -235,7 +253,13 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 				// Should handle the additional details and confidence
 				fullDetails := fmt.Sprintf("The following payload was inserted in the `%s` %s: %s\n\n%s", task.insertionPoint.Name, task.insertionPoint.Type, task.payload.Value, details)
 				// taskLog.Warn().Interface("newHistory", newHistory).Str("issue", string(issueCode)).Str("details", fullDetails).Int("confidence", confidence).Uint("wksp", f.WorkspaceID).Msg("Creating issue")
-				db.CreateIssueFromHistoryAndTemplate(newHistory, issueCode, fullDetails, confidence, "", &f.WorkspaceID, &task.options.TaskID, &task.options.TaskJobID)
+				createdIssue, err := db.CreateIssueFromHistoryAndTemplate(newHistory, issueCode, fullDetails, confidence, "", &f.WorkspaceID, &task.options.TaskID, &task.options.TaskJobID)
+				if err != nil {
+					taskLog.Error().Str("code", string(issueCode)).Interface("result", result).Err(err).Msg("Error creating issue")
+				} else if createdIssue.ID != 0 {
+					result.Issue = &createdIssue
+					f.results.Store(createdIssue.Code, result)
+				}
 				// Avoid repeated issues: could also provide a issue type `variant` and handle the insertion point
 				if f.AvoidRepeatedIssues {
 					f.issuesFound.Store(DetectedIssue{

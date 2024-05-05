@@ -37,18 +37,42 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),
 			WorkspaceID:         options.WorkspaceID,
 		}
-		scanner.Run(item, payloadGenerators, insertionPoints, options)
-
+		issues := scanner.Run(item, payloadGenerators, insertionPoints, options)
+		reflectedIssues := issues[db.ReflectedInputCode]
 		alert := AlertAudit{
 			WorkspaceID:                options.WorkspaceID,
 			TaskID:                     options.TaskID,
 			TaskJobID:                  options.TaskJobID,
 			SkipInitialAlertValidation: false,
 		}
-		alert.Run(item, insertionPoints, "default.txt", db.XssReflectedCode)
+
+		var xssInsertionPoints []scan.InsertionPoint
+		switch options.Mode {
+		case scan.ScanModeSmart:
+			// TODO: Think about a better way to decide which insertion points to use
+			for _, reflected := range reflectedIssues {
+				xssInsertionPoints = append(xssInsertionPoints, reflected.InsertionPoint)
+			}
+			if len(xssInsertionPoints) == 0 {
+				for _, insertionPoint := range insertionPoints {
+					if insertionPoint.Type != scan.InsertionPointTypeHeader && insertionPoint.Type != scan.InsertionPointTypeCookie {
+						xssInsertionPoints = append(xssInsertionPoints, insertionPoint)
+					}
+				}
+			}
+		case scan.ScanModeFast:
+			for _, reflected := range reflectedIssues {
+				xssInsertionPoints = append(xssInsertionPoints, reflected.InsertionPoint)
+			}
+		case scan.ScanModeFuzz:
+			xssInsertionPoints = insertionPoints
+		}
+		xssPayloads := payloads.GetXSSPayloads()
+		// alert.Run(item, xssInsertionPoints, "default.txt", db.XssReflectedCode)
+		alert.RunWithPayloads(item, xssInsertionPoints, xssPayloads, db.XssReflectedCode)
 
 		cstiPayloads := payloads.GetCSTIPayloads()
-		alert.RunWithPayloads(item, insertionPoints, cstiPayloads, db.CstiCode)
+		alert.RunWithPayloads(item, xssInsertionPoints, cstiPayloads, db.CstiCode)
 	}
 
 	// cspp := ClientSidePrototypePollutionAudit{

@@ -22,12 +22,13 @@ func (sm ScanMode) IsHigherOrEqual(other ScanMode) bool {
 }
 
 type HistoryItemScanOptions struct {
-	WorkspaceID     uint     `json:"workspace_id" validate:"required,min=0"`
-	TaskID          uint     `json:"task_id" validate:"required,min=0"`
-	TaskJobID       uint     `json:"task_job_id" validate:"required,min=0"`
-	Mode            ScanMode `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
-	InsertionPoints []string `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
-	FingerprintTags []string `json:"fingerprint_tags" validate:"omitempty,dive"`
+	WorkspaceID        uint     `json:"workspace_id" validate:"required,min=0"`
+	TaskID             uint     `json:"task_id" validate:"required,min=0"`
+	TaskJobID          uint     `json:"task_job_id" validate:"required,min=0"`
+	Mode               ScanMode `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
+	InsertionPoints    []string `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
+	FingerprintTags    []string `json:"fingerprint_tags" validate:"omitempty,dive"`
+	ExperimentalAudits bool     `json:"experimental_audits"`
 }
 
 func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bool {
@@ -44,16 +45,17 @@ func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bo
 }
 
 type FullScanOptions struct {
-	Title           string              `json:"title" validate:"omitempty,min=1,max=255"`
-	StartURLs       []string            `json:"start_urls" validate:"required,dive,url"`
-	MaxDepth        int                 `json:"max_depth" validate:"min=0"`
-	MaxPagesToCrawl int                 `json:"max_pages_to_crawl" validate:"min=0"`
-	ExcludePatterns []string            `json:"exclude_patterns"`
-	WorkspaceID     uint                `json:"workspace_id" validate:"required,min=0"`
-	PagesPoolSize   int                 `json:"pages_pool_size" validate:"min=1,max=100"`
-	Headers         map[string][]string `json:"headers" validate:"omitempty"`
-	InsertionPoints []string            `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
-	Mode            ScanMode            `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
+	Title              string              `json:"title" validate:"omitempty,min=1,max=255"`
+	StartURLs          []string            `json:"start_urls" validate:"required,dive,url"`
+	MaxDepth           int                 `json:"max_depth" validate:"min=0"`
+	MaxPagesToCrawl    int                 `json:"max_pages_to_crawl" validate:"min=0"`
+	ExcludePatterns    []string            `json:"exclude_patterns"`
+	WorkspaceID        uint                `json:"workspace_id" validate:"required,min=0"`
+	PagesPoolSize      int                 `json:"pages_pool_size" validate:"min=1,max=100"`
+	Headers            map[string][]string `json:"headers" validate:"omitempty"`
+	InsertionPoints    []string            `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
+	Mode               ScanMode            `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
+	ExperimentalAudits bool                `json:"experimental_audits"`
 }
 
 func GetValidInsertionPoints() []string {

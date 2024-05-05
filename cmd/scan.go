@@ -29,6 +29,7 @@ var requestsHeadersString string
 var insertionPoints []string
 var urlFile string
 var scanMode string
+var experimentalAudits bool
 
 var validate = validator.New()
 
@@ -86,16 +87,17 @@ var scanCmd = &cobra.Command{
 		log.Info().Interface("headers", headers).Msg("Parsed headers")
 
 		options := scan.FullScanOptions{
-			Title:           scanTitle,
-			StartURLs:       startURLs,
-			MaxDepth:        crawlDepth,
-			MaxPagesToCrawl: crawlMaxPages,
-			ExcludePatterns: crawlExcludePatterns,
-			WorkspaceID:     workspaceID,
-			PagesPoolSize:   pagesPoolSize,
-			Headers:         headers,
-			InsertionPoints: insertionPoints,
-			Mode:            scan.GetScanMode(scanMode),
+			Title:              scanTitle,
+			StartURLs:          startURLs,
+			MaxDepth:           crawlDepth,
+			MaxPagesToCrawl:    crawlMaxPages,
+			ExcludePatterns:    crawlExcludePatterns,
+			WorkspaceID:        workspaceID,
+			PagesPoolSize:      pagesPoolSize,
+			Headers:            headers,
+			InsertionPoints:    insertionPoints,
+			Mode:               scan.GetScanMode(scanMode),
+			ExperimentalAudits: experimentalAudits,
 		}
 		if err := validate.Struct(options); err != nil {
 			log.Error().Err(err).Msg("Validation failed")
@@ -138,10 +140,10 @@ func init() {
 	scanCmd.Flags().IntVar(&crawlMaxPages, "max-pages", 0, "Max pages to crawl")
 	scanCmd.Flags().StringArrayVar(&crawlExcludePatterns, "exclude-pattern", nil, "URL patterns to ignore when crawling")
 	scanCmd.Flags().IntVar(&crawlDepth, "depth", 5, "Max crawl depth")
-	scanCmd.Flags().StringArrayVar(&scanTests, "test", nil, "Tests to run (all by default)")
+	// scanCmd.Flags().StringArrayVar(&scanTests, "test", nil, "Tests to run (all by default)")
 	scanCmd.Flags().StringVarP(&scanTitle, "title", "t", "Scan", "Scan title")
 	scanCmd.Flags().StringVar(&requestsHeadersString, "headers", "", "Headers to use for requests")
 	scanCmd.Flags().StringVarP(&scanMode, "mode", "m", "smart", "Scan mode (fast, smart, fuzz)")
 	scanCmd.Flags().StringArrayVarP(&insertionPoints, "insertion-points", "I", scan.GetValidInsertionPoints(), "Insertion points to scan (all by default)")
-
+	scanCmd.Flags().BoolVar(&experimentalAudits, "experimental", false, "Enable experimental audits")
 }

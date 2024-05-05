@@ -148,7 +148,6 @@ func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generati
 	totalIssues := 0
 	resultsMap := make(map[string][]TemplateScannerResult)
 	f.results.Range(func(key, value interface{}) bool {
-		log.Info().Interface("key", key).Interface("value", value).Msg("Iterating over results")
 		if code, ok := key.(string); ok {
 			if result, ok := value.(TemplateScannerResult); ok {
 				if _, exists := resultsMap[code]; !exists {

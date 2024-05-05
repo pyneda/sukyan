@@ -196,11 +196,12 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 
 	db.Connection.SetTaskStatus(task.ID, db.TaskStatusScanning)
 	itemScanOptions := scan.HistoryItemScanOptions{
-		WorkspaceID:     options.WorkspaceID,
-		TaskID:          task.ID,
-		Mode:            options.Mode,
-		InsertionPoints: options.InsertionPoints,
-		FingerprintTags: fingerprintTags,
+		WorkspaceID:        options.WorkspaceID,
+		TaskID:             task.ID,
+		Mode:               options.Mode,
+		InsertionPoints:    options.InsertionPoints,
+		FingerprintTags:    fingerprintTags,
+		ExperimentalAudits: options.ExperimentalAudits,
 	}
 
 	scheduledURLPaths := make(map[string]bool)
@@ -233,11 +234,12 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 			}
 			if _, exists := scheduledURLPaths[normalizedURLPath]; exists {
 				scanOptions := scan.HistoryItemScanOptions{
-					WorkspaceID:     options.WorkspaceID,
-					TaskID:          task.ID,
-					Mode:            options.Mode,
-					InsertionPoints: lib.FilterOutString(options.InsertionPoints, "urlpath"),
-					FingerprintTags: fingerprintTags,
+					WorkspaceID:        options.WorkspaceID,
+					TaskID:             task.ID,
+					Mode:               options.Mode,
+					InsertionPoints:    lib.FilterOutString(options.InsertionPoints, "urlpath"),
+					FingerprintTags:    fingerprintTags,
+					ExperimentalAudits: options.ExperimentalAudits,
 				}
 				s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, scanOptions)
 			} else {

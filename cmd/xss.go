@@ -15,10 +15,6 @@ var targets []string
 var testParams []string
 var urlEncode bool
 
-// https://tip.golang.org/pkg/embed/
-// go  :embed "payloads.txt"
-// var payloads []byte
-
 // xssCmd represents the xss command
 var xssCmd = &cobra.Command{
 	Use:   "xss",

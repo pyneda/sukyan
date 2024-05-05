@@ -12,6 +12,10 @@ func (i IssueCode) Name() string {
 	return strings.ReplaceAll(string(i), "_", " ")
 }
 
+func (i IssueCode) String() string {
+	return string(i)
+}
+
 type IssueTemplate struct {
 	Code        IssueCode `json:"code"`
 	Title       string    `json:"title"`

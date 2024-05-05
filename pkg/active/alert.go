@@ -172,7 +172,7 @@ func (x *AlertAudit) Run(history *db.History, insertionPoints []scan.InsertionPo
 func (x *AlertAudit) testPayloadInInsertionPoint(history *db.History, insertionPoints []scan.InsertionPoint, payload string, b *rod.Browser, issueCode db.IssueCode) {
 	for _, insertionPoint := range insertionPoints {
 		if x.isDetecteLocation(history.URL, insertionPoint) {
-			log.Warn().Str("url", history.URL).Interface("insertionPoint", insertionPoint).Msg("Skipping testing reflected XSS in already detected location")
+			log.Debug().Str("url", history.URL).Interface("insertionPoint", insertionPoint).Str("check", issueCode.String()).Msg("Skipping testing for alert in already detected location")
 			continue
 		}
 		builders := []scan.InsertionPointBuilder{

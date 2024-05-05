@@ -106,7 +106,7 @@ type FuzzItemOptions struct {
 }
 
 // Run starts the fuzzing job
-func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generation.PayloadGenerator, insertionPoints []InsertionPoint, options HistoryItemScanOptions) map[db.IssueCode][]TemplateScannerResult {
+func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generation.PayloadGenerator, insertionPoints []InsertionPoint, options HistoryItemScanOptions) map[string][]TemplateScannerResult {
 
 	var wg sync.WaitGroup
 	f.checkConfig()
@@ -146,9 +146,10 @@ func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generati
 	log.Debug().Msg("Waiting for all the template scanner tasks to finish")
 	wg.Wait()
 	totalIssues := 0
-	resultsMap := make(map[db.IssueCode][]TemplateScannerResult)
+	resultsMap := make(map[string][]TemplateScannerResult)
 	f.results.Range(func(key, value interface{}) bool {
-		if code, ok := key.(db.IssueCode); ok {
+		log.Info().Interface("key", key).Interface("value", value).Msg("Iterating over results")
+		if code, ok := key.(string); ok {
 			if result, ok := value.(TemplateScannerResult); ok {
 				if _, exists := resultsMap[code]; !exists {
 					resultsMap[code] = make([]TemplateScannerResult, 0)

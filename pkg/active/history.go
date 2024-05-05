@@ -38,7 +38,8 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			WorkspaceID:         options.WorkspaceID,
 		}
 		issues := scanner.Run(item, payloadGenerators, insertionPoints, options)
-		reflectedIssues := issues[db.ReflectedInputCode]
+		reflectedIssues := issues[db.ReflectedInputCode.String()]
+		taskLog.Info().Int("reflected_input_issues", len(reflectedIssues)).Msg("Input returned in response issues detected, proceeding to client side audits")
 		alert := AlertAudit{
 			WorkspaceID:                options.WorkspaceID,
 			TaskID:                     options.TaskID,

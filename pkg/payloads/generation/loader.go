@@ -2,6 +2,7 @@ package generation
 
 import (
 	"embed"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,7 +117,7 @@ func LoadGenerators(dir string) ([]*PayloadGenerator, error) {
 		return localGenerators, nil
 	}
 	userGenerators, err := LoadUserGenerators(dir)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 	return mergeGenerators(localGenerators, userGenerators), nil

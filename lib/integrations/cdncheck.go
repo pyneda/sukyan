@@ -1,11 +1,12 @@
 package integrations
 
 import (
+	"net"
+
 	"github.com/projectdiscovery/cdncheck"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
-	"net"
 )
 
 // Utility function to build the details string
@@ -93,13 +94,13 @@ func CDNCheck(urlStr string, workspaceID, taskID uint) ([]db.Issue, error) {
 
 	ips, err := lib.GetIPFromURL(urlStr)
 	if err != nil {
-		log.Error().Err(err).Str("check", "cdncheck").Uint("workspace", workspaceID).Uint("task", taskID).Msg("Error resolving URL to IP")
+		log.Error().Err(err).Str("audit", "cdncheck").Str("url", urlStr).Uint("workspace", workspaceID).Uint("task", taskID).Msg("Error resolving URL to IP")
 		return issues, err
 	}
 
 	client := cdncheck.New()
 	for _, ip := range ips {
-		log.Debug().Str("check", "cdncheck").Uint("workspace", workspaceID).Uint("task", taskID).Msgf("Performing checks for IP: %v", ip)
+		log.Debug().Str("audit", "cdncheck").Str("url", urlStr).Uint("workspace", workspaceID).Uint("task", taskID).Msgf("Performing checks for IP: %v", ip)
 
 		issue, err := checkCDN(client, ip, urlStr, workspaceID, taskID)
 		if err == nil && !issue.IsEmpty() {
@@ -117,7 +118,7 @@ func CDNCheck(urlStr string, workspaceID, taskID uint) ([]db.Issue, error) {
 		}
 
 	}
-	log.Info().Str("check", "cdncheck").Uint("workspace", workspaceID).Uint("task", taskID).Int("issues_count", len(issues)).Msg("Finished checks")
+	log.Info().Str("audit", "cdncheck").Str("url", urlStr).Uint("workspace", workspaceID).Uint("task", taskID).Int("issues_count", len(issues)).Msg("Finished cdncheck audit")
 
 	return issues, nil
 }

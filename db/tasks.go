@@ -24,7 +24,7 @@ type Task struct {
 }
 
 func (t Task) TableHeaders() []string {
-	return []string{"ID", "Title", "Status", "StartedAt", "FinishedAt", "WorkspaceID"}
+	return []string{"ID", "Title", "Status", "StartedAt", "FinishedAt", "WorkspaceID", "Crawler Requests", "Scanner Requests"}
 }
 
 func (t Task) TableRow() []string {
@@ -35,6 +35,8 @@ func (t Task) TableRow() []string {
 		t.StartedAt.Format(time.RFC3339),
 		t.FinishedAt.Format(time.RFC3339),
 		fmt.Sprintf("%d", t.WorkspaceID),
+		fmt.Sprintf("%d", t.Stats.Requests.Crawler),
+		fmt.Sprintf("%d", t.Stats.Requests.Scanner),
 	}
 }
 
@@ -115,7 +117,7 @@ func (d *DatabaseConnection) NewTask(workspaceID uint, playgroundSessionID *uint
 }
 
 func (d *DatabaseConnection) SetTaskStatus(id uint, status string) error {
-	task, err := d.GetTaskByID(id)
+	task, err := d.GetTaskByID(id, false)
 	if err != nil {
 		return err
 	}
@@ -212,13 +214,18 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 	return items, count, nil
 }
 
-func (d *DatabaseConnection) GetTaskStats(id uint) (TaskStats, error) {
-	var stats TaskStats
-
-	task, err := d.GetTaskByID(id)
+func (d *DatabaseConnection) GetTaskStatsFromID(id uint) (TaskStats, error) {
+	task, err := d.GetTaskByID(id, false)
 	if err != nil {
-		return stats, err
+		return TaskStats{}, err
 	}
+	stats, err := d.GetTaskStats(task)
+	return stats, err
+
+}
+
+func (d *DatabaseConnection) GetTaskStats(task *Task) (TaskStats, error) {
+	var stats TaskStats
 
 	historyCounts := map[string]int64{}
 	rows, _ := d.db.Model(&History{}).Select("source, COUNT(*) as count").Where("task_id = ?", task.ID).Group("source").Rows()
@@ -266,11 +273,17 @@ func (d *DatabaseConnection) UpdateTask(id uint, task *Task) (*Task, error) {
 	return task, result.Error
 }
 
-func (d *DatabaseConnection) GetTaskByID(id uint) (*Task, error) {
+func (d *DatabaseConnection) GetTaskByID(id uint, fetchStats bool) (*Task, error) {
 	var task Task
 	if err := d.db.Where("id = ?", id).First(&task).Error; err != nil {
 		log.Error().Err(err).Interface("id", id).Msg("Unable to fetch task by ID")
 		return nil, err
+	}
+	if fetchStats {
+		stats, err := d.GetTaskStats(&task)
+		if err == nil {
+			task.Stats = stats
+		}
 	}
 	return &task, nil
 }

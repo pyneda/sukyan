@@ -116,7 +116,7 @@ var scanCmd = &cobra.Command{
 		engine.Start()
 		task, _ := engine.FullScan(options, true)
 		log.Info().Msg("Scan completed")
-		stats, err := db.Connection.GetTaskStats(uint(task.ID))
+		stats, err := db.Connection.GetTaskStatsFromID(uint(task.ID))
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get task stats")
 		} else {

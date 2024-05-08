@@ -29,7 +29,7 @@ var describeTaskCmd = &cobra.Command{
 			fmt.Println("An ID needs to be provided")
 			os.Exit(0)
 		}
-		task, err := db.Connection.GetTaskByID(uint(describeTaskID))
+		task, err := db.Connection.GetTaskByID(uint(describeTaskID), true)
 		if err != nil {
 			fmt.Println("Could not find a task with the provided ID")
 			os.Exit(0)

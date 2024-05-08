@@ -127,8 +127,8 @@ func ReplayRequestInBrowserAndCreateHistory(page *rod.Page, req *http.Request, w
 
 	err = page.Navigate(req.URL.String())
 
-	if history.ID == 0 {
-		time.Sleep(1 * time.Second)
+	if history == nil || history.ID == 0 {
+		time.Sleep(2 * time.Second)
 	}
 
 	return history, err

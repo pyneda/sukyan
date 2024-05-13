@@ -150,6 +150,7 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 	})
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error reading response body data")
+		return
 	}
 	isInResponse, _ := item.payload.MatchAgainstString(string(history.RawResponse))
 

@@ -23,6 +23,7 @@ const (
 	InsertionPointTypeBody      InsertionPointType = "body"
 	InsertionPointTypeCookie    InsertionPointType = "cookie"
 	InsertionPointTypeURLPath   InsertionPointType = "urlpath"
+	InsertionPointTypeFullBody  InsertionPointType = "fullbody"
 )
 
 type InsertionPoint struct {
@@ -31,6 +32,21 @@ type InsertionPoint struct {
 	Value        string       // the current value
 	ValueType    lib.DataType // the type of the value (string, int, float, etc.)
 	OriginalData string       // the original data (URL, header string, body, cookie string) in which this insertion point was found
+	Behaviour    InsertionPointBehaviour
+}
+
+type InsertionPointBehaviour struct {
+	// AcceptedDataTypes []lib.DataType
+	IsReflected bool
+	IsDynamic   bool
+	// Transformations   []Transformation
+}
+
+type Transformation struct {
+	From         string
+	FromDatatype lib.DataType
+	To           string
+	ToDatatype   lib.DataType
 }
 
 func (i *InsertionPoint) String() string {
@@ -284,6 +300,15 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 		return nil, err
 	}
 	points = append(points, bodyPoints...)
+	if len(bodyPoints) > 0 {
+		points = append(points, InsertionPoint{
+			Type:         InsertionPointTypeFullBody,
+			Name:         "fullbody",
+			Value:        string(history.RequestBody),
+			ValueType:    lib.GuessDataType(string(history.RequestBody)),
+			OriginalData: string(history.RequestBody),
+		})
+	}
 
 	return points, nil
 }

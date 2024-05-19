@@ -2,50 +2,119 @@ package scan
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
-	"strings"
+	"github.com/pyneda/sukyan/pkg/http_utils"
+	"github.com/rs/zerolog/log"
 )
 
-func analyzeInsertionPoints(item *db.History, insertionPoints []InsertionPoint) {
-	var base64Data []InsertionPoint
-	var base32Data []InsertionPoint
-	var base36Data []InsertionPoint
-	var taskJobID uint
-	for _, insertionPoint := range insertionPoints {
-		if insertionPoint.ValueType == lib.TypeBase64 {
-			base64Data = append(base64Data, insertionPoint)
-			// NOTE: If at some time, we have a way to tell the scanner checks to encode payloads,
-			// we could check which data type is the decoded data, find insertion points and instruct
-			// the scanner checks to base64 encode the original insertion point data.
-		} else if insertionPoint.ValueType == lib.TypeBase32 {
-			base32Data = append(base32Data, insertionPoint)
-		} else if insertionPoint.ValueType == lib.TypeBase36 {
-			base36Data = append(base36Data, insertionPoint)
-		}
+type responseFingerprint struct {
+	statusCode     int
+	bodyLength     int
+	bodyWordsCount int
+}
 
-	}
+type InsertionPointAnalysisOptions struct {
+	HistoryCreateOptions http_utils.HistoryCreationOptions
+}
 
-	if len(base64Data) > 0 {
-		var sb strings.Builder
-		for _, point := range base64Data {
-			sb.WriteString(fmt.Sprintf("Found Base64 encoded data in a %s named '%s'. The current value is '%s'.\n", point.Type, point.Name, point.Value))
-		}
-		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID, item.TaskID, &taskJobID)
+func GetAndAnalyzeInsertionPoints(item *db.History, scoped []string, options InsertionPointAnalysisOptions) ([]InsertionPoint, error) {
+	insertionPoints, err := GetInsertionPoints(item, scoped)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get insertion points")
+		return insertionPoints, err
 	}
-	if len(base32Data) > 0 {
-		var sb strings.Builder
-		for _, point := range base64Data {
-			sb.WriteString(fmt.Sprintf("Found Base32 encoded data in a %s named '%s'. The current value is '%s'.\n", point.Type, point.Name, point.Value))
-		}
-		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID, item.TaskID, &taskJobID)
+	return AnalyzeInsertionPoints(item, insertionPoints, options), nil
+}
+
+// AnalyzeInsertionPoints by now just checks for reflection (which was already done by templates) and checks in a really simple way if an insertion point is dynamic. In a future it should be improved to also analyze different kinds of accepted inputs, transformations and other interesting behaviors
+func AnalyzeInsertionPoints(item *db.History, insertionPoints []InsertionPoint, options InsertionPointAnalysisOptions) []InsertionPoint {
+	client := http_utils.CreateHttpClient()
+	seenDataTypes := make(map[lib.DataType]bool)
+	seenResponseFingerprints := make(map[responseFingerprint]int)
+	originalFingerprint := responseFingerprint{
+		statusCode:     item.StatusCode,
+		bodyLength:     len(item.ResponseBody),
+		bodyWordsCount: len(strings.Fields(string(item.ResponseBody))),
 	}
 
-	if len(base36Data) > 0 {
-		var sb strings.Builder
-		for _, point := range base64Data {
-			sb.WriteString(fmt.Sprintf("Found Base36 encoded data in a %s named '%s'. The current value is '%s'.\n", point.Type, point.Name, point.Value))
+	for i := range insertionPoints {
+		insertionPoint := &insertionPoints[i]
+		originalDataType := lib.GuessDataType(insertionPoint.OriginalData)
+		seenDataTypes[originalDataType] = true
+		payload := lib.GenerateRandomLowercaseString(6)
+		h, fg, err := insertionPointCheck(item, insertionPoint, payload, client, options)
+		seenResponseFingerprints[fg]++
+		if fg != originalFingerprint && fg.statusCode > 0 {
+			insertionPoint.Behaviour.IsDynamic = true
 		}
-		db.CreateIssueFromHistoryAndTemplate(item, db.Base64EncodedDataInParameterCode, sb.String(), 90, "", item.WorkspaceID, item.TaskID, &taskJobID)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to check insertion point")
+		} else if h != nil {
+			// log.Info().Msg("Reflection detected")
+			body := string(h.ResponseBody)
+			if strings.Contains(body, payload) {
+				insertionPoint.Behaviour.IsReflected = true
+			}
+		}
+
+		if !insertionPoint.Behaviour.IsDynamic {
+			basicPayloads := []string{
+				fmt.Sprint(lib.GenerateRandInt(10, 10000)),
+				"//",
+				"null",
+				"true",
+				"undefined",
+				`${{<%[%'"}}%\.\`,
+				`:/*!--></>"+`,
+				`'-- `,
+			}
+			for _, p := range basicPayloads {
+				_, fg, err := insertionPointCheck(item, insertionPoint, p, client, options)
+				seenResponseFingerprints[fg]++
+				if fg != originalFingerprint && fg.statusCode > 0 {
+					insertionPoint.Behaviour.IsDynamic = true
+					// NOTE: Since only checking if it's dynamic and not checking other behaviors, by now here we can just assume it's dynamic and return
+					break
+				}
+				if err != nil {
+					continue
+				}
+			}
+		}
 	}
+	return insertionPoints
+}
+
+func insertionPointCheck(item *db.History, insertionPoint *InsertionPoint, payload string, httpClient *http.Client, options InsertionPointAnalysisOptions) (*db.History, responseFingerprint, error) {
+	builders := []InsertionPointBuilder{
+		{
+			Point:   *insertionPoint,
+			Payload: payload,
+		},
+	}
+	req, err := CreateRequestFromInsertionPoints(item, builders)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create request from insertion points")
+		return nil, responseFingerprint{}, err
+	}
+	response, err := httpClient.Do(req)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to send request")
+		return nil, responseFingerprint{}, err
+	}
+
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, options.HistoryCreateOptions)
+	if err != nil {
+		return nil, responseFingerprint{}, err
+	}
+	fg := responseFingerprint{
+		statusCode:     history.StatusCode,
+		bodyLength:     len(history.ResponseBody),
+		bodyWordsCount: len(strings.Fields(string(history.ResponseBody))),
+	}
+	return history, fg, nil
 }

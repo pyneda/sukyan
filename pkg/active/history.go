@@ -3,6 +3,7 @@ package active
 import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
@@ -20,26 +21,68 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		TaskID:      options.TaskID,
 		TaskJobID:   options.TaskJobID,
 	}
+	historyCreateOptions := http_utils.HistoryCreationOptions{
+		Source:              db.SourceScanner,
+		WorkspaceID:         options.WorkspaceID,
+		TaskID:              options.TaskID,
+		CreateNewBodyStream: true,
+		TaskJobID:           options.TaskJobID,
+	}
 	if item.StatusCode == 401 || item.StatusCode == 403 {
 		ForbiddenBypassScan(item, activeOptions)
 	}
 
-	insertionPoints, err := scan.GetInsertionPoints(item, options.InsertionPoints)
+	insertionPoints, err := scan.GetAndAnalyzeInsertionPoints(item, options.InsertionPoints, scan.InsertionPointAnalysisOptions{HistoryCreateOptions: historyCreateOptions})
 	taskLog.Debug().Interface("insertionPoints", insertionPoints).Msg("Insertion points")
 	if err != nil {
 		taskLog.Error().Err(err).Msg("Could not get insertion points")
 	}
 
 	if len(insertionPoints) > 0 {
+		var insertionPointsToAudit []scan.InsertionPoint
+		var xssInsertionPoints []scan.InsertionPoint
+		switch options.Mode {
+		case scan.ScanModeSmart:
+			for _, insertionPoint := range insertionPoints {
+				if insertionPoint.Behaviour.IsDynamic {
+					insertionPointsToAudit = append(insertionPointsToAudit, insertionPoint)
+				}
+
+				if insertionPoint.Behaviour.IsReflected {
+					xssInsertionPoints = append(xssInsertionPoints, insertionPoint)
+					// TODO: Think about a better way to decide which insertion points to use here
+				} else if len(xssInsertionPoints) == 0 && insertionPoint.Behaviour.IsDynamic && insertionPoint.Type != scan.InsertionPointTypeHeader && insertionPoint.Type != scan.InsertionPointTypeCookie {
+					xssInsertionPoints = append(insertionPointsToAudit, insertionPoint)
+				}
+			}
+		case scan.ScanModeFast:
+			for _, insertionPoint := range insertionPoints {
+				if insertionPoint.Behaviour.IsDynamic {
+					insertionPointsToAudit = append(insertionPointsToAudit, insertionPoint)
+				}
+
+				if insertionPoint.Behaviour.IsReflected {
+					xssInsertionPoints = append(xssInsertionPoints, insertionPoint)
+				}
+			}
+
+		case scan.ScanModeFuzz:
+			insertionPointsToAudit = insertionPoints
+			xssInsertionPoints = insertionPoints
+		}
+
 		scanner := scan.TemplateScanner{
 			Concurrency:         10,
 			InteractionsManager: interactionsManager,
 			AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),
 			WorkspaceID:         options.WorkspaceID,
 		}
-		issues := scanner.Run(item, payloadGenerators, insertionPoints, options)
-		reflectedIssues := issues[db.ReflectedInputCode.String()]
-		taskLog.Info().Int("reflected_input_issues", len(reflectedIssues)).Msg("Input returned in response issues detected, proceeding to client side audits")
+		scanner.Run(item, payloadGenerators, insertionPointsToAudit, options)
+		// reflectedIssues := issues[db.ReflectedInputCode.String()]
+		// if len(issues) == 0 {
+		// 	taskLog.Info().Int("issues", len(issues)).Msg("Issues detected using template scanner, proceeding to client side audits")
+		// }
+		// taskLog.Info().Int("reflected_input_issues", len(reflectedIssues)).Msg("Input returned in response issues detected, proceeding to client side audits")
 		alert := AlertAudit{
 			WorkspaceID:                options.WorkspaceID,
 			TaskID:                     options.TaskID,
@@ -47,29 +90,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			SkipInitialAlertValidation: false,
 		}
 
-		var xssInsertionPoints []scan.InsertionPoint
-		switch options.Mode {
-		case scan.ScanModeSmart:
-			// TODO: Think about a better way to decide which insertion points to use
-			for _, reflected := range reflectedIssues {
-				xssInsertionPoints = append(xssInsertionPoints, reflected.InsertionPoint)
-			}
-			if len(xssInsertionPoints) == 0 {
-				for _, insertionPoint := range insertionPoints {
-					if insertionPoint.Type != scan.InsertionPointTypeHeader && insertionPoint.Type != scan.InsertionPointTypeCookie {
-						xssInsertionPoints = append(xssInsertionPoints, insertionPoint)
-					}
-				}
-			}
-		case scan.ScanModeFast:
-			for _, reflected := range reflectedIssues {
-				xssInsertionPoints = append(xssInsertionPoints, reflected.InsertionPoint)
-			}
-		case scan.ScanModeFuzz:
-			xssInsertionPoints = insertionPoints
-		}
 		xssPayloads := payloads.GetXSSPayloads()
-		// alert.Run(item, xssInsertionPoints, "default.txt", db.XssReflectedCode)
 		alert.RunWithPayloads(item, xssInsertionPoints, xssPayloads, db.XssReflectedCode)
 
 		cstiPayloads := payloads.GetCSTIPayloads()
@@ -85,33 +106,6 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		}
 		cspp.Run()
 	}
-
-	// var specificParamsToTest []string
-	// // NOTE: This should be deprecated
-	// p := web.WebPage{URL: item.URL}
-	// hasParams, _ := p.HasParameters()
-	// if hasParams && options.IsScopedInsertionPoint("parameters") {
-	// 	// TestXSS(item.URL, specificParamsToTest, "default.txt", false)
-	// 	// log.Warn().Msg("Starting XSS Audit")
-	// 	// xss := XSSAudit{
-	// 	// 	WorkspaceID: options.WorkspaceID,
-	// 	// 	TaskID:      options.TaskID,
-	// 	// 	TaskJobID:   options.TaskJobID,
-	// 	// }
-	// 	// xss.Run(item.URL, specificParamsToTest, "default.txt", false)
-	// 	// log.Warn().Msg("Completed XSS Audit")
-
-	// 	// pathTraversal := PathTraversalAudit{
-	// 	// 	URL:              item.URL,
-	// 	// 	Params:           specificParamsToTest,
-	// 	// 	Concurrency:      20,
-	// 	// 	PayloadsDepth:    5,
-	// 	// 	Platform:         "all",
-	// 	// 	StopAfterSuccess: false,
-	// 	// }
-	// 	// pathTraversal.Run()
-	// }
-
 	if options.IsScopedInsertionPoint("headers") {
 		log4shell := Log4ShellInjectionAudit{
 			URL:                 item.URL,

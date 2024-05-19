@@ -88,6 +88,7 @@ type HistoryCreationOptions struct {
 	TaskID              uint
 	CreateNewBodyStream bool
 	PlaygroundSessionID uint
+	TaskJobID           uint
 }
 
 func ReadHttpResponseAndCreateHistory(response *http.Response, options HistoryCreationOptions) (*db.History, error) {
@@ -156,6 +157,7 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		RawResponse:         responseData.Raw,
 		WorkspaceID:         &options.WorkspaceID,
 		TaskID:              &options.TaskID,
+		// TaskJobID:           &options.TaskJobID,
 		PlaygroundSessionID: playgroundSessionID,
 		Proto:               response.Proto,
 	}

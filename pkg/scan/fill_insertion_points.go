@@ -197,13 +197,20 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 			}
 		case InsertionPointTypeBody:
 			bodyBuilders = append(bodyBuilders, builder)
+		// case InsertionPointTypeFullBody:
+		// 	requestBody = strings.NewReader(builder.Payload)
+		case InsertionPointTypeFullBody:
+			requestBody = strings.NewReader(builder.Payload)
 
 		default:
 			return nil, fmt.Errorf("unsupported insertion point type: %s", builder.Point.Type)
 		}
 	}
 
-	requestBody, contentType, _ = createRequestFromBody(history, bodyBuilders)
+	if requestBody == nil {
+		requestBody, contentType, _ = createRequestFromBody(history, bodyBuilders)
+	}
+
 	// if err != nil {
 	// 	return nil, err
 	// }

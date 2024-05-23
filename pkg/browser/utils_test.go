@@ -71,7 +71,7 @@ func TestReplayRequestInBrowserAndCreateHistory(t *testing.T) {
 	defer server.Close()
 	// Test 1: POST request that triggers redirection
 	postReq, _ := http.NewRequest("POST", server.URL, bytes.NewBufferString("trigger bingo"))
-	history, err := ReplayRequestInBrowserAndCreateHistory(page, postReq, 0, 0)
+	history, err := ReplayRequestInBrowserAndCreateHistory(page, postReq, 0, 0, "Testing ReplayRequestInBrowserAndCreateHistory")
 	assert.Nil(t, err)
 	assert.Equal(t, "bingo", page.MustElement("body").MustText())
 	assert.Equal(t, history.Method, "POST")
@@ -80,14 +80,14 @@ func TestReplayRequestInBrowserAndCreateHistory(t *testing.T) {
 
 	// Test 2: Normal POST request
 	normalPostReq, _ := http.NewRequest("POST", server.URL, bytes.NewBufferString("normal post"))
-	history, err = ReplayRequestInBrowserAndCreateHistory(page, normalPostReq, 0, 0)
+	history, err = ReplayRequestInBrowserAndCreateHistory(page, normalPostReq, 0, 0, "Testing ReplayRequestInBrowserAndCreateHistory")
 	assert.Nil(t, err)
 	assert.Equal(t, "received a POST request", page.MustElement("body").MustText())
 	assert.Equal(t, history.Method, "POST")
 
 	// Test 3: GET request
 	getReq, _ := http.NewRequest("GET", server.URL, nil)
-	history, err = ReplayRequestInBrowserAndCreateHistory(page, getReq, 0, 0)
+	history, err = ReplayRequestInBrowserAndCreateHistory(page, getReq, 0, 0, "Testing ReplayRequestInBrowserAndCreateHistory")
 	assert.Nil(t, err)
 	assert.Equal(t, "received a GET request", page.MustElement("body").MustText())
 	assert.Equal(t, history.Method, "GET")
@@ -95,7 +95,7 @@ func TestReplayRequestInBrowserAndCreateHistory(t *testing.T) {
 
 	// Test 4: PUT request
 	putReq, _ := http.NewRequest(http.MethodPut, server.URL, nil)
-	history, err = ReplayRequestInBrowserAndCreateHistory(page, putReq, 0, 0)
+	history, err = ReplayRequestInBrowserAndCreateHistory(page, putReq, 0, 0, "Testing ReplayRequestInBrowserAndCreateHistory")
 	assert.Nil(t, err)
 	assert.Equal(t, "received a PUT request", page.MustElement("body").MustText())
 	assert.Equal(t, history.Method, "PUT")

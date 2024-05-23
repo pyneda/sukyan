@@ -64,7 +64,8 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 		taskLog.Error().Err(err).Msg("Failed to create request from history item")
 		return hasAlert
 	}
-	_, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, request, x.WorkspaceID, x.TaskID)
+	note := "This request has been replayed in browser without payloads to avoid FPs by ensuring that it does not trigger an alert dialog"
+	_, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, request, x.WorkspaceID, x.TaskID, note)
 	if navigationErr != nil {
 		taskLog.Error().Msg("Navigation error")
 	}
@@ -258,7 +259,11 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 			})()
 	}()
 
-	history, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, scanRequest, x.WorkspaceID, x.TaskID)
+	note := fmt.Sprintf(
+		"Replaying request in browser to test for  %s\nInsertion point: %s\nType: %s\nOriginal data: %s\nCurrent value: %s\nPayload: %s",
+		issueCode, insertionPoint.Name, insertionPoint.Type, insertionPoint.OriginalData, insertionPoint.Value, payload,
+	)
+	history, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, scanRequest, x.WorkspaceID, x.TaskID, note)
 
 	if navigationErr != nil {
 		taskLog.Error().Str("url", testurl).Msg("Navigation error")

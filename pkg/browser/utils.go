@@ -71,10 +71,14 @@ func ReplayRequestInBrowser(page *rod.Page, req *http.Request) error {
 	return page.Navigate(req.URL.String())
 }
 
-func ReplayRequestInBrowserAndCreateHistory(page *rod.Page, req *http.Request, workspaceID, taskID uint) (history *db.History, err error) {
+func ReplayRequestInBrowserAndCreateHistory(page *rod.Page, req *http.Request, workspaceID, taskID uint, note string) (history *db.History, err error) {
+
 	router := page.HijackRequests()
 	defer router.Stop()
 	requestHandled := false
+	if note == "" {
+		note = "Create history from replay in browser"
+	}
 
 	router.MustAdd("*", func(ctx *rod.Hijack) {
 		// https://github.com/go-rod/rod/blob/4c4ccbecdd8110a434de73de08bdbb72e8c47cb0/examples_test.go#L473-L477
@@ -114,7 +118,7 @@ func ReplayRequestInBrowserAndCreateHistory(page *rod.Page, req *http.Request, w
 		if err != nil {
 			log.Error().Err(err).Msg("Error loading hijacked response in replay function")
 		}
-		history = CreateHistoryFromHijack(ctx.Request, ctx.Response, db.SourceScanner, "Create history from replay in browser", workspaceID, taskID)
+		history = CreateHistoryFromHijack(ctx.Request, ctx.Response, db.SourceScanner, note, workspaceID, taskID)
 		// NOTE: This shouldn't be necessary, but it seems that the body is not being set on the history object when replaying the request
 		// if history.RequestBody == nil && len(reqBody) > 0 {
 		// 	history.RequestBody = reqBody

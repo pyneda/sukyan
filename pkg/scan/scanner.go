@@ -412,7 +412,7 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 			attempts := 8
 			finalConfidence := m.Confidence
 			confidenceIncrement := 20
-			confidenceDecrement := 25
+			confidenceDecrement := 40
 			originalTrueCount := 0
 			payloadTrueCount := 0
 			sb.WriteString(fmt.Sprintf("Response took %s, which is greater than the sleep time injected in the payload of %s\n\n", result.Duration, m.Sleep))

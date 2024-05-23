@@ -26,7 +26,7 @@ func HttpVersionsScan(history *db.History, options ActiveModuleOptions) (HttpVer
 		details := fmt.Sprintf("The server responded to an HTTP/2 request with status code %d", http2History.StatusCode)
 		db.CreateIssueFromHistoryAndTemplate(history, db.Http2DetectedCode, details, 90, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
 	} else if err != nil {
-		auditLog.Error().Err(err).Msg("Failed to send HTTP/2 request")
+		auditLog.Debug().Err(err).Msg("Failed to send HTTP/2 request")
 	}
 
 	http3Client := http_utils.CreateHttp3Client()
@@ -37,7 +37,7 @@ func HttpVersionsScan(history *db.History, options ActiveModuleOptions) (HttpVer
 		details := fmt.Sprintf("The server responded to an HTTP/3 request with status code %d", http3History.StatusCode)
 		db.CreateIssueFromHistoryAndTemplate(history, db.Http3DetectedCode, details, 90, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
 	} else if err != nil {
-		auditLog.Error().Err(err).Msg("Failed to send HTTP/3 request")
+		auditLog.Debug().Err(err).Msg("Failed to send HTTP/3 request")
 	}
 
 	return results, nil

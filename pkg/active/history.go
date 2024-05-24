@@ -20,6 +20,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		WorkspaceID: options.WorkspaceID,
 		TaskID:      options.TaskID,
 		TaskJobID:   options.TaskJobID,
+		ScanMode:    options.Mode,
 	}
 	historyCreateOptions := http_utils.HistoryCreationOptions{
 		Source:              db.SourceScanner,
@@ -106,6 +107,11 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		}
 		cspp.Run()
 	}
+
+	if item.StatusCode >= 300 || item.StatusCode < 400 {
+		OpenRedirectScan(item, activeOptions, insertionPoints)
+	}
+
 	if options.IsScopedInsertionPoint("headers") {
 		log4shell := Log4ShellInjectionAudit{
 			URL:                 item.URL,

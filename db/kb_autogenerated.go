@@ -533,7 +533,7 @@ var issueTemplates = []IssueTemplate{
 	},
 	{
 		Code:        OpenRedirectCode,
-		Title:       "Open Redirect Detected",
+		Title:       "Open Redirect",
 		Description: "The application appears to be vulnerable to open redirect attacks. This vulnerability occurs when an application accepts untrusted input that can cause the web application to redirect the request to a URL contained within untrusted input. This can be used in phishing attacks to redirect users to malicious sites.",
 		Remediation: "Ensure that all redirection URLs are validated against a white-list of trusted URLs. Avoid using user-supplied input to determine the destination of redirection without validation. If user input is utilized, ensure it is properly sanitized and validated against expected inputs.",
 		Cwe:         601,

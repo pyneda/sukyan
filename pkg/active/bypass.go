@@ -2,14 +2,16 @@ package active
 
 import (
 	"fmt"
-	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/sourcegraph/conc/pool"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/http_utils"
+	"github.com/pyneda/sukyan/pkg/scan"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/sourcegraph/conc/pool"
 )
 
 type ActiveModuleOptions struct {
@@ -17,6 +19,7 @@ type ActiveModuleOptions struct {
 	TaskID      uint
 	TaskJobID   uint
 	Concurrency int
+	ScanMode    scan.ScanMode
 }
 
 type HeaderTest struct {

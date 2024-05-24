@@ -73,6 +73,11 @@ func (f *TemplateScanner) shouldLaunch(history *db.History, generator *generatio
 		case generation.Platform:
 			if lib.SliceContains(options.FingerprintTags, condition.Value) {
 				conditionsMet++
+			} else {
+				platform := ParsePlatform(condition.Value)
+				if platform.MatchesAnyFingerprint(options.Fingerprints) {
+					conditionsMet++
+				}
 			}
 
 		case generation.ScanMode:
@@ -82,6 +87,11 @@ func (f *TemplateScanner) shouldLaunch(history *db.History, generator *generatio
 
 		case generation.ParameterValueDataType:
 			if condition.Value == string(insertionPoint.ValueType) {
+				conditionsMet++
+			}
+
+		case generation.ParameterName:
+			if lib.SliceContains(condition.ParameterNames, insertionPoint.Name) {
 				conditionsMet++
 			}
 
@@ -140,7 +150,7 @@ func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generati
 					pendingTasks <- task
 				}
 			} else {
-				log.Debug().Str("item", history.URL).Str("method", history.Method).Int("ID", int(history.ID)).Str("insertion_point", insertionPoint.String()).Msgf("Skipping generator %s as it does not meet the launch conditions", generator.ID)
+				log.Debug().Str("item", history.URL).Str("method", history.Method).Int("ID", int(history.ID)).Str("generator", generator.ID).Str("insertion_point", insertionPoint.String()).Msg("Skipping generator as it does not meet the launch conditions")
 			}
 		}
 	}

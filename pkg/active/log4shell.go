@@ -2,15 +2,17 @@ package active
 
 import (
 	"fmt"
+	"net/http"
+	"sync"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
+	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/rs/zerolog/log"
-	"net/http"
-	"sync"
 )
 
 // Log4ShellInjectionAudit configuration
@@ -24,6 +26,7 @@ type Log4ShellInjectionAudit struct {
 	WorkspaceID         uint
 	TaskID              uint
 	TaskJobID           uint
+	Mode                scan.ScanMode
 }
 
 type log4ShellAuditItem struct {

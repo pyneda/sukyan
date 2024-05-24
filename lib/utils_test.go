@@ -168,3 +168,25 @@ func TestBytesCountToHumanReadable(t *testing.T) {
 		}
 	}
 }
+
+func TestSlicesIntersect(t *testing.T) {
+	tests := []struct {
+		slice1   []string
+		slice2   []string
+		expected bool
+	}{
+		{[]string{"a", "b", "c"}, []string{"d", "e", "f"}, false},
+		{[]string{"a", "b", "c"}, []string{"b", "e", "f"}, true},
+		{[]string{"a", "b", "c"}, []string{"a", "b", "c"}, true},
+		{[]string{"a", "b", "c"}, []string{}, false},
+		{[]string{}, []string{"a", "b", "c"}, false},
+		{[]string{}, []string{}, false},
+	}
+
+	for _, test := range tests {
+		result := SlicesIntersect(test.slice1, test.slice2)
+		if result != test.expected {
+			t.Errorf("SlicesIntersect(%v, %v) = %v; want %v", test.slice1, test.slice2, result, test.expected)
+		}
+	}
+}

@@ -1,5 +1,5 @@
 code: open_redirect
-title: Open Redirect Detected
+title: Open Redirect
 description:
   The application appears to be vulnerable to open redirect attacks. This vulnerability
   occurs when an application accepts untrusted input that can cause the web application

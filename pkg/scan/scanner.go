@@ -120,7 +120,7 @@ func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generati
 	}
 
 	for _, insertionPoint := range insertionPoints {
-		log.Debug().Str("item", history.URL).Str("method", history.Method).Int("ID", int(history.ID)).Msgf("Scanning insertion point: %s", insertionPoint)
+		log.Debug().Str("item", history.URL).Str("method", history.Method).Str("point", insertionPoint.String()).Int("ID", int(history.ID)).Msg("Scanning insertion point")
 		for _, generator := range payloadGenerators {
 			if f.shouldLaunch(history, generator, insertionPoint, options) {
 				payloads, err := generator.BuildPayloads(*f.InteractionsManager)

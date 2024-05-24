@@ -110,6 +110,16 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 
 	if item.StatusCode >= 300 || item.StatusCode < 400 {
 		OpenRedirectScan(item, activeOptions, insertionPoints)
+	} else {
+		var openRedirectInsertionPoints []scan.InsertionPoint
+		for _, insertionPoint := range insertionPoints {
+			if scan.IsCommonOpenRedirectParameter(insertionPoint.Name) {
+				openRedirectInsertionPoints = append(openRedirectInsertionPoints, insertionPoint)
+			}
+		}
+		if len(openRedirectInsertionPoints) > 0 {
+			OpenRedirectScan(item, activeOptions, openRedirectInsertionPoints)
+		}
 	}
 
 	if options.IsScopedInsertionPoint("headers") {

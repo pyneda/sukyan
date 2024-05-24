@@ -20,6 +20,7 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 		"https://" + openRedirecTestDomain,
 		"//" + openRedirecTestDomain,
 		"https%3A%2F%2F" + openRedirecTestDomain,
+		"//%5c" + openRedirecTestDomain,
 	}
 
 	scanInsertionPoints := []scan.InsertionPoint{}
@@ -27,7 +28,7 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 
 	case scan.ScanModeFuzz:
 		scanInsertionPoints = insertionPoints
-		return false, nil
+
 	default:
 		headers, err := history.GetResponseHeadersAsMap()
 		if err != nil {
@@ -35,15 +36,10 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 			return false, err
 		}
 		locations := headers["Location"]
-		if len(locations) == 0 {
-			auditLog.Info().Msg("Testing all insertion points for open redirect as no Location header was found")
-			scanInsertionPoints = append(scanInsertionPoints, insertionPoints...)
-		} else {
-			for _, insertionPoint := range insertionPoints {
-				if lib.SliceContains(locations, insertionPoint.Value) || lib.SliceContains(locations, insertionPoint.OriginalData) || insertionPoint.ValueType == lib.TypeURL {
-					auditLog.Info().Str("insertionPoint", insertionPoint.Value).Msg("Found an interesting insertion point to test for open redirect")
-					scanInsertionPoints = append(scanInsertionPoints, insertionPoint)
-				}
+		for _, insertionPoint := range insertionPoints {
+			if lib.SliceContains(locations, insertionPoint.Value) || lib.SliceContains(locations, insertionPoint.OriginalData) || scan.IsCommonOpenRedirectParameter(insertionPoint.Name) || insertionPoint.ValueType == lib.TypeURL {
+				auditLog.Info().Str("insertionPoint", insertionPoint.Value).Msg("Found an interesting insertion point to test for open redirect")
+				scanInsertionPoints = append(scanInsertionPoints, insertionPoint)
 			}
 		}
 

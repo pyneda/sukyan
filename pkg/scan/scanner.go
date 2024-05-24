@@ -33,6 +33,7 @@ type TemplateScanner struct {
 	InteractionsManager *integrations.InteractionsManager
 	AvoidRepeatedIssues bool
 	WorkspaceID         uint
+	Mode                ScanMode
 	client              *http.Client
 	issuesFound         sync.Map
 	results             sync.Map

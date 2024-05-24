@@ -11,12 +11,14 @@ import (
 	"github.com/spf13/viper"
 )
 
+const historyItemModulesConcurrency = 10
+
 func ScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options scan.HistoryItemScanOptions) {
 	taskLog := log.With().Uint("workspace", options.WorkspaceID).Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
 	taskLog.Info().Msg("Starting to scan history item")
 
 	activeOptions := ActiveModuleOptions{
-		Concurrency: 10,
+		Concurrency: historyItemModulesConcurrency,
 		WorkspaceID: options.WorkspaceID,
 		TaskID:      options.TaskID,
 		TaskJobID:   options.TaskJobID,
@@ -73,10 +75,11 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		}
 
 		scanner := scan.TemplateScanner{
-			Concurrency:         10,
+			Concurrency:         historyItemModulesConcurrency,
 			InteractionsManager: interactionsManager,
 			AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),
 			WorkspaceID:         options.WorkspaceID,
+			Mode:                options.Mode,
 		}
 		scanner.Run(item, payloadGenerators, insertionPointsToAudit, options)
 		// reflectedIssues := issues[db.ReflectedInputCode.String()]
@@ -122,10 +125,10 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		}
 	}
 
-	if options.IsScopedInsertionPoint("headers") {
+	if options.Mode == scan.ScanModeFuzz || scan.PlatformJava.MatchesAnyFingerprint(options.Fingerprints) {
 		log4shell := Log4ShellInjectionAudit{
 			URL:                 item.URL,
-			Concurrency:         10,
+			Concurrency:         historyItemModulesConcurrency,
 			InteractionsManager: interactionsManager,
 			WorkspaceID:         options.WorkspaceID,
 			TaskID:              options.TaskID,
@@ -133,9 +136,10 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		}
 		log4shell.Run()
 	}
+
 	hostHeader := HostHeaderInjectionAudit{
 		URL:         item.URL,
-		Concurrency: 10,
+		Concurrency: historyItemModulesConcurrency,
 		WorkspaceID: options.WorkspaceID,
 		TaskID:      options.TaskID,
 		TaskJobID:   options.TaskJobID,

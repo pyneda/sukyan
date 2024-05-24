@@ -2,9 +2,10 @@ package generation
 
 import (
 	"encoding/json"
+	"strings"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
-	"strings"
 )
 
 type LaunchConditionType string
@@ -13,6 +14,7 @@ const (
 	Platform               LaunchConditionType = "platform"
 	ScanMode               LaunchConditionType = "scan_mode"
 	ParameterValueDataType LaunchConditionType = "parameter_value_data_type"
+	InsertionPointname     LaunchConditionType = "insertion_point_name"
 	ResponseCondition      LaunchConditionType = "response_condition"
 )
 

@@ -181,3 +181,19 @@ func ReadFileByLines(filename string) ([]string, error) {
 
 	return urls, nil
 }
+
+// SlicesIntersect checks if any element of the first slice is present in the second slice.
+func SlicesIntersect(slice1, slice2 []string) bool {
+	set := make(map[string]struct{}, len(slice2))
+	for _, item := range slice2 {
+		set[item] = struct{}{}
+	}
+
+	for _, item := range slice1 {
+		if _, ok := set[item]; ok {
+			return true
+		}
+	}
+
+	return false
+}

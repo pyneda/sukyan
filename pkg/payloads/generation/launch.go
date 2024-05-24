@@ -14,7 +14,7 @@ const (
 	Platform               LaunchConditionType = "platform"
 	ScanMode               LaunchConditionType = "scan_mode"
 	ParameterValueDataType LaunchConditionType = "parameter_value_data_type"
-	InsertionPointname     LaunchConditionType = "insertion_point_name"
+	ParameterName          LaunchConditionType = "insertion_point_name"
 	ResponseCondition      LaunchConditionType = "response_condition"
 )
 
@@ -22,6 +22,7 @@ type LaunchCondition struct {
 	Type              LaunchConditionType               `yaml:"type"`
 	Value             string                            `yaml:"value,omitempty"`
 	ResponseCondition *ResponseConditionLaunchCondition `yaml:"response_condition,omitempty"`
+	ParameterNames    []string                          `yaml:"parameter_names,omitempty"`
 }
 
 type ResponseConditionLaunchCondition struct {

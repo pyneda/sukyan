@@ -14,6 +14,19 @@ const (
 	PlatformNode Platform = "node"
 )
 
+func ParsePlatform(platform string) Platform {
+	switch strings.ToLower(platform) {
+	case "java":
+		return PlatformJava
+	case "php":
+		return PlatformPhp
+	case "node":
+		return PlatformNode
+	default:
+		return ""
+	}
+}
+
 func (p Platform) String() string {
 	return string(p)
 }

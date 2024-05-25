@@ -2,10 +2,11 @@ package db
 
 import (
 	"database/sql"
-	"github.com/spf13/viper"
 	stdlog "log"
 	"os"
 	"time"
+
+	"github.com/spf13/viper"
 
 	"github.com/rs/zerolog/log"
 	"gorm.io/driver/postgres"
@@ -71,7 +72,7 @@ func InitDb() *DatabaseConnection {
 	}
 
 	if err := db.AutoMigrate(&PlaygroundCollection{}, &PlaygroundSession{}); err != nil {
-		log.Error().Err(err).Msg("Failed to migrate Issue table")
+		log.Error().Err(err).Msg("Failed to migrate PlaygroundCollection or PlaygroundSession table")
 		os.Exit(1)
 	}
 	sqlDB, err := db.DB()

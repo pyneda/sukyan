@@ -36,6 +36,10 @@ func SetDefaultConfig() {
 	viper.SetDefault("logging.file.path", "sukyan.log")
 	viper.SetDefault("logging.file.level", "info")
 
+	// Database
+	viper.SetDefault("db.max_iddle_conns", 10)
+	viper.SetDefault("db.max_open_conns", 80)
+
 	// Storage
 	viper.SetDefault("history.responses.ignored.max_size", 5*1024*1024)
 	viper.SetDefault("history.responses.ignored.extensions", []string{".jpg", ".jpeg", ".webp", ".png", ".gif", ".ico", ".mp4", ".mov", ".avi"})

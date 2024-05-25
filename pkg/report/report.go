@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/pyneda/sukyan/db"
-	"github.com/rs/zerolog/log"
 	"html/template"
 	"io"
+
+	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
 )
 
 //go:embed templates/*
@@ -26,6 +27,7 @@ type ReportOptions struct {
 	Issues      []*db.Issue
 	Title       string
 	Format      ReportFormat
+	TaskID      uint
 }
 
 func GenerateReport(options ReportOptions, w io.Writer) error {

@@ -12,7 +12,8 @@ import (
 )
 
 func TestFindHistory(t *testing.T) {
-	workspace, _ := db.Connection.CreateDefaultWorkspace()
+	workspace, err := db.Connection.CreateDefaultWorkspace()
+	assert.Nil(t, err)
 	app := fiber.New()
 
 	app.Get("/history", FindHistory)

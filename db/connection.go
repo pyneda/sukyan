@@ -80,8 +80,8 @@ func InitDb() *DatabaseConnection {
 		log.Error().Err(err).Msg("Failed to get underlying database connection")
 		os.Exit(1)
 	}
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(80)
+	sqlDB.SetMaxIdleConns(viper.GetInt("db.max_idle_conns"))
+	sqlDB.SetMaxOpenConns(viper.GetInt("db.max_open_conns"))
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	return &DatabaseConnection{

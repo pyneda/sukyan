@@ -105,9 +105,14 @@ func TestHandleBodyParameters(t *testing.T) {
 		RequestBody:        []byte("param1=value1&param2=value2"),
 		RequestContentType: "application/x-www-form-urlencoded",
 	}
+	behaviour := InsertionPointBehaviour{
+		IsReflected: false,
+		IsDynamic:   false,
+	}
 	expected := []InsertionPoint{
-		{Type: InsertionPointTypeBody, Name: "param1", Value: "value1", OriginalData: string(history.RequestBody), ValueType: lib.TypeString},
-		{Type: InsertionPointTypeBody, Name: "param2", Value: "value2", OriginalData: string(history.RequestBody), ValueType: lib.TypeString},
+		{Type: InsertionPointTypeBody, Name: "param1", Value: "value1", OriginalData: string(history.RequestBody), ValueType: lib.TypeString, Behaviour: behaviour},
+		{Type: InsertionPointTypeBody, Name: "param2", Value: "value2", OriginalData: string(history.RequestBody), ValueType: lib.TypeString, Behaviour: behaviour},
+		{Type: InsertionPointTypeFullBody, Name: "fullbody", Value: "param1=value1&param2=value2", OriginalData: string(history.RequestBody), ValueType: lib.TypeString, Behaviour: behaviour},
 	}
 	result, err := GetInsertionPoints(history, []string{"body"})
 	if err != nil {

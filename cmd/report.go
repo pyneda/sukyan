@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	reportTitle  string
-	reportFormat string
-	reportOutput string
+	reportTitle   string
+	reportFormat  string
+	reportOutput  string
+	minConfidence int
 )
 
 // reportCmd represents the report command
@@ -67,8 +68,9 @@ var reportCmd = &cobra.Command{
 		}
 
 		issues, _, err := db.Connection.ListIssues(db.IssueFilter{
-			WorkspaceID: workspaceID,
-			TaskID:      taskID,
+			WorkspaceID:   workspaceID,
+			TaskID:        taskID,
+			MinConfidence: minConfidence,
 		})
 
 		if err != nil {
@@ -121,4 +123,5 @@ func init() {
 	reportCmd.Flags().StringVarP(&reportTitle, "title", "T", "", "Report Title")
 	reportCmd.Flags().StringVarP(&reportFormat, "format", "f", "html", "Report Format (html or json)")
 	reportCmd.Flags().StringVarP(&reportOutput, "output", "o", "", "Output file path)")
+	reportCmd.Flags().IntVarP(&minConfidence, "min-confidence", "c", 0, "Minimum issue confidence level to include in the report")
 }

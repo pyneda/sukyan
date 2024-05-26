@@ -15,11 +15,14 @@
         <div class="md:w-1/3 pr-4">
             <div class="mb-4">
                 <input type="text" id="search" placeholder="Search issues..." class="w-full p-2 border border-gray-600 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <p id="result-count" class="text-sm text-gray-400 mt-2"></p>
             </div>
             <div id="results" class="space-y-2"></div>
-            <div id="pagination" class="flex justify-center mt-4">
-                <button id="prev" class="bg-gray-700 text-white p-2 rounded mr-2">Previous</button>
-                <button id="next" class="bg-gray-700 text-white p-2 rounded">Next</button>
+            <div id="pagination" class="flex justify-center mt-4 space-x-2">
+                <button id="first" class="bg-gray-700 text-white p-1 rounded hidden">&laquo; First</button>
+                <button id="prev" class="bg-gray-700 text-white p-1 rounded hidden">&lsaquo; Previous</button>
+                <button id="next" class="bg-gray-700 text-white p-1 rounded hidden">Next &rsaquo;</button>
+                <button id="last" class="bg-gray-700 text-white p-1 rounded hidden">Last &raquo;</button>
             </div>
         </div>
         <div id="details" class="md:w-2/3 mt-4 md:mt-0 pl-4 bg-gray-800 p-6 rounded shadow flex-grow relative">
@@ -30,7 +33,7 @@
     <script>
         const vulnerabilities = {{ .issues | toJSON }};
         const fuse = new Fuse(vulnerabilities, {
-            keys: ['title', 'description', 'details', 'remediation', 'code', 'severity']
+            keys: ['url', 'title', 'description', 'details', 'remediation', 'code', 'severity']
         });
 
         const severityColors = {
@@ -101,10 +104,12 @@
                 resultItem.appendChild(topRightContainer);
                 resultItem.appendChild(description);
                 resultItem.addEventListener('click', () => {
-                    document.startViewTransition(() => renderDetails(item));
+                    renderDetails(item);
                 });
                 resultsContainer.appendChild(resultItem);
             });
+
+            document.getElementById('result-count').textContent = `${results.length} results found`;
         }
 
         function renderDetails(item) {
@@ -133,6 +138,9 @@
             titleContainer.appendChild(title);
             titleContainer.appendChild(topRightContainer);
 
+            const urlLabel = createSafeElement('h4', 'URL', 'text-xl font-semibold');
+            const url = createSafeElement('p', item.url, 'text-gray-400 mb-4');
+
             const createdAt = createSafeElement('p', `Created at: ${item.created_at}`, 'text-sm text-gray-400 mb-4');
 
             const descriptionLabel = createSafeElement('h4', 'Description', 'text-xl font-semibold');
@@ -140,6 +148,8 @@
 
             detailsContainer.appendChild(titleContainer);
             detailsContainer.appendChild(createdAt);
+            detailsContainer.appendChild(urlLabel);
+            detailsContainer.appendChild(url);
             detailsContainer.appendChild(descriptionLabel);
             detailsContainer.appendChild(description);
 
@@ -229,11 +239,26 @@
         }
 
         function updatePaginationButtons() {
+            const firstButton = document.getElementById('first');
             const prevButton = document.getElementById('prev');
             const nextButton = document.getElementById('next');
+            const lastButton = document.getElementById('last');
             
-            prevButton.disabled = currentPage === 1;
-            nextButton.disabled = currentPage * itemsPerPage >= filteredResults.length;
+            if (currentPage === 1) {
+                firstButton.classList.add('hidden');
+                prevButton.classList.add('hidden');
+            } else {
+                firstButton.classList.remove('hidden');
+                prevButton.classList.remove('hidden');
+            }
+
+            if (currentPage * itemsPerPage >= filteredResults.length) {
+                nextButton.classList.add('hidden');
+                lastButton.classList.add('hidden');
+            } else {
+                nextButton.classList.remove('hidden');
+                lastButton.classList.remove('hidden');
+            }
         }
 
         function changePage(increment) {
@@ -241,6 +266,18 @@
             renderResults(filteredResults);
             updatePaginationButtons();
         }
+
+        function goToPage(pageNumber) {
+            currentPage = pageNumber;
+            renderResults(filteredResults);
+            updatePaginationButtons();
+        }
+
+        document.getElementById('first').addEventListener('click', () => {
+            if (currentPage > 1) {
+                goToPage(1);
+            }
+        });
 
         document.getElementById('prev').addEventListener('click', () => {
             if (currentPage > 1) {
@@ -251,6 +288,13 @@
         document.getElementById('next').addEventListener('click', () => {
             if (currentPage * itemsPerPage < filteredResults.length) {
                 changePage(1);
+            }
+        });
+
+        document.getElementById('last').addEventListener('click', () => {
+            const lastPage = Math.ceil(filteredResults.length / itemsPerPage);
+            if (currentPage < lastPage) {
+                goToPage(lastPage);
             }
         });
 

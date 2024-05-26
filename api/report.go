@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
@@ -12,9 +13,10 @@ import (
 
 // ReportRequest represents the structure of the JSON payload for generating a report.
 type ReportRequest struct {
-	WorkspaceID uint                `json:"workspace_id" valid:"required"`
-	Title       string              `json:"title" valid:"required"`
-	Format      report.ReportFormat `json:"format" valid:"required~Invalid format,enum~Invalid format"`
+	WorkspaceID   uint                `json:"workspace_id" validate:"required"`
+	Title         string              `json:"title" validate:"required"`
+	Format        report.ReportFormat `json:"format" validate:"required,oneof=html json"`
+	MinConfidence int                 `json:"min_confidence" validate:"omitempty"`
 }
 
 // ReportHandler godoc
@@ -58,7 +60,8 @@ func ReportHandler(c *fiber.Ctx) error {
 	}
 
 	issues, _, err := db.Connection.ListIssues(db.IssueFilter{
-		WorkspaceID: input.WorkspaceID,
+		WorkspaceID:   input.WorkspaceID,
+		MinConfidence: input.MinConfidence,
 	})
 
 	if err != nil {

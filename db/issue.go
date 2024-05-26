@@ -134,11 +134,12 @@ func (i Issue) IsEmpty() bool {
 
 // IssueFilter represents available issue filters
 type IssueFilter struct {
-	Codes       []string
-	WorkspaceID uint
-	TaskID      uint
-	TaskJobID   uint
-	URL         string
+	Codes         []string
+	WorkspaceID   uint
+	TaskID        uint
+	TaskJobID     uint
+	URL           string
+	MinConfidence int
 }
 
 // ListIssues Lists issues
@@ -162,6 +163,10 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 
 	if filter.TaskJobID != 0 {
 		query = query.Where("task_job_id = ?", filter.TaskJobID)
+	}
+
+	if filter.MinConfidence > 0 {
+		query = query.Where("confidence >= ?", filter.MinConfidence)
 	}
 
 	result := query.Order(severityOrderQuery).Order("title ASC, created_at DESC").Find(&issues).Count(&count)

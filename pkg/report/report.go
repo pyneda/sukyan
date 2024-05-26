@@ -44,6 +44,7 @@ func GenerateReport(options ReportOptions, w io.Writer) error {
 func generateHTMLReport(options ReportOptions, w io.Writer) error {
 	funcMap := template.FuncMap{
 		"toString": toString,
+		"toJSON":   toJSON,
 	}
 
 	// Parsing the template with the custom function map
@@ -54,7 +55,7 @@ func generateHTMLReport(options ReportOptions, w io.Writer) error {
 	}
 
 	if tmpl.DefinedTemplates() == "" {
-		return fmt.Errorf("No defined templates found")
+		return fmt.Errorf("no defined templates found")
 	}
 
 	data := map[string]interface{}{
@@ -94,4 +95,11 @@ func toString(value interface{}) string {
 	default:
 		return fmt.Sprintf("%v", v)
 	}
+}
+func toJSON(value interface{}) template.JS {
+	bytes, err := json.Marshal(value)
+	if err != nil {
+		return template.JS("{}")
+	}
+	return template.JS(bytes)
 }

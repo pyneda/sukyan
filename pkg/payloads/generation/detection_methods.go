@@ -1,9 +1,10 @@
 package generation
 
 import (
-	"github.com/rs/zerolog/log"
 	"strconv"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type DetectionMethod struct {
@@ -78,24 +79,25 @@ type TimeBasedDetectionMethod struct {
 	Confidence int    `yaml:"confidence,omitempty"`
 }
 
-func (t *TimeBasedDetectionMethod) CheckIfResultDurationIsHigher(resultDuration time.Duration) bool {
-	sleepInt, err := strconv.Atoi(t.Sleep)
+func (t *TimeBasedDetectionMethod) ParseSleepDuration(sleep string) time.Duration {
+	sleepInt, err := strconv.Atoi(sleep)
 	if err != nil {
-		log.Error().Err(err).Str("sleep", t.Sleep).Msg("Error converting sleep string to int")
-		return false
+		log.Error().Err(err).Str("sleep", sleep).Msg("Error converting sleep string to int")
+		return 0
 	}
-	// TODO: Improve this, the units should probably be defined in the templates
 	var sleepDuration time.Duration
-	// var unit string
 	if sleepInt >= 1000 {
 		sleepDuration = time.Duration(sleepInt) * time.Millisecond
-		// unit = "ms"
 	} else {
 		sleepDuration = time.Duration(sleepInt) * time.Second
-		// unit = "s"
 	}
+	return sleepDuration
+}
 
-	if resultDuration >= sleepDuration {
+func (t *TimeBasedDetectionMethod) CheckIfResultDurationIsHigher(resultDuration time.Duration) bool {
+	sleepDuration := t.ParseSleepDuration(t.Sleep)
+
+	if sleepDuration != 0 && resultDuration >= sleepDuration {
 		return true
 	}
 	return false

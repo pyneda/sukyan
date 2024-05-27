@@ -429,7 +429,7 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 			sb.WriteString(fmt.Sprintf("Response took %s, which is greater than the sleep time injected in the payload of %s\n\n", result.Duration, m.Sleep))
 			// var originalResults []bool
 			// var payloadResults []bool
-
+			expectedSleepDuratoin := m.ParseSleepDuration(m.Sleep)
 			sb.WriteString("Revalidation results:\n")
 			sb.WriteString("=============================\n")
 
@@ -462,7 +462,7 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 					finalConfidence += confidenceIncrement
 				}
 
-				if originalResult.duration > withPayloadResult.duration {
+				if originalResult.duration > withPayloadResult.duration || withPayloadResult.duration < expectedSleepDuratoin {
 					finalConfidence -= confidenceDecrement
 				}
 				// originalResults = append(originalResults, originalIsHigher)

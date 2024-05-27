@@ -238,7 +238,11 @@ func sendRequestAndCheckBypass(client *http.Client, request *http.Request, origi
 		TaskID:              options.TaskID,
 		CreateNewBodyStream: false,
 	})
-	if history.StatusCode != 401 && history.StatusCode != 403 && history.StatusCode != 404 {
+	if err != nil {
+		auditLog.Error().Err(err).Msg("Error creating history from response")
+		return
+	}
+	if history.StatusCode != 400 && history.StatusCode != 401 && history.StatusCode != 403 && history.StatusCode != 404 {
 		bypassHeaders := http_utils.HeadersToString(request.Header)
 
 		details := fmt.Sprintf(`

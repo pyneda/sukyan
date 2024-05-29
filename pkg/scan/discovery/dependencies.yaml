@@ -1,0 +1,36 @@
+id: "dependencies-disclosure"
+issue_code: "dependencies-disclosure"
+type: "discovery"
+detection_condition: "or"
+detection_methods:
+  - response_condition:
+      status_code: 200
+      confidence: 60
+  - response_condition:
+      contains: license
+      confidence: 80
+  - response_condition:
+      contains: artifactId
+      confidence: 100
+  - response_condition:
+      contains: version
+      confidence: 80
+  - response_condition:
+      contains: dependencies
+      confidence: 90
+  - response_condition:
+      contains: author
+      confidence: 90
+  - response_condition:
+      contains: requests=
+      confidence: 100
+templates:
+  - package.json
+  - composer.json
+  - requirements.txt
+  - Gemfile
+  - Pipfile
+  - pom.xml
+categories:
+  - discovery
+

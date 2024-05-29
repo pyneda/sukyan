@@ -37,8 +37,9 @@ type InsertionPoint struct {
 
 type InsertionPointBehaviour struct {
 	// AcceptedDataTypes []lib.DataType
-	IsReflected bool
-	IsDynamic   bool
+	IsReflected        bool
+	ReflectionContexts []string
+	IsDynamic          bool
 	// Transformations   []Transformation
 }
 

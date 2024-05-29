@@ -51,6 +51,10 @@ type DetectedIssue struct {
 	insertionPoint InsertionPoint
 }
 
+func (di DetectedIssue) String() string {
+	return fmt.Sprintf("%s:%s", di.code, di.insertionPoint.String())
+}
+
 func (f *TemplateScanner) checkConfig() {
 	if f.Concurrency == 0 {
 		log.Info().Interface("scanner", f).Msg("Concurrency is not set, setting 4 as default")
@@ -184,7 +188,7 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 			_, ok := f.issuesFound.Load(DetectedIssue{
 				code:           db.IssueCode(task.payload.IssueCode),
 				insertionPoint: task.insertionPoint,
-			})
+			}.String())
 			if ok {
 				taskLog.Debug().Msg("Skipping task as an issue for this insertion point with this code for this history item has already been found")
 				wg.Done()
@@ -276,7 +280,7 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 					f.issuesFound.Store(DetectedIssue{
 						code:           db.IssueCode(issueCode),
 						insertionPoint: task.insertionPoint,
-					}, true)
+					}.String(), true)
 				}
 			}
 

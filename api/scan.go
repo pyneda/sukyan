@@ -140,6 +140,8 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 		options := scan.HistoryItemScanOptions{
 			WorkspaceID: *item.WorkspaceID,
 			TaskID:      input.TaskID,
+
+			Mode: scan.ScanModeSmart,
 		}
 		e.ScheduleHistoryItemScan(&item, engine.ScanJobTypeActive, options)
 	}

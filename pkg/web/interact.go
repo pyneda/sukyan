@@ -37,6 +37,8 @@ func GetAndClickButtons(p *rod.Page) {
 	// getAndClickElements("input[type=submit]", p)
 	// getAndClickElements("input[type=button]", p)
 	// getAndClickElements("a", p)
+	getAndClickElements("a[href='#']", p)
+
 	log.Debug().Msg("Finished clicking all elements")
 
 }

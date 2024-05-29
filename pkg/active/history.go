@@ -101,16 +101,6 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		alert.RunWithPayloads(item, xssInsertionPoints, cstiPayloads, db.CstiCode)
 	}
 
-	if options.ExperimentalAudits {
-		cspp := ClientSidePrototypePollutionAudit{
-			HistoryItem: item,
-			WorkspaceID: options.WorkspaceID,
-			TaskID:      options.TaskID,
-			TaskJobID:   options.TaskJobID,
-		}
-		cspp.Run()
-	}
-
 	if item.StatusCode >= 300 || item.StatusCode < 400 {
 		OpenRedirectScan(item, activeOptions, insertionPoints)
 	} else {
@@ -158,13 +148,23 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	sni.Run()
 
 	HttpVersionsScan(item, activeOptions)
-	methods := HTTPMethodsAudit{
-		HistoryItem: item,
-		Concurrency: 5,
-		WorkspaceID: options.WorkspaceID,
-		TaskID:      options.TaskID,
-		TaskJobID:   options.TaskJobID,
+	if options.ExperimentalAudits {
+		cspp := ClientSidePrototypePollutionAudit{
+			HistoryItem: item,
+			WorkspaceID: options.WorkspaceID,
+			TaskID:      options.TaskID,
+			TaskJobID:   options.TaskJobID,
+		}
+		cspp.Run()
+		methods := HTTPMethodsAudit{
+			HistoryItem: item,
+			Concurrency: 5,
+			WorkspaceID: options.WorkspaceID,
+			TaskID:      options.TaskID,
+			TaskJobID:   options.TaskJobID,
+		}
+		methods.Run()
 	}
-	methods.Run()
+
 	log.Info().Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Msg("Finished scanning history item")
 }

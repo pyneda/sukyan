@@ -78,6 +78,7 @@ var (
 	UnencryptedPasswordSubmissionCode    IssueCode = "unencrypted_password_submission"
 	VulnerableJavascriptDependencyCode   IssueCode = "vulnerable_javascript_dependency"
 	WafDetectedCode                      IssueCode = "waf_detected"
+	WebassemblyDetectedCode              IssueCode = "webassembly_detected"
 	WebsocketDetectedCode                IssueCode = "websocket_detected"
 	XAspVersionHeaderCode                IssueCode = "x_asp_version_header"
 	XFrameOptionsHeaderCode              IssueCode = "x_frame_options_header"
@@ -764,6 +765,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         0,
 		Severity:    "Info",
 		References:  []string{"https://www.cloudflare.com/learning/ddos/glossary/web-application-firewall-waf/", "https://owasp.org/www-community/Web_Application_Firewall"},
+	},
+	{
+		Code:        WebassemblyDetectedCode,
+		Title:       "WebAssembly (Wasm) Detection",
+		Description: "The application appears to use WebAssembly (Wasm), a binary instruction format for a stack-based virtual machine. WebAssembly is designed for efficient and secure execution of code on the web, enabling high-performance applications. However, improper management of WebAssembly can introduce security risks.",
+		Remediation: "Ensure that the WebAssembly modules are sourced from trusted origins. Regularly audit and update WebAssembly modules to patch any vulnerabilities. Implement appropriate Content Security Policies (CSP) to restrict WebAssembly execution. Monitor and log WebAssembly usage to detect any anomalous activities.",
+		Cwe:         915,
+		Severity:    "Medium",
+		References:  []string{"https://webassembly.org/", "https://webassembly.org/docs/security/", "https://developer.mozilla.org/en-US/docs/WebAssembly"},
 	},
 	{
 		Code:        WebsocketDetectedCode,

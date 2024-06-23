@@ -148,7 +148,7 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History, taskJob *db.TaskJob, o
 }
 
 func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool) (*db.Task, error) {
-	task, err := db.Connection.NewTask(options.WorkspaceID, nil, options.Title, db.TaskStatusCrawling)
+	task, err := db.Connection.NewTask(options.WorkspaceID, nil, options.Title, db.TaskStatusCrawling, db.TaskTypeScan)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not create task")
 	}

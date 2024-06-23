@@ -8,9 +8,20 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type TaskType string
+
+const (
+	TaskTypeScan             TaskType = "scan"
+	TaskTypePlaygroundFuzzer TaskType = "playground-fuzzer"
+	TaskTypePlaygroundManual TaskType = "playground-manual"
+	TaskTypeBrowser          TaskType = "browser"
+	TaskTypeCrawl            TaskType = "crawl"
+)
+
 type Task struct {
 	BaseModel
 	Title               string            `json:"title"`
+	Type                TaskType          `gorm:"index" json:"type"`
 	Status              string            `gorm:"index" json:"status"`
 	StartedAt           time.Time         `json:"started_at"`
 	FinishedAt          time.Time         `json:"finished_at"`
@@ -24,13 +35,14 @@ type Task struct {
 }
 
 func (t Task) TableHeaders() []string {
-	return []string{"ID", "Title", "Status", "StartedAt", "FinishedAt", "WorkspaceID", "Crawler Requests", "Scanner Requests"}
+	return []string{"ID", "Title", "Type", "Status", "StartedAt", "FinishedAt", "WorkspaceID", "Crawler Requests", "Scanner Requests"}
 }
 
 func (t Task) TableRow() []string {
 	return []string{
 		fmt.Sprintf("%d", t.ID),
 		t.Title,
+		string(t.Type),
 		t.Status,
 		t.StartedAt.Format(time.RFC3339),
 		t.FinishedAt.Format(time.RFC3339),
@@ -105,13 +117,14 @@ type IssuesStats struct {
 	Critical int64 `json:"critical"`
 }
 
-func (d *DatabaseConnection) NewTask(workspaceID uint, playgroundSessionID *uint, title, status string) (*Task, error) {
+func (d *DatabaseConnection) NewTask(workspaceID uint, playgroundSessionID *uint, title, status string, taskType TaskType) (*Task, error) {
 	task := &Task{
 		WorkspaceID:         workspaceID,
 		Status:              status,
 		StartedAt:           time.Now(),
 		Title:               title,
 		PlaygroundSessionID: playgroundSessionID,
+		Type:                taskType,
 	}
 	return d.CreateTask(task)
 }

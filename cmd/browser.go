@@ -1,15 +1,17 @@
 package cmd
 
 import (
+	"os"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/manual"
 	"github.com/rs/zerolog/log"
-	"os"
 
 	"github.com/spf13/cobra"
 )
 
 var browserInitialURL string
+var sessionTitle string
 
 // browserCmd represents the browser command
 var browserCmd = &cobra.Command{
@@ -30,7 +32,12 @@ var browserCmd = &cobra.Command{
 			}
 			os.Exit(1)
 		}
-		manual.LaunchUserBrowser(workspaceID, browserInitialURL)
+		task, err := db.Connection.NewTask(workspaceID, nil, sessionTitle, db.TaskStatusRunning, db.TaskTypeBrowser)
+		if err != nil {
+			log.Error().Err(err).Msg("Could not create task")
+			os.Exit(1)
+		}
+		manual.LaunchUserBrowser(workspaceID, browserInitialURL, task.ID)
 	},
 }
 
@@ -38,4 +45,5 @@ func init() {
 	rootCmd.AddCommand(browserCmd)
 	browserCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	browserCmd.Flags().StringVarP(&browserInitialURL, "url", "u", "", "Initial URL to load")
+	browserCmd.Flags().StringVarP(&sessionTitle, "title", "t", "Browser session", "Session title")
 }

@@ -30,6 +30,7 @@ var memcachedConnectionStringRegex = regexp.MustCompile(`memcached:\/\/[a-zA-Z0-
 
 var urlRegex = regexp.MustCompile(`(?:"|')((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,}|(?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,}|[a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|/][^"|']{0,}|)|[a-zA-Z0-9_\-]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:\?[^"|']{0,}|))(?:"|')`)
 var jwtRegex = regexp.MustCompile(`[A-Za-z0-9-_]{20,}\.[A-Za-z0-9-_]{20,}\.[A-Za-z0-9-_]{20,}`)
+var webAssemblyURLRegex = regexp.MustCompile(`(?i)(<script[^>]*>[^<]*\bwasm\b[^<]*<\/script>|<script[^>]*src\s*=\s*["']([^"']*\b\.wasm\b[^"']*)["'][^>]*><\/script>)`)
 
 var S3BucketPattern = regexp.MustCompile(`((?:\w+://)?(?:([\w.-]+)\.s3[\w.-]*\.amazonaws\.com|s3(?:[\w.-]*\.amazonaws\.com(?:(?::\d+)?\\?/)*|://)([\w.-]+))(?:(?::\d+)?\\?/)?(?:.*?\?.*Expires=(\d+))?)`)
 var GoogleBucketPattern = regexp.MustCompile(`((?:\w+://)?(?:([\w.-]+)\.storage[\w-]*\.googleapis\.com|(?:(?:console\.cloud\.google\.com/storage/browser/|storage\.cloud\.google\.com|storage[\w-]*\.googleapis\.com)(?:(?::\d+)?\\?/)*|gs://)([\w.-]+))(?:(?::\d+)?\\?/([^\\s?'\"#]*))?(?:.*\?.*Expires=(\d+))?)`)

@@ -81,6 +81,7 @@ func ScanHistoryItem(item *db.History) {
 	ContentTypesScan(item)
 	WebSocketUsageScan(item)
 	ServerSideIncludesUsageScan(item)
+	WebAssemblyDetectionScan(item)
 
 	if viper.GetBool("passive.checks.exceptions.enabled") {
 		ExceptionsScan(item)
@@ -443,5 +444,51 @@ func ServerSideIncludesUsageScan(item *db.History) {
 			db.CreateIssueFromHistoryAndTemplate(item, db.SsiDetectedCode, details, 90, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID)
 			return
 		}
+	}
+}
+
+func WebAssemblyDetectionScan(item *db.History) {
+	matchAgainst := string(item.RawResponse)
+	if matchAgainst == "" {
+		matchAgainst = string(item.ResponseBody)
+	}
+	matches := webAssemblyURLRegex.FindAllString(matchAgainst, -1)
+
+	var sb strings.Builder
+	confidence := 80
+	issueDetected := false
+
+	if len(matches) > 0 {
+		issueDetected = true
+		sb.WriteString("WebAssembly detected in response body. Found the following WebAssembly URL(s):")
+		for _, match := range matches {
+			sb.WriteString(fmt.Sprintf("\n - %s", match))
+		}
+	}
+
+	parsedURL, err := url.Parse(item.URL)
+	if err == nil && strings.HasSuffix(parsedURL.Path, ".wasm") {
+		if !issueDetected {
+			issueDetected = true
+			sb.WriteString("WebAssembly module detected: URL ends with '.wasm' extension.")
+		} else {
+			sb.WriteString("\nAdditional detection: URL ends with '.wasm' extension.")
+			confidence = 100
+		}
+	}
+
+	if strings.EqualFold(item.ResponseContentType, "application/wasm") {
+		if !issueDetected {
+			issueDetected = true
+			sb.WriteString("WebAssembly content detected: Response header 'Content-Type' is 'application/wasm'.")
+		} else {
+			sb.WriteString("\nAdditional detection: Response header 'Content-Type' is 'application/wasm'.")
+			confidence = 100
+		}
+	}
+
+	if issueDetected {
+		details := sb.String()
+		db.CreateIssueFromHistoryAndTemplate(item, db.WebassemblyDetectedCode, details, confidence, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID)
 	}
 }

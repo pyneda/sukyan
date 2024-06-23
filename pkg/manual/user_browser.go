@@ -14,7 +14,7 @@ import (
 )
 
 // LaunchUserBrowser launches a browser in non headless mode and logs all network requests
-func LaunchUserBrowser(workspaceID uint, initialURL string) {
+func LaunchUserBrowser(workspaceID uint, initialURL string, taskID uint) {
 	log.Info().Uint("workspace", workspaceID).Str("url", initialURL).Msg("Launching browser")
 	launcher := browser.GetBrowserLauncher()
 	launcher.Delete("--headless")
@@ -26,14 +26,14 @@ func LaunchUserBrowser(workspaceID uint, initialURL string) {
 	}
 	hijackResultsChannel := make(chan browser.HijackResult)
 
-	browser.Hijack(hc, b, db.SourceBrowser, hijackResultsChannel, workspaceID, 0)
+	browser.Hijack(hc, b, db.SourceBrowser, hijackResultsChannel, workspaceID, taskID)
 	var page *rod.Page
 	if initialURL != "" {
 		page = b.MustPage(initialURL)
 	} else {
 		page = b.MustPage("")
 	}
-	web.ListenForWebSocketEvents(page, workspaceID, 0, db.SourceBrowser)
+	web.ListenForWebSocketEvents(page, workspaceID, taskID, db.SourceBrowser)
 	log.Info().Interface("url", page).Msg("Browser loaded")
 	lib.SetupCloseHandler()
 	for {

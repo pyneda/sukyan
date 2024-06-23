@@ -2,12 +2,13 @@ package web
 
 import (
 	"encoding/json"
+	"time"
+
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
-	"time"
 )
 
 func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID uint, source string) {
@@ -27,7 +28,7 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID uint, source s
 			log.Error().Uint("workspace", workspaceID).Err(err).Str("url", e.URL).Msg("Failed to create WebSocket connection")
 			return
 		}
-		log.Info().Uint("workspace", workspaceID).Str("url", e.URL).Msg("Created WebSocket connection")
+		log.Info().Uint("workspace", workspaceID).Str("url", e.URL).Uint("id", connection.ID).Msg("Created WebSocket connection")
 		wsConnections[e.RequestID] = connection
 	}, func(e *proto.NetworkWebSocketHandshakeResponseReceived) {
 		connection, ok := wsConnections[e.RequestID]

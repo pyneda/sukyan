@@ -114,6 +114,12 @@ func (d *DatabaseConnection) CreateWebSocketConnection(connection *WebSocketConn
 	return err
 }
 
+func (d *DatabaseConnection) GetWebSocketConnection(id uint) (*WebSocketConnection, error) {
+	var connection WebSocketConnection
+	err := d.db.Preload("Messages").First(&connection, id).Error
+	return &connection, err
+}
+
 func (d *DatabaseConnection) CreateWebSocketMessage(message *WebSocketMessage) error {
 	err := d.db.Create(message).Error
 	return err

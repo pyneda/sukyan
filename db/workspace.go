@@ -57,7 +57,7 @@ func (d *DatabaseConnection) GetWorkspaceByID(id uint) (*Workspace, error) {
 func (d *DatabaseConnection) GetWorkspaceByCode(code string) (*Workspace, error) {
 	var workspace Workspace
 	if err := d.db.Where("code = ?", code).First(&workspace).Error; err != nil {
-		log.Error().Err(err).Interface("code", code).Msg("Unable to fetch workspace by code")
+		log.Debug().Err(err).Interface("code", code).Msg("Unable to fetch workspace by code")
 		return nil, err
 	}
 	return &workspace, nil

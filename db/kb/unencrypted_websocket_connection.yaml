@@ -1,0 +1,19 @@
+code: unencrypted_websocket_connection
+title: Unencrypted WebSocket Connection Detected
+description: 
+  "The application establishes a WebSocket connection over an unencrypted connection (ws://),
+  which poses a significant security risk. Data transmitted over unencrypted WebSocket connections
+  can be intercepted by attackers monitoring network traffic, potentially leading to unauthorized access
+  to sensitive information. This vulnerability could compromise the confidentiality and integrity of the data
+  exchanged between the client and server."
+remediation: 
+  "To mitigate this vulnerability, ensure that all WebSocket connections are established over a secure connection (wss://).
+  Implement SSL/TLS encryption to protect data in transit and prevent eavesdropping. Additionally, review and update
+  WebSocket connection configurations to enforce secure communication and regularly audit the network for any insecure
+  WebSocket endpoints."
+cwe: 319
+severity: High
+references: 
+  - https://owasp.org/www-community/vulnerabilities/WebSocket_Security
+  - https://tools.ietf.org/html/rfc6455
+  - https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/WSS

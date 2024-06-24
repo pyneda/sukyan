@@ -1,0 +1,15 @@
+code: webassembly_detected
+title: WebAssembly (Wasm) Detection
+description:
+  The application appears to use WebAssembly (Wasm), a binary instruction format for a stack-based virtual machine. WebAssembly is designed for efficient and secure execution of code on the web, enabling high-performance applications. However, improper management of WebAssembly can introduce security risks.
+remediation:
+  Ensure that the WebAssembly modules are sourced from trusted origins.
+  Regularly audit and update WebAssembly modules to patch any vulnerabilities.
+  Implement appropriate Content Security Policies (CSP) to restrict WebAssembly execution.
+  Monitor and log WebAssembly usage to detect any anomalous activities.
+cwe: 915
+severity: Medium
+references:
+  - https://webassembly.org/
+  - https://webassembly.org/docs/security/
+  - https://developer.mozilla.org/en-US/docs/WebAssembly

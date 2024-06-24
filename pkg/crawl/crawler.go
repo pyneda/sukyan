@@ -124,15 +124,9 @@ func (c *Crawler) Run() []*db.History {
 					// Checking if max pages to crawl are reached
 					c.counterLock.Lock()
 					if c.Options.MaxPagesToCrawl != 0 && c.pageCounter >= c.Options.MaxPagesToCrawl {
-						taskLog.Info().Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Stopping crawler hijacking due to max pages to crawl")
+						taskLog.Info().Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Not processing new crawler urls due to max pages to crawl")
 						c.counterLock.Unlock()
-						if c.browser != nil {
-							time.Sleep(10 * time.Second)
-							taskLog.Info().Msg("Closing crawler browser")
-							c.browser.Close()
-							taskLog.Info().Msg("Closed crawler browser")
-						}
-						return // terminate the goroutine
+						continue // Max pages reached, skip processing the rest of the discovered URLs
 					}
 					c.counterLock.Unlock()
 					// Calculate the depth of the URL

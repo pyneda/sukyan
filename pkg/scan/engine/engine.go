@@ -195,6 +195,7 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 	retireScanner := integrations.NewRetireScanner()
 
 	db.Connection.SetTaskStatus(task.ID, db.TaskStatusScanning)
+
 	itemScanOptions := scan.HistoryItemScanOptions{
 		WorkspaceID:        options.WorkspaceID,
 		TaskID:             task.ID,
@@ -204,6 +205,17 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 		ExperimentalAudits: options.ExperimentalAudits,
 	}
 
+	websocketConnections, count, _ := db.Connection.ListWebSocketConnections(db.WebSocketConnectionFilter{
+		WorkspaceID: options.WorkspaceID,
+		TaskID:      task.ID,
+		Sources:     []string{db.SourceCrawler},
+	})
+	if count > 0 {
+		go scan.EvaluateWebSocketConnections(websocketConnections, s.InteractionsManager, s.payloadGenerators, itemScanOptions)
+		scanLog.Info().Int64("count", count).Msg("Scheduled scan to the WebSocket connections discovered during crawl")
+	} else {
+		scanLog.Info().Msg("No WebSocket connections discovered during crawl")
+	}
 	scheduledURLPaths := make(map[string]bool)
 
 	for _, historyItem := range uniqueHistoryItems {
@@ -251,6 +263,7 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 		}
 
 	}
+
 	scanLog.Info().Msg("Active scans scheduled")
 	if waitCompletion {
 		time.Sleep(3 * time.Second)

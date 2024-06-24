@@ -76,6 +76,7 @@ var (
 	TechStackFingerprintCode             IssueCode = "tech_stack_fingerprint"
 	Text4shellCode                       IssueCode = "text4shell"
 	UnencryptedPasswordSubmissionCode    IssueCode = "unencrypted_password_submission"
+	UnencryptedWebsocketConnectionCode   IssueCode = "unencrypted_websocket_connection"
 	VulnerableJavascriptDependencyCode   IssueCode = "vulnerable_javascript_dependency"
 	WafDetectedCode                      IssueCode = "waf_detected"
 	WebassemblyDetectedCode              IssueCode = "webassembly_detected"
@@ -747,6 +748,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         319,
 		Severity:    "High",
 		References:  []string{"https://owasp.org/www-community/vulnerabilities/Insecure_Transport", "https://letsencrypt.org/", "https://www.cloudflare.com/learning/ssl/why-is-http-not-secure/"},
+	},
+	{
+		Code:        UnencryptedWebsocketConnectionCode,
+		Title:       "Unencrypted WebSocket Connection Detected",
+		Description: "The application establishes a WebSocket connection over an unencrypted connection (ws://), which poses a significant security risk. Data transmitted over unencrypted WebSocket connections can be intercepted by attackers monitoring network traffic, potentially leading to unauthorized access to sensitive information. This vulnerability could compromise the confidentiality and integrity of the data exchanged between the client and server.",
+		Remediation: "To mitigate this vulnerability, ensure that all WebSocket connections are established over a secure connection (wss://). Implement SSL/TLS encryption to protect data in transit and prevent eavesdropping. Additionally, review and update WebSocket connection configurations to enforce secure communication and regularly audit the network for any insecure WebSocket endpoints.",
+		Cwe:         319,
+		Severity:    "High",
+		References:  []string{"https://owasp.org/www-community/vulnerabilities/WebSocket_Security", "https://tools.ietf.org/html/rfc6455", "https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/WSS"},
 	},
 	{
 		Code:        VulnerableJavascriptDependencyCode,

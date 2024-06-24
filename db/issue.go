@@ -34,12 +34,14 @@ type Issue struct {
 	WorkspaceID   *uint       `json:"workspace_id" gorm:"index"`
 	// OriginalHistory   History          `json:"original_history" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	// OriginalHistoryID *uint            `json:"original_history_id" gorm:"index"`
-	Interactions []OOBInteraction `json:"interactions" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Requests     []History        `json:"requests" gorm:"many2many:issue_requests;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	TaskID       *uint            `json:"task_id" gorm:"index"`
-	Task         Task             `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	TaskJobID    *uint            `json:"task_job_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	TaskJob      TaskJob          `json:"-" gorm:"foreignKey:TaskJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	Interactions          []OOBInteraction     `json:"interactions" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Requests              []History            `json:"requests" gorm:"many2many:issue_requests;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	TaskID                *uint                `json:"task_id" gorm:"index"`
+	Task                  Task                 `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	TaskJobID             *uint                `json:"task_job_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	TaskJob               TaskJob              `json:"-" gorm:"foreignKey:TaskJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	WebsocketConnectionID *uint                `json:"websocket_connection_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	WebSocketConnection   *WebSocketConnection `json:"-" gorm:"foreignKey:WebsocketConnectionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 func (i Issue) TableHeaders() []string {

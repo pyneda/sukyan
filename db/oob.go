@@ -19,7 +19,7 @@ type OOBTest struct {
 	TestName          string    `json:"test_name"`
 	Target            string    `json:"target"`
 	HistoryID         *uint     `json:"history_id"`
-	HistoryItem       *History  `gorm:"foreignKey:HistoryID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	HistoryItem       *History  `json:"-" gorm:"foreignKey:HistoryID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 	InteractionDomain string    `gorm:"index" json:"interaction_domain"`
 	InteractionFullID string    `gorm:"index" json:"interaction_id"`
 	Payload           string    `json:"payload"`

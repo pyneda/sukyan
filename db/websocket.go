@@ -1,7 +1,9 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pyneda/sukyan/lib"
@@ -58,6 +60,98 @@ func (c WebSocketConnection) Pretty() string {
 		lib.Blue, lib.ResetColor, c.WorkspaceID,
 		lib.Blue, lib.ResetColor, c.TaskID,
 		lib.Blue, lib.ResetColor, c.Source)
+}
+
+func (c *WebSocketConnection) GetResponseHeadersAsMap() (map[string][]string, error) {
+	intermediateMap := make(map[string]interface{})
+	err := json.Unmarshal([]byte(c.ResponseHeaders), &intermediateMap)
+	if err != nil {
+		return nil, err
+	}
+
+	stringMap := make(map[string][]string)
+	for key, value := range intermediateMap {
+		switch v := value.(type) {
+		case []interface{}:
+			for _, item := range v {
+				switch itemStr := item.(type) {
+				case string:
+					stringMap[key] = append(stringMap[key], itemStr)
+				default:
+					log.Warn().Interface("value", itemStr).Msg("value not a string")
+				}
+			}
+		case string:
+			stringMap[key] = append(stringMap[key], v)
+		default:
+			log.Warn().Interface("value", v).Msg("value not a []string")
+
+		}
+	}
+
+	return stringMap, nil
+}
+
+func (c *WebSocketConnection) GetRequestHeadersAsMap() (map[string][]string, error) {
+	intermediateMap := make(map[string]interface{})
+	err := json.Unmarshal([]byte(c.RequestHeaders), &intermediateMap)
+	if err != nil {
+		return nil, err
+	}
+
+	stringMap := make(map[string][]string)
+	for key, value := range intermediateMap {
+		switch v := value.(type) {
+		case []interface{}:
+			for _, item := range v {
+				switch itemStr := item.(type) {
+				case string:
+					stringMap[key] = append(stringMap[key], itemStr)
+				default:
+					log.Warn().Interface("value", itemStr).Msg("value not a string")
+				}
+			}
+		case string:
+			stringMap[key] = append(stringMap[key], v)
+		default:
+			log.Warn().Interface("value", v).Msg("value not a []string")
+
+		}
+	}
+
+	return stringMap, nil
+}
+
+func (c *WebSocketConnection) GetResponseHeadersAsString() (string, error) {
+	headersMap, err := c.GetResponseHeadersAsMap()
+	if err != nil {
+		log.Error().Err(err).Uint("history", c.ID).Msg("Error getting response headers as map")
+		return "", err
+	}
+	headers := make([]string, 0, len(headersMap))
+	for name, values := range headersMap {
+		for _, value := range values {
+			headers = append(headers, fmt.Sprintf("%s: %s", name, value))
+		}
+	}
+
+	return strings.Join(headers, "\n"), nil
+}
+
+func (c *WebSocketConnection) GetRequestHeadersAsString() (string, error) {
+	headersMap, err := c.GetRequestHeadersAsMap()
+	if err != nil {
+		log.Error().Err(err).Uint("history", c.ID).Msg("Error getting request headers as map")
+		return "", err
+	}
+	headers := make([]string, 0, len(headersMap))
+	for name, values := range headersMap {
+		for _, value := range values {
+			headers = append(headers, fmt.Sprintf("%s: %s", name, value))
+		}
+	}
+
+	return strings.Join(headers, "\n"), nil
 }
 
 type MessageDirection string

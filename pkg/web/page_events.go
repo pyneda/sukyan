@@ -120,7 +120,7 @@ func AnalyzeGatheredEvents(history *db.History, events []PageEvent) {
 
 func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, workspaceID, taskID uint, source string) <-chan PageEvent {
 	eventChan := make(chan PageEvent)
-
+	ListenForWebSocketEvents(page, workspaceID, taskID, source)
 	go func() {
 		defer close(eventChan)
 
@@ -482,7 +482,7 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 
 			},
 		)()
-		ListenForWebSocketEvents(page, workspaceID, taskID, source)
+
 		<-ctx.Done()
 	}()
 

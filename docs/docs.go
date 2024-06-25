@@ -2101,9 +2101,25 @@ const docTemplate = `{
         },
         "api.ReportRequest": {
             "type": "object",
+            "required": [
+                "format",
+                "title",
+                "workspace_id"
+            ],
             "properties": {
                 "format": {
-                    "$ref": "#/definitions/report.ReportFormat"
+                    "enum": [
+                        "html",
+                        "json"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/report.ReportFormat"
+                        }
+                    ]
+                },
+                "min_confidence": {
+                    "type": "integer"
                 },
                 "title": {
                     "type": "string"
@@ -2360,6 +2376,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "interactions": {
+                    "description": "OriginalHistory   History          ` + "`" + `json:\"original_history\" gorm:\"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;\"` + "`" + `\nOriginalHistoryID *uint            ` + "`" + `json:\"original_history_id\" gorm:\"index\"` + "`" + `",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/db.OOBInteraction"
@@ -2418,6 +2435,9 @@ const docTemplate = `{
                 },
                 "url": {
                     "type": "string"
+                },
+                "websocket_connection_id": {
+                    "type": "integer"
                 },
                 "workspace_id": {
                     "type": "integer"
@@ -2588,11 +2608,11 @@ const docTemplate = `{
                 "issue_id": {
                     "type": "integer"
                 },
-                "oob_test": {
-                    "$ref": "#/definitions/db.OOBTest"
-                },
                 "oob_test_id": {
                     "type": "integer"
+                },
+                "oobtest": {
+                    "$ref": "#/definitions/db.OOBTest"
                 },
                 "protocol": {
                     "type": "string"
@@ -2684,6 +2704,12 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.PlaygroundSession"
+                    }
                 },
                 "updated_at": {
                     "type": "string"
@@ -2850,6 +2876,9 @@ const docTemplate = `{
                 "title": {
                     "type": "string"
                 },
+                "type": {
+                    "$ref": "#/definitions/db.TaskType"
+                },
                 "updated_at": {
                     "type": "string"
                 },
@@ -2868,6 +2897,23 @@ const docTemplate = `{
                     "$ref": "#/definitions/db.RequestsStats"
                 }
             }
+        },
+        "db.TaskType": {
+            "type": "string",
+            "enum": [
+                "scan",
+                "playground-fuzzer",
+                "playground-manual",
+                "browser",
+                "crawl"
+            ],
+            "x-enum-varnames": [
+                "TaskTypeScan",
+                "TaskTypePlaygroundFuzzer",
+                "TaskTypePlaygroundManual",
+                "TaskTypeBrowser",
+                "TaskTypeCrawl"
+            ]
         },
         "db.WebSocketMessage": {
             "type": "object",
@@ -3096,6 +3142,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "experimental_audits": {
+                    "type": "boolean"
+                },
                 "headers": {
                     "type": "object",
                     "additionalProperties": {
@@ -3120,11 +3169,15 @@ const docTemplate = `{
                     "minimum": 0
                 },
                 "mode": {
-                    "type": "string",
                     "enum": [
                         "fast",
                         "smart",
                         "fuzz"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/scan.ScanMode"
+                        }
                     ]
                 },
                 "pages_pool_size": {
@@ -3148,6 +3201,19 @@ const docTemplate = `{
                     "minimum": 0
                 }
             }
+        },
+        "scan.ScanMode": {
+            "type": "string",
+            "enum": [
+                "fast",
+                "smart",
+                "fuzz"
+            ],
+            "x-enum-varnames": [
+                "ScanModeFast",
+                "ScanModeSmart",
+                "ScanModeFuzz"
+            ]
         }
     },
     "securityDefinitions": {

@@ -122,11 +122,21 @@ definitions:
   api.ReportRequest:
     properties:
       format:
-        $ref: '#/definitions/report.ReportFormat'
+        allOf:
+        - $ref: '#/definitions/report.ReportFormat'
+        enum:
+        - html
+        - json
+      min_confidence:
+        type: integer
       title:
         type: string
       workspace_id:
         type: integer
+    required:
+    - format
+    - title
+    - workspace_id
     type: object
   api.RootNode:
     properties:
@@ -291,6 +301,9 @@ definitions:
       id:
         type: integer
       interactions:
+        description: |-
+          OriginalHistory   History          `json:"original_history" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+          OriginalHistoryID *uint            `json:"original_history_id" gorm:"index"`
         items:
           $ref: '#/definitions/db.OOBInteraction'
         type: array
@@ -330,6 +343,8 @@ definitions:
         type: string
       url:
         type: string
+      websocket_connection_id:
+        type: integer
       workspace_id:
         type: integer
     type: object
@@ -448,10 +463,10 @@ definitions:
         type: integer
       issue_id:
         type: integer
-      oob_test:
-        $ref: '#/definitions/db.OOBTest'
       oob_test_id:
         type: integer
+      oobtest:
+        $ref: '#/definitions/db.OOBTest'
       protocol:
         type: string
       qtype:
@@ -512,6 +527,10 @@ definitions:
         type: integer
       name:
         type: string
+      sessions:
+        items:
+          $ref: '#/definitions/db.PlaygroundSession'
+        type: array
       updated_at:
         type: string
       workspace_id:
@@ -636,6 +655,8 @@ definitions:
         type: string
       title:
         type: string
+      type:
+        $ref: '#/definitions/db.TaskType'
       updated_at:
         type: string
       workspace_id:
@@ -648,6 +669,20 @@ definitions:
       requests:
         $ref: '#/definitions/db.RequestsStats'
     type: object
+  db.TaskType:
+    enum:
+    - scan
+    - playground-fuzzer
+    - playground-manual
+    - browser
+    - crawl
+    type: string
+    x-enum-varnames:
+    - TaskTypeScan
+    - TaskTypePlaygroundFuzzer
+    - TaskTypePlaygroundManual
+    - TaskTypeBrowser
+    - TaskTypeCrawl
   db.WebSocketMessage:
     properties:
       connection_id:
@@ -798,6 +833,8 @@ definitions:
         items:
           type: string
         type: array
+      experimental_audits:
+        type: boolean
       headers:
         additionalProperties:
           items:
@@ -815,11 +852,12 @@ definitions:
         minimum: 0
         type: integer
       mode:
+        allOf:
+        - $ref: '#/definitions/scan.ScanMode'
         enum:
         - fast
         - smart
         - fuzz
-        type: string
       pages_pool_size:
         maximum: 100
         minimum: 1
@@ -839,6 +877,16 @@ definitions:
     - start_urls
     - workspace_id
     type: object
+  scan.ScanMode:
+    enum:
+    - fast
+    - smart
+    - fuzz
+    type: string
+    x-enum-varnames:
+    - ScanModeFast
+    - ScanModeSmart
+    - ScanModeFuzz
 info:
   contact: {}
   description: The Sukyan API documentation.

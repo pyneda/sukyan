@@ -103,6 +103,7 @@ func FillIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnection
 	issue.WorkspaceID = workspaceID
 	issue.TaskID = taskID
 	issue.TaskJobID = taskJobID
+	issue.WebsocketConnectionID = &connection.ID
 
 	if severity != "" {
 		issue.Severity = NewSeverity(severity)
@@ -111,6 +112,7 @@ func FillIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnection
 }
 
 func CreateIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnection, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID *uint) (Issue, error) {
+	log.Info().Str("code", string(code)).Str("url", connection.URL).Msg("Creating issue from WebSocket connection")
 	issue := FillIssueFromWebSocketConnectionAndTemplate(connection, code, details, confidence, severity, workspaceID, taskID, taskJobID)
 	if issue == nil {
 		err := fmt.Errorf("issue template with code %s not found", code)

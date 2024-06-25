@@ -232,28 +232,33 @@ type WebSocketConnectionFilter struct {
 }
 
 func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnectionFilter) ([]WebSocketConnection, int64, error) {
-	var connections []WebSocketConnection
-	var count int64
+	query := d.db.Model(&WebSocketConnection{})
 
-	query := d.db.Model(&WebSocketConnection{}).
-		Where("workspace_id = ?", filter.WorkspaceID)
-
+	if filter.WorkspaceID > 0 {
+		query = query.Where("workspace_id = ?", filter.WorkspaceID)
+	}
 	if len(filter.Sources) > 0 {
 		query = query.Where("source IN ?", filter.Sources)
 	}
-
 	if filter.TaskID > 0 {
 		query = query.Where("task_id = ?", filter.TaskID)
 	}
 
-	err := query.Count(&count).
-		Order("id desc").
-		Limit(filter.PageSize).
-		Offset((filter.Page - 1) * filter.PageSize).
-		Find(&connections).
-		Error
+	var connections []WebSocketConnection
+	var count int64
 
-	if err != nil {
+	if err := query.Count(&count).Error; err != nil {
+		log.Error().Err(err).Msg("Failed to count WebSocket connections")
+		return nil, 0, err
+	}
+
+	if filter.PageSize > 0 && filter.Page > 0 {
+		query = query.Scopes(Paginate(&filter.Pagination))
+	}
+
+	query = query.Order("id desc")
+
+	if err := query.Find(&connections).Error; err != nil {
 		log.Error().Err(err).Msg("Failed to list WebSocket connections")
 		return nil, 0, err
 	}
@@ -267,22 +272,27 @@ type WebSocketMessageFilter struct {
 }
 
 func (d *DatabaseConnection) ListWebSocketMessages(filter WebSocketMessageFilter) ([]WebSocketMessage, int64, error) {
-	var messages []WebSocketMessage
-	var count int64
-
 	query := d.db.Model(&WebSocketMessage{})
+
 	if filter.ConnectionID != 0 {
 		query = query.Where("connection_id = ?", filter.ConnectionID)
 	}
 
-	err := query.
-		Count(&count).
-		// Order("id asc").
-		Limit(filter.PageSize).
-		Offset((filter.Page - 1) * filter.PageSize).
-		Find(&messages).
-		Error
-	if err != nil {
+	var messages []WebSocketMessage
+	var count int64
+
+	if err := query.Count(&count).Error; err != nil {
+		log.Error().Err(err).Msg("Failed to count WebSocket messages")
+		return nil, 0, err
+	}
+
+	if filter.PageSize > 0 && filter.Page > 0 {
+		query = query.Scopes(Paginate(&filter.Pagination))
+	}
+
+	query = query.Order("id desc")
+
+	if err := query.Find(&messages).Error; err != nil {
 		log.Error().Err(err).Msg("Failed to list WebSocket messages")
 		return nil, 0, err
 	}

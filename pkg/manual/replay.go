@@ -2,13 +2,14 @@ package manual
 
 import (
 	"bytes"
+	"io"
+	"net/http"
+	"net/url"
+
 	"github.com/projectdiscovery/rawhttp"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 )
 
 type RequestReplayOptions struct {
@@ -25,15 +26,18 @@ func Replay(input RequestReplayOptions) (ReplayResult, error) {
 	client := rawhttp.NewClient(rawhttp.DefaultOptions)
 	requestOptions := input.Options.ToRawHTTPOptions()
 	bodyReader := bytes.NewReader([]byte(input.Request.Body))
-	resp, err := client.DoRawWithOptions(input.Request.Method, input.Request.URL, input.Request.URI, input.Request.Headers, bodyReader, requestOptions)
+	fullURL := input.Request.URL
+	if input.Request.URI != "" {
+		fullURL = input.Request.URL + input.Request.URI
+	}
+	resp, err := client.DoRawWithOptions(input.Request.Method, fullURL, "", input.Request.Headers, bodyReader, requestOptions)
 
 	if err != nil {
 		log.Error().Msgf("Error sending request: %s", err)
 		return ReplayResult{}, err
 	}
 
-	// NOTE: rawhttp doesn't set the http.Response.Request field, so we need to do it manually
-	parsed, err := url.Parse(input.Request.URL)
+	parsed, err := url.Parse(fullURL)
 	if err != nil {
 		log.Error().Msgf("Error parsing URL: %s", err)
 		return ReplayResult{}, err
@@ -42,7 +46,7 @@ func Replay(input RequestReplayOptions) (ReplayResult, error) {
 		Method: input.Request.Method,
 		URL:    parsed,
 		Header: input.Request.Headers,
-		Body:   ioutil.NopCloser(bytes.NewReader([]byte(input.Request.Body))),
+		Body:   io.NopCloser(bytes.NewReader([]byte(input.Request.Body))),
 	}
 	// taskID := input.Session.TaskID
 	// if taskID == nil {

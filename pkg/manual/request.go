@@ -24,6 +24,7 @@ type RequestOptions struct {
 	MaxRedirects        int  `json:"max_redirects" validate:"min=0"`
 	UpdateHostHeader    bool `json:"update_host_header"`
 	UpdateContentLength bool `json:"update_content_length"`
+	Timeout             int  `json:"timeout" validate:"min=0"`
 }
 
 func (o *RequestOptions) ToRawHTTPOptions() *rawhttp.Options {

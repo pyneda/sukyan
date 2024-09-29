@@ -2,15 +2,18 @@ package manual
 
 import (
 	"bytes"
+	"time"
+
 	"github.com/projectdiscovery/rawhttp"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/sourcegraph/conc/pool"
 
-	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+
+	"github.com/rs/zerolog/log"
 )
 
 type RequestFuzzOptions struct {
@@ -19,6 +22,8 @@ type RequestFuzzOptions struct {
 	InsertionPoints []FuzzerInsertionPoint `json:"insertion_points" validate:"required"`
 	Session         db.PlaygroundSession   `json:"session" validate:"required"`
 	Options         RequestOptions         `json:"options"`
+	// MaxConnections     int                    `json:"max_connections"`
+	// MaxPendingRequests int                    `json:"max_pending_requests"`
 }
 
 type FuzzerPayloadsGroup struct {
@@ -38,7 +43,26 @@ type FuzzerInsertionPoint struct {
 func (p *FuzzerInsertionPoint) generatePayloads() []string {
 	payloads := make([]string, 0)
 	for _, group := range p.PayloadGroups {
-		payloads = append(payloads, group.Payloads...)
+		if len(group.Payloads) > 0 {
+			payloads = append(payloads, group.Payloads...)
+		}
+		if group.Wordlist != "" {
+			storage := NewFilesystemWordlistStorage()
+			wordlist, err := storage.GetWordlistByID(group.Wordlist)
+			if err != nil {
+				log.Error().Err(err).Str("wordlist", group.Wordlist).Msg("Error getting wordlist")
+			} else {
+				lines, err := storage.ReadWordlist(wordlist.Name, 0)
+				if err != nil {
+					log.Error().Err(err).Interface("wordlist", wordlist).Msg("Error reading wordlist")
+				} else {
+					payloads = append(payloads, lines...)
+				}
+			}
+		}
+	}
+	if len(payloads) == 0 {
+		log.Warn().Interface("insertion_point", p).Msg("No payloads generated for insertion point")
 	}
 	return payloads
 }
@@ -58,9 +82,17 @@ func Fuzz(input RequestFuzzOptions, taskID uint) (int, error) {
 		return 0, err
 	}
 	// https://github.com/projectdiscovery/rawhttp/blob/acd587a6157ef709f2fb6ba25866bfffc28b7594/pipelineoptions.go#L20C5-L20C27
-	pipeOptions := rawhttp.DefaultPipelineOptions
-	pipeOptions.Host = parsedUrl.Host
-	pipeOptions.AutomaticHostHeader = false
+	pipeOptions := rawhttp.PipelineOptions{
+		Host:                parsedUrl.Host,
+		Timeout:             30 * time.Second,
+		MaxConnections:      5,
+		MaxPendingRequests:  100,
+		AutomaticHostHeader: input.Options.UpdateHostHeader,
+	}
+	if input.Options.Timeout > 0 {
+		pipeOptions.Timeout = time.Duration(input.Options.Timeout) * time.Second
+	}
+
 	pipeClient := rawhttp.NewPipelineClient(pipeOptions)
 	// NOTE: Concurrency should be provided as option. Same as other pipeline options.
 	p := pool.New().WithMaxGoroutines(30)

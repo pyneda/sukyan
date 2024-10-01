@@ -2062,10 +2062,18 @@ const docTemplate = `{
         "api.PlaygroundReplayInput": {
             "type": "object",
             "required": [
+                "mode",
                 "request",
                 "session_id"
             ],
             "properties": {
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "raw",
+                        "browser"
+                    ]
+                },
                 "options": {
                     "$ref": "#/definitions/manual.RequestOptions"
                 },

@@ -95,6 +95,11 @@ definitions:
     type: object
   api.PlaygroundReplayInput:
     properties:
+      mode:
+        enum:
+        - raw
+        - browser
+        type: string
       options:
         $ref: '#/definitions/manual.RequestOptions'
       request:
@@ -102,6 +107,7 @@ definitions:
       session_id:
         type: integer
     required:
+    - mode
     - request
     - session_id
     type: object

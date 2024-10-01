@@ -803,6 +803,9 @@ definitions:
       max_redirects:
         minimum: 0
         type: integer
+      timeout:
+        minimum: 0
+        type: integer
       update_content_length:
         type: boolean
       update_host_header:

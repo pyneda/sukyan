@@ -3093,6 +3093,10 @@ const docTemplate = `{
                     "type": "integer",
                     "minimum": 0
                 },
+                "timeout": {
+                    "type": "integer",
+                    "minimum": 0
+                },
                 "update_content_length": {
                     "type": "boolean"
                 },

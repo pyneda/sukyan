@@ -66,7 +66,7 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 					}
 				}()
 				// Additional check for context cancellation
-				history := CreateHistoryFromHijack(hj.Request, hj.Response, source, "Create history from hijack", workspaceID, taskID)
+				history := CreateHistoryFromHijack(hj.Request, hj.Response, source, "Create history from hijack", workspaceID, taskID, 0)
 				linksFound := passive.ExtractedURLS{}
 				if hj.Request.Type() != "Image" && hj.Request.Type() != "Font" && hj.Request.Type() != "Media" {
 					linksFound = passive.ExtractURLsFromHistoryItem(history)
@@ -121,7 +121,7 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 			log.Debug().Str("url", ctx.Request.URL().String()).Msg("Skipping processing of hijacked response")
 		} else {
 			go func() {
-				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack", workspaceID, taskID)
+				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack", workspaceID, taskID, 0)
 				linksFound := passive.ExtractedURLS{}
 				if ctx.Request.Type() != "Image" && ctx.Request.Type() != "Font" && ctx.Request.Type() != "Media" {
 					linksFound = passive.ExtractURLsFromHistoryItem(history)
@@ -143,11 +143,16 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 
 func DumpHijackRequest(req *rod.HijackRequest) (raw string, body string) {
 	var dump strings.Builder
-
-	// Request Line
-	// dump.WriteString(fmt.Sprintf("%s %s %s\n", req.Method(), req.URL(), "HTTP/1.1")) // Using HTTP/1.1 as a placeholder
+	reqUrl := req.URL()
+	path := reqUrl.Path
+	if reqUrl.RawQuery != "" {
+		path += "?" + reqUrl.RawQuery
+	}
+	if reqUrl.Fragment != "" {
+		path += "#" + reqUrl.Fragment
+	}
 	method := req.Req().Method
-	dump.WriteString(fmt.Sprintf("%s %s %s\n", method, req.URL(), "HTTP/1.1")) // Using HTTP/1.1 as a placeholder
+	dump.WriteString(fmt.Sprintf("%s %s %s\n", method, path, "HTTP/1.1")) // Using HTTP/1.1 as a placeholder
 
 	// Headers
 	for k, v := range req.Headers() {
@@ -198,7 +203,7 @@ func DumpHijackResponse(res *rod.HijackResponse) (rawResponse string, body strin
 }
 
 // CreateHistoryFromHijack saves a history request from hijack request/response items.
-func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string, workspaceID, taskID uint) *db.History {
+func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string, workspaceID, taskID, playgroundSessionID uint) *db.History {
 	requestHeaders, err := json.Marshal(request.Headers())
 	if err != nil {
 		log.Error().Err(err).Msg("Error converting request headers to json")
@@ -232,7 +237,7 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		// ResponseContentLength: response.ContentLength,
 		WorkspaceID:         &workspaceID,
 		TaskID:              &taskID,
-		PlaygroundSessionID: nil,
+		PlaygroundSessionID: &playgroundSessionID,
 		Proto:               request.Req().Proto,
 	}
 	createdHistory, _ := db.Connection.CreateHistory(&history)

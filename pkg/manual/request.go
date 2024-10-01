@@ -3,6 +3,7 @@ package manual
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -17,6 +18,19 @@ type Request struct {
 	Headers     map[string][]string `json:"headers" validate:"required"`
 	Body        string              `json:"body" validate:"omitempty"`
 	HTTPVersion string              `json:"http_version" validate:"omitempty"`
+}
+
+func (r *Request) toHTTPRequest() (*http.Request, error) {
+	url := r.URL
+	if r.URI != "" {
+		url += r.URI
+	}
+	req, err := http.NewRequest(r.Method, url, strings.NewReader(r.Body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header = r.Headers
+	return req, nil
 }
 
 type RequestOptions struct {

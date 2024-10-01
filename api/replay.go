@@ -7,6 +7,7 @@ import (
 )
 
 type PlaygroundReplayInput struct {
+	Mode      string                `json:"mode" validate:"required,oneof=raw browser"`
 	Request   manual.Request        `json:"request" validate:"required"`
 	Options   manual.RequestOptions `json:"options"`
 	SessionID uint                  `json:"session_id" validate:"required"`
@@ -48,6 +49,7 @@ func ReplayRequest(c *fiber.Ctx) error {
 	}
 
 	options := manual.RequestReplayOptions{
+		Mode:    input.Mode,
 		Request: input.Request,
 		Session: *session,
 		Options: input.Options,

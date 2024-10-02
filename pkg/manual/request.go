@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/projectdiscovery/rawhttp"
 	"github.com/spf13/viper"
@@ -41,7 +42,7 @@ type RequestOptions struct {
 	Timeout             int  `json:"timeout" validate:"min=0"`
 }
 
-func (o *RequestOptions) ToRawHTTPOptions() *rawhttp.Options {
+func (o *RequestOptions) toRawHTTPOptions() *rawhttp.Options {
 	requestOptions := rawhttp.DefaultOptions
 	requestOptions.FollowRedirects = o.FollowRedirects
 	if o.MaxRedirects == 0 && o.FollowRedirects {
@@ -53,6 +54,17 @@ func (o *RequestOptions) ToRawHTTPOptions() *rawhttp.Options {
 	requestOptions.AutomaticContentLength = o.UpdateContentLength
 	requestOptions.ForceReadAllBody = true
 	return requestOptions
+}
+
+func (o *RequestOptions) toRawHTTPPipelineOptions(host string) rawhttp.PipelineOptions {
+	pipeOptions := rawhttp.DefaultPipelineOptions
+	pipeOptions.AutomaticHostHeader = o.UpdateHostHeader
+	pipeOptions.Host = host
+	if o.Timeout > 0 {
+		pipeOptions.Timeout = time.Duration(o.Timeout) * time.Second
+	}
+
+	return pipeOptions
 }
 
 func validateRawRequestInsertionPoints(raw string, insertionPoints []FuzzerInsertionPoint) error {

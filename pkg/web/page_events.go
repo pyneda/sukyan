@@ -14,11 +14,11 @@ import (
 type PageEventType string
 
 type PageEvent struct {
-	Type        PageEventType
-	URL         string
-	Description string
-	Data        map[string]interface{}
-	Issue       db.Issue
+	Type        PageEventType          `json:"type"`
+	URL         string                 `json:"url"`
+	Description string                 `json:"description"`
+	Data        map[string]interface{} `json:"data"`
+	Issue       db.Issue               `json:"-"`
 }
 
 const (

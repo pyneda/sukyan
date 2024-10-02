@@ -12,6 +12,7 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/browser"
 	"github.com/pyneda/sukyan/pkg/http_utils"
+	"github.com/pyneda/sukyan/pkg/web"
 	"github.com/rs/zerolog/log"
 )
 
@@ -23,7 +24,8 @@ type RequestReplayOptions struct {
 }
 
 type ReplayResult struct {
-	Result *db.History `json:"result"`
+	Result        *db.History     `json:"result"`
+	BrowserEvents []web.PageEvent `json:"browser_events"`
 }
 
 func Replay(input RequestReplayOptions) (ReplayResult, error) {
@@ -35,17 +37,27 @@ func Replay(input RequestReplayOptions) (ReplayResult, error) {
 }
 
 func ReplayRaw(input RequestReplayOptions) (ReplayResult, error) {
-	client := rawhttp.NewClient(rawhttp.DefaultOptions)
-	requestOptions := input.Options.ToRawHTTPOptions()
+	parsedUrl, err := url.Parse(input.Request.URL)
+	if err != nil {
+		return ReplayResult{}, err
+	}
+	pipeOptions := input.Options.toRawHTTPPipelineOptions(parsedUrl.Host)
+	pipeOptions.MaxConnections = 1
+	pipeOptions.MaxPendingRequests = 10
+
+	if input.Options.Timeout > 0 {
+		pipeOptions.Timeout = time.Duration(input.Options.Timeout) * time.Second
+	}
+	pipeClient := rawhttp.NewPipelineClient(pipeOptions)
 	bodyReader := bytes.NewReader([]byte(input.Request.Body))
 	fullURL := input.Request.URL
 	if input.Request.URI != "" {
 		fullURL = input.Request.URL + input.Request.URI
 	}
-	resp, err := client.DoRawWithOptions(input.Request.Method, fullURL, "", input.Request.Headers, bodyReader, requestOptions)
+	resp, err := pipeClient.DoRawWithOptions(input.Request.Method, fullURL, "", input.Request.Headers, bodyReader, pipeOptions)
 
 	if err != nil {
-		log.Error().Err(err).Msg("Error sending request")
+		log.Error().Str("method", input.Request.Method).Str("url", fullURL).Interface("options", pipeOptions).Err(err).Msg("Error sending request")
 		return ReplayResult{}, err
 	}
 
@@ -60,16 +72,11 @@ func ReplayRaw(input RequestReplayOptions) (ReplayResult, error) {
 		Header: input.Request.Headers,
 		Body:   io.NopCloser(bytes.NewReader([]byte(input.Request.Body))),
 	}
-	// taskID := input.Session.TaskID
-	// if taskID == nil {
-	// 	taskID = new(uint)
-	// }
-	taskID := new(uint)
 
 	options := http_utils.HistoryCreationOptions{
 		Source:              db.SourceRepeater,
 		WorkspaceID:         input.Session.WorkspaceID,
-		TaskID:              *taskID,
+		TaskID:              0,
 		CreateNewBodyStream: false,
 		PlaygroundSessionID: input.Session.ID,
 	}
@@ -103,14 +110,37 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 		time.Sleep(30 * time.Second)
 		cancel()
 	}()
+
+	eventStream := web.ListenForPageEvents(ctx, input.Request.URL, pageWithCancel, input.Session.WorkspaceID, 0, db.SourceRepeater)
+	events := []web.PageEvent{}
+	go func() {
+		for {
+			select {
+			case event, ok := <-eventStream:
+				if !ok {
+					return // exit if channel is closed
+				}
+				log.Info().Str("url", input.Request.URL).Interface("event", event).Msg("Browser repeater received page event")
+				events = append(events, event)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	defer cancel()
+
 	history, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, request, input.Session.WorkspaceID, 0, input.Session.ID, "Browser replay", db.SourceRepeater)
 	if navigationErr != nil {
 		log.Error().Err(navigationErr).Msg("Error replaying request in browser")
 		return ReplayResult{}, navigationErr
 	}
+	// Wait for 1 second after navigation to gather more events
+	log.Info().Msg("Waiting for 2 second after navigation to gather more events")
+	time.Sleep(2 * time.Second)
 
 	result := ReplayResult{
-		Result: history,
+		Result:        history,
+		BrowserEvents: events,
 	}
 	return result, nil
 }

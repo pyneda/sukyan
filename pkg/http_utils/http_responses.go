@@ -12,7 +12,6 @@ import (
 
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -70,7 +69,7 @@ func ReadFullResponse(response *http.Response, createNewBodyStream bool) (FullRe
 
 	var newBody io.ReadCloser
 	if createNewBodyStream {
-		newBody = ioutil.NopCloser(bytes.NewReader(bodyBytes))
+		newBody = io.NopCloser(bytes.NewReader(bodyBytes))
 	}
 
 	return FullResponseData{

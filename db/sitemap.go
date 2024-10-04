@@ -47,6 +47,7 @@ const (
 	SitemapNodeTypeAudio    SitemapNodeType = "audio"
 	SitemapNodeTypeMarkdown SitemapNodeType = "markdown"
 	SitemapNodeTypeFont     SitemapNodeType = "font"
+	SitemapNodeTypeText     SitemapNodeType = "text"
 )
 
 func (d *DatabaseConnection) getSitemapData(filter SitemapFilter) ([]History, error) {
@@ -209,6 +210,8 @@ func determineFileType(ext string) SitemapNodeType {
 		return SitemapNodeTypeYaml
 	case ".sql":
 		return SitemapNodeTypeSql
+	case ".txt":
+		return SitemapNodeTypeText
 	case ".jpg", ".jpeg", ".png", ".gif", ".svg", ".ico", ".bmp", ".webp":
 		return SitemapNodeTypeImage
 	case ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm":

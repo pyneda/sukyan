@@ -237,7 +237,15 @@ func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) ([]*GroupedIs
 	}
 
 	sort.Slice(groupedIssues, func(i, j int) bool {
-		return GetSeverityOrder(groupedIssues[i].Severity) < GetSeverityOrder(groupedIssues[j].Severity)
+		severityOrderI := GetSeverityOrder(groupedIssues[i].Severity)
+		severityOrderJ := GetSeverityOrder(groupedIssues[j].Severity)
+
+		if severityOrderI != severityOrderJ {
+			// Sort by severity first
+			return severityOrderI < severityOrderJ
+		}
+
+		return groupedIssues[i].Title < groupedIssues[j].Title
 	})
 	return groupedIssues, nil
 }

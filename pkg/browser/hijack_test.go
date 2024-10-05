@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-rod/rod"
 	"github.com/pyneda/sukyan/db"
 	"github.com/stretchr/testify/assert"
 )
@@ -118,7 +117,7 @@ func TestHijack(t *testing.T) {
 
 	defer server.Close()
 
-	rodBrowser := rod.New().MustConnect().MustPage(server.URL)
+	rodBrowser := setupRodBrowser(t, true).MustPage(server.URL)
 	defer rodBrowser.Browser().MustClose()
 
 	resultsChannel := make(chan HijackResult)

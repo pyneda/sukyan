@@ -14,7 +14,7 @@ import (
 	"github.com/go-rod/rod"
 )
 
-func setupMockServer() (*rod.Page, *httptest.Server) {
+func setupMockServer(t *testing.T) (*rod.Page, *httptest.Server) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == "POST" && r.URL.Path == "/":
@@ -34,12 +34,12 @@ func setupMockServer() (*rod.Page, *httptest.Server) {
 		}
 	}))
 
-	page := rod.New().MustConnect().MustPage()
+	page := setupRodBrowser(t, true).MustPage()
 	return page, server
 }
 
 func TestReplayRequestInBrowser(t *testing.T) {
-	page, server := setupMockServer()
+	page, server := setupMockServer(t)
 	defer server.Close()
 
 	// Test 1: POST request that triggers redirection
@@ -68,7 +68,7 @@ func TestReplayRequestInBrowser(t *testing.T) {
 }
 
 func TestReplayRequestInBrowserAndCreateHistory(t *testing.T) {
-	page, server := setupMockServer()
+	page, server := setupMockServer(t)
 	defer server.Close()
 	// Test 1: POST request that triggers redirection
 	postReq, _ := http.NewRequest("POST", server.URL, bytes.NewBufferString("trigger bingo"))

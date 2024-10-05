@@ -50,8 +50,7 @@ func TestHijackWithContext(t *testing.T) {
 
 	server := setupHijackMockServer()
 	defer server.Close()
-
-	rodBrowser := rod.New().MustConnect().MustPage(server.URL)
+	rodBrowser := setupRodBrowser(t, true).MustPage(server.URL)
 	defer rodBrowser.Browser().MustClose()
 
 	resultsChannel := make(chan HijackResult)

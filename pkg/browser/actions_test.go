@@ -109,7 +109,7 @@ func startTestServer() *http.Server {
 
 func setupRodBrowser(t *testing.T, headless bool) *rod.Browser {
 	t.Helper()
-	url := launcher.New().Headless(headless).MustLaunch()
+	url := launcher.New().Headless(headless).Set("no-sandbox", "true").MustLaunch()
 	browser := rod.New().ControlURL(url).MustConnect()
 	return browser
 }

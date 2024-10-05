@@ -43,20 +43,21 @@ const (
 )
 
 type Action struct {
-	Type       ActionType      `yaml:"type"`
-	Selector   string          `yaml:"selector,omitempty"`
-	Value      string          `yaml:"value,omitempty"`
-	URL        string          `yaml:"url,omitempty"`
-	For        WaitCondition   `yaml:"for,omitempty"`
-	Condition  AssertCondition `yaml:"condition,omitempty"`
-	Position   ScrollPosition  `yaml:"position,omitempty"`
-	File       string          `yaml:"file,omitempty"`
-	Duration   int             `yaml:"duration,omitempty"`
-	Expression string          `yaml:"expression,omitempty"`
+	Type       ActionType      `yaml:"type" json:"type"`
+	Selector   string          `yaml:"selector,omitempty" json:"selector,omitempty"`
+	Value      string          `yaml:"value,omitempty" json:"value,omitempty"`
+	URL        string          `yaml:"url,omitempty" json:"url,omitempty"`
+	For        WaitCondition   `yaml:"for,omitempty" json:"for,omitempty"`
+	Condition  AssertCondition `yaml:"condition,omitempty" json:"condition,omitempty"`
+	Position   ScrollPosition  `yaml:"position,omitempty" json:"position,omitempty"`
+	File       string          `yaml:"file,omitempty" json:"file,omitempty"`
+	Duration   int             `yaml:"duration,omitempty" json:"duration,omitempty"`
+	Expression string          `yaml:"expression,omitempty" json:"expression,omitempty"`
 }
 
 type BrowserActions struct {
-	Actions []Action `yaml:"actions"`
+	Title   string   `yaml:"title" json:"title"`
+	Actions []Action `yaml:"actions" json:"actions"`
 }
 
 func LoadBrowserActions(path string) (BrowserActions, error) {

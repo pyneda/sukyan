@@ -1916,6 +1916,77 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/stats/system": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Stats"
+                ],
+                "summary": "Retrieves system statistics such as the current database size.",
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved system stats",
+                        "schema": {
+                            "$ref": "#/definitions/db.SystemStats"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/stats/workspace": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Stats"
+                ],
+                "summary": "Retrieves workspace statistics including counts of issues, history entries, JWTs,",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved stats",
+                        "schema": {
+                            "$ref": "#/definitions/db.WorkspaceStats"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid workspace ID",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -2833,7 +2904,8 @@ const docTemplate = `{
                 "video",
                 "audio",
                 "markdown",
-                "font"
+                "font",
+                "text"
             ],
             "x-enum-varnames": [
                 "SitemapNodeTypeRoot",
@@ -2854,8 +2926,17 @@ const docTemplate = `{
                 "SitemapNodeTypeVideo",
                 "SitemapNodeTypeAudio",
                 "SitemapNodeTypeMarkdown",
-                "SitemapNodeTypeFont"
+                "SitemapNodeTypeFont",
+                "SitemapNodeTypeText"
             ]
+        },
+        "db.SystemStats": {
+            "type": "object",
+            "properties": {
+                "database_size": {
+                    "type": "string"
+                }
+            }
         },
         "db.Task": {
             "type": "object",
@@ -2984,6 +3065,32 @@ const docTemplate = `{
                 }
             }
         },
+        "db.WorkspaceStats": {
+            "type": "object",
+            "properties": {
+                "history_count": {
+                    "type": "integer"
+                },
+                "issues": {
+                    "$ref": "#/definitions/db.IssuesStats"
+                },
+                "issues_count": {
+                    "type": "integer"
+                },
+                "jwt_count": {
+                    "type": "integer"
+                },
+                "requests": {
+                    "$ref": "#/definitions/db.RequestsStats"
+                },
+                "tasks_count": {
+                    "type": "integer"
+                },
+                "websocket_connections_count": {
+                    "type": "integer"
+                }
+            }
+        },
         "db.severity": {
             "type": "string",
             "enum": [
@@ -3052,6 +3159,12 @@ const docTemplate = `{
         "manual.ReplayResult": {
             "type": "object",
             "properties": {
+                "browser_events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/web.PageEvent"
+                    }
+                },
                 "result": {
                     "$ref": "#/definitions/db.History"
                 }
@@ -3225,6 +3338,65 @@ const docTemplate = `{
                 "ScanModeFast",
                 "ScanModeSmart",
                 "ScanModeFuzz"
+            ]
+        },
+        "web.PageEvent": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "description": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/web.PageEventType"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "web.PageEventType": {
+            "type": "string",
+            "enum": [
+                "PageJavascriptDialogOpening",
+                "BackgroundServiceBackgroundServiceEventReceived",
+                "StorageIndexedDBContentUpdated",
+                "StorageCacheStorageListUpdated",
+                "StorageIndexedDBListUpdated",
+                "DatabaseAddDatabase",
+                "DebuggerScriptParsed",
+                "AuditsIssueAdded",
+                "SecuritySecurityStateChanged",
+                "SecurityHandleCertificateError",
+                "DOMStorageDomStorageItemAdded",
+                "DOMStorageDomStorageItemRemoved",
+                "DOMStorageDomStorageItemsCleared",
+                "DOMStorageDomStorageItemUpdated",
+                "SecurityCertificateError",
+                "NetworkAuthChallenge",
+                "RuntimeConsoleAPICalled"
+            ],
+            "x-enum-varnames": [
+                "JavaScriptDialogOpening",
+                "BackgroundServiceEventReceived",
+                "StorageIndexedDBContentUpdated",
+                "StorageCacheStorageListUpdated",
+                "StorageIndexedDBListUpdated",
+                "DatabaseAddDatabase",
+                "DebuggerScriptParsed",
+                "AuditsIssueAdded",
+                "SecuritySecurityStateChanged",
+                "SecurityHandleCertificateError",
+                "DOMStorageDomStorageItemAdded",
+                "DOMStorageDomStorageItemRemoved",
+                "DOMStorageDomStorageItemsCleared",
+                "DOMStorageDomStorageItemUpdated",
+                "SecurityCertificateError",
+                "NetworkAuthChallenge",
+                "RuntimeConsoleAPICalled"
             ]
         }
     },

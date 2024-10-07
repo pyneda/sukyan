@@ -122,6 +122,9 @@ func StartAPI() {
 	api.Get("/playground/sessions", JWTProtected(), ListPlaygroundSessions)
 	api.Post("/playground/sessions", JWTProtected(), CreatePlaygroundSession)
 	api.Get("/playground/wordlists", JWTProtected(), ListAvailableWordlists)
+	api.Get("/stats/workspace", JWTProtected(), WorkspaceStats)
+	api.Get("/stats/system", JWTProtected(), SystemStats)
+
 	// Auth related endpoints
 	auth_app := api.Group("/auth")
 	auth_app.Use(limiter.New(limiter.Config{

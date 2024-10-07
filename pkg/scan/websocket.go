@@ -23,7 +23,7 @@ func EvaluateWebSocketConnections(connections []db.WebSocketConnection, interact
 		connectionsPerHost[host] = append(connectionsPerHost[host], item)
 		if u.Scheme == "ws" {
 			cleartextConnectionsPerHost[host] = append(cleartextConnectionsPerHost[host], item)
-			db.CreateIssueFromWebSocketConnectionAndTemplate(&item, db.UnencryptedWebsocketConnectionCode, "details", 100, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
+			db.CreateIssueFromWebSocketConnectionAndTemplate(&item, db.UnencryptedWebsocketConnectionCode, "", 100, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
 		}
 		ActiveScanWebSocketConnection(&item, interactionsManager, payloadGenerators, options)
 	}

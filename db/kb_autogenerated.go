@@ -46,6 +46,7 @@ var (
 	JavaServerHeaderCode                 IssueCode = "java_server_header"
 	JettyServerHeaderCode                IssueCode = "jetty_server_header"
 	JwtDetectedCode                      IssueCode = "jwt_detected"
+	JwtWeakSigningSecretCode             IssueCode = "jwt_weak_signing_secret"
 	Log4shellCode                        IssueCode = "log4shell"
 	MissingContentTypeHeaderCode         IssueCode = "missing_content_type_header"
 	MixedContentCode                     IssueCode = "mixed_content"
@@ -478,6 +479,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         347,
 		Severity:    "Info",
 		References:  []string{"https://jwt.io/", "https://book.hacktricks.xyz/pentesting-web/hacking-jwt-json-web-tokens", "https://github.com/ticarpi/jwt_tool"},
+	},
+	{
+		Code:        JwtWeakSigningSecretCode,
+		Title:       "Weak Signing Secret in JWT",
+		Description: "The application uses JSON Web Tokens (JWTs) for authentication, but the signing secret is weak or easily guessable. This vulnerability can allow attackers to perform brute force or dictionary attacks to discover the signing secret. If successful, attackers can generate or alter JWTs, leading to potential unauthorized access to the application's resources.",
+		Remediation: "Use a strong, randomly generated signing secret with high entropy for JWTs. Avoid using short, simple, or common phrases as secrets. Opt for secure algorithms like HS256, RS256, or ES256 and ensure tokens have a short expiration time. Rotate signing secrets regularly and store them securely using environment variables or a secret management service.",
+		Cwe:         347,
+		Severity:    "High",
+		References:  []string{"https://jwt.io/introduction", "https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_Cheat_Sheet_for_Java.html", "https://github.com/ticarpi/jwt_tool/wiki"},
 	},
 	{
 		Code:        Log4shellCode,

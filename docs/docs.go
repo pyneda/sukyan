@@ -1919,6 +1919,11 @@ const docTemplate = `{
         },
         "/stats/system": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "consumes": [
                     "application/json"
                 ],
@@ -1947,6 +1952,11 @@ const docTemplate = `{
         },
         "/stats/workspace": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "consumes": [
                     "application/json"
                 ],

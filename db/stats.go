@@ -74,25 +74,25 @@ func (d *DatabaseConnection) GetWorkspaceStats(workspaceID uint) (WorkspaceStats
 		Scanner: requestCounts["Scanner"],
 	}
 
-	issueCounts := map[string]int64{}
+	issueCounts := map[severity]int64{}
 	rows, _ = d.db.Model(&Issue{}).Select("severity, COUNT(*) as count").
 		Where("workspace_id = ?", workspaceID).
 		Group("severity").Rows()
 	for rows.Next() {
-		var severity string
+		var sev severity
 		var count int64
-		rows.Scan(&severity, &count)
-		issueCounts[severity] = count
+		rows.Scan(&sev, &count)
+		issueCounts[sev] = count
 	}
 	rows.Close()
 
 	stats.Issues = IssuesStats{
-		Unknown:  issueCounts["unknown"],
-		Info:     issueCounts["info"],
-		Low:      issueCounts["low"],
-		Medium:   issueCounts["medium"],
-		High:     issueCounts["high"],
-		Critical: issueCounts["critical"],
+		Unknown:  issueCounts[Unknown],
+		Info:     issueCounts[Info],
+		Low:      issueCounts[Low],
+		Medium:   issueCounts[Medium],
+		High:     issueCounts[High],
+		Critical: issueCounts[Critical],
 	}
 
 	return stats, nil

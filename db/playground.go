@@ -202,3 +202,25 @@ func (d *DatabaseConnection) InitializeWorkspacePlayground(workspaceID uint) err
 	log.Info().Uint("workspace", workspaceID).Msg("Initialized workspace playground")
 	return nil
 }
+
+// GetPlaygroundCollectionByID retrieves a PlaygroundCollection by its ID.
+func (d *DatabaseConnection) GetPlaygroundCollectionByID(id uint) (*PlaygroundCollection, error) {
+	var collection PlaygroundCollection
+	err := d.db.First(&collection, id).Error
+	if err != nil {
+		log.Error().Err(err).Uint("id", id).Msg("Failed to get playground collection by ID")
+		return nil, err
+	}
+	return &collection, nil
+}
+
+// GetPlaygroundSessionByID retrieves a PlaygroundSession by its ID.
+func (d *DatabaseConnection) GetPlaygroundSessionByID(id uint) (*PlaygroundSession, error) {
+	var session PlaygroundSession
+	err := d.db.First(&session, id).Error
+	if err != nil {
+		log.Error().Err(err).Uint("id", id).Msg("Failed to get playground session by ID")
+		return nil, err
+	}
+	return &session, nil
+}

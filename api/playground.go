@@ -295,3 +295,67 @@ func ListAvailableWordlists(c *fiber.Ctx) error {
 		"count": len(wordlists),
 	})
 }
+
+// GetPlaygroundCollection retrieves a PlaygroundCollection by its ID.
+// @Summary Get Playground Collection by ID
+// @Description Get a playground collection by its ID
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param id path int true "Playground Collection ID"
+// @Success 200 {object} db.PlaygroundCollection
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /playground/collections/{id} [get]
+func GetPlaygroundCollection(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid ID",
+			"message": "The provided ID is not valid",
+		})
+	}
+
+	collection, err := db.Connection.GetPlaygroundCollectionByID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   "Not Found",
+			"message": "Playground collection not found",
+		})
+	}
+
+	return c.JSON(collection)
+}
+
+// GetPlaygroundSession retrieves a PlaygroundSession by its ID.
+// @Summary Get Playground Session by ID
+// @Description Get a playground session by its ID
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param id path int true "Playground Session ID"
+// @Success 200 {object} db.PlaygroundSession
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /playground/sessions/{id} [get]
+func GetPlaygroundSession(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid ID",
+			"message": "The provided ID is not valid",
+		})
+	}
+
+	session, err := db.Connection.GetPlaygroundSessionByID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   "Not Found",
+			"message": "Playground session not found",
+		})
+	}
+
+	return c.JSON(session)
+}

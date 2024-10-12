@@ -916,6 +916,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/playground/collections/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get a playground collection by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Get Playground Collection by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Collection ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.PlaygroundCollection"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/playground/fuzz": {
             "post": {
                 "security": [
@@ -1136,6 +1185,55 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/sessions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get a playground session by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Get Playground Session by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.PlaygroundSession"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -1410,6 +1508,87 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/stats/system": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Stats"
+                ],
+                "summary": "Retrieves system statistics such as the current database size.",
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved system stats",
+                        "schema": {
+                            "$ref": "#/definitions/db.SystemStats"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/stats/workspace": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Stats"
+                ],
+                "summary": "Retrieves workspace statistics including counts of issues, history entries, JWTs,",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved stats",
+                        "schema": {
+                            "$ref": "#/definitions/db.WorkspaceStats"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid workspace ID",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -1910,185 +2089,6 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/playground/collections/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Get a playground collection by its ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Playground"
-                ],
-                "summary": "Get Playground Collection by ID",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Playground Collection ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.PlaygroundCollection"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/playground/sessions/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Get a playground session by its ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Playground"
-                ],
-                "summary": "Get Playground Session by ID",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Playground Session ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/db.PlaygroundSession"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/stats/system": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Stats"
-                ],
-                "summary": "Retrieves system statistics such as the current database size.",
-                "responses": {
-                    "200": {
-                        "description": "Successfully retrieved system stats",
-                        "schema": {
-                            "$ref": "#/definitions/db.SystemStats"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/stats/workspace": {
-            "get": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Stats"
-                ],
-                "summary": "Retrieves workspace statistics including counts of issues, history entries, JWTs,",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Workspace ID",
-                        "name": "workspace_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successfully retrieved stats",
-                        "schema": {
-                            "$ref": "#/definitions/db.WorkspaceStats"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid workspace ID",
-                        "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }

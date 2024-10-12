@@ -20,7 +20,7 @@ import (
 // @Failure 400 {object} ErrorResponse "Invalid workspace ID"
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
-// @Router /stats/workspace [get]
+// @Router /api/v1/stats/workspace [get]
 func WorkspaceStats(c *fiber.Ctx) error {
 	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
@@ -51,7 +51,7 @@ func WorkspaceStats(c *fiber.Ctx) error {
 // @Success 200 {object} db.SystemStats "Successfully retrieved system stats"
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
-// @Router /stats/system [get]
+// @Router /api/v1/stats/system [get]
 func SystemStats(c *fiber.Ctx) error {
 	stats, err := db.Connection.GetSystemStats()
 	if err != nil {

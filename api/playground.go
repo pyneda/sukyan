@@ -307,7 +307,7 @@ func ListAvailableWordlists(c *fiber.Ctx) error {
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
-// @Router /playground/collections/{id} [get]
+// @Router /api/v1/playground/collections/{id} [get]
 func GetPlaygroundCollection(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
@@ -339,7 +339,7 @@ func GetPlaygroundCollection(c *fiber.Ctx) error {
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
-// @Router /playground/sessions/{id} [get]
+// @Router /api/v1/playground/sessions/{id} [get]
 func GetPlaygroundSession(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {

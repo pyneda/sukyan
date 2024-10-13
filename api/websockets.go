@@ -1,12 +1,15 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/pyneda/sukyan/db"
-	"github.com/rs/zerolog/log"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
+	"gorm.io/gorm"
 )
 
 // @Summary Get WebSocket connections
@@ -130,4 +133,44 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.Status(http.StatusOK).JSON(fiber.Map{"data": messages, "count": count})
+}
+
+// @Summary Get WebSocket connection details
+// @Description Get details of a specific WebSocket connection by its ID, including its associated messages
+// @Tags History
+// @Produce json
+// @Param id path int true "WebSocket connection ID"
+// @Success 200 {object} db.WebSocketConnection
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/history/websocket/connections/{id} [get]
+func FindWebSocketConnectionByID(c *fiber.Ctx) error {
+	unparsedConnectionID := c.Params("id")
+
+	connectionID, err := strconv.ParseUint(unparsedConnectionID, 10, 32)
+	if err != nil {
+		log.Error().Err(err).Msg("Error parsing connection ID parameter")
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Invalid connection ID",
+			Message: "The provided connection ID is not valid",
+		})
+	}
+
+	connection, err := db.Connection.GetWebSocketConnection(uint(connectionID))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Error:   "Connection not found",
+				Message: "No WebSocket connection found with the provided ID",
+			})
+		}
+		log.Error().Err(err).Msg("Error fetching WebSocket connection details")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:   "Error fetching WebSocket connection details",
+			Message: "An unexpected error occurred while fetching the WebSocket connection details. Please try again later.",
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(connection)
 }

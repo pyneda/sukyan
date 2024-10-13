@@ -101,6 +101,7 @@ func StartAPI() {
 	api.Post("/issues/:id/set-false-positive", SetFalsePositive)
 	api.Get("/history/:id/children", JWTProtected(), GetChildren)
 	api.Get("/history/root-nodes", JWTProtected(), GetRootNodes)
+	api.Get("/history/websocket/connections/:id", JWTProtected(), FindWebSocketConnectionByID)
 	api.Get("/history/websocket/connections", JWTProtected(), FindWebSocketConnections)
 	api.Get("/history/websocket/messages", JWTProtected(), FindWebSocketMessages)
 	api.Get("/workspaces", JWTProtected(), FindWorkspaces)

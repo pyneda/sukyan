@@ -288,6 +288,9 @@ func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
 	if record.TaskID != nil && *record.TaskID == 0 {
 		record.TaskID = nil
 	}
+	if record.PlaygroundSessionID != nil && *record.PlaygroundSessionID == 0 {
+		record.PlaygroundSessionID = nil
+	}
 	record.ID = 0
 	enhanceHistoryItem(record)
 	result := d.db.Create(&record)

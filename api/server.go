@@ -127,6 +127,11 @@ func StartAPI() {
 	api.Get("/playground/wordlists", JWTProtected(), ListAvailableWordlists)
 	api.Get("/stats/workspace", JWTProtected(), WorkspaceStats)
 	api.Get("/stats/system", JWTProtected(), SystemStats)
+	api.Post("/browser-actions", JWTProtected(), CreateStoredBrowserActions)
+	api.Get("/browser-actions", JWTProtected(), ListStoredBrowserActions)
+	api.Get("/browser-actions/:id", JWTProtected(), GetStoredBrowserActions)
+	api.Put("/browser-actions/:id", JWTProtected(), UpdateStoredBrowserActions)
+	api.Delete("/browser-actions/:id", JWTProtected(), DeleteStoredBrowserActions)
 
 	// Auth related endpoints
 	auth_app := api.Group("/auth")

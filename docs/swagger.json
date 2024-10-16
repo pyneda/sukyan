@@ -114,6 +114,323 @@
                 }
             }
         },
+        "/api/v1/browser-actions": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves a list of StoredBrowserActions with optional filtering and sorting options",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Browser Actions"
+                ],
+                "summary": "List StoredBrowserActions with filtering and sorting",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search query for title",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Scope filter (global or workspace)",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID filter",
+                        "name": "workspace_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns 'data' (array of StoredBrowserActions) and 'count' (total number of records)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Creates a new StoredBrowserActions record",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Browser Actions"
+                ],
+                "summary": "Create a new StoredBrowserActions",
+                "parameters": [
+                    {
+                        "description": "BrowserActions object to create",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/actions.BrowserActions"
+                        }
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "global",
+                            "workspace"
+                        ],
+                        "type": "string",
+                        "description": "Scope (global or workspace)",
+                        "name": "scope",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/db.StoredBrowserActions"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/browser-actions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves a StoredBrowserActions record by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Browser Actions"
+                ],
+                "summary": "Get a StoredBrowserActions by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "StoredBrowserActions ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.StoredBrowserActions"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Updates an existing StoredBrowserActions record",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Browser Actions"
+                ],
+                "summary": "Update a StoredBrowserActions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "StoredBrowserActions ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "BrowserActions object to update",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/actions.BrowserActions"
+                        }
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "global",
+                            "workspace"
+                        ],
+                        "type": "string",
+                        "description": "Scope (global or workspace)",
+                        "name": "scope",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.StoredBrowserActions"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Deletes an existing StoredBrowserActions record",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Browser Actions"
+                ],
+                "summary": "Delete a StoredBrowserActions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "StoredBrowserActions ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/history": {
             "get": {
                 "security": [
@@ -330,6 +647,52 @@
                     }
                 ],
                 "responses": {
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/history/websocket/connections/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get details of a specific WebSocket connection by its ID, including its associated messages",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "History"
+                ],
+                "summary": "Get WebSocket connection details",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "WebSocket connection ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.WebSocketConnection"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -2089,6 +2452,173 @@
         }
     },
     "definitions": {
+        "actions.Action": {
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "condition": {
+                    "enum": [
+                        "contains",
+                        "equals",
+                        "visible",
+                        "hidden"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/actions.AssertCondition"
+                        }
+                    ]
+                },
+                "duration": {
+                    "type": "integer"
+                },
+                "expression": {
+                    "type": "string"
+                },
+                "file": {
+                    "type": "string"
+                },
+                "for": {
+                    "enum": [
+                        "visible",
+                        "hidden",
+                        "enabled",
+                        "load"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/actions.WaitCondition"
+                        }
+                    ]
+                },
+                "position": {
+                    "enum": [
+                        "top",
+                        "bottom"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/actions.ScrollPosition"
+                        }
+                    ]
+                },
+                "selector": {
+                    "type": "string"
+                },
+                "type": {
+                    "enum": [
+                        "navigate",
+                        "click",
+                        "fill",
+                        "wait",
+                        "assert",
+                        "scroll",
+                        "screenshot",
+                        "sleep",
+                        "evaluate"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/actions.ActionType"
+                        }
+                    ]
+                },
+                "url": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "actions.ActionType": {
+            "type": "string",
+            "enum": [
+                "navigate",
+                "click",
+                "fill",
+                "wait",
+                "assert",
+                "scroll",
+                "screenshot",
+                "sleep",
+                "evaluate"
+            ],
+            "x-enum-varnames": [
+                "ActionNavigate",
+                "ActionClick",
+                "ActionFill",
+                "ActionWait",
+                "ActionAssert",
+                "ActionScroll",
+                "ActionScreenshot",
+                "ActionSleep",
+                "ActionEvaluate"
+            ]
+        },
+        "actions.AssertCondition": {
+            "type": "string",
+            "enum": [
+                "contains",
+                "equals",
+                "visible",
+                "hidden"
+            ],
+            "x-enum-varnames": [
+                "AssertContains",
+                "AssertEquals",
+                "AssertVisible",
+                "AssertHidden"
+            ]
+        },
+        "actions.BrowserActions": {
+            "type": "object",
+            "required": [
+                "actions",
+                "title"
+            ],
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/actions.Action"
+                    }
+                },
+                "title": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "actions.ScrollPosition": {
+            "type": "string",
+            "enum": [
+                "top",
+                "bottom"
+            ],
+            "x-enum-varnames": [
+                "ScrollTop",
+                "ScrollBottom"
+            ]
+        },
+        "actions.WaitCondition": {
+            "type": "string",
+            "enum": [
+                "visible",
+                "hidden",
+                "enabled",
+                "load"
+            ],
+            "x-enum-varnames": [
+                "WaitVisible",
+                "WaitHidden",
+                "WaitEnabled",
+                "WaitLoad"
+            ]
+        },
         "api.ActionResponse": {
             "type": "object",
             "properties": {
@@ -2401,6 +2931,17 @@
                     "type": "string"
                 }
             }
+        },
+        "db.BrowserActionScope": {
+            "type": "string",
+            "enum": [
+                "global",
+                "workspace"
+            ],
+            "x-enum-varnames": [
+                "BrowserActionScopeGlobal",
+                "BrowserActionScopeWorkspace"
+            ]
         },
         "db.GroupedIssue": {
             "type": "object",
@@ -3029,6 +3570,35 @@
                 "SitemapNodeTypeText"
             ]
         },
+        "db.StoredBrowserActions": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/actions.Action"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "scope": {
+                    "$ref": "#/definitions/db.BrowserActionScope"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "db.SystemStats": {
             "type": "object",
             "properties": {
@@ -3102,6 +3672,48 @@
                 "TaskTypeBrowser",
                 "TaskTypeCrawl"
             ]
+        },
+        "db.WebSocketConnection": {
+            "type": "object",
+            "properties": {
+                "closed_at": {
+                    "description": "timestamp for when the connection is closed",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.WebSocketMessage"
+                    }
+                },
+                "source": {
+                    "type": "string"
+                },
+                "status_code": {
+                    "type": "integer"
+                },
+                "status_text": {
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
         },
         "db.WebSocketMessage": {
             "type": "object",

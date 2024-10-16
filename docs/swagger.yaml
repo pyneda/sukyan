@@ -1,4 +1,124 @@
 definitions:
+  actions.Action:
+    properties:
+      condition:
+        allOf:
+        - $ref: '#/definitions/actions.AssertCondition'
+        enum:
+        - contains
+        - equals
+        - visible
+        - hidden
+      duration:
+        type: integer
+      expression:
+        type: string
+      file:
+        type: string
+      for:
+        allOf:
+        - $ref: '#/definitions/actions.WaitCondition'
+        enum:
+        - visible
+        - hidden
+        - enabled
+        - load
+      position:
+        allOf:
+        - $ref: '#/definitions/actions.ScrollPosition'
+        enum:
+        - top
+        - bottom
+      selector:
+        type: string
+      type:
+        allOf:
+        - $ref: '#/definitions/actions.ActionType'
+        enum:
+        - navigate
+        - click
+        - fill
+        - wait
+        - assert
+        - scroll
+        - screenshot
+        - sleep
+        - evaluate
+      url:
+        type: string
+      value:
+        type: string
+    required:
+    - type
+    type: object
+  actions.ActionType:
+    enum:
+    - navigate
+    - click
+    - fill
+    - wait
+    - assert
+    - scroll
+    - screenshot
+    - sleep
+    - evaluate
+    type: string
+    x-enum-varnames:
+    - ActionNavigate
+    - ActionClick
+    - ActionFill
+    - ActionWait
+    - ActionAssert
+    - ActionScroll
+    - ActionScreenshot
+    - ActionSleep
+    - ActionEvaluate
+  actions.AssertCondition:
+    enum:
+    - contains
+    - equals
+    - visible
+    - hidden
+    type: string
+    x-enum-varnames:
+    - AssertContains
+    - AssertEquals
+    - AssertVisible
+    - AssertHidden
+  actions.BrowserActions:
+    properties:
+      actions:
+        items:
+          $ref: '#/definitions/actions.Action'
+        minItems: 1
+        type: array
+      title:
+        minLength: 1
+        type: string
+    required:
+    - actions
+    - title
+    type: object
+  actions.ScrollPosition:
+    enum:
+    - top
+    - bottom
+    type: string
+    x-enum-varnames:
+    - ScrollTop
+    - ScrollBottom
+  actions.WaitCondition:
+    enum:
+    - visible
+    - hidden
+    - enabled
+    - load
+    type: string
+    x-enum-varnames:
+    - WaitVisible
+    - WaitHidden
+    - WaitEnabled
+    - WaitLoad
   api.ActionResponse:
     properties:
       message:
@@ -206,6 +326,14 @@ definitions:
       refresh:
         type: string
     type: object
+  db.BrowserActionScope:
+    enum:
+    - global
+    - workspace
+    type: string
+    x-enum-varnames:
+    - BrowserActionScopeGlobal
+    - BrowserActionScopeWorkspace
   db.GroupedIssue:
     properties:
       code:
@@ -645,6 +773,25 @@ definitions:
     - SitemapNodeTypeMarkdown
     - SitemapNodeTypeFont
     - SitemapNodeTypeText
+  db.StoredBrowserActions:
+    properties:
+      actions:
+        items:
+          $ref: '#/definitions/actions.Action'
+        type: array
+      created_at:
+        type: string
+      id:
+        type: integer
+      scope:
+        $ref: '#/definitions/db.BrowserActionScope'
+      title:
+        type: string
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
   db.SystemStats:
     properties:
       database_size:
@@ -696,6 +843,34 @@ definitions:
     - TaskTypePlaygroundManual
     - TaskTypeBrowser
     - TaskTypeCrawl
+  db.WebSocketConnection:
+    properties:
+      closed_at:
+        description: timestamp for when the connection is closed
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/db.WebSocketMessage'
+        type: array
+      source:
+        type: string
+      status_code:
+        type: integer
+      status_text:
+        type: string
+      task_id:
+        type: integer
+      updated_at:
+        type: string
+      url:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
   db.WebSocketMessage:
     properties:
       connection_id:
@@ -1047,6 +1222,213 @@ paths:
       summary: de-authorize user and delete refresh token
       tags:
       - Auth
+  /api/v1/browser-actions:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a list of StoredBrowserActions with optional filtering
+        and sorting options
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      - description: Search query for title
+        in: query
+        name: query
+        type: string
+      - description: Scope filter (global or workspace)
+        in: query
+        name: scope
+        type: string
+      - description: Workspace ID filter
+        in: query
+        name: workspace_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns 'data' (array of StoredBrowserActions) and 'count'
+            (total number of records)
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List StoredBrowserActions with filtering and sorting
+      tags:
+      - Browser Actions
+    post:
+      consumes:
+      - application/json
+      description: Creates a new StoredBrowserActions record
+      parameters:
+      - description: BrowserActions object to create
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/actions.BrowserActions'
+      - description: Workspace ID
+        in: query
+        name: workspace_id
+        type: integer
+      - description: Scope (global or workspace)
+        enum:
+        - global
+        - workspace
+        in: query
+        name: scope
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/db.StoredBrowserActions'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a new StoredBrowserActions
+      tags:
+      - Browser Actions
+  /api/v1/browser-actions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes an existing StoredBrowserActions record
+      parameters:
+      - description: StoredBrowserActions ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a StoredBrowserActions
+      tags:
+      - Browser Actions
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a StoredBrowserActions record by its ID
+      parameters:
+      - description: StoredBrowserActions ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.StoredBrowserActions'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get a StoredBrowserActions by ID
+      tags:
+      - Browser Actions
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing StoredBrowserActions record
+      parameters:
+      - description: StoredBrowserActions ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: BrowserActions object to update
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/actions.BrowserActions'
+      - description: Workspace ID
+        in: query
+        name: workspace_id
+        type: integer
+      - description: Scope (global or workspace)
+        enum:
+        - global
+        - workspace
+        in: query
+        name: scope
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.StoredBrowserActions'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update a StoredBrowserActions
+      tags:
+      - Browser Actions
   /api/v1/history:
     get:
       description: Get history with optional pagination and filtering by status codes,
@@ -1230,6 +1612,36 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Get WebSocket connections
+      tags:
+      - History
+  /api/v1/history/websocket/connections/{id}:
+    get:
+      description: Get details of a specific WebSocket connection by its ID, including
+        its associated messages
+      parameters:
+      - description: WebSocket connection ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.WebSocketConnection'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get WebSocket connection details
       tags:
       - History
   /api/v1/history/websocket/messages:

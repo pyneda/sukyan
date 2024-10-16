@@ -1,4 +1,4 @@
-package browser
+package actions
 
 import (
 	"context"
@@ -9,70 +9,7 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
-	"gopkg.in/yaml.v3"
 )
-
-type ActionType string
-type WaitCondition string
-type AssertCondition string
-type ScrollPosition string
-
-const (
-	ActionNavigate   ActionType = "navigate"
-	ActionClick      ActionType = "click"
-	ActionFill       ActionType = "fill"
-	ActionWait       ActionType = "wait"
-	ActionAssert     ActionType = "assert"
-	ActionScroll     ActionType = "scroll"
-	ActionScreenshot ActionType = "screenshot"
-	ActionSleep      ActionType = "sleep"
-	ActionEvaluate   ActionType = "evaluate"
-
-	WaitVisible WaitCondition = "visible"
-	WaitHidden  WaitCondition = "hidden"
-	WaitEnabled WaitCondition = "enabled"
-	WaitLoad    WaitCondition = "load"
-
-	AssertContains AssertCondition = "contains"
-	AssertEquals   AssertCondition = "equals"
-	AssertVisible  AssertCondition = "visible"
-	AssertHidden   AssertCondition = "hidden"
-
-	ScrollTop    ScrollPosition = "top"
-	ScrollBottom ScrollPosition = "bottom"
-)
-
-type Action struct {
-	Type       ActionType      `yaml:"type" json:"type"`
-	Selector   string          `yaml:"selector,omitempty" json:"selector,omitempty"`
-	Value      string          `yaml:"value,omitempty" json:"value,omitempty"`
-	URL        string          `yaml:"url,omitempty" json:"url,omitempty"`
-	For        WaitCondition   `yaml:"for,omitempty" json:"for,omitempty"`
-	Condition  AssertCondition `yaml:"condition,omitempty" json:"condition,omitempty"`
-	Position   ScrollPosition  `yaml:"position,omitempty" json:"position,omitempty"`
-	File       string          `yaml:"file,omitempty" json:"file,omitempty"`
-	Duration   int             `yaml:"duration,omitempty" json:"duration,omitempty"`
-	Expression string          `yaml:"expression,omitempty" json:"expression,omitempty"`
-}
-
-type BrowserActions struct {
-	Title   string   `yaml:"title" json:"title"`
-	Actions []Action `yaml:"actions" json:"actions"`
-}
-
-func LoadBrowserActions(path string) (BrowserActions, error) {
-	var config BrowserActions
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return config, err
-	}
-	err = yaml.Unmarshal(data, &config)
-	if err != nil {
-		return config, err
-	}
-
-	return config, nil
-}
 
 func ExecuteActions(ctx context.Context, page *rod.Page, actions []Action) error {
 	for _, action := range actions {

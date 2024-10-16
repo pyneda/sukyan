@@ -12,7 +12,15 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
 )
+
+func setupRodBrowser(t *testing.T, headless bool) *rod.Browser {
+	t.Helper()
+	url := launcher.New().Headless(headless).Set("no-sandbox", "true").MustLaunch()
+	browser := rod.New().ControlURL(url).MustConnect()
+	return browser
+}
 
 func setupMockServer(t *testing.T) (*rod.Page, *httptest.Server) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -9,15 +9,16 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/browser/actions"
+	"github.com/rs/zerolog/log"
 )
 
 // convertToBrowserActions converts BrowserActions to db.StoredBrowserActions
-func convertToBrowserActions(ba actions.BrowserActions, workspaceID *uint, scope db.BrowserActionScope) db.StoredBrowserActions {
+func convertToBrowserActions(ba BrowserActionsInput) db.StoredBrowserActions {
 	return db.StoredBrowserActions{
 		Title:       ba.Title,
 		Actions:     ba.Actions,
-		WorkspaceID: workspaceID,
-		Scope:       scope,
+		WorkspaceID: ba.WorkspaceID,
+		Scope:       ba.Scope,
 	}
 }
 
@@ -45,27 +46,32 @@ func buildValidationErrorMessage(err error) string {
 	return strings.Join(errMsgs, "; ")
 }
 
+type BrowserActionsInput struct {
+	actions.BrowserActions
+	Scope       db.BrowserActionScope `json:"scope" validate:"required,oneof=global workspace"`
+	WorkspaceID *uint                 `json:"workspace_id,omitempty" validate:"omitempty"`
+}
+
 // CreateStoredBrowserActions handles the API request for creating a new StoredBrowserActions
 // @Summary Create a new StoredBrowserActions
 // @Description Creates a new StoredBrowserActions record
 // @Tags Browser Actions
 // @Accept json
 // @Produce json
-// @Param input body actions.BrowserActions true "BrowserActions object to create"
-// @Param workspace_id query int false "Workspace ID"
-// @Param scope query string false "Scope (global or workspace)" Enums(global, workspace)
+// @Param input body BrowserActionsInput true "Browser actions input object to create"
 // @Success 201 {object} db.StoredBrowserActions
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/browser-actions [post]
 func CreateStoredBrowserActions(c *fiber.Ctx) error {
-	input := new(actions.BrowserActions)
+	input := new(BrowserActionsInput)
 
 	if err := c.BodyParser(input); err != nil {
+		log.Error().Err(err).Msg("Error parsing JSON")
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Cannot parse JSON",
-			Message: err.Error(),
+			Message: "The provided JSON is invalid, check the syntax and logs for details",
 		})
 	}
 
@@ -77,34 +83,30 @@ func CreateStoredBrowserActions(c *fiber.Ctx) error {
 		})
 	}
 
-	var workspaceID *uint
-	if workspaceIDStr := c.Query("workspace_id"); workspaceIDStr != "" {
-		if id, err := strconv.ParseUint(workspaceIDStr, 10, 32); err == nil {
-			uintID := uint(id)
-			workspaceID = &uintID
-		} else {
+	if input.WorkspaceID == nil && input.Scope == db.BrowserActionScopeWorkspace {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Missing workspace_id",
+			Message: "workspace_id is required when scope is 'workspace'",
+		})
+	}
+	if input.WorkspaceID != nil {
+		workspaceExists, _ := db.Connection.WorkspaceExists(*input.WorkspaceID)
+		if !workspaceExists {
 			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 				Error:   "Invalid workspace_id",
-				Message: "The provided workspace_id is not a valid number",
+				Message: "The provided workspace_id does not exist",
 			})
 		}
 	}
 
-	scope := db.BrowserActionScope(c.Query("scope", string(db.BrowserActionScopeGlobal)))
-	if scope != db.BrowserActionScopeGlobal && scope != db.BrowserActionScopeWorkspace {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Error:   "Invalid scope",
-			Message: "Scope must be either 'global' or 'workspace'",
-		})
-	}
-
-	storedBrowserActions := convertToBrowserActions(*input, workspaceID, scope)
+	storedBrowserActions := convertToBrowserActions(*input)
 
 	createdSBA, err := db.Connection.CreateStoredBrowserActions(&storedBrowserActions)
 	if err != nil {
+		log.Error().Err(err).Msg("Error creating StoredBrowserActions")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Error:   "Database error",
-			Message: err.Error(),
+			Message: "Check logs for details",
 		})
 	}
 
@@ -118,9 +120,7 @@ func CreateStoredBrowserActions(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "StoredBrowserActions ID"
-// @Param input body actions.BrowserActions true "BrowserActions object to update"
-// @Param workspace_id query int false "Workspace ID"
-// @Param scope query string false "Scope (global or workspace)" Enums(global, workspace)
+// @Param input body BrowserActionsInput true "BrowserActionsInput object to update"
 // @Success 200 {object} db.StoredBrowserActions
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
@@ -136,11 +136,12 @@ func UpdateStoredBrowserActions(c *fiber.Ctx) error {
 		})
 	}
 
-	input := new(actions.BrowserActions)
+	input := new(BrowserActionsInput)
 	if err := c.BodyParser(input); err != nil {
+		log.Error().Err(err).Msg("Error parsing JSON")
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Cannot parse JSON",
-			Message: err.Error(),
+			Message: "The provided JSON is invalid, check the syntax and logs for details",
 		})
 	}
 
@@ -152,35 +153,32 @@ func UpdateStoredBrowserActions(c *fiber.Ctx) error {
 		})
 	}
 
-	var workspaceID *uint
-	if workspaceIDStr := c.Query("workspace_id"); workspaceIDStr != "" {
-		if id, err := strconv.ParseUint(workspaceIDStr, 10, 32); err == nil {
-			uintID := uint(id)
-			workspaceID = &uintID
-		} else {
+	if input.WorkspaceID == nil && input.Scope == db.BrowserActionScopeWorkspace {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Missing workspace_id",
+			Message: "workspace_id is required when scope is 'workspace'",
+		})
+	}
+
+	if input.WorkspaceID != nil {
+		workspaceExists, _ := db.Connection.WorkspaceExists(*input.WorkspaceID)
+		if !workspaceExists {
 			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 				Error:   "Invalid workspace_id",
-				Message: "The provided workspace_id is not a valid number",
+				Message: "The provided workspace_id does not exist",
 			})
 		}
 	}
 
-	scope := db.BrowserActionScope(c.Query("scope", string(db.BrowserActionScopeGlobal)))
-	if scope != db.BrowserActionScopeGlobal && scope != db.BrowserActionScopeWorkspace {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Error:   "Invalid scope",
-			Message: "Scope must be either 'global' or 'workspace'",
-		})
-	}
-
-	storedBrowserActions := convertToBrowserActions(*input, workspaceID, scope)
+	storedBrowserActions := convertToBrowserActions(*input)
 	storedBrowserActions.ID = uint(id)
 
 	updatedSBA, err := db.Connection.UpdateStoredBrowserActions(uint(id), &storedBrowserActions)
 	if err != nil {
+		log.Error().Err(err).Msg("Error updating StoredBrowserActions")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Error:   "Database error",
-			Message: err.Error(),
+			Message: "Check logs for details",
 		})
 	}
 
@@ -243,9 +241,10 @@ func DeleteStoredBrowserActions(c *fiber.Ctx) error {
 
 	err = db.Connection.DeleteStoredBrowserActions(uint(id))
 	if err != nil {
+		log.Error().Err(err).Msg("Error deleting StoredBrowserActions")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Error:   "Database error",
-			Message: err.Error(),
+			Message: "Check logs for details",
 		})
 	}
 
@@ -307,9 +306,10 @@ func ListStoredBrowserActions(c *fiber.Ctx) error {
 
 	items, count, err := db.Connection.ListStoredBrowserActions(*filter)
 	if err != nil {
+		log.Error().Err(err).Msg("Error listing StoredBrowserActions")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
 			Error:   "Database error",
-			Message: err.Error(),
+			Message: "Check logs for details",
 		})
 	}
 

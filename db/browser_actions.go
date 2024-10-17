@@ -64,13 +64,15 @@ func (d *DatabaseConnection) DeleteStoredBrowserActions(id uint) error {
 
 // ListStoredBrowserActions retrieves a list of StoredBrowserActions based on the provided filter
 func (d *DatabaseConnection) ListStoredBrowserActions(filter StoredBrowserActionsFilter) (items []*StoredBrowserActions, count int64, err error) {
-	query := d.db.Model(&StoredBrowserActions{}).Scopes(Paginate(&filter.Pagination))
+	query := d.db.Model(&StoredBrowserActions{})
 
 	if filter.WorkspaceID != nil {
-		query = query.Where("workspace_id = ?", *filter.WorkspaceID)
-	}
-
-	if filter.Scope != "" {
+		if filter.Scope == "workspace" {
+			query = query.Where("workspace_id = ?", *filter.WorkspaceID)
+		} else {
+			query = query.Where("(scope = 'global' OR workspace_id = ?)", *filter.WorkspaceID)
+		}
+	} else if filter.Scope != "" {
 		query = query.Where("scope = ?", filter.Scope)
 	}
 
@@ -78,12 +80,15 @@ func (d *DatabaseConnection) ListStoredBrowserActions(filter StoredBrowserAction
 		query = query.Where("title ILIKE ?", "%"+filter.Query+"%")
 	}
 
-	err = query.Find(&items).Error
+	err = query.Count(&count).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	query.Count(&count)
+	err = query.Scopes(Paginate(&filter.Pagination)).Find(&items).Error
+	if err != nil {
+		return nil, 0, err
+	}
 
 	return items, count, nil
 }

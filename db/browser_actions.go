@@ -90,7 +90,7 @@ func (d *DatabaseConnection) ListStoredBrowserActions(filter StoredBrowserAction
 
 // StoredBrowserActionsFilter defines the filter for listing StoredBrowserActions
 type StoredBrowserActionsFilter struct {
-	Query       string             `json:"query" validate:"omitempty,dive,ascii"`
+	Query       string             `json:"query" validate:"omitempty,ascii"`
 	Scope       BrowserActionScope `json:"scope" validate:"omitempty,oneof=global workspace"`
 	WorkspaceID *uint              `json:"workspace_id" validate:"omitempty,numeric"`
 	Pagination  Pagination         `json:"pagination"`

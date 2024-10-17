@@ -85,20 +85,6 @@ definitions:
     - AssertEquals
     - AssertVisible
     - AssertHidden
-  actions.BrowserActions:
-    properties:
-      actions:
-        items:
-          $ref: '#/definitions/actions.Action'
-        minItems: 1
-        type: array
-      title:
-        minLength: 1
-        type: string
-    required:
-    - actions
-    - title
-    type: object
   actions.ScrollPosition:
     enum:
     - top
@@ -123,6 +109,29 @@ definitions:
     properties:
       message:
         type: string
+    type: object
+  api.BrowserActionsInput:
+    properties:
+      actions:
+        items:
+          $ref: '#/definitions/actions.Action'
+        minItems: 1
+        type: array
+      scope:
+        allOf:
+        - $ref: '#/definitions/db.BrowserActionScope'
+        enum:
+        - global
+        - workspace
+      title:
+        minLength: 1
+        type: string
+      workspace_id:
+        type: integer
+    required:
+    - actions
+    - scope
+    - title
     type: object
   api.CreatePlaygroundCollectionInput:
     properties:
@@ -1278,23 +1287,12 @@ paths:
       - application/json
       description: Creates a new StoredBrowserActions record
       parameters:
-      - description: BrowserActions object to create
+      - description: Browser actions input object to create
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/actions.BrowserActions'
-      - description: Workspace ID
-        in: query
-        name: workspace_id
-        type: integer
-      - description: Scope (global or workspace)
-        enum:
-        - global
-        - workspace
-        in: query
-        name: scope
-        type: string
+          $ref: '#/definitions/api.BrowserActionsInput'
       produces:
       - application/json
       responses:
@@ -1388,23 +1386,12 @@ paths:
         name: id
         required: true
         type: integer
-      - description: BrowserActions object to update
+      - description: BrowserActionsInput object to update
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/actions.BrowserActions'
-      - description: Workspace ID
-        in: query
-        name: workspace_id
-        type: integer
-      - description: Scope (global or workspace)
-        enum:
-        - global
-        - workspace
-        in: query
-        name: scope
-        type: string
+          $ref: '#/definitions/api.BrowserActionsInput'
       produces:
       - application/json
       responses:

@@ -216,29 +216,13 @@ const docTemplate = `{
                 "summary": "Create a new StoredBrowserActions",
                 "parameters": [
                     {
-                        "description": "BrowserActions object to create",
+                        "description": "Browser actions input object to create",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/actions.BrowserActions"
+                            "$ref": "#/definitions/api.BrowserActionsInput"
                         }
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Workspace ID",
-                        "name": "workspace_id",
-                        "in": "query"
-                    },
-                    {
-                        "enum": [
-                            "global",
-                            "workspace"
-                        ],
-                        "type": "string",
-                        "description": "Scope (global or workspace)",
-                        "name": "scope",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -343,29 +327,13 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "BrowserActions object to update",
+                        "description": "BrowserActionsInput object to update",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/actions.BrowserActions"
+                            "$ref": "#/definitions/api.BrowserActionsInput"
                         }
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Workspace ID",
-                        "name": "workspace_id",
-                        "in": "query"
-                    },
-                    {
-                        "enum": [
-                            "global",
-                            "workspace"
-                        ],
-                        "type": "string",
-                        "description": "Scope (global or workspace)",
-                        "name": "scope",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2582,26 +2550,6 @@ const docTemplate = `{
                 "AssertHidden"
             ]
         },
-        "actions.BrowserActions": {
-            "type": "object",
-            "required": [
-                "actions",
-                "title"
-            ],
-            "properties": {
-                "actions": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                        "$ref": "#/definitions/actions.Action"
-                    }
-                },
-                "title": {
-                    "type": "string",
-                    "minLength": 1
-                }
-            }
-        },
         "actions.ScrollPosition": {
             "type": "string",
             "enum": [
@@ -2633,6 +2581,41 @@ const docTemplate = `{
             "properties": {
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "api.BrowserActionsInput": {
+            "type": "object",
+            "required": [
+                "actions",
+                "scope",
+                "title"
+            ],
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/actions.Action"
+                    }
+                },
+                "scope": {
+                    "enum": [
+                        "global",
+                        "workspace"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.BrowserActionScope"
+                        }
+                    ]
+                },
+                "title": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "workspace_id": {
+                    "type": "integer"
                 }
             }
         },

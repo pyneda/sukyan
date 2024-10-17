@@ -75,7 +75,7 @@ func (d *DatabaseConnection) ListStoredBrowserActions(filter StoredBrowserAction
 	}
 
 	if filter.Query != "" {
-		query = query.Where("title LIKE ?", "%"+filter.Query+"%")
+		query = query.Where("title ILIKE ?", "%"+filter.Query+"%")
 	}
 
 	err = query.Find(&items).Error

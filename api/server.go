@@ -52,8 +52,6 @@ func StartAPI() {
 	interactionsManager.Start()
 	engine := engine.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
 
-	engine.Start()
-
 	apiLogger.Info().Msg("Initialized everything. Starting the API...")
 
 	app := fiber.New(fiber.Config{

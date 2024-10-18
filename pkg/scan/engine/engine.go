@@ -1,21 +1,21 @@
 package engine
 
 import (
+	"context"
+	"strings"
+	"time"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
-
-	"strings"
-	"sync"
-	"time"
-
 	"github.com/pyneda/sukyan/pkg/active"
-	"github.com/pyneda/sukyan/pkg/scan"
-
 	"github.com/pyneda/sukyan/pkg/crawl"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
+	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/rs/zerolog/log"
+	"github.com/sourcegraph/conc"
+	"github.com/sourcegraph/conc/pool"
 	"github.com/spf13/viper"
 )
 
@@ -27,124 +27,87 @@ const (
 	ScanJobTypeAll     ScanJobType = "all"
 )
 
-type engineTask struct {
-	item    *db.History
-	taskJob *db.TaskJob
-	options scan.HistoryItemScanOptions
-}
-
 type ScanEngine struct {
-	task                      *db.Task
 	MaxConcurrentPassiveScans int
 	MaxConcurrentActiveScans  int
 	InteractionsManager       *integrations.InteractionsManager
 	payloadGenerators         []*generation.PayloadGenerator
-	passiveScanCh             chan *db.History
-	activeScanCh              chan *engineTask
-	wg                        sync.WaitGroup
-	stopCh                    chan struct{}
-	pauseCh                   chan struct{}
-	resumeCh                  chan struct{}
+	passiveScanPool           *pool.Pool
+	activeScanPool            *pool.Pool
+	wg                        conc.WaitGroup
+	ctx                       context.Context
+	cancel                    context.CancelFunc
 	isPaused                  bool
 }
 
 func NewScanEngine(payloadGenerators []*generation.PayloadGenerator, maxConcurrentPassiveScans, maxConcurrentActiveScans int, interactionsManager *integrations.InteractionsManager) *ScanEngine {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &ScanEngine{
 		MaxConcurrentPassiveScans: maxConcurrentPassiveScans,
 		MaxConcurrentActiveScans:  maxConcurrentActiveScans,
 		InteractionsManager:       interactionsManager,
-		passiveScanCh:             make(chan *db.History, maxConcurrentPassiveScans),
-		activeScanCh:              make(chan *engineTask, maxConcurrentActiveScans),
-		stopCh:                    make(chan struct{}),
-		pauseCh:                   make(chan struct{}),
-		resumeCh:                  make(chan struct{}),
 		payloadGenerators:         payloadGenerators,
+		passiveScanPool:           pool.New().WithMaxGoroutines(maxConcurrentPassiveScans),
+		activeScanPool:            pool.New().WithMaxGoroutines(maxConcurrentActiveScans),
+		ctx:                       ctx,
+		cancel:                    cancel,
 	}
-}
-
-func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, options scan.HistoryItemScanOptions) {
-
-	switch scanJobType {
-	case ScanJobTypePassive:
-		s.passiveScanCh <- item
-	case ScanJobTypeActive:
-		taskJob, err := db.Connection.NewTaskJob(options.TaskID, "Active scan", db.TaskJobScheduled, item.ID)
-		if err != nil {
-			log.Error().Err(err).Interface("type", scanJobType).Uint("history", item.ID).Msg("Could not create task job")
-			return
-		}
-		s.activeScanCh <- &engineTask{item: item, taskJob: taskJob, options: options}
-	case ScanJobTypeAll:
-		taskJob, err := db.Connection.NewTaskJob(options.TaskID, "Active and passive scan", db.TaskJobScheduled, item.ID)
-		if err != nil {
-			log.Error().Err(err).Interface("type", scanJobType).Uint("history", item.ID).Msg("Could not create task job")
-			return
-		}
-		s.passiveScanCh <- item
-		s.activeScanCh <- &engineTask{item: item, taskJob: taskJob, options: options}
-	}
-}
-
-func (s *ScanEngine) Start() {
-	go s.run()
 }
 
 func (s *ScanEngine) Stop() {
-	close(s.stopCh)
+	s.cancel()
 	s.wg.Wait()
 }
 
 func (s *ScanEngine) Pause() {
-	s.pauseCh <- struct{}{}
+	s.isPaused = true
 }
 
 func (s *ScanEngine) Resume() {
-	s.resumeCh <- struct{}{}
+	s.isPaused = false
 }
 
-func (s *ScanEngine) run() {
-	for {
-		select {
-		case item := <-s.passiveScanCh:
-			s.wg.Add(1)
-			go func(item *db.History) {
-				defer s.wg.Done()
-				s.schedulePassiveScan(item, 0)
-			}(item)
-		case task := <-s.activeScanCh:
-			s.wg.Add(1)
-			go func(task *engineTask) {
-				defer s.wg.Done()
-				s.scheduleActiveScan(task.item, task.taskJob, task.options)
-			}(task)
-		case <-s.pauseCh:
-			s.isPaused = true
-		case <-s.resumeCh:
-			s.isPaused = false
-		case <-s.stopCh:
-			close(s.passiveScanCh)
-			close(s.activeScanCh)
-			return
-		}
+func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, options scan.HistoryItemScanOptions) {
+	if s.isPaused {
+		return
+	}
 
-		if s.isPaused {
-			<-s.resumeCh
-		}
+	switch scanJobType {
+	case ScanJobTypePassive:
+		s.schedulePassiveScan(item, options.WorkspaceID)
+	case ScanJobTypeActive:
+		s.scheduleActiveScan(item, options)
+	case ScanJobTypeAll:
+		s.schedulePassiveScan(item, options.WorkspaceID)
+		s.scheduleActiveScan(item, options)
 	}
 }
 
 func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
-	passive.ScanHistoryItem(item)
+	s.passiveScanPool.Go(func() {
+		passive.ScanHistoryItem(item)
+	})
 }
 
-func (s *ScanEngine) scheduleActiveScan(item *db.History, taskJob *db.TaskJob, options scan.HistoryItemScanOptions) {
-	options.TaskJobID = taskJob.ID
-	taskJob.Status = db.TaskJobRunning
-	db.Connection.UpdateTaskJob(taskJob)
-	active.ScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators, options)
-	taskJob.Status = db.TaskJobFinished
-	taskJob.CompletedAt = time.Now()
-	db.Connection.UpdateTaskJob(taskJob)
+func (s *ScanEngine) scheduleActiveScan(item *db.History, options scan.HistoryItemScanOptions) {
+	s.activeScanPool.Go(func() {
+		taskJob, err := db.Connection.NewTaskJob(options.TaskID, "Active scan", db.TaskJobScheduled, item.ID)
+		if err != nil {
+			log.Error().Err(err).Uint("history", item.ID).Msg("Could not create task job")
+			return
+		}
+
+		options.TaskJobID = taskJob.ID
+		taskJob.Status = db.TaskJobRunning
+		db.Connection.UpdateTaskJob(taskJob)
+
+		active.ScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators, options)
+
+		taskJob.Status = db.TaskJobFinished
+		taskJob.CompletedAt = time.Now()
+		db.Connection.UpdateTaskJob(taskJob)
+	})
 }
 
 func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool) (*db.Task, error) {
@@ -218,59 +181,60 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 	}
 	scheduledURLPaths := make(map[string]bool)
 
-	for _, historyItem := range uniqueHistoryItems {
-		if historyItem.StatusCode == 404 {
-			continue
-		}
-		go retireScanner.HistoryScan(historyItem)
-
-		shouldSkip := false
-
-		for _, extension := range ignoredExtensions {
-			if strings.HasSuffix(historyItem.URL, extension) {
-				shouldSkip = true
-				break
-			}
-		}
-
-		if shouldSkip {
-			continue
-		}
-
-		// schedule the active scan trying to avoid scanning the same URL path multiple times
-		if lib.SliceContains(itemScanOptions.InsertionPoints, "urlpath") {
-			normalizedURLPath, err := lib.NormalizeURLPath(historyItem.URL)
-			if err != nil {
-				scanLog.Error().Err(err).Str("url", historyItem.URL).Uint("history", historyItem.ID).Msg("Skipping scanning history item as could not normalize URL path")
+	s.wg.Go(func() {
+		for _, historyItem := range uniqueHistoryItems {
+			if historyItem.StatusCode == 404 {
 				continue
 			}
-			if _, exists := scheduledURLPaths[normalizedURLPath]; exists {
-				scanOptions := scan.HistoryItemScanOptions{
-					WorkspaceID:        options.WorkspaceID,
-					TaskID:             task.ID,
-					Mode:               options.Mode,
-					InsertionPoints:    lib.FilterOutString(options.InsertionPoints, "urlpath"),
-					FingerprintTags:    fingerprintTags,
-					ExperimentalAudits: options.ExperimentalAudits,
+
+			go retireScanner.HistoryScan(historyItem)
+
+			shouldSkip := false
+			for _, extension := range ignoredExtensions {
+				if strings.HasSuffix(historyItem.URL, extension) {
+					shouldSkip = true
+					break
 				}
-				s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, scanOptions)
+			}
+
+			if shouldSkip {
+				continue
+			}
+
+			// Schedule the active scan trying to avoid scanning the same URL path multiple times
+			if lib.SliceContains(itemScanOptions.InsertionPoints, "urlpath") {
+				normalizedURLPath, err := lib.NormalizeURLPath(historyItem.URL)
+				if err != nil {
+					scanLog.Error().Err(err).Str("url", historyItem.URL).Uint("history", historyItem.ID).Msg("Skipping scanning history item as could not normalize URL path")
+					continue
+				}
+				if _, exists := scheduledURLPaths[normalizedURLPath]; exists {
+					scanOptions := scan.HistoryItemScanOptions{
+						WorkspaceID:        options.WorkspaceID,
+						TaskID:             task.ID,
+						Mode:               options.Mode,
+						InsertionPoints:    lib.FilterOutString(options.InsertionPoints, "urlpath"),
+						FingerprintTags:    fingerprintTags,
+						ExperimentalAudits: options.ExperimentalAudits,
+					}
+					s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, scanOptions)
+				} else {
+					s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, itemScanOptions)
+					scheduledURLPaths[normalizedURLPath] = true
+				}
 			} else {
 				s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, itemScanOptions)
-				scheduledURLPaths[normalizedURLPath] = true
 			}
-		} else {
-			s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, itemScanOptions)
 		}
-
-	}
+	})
 
 	scanLog.Info().Msg("Active scans scheduled")
+
 	if waitCompletion {
-		time.Sleep(3 * time.Second)
+		time.Sleep(2 * time.Second)
 		s.wg.Wait()
 		scanLog.Info().Msg("Active scans finished")
 		db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
-
 	} else {
 		go func() {
 			s.wg.Wait()
@@ -278,5 +242,6 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 			db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
 		}()
 	}
+
 	return task, nil
 }

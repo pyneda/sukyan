@@ -113,7 +113,6 @@ var scanCmd = &cobra.Command{
 		}
 		interactionsManager.Start()
 		engine := engine.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
-		engine.Start()
 		task, _ := engine.FullScan(options, true)
 		log.Info().Msg("Scan completed")
 		stats, err := db.Connection.GetTaskStatsFromID(uint(task.ID))

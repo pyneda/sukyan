@@ -2619,6 +2619,17 @@ const docTemplate = `{
                 }
             }
         },
+        "api.BrowserReplayActionsInput": {
+            "type": "object",
+            "properties": {
+                "post_request_action_id": {
+                    "type": "integer"
+                },
+                "pre_request_action_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "api.CreatePlaygroundCollectionInput": {
             "type": "object",
             "required": [
@@ -2759,6 +2770,9 @@ const docTemplate = `{
                 "session_id"
             ],
             "properties": {
+                "browser_actions": {
+                    "$ref": "#/definitions/api.BrowserReplayActionsInput"
+                },
                 "mode": {
                     "type": "string",
                     "enum": [

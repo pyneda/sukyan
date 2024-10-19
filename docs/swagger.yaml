@@ -133,6 +133,13 @@ definitions:
     - scope
     - title
     type: object
+  api.BrowserReplayActionsInput:
+    properties:
+      post_request_action_id:
+        type: integer
+      pre_request_action_id:
+        type: integer
+    type: object
   api.CreatePlaygroundCollectionInput:
     properties:
       description:
@@ -224,6 +231,8 @@ definitions:
     type: object
   api.PlaygroundReplayInput:
     properties:
+      browser_actions:
+        $ref: '#/definitions/api.BrowserReplayActionsInput'
       mode:
         enum:
         - raw

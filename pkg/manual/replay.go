@@ -11,16 +11,24 @@ import (
 	"github.com/projectdiscovery/rawhttp"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/browser"
+	"github.com/pyneda/sukyan/pkg/browser/actions"
+
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/web"
 	"github.com/rs/zerolog/log"
 )
 
+type BrowserReplayActions struct {
+	PreRequestAction  *db.StoredBrowserActions `json:"pre_request_action" validate:"omitempty"`
+	PostRequestAction *db.StoredBrowserActions `json:"post_request_action" validate:"omitempty"`
+}
+
 type RequestReplayOptions struct {
-	Mode    string               `json:"mode" validate:"required,oneof=raw browser"`
-	Request Request              `json:"request" validate:"required"`
-	Session db.PlaygroundSession `json:"session" validate:"required"`
-	Options RequestOptions       `json:"options"`
+	Mode           string               `json:"mode" validate:"required,oneof=raw browser"`
+	Request        Request              `json:"request" validate:"required"`
+	Session        db.PlaygroundSession `json:"session" validate:"required"`
+	BrowserActions BrowserReplayActions `json:"browser_actions" validate:"omitempty"`
+	Options        RequestOptions       `json:"options"`
 }
 
 type ReplayResult struct {
@@ -107,7 +115,7 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 	pageWithCancel := page.Context(ctx)
 	defer pageWithCancel.Close()
 	go func() {
-		time.Sleep(30 * time.Second)
+		time.Sleep(20 * time.Second)
 		cancel()
 	}()
 
@@ -129,11 +137,36 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 	}()
 	defer cancel()
 
+	if input.BrowserActions.PreRequestAction != nil {
+		pre := input.BrowserActions.PreRequestAction.Actions
+		log.Info().Int("actions_count", len(pre)).Msg("Replaying pre-request action in browser")
+		err := actions.ExecuteActions(ctx, pageWithCancel, pre)
+		if err != nil {
+			log.Error().Err(err).Msg("Error replaying pre-request action in browser")
+			return ReplayResult{}, err
+		}
+		log.Info().Int("actions_count", len(pre)).Msg("Pre-request action completed")
+	} else {
+		log.Warn().Msg("No pre-request action found for browser replay")
+	}
+
 	history, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, request, input.Session.WorkspaceID, 0, input.Session.ID, "Browser replay", db.SourceRepeater)
 	if navigationErr != nil {
 		log.Error().Err(navigationErr).Msg("Error replaying request in browser")
 		return ReplayResult{}, navigationErr
 	}
+
+	if input.BrowserActions.PostRequestAction != nil {
+		post := input.BrowserActions.PostRequestAction.Actions
+		log.Info().Int("actions_count", len(post)).Msg("Replaying post-request action in browser")
+		err := actions.ExecuteActions(ctx, pageWithCancel, post)
+		if err != nil {
+			log.Error().Err(err).Msg("Error replaying post-request action in browser")
+			return ReplayResult{}, err
+		}
+		log.Info().Int("actions_count", len(post)).Msg("Post-request action completed")
+	}
+
 	// Wait for 1 second after navigation to gather more events
 	log.Info().Msg("Waiting for 2 second after navigation to gather more events")
 	time.Sleep(2 * time.Second)

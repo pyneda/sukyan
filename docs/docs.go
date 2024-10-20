@@ -2589,11 +2589,20 @@ const docTemplate = `{
         "actions.ActionsExecutionResults": {
             "type": "object",
             "properties": {
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/lib.LogEntry"
+                    }
+                },
                 "screenshots": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/actions.ScreenshotResult"
                     }
+                },
+                "succeded": {
+                    "type": "boolean"
                 }
             }
         },
@@ -3991,6 +4000,33 @@ const docTemplate = `{
                 "Medium",
                 "High",
                 "Critical"
+            ]
+        },
+        "lib.LogEntry": {
+            "type": "object",
+            "properties": {
+                "level": {
+                    "$ref": "#/definitions/lib.LogLevel"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "lib.LogLevel": {
+            "type": "string",
+            "enum": [
+                "INFO",
+                "WARN",
+                "ERROR"
+            ],
+            "x-enum-varnames": [
+                "INFO",
+                "WARN",
+                "ERROR"
             ]
         },
         "manual.BrowserReplayActionsResults": {

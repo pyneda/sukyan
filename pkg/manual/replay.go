@@ -31,9 +31,15 @@ type RequestReplayOptions struct {
 	Options        RequestOptions       `json:"options"`
 }
 
+type BrowserReplayActionsResults struct {
+	PreRequest  actions.ActionsExecutionResults `json:"pre_request,omitempty"`
+	PostRequest actions.ActionsExecutionResults `json:"post_request,omitempty"`
+}
+
 type ReplayResult struct {
-	Result        *db.History     `json:"result"`
-	BrowserEvents []web.PageEvent `json:"browser_events"`
+	Result                *db.History                 `json:"result"`
+	BrowserEvents         []web.PageEvent             `json:"browser_events"`
+	BrowserActionsResults BrowserReplayActionsResults `json:"browser_actions_results"`
 }
 
 func Replay(input RequestReplayOptions) (ReplayResult, error) {
@@ -137,14 +143,16 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 	}()
 	defer cancel()
 
+	var browserActionsResults BrowserReplayActionsResults
 	if input.BrowserActions.PreRequestAction != nil {
 		pre := input.BrowserActions.PreRequestAction.Actions
 		log.Info().Int("actions_count", len(pre)).Msg("Replaying pre-request action in browser")
-		err := actions.ExecuteActions(ctx, pageWithCancel, pre)
+		preResults, err := actions.ExecuteActions(ctx, pageWithCancel, pre)
 		if err != nil {
 			log.Error().Err(err).Msg("Error replaying pre-request action in browser")
 			return ReplayResult{}, err
 		}
+		browserActionsResults.PreRequest = preResults
 		log.Info().Int("actions_count", len(pre)).Msg("Pre-request action completed")
 	} else {
 		log.Warn().Msg("No pre-request action found for browser replay")
@@ -159,11 +167,12 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 	if input.BrowserActions.PostRequestAction != nil {
 		post := input.BrowserActions.PostRequestAction.Actions
 		log.Info().Int("actions_count", len(post)).Msg("Replaying post-request action in browser")
-		err := actions.ExecuteActions(ctx, pageWithCancel, post)
+		postResults, err := actions.ExecuteActions(ctx, pageWithCancel, post)
 		if err != nil {
 			log.Error().Err(err).Msg("Error replaying post-request action in browser")
 			return ReplayResult{}, err
 		}
+		browserActionsResults.PostRequest = postResults
 		log.Info().Int("actions_count", len(post)).Msg("Post-request action completed")
 	}
 
@@ -172,8 +181,9 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 	time.Sleep(2 * time.Second)
 
 	result := ReplayResult{
-		Result:        history,
-		BrowserEvents: events,
+		Result:                history,
+		BrowserEvents:         events,
+		BrowserActionsResults: browserActionsResults,
 	}
 	return result, nil
 }

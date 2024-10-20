@@ -75,10 +75,16 @@ definitions:
     - ActionEvaluate
   actions.ActionsExecutionResults:
     properties:
+      logs:
+        items:
+          $ref: '#/definitions/lib.LogEntry'
+        type: array
       screenshots:
         items:
           $ref: '#/definitions/actions.ScreenshotResult'
         type: array
+      succeded:
+        type: boolean
     type: object
   actions.AssertCondition:
     enum:
@@ -1041,6 +1047,25 @@ definitions:
     - Medium
     - High
     - Critical
+  lib.LogEntry:
+    properties:
+      level:
+        $ref: '#/definitions/lib.LogLevel'
+      text:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  lib.LogLevel:
+    enum:
+    - INFO
+    - WARN
+    - ERROR
+    type: string
+    x-enum-varnames:
+    - INFO
+    - WARN
+    - ERROR
   manual.BrowserReplayActionsResults:
     properties:
       post_request:

@@ -2,9 +2,12 @@ package api
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
 )
 
 // @Success 200 {array} db.JsonWebToken
@@ -29,23 +32,34 @@ func JwtListHandler(c *fiber.Ctx) error {
 		})
 	}
 
+	if input.WorkspaceID > 0 {
+		workspaceExists, _ := db.Connection.WorkspaceExists(input.WorkspaceID)
+		if !workspaceExists {
+			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+				Error:   "Invalid workspace",
+				Message: "The provided workspace_id does not exist",
+			})
+		}
+	}
 	validate := validator.New()
 	if err := validate.Struct(input); err != nil {
-		errors := make(map[string]string)
+		var sb strings.Builder
 		for _, err := range err.(validator.ValidationErrors) {
-			errors[err.Field()] = fmt.Sprintf("Invalid value for %s", err.Field())
+			sb.WriteString(fmt.Sprintf("Validation failed on '%s' tag for field '%s'\n", err.Tag(), err.Field()))
 		}
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Validation failed",
-			"message": errors,
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Validation failed",
+			Message: sb.String(),
 		})
 	}
 
 	jwts, err := db.Connection.ListJsonWebTokens(*input)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Database error",
-			"message": err.Error(),
+		log.Error().Err(err).Msg("Error fetching JWTs")
+
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:   "Database error",
+			Message: "There was an error fetching the JWTs",
 		})
 	}
 

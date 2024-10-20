@@ -423,6 +423,7 @@ const docTemplate = `{
                     "History"
                 ],
                 "summary": "Get history",
+                "deprecated": true,
                 "parameters": [
                     {
                         "type": "integer",
@@ -512,6 +513,56 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get history with optional pagination and filtering using POST request",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "History"
+                ],
+                "summary": "Get history (POST)",
+                "parameters": [
+                    {
+                        "description": "History filter options",
+                        "name": "filters",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/db.HistoryFilter"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -3092,6 +3143,82 @@ const docTemplate = `{
                 }
             }
         },
+        "db.HistoryFilter": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "methods": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "pagination": {
+                    "$ref": "#/definitions/db.Pagination"
+                },
+                "playground_session_id": {
+                    "type": "integer"
+                },
+                "request_content_types": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "response_content_types": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "sort_by": {
+                    "description": "Validate to be one of the listed fields",
+                    "type": "string",
+                    "enum": [
+                        "id",
+                        "created_at",
+                        "updated_at",
+                        "status_code",
+                        "request_body_size",
+                        "url",
+                        "response_body_size",
+                        "parameters_count",
+                        "method"
+                    ]
+                },
+                "sort_order": {
+                    "description": "Validate to be either \"asc\" or \"desc\"",
+                    "type": "string",
+                    "enum": [
+                        "asc",
+                        "desc"
+                    ]
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "status_codes": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "task_id": {
+                    "type": "integer"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "db.Issue": {
             "type": "object",
             "properties": {
@@ -3437,6 +3564,20 @@ const docTemplate = `{
                 },
                 "workspace_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "db.Pagination": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "page_size": {
+                    "type": "integer",
+                    "maximum": 100000,
+                    "minimum": 1
                 }
             }
         },

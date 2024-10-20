@@ -185,18 +185,18 @@ func (h *History) getCreateQueryData() (History, History) {
 
 // HistoryFilter represents available history filters
 type HistoryFilter struct {
-	StatusCodes          []int    `json:"status_codes" validate:"omitempty,dive,numeric"`
-	Methods              []string `json:"methods" validate:"omitempty,dive,oneof=GET POST PUT DELETE PATCH HEAD OPTIONS TRACE"`
-	ResponseContentTypes []string `json:"response_content_types" validate:"omitempty,dive,ascii"`
-	RequestContentTypes  []string `json:"request_content_types" validate:"omitempty,dive,ascii"`
-	Sources              []string `json:"sources" validate:"omitempty,dive,ascii"`
-	Pagination           Pagination
-	WorkspaceID          uint   `json:"workspace_id" validate:"omitempty,numeric"`
-	SortBy               string `json:"sort_by" validate:"omitempty,oneof=id created_at updated_at status_code request_body_size url response_body_size parameters_count method"` // Validate to be one of the listed fields
-	SortOrder            string `json:"sort_order" validate:"omitempty,oneof=asc desc"`                                                                                           // Validate to be either "asc" or "desc"
-	TaskID               uint   `json:"task_id" validate:"omitempty,numeric"`
-	IDs                  []uint `json:"ids" validate:"omitempty,dive,numeric"`
-	PlaygroundSessionID  uint   `json:"playground_session_id" validate:"omitempty,numeric"`
+	StatusCodes          []int      `json:"status_codes" validate:"omitempty,dive,gte=100,lte=599"`
+	Methods              []string   `json:"methods" validate:"omitempty,dive,oneof=GET POST PUT DELETE PATCH HEAD OPTIONS TRACE"`
+	ResponseContentTypes []string   `json:"response_content_types" validate:"omitempty,dive,ascii"`
+	RequestContentTypes  []string   `json:"request_content_types" validate:"omitempty,dive,ascii"`
+	Sources              []string   `json:"sources" validate:"omitempty,dive,ascii"`
+	Pagination           Pagination `json:"pagination"`
+	WorkspaceID          uint       `json:"workspace_id" validate:"omitempty,numeric"`
+	SortBy               string     `json:"sort_by" validate:"omitempty,oneof=id created_at updated_at status_code request_body_size url response_body_size parameters_count method"` // Validate to be one of the listed fields
+	SortOrder            string     `json:"sort_order" validate:"omitempty,oneof=asc desc"`                                                                                           // Validate to be either "asc" or "desc"
+	TaskID               uint       `json:"task_id" validate:"omitempty,numeric"`
+	IDs                  []uint     `json:"ids" validate:"omitempty,dive,numeric"`
+	PlaygroundSessionID  uint       `json:"playground_session_id" validate:"omitempty,numeric"`
 }
 
 // ListHistory Lists history

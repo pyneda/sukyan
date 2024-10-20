@@ -73,6 +73,13 @@ definitions:
     - ActionScreenshot
     - ActionSleep
     - ActionEvaluate
+  actions.ActionsExecutionResults:
+    properties:
+      screenshots:
+        items:
+          $ref: '#/definitions/actions.ScreenshotResult'
+        type: array
+    type: object
   actions.AssertCondition:
     enum:
     - contains
@@ -85,6 +92,15 @@ definitions:
     - AssertEquals
     - AssertVisible
     - AssertHidden
+  actions.ScreenshotResult:
+    properties:
+      data:
+        type: string
+      output_file:
+        type: string
+      selector:
+        type: string
+    type: object
   actions.ScrollPosition:
     enum:
     - top
@@ -961,6 +977,13 @@ definitions:
     - Medium
     - High
     - Critical
+  manual.BrowserReplayActionsResults:
+    properties:
+      post_request:
+        $ref: '#/definitions/actions.ActionsExecutionResults'
+      pre_request:
+        $ref: '#/definitions/actions.ActionsExecutionResults'
+    type: object
   manual.FuzzerInsertionPoint:
     properties:
       end:
@@ -993,6 +1016,8 @@ definitions:
     type: object
   manual.ReplayResult:
     properties:
+      browser_actions_results:
+        $ref: '#/definitions/manual.BrowserReplayActionsResults'
       browser_events:
         items:
           $ref: '#/definitions/web.PageEvent'

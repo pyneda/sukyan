@@ -2535,6 +2535,17 @@ const docTemplate = `{
                 "ActionEvaluate"
             ]
         },
+        "actions.ActionsExecutionResults": {
+            "type": "object",
+            "properties": {
+                "screenshots": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/actions.ScreenshotResult"
+                    }
+                }
+            }
+        },
         "actions.AssertCondition": {
             "type": "string",
             "enum": [
@@ -2549,6 +2560,20 @@ const docTemplate = `{
                 "AssertVisible",
                 "AssertHidden"
             ]
+        },
+        "actions.ScreenshotResult": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "string"
+                },
+                "output_file": {
+                    "type": "string"
+                },
+                "selector": {
+                    "type": "string"
+                }
+            }
         },
         "actions.ScrollPosition": {
             "type": "string",
@@ -3827,6 +3852,17 @@ const docTemplate = `{
                 "Critical"
             ]
         },
+        "manual.BrowserReplayActionsResults": {
+            "type": "object",
+            "properties": {
+                "post_request": {
+                    "$ref": "#/definitions/actions.ActionsExecutionResults"
+                },
+                "pre_request": {
+                    "$ref": "#/definitions/actions.ActionsExecutionResults"
+                }
+            }
+        },
         "manual.FuzzerInsertionPoint": {
             "type": "object",
             "properties": {
@@ -3876,6 +3912,9 @@ const docTemplate = `{
         "manual.ReplayResult": {
             "type": "object",
             "properties": {
+                "browser_actions_results": {
+                    "$ref": "#/definitions/manual.BrowserReplayActionsResults"
+                },
                 "browser_events": {
                     "type": "array",
                     "items": {

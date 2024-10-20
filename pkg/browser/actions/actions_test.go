@@ -134,7 +134,7 @@ func TestClickAndVisibility(t *testing.T) {
 		},
 	}
 
-	err := ExecuteActions(ctx, page, actions)
+	_, err := ExecuteActions(ctx, page, actions)
 	assert.NoError(t, err)
 	formElement, err := page.Element("#login-form")
 	assert.NoError(t, err)
@@ -174,7 +174,7 @@ func TestFormFillAndSubmit(t *testing.T) {
 		},
 	}
 
-	err := ExecuteActions(ctx, page, actions)
+	_, err := ExecuteActions(ctx, page, actions)
 	assert.NoError(t, err)
 
 	// Verify that the username field is filled correctly
@@ -235,7 +235,7 @@ func TestFormFillAndScrollOnPage2(t *testing.T) {
 		},
 	}
 
-	err := ExecuteActions(ctx, page, actions)
+	_, err := ExecuteActions(ctx, page, actions)
 	assert.NoError(t, err)
 
 	// Verify that the first name field is filled correctly

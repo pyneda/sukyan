@@ -7,8 +7,8 @@ const (
 
 // Pagination used to store pagination config
 type Pagination struct {
-	Page     int
-	PageSize int
+	Page     int `json:"page" validate:"min=1"`
+	PageSize int `json:"page_size" validate:"min=1,max=100000"`
 }
 
 func (p *Pagination) GetData() (offset int, limit int) {

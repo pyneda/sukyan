@@ -1,11 +1,13 @@
 package api
 
 import (
-	"github.com/go-playground/validator/v10"
-	"github.com/pyneda/sukyan/db"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/pyneda/sukyan/db"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -20,9 +22,83 @@ func IsValidFilterHTTPMethod(method string) bool {
 	}
 }
 
+// FindHistoryPost handles POST requests for fetching history with pagination and filtering options
+// @Summary Get history (POST)
+// @Description Get history with optional pagination and filtering using POST request
+// @Tags History
+// @Accept json
+// @Produce json
+// @Param filters body db.HistoryFilter true "History filter options"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/history [post]
+func FindHistoryPost(c *fiber.Ctx) error {
+	var filters db.HistoryFilter
+	if err := c.BodyParser(&filters); err != nil {
+		log.Error().Err(err).Msg("Error parsing history filter")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid request body",
+			"message": "There was an error parsing the request body",
+		})
+	}
+
+	if filters.WorkspaceID > 0 {
+		workspaceExists, _ := db.Connection.WorkspaceExists(filters.WorkspaceID)
+		if !workspaceExists {
+			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+				Error:   "Invalid workspace",
+				Message: "The provided workspace_id does not exist",
+			})
+		}
+	}
+
+	validate := validator.New()
+	if err := validate.Struct(filters); err != nil {
+		var sb strings.Builder
+		for _, err := range err.(validator.ValidationErrors) {
+			sb.WriteString(fmt.Sprintf("Validation failed on '%s' tag for field '%s'\n", err.Tag(), err.Field()))
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Filters validation failed",
+			Message: sb.String(),
+		})
+	}
+
+	// Set default values if not provided
+	if filters.Pagination.Page == 0 {
+		filters.Pagination.Page = 1
+	}
+	if filters.Pagination.PageSize == 0 {
+		filters.Pagination.PageSize = 50
+	}
+	if filters.SortBy == "" {
+		filters.SortBy = "id"
+	}
+	if filters.SortOrder == "" {
+		filters.SortOrder = "desc"
+	}
+
+	items, count, err := db.Connection.ListHistory(filters)
+	if err != nil {
+		log.Error().Err(err).Interface("filters", filters).Msg("Error fetching history")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:   "Internal server error",
+			Message: "An error occurred while fetching history",
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"data":  items,
+		"count": count,
+	})
+}
+
 // FindHistory gets history with pagination and filtering options
 // @Summary Get history
 // @Description Get history with optional pagination and filtering by status codes, HTTP methods, and sources
+// @Deprecated
 // @Tags History
 // @Produce json
 // @Param page_size query integer false "Size of each page" default(50)

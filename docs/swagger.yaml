@@ -446,6 +446,60 @@ definitions:
       workspace_id:
         type: integer
     type: object
+  db.HistoryFilter:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+      methods:
+        items:
+          type: string
+        type: array
+      pagination:
+        $ref: '#/definitions/db.Pagination'
+      playground_session_id:
+        type: integer
+      request_content_types:
+        items:
+          type: string
+        type: array
+      response_content_types:
+        items:
+          type: string
+        type: array
+      sort_by:
+        description: Validate to be one of the listed fields
+        enum:
+        - id
+        - created_at
+        - updated_at
+        - status_code
+        - request_body_size
+        - url
+        - response_body_size
+        - parameters_count
+        - method
+        type: string
+      sort_order:
+        description: Validate to be either "asc" or "desc"
+        enum:
+        - asc
+        - desc
+        type: string
+      sources:
+        items:
+          type: string
+        type: array
+      status_codes:
+        items:
+          type: integer
+        type: array
+      task_id:
+        type: integer
+      workspace_id:
+        type: integer
+    type: object
   db.Issue:
     properties:
       code:
@@ -683,6 +737,16 @@ definitions:
       updated_at:
         type: string
       workspace_id:
+        type: integer
+    type: object
+  db.Pagination:
+    properties:
+      page:
+        minimum: 1
+        type: integer
+      page_size:
+        maximum: 100000
+        minimum: 1
         type: integer
     type: object
   db.PlaygroundCollection:
@@ -1452,6 +1516,7 @@ paths:
       - Browser Actions
   /api/v1/history:
     get:
+      deprecated: true
       description: Get history with optional pagination and filtering by status codes,
         HTTP methods, and sources
       parameters:
@@ -1527,6 +1592,38 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Get history
+      tags:
+      - History
+    post:
+      consumes:
+      - application/json
+      description: Get history with optional pagination and filtering using POST request
+      parameters:
+      - description: History filter options
+        in: body
+        name: filters
+        required: true
+        schema:
+          $ref: '#/definitions/db.HistoryFilter'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get history (POST)
       tags:
       - History
   /api/v1/history/{id}/children:

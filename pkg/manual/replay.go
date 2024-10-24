@@ -158,11 +158,13 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 		log.Warn().Msg("No pre-request action found for browser replay")
 	}
 
+	log.Info().Msg("Replaying request in browser")
 	history, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, request, input.Session.WorkspaceID, 0, input.Session.ID, "Browser replay", db.SourceRepeater)
 	if navigationErr != nil {
 		log.Error().Err(navigationErr).Msg("Error replaying request in browser")
 		return ReplayResult{}, navigationErr
 	}
+	log.Info().Msg("Request replayed in browser")
 
 	if input.BrowserActions.PostRequestAction != nil {
 		post := input.BrowserActions.PostRequestAction.Actions
@@ -177,8 +179,8 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 	}
 
 	// Wait for 1 second after navigation to gather more events
-	log.Info().Msg("Waiting for 2 second after navigation to gather more events")
-	time.Sleep(2 * time.Second)
+	//log.Info().Msg("Waiting for 2 second after navigation to gather more events")
+	//time.Sleep(2 * time.Second)
 
 	result := ReplayResult{
 		Result:                history,

@@ -56,8 +56,12 @@ func (l *ActionLogger) Log(level LogLevel, text string) error {
 // GetLogs returns the captured logs
 func (l *ActionLogger) GetLogs() []LogEntry {
 	l.mu.Lock()
-	defer l.mu.Lock()
-	return l.entries
+	defer l.mu.Unlock()
+
+	logsCopy := make([]LogEntry, len(l.entries))
+	copy(logsCopy, l.entries)
+
+	return logsCopy
 }
 
 // ClearLogs clears the captured logs

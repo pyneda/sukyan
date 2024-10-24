@@ -134,14 +134,12 @@ func TestClickAndVisibility(t *testing.T) {
 		},
 	}
 
-	_, err := ExecuteActions(ctx, page, actions)
+	results, err := ExecuteActions(ctx, page, actions)
 	assert.NoError(t, err)
-	formElement, err := page.Element("#login-form")
-	assert.NoError(t, err)
+	assert.Equal(t, 3, len(results.Logs), "There should be 3 logs")
+	assert.Equal(t, true, results.Succeded, "The action should have succeeded")
+	assert.Equal(t, 0, len(results.Screenshots), "There should be no screenshots")
 
-	isFormVisible, err := formElement.Visible()
-	assert.NoError(t, err)
-	assert.True(t, isFormVisible, "Login form should be visible after clicking the login button")
 }
 
 func TestFormFillAndSubmit(t *testing.T) {

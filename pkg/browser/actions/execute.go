@@ -295,6 +295,8 @@ func ExecuteActions(ctx context.Context, page *rod.Page, actions []Action) (Acti
 		}
 	}
 	results.Succeded = true
+	actionLogger.Log(lib.INFO, "all actions completed successfully")
+	log.Info().Msg("Browser actions completed successfully")
 	results.Logs = actionLogger.GetLogs()
 	return results, nil
 }

@@ -2,11 +2,12 @@ package api
 
 import (
 	"fmt"
-	"github.com/pyneda/sukyan/db"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/pyneda/sukyan/db"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
@@ -51,9 +52,9 @@ func TestUpdateWorkspace(t *testing.T) {
 
 func TestDeleteWorkspace(t *testing.T) {
 	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
-		Code:        "test",
-		Title:       "test",
-		Description: "test",
+		Code:        "TestDeleteWorkspace",
+		Title:       "TestDeleteWorkspace",
+		Description: "TestDeleteWorkspace",
 	})
 
 	assert.NotNil(t, workspace)
@@ -72,7 +73,9 @@ func TestDeleteWorkspace(t *testing.T) {
 	app := fiber.New()
 	app.Delete("/api/v1/workspaces/:id", DeleteWorkspace)
 	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/v1/workspaces/%d", workspace.ID), nil)
-	resp, _ := app.Test(req)
+	resp, err := app.Test(req)
+
+	assert.Nil(t, err)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 

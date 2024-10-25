@@ -92,15 +92,19 @@ func TestGetRootHistoryNodes(t *testing.T) {
 }
 
 func TestGetHistoriesByID(t *testing.T) {
-	workspace, err := Connection.CreateDefaultWorkspace()
+	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+		Code:        "TestGetHistoriesByID",
+		Title:       "TestGetHistoriesByID",
+		Description: "TestGetHistoriesByID",
+	})
 	assert.Nil(t, err)
 	workspaceID := workspace.ID
 
 	history1 := &History{URL: "/test1", WorkspaceID: &workspaceID}
 	history2 := &History{URL: "/test2", WorkspaceID: &workspaceID}
-	_, err = Connection.CreateHistory(history1)
+	history1, err = Connection.CreateHistory(history1)
 	assert.Nil(t, err)
-	_, err = Connection.CreateHistory(history2)
+	history2, err = Connection.CreateHistory(history2)
 	assert.Nil(t, err)
 
 	ids := []uint{history1.ID, history2.ID}
@@ -132,12 +136,16 @@ func TestGetRequestHeadersAsMap(t *testing.T) {
 }
 
 func TestGetHistoryByID(t *testing.T) {
-	workspace, err := Connection.CreateDefaultWorkspace()
+	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+		Code:        "TestGetHistoryByID",
+		Title:       "TestGetHistoryByID",
+		Description: "TestGetHistoryByID",
+	})
 	assert.Nil(t, err)
 	workspaceID := workspace.ID
 
 	history := &History{URL: "/test3", WorkspaceID: &workspaceID}
-	_, err = Connection.CreateHistory(history)
+	history, err = Connection.CreateHistory(history)
 	assert.Nil(t, err)
 
 	fetchedHistory, err := Connection.GetHistoryByID(history.ID)

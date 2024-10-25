@@ -1,0 +1,9 @@
+code: ldap_injection
+title: LDAP Injection Detected
+description: LDAP (Lightweight Directory Access Protocol) injection is a vulnerability that occurs when an application incorporates user-supplied input into LDAP statements without proper sanitization. This allows attackers to modify the intended LDAP query, potentially leading to unauthorized access to the directory service. This vulnerability typically arises when applications use user input directly in constructing LDAP filters or Distinguished Names (DN) without proper validation or escaping of special characters. Attackers can manipulate these queries to bypass authentication, elevate privileges, or extract sensitive information from the directory service.
+remediation: Use your framework's built-in LDAP escaping functions to properly escape special characters in user input before using it in LDAP queries. If no built-in function exists, escape and/or validate user input against a whitelist of allowed characters.
+cwe: 90
+severity: High
+references:
+  - https://owasp.org/www-community/attacks/LDAP_Injection
+  - https://cheatsheetseries.owasp.org/cheatsheets/LDAP_Injection_Prevention_Cheat_Sheet.html

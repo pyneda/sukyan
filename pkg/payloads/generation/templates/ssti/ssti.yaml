@@ -30,6 +30,8 @@ templates:
   - '{{.prefix}}{{"*{"}}{{.value1}}*{{.value2}}{{"}"}}{{.suffix}}'
   - "{{.prefix}}<%= {{.value1}}*{{.value2}} %>{{.suffix}}"
   - "{{.prefix}}@({{.value1}}*{{.value2}}){{.suffix}}"
+  - "{{.prefix}}#set($x={{.value1}}*{{.value2}}){{.suffix}}" 
+  - "{{.prefix}}{{='#{'+value1+'*'+value2+'}'}}){{.suffix}}"
 categories:
   - ssti
   - injection

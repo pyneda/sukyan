@@ -47,6 +47,7 @@ var (
 	JettyServerHeaderCode                IssueCode = "jetty_server_header"
 	JwtDetectedCode                      IssueCode = "jwt_detected"
 	JwtWeakSigningSecretCode             IssueCode = "jwt_weak_signing_secret"
+	LdapInjectionCode                    IssueCode = "ldap_injection"
 	Log4shellCode                        IssueCode = "log4shell"
 	MissingContentTypeHeaderCode         IssueCode = "missing_content_type_header"
 	MixedContentCode                     IssueCode = "mixed_content"
@@ -488,6 +489,15 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         347,
 		Severity:    "High",
 		References:  []string{"https://jwt.io/introduction", "https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_Cheat_Sheet_for_Java.html", "https://github.com/ticarpi/jwt_tool/wiki"},
+	},
+	{
+		Code:        LdapInjectionCode,
+		Title:       "LDAP Injection Detected",
+		Description: "LDAP (Lightweight Directory Access Protocol) injection is a vulnerability that occurs when an application incorporates user-supplied input into LDAP statements without proper sanitization. This allows attackers to modify the intended LDAP query, potentially leading to unauthorized access to the directory service. This vulnerability typically arises when applications use user input directly in constructing LDAP filters or Distinguished Names (DN) without proper validation or escaping of special characters. Attackers can manipulate these queries to bypass authentication, elevate privileges, or extract sensitive information from the directory service.",
+		Remediation: "Use your framework's built-in LDAP escaping functions to properly escape special characters in user input before using it in LDAP queries. If no built-in function exists, escape and/or validate user input against a whitelist of allowed characters.",
+		Cwe:         90,
+		Severity:    "High",
+		References:  []string{"https://owasp.org/www-community/attacks/LDAP_Injection", "https://cheatsheetseries.owasp.org/cheatsheets/LDAP_Injection_Prevention_Cheat_Sheet.html"},
 	},
 	{
 		Code:        Log4shellCode,

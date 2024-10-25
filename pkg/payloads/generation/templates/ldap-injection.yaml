@@ -1,0 +1,83 @@
+id: "ldap-injection"
+issue_code: "ldap_injection"
+detection_condition: "or"
+detection_methods:
+  - response_condition:
+      contains: "ldap_bind"
+      part: response_body
+      confidence: 90
+  - response_condition:
+      contains: "ldap_search"
+      part: response_body
+      confidence: 90
+  - response_condition:
+      contains: "InvalidDNSyntax"
+      part: response_body
+      confidence: 90
+  - response_condition:
+      contains: "javax.naming.NamingException"
+      part: response_body
+      confidence: 90
+  - response_condition:
+      contains: "javax.naming.directory.InvalidSearchFilterException"
+      part: response_body
+      confidence: 90
+  - response_condition:
+      contains: "authentication failed"
+      part: response_body
+      confidence: 70
+  - response_check:
+      check: "database_error"
+      confidence: 80
+      issue_override: "sql_injection"
+  - response_check:
+      check: "xpath_error"
+      confidence: 90
+      issue_override: "xpath_injection"
+launch:
+  operator: or
+  conditions:
+    - type: insertion_point_name
+      parameter_names: ["username", "user", "uid", "cn", "dn", "group", "email", "member", "memberOf"]
+    - type: scan_mode
+      value: fuzz
+templates:
+  # Invalid DN syntax to trigger InvalidDNSyntax and NamingException
+  - "*(,"
+  - "*("
+  - "*)"
+  - "*\\"
+  - "*#"
+  - "*+"
+  - "*;"
+  - "*/"
+  - "*<"
+  - "*>"
+  # Unbalanced parentheses to trigger InvalidSearchFilterException
+  - "*))"
+  - "*(("
+  - "*)(*"
+  - "*)(!"
+  - "*))!("
+  # Malformed operators to trigger ldap_search errors
+  - "*)(|"
+  - "*)(|&"
+  - "*)(&&"
+  - "*)(||"
+  - "*)(&!|"
+  # Invalid filter syntax for ldap_bind errors
+  - "*)(uid=*))(|(uid=*"
+  - "*))(&(objectClass=*"
+  - "*)(cn=*))(&"
+  # Null byte injection for potential parsing errors
+  - "*)(cn=*\x00"
+  - "*\x00)(&"
+  - "*))\x00"
+categories:
+  - injection
+  - ldap
+platforms:
+  - java
+  - php
+  - python
+  - dotnet

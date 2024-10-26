@@ -54,9 +54,10 @@ func TestCreatePlaygroundCollection(t *testing.T) {
 
 	t.Run("InvalidInput", func(t *testing.T) {
 		// Create an invalid input payload (missing Name)
+		assert.Nil(t, err)
 		input := CreatePlaygroundCollectionInput{
 			Description: "Test description",
-			WorkspaceID: 1,
+			WorkspaceID: workspace.ID,
 		}
 
 		inputJSON, _ := json.Marshal(input)
@@ -157,7 +158,7 @@ func TestCreatePlaygroundCollectionAndSession(t *testing.T) {
 		collectionInput := CreatePlaygroundCollectionInput{
 			Name:        "Test Collection",
 			Description: "Test Description",
-			WorkspaceID: 1,
+			WorkspaceID: workspace.ID,
 		}
 
 		collectionReq := httptest.NewRequest(http.MethodPost, "/api/v1/playground/collections", toJSON(collectionInput))

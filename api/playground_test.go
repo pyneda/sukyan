@@ -108,9 +108,13 @@ func TestListPlaygroundCollections(t *testing.T) {
 func TestListPlaygroundSessions(t *testing.T) {
 	app := fiber.New()
 	app.Get("/api/v1/playground/sessions", ListPlaygroundSessions)
-
+	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+		Title: "playground Workspace",
+		Code:  "playground-workspace",
+	})
+	assert.NoError(t, err)
 	t.Run("ValidInput", func(t *testing.T) {
-		query := "?workspace=1"
+		query := fmt.Sprintf("?workspace=%d", workspace.ID)
 
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/playground/sessions"+query, nil)
 

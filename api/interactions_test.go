@@ -1,23 +1,34 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"strconv"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/stretchr/testify/assert"
-	"strconv"
-	"time"
 )
 
 func TestFindInteractions(t *testing.T) {
 	app := fiber.New()
 
 	app.Get("/interactions", FindInteractions)
+	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+		Title: "Interactions Workspace",
+		Code:  "interactions-workspace",
+	})
+	assert.Nil(t, err)
 
-	req := httptest.NewRequest("GET", "/interactions?page=1&page_size=10&protocols=HTTP,FTP&workspace=1", nil)
+	req := httptest.NewRequest(
+		"GET",
+		fmt.Sprintf("/interactions?page=1&page_size=10&protocols=HTTP,FTP&workspace=%d", workspace.ID),
+		nil,
+	)
 	resp, _ := app.Test(req)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)

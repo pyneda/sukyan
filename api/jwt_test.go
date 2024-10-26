@@ -15,7 +15,12 @@ import (
 func TestJwtListHandler(t *testing.T) {
 	app := fiber.New()
 	app.Post("/api/v1/tokens/jwts", JwtListHandler)
-
+	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+		Code:        "TestJwtListHandler",
+		Title:       "TestJwtListHandler",
+		Description: "TestJwtListHandler",
+	})
+	assert.Nil(t, err)
 	tests := []struct {
 		name           string
 		payload        db.JwtFilters
@@ -31,7 +36,7 @@ func TestJwtListHandler(t *testing.T) {
 				Audience:    "test-audience",
 				SortBy:      "token",
 				SortOrder:   "asc",
-				WorkspaceID: 1,
+				WorkspaceID: workspace.ID,
 			},
 			expectedStatus: http.StatusOK,
 		},

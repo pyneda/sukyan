@@ -9,7 +9,11 @@ import (
 
 func TestGetWorkspaceByID(t *testing.T) {
 
-	workspace, err := Connection.CreateDefaultWorkspace()
+	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+		Code:        "TestGetWorkspaceByID",
+		Title:       "TestGetWorkspaceByID",
+		Description: "TestGetWorkspaceByID",
+	})
 	assert.NotNil(t, workspace)
 	assert.Nil(t, err)
 
@@ -23,7 +27,11 @@ func TestGetWorkspaceByID(t *testing.T) {
 
 func TestGetWorkspaceByCode(t *testing.T) {
 
-	workspace, err := Connection.CreateDefaultWorkspace()
+	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+		Code:        "TestGetWorkspaceByCode",
+		Title:       "TestGetWorkspaceByCode",
+		Description: "TestGetWorkspaceByCode",
+	})
 	assert.NotNil(t, workspace)
 	assert.Nil(t, err)
 

@@ -4,64 +4,78 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/openapi"
 	"github.com/spf13/cobra"
 )
 
-// openapiCmd represents the OpenAPI fetch and parse command
 var openapiCmd = &cobra.Command{
 	Use:   "openapi [url]",
 	Short: "Fetch and parse an OpenAPI specification from a given URL",
-	Args:  cobra.ExactArgs(1), // Expect exactly one argument (the OpenAPI URL)
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
 		url := args[0]
-		fmt.Printf("Fetching OpenAPI spec from: %s\n", url)
+		formatFlag, _ := cmd.Flags().GetString("format")
 
-		// Fetch the OpenAPI spec
-		bodyBytes, err := fetchOpenAPISpec(url)
+		format, err := openapi.ValidateFormat(formatFlag)
 		if err != nil {
-			fmt.Printf("Error fetching OpenAPI spec: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("invalid format specified: %w", err)
 		}
 
-		// Parse the OpenAPI spec
-		_, err = openapi.GenerateRequests(bodyBytes, url)
+		bodyBytes, detectedFormat, err := fetchOpenAPISpec(url)
 		if err != nil {
-			fmt.Printf("Error parsing OpenAPI spec: %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to fetch OpenAPI spec: %w", err)
 		}
+
+		finalFormat := format
+		if finalFormat == "" {
+			finalFormat = detectedFormat
+			if finalFormat != "" {
+				fmt.Printf("Detected format: %s\n", finalFormat)
+			}
+		}
+
+		_, err = openapi.GenerateRequests(openapi.OpenapiParseInput{
+			BodyBytes:  bodyBytes,
+			SwaggerURL: url,
+			Format:     string(finalFormat),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to parse OpenAPI spec: %w", err)
+		}
+
 		fmt.Println("Spec parsed successfully!")
-		// for _, result := range results {
-		// 	fmt.Println(result)
-		// }
+		return nil
 	},
 }
 
-// Initializes the Cobra command
 func init() {
+	openapiCmd.Flags().StringP("format", "f", "", "Specification format (json, yaml, or js)")
 	rootCmd.AddCommand(openapiCmd)
 }
 
-// Fetches the OpenAPI spec from a URL and returns the response body
-func fetchOpenAPISpec(url string) ([]byte, error) {
+func fetchOpenAPISpec(url string) ([]byte, openapi.Format, error) {
 	client := http_utils.CreateHttpClient()
 	resp, err := client.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch OpenAPI spec from URL: %w", err)
+		return nil, "", fmt.Errorf("failed to fetch from URL: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received non-200 response: %d", resp.StatusCode)
+		return nil, "", fmt.Errorf("received non-200 response: %d", resp.StatusCode)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return nil, "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	return bodyBytes, nil
+	format, err := openapi.DetectFormat(url, resp.Header, bodyBytes)
+	if err != nil && err != openapi.ErrFormatDetection {
+		return nil, "", fmt.Errorf("format detection failed, try providing it manually: %w", err)
+	}
+
+	return bodyBytes, format, nil
 }

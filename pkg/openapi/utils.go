@@ -44,32 +44,38 @@ var jsonVerboseResultArray []VerboseResult
 // To migrate
 
 var basePath string
-var format string
 var apiTarget string
 var contentType string
 
-func GenerateRequests(bodyBytes []byte, swaggerURL string) ([]string, error) {
+type OpenapiParseInput struct {
+	BodyBytes  []byte
+	SwaggerURL string
+	Format     string
+}
+
+func GenerateRequests(input OpenapiParseInput) ([]string, error) {
 
 	var s SwaggerRequest
-	def, err := UnmarshalSpec(bodyBytes)
+	def, err := unmarshalSpec(input)
 	if err != nil {
 		log.Error().Err(err).Msg("Error unmarshalling spec.")
 		return nil, err
 	}
 	s.Def = def
 
-	s.ApiInQuery, s.ApiKey, s.ApiKeyName = CheckSecDefs(*s.Def)
-	log.Info().Bool("api_in_query", s.ApiInQuery).Str("api_key", s.ApiKey).Str("api_key_name", s.ApiKeyName).Msg("Security definitions processed.")
-	u, err := url.Parse(swaggerURL)
+	security := CheckSecDefs(CheckSecDefsInput{
+		Doc3: *s.Def,
+	})
+	s.ApiInQuery = security.ApiInQuery
+	s.ApiKey = security.ApiKey
+	s.ApiKeyName = security.ApiKeyName
+
+	log.Info().Str("summary", security.HumanReadableSummary).Interface("headers", security.Headers).Msg("Security definitions processed.")
+	u, err := url.Parse(input.SwaggerURL)
 	if err != nil {
 		log.Error().Err(err).Msg("Error parsing swagger URL.")
 	}
 	s.URL = *u
-
-	// if os.Args[1] != "endpoints" {
-	// 	// Prints Title/Description values if they exist
-	// 	PrintSpecInfo(*s.Def.Info)
-	// }
 
 	if s.Def.Paths == nil {
 		log.Warn().Msg("Could not find any defined operations.")
@@ -113,7 +119,7 @@ func GenerateRequests(bodyBytes []byte, swaggerURL string) ([]string, error) {
 		if apiTarget != "" {
 			u, _ = url.Parse(apiTarget)
 		} else {
-			if swaggerURL == "" && s.Def.Servers != nil {
+			if input.SwaggerURL == "" && s.Def.Servers != nil {
 				u, _ = url.Parse(s.Def.Servers[0].URL)
 				if strings.Contains(s.Def.Servers[0].URL, "localhost") || strings.Contains(s.Def.Servers[0].URL, "127.0.0.1") || strings.Contains(s.Def.Servers[0].URL, "::1") {
 					log.Warn().Msg("The server documented in the definition file contains a local host value and may result in errors. Supply a target manually using the '-T' flag.")
@@ -477,14 +483,14 @@ func TrimHostScheme(apiTarget, fullUrlHost string) (host string) {
 	return host
 }
 
-func UnmarshalSpec(bodyBytes []byte) (newDoc *openapi3.T, err error) {
+func unmarshalSpec(input OpenapiParseInput) (newDoc *openapi3.T, err error) {
 	var doc openapi2.T
 	var doc3 openapi3.T
 
-	format = strings.ToLower(format)
-	if format == "js" { // || strings.HasSuffix(swaggerURL, ".js") {
+	bodyBytes := input.BodyBytes
+	if input.Format == "js" {
 		bodyBytes = ExtractSpecFromJS(bodyBytes)
-	} else if format == "yaml" || format == "yml" { // || strings.HasSuffix(swaggerURL, ".yaml") || strings.HasSuffix(swaggerURL, ".yml") {
+	} else if input.Format == "yaml" || input.Format == "yml" {
 		err = yaml.Unmarshal(bodyBytes, &doc)
 		if err != nil {
 			log.Error().Err(err).Msg("Error unmarshalling YAML.")

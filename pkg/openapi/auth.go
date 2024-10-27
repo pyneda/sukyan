@@ -5,72 +5,150 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/rs/zerolog/log"
 )
 
-var (
-	autoApplyAPIKey    string = "n"
-	autoApplyBasicAuth string = "n"
-	autoApplyBearer    string = "n"
-	basicAuthUser      string = "admin"
-	basicAuthPass      string = "admin"
-	basicAuth          []byte
-	basicAuthString    string
-	bearerToken        string
-	Headers            []string
-)
+var Headers []string
 
-func CheckSecDefs(doc3 openapi3.T) (apiInQuery bool, apiKey string, apiKeyName string) {
+var DefaultCredentials = struct {
+	BasicAuthUser string
+	BasicAuthPass string
+	BearerToken   string
+	ApiKey        string
+}{
+	BasicAuthUser: "admin",
+	BasicAuthPass: "admin",
+	BearerToken:   "default-bearer-token",
+	ApiKey:        "default-api-key",
+}
 
-	if doc3.Components != nil && len(doc3.Components.SecuritySchemes) > 0 {
-		log.Info().Int("security schemes", len(doc3.Components.SecuritySchemes)).Msg("Security schemes detected.")
-	} else {
+type CheckSecDefsInput struct {
+	Doc3          openapi3.T `json:"doc3"`
+	BasicAuthUser string     `json:"basic_auth_user"`
+	BasicAuthPass string     `json:"basic_auth_pass"`
+	BearerToken   string     `json:"bearer_token"`
+	ApiKey        string     `json:"api_key"`
+}
+
+type SecuritySchemeDetails struct {
+	Type        string `json:"type"`
+	Name        string `json:"name,omitempty"`
+	In          string `json:"in,omitempty"`
+	Scheme      string `json:"scheme,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type CheckSecDefsOutput struct {
+	ApiInQuery           bool                             `json:"api_in_query"`
+	ApiKey               string                           `json:"api_key,omitempty"`
+	ApiKeyName           string                           `json:"api_key_name,omitempty"`
+	Headers              map[string][]string              `json:"headers"`
+	SecuritySchemes      map[string]SecuritySchemeDetails `json:"security_schemes"`
+	FoundBasicAuth       bool                             `json:"found_basic_auth"`
+	FoundBearerToken     bool                             `json:"found_bearer_token"`
+	FoundApiKey          bool                             `json:"found_api_key"`
+	BasicAuthString      string                           `json:"basic_auth_string,omitempty"`
+	HumanReadableSummary string                           `json:"human_readable_summary"`
+	Examples             map[string]string                `json:"examples"`
+	UsedCredentials      map[string]string                `json:"used_credentials"`
+}
+
+func CheckSecDefs(input CheckSecDefsInput) CheckSecDefsOutput {
+	output := CheckSecDefsOutput{
+		Headers:         make(map[string][]string),
+		SecuritySchemes: make(map[string]SecuritySchemeDetails),
+		Examples:        make(map[string]string),
+		UsedCredentials: make(map[string]string),
+	}
+
+	if input.BasicAuthUser == "" {
+		input.BasicAuthUser = DefaultCredentials.BasicAuthUser
+		output.UsedCredentials["basic_auth_user"] = "default"
+	}
+	if input.BasicAuthPass == "" {
+		input.BasicAuthPass = DefaultCredentials.BasicAuthPass
+		output.UsedCredentials["basic_auth_pass"] = "default"
+	}
+	if input.BearerToken == "" {
+		input.BearerToken = DefaultCredentials.BearerToken
+		output.UsedCredentials["bearer_token"] = "default"
+	}
+	if input.ApiKey == "" {
+		input.ApiKey = DefaultCredentials.ApiKey
+		output.UsedCredentials["api_key"] = "default"
+	}
+
+	Headers = []string{}
+
+	if input.Doc3.Components == nil || len(input.Doc3.Components.SecuritySchemes) == 0 {
 		log.Warn().Msg("No security schemes detected.")
-		return false, "", ""
+		output.HumanReadableSummary = "No security mechanisms were found in the API specification."
+		return output
 	}
 
-	for mechanism := range doc3.Components.SecuritySchemes {
-		if doc3.Components.SecuritySchemes[mechanism].Value == nil {
-			log.Warn().Str("mechanism", mechanism).Msg("Unsupported security scheme.")
-			return false, "", ""
-		}
-		if doc3.Components.SecuritySchemes[mechanism].Value.Scheme != "" {
-			fmt.Printf("    - %s (%s)\n", mechanism, doc3.Components.SecuritySchemes[mechanism].Value.Scheme)
-		} else {
-			fmt.Printf("    - %s\n", mechanism)
+	var summaryParts []string
+
+	for mechanism, scheme := range input.Doc3.Components.SecuritySchemes {
+		if scheme.Value == nil {
+			continue
 		}
 
-		if doc3.Components.SecuritySchemes[mechanism].Value.Type == "http" {
-			if doc3.Components.SecuritySchemes[mechanism].Value.Scheme == "basic" {
-				log.Info().Str("mechanism", mechanism).Msg("Basic Auth is accepted.")
-				basicAuth = []byte(basicAuthUser + ":" + basicAuthPass)
-				basicAuthString = base64.StdEncoding.EncodeToString(basicAuth)
-				log.Info().Str("credentials", basicAuthString).Msg("Using Basic Auth credentials.")
-				Headers = append(Headers, "Authorization: Basic "+basicAuthString)
+		details := SecuritySchemeDetails{
+			Type:        scheme.Value.Type,
+			Name:        scheme.Value.Name,
+			In:          scheme.Value.In,
+			Scheme:      scheme.Value.Scheme,
+			Description: scheme.Value.Description,
+		}
+		output.SecuritySchemes[mechanism] = details
 
-			} else if strings.ToLower(doc3.Components.SecuritySchemes[mechanism].Value.Scheme) == "bearer" {
-				log.Warn().Str("mechanism", mechanism).Msg("Bearer token is accepted.")
-			}
-		} else if doc3.Components.SecuritySchemes[mechanism].Value.Type == "apiKey" && doc3.Components.SecuritySchemes[mechanism].Value.In == "query" {
-			apiInQuery = true
-			log.Info().Msg("An API key can be provided via the query string.")
-			apiKeyName = doc3.Components.SecuritySchemes[mechanism].Value.Name
-			log.Info().Str("name", apiKeyName).Str("value", apiKey).Msg("Using the API key in the query string.")
-		} else if doc3.Components.SecuritySchemes[mechanism].Value.Type == "apiKey" && doc3.Components.SecuritySchemes[mechanism].Value.In == "header" {
-			if mechanism == "bearer" {
-				log.Info().Msg("Bearer token is accepted.")
-				Headers = append(Headers, "Authorization: Bearer "+bearerToken)
-				log.Info().Str("token", bearerToken).Msg("Using Bearer token.")
+		switch {
+		case scheme.Value.Type == "http" && scheme.Value.Scheme == "basic":
+			output.FoundBasicAuth = true
+			basicAuth := []byte(fmt.Sprintf("%s:%s", input.BasicAuthUser, input.BasicAuthPass))
+			output.BasicAuthString = base64.StdEncoding.EncodeToString(basicAuth)
+			authHeader := "Authorization: Basic " + output.BasicAuthString
+			output.Headers["Authorization"] = []string{"Basic " + output.BasicAuthString}
+			output.Examples["Basic Auth"] = authHeader
+			Headers = append(Headers, authHeader)
+			summaryParts = append(summaryParts, "Basic Authentication")
 
-			} else {
-				log.Info().Str("mechanism", mechanism).Str("header", doc3.Components.SecuritySchemes[mechanism].Value.Name).Msg("API key can be provided via the header.")
-				apiKeyName = doc3.Components.SecuritySchemes[mechanism].Value.Name
-				log.Info().Str("name", apiKeyName).Str("value", apiKey).Msg("Using the API key in the header.")
-				Headers = append(Headers, doc3.Components.SecuritySchemes[mechanism].Value.Name+": "+apiKey)
+		case scheme.Value.Type == "http" && strings.ToLower(scheme.Value.Scheme) == "bearer":
+			output.FoundBearerToken = true
+			authHeader := "Authorization: Bearer " + input.BearerToken
+			output.Headers["Authorization"] = []string{"Bearer " + input.BearerToken}
+			output.Examples["Bearer"] = authHeader
+			Headers = append(Headers, authHeader)
+			summaryParts = append(summaryParts, "Bearer Token Authentication")
+
+		case scheme.Value.Type == "apiKey" && scheme.Value.In == "query":
+			output.ApiInQuery = true
+			output.ApiKeyName = scheme.Value.Name
+			output.ApiKey = input.ApiKey
+			output.FoundApiKey = true
+			output.Examples["API Key (Query)"] = fmt.Sprintf("?%s=%s", scheme.Value.Name, input.ApiKey)
+			summaryParts = append(summaryParts, "API Key in Query Parameter")
+
+		case scheme.Value.Type == "apiKey" && scheme.Value.In == "header":
+			output.FoundApiKey = true
+			output.ApiKeyName = scheme.Value.Name
+			output.ApiKey = input.ApiKey
+			if scheme.Value.Name != "" {
+				headerValue := scheme.Value.Name + ": " + input.ApiKey
+				output.Headers[scheme.Value.Name] = []string{input.ApiKey}
+				output.Examples["API Key (Header)"] = headerValue
+				Headers = append(Headers, headerValue)
 			}
+			summaryParts = append(summaryParts, "API Key in Header")
 		}
 	}
-	return apiInQuery, apiKey, apiKeyName
+
+	if len(summaryParts) > 0 {
+		output.HumanReadableSummary = fmt.Sprintf("This API supports the following authentication methods: %s", strings.Join(summaryParts, ", "))
+	} else {
+		output.HumanReadableSummary = "No standard authentication mechanisms were found in the API specification."
+	}
+
+	return output
 }

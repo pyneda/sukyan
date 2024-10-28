@@ -6,12 +6,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/pyneda/sukyan/db"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/pyneda/sukyan/db"
 
 	"gopkg.in/yaml.v3"
 )
@@ -63,8 +64,14 @@ func main() {
 		fmt.Println("Error walking the path:", err)
 		return
 	}
-
-	tmpl, err := template.ParseFiles("db/kb/kb_template.go.tmpl")
+	funcMap := template.FuncMap{
+		"backtick": func(s string) string {
+			// Replace any existing backticks in the string with '`' string literal
+			s = strings.ReplaceAll(s, "`", "`+\"`\"+`")
+			return "`" + s + "`"
+		},
+	}
+	tmpl, err := template.New("kb_template.go.tmpl").Funcs(funcMap).ParseFiles("db/kb/kb_template.go.tmpl")
 	if err != nil {
 		fmt.Println("Error parsing template:", err)
 		return

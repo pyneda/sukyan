@@ -10,6 +10,8 @@ import (
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/active"
 	"github.com/pyneda/sukyan/pkg/crawl"
+	"github.com/pyneda/sukyan/pkg/discovery"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
@@ -158,6 +160,16 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 	retireScanner := integrations.NewRetireScanner()
 
 	db.Connection.SetTaskStatus(task.ID, db.TaskStatusScanning)
+
+	for _, baseURL := range baseURLs {
+		createOpts := http_utils.HistoryCreationOptions{
+			Source:      db.SourceScanner,
+			WorkspaceID: options.WorkspaceID,
+			TaskID:      task.ID,
+		}
+		discovery.DiscoverGraphQLEndpoints(baseURL, createOpts)
+		discovery.DiscoverOpenapiDefinitions(baseURL, createOpts)
+	}
 
 	itemScanOptions := scan.HistoryItemScanOptions{
 		WorkspaceID:        options.WorkspaceID,

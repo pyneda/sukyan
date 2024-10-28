@@ -8,17 +8,20 @@ var (
 	{{- end }}
 )
 
-
 var issueTemplates = []IssueTemplate{
 	{{- range . }}
 	{
 		Code:        {{ .CamelCaseCode }}Code,
-		Title:       "{{ .Original.Title }}",
-		Description: "{{ .Original.Description }}",
-		Remediation: "{{ .Original.Remediation }}",
+		Title:       {{ printf "%q" .Original.Title }},
+		Description: {{ printf "%q" .Original.Description }},
+		Remediation: {{ printf "%q" .Original.Remediation }},
 		Cwe:         {{ .Original.Cwe }},
-		Severity:    "{{ .Original.Severity }}",
-		References:  []string{ {{ range .Original.References }}"{{ . }}",{{ end }} },
+		Severity:    {{ printf "%q" .Original.Severity }},
+		References: []string{
+			{{- range .Original.References }}
+			{{ printf "%q" . }},
+			{{- end }}
+		},
 	},
 	{{- end }}
 }

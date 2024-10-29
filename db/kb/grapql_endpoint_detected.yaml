@@ -1,0 +1,23 @@
+code: graphql_endpoint_detected
+title: GraphQL Endpoint Detected
+description: |
+  A GraphQL API endpoint has been identified in the application. While GraphQL itself is not a security vulnerability, 
+  its presence warrants attention as GraphQL endpoints can potentially expose excessive data or functionality if not 
+  properly secured. GraphQL APIs may be vulnerable to issues such as information disclosure through introspection, 
+  resource exhaustion through nested queries, or insufficient access controls.
+remediation: |
+  To secure the GraphQL endpoint:
+  1. Disable introspection in production unless explicitly required
+  2. Implement query depth limiting to prevent recursive query attacks
+  3. Add appropriate rate limiting and timeout mechanisms
+  4. Ensure proper authentication and authorization controls are in place
+  5. Validate all input parameters
+  6. Consider implementing persisted queries to restrict allowed operations
+  7. Monitor and log GraphQL operations for suspicious patterns
+  8. Use query cost analysis to prevent resource exhaustion
+cwe: 200
+severity: Info
+references:
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/01-Testing_GraphQL
+  - https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html
+  - https://graphql.org/learn/best-practices/

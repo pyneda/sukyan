@@ -25,11 +25,14 @@ var (
 	DbConnectionStringsCode              IssueCode = "db_connection_strings"
 	DirectoryListingCode                 IssueCode = "directory_listing"
 	DjangoDebugExceptionCode             IssueCode = "django_debug_exception"
+	DockerApiDetectedCode                IssueCode = "docker_api_detected"
 	DomStorageEventsDetectedCode         IssueCode = "dom_storage_events_detected"
 	EmailAddressesCode                   IssueCode = "email_addresses"
 	EsiDetectedCode                      IssueCode = "esi_detected"
 	EsiInjectionCode                     IssueCode = "esi_injection"
 	ExposedApiCredentialsCode            IssueCode = "exposed_api_credentials"
+	ExposedPrometheusMetricsCode         IssueCode = "exposed_prometheus_metrics"
+	ExposedSpringActuatorEndpointsCode   IssueCode = "exposed_spring_actuator_endpoints"
 	FileUploadDetectedCode               IssueCode = "file_upload_detected"
 	ForbiddenBypassCode                  IssueCode = "forbidden_bypass"
 	GrailsExceptionCode                  IssueCode = "grails_exception"
@@ -49,6 +52,7 @@ var (
 	JettyServerHeaderCode                IssueCode = "jetty_server_header"
 	JwtDetectedCode                      IssueCode = "jwt_detected"
 	JwtWeakSigningSecretCode             IssueCode = "jwt_weak_signing_secret"
+	KubernetesApiDetectedCode            IssueCode = "kubernetes_api_detected"
 	LdapInjectionCode                    IssueCode = "ldap_injection"
 	Log4shellCode                        IssueCode = "log4shell"
 	MissingContentTypeHeaderCode         IssueCode = "missing_content_type_header"
@@ -67,6 +71,7 @@ var (
 	ReflectedInputCode                   IssueCode = "reflected_input"
 	RemoteFileInclusionCode              IssueCode = "remote_file_inclusion"
 	SecretsInJsCode                      IssueCode = "secrets_in_js"
+	SensitiveConfigDetectedCode          IssueCode = "sensitive_config_detected"
 	ServerHeaderCode                     IssueCode = "server_header"
 	ServerSidePrototypePollutionCode     IssueCode = "server_side_prototype_pollution"
 	SessionTokenInUrlCode                IssueCode = "session_token_in_url"
@@ -86,6 +91,7 @@ var (
 	WafDetectedCode                      IssueCode = "waf_detected"
 	WebassemblyDetectedCode              IssueCode = "webassembly_detected"
 	WebsocketDetectedCode                IssueCode = "websocket_detected"
+	WordpressDetectedCode                IssueCode = "wordpress_detected"
 	XAspVersionHeaderCode                IssueCode = "x_asp_version_header"
 	XFrameOptionsHeaderCode              IssueCode = "x_frame_options_header"
 	XPoweredByHeaderCode                 IssueCode = "x_powered_by_header"
@@ -347,6 +353,20 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        DockerApiDetectedCode,
+		Title:       "Docker API Detected",
+		Description: "A Docker API endpoint has been detected. The severity and impact of this finding depends on:\n\n- The level of access available (authenticated/unauthenticated)\n- The exposed API endpoints and their functionality\n- Whether the access is read-only or allows modifications\n- The configuration of the Docker daemon\n\nPotential exposure through this API could include:\n- Container management capabilities\n- Host system information\n- Container filesystem access\n- Container environment variables\n- Network configuration details\n- Image and volume information\n- Resource usage metrics\n\nManual review is recommended to determine the exact access level and potential security impact.\nThe presence of an exposed Docker API does not automatically indicate a critical vulnerability,\nbut should be thoroughly investigated.\n",
+		Remediation: "Review the exposed Docker API:\n- Verify if authentication is properly configured\n- Review network access controls\n- Ensure TLS is properly implemented\n- Audit exposed functionality and information\n- Consider restricting to localhost if remote access is not required\n",
+		Cwe:         284,
+		Severity:    "Info",
+		References: []string{
+			"https://docs.docker.com/engine/security/",
+			"https://docs.docker.com/engine/api/",
+			"https://docs.docker.com/engine/security/protect-access/",
+			"https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html",
+		},
+	},
+	{
 		Code:        DomStorageEventsDetectedCode,
 		Title:       "DOM Storage Events Detection Report",
 		Description: "This report identifies the detection of DOM Storage events on a specific page of the application. DOM Storage, including LocalStorage and SessionStorage, allows websites to store data in the user's browser. Monitoring these storage events can provide insights into how data is stored and managed by the application, which may indicate potential security concerns or privacy issues if sensitive data is handled improperly.",
@@ -401,6 +421,32 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "High",
 		References: []string{
 			"https://support.google.com/googleapi/answer/6310037?hl=en",
+		},
+	},
+	{
+		Code:        ExposedPrometheusMetricsCode,
+		Title:       "Exposed Prometheus Metrics Endpoint",
+		Description: "An exposed Prometheus metrics endpoint has been detected. This endpoint provides detailed \noperational metrics about the application and system, which could provide attackers with\nvaluable information about the infrastructure and application behavior.\n\nThe exposed metrics may include:\n- System resource usage (CPU, memory, disk)\n- Application performance metrics\n- Request counts and latencies\n- Runtime statistics\n- Database connection information\n- Custom business metrics\n- Internal paths and endpoints\n- Container and orchestration details\n",
+		Remediation: "To secure the application:\n- Restrict access to the metrics endpoint using authentication\n- Configure network-level access controls\n- Move metrics endpoint to a separate management port\n- Review exposed metrics to ensure no sensitive data is leaked\n- Consider using a dedicated metrics aggregator\n",
+		Cwe:         497,
+		Severity:    "Medium",
+		References: []string{
+			"https://prometheus.io/docs/operating/security/",
+			"https://prometheus.io/docs/practices/naming/",
+			"https://owasp.org/www-project-top-ten/2017/A6_2017-Security_Misconfiguration",
+		},
+	},
+	{
+		Code:        ExposedSpringActuatorEndpointsCode,
+		Title:       "Exposed Spring Boot Actuator Endpoints",
+		Description: "Spring Boot Actuator endpoints have been detected on the application. These endpoints expose sensitive \noperational information and functionality about the application, including environment variables, \nconfiguration settings, health metrics, and potentially confidential system details. \n\nThe exposed endpoints may reveal:\n- Environment variables and system properties\n- Application configuration details\n- Database credentials and connection strings\n- Third-party service configurations\n- Application health and metrics\n- Thread dumps and heap information\n- Internal dependency information\n- Logging configurations\n\nThis information could be leveraged by attackers to gather intelligence about the application,\nmanipulate its behavior, or gain unauthorized access to sensitive information.\n",
+		Remediation: "To secure the application:\n- Disable all non-essential actuator endpoints\n- Move actuator endpoints to a separate management port\n- Implement strict access controls and authentication for actuator endpoints\n- Configure appropriate network-level restrictions\n- Review and monitor actuator endpoint access logs\n",
+		Cwe:         497,
+		Severity:    "High",
+		References: []string{
+			"https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html",
+			"https://www.baeldung.com/spring-boot-actuators",
+			"https://owasp.org/www-project-top-ten/2017/A6_2017-Security_Misconfiguration",
 		},
 	},
 	{
@@ -627,6 +673,19 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        KubernetesApiDetectedCode,
+		Title:       "Kubernetes API Detected",
+		Description: "A Kubernetes API endpoint has been detected. The severity and impact of this finding depends on:\n\n- The level of access available (authenticated/unauthenticated)\n- The exposed API endpoints and their functionality\n- Whether the access is read-only or allows modifications\n- The sensitivity of exposed information\n\nPotential information exposure could include:\n- Pod and container details\n- Service configurations\n- Node information\n- Cluster configuration details\n- Internal network architecture\n\nManual review is recommended to determine the exact access level and potential security impact.\n",
+		Remediation: "Review the exposed Kubernetes API:\n- Verify if authentication is properly configured\n- Ensure RBAC policies are implemented\n- Configure network policies appropriately\n- Review exposed information and functionality\n",
+		Cwe:         284,
+		Severity:    "Info",
+		References: []string{
+			"https://kubernetes.io/docs/concepts/security/",
+			"https://kubernetes.io/docs/reference/access-authn-authz/authentication/",
+			"https://kubernetes.io/docs/concepts/security/rbac-good-practices/",
+		},
+	},
+	{
 		Code:        LdapInjectionCode,
 		Title:       "LDAP Injection Detected",
 		Description: "LDAP (Lightweight Directory Access Protocol) injection is a vulnerability that occurs when an application incorporates user-supplied input into LDAP statements without proper sanitization. This allows attackers to modify the intended LDAP query, potentially leading to unauthorized access to the directory service. This vulnerability typically arises when applications use user input directly in constructing LDAP filters or Distinguished Names (DN) without proper validation or escaping of special characters. Attackers can manipulate these queries to bypass authentication, elevate privileges, or extract sensitive information from the directory service.",
@@ -835,6 +894,19 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         615,
 		Severity:    "Medium",
 		References:  []string{},
+	},
+	{
+		Code:        SensitiveConfigDetectedCode,
+		Title:       "Sensitive Configuration File Detected",
+		Description: "A potentially sensitive configuration file has been detected. Configuration files often contain sensitive information, including credentials, database configurations, API keys, and environment settings. Exposing these files publicly can lead to unauthorized access and critical vulnerabilities.\n\nCommon risks include:\n- Leakage of sensitive information, such as database credentials, API keys, or secret tokens\n- Exposure of environment-specific configurations that could be exploited\n- Unauthorized access to backend services or databases\n\nManual review is recommended to confirm the content and assess the impact of exposure.\n",
+		Remediation: "Secure access to sensitive configuration files:\n- Restrict public access to configuration files using server settings\n- Use environment variables to store sensitive data and avoid exposing them in public files\n- Regularly review server access permissions to ensure only authorized users can access these files\n- Implement logging and monitoring to detect unauthorized access attempts\n",
+		Cwe:         200,
+		Severity:    "Medium",
+		References: []string{
+			"https://owasp.org/www-project-top-ten/2017/A3-Sensitive-Data-Exposure.html",
+			"https://owasp.org/www-project-cheat-sheets/cheatsheets/Configuration_Guide.html",
+			"https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Protection_Cheat_Sheet.html",
+		},
 	},
 	{
 		Code:        ServerHeaderCode,
@@ -1053,6 +1125,19 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         749,
 		Severity:    "Info",
 		References:  []string{},
+	},
+	{
+		Code:        WordpressDetectedCode,
+		Title:       "WordPress Detected",
+		Description: "A WordPress installation has been detected on the target system. While WordPress is a widely used and trusted content management system, it is essential to ensure that it is properly secured and maintained. Outdated installations, vulnerable plugins or themes, and misconfigurations can expose the application to various security risks.\n\nPotential risks include:\n- Exposure to known vulnerabilities due to outdated core, plugins, or themes\n- Brute-force attacks on login pages\n- Unauthorized access to sensitive files or administrative functionalities\n- Common web vulnerabilities like XSS, SQL Injection, and CSRF\n\nManual review is recommended to determine the exact security posture and any potential vulnerabilities.\n",
+		Remediation: "Review the WordPress installation:\n- Update WordPress core, themes, and plugins to their latest versions.\n- Remove any unused or deprecated plugins and themes.\n- Implement security best practices, such as:\n  - Using strong, unique passwords for all user accounts\n  - Limiting login attempts and implementing CAPTCHA\n  - Enabling two-factor authentication (2FA)\n  - Installing reputable security plugins (e.g., Wordfence, Sucuri)\n- Restrict access to sensitive files and directories (e.g., `wp-config.php`, `.htaccess`).\n- Disable directory listing on the web server.\n- Regularly monitor and audit for suspicious activities or changes.\n",
+		Cwe:         200,
+		Severity:    "Info",
+		References: []string{
+			"https://wordpress.org/support/article/hardening-wordpress/",
+			"https://wordpress.org/support/security/",
+			"https://owasp.org/www-project-wordpress-security/",
+		},
 	},
 	{
 		Code:        XAspVersionHeaderCode,

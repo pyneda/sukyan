@@ -1,0 +1,30 @@
+code: kubernetes_api_detected
+title: Kubernetes API Detected
+description: |
+  A Kubernetes API endpoint has been detected. The severity and impact of this finding depends on:
+  
+  - The level of access available (authenticated/unauthenticated)
+  - The exposed API endpoints and their functionality
+  - Whether the access is read-only or allows modifications
+  - The sensitivity of exposed information
+  
+  Potential information exposure could include:
+  - Pod and container details
+  - Service configurations
+  - Node information
+  - Cluster configuration details
+  - Internal network architecture
+  
+  Manual review is recommended to determine the exact access level and potential security impact.
+remediation: |
+  Review the exposed Kubernetes API:
+  - Verify if authentication is properly configured
+  - Ensure RBAC policies are implemented
+  - Configure network policies appropriately
+  - Review exposed information and functionality
+cwe: 284
+severity: Info
+references:
+  - https://kubernetes.io/docs/concepts/security/
+  - https://kubernetes.io/docs/reference/access-authn-authz/authentication/
+  - https://kubernetes.io/docs/concepts/security/rbac-good-practices/

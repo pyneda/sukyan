@@ -1,0 +1,19 @@
+code: graphql_introspection_enabled
+title: GraphQL Introspection Enabled
+description: |-
+  GraphQL introspection is enabled on this endpoint. Introspection allows clients to query information about the API schema, including available queries, mutations, types, and fields.
+
+  While introspection is a standard GraphQL feature commonly used for documentation and development, it provides detailed information about the API structure that could be unnecessary or undesirable in some production environments.
+
+  When enabled, introspection allows clients to:
+  - Query the complete schema structure
+  - View available operations and types
+  - Access field descriptions and documentation
+  - See deprecation notices
+remediation: |-
+  Review whether introspection is necessary for your use case. If not required, consider disabling it in production. If introspection is needed, ensure that all exposed queries, mutations, and fields are intended to be discoverable and do not expose sensitive operations or data structures.
+cwe: 200
+severity: Low
+references:
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/01-Testing_GraphQL
+  - https://graphql.org/learn/introspection/

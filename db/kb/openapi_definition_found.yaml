@@ -1,0 +1,19 @@
+code: openapi_definition_found
+title: OpenAPI (Swagger) Definition Found
+description: |-
+  An OpenAPI (formerly known as Swagger) specification document has been discovered. This document describes the structure and capabilities of the API, including available endpoints, parameters, authentication methods, and data schemas.
+
+  When exposed, these documents provide:
+  - Detailed API endpoint listings
+  - Request/response schemas
+  - Authentication requirements
+  - Parameter specifications
+  - Data models and relationships
+remediation: |-
+  Review whether exposing the API documentation is intended and ensure that all endpoints, parameters, and schemas described in the specification are implemented safely and meant to be discoverable. Consider restricting access if the documentation contains sensitive implementation details or exposes internal API endpoints.
+cwe: 200
+severity: Info
+references:
+  - https://owasp.org/www-project-api-security/
+  - https://swagger.io/docs/specification/authentication/
+  - https://swagger.io/specification/

@@ -1,0 +1,29 @@
+code: exposed_prometheus_metrics
+title: Exposed Prometheus Metrics Endpoint
+description: |
+  An exposed Prometheus metrics endpoint has been detected. This endpoint provides detailed 
+  operational metrics about the application and system, which could provide attackers with
+  valuable information about the infrastructure and application behavior.
+  
+  The exposed metrics may include:
+  - System resource usage (CPU, memory, disk)
+  - Application performance metrics
+  - Request counts and latencies
+  - Runtime statistics
+  - Database connection information
+  - Custom business metrics
+  - Internal paths and endpoints
+  - Container and orchestration details
+remediation: |
+  To secure the application:
+  - Restrict access to the metrics endpoint using authentication
+  - Configure network-level access controls
+  - Move metrics endpoint to a separate management port
+  - Review exposed metrics to ensure no sensitive data is leaked
+  - Consider using a dedicated metrics aggregator
+cwe: 497
+severity: Medium
+references:
+  - https://prometheus.io/docs/operating/security/
+  - https://prometheus.io/docs/practices/naming/
+  - https://owasp.org/www-project-top-ten/2017/A6_2017-Security_Misconfiguration

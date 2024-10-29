@@ -1,0 +1,30 @@
+code: wordpress_detected
+title: WordPress Detected
+description: |
+  A WordPress installation has been detected on the target system. While WordPress is a widely used and trusted content management system, it is essential to ensure that it is properly secured and maintained. Outdated installations, vulnerable plugins or themes, and misconfigurations can expose the application to various security risks.
+
+  Potential risks include:
+  - Exposure to known vulnerabilities due to outdated core, plugins, or themes
+  - Brute-force attacks on login pages
+  - Unauthorized access to sensitive files or administrative functionalities
+  - Common web vulnerabilities like XSS, SQL Injection, and CSRF
+
+  Manual review is recommended to determine the exact security posture and any potential vulnerabilities.
+remediation: |
+  Review the WordPress installation:
+  - Update WordPress core, themes, and plugins to their latest versions.
+  - Remove any unused or deprecated plugins and themes.
+  - Implement security best practices, such as:
+    - Using strong, unique passwords for all user accounts
+    - Limiting login attempts and implementing CAPTCHA
+    - Enabling two-factor authentication (2FA)
+    - Installing reputable security plugins (e.g., Wordfence, Sucuri)
+  - Restrict access to sensitive files and directories (e.g., `wp-config.php`, `.htaccess`).
+  - Disable directory listing on the web server.
+  - Regularly monitor and audit for suspicious activities or changes.
+cwe: 200
+severity: Info
+references:
+  - https://wordpress.org/support/article/hardening-wordpress/
+  - https://wordpress.org/support/security/
+  - https://owasp.org/www-project-wordpress-security/

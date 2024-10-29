@@ -1,0 +1,24 @@
+code: sensitive_config_detected
+title: Sensitive Configuration File Detected
+description: |
+  A potentially sensitive configuration file has been detected. Configuration files often contain sensitive information, including credentials, database configurations, API keys, and environment settings. Exposing these files publicly can lead to unauthorized access and critical vulnerabilities.
+
+  Common risks include:
+  - Leakage of sensitive information, such as database credentials, API keys, or secret tokens
+  - Exposure of environment-specific configurations that could be exploited
+  - Unauthorized access to backend services or databases
+
+  Manual review is recommended to confirm the content and assess the impact of exposure.
+remediation: |
+  Secure access to sensitive configuration files:
+  - Restrict public access to configuration files using server settings
+  - Use environment variables to store sensitive data and avoid exposing them in public files
+  - Regularly review server access permissions to ensure only authorized users can access these files
+  - Implement logging and monitoring to detect unauthorized access attempts
+
+cwe: 200
+severity: Medium
+references:
+  - https://owasp.org/www-project-top-ten/2017/A3-Sensitive-Data-Exposure.html
+  - https://owasp.org/www-project-cheat-sheets/cheatsheets/Configuration_Guide.html
+  - https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Protection_Cheat_Sheet.html

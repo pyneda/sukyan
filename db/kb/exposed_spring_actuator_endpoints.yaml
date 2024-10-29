@@ -1,0 +1,32 @@
+code: exposed_spring_actuator_endpoints
+title: Exposed Spring Boot Actuator Endpoints
+description: |
+  Spring Boot Actuator endpoints have been detected on the application. These endpoints expose sensitive 
+  operational information and functionality about the application, including environment variables, 
+  configuration settings, health metrics, and potentially confidential system details. 
+  
+  The exposed endpoints may reveal:
+  - Environment variables and system properties
+  - Application configuration details
+  - Database credentials and connection strings
+  - Third-party service configurations
+  - Application health and metrics
+  - Thread dumps and heap information
+  - Internal dependency information
+  - Logging configurations
+
+  This information could be leveraged by attackers to gather intelligence about the application,
+  manipulate its behavior, or gain unauthorized access to sensitive information.
+remediation: |
+  To secure the application:
+  - Disable all non-essential actuator endpoints
+  - Move actuator endpoints to a separate management port
+  - Implement strict access controls and authentication for actuator endpoints
+  - Configure appropriate network-level restrictions
+  - Review and monitor actuator endpoint access logs
+cwe: 497
+severity: High
+references:
+  - https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html
+  - https://www.baeldung.com/spring-boot-actuators
+  - https://owasp.org/www-project-top-ten/2017/A6_2017-Security_Misconfiguration

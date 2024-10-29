@@ -1,0 +1,36 @@
+code: docker_api_detected
+title: Docker API Detected
+description: |
+  A Docker API endpoint has been detected. The severity and impact of this finding depends on:
+  
+  - The level of access available (authenticated/unauthenticated)
+  - The exposed API endpoints and their functionality
+  - Whether the access is read-only or allows modifications
+  - The configuration of the Docker daemon
+  
+  Potential exposure through this API could include:
+  - Container management capabilities
+  - Host system information
+  - Container filesystem access
+  - Container environment variables
+  - Network configuration details
+  - Image and volume information
+  - Resource usage metrics
+  
+  Manual review is recommended to determine the exact access level and potential security impact.
+  The presence of an exposed Docker API does not automatically indicate a critical vulnerability,
+  but should be thoroughly investigated.
+remediation: |
+  Review the exposed Docker API:
+  - Verify if authentication is properly configured
+  - Review network access controls
+  - Ensure TLS is properly implemented
+  - Audit exposed functionality and information
+  - Consider restricting to localhost if remote access is not required
+cwe: 284
+severity: Info
+references:
+  - https://docs.docker.com/engine/security/
+  - https://docs.docker.com/engine/api/
+  - https://docs.docker.com/engine/security/protect-access/
+  - https://cheatsheetseries.owasp.org/cheatsheets/Docker_Security_Cheat_Sheet.html

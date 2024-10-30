@@ -167,8 +167,7 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 			WorkspaceID: options.WorkspaceID,
 			TaskID:      task.ID,
 		}
-		discovery.DiscoverGraphQLEndpoints(baseURL, createOpts)
-		discovery.DiscoverOpenapiDefinitions(baseURL, createOpts)
+		discovery.DiscoverAll(baseURL, createOpts)
 	}
 
 	itemScanOptions := scan.HistoryItemScanOptions{

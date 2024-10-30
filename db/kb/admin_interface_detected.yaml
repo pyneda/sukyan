@@ -1,0 +1,12 @@
+code: admin_interface_detected
+title: Common admin interface detected
+description: |
+  A page with characteristics of a common admin interface or login page has been identified. Unauthorized access to such areas could expose sensitive configurations or data.
+
+remediation: |
+  This is an informational issue. Review whether exposing this admin interface is necessary. If exposure is required, ensure it is secured with appropriate access controls such as IP whitelisting, VPNs, and strong authentication mechanisms.
+
+cwe: 306
+severity: Informative
+references:
+  - https://owasp.org/www-project-top-ten/2017/A2-Broken-Authentication.html

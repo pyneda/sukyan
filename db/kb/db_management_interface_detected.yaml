@@ -1,0 +1,24 @@
+code: db_management_interface_detected
+title: Database Management Interface Detected
+description: |
+  A database management interface has been detected. While the presence of these interfaces 
+  alone does not indicate a vulnerability, they should be reviewed to ensure they are:
+  
+  1. Intentionally exposed
+  2. Properly secured
+  3. Necessary in the current environment
+  
+  This finding requires manual verification to determine if it poses any security risk.
+
+remediation: |
+  If this interface is intentionally exposed:
+  - Verify it requires proper authentication
+  - Ensure access is restricted to necessary users/IPs
+  - Confirm HTTPS is enabled if accessible from the internet
+
+  If this interface is not meant to be exposed, remove it from the production environment and/or restrict access using firewall rules
+
+cwe: 200
+severity: Info
+references:
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/01-Test_Network_Infrastructure_Configuration

@@ -1,0 +1,22 @@
+code: ci_cd_infrastructure_file_detected
+title: Exposed CI/CD or Infrastructure Configuration File Detected
+description: |
+  A CI/CD or infrastructure configuration file has been detected that is publicly accessible. These files often contain sensitive information, such as environment configurations, deployment instructions, and secrets. Exposing such files can reveal information about the system's setup, deployment processes, or even provide credentials for unauthorized access.
+
+  Potential risks include:
+  - Disclosure of sensitive environment variables or API keys
+  - Exposure of deployment and configuration steps that allow attackers to understand system architecture
+  - Leakage of credentials for cloud providers or other services
+  
+  It is recommended to review the file content to assess its sensitivity and the security impact of exposure.
+remediation: |
+  Secure access to CI/CD and infrastructure configuration files by:
+  - Restricting public access to these files using server configurations
+  - Ensuring sensitive information such as environment variables and secrets are stored securely in vaults
+  - Regularly auditing access controls and monitoring for unintended exposure of configuration files
+
+cwe: 200
+severity: Medium
+references:
+  - https://cheatsheetseries.owasp.org/cheatsheets/CI_CD_Security_Cheat_Sheet.html
+  - https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure

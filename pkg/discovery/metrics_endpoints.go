@@ -147,7 +147,7 @@ func IsPrometheusMetricsValidationFunc(history *db.History) (bool, string, int) 
 	return false, "", 0
 }
 
-func DiscoverPrometheusEndpoints(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoveMetricsEndpoints(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
 			URL:         baseURL,

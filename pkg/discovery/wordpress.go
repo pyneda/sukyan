@@ -25,7 +25,7 @@ func IsWordPressValidationFunc(history *db.History) (bool, string, int) {
 	// Retrieve response headers as a map
 	headers, err := history.GetResponseHeadersAsMap()
 	if err != nil {
-		return false, "", 0 // Return immediately if there's an error retrieving headers
+		return false, "", 0
 	}
 
 	// Define indicators with their descriptions and confidence levels

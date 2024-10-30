@@ -1,0 +1,24 @@
+code: version_control_file_detected
+title: Exposed Version Control File Detected
+description: |
+  A version control file has been detected that is publicly accessible. Version control files and directories often contain sensitive information about the repository's structure, configurations, and sometimes access credentials. Exposing these files can lead to unauthorized access or disclose valuable information about the system.
+
+  Common risks include:
+  - Leakage of repository configurations or credentials
+  - Exposure of source code or private repository data
+  - Disclosure of development artifacts or environment settings
+
+  Manual review is recommended to confirm the sensitivity and impact of the file.
+remediation: |
+  Secure access to version control files by:
+  - Restricting public access to version control files using server configurations
+  - Removing any unnecessary version control files from publicly accessible directories
+  - Implementing access controls to limit exposure only to authorized users
+  - Regularly monitoring for unintended exposure of repository files
+  
+cwe: 200
+severity: Medium
+references:
+  - https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure
+  - https://cheatsheetseries.owasp.org/cheatsheets/Source_Code_Protection_Cheat_Sheet.html
+  - https://owasp.org/www-community/attacks/Source_Code_Disclosure

@@ -1,0 +1,17 @@
+code: payment_test_endpoint_detected
+title: Payment System Test Endpoint Detected
+description: |
+  A payment system test endpoint has been discovered. These endpoints are typically used for testing payment 
+  integrations and may expose test credentials, sandbox configurations, or payment system debugging interfaces. 
+  While test endpoints often use sandbox credentials, they might reveal information about the payment system 
+  architecture or in some cases contain misconfigured production credentials.
+remediation: |
+  Restrict access to payment test endpoints in production environments. Move test endpoints to separate 
+  testing environments and ensure proper access controls are in place. Review exposed endpoints for sensitive 
+  information and verify that no production credentials are exposed.
+cwe: 200
+severity: Medium
+references:
+  - https://stripe.com/docs/security/guide
+  - https://developer.paypal.com/api/rest/sandbox/
+  - https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure

@@ -1,0 +1,17 @@
+code: oauth_endpoint_detected
+title: OAuth/OpenID Configuration Endpoint Detected
+description: |
+  An OAuth or OpenID Connect configuration endpoint was discovered. These endpoints 
+  provide information about the OAuth/OIDC implementation, including authorization 
+  endpoints, token endpoints, and supported features. This finding requires manual 
+  review to determine if sensitive information is inappropriately exposed.
+remediation: |
+  Review the exposed OAuth/OIDC endpoints to ensure they only disclose necessary 
+  information for client operation. Consider restricting access to any configuration 
+  endpoints that aren't required for normal OAuth flows.
+cwe: 200
+severity: Info
+references:
+  - https://oauth.net/2/
+  - https://openid.net/connect/
+  - https://datatracker.ietf.org/doc/html/rfc8414

@@ -17,18 +17,25 @@ func DiscoverAll(baseURL string, opts http_utils.HistoryCreationOptions) ([]Disc
 	var errors []error
 
 	discoveryFunctions := map[string]func(string, http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error){
-		"openapi":       DiscoverOpenapiDefinitions,
-		"graphql":       DiscoverGraphQLEndpoints,
-		"kubernetes":    DiscoverKubernetesEndpoints,
-		"wordpress":     DiscoverWordPressEndpoints,
-		"config_files":  DiscoverSensitiveConfigFiles,
-		"actuator":      DiscoverActuatorEndpoints,
-		"docker":        DiscoverDockerAPIEndpoints,
-		"metrics":       DiscoveMetricsEndpoints,
-		"vcs":           DiscoverVersionControlFiles,
-		"cicd":          DiscoverCICDBuildFiles,
-		"admin":         DiscoverAdminInterfaces,
-		"db_management": DiscoverDBManagementInterfaces,
+		"openapi":        DiscoverOpenapiDefinitions,
+		"graphql":        DiscoverGraphQLEndpoints,
+		"kubernetes":     DiscoverKubernetesEndpoints,
+		"wordpress":      DiscoverWordPressEndpoints,
+		"config_files":   DiscoverSensitiveConfigFiles,
+		"actuator":       DiscoverActuatorEndpoints,
+		"docker":         DiscoverDockerAPIEndpoints,
+		"metrics":        DiscoveMetricsEndpoints,
+		"vcs":            DiscoverVersionControlFiles,
+		"cicd":           DiscoverCICDBuildFiles,
+		"admin":          DiscoverAdminInterfaces,
+		"db_management":  DiscoverDBManagementInterfaces,
+		"cloud_metadata": DiscoverCloudMetadata,
+		"sso":            DiscoverSSOEndpoints,
+		"oauth":          DiscoverOAuthEndpoints,
+		"phpinfo":        DiscoverPHPInfo,
+		"payment_test":   DiscoverPaymentTestEndpoints,
+		"socketio":       DiscoverSocketIO,
+		"server_info":    DiscoverServerInfo,
 	}
 
 	for source, discoverFunc := range discoveryFunctions {

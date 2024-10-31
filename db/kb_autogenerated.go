@@ -34,6 +34,7 @@ var (
 	EsiDetectedCode                      IssueCode = "esi_detected"
 	EsiInjectionCode                     IssueCode = "esi_injection"
 	ExposedApiCredentialsCode            IssueCode = "exposed_api_credentials"
+	ExposedCloudMetadataCode             IssueCode = "exposed_cloud_metadata"
 	ExposedPrometheusMetricsCode         IssueCode = "exposed_prometheus_metrics"
 	ExposedSpringActuatorEndpointsCode   IssueCode = "exposed_spring_actuator_endpoints"
 	FileUploadDetectedCode               IssueCode = "file_upload_detected"
@@ -62,6 +63,7 @@ var (
 	MixedContentCode                     IssueCode = "mixed_content"
 	NetworkAuthChallengeDetectedCode     IssueCode = "network_auth_challenge_detected"
 	NosqlInjectionCode                   IssueCode = "nosql_injection"
+	OauthEndpointDetectedCode            IssueCode = "oauth_endpoint_detected"
 	OobCommunicationsCode                IssueCode = "oob_communications"
 	OpenRedirectCode                     IssueCode = "open_redirect"
 	OpenapiDefinitionFoundCode           IssueCode = "openapi_definition_found"
@@ -69,6 +71,8 @@ var (
 	ParameterPollutionCode               IssueCode = "parameter_pollution"
 	PasswordFieldAutocompleteEnabledCode IssueCode = "password_field_autocomplete_enabled"
 	PasswordInGetRequestCode             IssueCode = "password_in_get_request"
+	PaymentTestEndpointDetectedCode      IssueCode = "payment_test_endpoint_detected"
+	PhpInfoDetectedCode                  IssueCode = "php_info_detected"
 	PrivateIpsCode                       IssueCode = "private_ips"
 	PrivateKeysCode                      IssueCode = "private_keys"
 	ReflectedInputCode                   IssueCode = "reflected_input"
@@ -76,12 +80,16 @@ var (
 	SecretsInJsCode                      IssueCode = "secrets_in_js"
 	SensitiveConfigDetectedCode          IssueCode = "sensitive_config_detected"
 	ServerHeaderCode                     IssueCode = "server_header"
+	Code                                 IssueCode = ""
+	ServerInfoDetectedCode               IssueCode = "server_info_detected"
 	ServerSidePrototypePollutionCode     IssueCode = "server_side_prototype_pollution"
 	SessionTokenInUrlCode                IssueCode = "session_token_in_url"
 	SniInjectionCode                     IssueCode = "sni_injection"
+	SocketioDetectedCode                 IssueCode = "socketio_detected"
 	SqlInjectionCode                     IssueCode = "sql_injection"
 	SsiDetectedCode                      IssueCode = "ssi_detected"
 	SsiInjectionCode                     IssueCode = "ssi_injection"
+	SsoMetadataDetectedCode              IssueCode = "sso_metadata_detected"
 	SsrfCode                             IssueCode = "ssrf"
 	SstiCode                             IssueCode = "ssti"
 	StorageBucketDetectedCode            IssueCode = "storage_bucket_detected"
@@ -462,6 +470,20 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        ExposedCloudMetadataCode,
+		Title:       "Cloud Instance Metadata Service Endpoint Detected",
+		Description: "The application exposes a cloud instance metadata service endpoint. Instance metadata services provide \ninformation about cloud instances including instance identifiers, network configuration, and potentially \nsensitive data or credentials. Access to these endpoints should be carefully reviewed as exposure could \nlead to information disclosure or, in cases where credentials are exposed, facilitate unauthorized access \nto cloud resources.\n",
+		Remediation: "Configure network security controls to restrict access to metadata service endpoints. This may include \nfirewall rules, network security groups, or proxy configurations. Additionally, ensure the latest \nmetadata service version is in use as newer versions provide improved security controls.\n",
+		Cwe:         200,
+		Severity:    "High",
+		References: []string{
+			"https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html",
+			"https://cloud.google.com/compute/docs/storing-retrieving-metadata",
+			"https://learn.microsoft.com/en-us/azure/virtual-machines/instance-metadata-service",
+			"https://www.nccgroup.com/us/about-us/newsroom-and-events/blog/2020/november/protecting-against-cloud-metadata-exposure/",
+		},
+	},
+	{
 		Code:        ExposedPrometheusMetricsCode,
 		Title:       "Exposed Prometheus Metrics Endpoint",
 		Description: "An exposed Prometheus metrics endpoint has been detected. This endpoint provides detailed \noperational metrics about the application and system, which could provide attackers with\nvaluable information about the infrastructure and application behavior.\n\nThe exposed metrics may include:\n- System resource usage (CPU, memory, disk)\n- Application performance metrics\n- Request counts and latencies\n- Runtime statistics\n- Database connection information\n- Custom business metrics\n- Internal paths and endpoints\n- Container and orchestration details\n",
@@ -795,6 +817,19 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        OauthEndpointDetectedCode,
+		Title:       "OAuth/OpenID Configuration Endpoint Detected",
+		Description: "An OAuth or OpenID Connect configuration endpoint was discovered. These endpoints \nprovide information about the OAuth/OIDC implementation, including authorization \nendpoints, token endpoints, and supported features. This finding requires manual \nreview to determine if sensitive information is inappropriately exposed.\n",
+		Remediation: "Review the exposed OAuth/OIDC endpoints to ensure they only disclose necessary \ninformation for client operation. Consider restricting access to any configuration \nendpoints that aren't required for normal OAuth flows.\n",
+		Cwe:         200,
+		Severity:    "Info",
+		References: []string{
+			"https://oauth.net/2/",
+			"https://openid.net/connect/",
+			"https://datatracker.ietf.org/doc/html/rfc8414",
+		},
+	},
+	{
 		Code:        OobCommunicationsCode,
 		Title:       "Out of Band Communications",
 		Description: "The application sends sensitive information to an external server.",
@@ -879,6 +914,30 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        PaymentTestEndpointDetectedCode,
+		Title:       "Payment System Test Endpoint Detected",
+		Description: "A payment system test endpoint has been discovered. These endpoints are typically used for testing payment \nintegrations and may expose test credentials, sandbox configurations, or payment system debugging interfaces. \nWhile test endpoints often use sandbox credentials, they might reveal information about the payment system \narchitecture or in some cases contain misconfigured production credentials.\n",
+		Remediation: "Restrict access to payment test endpoints in production environments. Move test endpoints to separate \ntesting environments and ensure proper access controls are in place. Review exposed endpoints for sensitive \ninformation and verify that no production credentials are exposed.\n",
+		Cwe:         200,
+		Severity:    "Medium",
+		References: []string{
+			"https://stripe.com/docs/security/guide",
+			"https://developer.paypal.com/api/rest/sandbox/",
+			"https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure",
+		},
+	},
+	{
+		Code:        PhpInfoDetectedCode,
+		Title:       "PHPInfo Page Detected",
+		Description: "A PHPInfo page was discovered on the server. The phpinfo() function outputs sensitive \ninformation about PHP's configuration including installed modules, server settings, \npaths, environment variables and configuration options. This information can be used \nby attackers to identify vulnerabilities and plan targeted attacks.\n",
+		Remediation: "Remove or disable access to any files containing phpinfo() function calls from \nproduction environments. If needed for debugging, ensure these files are only \naccessible in development environments or protected by appropriate authentication.\n",
+		Cwe:         200,
+		Severity:    "Medium",
+		References: []string{
+			"https://www.php.net/manual/en/function.phpinfo.php",
+		},
+	},
+	{
 		Code:        PrivateIpsCode,
 		Title:       "Private IPs Detected",
 		Description: "The application exposes private IP addresses, which can provide useful information for potential attackers and expose the internal network structure.",
@@ -956,6 +1015,27 @@ var issueTemplates = []IssueTemplate{
 		References:  []string{},
 	},
 	{
+		Code:        Code,
+		Title:       "",
+		Description: "",
+		Remediation: "",
+		Cwe:         0,
+		Severity:    "",
+		References:  []string{},
+	},
+	{
+		Code:        ServerInfoDetectedCode,
+		Title:       "Server Information Page Detected",
+		Description: "A server information or status page was discovered. These pages typically provide details \nabout the server's configuration, performance metrics, and runtime statistics. While \nuseful for monitoring and debugging, they may expose sensitive information about the \nserver's configuration and internal structure.\n",
+		Remediation: "Restrict access to server information pages or move them to a separate administrative \ninterface with appropriate access controls.\n",
+		Cwe:         200,
+		Severity:    "Medium",
+		References: []string{
+			"https://httpd.apache.org/docs/2.4/mod/mod_status.html",
+			"https://httpd.apache.org/docs/2.4/mod/mod_info.html",
+		},
+	},
+	{
 		Code:        ServerSidePrototypePollutionCode,
 		Title:       "Server-Side Prototype Pollution Detected",
 		Description: "The application appears to be vulnerable to Server-Side Prototype Pollution (SSPP) attacks. This vulnerability occurs when the application allows modification of a JavaScript object prototype. When a function traverses the entire prototype chain, an attacker can inject properties into this chain, potentially leading to various impacts, such as denial-of-service, property overwrite, or even remote code execution if the polluted properties are used unsafely.",
@@ -992,6 +1072,18 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        SocketioDetectedCode,
+		Title:       "Socket.IO Endpoint Detected",
+		Description: "A Socket.IO endpoint was discovered. Socket.IO is a JavaScript library that enables \nreal-time, bidirectional and event-based communication between web clients and servers. \nThe presence of Socket.IO endpoints should be reviewed to ensure proper security \ncontrols are in place.\n",
+		Remediation: "Review the Socket.IO implementation to ensure appropriate security controls are \nimplemented and that access is restricted to authorized users only.\n",
+		Cwe:         200,
+		Severity:    "Info",
+		References: []string{
+			"https://socket.io/docs/v4/",
+			"https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#websockets",
+		},
+	},
+	{
 		Code:        SqlInjectionCode,
 		Title:       "SQL Injection Detected",
 		Description: "The application appears to be vulnerable to SQL injection attacks. This vulnerability occurs when the application uses user-supplied input to construct SQL queries without properly sanitizing or validating the input first. An attacker can exploit this vulnerability to manipulate queries, potentially leading to unauthorized data access, data loss, or data corruption.",
@@ -1024,6 +1116,19 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "High",
 		References: []string{
 			"https://owasp.org/www-community/attacks/Server-Side_Includes_(SSI)_Injection",
+		},
+	},
+	{
+		Code:        SsoMetadataDetectedCode,
+		Title:       "SSO/SAML Metadata Endpoint Detected",
+		Description: "A Single Sign-On (SSO) metadata endpoint was discovered. These endpoints typically \ncontain SAML configuration details used for establishing federation between service \nproviders and identity providers. While this information is often necessary for SSO \noperation, the exposed metadata should be reviewed to ensure it doesn't disclose \nunnecessary internal details.\n",
+		Remediation: "Review the exposed SSO metadata to verify it only contains the minimum information \nrequired for federation. Consider implementing access controls if the metadata \ncontains sensitive internal endpoints or certificates that aren't required by \nidentity providers.\n",
+		Cwe:         200,
+		Severity:    "Info",
+		References: []string{
+			"https://www.owasp.org/index.php/SAML_Security_Cheat_Sheet",
+			"https://cheatsheetseries.owasp.org/cheatsheets/SAML_Security_Cheat_Sheet.html",
+			"https://datatracker.ietf.org/doc/html/rfc7522",
 		},
 	},
 	{

@@ -1,0 +1,15 @@
+code: server_info_detected
+title: Server Information Page Detected
+description: |
+  A server information or status page was discovered. These pages typically provide details 
+  about the server's configuration, performance metrics, and runtime statistics. While 
+  useful for monitoring and debugging, they may expose sensitive information about the 
+  server's configuration and internal structure.
+remediation: |
+  Restrict access to server information pages or move them to a separate administrative 
+  interface with appropriate access controls.
+cwe: 200
+severity: Medium
+references:
+  - https://httpd.apache.org/docs/2.4/mod/mod_status.html
+  - https://httpd.apache.org/docs/2.4/mod/mod_info.html

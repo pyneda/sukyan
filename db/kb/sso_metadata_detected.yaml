@@ -1,0 +1,19 @@
+code: sso_metadata_detected
+title: SSO/SAML Metadata Endpoint Detected
+description: |
+  A Single Sign-On (SSO) metadata endpoint was discovered. These endpoints typically 
+  contain SAML configuration details used for establishing federation between service 
+  providers and identity providers. While this information is often necessary for SSO 
+  operation, the exposed metadata should be reviewed to ensure it doesn't disclose 
+  unnecessary internal details.
+remediation: |
+  Review the exposed SSO metadata to verify it only contains the minimum information 
+  required for federation. Consider implementing access controls if the metadata 
+  contains sensitive internal endpoints or certificates that aren't required by 
+  identity providers.
+cwe: 200
+severity: Info
+references:
+  - https://www.owasp.org/index.php/SAML_Security_Cheat_Sheet
+  - https://cheatsheetseries.owasp.org/cheatsheets/SAML_Security_Cheat_Sheet.html
+  - https://datatracker.ietf.org/doc/html/rfc7522

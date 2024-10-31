@@ -1,0 +1,15 @@
+code: php_info_detected
+title: PHPInfo Page Detected
+description: |
+  A PHPInfo page was discovered on the server. The phpinfo() function outputs sensitive 
+  information about PHP's configuration including installed modules, server settings, 
+  paths, environment variables and configuration options. This information can be used 
+  by attackers to identify vulnerabilities and plan targeted attacks.
+remediation: |
+  Remove or disable access to any files containing phpinfo() function calls from 
+  production environments. If needed for debugging, ensure these files are only 
+  accessible in development environments or protected by appropriate authentication.
+cwe: 200
+severity: Medium
+references:
+  - https://www.php.net/manual/en/function.phpinfo.php

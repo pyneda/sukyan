@@ -1,0 +1,19 @@
+code: exposed_cloud_metadata
+title: Cloud Instance Metadata Service Endpoint Detected
+description: |
+  The application exposes a cloud instance metadata service endpoint. Instance metadata services provide 
+  information about cloud instances including instance identifiers, network configuration, and potentially 
+  sensitive data or credentials. Access to these endpoints should be carefully reviewed as exposure could 
+  lead to information disclosure or, in cases where credentials are exposed, facilitate unauthorized access 
+  to cloud resources.
+remediation: |
+  Configure network security controls to restrict access to metadata service endpoints. This may include 
+  firewall rules, network security groups, or proxy configurations. Additionally, ensure the latest 
+  metadata service version is in use as newer versions provide improved security controls.
+cwe: 200
+severity: High
+references:
+  - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
+  - https://cloud.google.com/compute/docs/storing-retrieving-metadata
+  - https://learn.microsoft.com/en-us/azure/virtual-machines/instance-metadata-service
+  - https://www.nccgroup.com/us/about-us/newsroom-and-events/blog/2020/november/protecting-against-cloud-metadata-exposure/

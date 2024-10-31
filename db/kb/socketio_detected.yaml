@@ -1,0 +1,15 @@
+code: socketio_detected
+title: Socket.IO Endpoint Detected
+description: |
+  A Socket.IO endpoint was discovered. Socket.IO is a JavaScript library that enables 
+  real-time, bidirectional and event-based communication between web clients and servers. 
+  The presence of Socket.IO endpoints should be reviewed to ensure proper security 
+  controls are in place.
+remediation: |
+  Review the Socket.IO implementation to ensure appropriate security controls are 
+  implemented and that access is restricted to authorized users only.
+cwe: 200
+severity: Info
+references:
+  - https://socket.io/docs/v4/
+  - https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#websockets

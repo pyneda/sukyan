@@ -270,7 +270,7 @@ func DiscoverDBManagementInterfaces(baseURL string, opts http_utils.HistoryCreat
 			Method:      "GET",
 			Paths:       DBManagementPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
 			},

@@ -173,7 +173,7 @@ func DiscoverOpenapiDefinitions(baseURL string, opts http_utils.HistoryCreationO
 			Method:      "GET",
 			Paths:       OpenAPIPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "application/json, application/yaml, */*",
 			},

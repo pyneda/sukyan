@@ -93,7 +93,7 @@ func DiscoverSSOEndpoints(baseURL string, opts http_utils.HistoryCreationOptions
 			Method:      "GET",
 			Paths:       SSOPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "application/xml,application/samlmetadata+xml",
 			},

@@ -80,7 +80,7 @@ func DiscoverActuatorEndpoints(baseURL string, opts http_utils.HistoryCreationOp
 			Method:      "GET",
 			Paths:       ActuatorPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "application/json",
 			},

@@ -67,7 +67,7 @@ func DiscoverPHPInfo(baseURL string, opts http_utils.HistoryCreationOptions) (Di
 			Method:      "GET",
 			Paths:       PHPInfoPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 			},

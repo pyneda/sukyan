@@ -104,7 +104,7 @@ func DiscoverSocketIO(baseURL string, opts http_utils.HistoryCreationOptions) (D
 			Method:      "GET",
 			Paths:       SocketIOPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept":     "application/json,text/plain",
 				"Connection": "upgrade",

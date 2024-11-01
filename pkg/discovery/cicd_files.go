@@ -82,7 +82,7 @@ func DiscoverCICDBuildFiles(baseURL string, opts http_utils.HistoryCreationOptio
 			Method:      "GET",
 			Paths:       CICDBuildFilePaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "text/plain,application/json",
 			},

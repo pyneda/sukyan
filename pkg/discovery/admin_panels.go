@@ -85,7 +85,7 @@ func DiscoverAdminInterfaces(baseURL string, opts http_utils.HistoryCreationOpti
 			Method:      "GET",
 			Paths:       AdminPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "text/html",
 			},

@@ -2,23 +2,24 @@ package discovery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
+	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc/pool"
 )
 
 const (
 	DefaultConcurrency = 10
-	DefaultTimeout     = 10
+	DefaultTimeout     = 45
 	DefaultMethod      = "GET"
 	DefaultUserAgent   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
 )
@@ -43,6 +44,12 @@ type DiscoveryInput struct {
 	ValidationFunc         ValidationFunc    `json:"-"`
 }
 
+type DiscoverResults struct {
+	Responses []*db.History `json:"responses"`
+	Errors    []error       `json:"errors,omitempty"`
+	Stopped   bool          `json:"stopped,omitempty"`
+}
+
 // Validate checks and sets default values for DiscoveryInput
 func (d *DiscoveryInput) Validate() error {
 	if d.URL == "" {
@@ -52,7 +59,7 @@ func (d *DiscoveryInput) Validate() error {
 	if d.Concurrency == 0 {
 		d.Concurrency = DefaultConcurrency
 	}
-	if d.Timeout == 0 {
+	if d.Timeout == 0 || d.Timeout < 0 {
 		d.Timeout = DefaultTimeout
 	}
 	if d.Method == "" {
@@ -70,39 +77,28 @@ func (d *DiscoveryInput) Validate() error {
 	return nil
 }
 
-type DiscoverResults struct {
-	Responses []*db.History `json:"responses"`
-	Errors    []error       `json:"errors,omitempty"`
-	Stopped   bool          `json:"stopped,omitempty"`
-}
-
-func joinURLPath(baseURL, urlPath string) string {
-	u, err := url.Parse(baseURL)
-	if err != nil {
-		return baseURL + "/" + strings.TrimPrefix(urlPath, "/")
-	}
-	u.Path = path.Join(u.Path, urlPath)
-	return u.String()
-}
-
-func setDefaultHeaders(req *http.Request, hasBody bool) {
-	if req.Header.Get("User-Agent") == "" {
-		req.Header.Set("User-Agent", DefaultUserAgent)
-	}
-	if req.Header.Get("Connection") == "" {
-		req.Header.Set("Connection", "keep-alive")
-	}
-	if hasBody && req.Header.Get("Content-Type") == "" {
-		req.Header.Set("Content-Type", "application/json")
-	}
-}
-
 func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 	if err := input.Validate(); err != nil {
 		return DiscoverResults{}, fmt.Errorf("invalid input: %w", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	baseCtx := context.Background()
+	if input.Timeout > 0 {
+		var cancel context.CancelFunc
+		baseCtx, cancel = context.WithTimeout(baseCtx, time.Duration(input.Timeout)*time.Second)
+		defer cancel()
+	}
+
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+	if input.StopAfterValid {
+		ctx, cancel = context.WithCancel(baseCtx)
+	} else {
+		ctx = baseCtx
+		cancel = func() {}
+	}
 	defer cancel()
 
 	p := pool.NewWithResults[struct {
@@ -123,7 +119,6 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 	transport.ForceAttemptHTTP2 = true
 	client := &http.Client{
 		Transport: transport,
-		Timeout:   time.Duration(input.Timeout) * time.Second,
 	}
 
 	for _, path := range input.Paths {
@@ -139,7 +134,8 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 
 			select {
 			case <-ctx.Done():
-				return result, ctx.Err()
+				result.Error = ctx.Err()
+				return result, nil
 			default:
 			}
 
@@ -147,6 +143,8 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 				mu.Lock()
 				if validFound {
 					mu.Unlock()
+					log.Info().Msg("stopping discovery after valid response")
+					//result.Error = context.Canceled
 					return result, nil
 				}
 				mu.Unlock()
@@ -166,14 +164,15 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 			}
 
 			request = request.WithContext(ctx)
+			setDefaultHeaders(request, input.Body != "")
 
 			for key, value := range input.Headers {
 				request.Header.Set(key, value)
 			}
-			setDefaultHeaders(request, input.Body != "")
 
 			response, err := http_utils.SendRequest(client, request)
 			if err != nil {
+				log.Warn().Err(err).Msg("failed to send request")
 				result.Error = fmt.Errorf("failed to send request: %w", err)
 				return result, nil
 			}
@@ -181,15 +180,18 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 
 			responseData, _, err := http_utils.ReadFullResponse(response, false)
 			if err != nil {
+				log.Warn().Err(err).Msg("error reading response")
 				result.Error = fmt.Errorf("error reading response: %w", err)
 				return result, nil
 			}
 
 			history, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, input.HistoryCreationOptions)
 			if err != nil {
+				log.Warn().Err(err).Msg("error creating history")
 				result.Error = fmt.Errorf("error creating history: %w", err)
 				return result, nil
 			}
+			result.History = history
 
 			if valid, _, _ := input.ValidationFunc(history); valid && input.StopAfterValid {
 				mu.Lock()
@@ -200,19 +202,21 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 				mu.Unlock()
 			}
 
-			result.History = history
 			return result, nil
 		})
 	}
 
 	responses, err := p.Wait()
 	if err != nil && err != context.Canceled && len(responses) == 0 {
+		log.Error().Err(err).Msg("failed to wait for results")
 		return results, fmt.Errorf("failed to wait for results: %w", err)
 	}
 
 	for _, response := range responses {
 		if response.Error != nil {
-			results.Errors = append(results.Errors, response.Error)
+			if !input.StopAfterValid || !errors.Is(response.Error, context.Canceled) {
+				results.Errors = append(results.Errors, response.Error)
+			}
 			continue
 		}
 		if response.History != nil && response.History.ID != 0 {
@@ -220,7 +224,7 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 		}
 	}
 
-	results.Stopped = validFound
+	results.Stopped = validFound && input.StopAfterValid
 	return results, nil
 }
 
@@ -243,6 +247,7 @@ func DiscoverAndCreateIssue(input DiscoverAndCreateIssueInput) (DiscoverAndCreat
 
 	results, err := DiscoverPaths(input.DiscoveryInput)
 	if err != nil {
+		log.Warn().Err(err).Interface("input", input).Msg("discovery failed")
 		return DiscoverAndCreateIssueResults{DiscoverResults: results}, fmt.Errorf("discovery failed: %w", err)
 	}
 

@@ -128,7 +128,7 @@ func DiscoverOAuthEndpoints(baseURL string, opts http_utils.HistoryCreationOptio
 			Method:      "GET",
 			Paths:       OAuthPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "application/json",
 			},

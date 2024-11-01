@@ -8,7 +8,7 @@ import (
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
-	"github.com/pyneda/sukyan/pkg/scan"
+	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc/pool"
@@ -19,7 +19,7 @@ type ActiveModuleOptions struct {
 	TaskID      uint
 	TaskJobID   uint
 	Concurrency int
-	ScanMode    scan.ScanMode
+	ScanMode    options.ScanMode
 }
 
 type HeaderTest struct {

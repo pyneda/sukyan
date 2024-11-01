@@ -9,6 +9,7 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/scan"
+	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 )
 
@@ -26,7 +27,7 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 	scanInsertionPoints := []scan.InsertionPoint{}
 	switch options.ScanMode {
 
-	case scan.ScanModeFuzz:
+	case scan_options.ScanModeFuzz:
 		scanInsertionPoints = insertionPoints
 
 	default:

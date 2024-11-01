@@ -1,6 +1,6 @@
-package scan
+package options
 
-import "github.com/pyneda/sukyan/pkg/passive"
+import "github.com/pyneda/sukyan/lib"
 
 type ScanMode string
 
@@ -24,14 +24,14 @@ func (sm ScanMode) IsHigherOrEqual(other ScanMode) bool {
 }
 
 type HistoryItemScanOptions struct {
-	WorkspaceID        uint                  `json:"workspace_id" validate:"required,min=0"`
-	TaskID             uint                  `json:"task_id" validate:"required,min=0"`
-	TaskJobID          uint                  `json:"task_job_id" validate:"required,min=0"`
-	Mode               ScanMode              `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
-	InsertionPoints    []string              `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
-	FingerprintTags    []string              `json:"fingerprint_tags" validate:"omitempty,dive"`
-	Fingerprints       []passive.Fingerprint `json:"fingerprints" validate:"omitempty,dive"`
-	ExperimentalAudits bool                  `json:"experimental_audits"`
+	WorkspaceID        uint              `json:"workspace_id" validate:"required,min=0"`
+	TaskID             uint              `json:"task_id" validate:"required,min=0"`
+	TaskJobID          uint              `json:"task_job_id" validate:"required,min=0"`
+	Mode               ScanMode          `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
+	InsertionPoints    []string          `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
+	FingerprintTags    []string          `json:"fingerprint_tags" validate:"omitempty,dive"`
+	Fingerprints       []lib.Fingerprint `json:"fingerprints" validate:"omitempty,dive"`
+	ExperimentalAudits bool              `json:"experimental_audits"`
 }
 
 func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bool {

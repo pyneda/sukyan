@@ -1772,7 +1772,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/scan.FullScanOptions"
+                            "$ref": "#/definitions/options.FullScanOptions"
                         }
                     }
                 ],
@@ -3794,6 +3794,9 @@
                 "playground_session_id": {
                     "type": "integer"
                 },
+                "scan_options": {
+                    "$ref": "#/definitions/options.FullScanOptions"
+                },
                 "started_at": {
                     "type": "string"
                 },
@@ -4167,18 +4170,7 @@
                 }
             }
         },
-        "report.ReportFormat": {
-            "type": "string",
-            "enum": [
-                "html",
-                "json"
-            ],
-            "x-enum-varnames": [
-                "ReportFormatHTML",
-                "ReportFormatJSON"
-            ]
-        },
-        "scan.FullScanOptions": {
+        "options.FullScanOptions": {
             "type": "object",
             "required": [
                 "start_urls",
@@ -4225,7 +4217,7 @@
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/scan.ScanMode"
+                            "$ref": "#/definitions/options.ScanMode"
                         }
                     ]
                 },
@@ -4251,7 +4243,7 @@
                 }
             }
         },
-        "scan.ScanMode": {
+        "options.ScanMode": {
             "type": "string",
             "enum": [
                 "fast",
@@ -4262,6 +4254,17 @@
                 "ScanModeFast",
                 "ScanModeSmart",
                 "ScanModeFuzz"
+            ]
+        },
+        "report.ReportFormat": {
+            "type": "string",
+            "enum": [
+                "html",
+                "json"
+            ],
+            "x-enum-varnames": [
+                "ReportFormatHTML",
+                "ReportFormatJSON"
             ]
         },
         "web.PageEvent": {

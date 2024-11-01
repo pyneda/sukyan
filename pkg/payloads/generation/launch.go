@@ -78,6 +78,35 @@ func (rc *ResponseConditionLaunchCondition) Check(history *db.History) bool {
 	return statusMatch && containsMatch
 }
 
+func (rc *ResponseConditionLaunchCondition) CheckWebsocketMessage(message *db.WebSocketMessage) bool {
+	// Check if the only conditions available are status code and/or headers
+	noContainsOrHeaders := rc.Contains == "" || rc.Part == Headers
+
+	if noContainsOrHeaders {
+		log.Debug().Msg("Skipping WebSocket message check as the only conditions available are status code and/or headers.")
+		return false
+	}
+
+	matchAgainst := ""
+
+	switch rc.Part {
+	case Body:
+		matchAgainst = message.PayloadData
+
+	case Raw:
+		matchAgainst = message.PayloadData
+
+	default:
+		matchAgainst = message.PayloadData
+	}
+
+	if strings.Contains(matchAgainst, rc.Contains) {
+		return true
+	}
+
+	return false
+}
+
 type LaunchConditions struct {
 	Operator   Operator          `yaml:"operator"`
 	Conditions []LaunchCondition `yaml:"conditions"`

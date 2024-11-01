@@ -6,10 +6,11 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
+	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 )
 
-func EvaluateWebSocketConnections(connections []db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options HistoryItemScanOptions) {
+func EvaluateWebSocketConnections(connections []db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options options.HistoryItemScanOptions) {
 	connectionsPerHost := make(map[string][]db.WebSocketConnection)
 	cleartextConnectionsPerHost := make(map[string][]db.WebSocketConnection)
 	for _, item := range connections {
@@ -30,7 +31,7 @@ func EvaluateWebSocketConnections(connections []db.WebSocketConnection, interact
 
 }
 
-func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options HistoryItemScanOptions) {
+func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options options.HistoryItemScanOptions) {
 	log.Info().Uint("connection", item.ID).Msg("Active scanning websocket connection")
 	for _, msg := range item.Messages {
 		log.Debug().Msgf("Sending message %s", msg.PayloadData)

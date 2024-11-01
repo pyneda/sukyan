@@ -3,28 +3,30 @@ package passive
 import (
 	"reflect"
 	"testing"
+
+	"github.com/pyneda/sukyan/lib"
 )
 
 func TestParseFingerprints(t *testing.T) {
 	tests := []struct {
 		name string
 		fps  []string
-		want []Fingerprint
+		want []lib.Fingerprint
 	}{
 		{
 			name: "Fingerprints with version",
 			fps:  []string{"PHP:5.4.0", "Apache HTTP Server:2.4.2"},
-			want: []Fingerprint{{Name: "PHP", Version: "5.4.0"}, {Name: "Apache HTTP Server", Version: "2.4.2"}},
+			want: []lib.Fingerprint{{Name: "PHP", Version: "5.4.0"}, {Name: "Apache HTTP Server", Version: "2.4.2"}},
 		},
 		{
 			name: "Fingerprints without version",
 			fps:  []string{"Akamai", "UNIX"},
-			want: []Fingerprint{{Name: "Akamai", Version: ""}, {Name: "UNIX", Version: ""}},
+			want: []lib.Fingerprint{{Name: "Akamai", Version: ""}, {Name: "UNIX", Version: ""}},
 		},
 		{
 			name: "Mixed fingerprints",
 			fps:  []string{"Python", "Uvicorn:0.12.0"},
-			want: []Fingerprint{{Name: "Python", Version: ""}, {Name: "Uvicorn", Version: "0.12.0"}},
+			want: []lib.Fingerprint{{Name: "Python", Version: ""}, {Name: "Uvicorn", Version: "0.12.0"}},
 		},
 	}
 
@@ -40,27 +42,27 @@ func TestParseFingerprints(t *testing.T) {
 func TestGetNucleiTags(t *testing.T) {
 	tests := []struct {
 		name string
-		fp   Fingerprint
+		fp   lib.Fingerprint
 		want string
 	}{
 		{
 			name: "Name with multiple words",
-			fp:   Fingerprint{Name: "Apache HTTP Server", Version: "2.4.2"},
+			fp:   lib.Fingerprint{Name: "Apache HTTP Server", Version: "2.4.2"},
 			want: "apache",
 		},
 		{
 			name: "Name with one word",
-			fp:   Fingerprint{Name: "Python", Version: "3.9.0"},
+			fp:   lib.Fingerprint{Name: "Python", Version: "3.9.0"},
 			want: "python",
 		},
 		{
 			name: "Name with upper and lower case",
-			fp:   Fingerprint{Name: "JavaScript", Version: "1.8.5"},
+			fp:   lib.Fingerprint{Name: "JavaScript", Version: "1.8.5"},
 			want: "javascript",
 		},
 		{
 			name: "Name with special characters",
-			fp:   Fingerprint{Name: "Node.js", Version: "12.18.3"},
+			fp:   lib.Fingerprint{Name: "Node.js", Version: "12.18.3"},
 			want: "node.js",
 		},
 	}
@@ -126,7 +128,7 @@ func TestBuildCPE(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		f := Fingerprint{
+		f := lib.Fingerprint{
 			Name:    test.name,
 			Version: test.version,
 		}

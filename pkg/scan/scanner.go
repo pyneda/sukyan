@@ -13,6 +13,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
+	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 )
 
@@ -33,7 +34,7 @@ type TemplateScanner struct {
 	InteractionsManager *integrations.InteractionsManager
 	AvoidRepeatedIssues bool
 	WorkspaceID         uint
-	Mode                ScanMode
+	Mode                options.ScanMode
 	client              *http.Client
 	issuesFound         sync.Map
 	results             sync.Map
@@ -43,7 +44,7 @@ type TemplateScannerTask struct {
 	history        *db.History
 	insertionPoint InsertionPoint
 	payload        generation.Payload
-	options        HistoryItemScanOptions
+	options        options.HistoryItemScanOptions
 }
 
 type DetectedIssue struct {
@@ -67,7 +68,7 @@ func (f *TemplateScanner) checkConfig() {
 }
 
 // shouldLaunch checks if the generator should be launched according to the launch conditions
-func (f *TemplateScanner) shouldLaunch(history *db.History, generator *generation.PayloadGenerator, insertionPoint InsertionPoint, options HistoryItemScanOptions) bool {
+func (f *TemplateScanner) shouldLaunch(history *db.History, generator *generation.PayloadGenerator, insertionPoint InsertionPoint, options options.HistoryItemScanOptions) bool {
 	if generator.Launch.Conditions == nil || len(generator.Launch.Conditions) == 0 {
 		return true
 	}
@@ -114,14 +115,14 @@ func (f *TemplateScanner) shouldLaunch(history *db.History, generator *generatio
 }
 
 type FuzzItemOptions struct {
-	WorkspaceID     uint     `json:"workspace_id" validate:"required,min=0"`
-	TaskID          uint     `json:"task_id" validate:"required,min=0"`
-	Mode            ScanMode `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
-	FingerprintTags []string `json:"fingerprint_tags" validate:"omitempty,dive"`
+	WorkspaceID     uint             `json:"workspace_id" validate:"required,min=0"`
+	TaskID          uint             `json:"task_id" validate:"required,min=0"`
+	Mode            options.ScanMode `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
+	FingerprintTags []string         `json:"fingerprint_tags" validate:"omitempty,dive"`
 }
 
 // Run starts the fuzzing job
-func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generation.PayloadGenerator, insertionPoints []InsertionPoint, options HistoryItemScanOptions) map[string][]TemplateScannerResult {
+func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generation.PayloadGenerator, insertionPoints []InsertionPoint, options options.HistoryItemScanOptions) map[string][]TemplateScannerResult {
 
 	var wg sync.WaitGroup
 	f.checkConfig()

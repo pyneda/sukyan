@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,18 +21,19 @@ const (
 
 type Task struct {
 	BaseModel
-	Title               string            `json:"title"`
-	Type                TaskType          `gorm:"index" json:"type"`
-	Status              string            `gorm:"index" json:"status"`
-	StartedAt           time.Time         `json:"started_at"`
-	FinishedAt          time.Time         `json:"finished_at"`
-	Workspace           Workspace         `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID         uint              `json:"workspace_id" gorm:"index" `
-	Histories           []History         `gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
-	Issues              []Issue           `gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
-	Stats               TaskStats         `gorm:"-" json:"stats,omitempty"`
-	PlaygroundSessionID *uint             `gorm:"index" json:"playground_session_id"`
-	PlaygroundSession   PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Title               string                  `json:"title"`
+	Type                TaskType                `gorm:"index" json:"type"`
+	Status              string                  `gorm:"index" json:"status"`
+	StartedAt           time.Time               `json:"started_at"`
+	FinishedAt          time.Time               `json:"finished_at"`
+	Workspace           Workspace               `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	WorkspaceID         uint                    `json:"workspace_id" gorm:"index" `
+	Histories           []History               `gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	Issues              []Issue                 `gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	Stats               TaskStats               `gorm:"-" json:"stats,omitempty"`
+	PlaygroundSessionID *uint                   `gorm:"index" json:"playground_session_id"`
+	PlaygroundSession   PlaygroundSession       `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	ScanOptions         options.FullScanOptions `gorm:"serializer:json" json:"scan_options"`
 }
 
 func (t Task) TableHeaders() []string {

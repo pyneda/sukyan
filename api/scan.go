@@ -4,8 +4,8 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/pyneda/sukyan/pkg/scan/engine"
+	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 )
 
 type PassiveScanInput struct {
@@ -53,7 +53,7 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 
 	for _, item := range items {
 		// NOTE: By now, passive scans do not create task jobs, so we pass 0 as task ID
-		options := scan.HistoryItemScanOptions{
+		options := scan_options.HistoryItemScanOptions{
 			WorkspaceID: *item.WorkspaceID,
 			TaskID:      0,
 		}
@@ -137,11 +137,11 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 
 	for _, item := range items {
 		// TODO: maybe should validate that the history item and task belongs to the same workspace
-		options := scan.HistoryItemScanOptions{
+		options := scan_options.HistoryItemScanOptions{
 			WorkspaceID: *item.WorkspaceID,
 			TaskID:      input.TaskID,
 
-			Mode: scan.ScanModeSmart,
+			Mode: scan_options.ScanModeSmart,
 		}
 		e.ScheduleHistoryItemScan(&item, engine.ScanJobTypeActive, options)
 	}
@@ -157,13 +157,13 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 // @Tags Scan
 // @Accept  json
 // @Produce  json
-// @Param input body scan.FullScanOptions true "Configuration for full scan"
+// @Param input body scan_options.FullScanOptions true "Configuration for full scan"
 // @Success 200 {object} ActionResponse
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scan/full [post]
 func FullScanHandler(c *fiber.Ctx) error {
-	input := new(scan.FullScanOptions)
+	input := new(scan_options.FullScanOptions)
 
 	if err := c.BodyParser(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

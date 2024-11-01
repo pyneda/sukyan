@@ -1781,7 +1781,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/scan.FullScanOptions"
+                            "$ref": "#/definitions/options.FullScanOptions"
                         }
                     }
                 ],
@@ -3803,6 +3803,9 @@ const docTemplate = `{
                 "playground_session_id": {
                     "type": "integer"
                 },
+                "scan_options": {
+                    "$ref": "#/definitions/options.FullScanOptions"
+                },
                 "started_at": {
                     "type": "string"
                 },
@@ -4176,18 +4179,7 @@ const docTemplate = `{
                 }
             }
         },
-        "report.ReportFormat": {
-            "type": "string",
-            "enum": [
-                "html",
-                "json"
-            ],
-            "x-enum-varnames": [
-                "ReportFormatHTML",
-                "ReportFormatJSON"
-            ]
-        },
-        "scan.FullScanOptions": {
+        "options.FullScanOptions": {
             "type": "object",
             "required": [
                 "start_urls",
@@ -4234,7 +4226,7 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/scan.ScanMode"
+                            "$ref": "#/definitions/options.ScanMode"
                         }
                     ]
                 },
@@ -4260,7 +4252,7 @@ const docTemplate = `{
                 }
             }
         },
-        "scan.ScanMode": {
+        "options.ScanMode": {
             "type": "string",
             "enum": [
                 "fast",
@@ -4271,6 +4263,17 @@ const docTemplate = `{
                 "ScanModeFast",
                 "ScanModeSmart",
                 "ScanModeFuzz"
+            ]
+        },
+        "report.ReportFormat": {
+            "type": "string",
+            "enum": [
+                "html",
+                "json"
+            ],
+            "x-enum-varnames": [
+                "ReportFormatHTML",
+                "ReportFormatJSON"
             ]
         },
         "web.PageEvent": {

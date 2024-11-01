@@ -7,13 +7,14 @@ import (
 	"github.com/pyneda/sukyan/pkg/payloads"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
+	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
 const historyItemModulesConcurrency = 10
 
-func ScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options scan.HistoryItemScanOptions) {
+func ScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options scan_options.HistoryItemScanOptions) {
 	taskLog := log.With().Uint("workspace", options.WorkspaceID).Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
 	taskLog.Info().Msg("Starting to scan history item")
 
@@ -45,7 +46,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		var insertionPointsToAudit []scan.InsertionPoint
 		var xssInsertionPoints []scan.InsertionPoint
 		switch options.Mode {
-		case scan.ScanModeSmart:
+		case scan_options.ScanModeSmart:
 			for _, insertionPoint := range insertionPoints {
 				if insertionPoint.Behaviour.IsDynamic {
 					insertionPointsToAudit = append(insertionPointsToAudit, insertionPoint)
@@ -58,7 +59,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 					xssInsertionPoints = append(insertionPointsToAudit, insertionPoint)
 				}
 			}
-		case scan.ScanModeFast:
+		case scan_options.ScanModeFast:
 			for _, insertionPoint := range insertionPoints {
 				if insertionPoint.Behaviour.IsDynamic {
 					insertionPointsToAudit = append(insertionPointsToAudit, insertionPoint)
@@ -69,7 +70,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 				}
 			}
 
-		case scan.ScanModeFuzz:
+		case scan_options.ScanModeFuzz:
 			insertionPointsToAudit = insertionPoints
 			xssInsertionPoints = insertionPoints
 		}
@@ -115,7 +116,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		}
 	}
 
-	if options.Mode == scan.ScanModeFuzz || scan.PlatformJava.MatchesAnyFingerprint(options.Fingerprints) {
+	if options.Mode == scan_options.ScanModeFuzz || scan.PlatformJava.MatchesAnyFingerprint(options.Fingerprints) {
 		log4shell := Log4ShellInjectionAudit{
 			URL:                 item.URL,
 			Concurrency:         historyItemModulesConcurrency,

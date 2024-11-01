@@ -1,7 +1,6 @@
 package passive
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 
@@ -13,26 +12,7 @@ import (
 	"strings"
 )
 
-type Fingerprint struct {
-	Name    string
-	Version string
-}
-
-func (f *Fingerprint) GetNucleiTags() string {
-	splitName := strings.Split(f.Name, " ")
-	firstWord := strings.ToLower(splitName[0])
-	return firstWord
-}
-
-func (f *Fingerprint) BuildCPE() (string, error) {
-	if f.Version == "" {
-		return "", errors.New("version not available")
-	}
-	name := strings.ToLower(strings.ReplaceAll(f.Name, " ", "_"))
-	return fmt.Sprintf("cpe:/a:%s:%s:%s", name, name, f.Version), nil
-}
-
-func FingerprintHistoryItems(items []*db.History) []Fingerprint {
+func FingerprintHistoryItems(items []*db.History) []lib.Fingerprint {
 	wappalyzerClient, _ := wappalyzer.New()
 
 	allFingerprints := []string{}
@@ -48,11 +28,11 @@ func FingerprintHistoryItems(items []*db.History) []Fingerprint {
 	return parseFingerprints(unique)
 }
 
-func parseFingerprints(fpStrings []string) []Fingerprint {
-	var fingerprints []Fingerprint
+func parseFingerprints(fpStrings []string) []lib.Fingerprint {
+	var fingerprints []lib.Fingerprint
 	for _, fpString := range fpStrings {
 		splitFp := strings.Split(fpString, ":")
-		fingerprint := Fingerprint{
+		fingerprint := lib.Fingerprint{
 			Name:    splitFp[0],
 			Version: "",
 		}
@@ -64,7 +44,7 @@ func parseFingerprints(fpStrings []string) []Fingerprint {
 	return fingerprints
 }
 
-func GetUniqueNucleiTags(fingerprints []Fingerprint) []string {
+func GetUniqueNucleiTags(fingerprints []lib.Fingerprint) []string {
 	tags := []string{}
 	for _, fingerprint := range fingerprints {
 		tag := fingerprint.GetNucleiTags()
@@ -75,7 +55,7 @@ func GetUniqueNucleiTags(fingerprints []Fingerprint) []string {
 	return uniqueTags
 }
 
-func ReportFingerprints(baseURL string, fingerprints []Fingerprint, workspaceID, taskID uint) {
+func ReportFingerprints(baseURL string, fingerprints []lib.Fingerprint, workspaceID, taskID uint) {
 	if len(fingerprints) == 0 {
 		log.Info().Msg("No fingerprints found")
 		return
@@ -98,7 +78,7 @@ func ReportFingerprints(baseURL string, fingerprints []Fingerprint, workspaceID,
 	log.Info().Msgf("Successfully created issue: %v", created)
 }
 
-func getFingerprintsReport(fingerprints []Fingerprint) string {
+func getFingerprintsReport(fingerprints []lib.Fingerprint) string {
 	var reportBuilder strings.Builder
 	reportBuilder.WriteString("Find below a list of technologies found in the target application during the crawl phase.\n\n")
 

@@ -15,6 +15,9 @@ import (
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
+	"github.com/pyneda/sukyan/pkg/scan/options"
+	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
+
 	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc"
 	"github.com/sourcegraph/conc/pool"
@@ -70,7 +73,7 @@ func (s *ScanEngine) Resume() {
 	s.isPaused = false
 }
 
-func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, options scan.HistoryItemScanOptions) {
+func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, options options.HistoryItemScanOptions) {
 	if s.isPaused {
 		return
 	}
@@ -92,7 +95,7 @@ func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 	})
 }
 
-func (s *ScanEngine) scheduleActiveScan(item *db.History, options scan.HistoryItemScanOptions) {
+func (s *ScanEngine) scheduleActiveScan(item *db.History, options scan_options.HistoryItemScanOptions) {
 	s.activeScanPool.Go(func() {
 		taskJob, err := db.Connection.NewTaskJob(options.TaskID, "Active scan", db.TaskJobScheduled, item.ID)
 		if err != nil {
@@ -112,11 +115,14 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History, options scan.HistoryIt
 	})
 }
 
-func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool) (*db.Task, error) {
+func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompletion bool) (*db.Task, error) {
 	task, err := db.Connection.NewTask(options.WorkspaceID, nil, options.Title, db.TaskStatusCrawling, db.TaskTypeScan)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not create task")
 	}
+	// NOTE: Optimally, we would refactor the NewTask to accept the options struct directly
+	task.ScanOptions = options
+	db.Connection.UpdateTask(task.ID, task)
 	ignoredExtensions := viper.GetStringSlice("crawl.ignored_extensions")
 
 	scanLog := log.With().Uint("task", task.ID).Str("title", options.Title).Uint("workspace", options.WorkspaceID).Logger()
@@ -129,7 +135,7 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 	}
 	uniqueHistoryItems := removeDuplicateHistoryItems(historyItems)
 	scanLog.Info().Int("count", len(uniqueHistoryItems)).Msg("Crawling finished, scheduling active scans")
-	fingerprints := make([]passive.Fingerprint, 0)
+	fingerprints := make([]lib.Fingerprint, 0)
 	scanLog.Info().Int("count", len(fingerprints)).Interface("fingerprints", fingerprints).Msg("Gathered fingerprints")
 
 	historiesByBaseURL := separateHistoriesByBaseURL(uniqueHistoryItems)
@@ -170,7 +176,7 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 		discovery.DiscoverAll(baseURL, createOpts)
 	}
 
-	itemScanOptions := scan.HistoryItemScanOptions{
+	itemScanOptions := scan_options.HistoryItemScanOptions{
 		WorkspaceID:        options.WorkspaceID,
 		TaskID:             task.ID,
 		Mode:               options.Mode,
@@ -220,7 +226,7 @@ func (s *ScanEngine) FullScan(options scan.FullScanOptions, waitCompletion bool)
 					continue
 				}
 				if _, exists := scheduledURLPaths[normalizedURLPath]; exists {
-					scanOptions := scan.HistoryItemScanOptions{
+					scanOptions := scan_options.HistoryItemScanOptions{
 						WorkspaceID:        options.WorkspaceID,
 						TaskID:             task.ID,
 						Mode:               options.Mode,

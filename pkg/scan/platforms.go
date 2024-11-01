@@ -3,7 +3,7 @@ package scan
 import (
 	"strings"
 
-	"github.com/pyneda/sukyan/pkg/passive"
+	"github.com/pyneda/sukyan/lib"
 )
 
 type Platform string
@@ -31,7 +31,7 @@ func (p Platform) String() string {
 	return string(p)
 }
 
-func (p Platform) MatchesAnyFingerprint(fingerprints []passive.Fingerprint) bool {
+func (p Platform) MatchesAnyFingerprint(fingerprints []lib.Fingerprint) bool {
 	if len(fingerprints) == 0 {
 		return false
 	}

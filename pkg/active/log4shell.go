@@ -11,7 +11,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
-	"github.com/pyneda/sukyan/pkg/scan"
+	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 )
 
@@ -26,7 +26,7 @@ type Log4ShellInjectionAudit struct {
 	WorkspaceID         uint
 	TaskID              uint
 	TaskJobID           uint
-	Mode                scan.ScanMode
+	Mode                scan_options.ScanMode
 }
 
 type log4ShellAuditItem struct {

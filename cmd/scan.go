@@ -8,6 +8,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/pyneda/sukyan/pkg/scan/engine"
+	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 
 	"os"
 	"time"
@@ -56,8 +57,8 @@ var scanCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		if !scan.IsValidScanMode(scanMode) {
-			log.Error().Str("mode", scanMode).Interface("valid", scan.GetValidScanModes()).Msg("Invalid scan mode")
+		if !scan_options.IsValidScanMode(scanMode) {
+			log.Error().Str("mode", scanMode).Interface("valid", scan_options.GetValidScanModes()).Msg("Invalid scan mode")
 			os.Exit(1)
 		}
 
@@ -86,7 +87,7 @@ var scanCmd = &cobra.Command{
 		headers := lib.ParseHeadersStringToMap(requestsHeadersString)
 		log.Info().Interface("headers", headers).Msg("Parsed headers")
 
-		options := scan.FullScanOptions{
+		options := scan_options.FullScanOptions{
 			Title:              scanTitle,
 			StartURLs:          startURLs,
 			MaxDepth:           crawlDepth,
@@ -96,7 +97,7 @@ var scanCmd = &cobra.Command{
 			PagesPoolSize:      pagesPoolSize,
 			Headers:            headers,
 			InsertionPoints:    insertionPoints,
-			Mode:               scan.GetScanMode(scanMode),
+			Mode:               scan_options.GetScanMode(scanMode),
 			ExperimentalAudits: experimentalAudits,
 		}
 		if err := validate.Struct(options); err != nil {
@@ -143,6 +144,6 @@ func init() {
 	scanCmd.Flags().StringVarP(&scanTitle, "title", "t", "Scan", "Scan title")
 	scanCmd.Flags().StringVar(&requestsHeadersString, "headers", "", "Headers to use for requests")
 	scanCmd.Flags().StringVarP(&scanMode, "mode", "m", "smart", "Scan mode (fast, smart, fuzz)")
-	scanCmd.Flags().StringArrayVarP(&insertionPoints, "insertion-points", "I", scan.GetValidInsertionPoints(), "Insertion points to scan (all by default)")
+	scanCmd.Flags().StringArrayVarP(&insertionPoints, "insertion-points", "I", scan_options.GetValidInsertionPoints(), "Insertion points to scan (all by default)")
 	scanCmd.Flags().BoolVar(&experimentalAudits, "experimental", false, "Enable experimental audits")
 }

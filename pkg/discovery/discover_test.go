@@ -157,7 +157,7 @@ func TestDiscoverPaths(t *testing.T) {
 				Method:      "GET",
 				Paths:       testPaths,
 				Concurrency: 2,
-				Timeout:     5,
+				Timeout:     DefaultTimeout,
 				HistoryCreationOptions: http_utils.HistoryCreationOptions{
 					Source:      "Scanner",
 					WorkspaceID: workspace.ID,
@@ -225,7 +225,7 @@ func TestDiscoverPaths(t *testing.T) {
 				Method:      "GET",
 				Paths:       largeTestPaths,
 				Concurrency: 20,
-				Timeout:     5,
+				Timeout:     DefaultTimeout,
 				HistoryCreationOptions: http_utils.HistoryCreationOptions{
 					Source:      "Scanner",
 					WorkspaceID: workspace.ID,

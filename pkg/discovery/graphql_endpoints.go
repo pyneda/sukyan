@@ -195,7 +195,7 @@ func DiscoverGraphQLEndpoints(baseURL string, opts http_utils.HistoryCreationOpt
 			Body:        introspectionQuery,
 			Paths:       GraphQLPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Content-Type": "application/json",
 				"Accept":       "application/json",

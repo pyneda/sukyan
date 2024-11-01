@@ -97,7 +97,7 @@ func DiscoverSensitiveConfigFiles(baseURL string, opts http_utils.HistoryCreatio
 			Method:      "GET",
 			Paths:       ConfigFilePaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "text/plain,application/json",
 			},

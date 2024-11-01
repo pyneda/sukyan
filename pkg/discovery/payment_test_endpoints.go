@@ -169,7 +169,7 @@ func DiscoverPaymentTestEndpoints(baseURL string, opts http_utils.HistoryCreatio
 			Method:      "GET",
 			Paths:       PaymentTestPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "*/*",
 			},

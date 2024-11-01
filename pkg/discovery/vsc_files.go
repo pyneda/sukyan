@@ -50,7 +50,7 @@ func DiscoverVersionControlFiles(baseURL string, opts http_utils.HistoryCreation
 			Method:      "GET",
 			Paths:       VersionControlPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "text/plain,application/json",
 			},

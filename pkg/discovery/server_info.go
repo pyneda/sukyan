@@ -76,7 +76,7 @@ func DiscoverServerInfo(baseURL string, opts http_utils.HistoryCreationOptions) 
 			Method:      "GET",
 			Paths:       ServerInfoPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "text/html,text/plain",
 			},

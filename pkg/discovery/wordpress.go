@@ -95,7 +95,7 @@ func DiscoverWordPressEndpoints(baseURL string, opts http_utils.HistoryCreationO
 			Method:      "GET",
 			Paths:       WordPressPaths,
 			Concurrency: 10,
-			Timeout:     5,
+			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "text/html,application/json",
 			},

@@ -809,6 +809,8 @@ definitions:
     properties:
       crawler:
         type: integer
+      playground_fuzzer:
+        type: integer
       scanner:
         type: integer
     type: object

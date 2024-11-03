@@ -3667,6 +3667,9 @@ const docTemplate = `{
                 "crawler": {
                     "type": "integer"
                 },
+                "playground_fuzzer": {
+                    "type": "integer"
+                },
                 "scanner": {
                     "type": "integer"
                 }

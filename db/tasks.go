@@ -106,8 +106,9 @@ func (s TaskStats) Summary() string {
 }
 
 type RequestsStats struct {
-	Crawler int64 `json:"crawler"`
-	Scanner int64 `json:"scanner"`
+	Crawler          int64 `json:"crawler"`
+	Scanner          int64 `json:"scanner"`
+	PlaygroundFuzzer int64 `json:"playground_fuzzer"`
 }
 
 type IssuesStats struct {
@@ -208,11 +209,13 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 				issueCounts[sev] = count
 			}
 			rows.Close()
+			log.Info().Interface("counts", historyCounts).Msg("Task stats")
 
 			task.Stats = TaskStats{
 				Requests: RequestsStats{
-					Crawler: historyCounts["Crawler"],
-					Scanner: historyCounts["Scanner"],
+					Crawler:          historyCounts["Crawler"],
+					Scanner:          historyCounts["Scanner"],
+					PlaygroundFuzzer: historyCounts["Fuzzer"],
 				},
 				Issues: IssuesStats{
 					Unknown:  issueCounts[Unknown],

@@ -39,6 +39,8 @@ func DiscoverAll(baseURL string, opts http_utils.HistoryCreationOptions) ([]Disc
 		"logs":           DiscoverLogFiles,
 		"jmx":            DiscoverHTTPJMXEndpoints,
 		"axis2":          DiscoverAxis2Endpoints,
+		"grpc":           DiscoverGRPCEndpoints,
+		"wsdl":           DiscoverWSDLDefinitions,
 	}
 
 	for source, discoverFunc := range discoveryFunctions {

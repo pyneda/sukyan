@@ -142,7 +142,7 @@ func IsOpenAPIValidationFunc(history *db.History) (bool, string, int) {
 		if confidence > 100 {
 			confidence = 100
 		}
-		return true, strings.Join(details, "; "), confidence
+		return true, strings.Join(details, "\n"), confidence
 	}
 
 	return false, "", 0

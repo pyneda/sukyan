@@ -114,7 +114,7 @@ func IsGraphQLValidationFunc(history *db.History) (bool, string, int) {
 		if response.Data != nil && len(response.Data.Schema.Types) > 0 {
 			confidence = 100
 			details = append(details, "Valid GraphQL schema introspection response")
-			return true, strings.Join(details, "; "), confidence
+			return true, strings.Join(details, "\n"), confidence
 		}
 
 		if len(response.Errors) > 0 {
@@ -136,7 +136,7 @@ func IsGraphQLValidationFunc(history *db.History) (bool, string, int) {
 	}
 
 	if confidence > 50 {
-		return true, strings.Join(details, "; "), confidence
+		return true, strings.Join(details, "\n"), confidence
 	}
 
 	return false, "", 0

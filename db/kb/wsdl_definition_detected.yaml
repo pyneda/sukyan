@@ -1,0 +1,24 @@
+code: wsdl_definition_detected
+title: WSDL Definition Detected
+description: |
+  A WSDL (Web Services Description Language) endpoint has been identified in the application. While WSDL itself is not 
+  inherently a security vulnerability, its presence warrants attention as WSDL files often contain detailed information 
+  about web service operations, data structures, and endpoints. This information could potentially be leveraged by 
+  attackers to understand the API surface and identify potential attack vectors.
+remediation: |
+  To secure the WSDL endpoint:
+  1. Consider whether public WSDL exposure is necessary
+  2. Implement authentication for WSDL access if possible
+  3. Remove any sensitive information from service descriptions
+  4. Use WSDL hiding techniques in production environments
+  5. Implement proper access controls on the actual service endpoints
+  6. Consider using WS-Security for sensitive operations
+  7. Monitor and log access to WSDL endpoints
+  8. Ensure error messages don't reveal internal details
+  9. Consider using a service gateway to control WSDL access
+cwe: 651
+severity: Info
+references:
+  - https://cheatsheetseries.owasp.org/cheatsheets/Web_Service_Security_Cheat_Sheet.html
+  - https://www.soapui.org/docs/soap-and-wsdl/tips-tricks/web-service-hacking/
+  - https://www.w3.org/TR/ws-arch/#security

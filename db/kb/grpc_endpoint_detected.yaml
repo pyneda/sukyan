@@ -1,0 +1,25 @@
+code: grpc_endpoint_detected
+title: HTTP-based gRPC Endpoint Detected
+description: |
+  A gRPC endpoint exposed over HTTP has been identified in the application. This includes either gRPC-Web (HTTP/1.1) 
+  or standard gRPC over HTTP/2. While exposing gRPC services over HTTP allows for broader client compatibility, especially 
+  with web browsers via gRPC-Web, these endpoints should be reviewed as they may provide access to sensitive API 
+  functionality or service metadata through reflection capabilities.
+remediation: |
+  To secure the HTTP-exposed gRPC endpoint:
+  1. Disable reflection service in production unless explicitly required
+  2. Implement proper authentication and authorization
+  3. Use TLS for all gRPC communications
+  4. Configure appropriate CORS policies if using gRPC-Web
+  5. Implement rate limiting and timeout mechanisms
+  6. Monitor and log gRPC operations
+  7. Consider using a API gateway for additional security controls
+  8. Disable health checking endpoints in production if not needed
+  9. Review and restrict exposed services and methods
+cwe: 200
+severity: Info
+references:
+  - https://grpc.io/docs/what-is-grpc/core-concepts/
+  - https://github.com/grpc/grpc-web
+  - https://grpc.io/docs/guides/auth/
+  - https://book.hacktricks.xyz/pentesting-web/grpc-web-pentest

@@ -45,6 +45,7 @@ var (
 	GrailsExceptionCode                  IssueCode = "grails_exception"
 	GraphqlIntrospectionEnabledCode      IssueCode = "graphql_introspection_enabled"
 	GraphqlEndpointDetectedCode          IssueCode = "graphql_endpoint_detected"
+	GrpcEndpointDetectedCode             IssueCode = "grpc_endpoint_detected"
 	HeaderInsightsReportCode             IssueCode = "header_insights_report"
 	HostHeaderInjectionCode              IssueCode = "host_header_injection"
 	Http2DetectedCode                    IssueCode = "http2_detected"
@@ -106,6 +107,7 @@ var (
 	WebassemblyDetectedCode              IssueCode = "webassembly_detected"
 	WebsocketDetectedCode                IssueCode = "websocket_detected"
 	WordpressDetectedCode                IssueCode = "wordpress_detected"
+	WsdlDefinitionDetectedCode           IssueCode = "wsdl_definition_detected"
 	XAspVersionHeaderCode                IssueCode = "x_asp_version_header"
 	XFrameOptionsHeaderCode              IssueCode = "x_frame_options_header"
 	XPoweredByHeaderCode                 IssueCode = "x_powered_by_header"
@@ -607,6 +609,20 @@ var issueTemplates = []IssueTemplate{
 			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/01-Testing_GraphQL",
 			"https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html",
 			"https://graphql.org/learn/best-practices/",
+		},
+	},
+	{
+		Code:        GrpcEndpointDetectedCode,
+		Title:       "HTTP-based gRPC Endpoint Detected",
+		Description: "A gRPC endpoint exposed over HTTP has been identified in the application. This includes either gRPC-Web (HTTP/1.1) \nor standard gRPC over HTTP/2. While exposing gRPC services over HTTP allows for broader client compatibility, especially \nwith web browsers via gRPC-Web, these endpoints should be reviewed as they may provide access to sensitive API \nfunctionality or service metadata through reflection capabilities.\n",
+		Remediation: "To secure the HTTP-exposed gRPC endpoint:\n1. Disable reflection service in production unless explicitly required\n2. Implement proper authentication and authorization\n3. Use TLS for all gRPC communications\n4. Configure appropriate CORS policies if using gRPC-Web\n5. Implement rate limiting and timeout mechanisms\n6. Monitor and log gRPC operations\n7. Consider using a API gateway for additional security controls\n8. Disable health checking endpoints in production if not needed\n9. Review and restrict exposed services and methods\n",
+		Cwe:         200,
+		Severity:    "Info",
+		References: []string{
+			"https://grpc.io/docs/what-is-grpc/core-concepts/",
+			"https://github.com/grpc/grpc-web",
+			"https://grpc.io/docs/guides/auth/",
+			"https://book.hacktricks.xyz/pentesting-web/grpc-web-pentest",
 		},
 	},
 	{
@@ -1325,6 +1341,19 @@ var issueTemplates = []IssueTemplate{
 			"https://wordpress.org/support/article/hardening-wordpress/",
 			"https://wordpress.org/support/security/",
 			"https://owasp.org/www-project-wordpress-security/",
+		},
+	},
+	{
+		Code:        WsdlDefinitionDetectedCode,
+		Title:       "WSDL Definition Detected",
+		Description: "A WSDL (Web Services Description Language) endpoint has been identified in the application. While WSDL itself is not \ninherently a security vulnerability, its presence warrants attention as WSDL files often contain detailed information \nabout web service operations, data structures, and endpoints. This information could potentially be leveraged by \nattackers to understand the API surface and identify potential attack vectors.\n",
+		Remediation: "To secure the WSDL endpoint:\n1. Consider whether public WSDL exposure is necessary\n2. Implement authentication for WSDL access if possible\n3. Remove any sensitive information from service descriptions\n4. Use WSDL hiding techniques in production environments\n5. Implement proper access controls on the actual service endpoints\n6. Consider using WS-Security for sensitive operations\n7. Monitor and log access to WSDL endpoints\n8. Ensure error messages don't reveal internal details\n9. Consider using a service gateway to control WSDL access\n",
+		Cwe:         651,
+		Severity:    "Info",
+		References: []string{
+			"https://cheatsheetseries.owasp.org/cheatsheets/Web_Service_Security_Cheat_Sheet.html",
+			"https://www.soapui.org/docs/soap-and-wsdl/tips-tricks/web-service-hacking/",
+			"https://www.w3.org/TR/ws-arch/#security",
 		},
 	},
 	{

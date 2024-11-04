@@ -34,7 +34,10 @@ var (
 	EsiDetectedCode                      IssueCode = "esi_detected"
 	EsiInjectionCode                     IssueCode = "esi_injection"
 	ExposedApiCredentialsCode            IssueCode = "exposed_api_credentials"
+	ExposedAxis2EndpointCode             IssueCode = "exposed_axis2_endpoint"
 	ExposedCloudMetadataCode             IssueCode = "exposed_cloud_metadata"
+	ExposedJolokiaEndpointCode           IssueCode = "exposed_jolokia_endpoint"
+	ExposedLogFileCode                   IssueCode = "exposed_log_file"
 	ExposedPrometheusMetricsCode         IssueCode = "exposed_prometheus_metrics"
 	ExposedSpringActuatorEndpointsCode   IssueCode = "exposed_spring_actuator_endpoints"
 	FileUploadDetectedCode               IssueCode = "file_upload_detected"
@@ -80,7 +83,6 @@ var (
 	SecretsInJsCode                      IssueCode = "secrets_in_js"
 	SensitiveConfigDetectedCode          IssueCode = "sensitive_config_detected"
 	ServerHeaderCode                     IssueCode = "server_header"
-	Code                                 IssueCode = ""
 	ServerInfoDetectedCode               IssueCode = "server_info_detected"
 	ServerSidePrototypePollutionCode     IssueCode = "server_side_prototype_pollution"
 	SessionTokenInUrlCode                IssueCode = "session_token_in_url"
@@ -470,6 +472,19 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        ExposedAxis2EndpointCode,
+		Title:       "Exposed Apache Axis2 Service/Admin Interface",
+		Description: "An exposed Apache Axis2 endpoint was discovered. Axis2 is a web services/SOAP framework, and its administrative \ninterfaces and service endpoints can reveal sensitive information about the application's web services. \nWhen exposed, these endpoints may allow:\n\n- Enumeration of all available web services\n- Access to service descriptions and WSDLs\n- View of system configuration details\n- Access to administrative functions\n- Potential manipulation of service configurations\n- Information disclosure about the internal service structure\n",
+		Remediation: "1. Remove or disable Axis2 admin interface in production\n2. If admin interface is required:\n   - Restrict access by IP\n   - Implement strong authentication\n   - Ensure strong credentials are used\n3. Configure service security:\n   - Enable WS-Security where needed\n   - Restrict WSDL access to authenticated users\n   - Remove detailed error messages\n",
+		Cwe:         749,
+		Severity:    "High",
+		References: []string{
+			"https://axis.apache.org/axis2/java/core/index.html",
+			"https://axis.apache.org/axis2/java/core/docs/security-module.html",
+			"https://owasp.org/www-project-web-security-testing-guide/stable/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/",
+		},
+	},
+	{
 		Code:        ExposedCloudMetadataCode,
 		Title:       "Cloud Instance Metadata Service Endpoint Detected",
 		Description: "The application exposes a cloud instance metadata service endpoint. Instance metadata services provide \ninformation about cloud instances including instance identifiers, network configuration, and potentially \nsensitive data or credentials. Access to these endpoints should be carefully reviewed as exposure could \nlead to information disclosure or, in cases where credentials are exposed, facilitate unauthorized access \nto cloud resources.\n",
@@ -481,6 +496,32 @@ var issueTemplates = []IssueTemplate{
 			"https://cloud.google.com/compute/docs/storing-retrieving-metadata",
 			"https://learn.microsoft.com/en-us/azure/virtual-machines/instance-metadata-service",
 			"https://www.nccgroup.com/us/about-us/newsroom-and-events/blog/2020/november/protecting-against-cloud-metadata-exposure/",
+		},
+	},
+	{
+		Code:        ExposedJolokiaEndpointCode,
+		Title:       "Exposed HTTP JMX Endpoint (Jolokia)",
+		Description: "An exposed HTTP JMX endpoint (likely Jolokia) was discovered. Jolokia is a JMX-HTTP bridge that provides \nREST-like access to JMX MBeans, exposing detailed information about the Java application's internals. \nWhen exposed, these endpoints allow access to sensitive runtime information and potentially dangerous \noperations.\n\nAccess to these endpoints could reveal:\n- Memory usage and system properties\n- Thread and class loading information\n- Runtime configuration values\n- Application metrics and internal state\n- Application server details\n",
+		Remediation: "1. If Jolokia is not required, disable it completely\n2. If needed, implement proper access controls:\n   - Restrict access to trusted IPs only\n   - Enable authentication\n   - Configure CORS properly\n3. Use Spring Security or similar to protect the endpoints\n4. Review and restrict accessible MBean operations\n",
+		Cwe:         749,
+		Severity:    "High",
+		References: []string{
+			"https://jolokia.org/reference/html/manual/security.html",
+			"https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html#actuator.endpoints.exposing",
+			"https://cwe.mitre.org/data/definitions/749.html",
+		},
+	},
+	{
+		Code:        ExposedLogFileCode,
+		Title:       "Exposed Log File Detected",
+		Description: "The application exposes log files that are publicly accessible. Log files often contain sensitive information that could aid attackers in compromising the system, such as:\n\n- Stack traces revealing application structure and technology details\n- Internal system paths and configurations\n- Debug information and error messages\n- API keys, credentials, or session tokens\n- User data or business logic details\n- Database queries or backend system information\n\nThe actual severity of this finding depends on the contents of the exposed logs and requires manual review to determine the full impact.\n",
+		Remediation: "1. Move log files outside of the web root directory\n2. Configure web server rules to block access to log files and directories\n3. Implement proper authentication for any logging endpoints\n4. Review log contents to ensure sensitive data is not being logged\n",
+		Cwe:         532,
+		Severity:    "Info",
+		References: []string{
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/06-Test_HTTP_Methods",
+			"https://cwe.mitre.org/data/definitions/532.html",
+			"https://www.owasp.org/index.php/Logging_Cheat_Sheet",
 		},
 	},
 	{
@@ -1012,15 +1053,6 @@ var issueTemplates = []IssueTemplate{
 		Remediation: "Remove the 'Server' header or configure your server to stop disclosing this information.",
 		Cwe:         200,
 		Severity:    "Info",
-		References:  []string{},
-	},
-	{
-		Code:        Code,
-		Title:       "",
-		Description: "",
-		Remediation: "",
-		Cwe:         0,
-		Severity:    "",
 		References:  []string{},
 	},
 	{

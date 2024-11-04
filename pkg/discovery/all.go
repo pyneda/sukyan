@@ -36,6 +36,9 @@ func DiscoverAll(baseURL string, opts http_utils.HistoryCreationOptions) ([]Disc
 		"payment_test":   DiscoverPaymentTestEndpoints,
 		"socketio":       DiscoverSocketIO,
 		"server_info":    DiscoverServerInfo,
+		"logs":           DiscoverLogFiles,
+		"jmx":            DiscoverHTTPJMXEndpoints,
+		"axis2":          DiscoverAxis2Endpoints,
 	}
 
 	for source, discoverFunc := range discoveryFunctions {

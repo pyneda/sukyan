@@ -1,0 +1,28 @@
+code: exposed_jolokia_endpoint
+title: Exposed HTTP JMX Endpoint (Jolokia)
+description: |
+  An exposed HTTP JMX endpoint (likely Jolokia) was discovered. Jolokia is a JMX-HTTP bridge that provides 
+  REST-like access to JMX MBeans, exposing detailed information about the Java application's internals. 
+  When exposed, these endpoints allow access to sensitive runtime information and potentially dangerous 
+  operations.
+
+  Access to these endpoints could reveal:
+  - Memory usage and system properties
+  - Thread and class loading information
+  - Runtime configuration values
+  - Application metrics and internal state
+  - Application server details
+remediation: |
+  1. If Jolokia is not required, disable it completely
+  2. If needed, implement proper access controls:
+     - Restrict access to trusted IPs only
+     - Enable authentication
+     - Configure CORS properly
+  3. Use Spring Security or similar to protect the endpoints
+  4. Review and restrict accessible MBean operations
+cwe: 749
+severity: High
+references:
+  - https://jolokia.org/reference/html/manual/security.html
+  - https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html#actuator.endpoints.exposing
+  - https://cwe.mitre.org/data/definitions/749.html

@@ -1,0 +1,24 @@
+code: exposed_log_file
+title: Exposed Log File Detected
+description: |
+  The application exposes log files that are publicly accessible. Log files often contain sensitive information that could aid attackers in compromising the system, such as:
+  
+  - Stack traces revealing application structure and technology details
+  - Internal system paths and configurations
+  - Debug information and error messages
+  - API keys, credentials, or session tokens
+  - User data or business logic details
+  - Database queries or backend system information
+  
+  The actual severity of this finding depends on the contents of the exposed logs and requires manual review to determine the full impact.
+remediation: |
+  1. Move log files outside of the web root directory
+  2. Configure web server rules to block access to log files and directories
+  3. Implement proper authentication for any logging endpoints
+  4. Review log contents to ensure sensitive data is not being logged
+cwe: 532
+severity: Info
+references:
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/06-Test_HTTP_Methods
+  - https://cwe.mitre.org/data/definitions/532.html
+  - https://www.owasp.org/index.php/Logging_Cheat_Sheet

@@ -209,7 +209,6 @@ func (d *DatabaseConnection) ListTasks(filter TaskFilter) (items []*Task, count 
 				issueCounts[sev] = count
 			}
 			rows.Close()
-			log.Info().Interface("counts", historyCounts).Msg("Task stats")
 
 			task.Stats = TaskStats{
 				Requests: RequestsStats{

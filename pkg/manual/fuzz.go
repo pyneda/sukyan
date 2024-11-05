@@ -6,6 +6,7 @@ import (
 
 	"github.com/projectdiscovery/rawhttp"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/sourcegraph/conc/pool"
 
@@ -44,7 +45,22 @@ func (p *FuzzerInsertionPoint) generatePayloads() []string {
 	payloads := make([]string, 0)
 	for _, group := range p.PayloadGroups {
 		if len(group.Payloads) > 0 {
-			payloads = append(payloads, group.Payloads...)
+			if group.Processors != nil {
+				processors := make([]lib.StringProcessor, 0)
+				for _, processor := range group.Processors {
+					processors = append(processors, lib.StringProcessor{Type: lib.StringOperation(processor)})
+				}
+				for _, payload := range group.Payloads {
+					processedPayload, err := lib.ProcessString(payload, processors)
+					if err != nil {
+						log.Error().Err(err).Str("payload", payload).Interface("processors", processors).Msg("Error processing payload")
+					} else {
+						payloads = append(payloads, processedPayload)
+					}
+				}
+			} else {
+				payloads = append(payloads, group.Payloads...)
+			}
 		}
 		if group.Wordlist != "" {
 			storage := NewFilesystemWordlistStorage()
@@ -56,7 +72,22 @@ func (p *FuzzerInsertionPoint) generatePayloads() []string {
 				if err != nil {
 					log.Error().Err(err).Interface("wordlist", wordlist).Msg("Error reading wordlist")
 				} else {
-					payloads = append(payloads, lines...)
+					if group.Processors != nil {
+						processors := make([]lib.StringProcessor, 0)
+						for _, processor := range group.Processors {
+							processors = append(processors, lib.StringProcessor{Type: lib.StringOperation(processor)})
+						}
+						for _, line := range lines {
+							processedLine, err := lib.ProcessString(line, processors)
+							if err != nil {
+								log.Error().Err(err).Str("wordlist", group.Wordlist).Str("payload", line).Interface("processors", processors).Msg("Error processing payload")
+							} else {
+								payloads = append(payloads, processedLine)
+							}
+						}
+					} else {
+						payloads = append(payloads, lines...)
+					}
 				}
 			}
 		}
@@ -64,6 +95,7 @@ func (p *FuzzerInsertionPoint) generatePayloads() []string {
 	if len(payloads) == 0 {
 		log.Warn().Interface("insertion_point", p).Msg("No payloads generated for insertion point")
 	}
+
 	return payloads
 }
 

@@ -7,6 +7,7 @@ var (
 	ApacheStrutsDevModeCode              IssueCode = "apache_struts_dev_mode"
 	ApacheTapestryExceptionCode          IssueCode = "apache_tapestry_exception"
 	AspNetMvcHeaderCode                  IssueCode = "asp_net_mvc_header"
+	AspnetTraceEnabledCode               IssueCode = "aspnet_trace_enabled"
 	Base32EncodedDataInParameterCode     IssueCode = "base32_encoded_data_in_parameter"
 	Base36EncodedDataInParameterCode     IssueCode = "base36_encoded_data_in_parameter"
 	Base64EncodedDataInParameterCode     IssueCode = "base64_encoded_data_in_parameter"
@@ -158,6 +159,18 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         200,
 		Severity:    "Low",
 		References:  []string{},
+	},
+	{
+		Code:        AspnetTraceEnabledCode,
+		Title:       "ASP.NET Trace Viewer Exposed",
+		Description: "The application has ASP.NET tracing enabled and publicly accessible through trace.axd.\nTrace viewing allows anyone to see detailed information about recent requests including\nserver variables, cookies, session state, application variables, request/response headers,\nand form data. This can expose sensitive information and implementation details that\ncould aid an attacker.\n",
+		Remediation: "To fix this security issue:\n1. Disable trace viewing in production by setting trace=\"false\" in the Web.config file:\n   <configuration>\n     <system.web>\n       <trace enabled=\"false\" localOnly=\"true\" />\n     </system.web>\n   </configuration>\n2. If tracing is required, ensure it's only accessible locally by setting localOnly=\"true\"\n3. Consider using logging frameworks or APM tools instead of ASP.NET tracing in production\n4. Implement proper authentication if trace viewing must be accessible remotely\n",
+		Cwe:         215,
+		Severity:    "High",
+		References: []string{
+			"https://msdn.microsoft.com/en-us/library/bb386420.aspx",
+			"https://learn.microsoft.com/en-us/previous-versions/wwh16c6c(v=vs.140)",
+		},
 	},
 	{
 		Code:        Base32EncodedDataInParameterCode,

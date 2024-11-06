@@ -32,6 +32,7 @@ var (
 	DockerApiDetectedCode                IssueCode = "docker_api_detected"
 	DomStorageEventsDetectedCode         IssueCode = "dom_storage_events_detected"
 	EmailAddressesCode                   IssueCode = "email_addresses"
+	EnvironmentFileExposedCode           IssueCode = "environment_file_exposed"
 	EsiDetectedCode                      IssueCode = "esi_detected"
 	EsiInjectionCode                     IssueCode = "esi_injection"
 	ExposedApiCredentialsCode            IssueCode = "exposed_api_credentials"
@@ -106,6 +107,7 @@ var (
 	VulnerableJavascriptDependencyCode   IssueCode = "vulnerable_javascript_dependency"
 	WafDetectedCode                      IssueCode = "waf_detected"
 	WebassemblyDetectedCode              IssueCode = "webassembly_detected"
+	WebserverControlFileExposedCode      IssueCode = "webserver_control_file_exposed"
 	WebsocketDetectedCode                IssueCode = "websocket_detected"
 	WordpressDetectedCode                IssueCode = "wordpress_detected"
 	WsdlDefinitionDetectedCode           IssueCode = "wsdl_definition_detected"
@@ -449,6 +451,18 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         200,
 		Severity:    "Low",
 		References:  []string{},
+	},
+	{
+		Code:        EnvironmentFileExposedCode,
+		Title:       "Environment Configuration File Exposed",
+		Description: "An environment configuration file (.env) has been found exposed on the server.\nThese files typically contain sensitive information such as database credentials,\nAPI keys, tokens, and other application secrets that are used to configure the\napplication's environment. Exposure of these files can lead to unauthorized\naccess to connected services and data breaches. The severity of this issue needs to \nbe manually reviewed and assessed based on the sensitivity of the exposed information.\n",
+		Remediation: "1. Remove all environment files from publicly accessible directories\n2. Use proper configuration management for different environments\n3. Implement server-side rules to block access to dotfiles\n4. Review application logs for potential unauthorized access\n5. Rotate any exposed credentials immediately\n",
+		Cwe:         527,
+		Severity:    "Critical",
+		References: []string{
+			"https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure",
+			"https://www.acunetix.com/vulnerabilities/web/environment-file-exposed/",
+		},
 	},
 	{
 		Code:        EsiDetectedCode,
@@ -1332,6 +1346,18 @@ var issueTemplates = []IssueTemplate{
 			"https://webassembly.org/",
 			"https://webassembly.org/docs/security/",
 			"https://developer.mozilla.org/en-US/docs/WebAssembly",
+		},
+	},
+	{
+		Code:        WebserverControlFileExposedCode,
+		Title:       "Web Server Access Control File Exposed",
+		Description: "A web server access control file (.htaccess, .htpasswd, or similar) has been found exposed.\nThese files contain sensitive server configuration details that may include URL rewriting rules,\nauthentication settings, directory restrictions, and custom handlers. Access to these files can\nreveal implementation details and security mechanisms that could aid an attacker in\ncompromising the system.\n",
+		Remediation: "1. Configure your web server to deny access to control files\n2. Use appropriate filesystem permissions on configuration files\n3. Move sensitive configurations to the main server configuration where possible\n4. Remove any unnecessary backup copies of configuration files\n5. Implement monitoring for unauthorized access attempts\n",
+		Cwe:         538,
+		Severity:    "Medium",
+		References: []string{
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information",
+			"https://httpd.apache.org/docs/2.4/howto/htaccess.html",
 		},
 	},
 	{

@@ -1,0 +1,20 @@
+code: environment_file_exposed
+title: Environment Configuration File Exposed
+description: |
+  An environment configuration file (.env) has been found exposed on the server.
+  These files typically contain sensitive information such as database credentials,
+  API keys, tokens, and other application secrets that are used to configure the
+  application's environment. Exposure of these files can lead to unauthorized
+  access to connected services and data breaches. The severity of this issue needs to 
+  be manually reviewed and assessed based on the sensitivity of the exposed information.
+remediation: |
+  1. Remove all environment files from publicly accessible directories
+  2. Use proper configuration management for different environments
+  3. Implement server-side rules to block access to dotfiles
+  4. Review application logs for potential unauthorized access
+  5. Rotate any exposed credentials immediately
+cwe: 527
+severity: Critical
+references:
+  - https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure
+  - https://www.acunetix.com/vulnerabilities/web/environment-file-exposed/

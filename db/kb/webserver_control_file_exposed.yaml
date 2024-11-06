@@ -1,0 +1,19 @@
+code: webserver_control_file_exposed
+title: Web Server Access Control File Exposed
+description: |
+  A web server access control file (.htaccess, .htpasswd, or similar) has been found exposed.
+  These files contain sensitive server configuration details that may include URL rewriting rules,
+  authentication settings, directory restrictions, and custom handlers. Access to these files can
+  reveal implementation details and security mechanisms that could aid an attacker in
+  compromising the system.
+remediation: |
+  1. Configure your web server to deny access to control files
+  2. Use appropriate filesystem permissions on configuration files
+  3. Move sensitive configurations to the main server configuration where possible
+  4. Remove any unnecessary backup copies of configuration files
+  5. Implement monitoring for unauthorized access attempts
+cwe: 538
+severity: Medium
+references:
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information
+  - https://httpd.apache.org/docs/2.4/howto/htaccess.html

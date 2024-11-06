@@ -41,6 +41,7 @@ func DiscoverAll(baseURL string, opts http_utils.HistoryCreationOptions) ([]Disc
 		"axis2":          DiscoverAxis2Endpoints,
 		"grpc":           DiscoverGRPCEndpoints,
 		"wsdl":           DiscoverWSDLDefinitions,
+		"trace_axd":      DiscoverAspNetTrace,
 	}
 
 	for source, discoverFunc := range discoveryFunctions {

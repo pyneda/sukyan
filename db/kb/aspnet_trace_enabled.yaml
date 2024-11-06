@@ -1,0 +1,24 @@
+code: aspnet_trace_enabled
+title: ASP.NET Trace Viewer Exposed
+description: |
+  The application has ASP.NET tracing enabled and publicly accessible through trace.axd.
+  Trace viewing allows anyone to see detailed information about recent requests including
+  server variables, cookies, session state, application variables, request/response headers,
+  and form data. This can expose sensitive information and implementation details that
+  could aid an attacker.
+remediation: |
+  To fix this security issue:
+  1. Disable trace viewing in production by setting trace="false" in the Web.config file:
+     <configuration>
+       <system.web>
+         <trace enabled="false" localOnly="true" />
+       </system.web>
+     </configuration>
+  2. If tracing is required, ensure it's only accessible locally by setting localOnly="true"
+  3. Consider using logging frameworks or APM tools instead of ASP.NET tracing in production
+  4. Implement proper authentication if trace viewing must be accessible remotely
+cwe: 215
+severity: High
+references:
+  - https://msdn.microsoft.com/en-us/library/bb386420.aspx
+  - https://learn.microsoft.com/en-us/previous-versions/wwh16c6c(v=vs.140)

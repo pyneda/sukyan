@@ -17,4 +17,5 @@ cwe: 527
 severity: Critical
 references:
   - https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure
-  - https://www.acunetix.com/vulnerabilities/web/environment-file-exposed/
+  - https://dotenvx.com/docs/env-file
+  - https://securinglaravel.com/security-tip-protect-your-env-file/

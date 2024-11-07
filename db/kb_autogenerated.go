@@ -31,6 +31,7 @@ var (
 	DjangoDebugExceptionCode             IssueCode = "django_debug_exception"
 	DockerApiDetectedCode                IssueCode = "docker_api_detected"
 	DomStorageEventsDetectedCode         IssueCode = "dom_storage_events_detected"
+	ElmahExposedCode                     IssueCode = "elmah_exposed"
 	EmailAddressesCode                   IssueCode = "email_addresses"
 	EnvironmentFileExposedCode           IssueCode = "environment_file_exposed"
 	EsiDetectedCode                      IssueCode = "esi_detected"
@@ -444,6 +445,19 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        ElmahExposedCode,
+		Title:       "ASP.NET ELMAH Handler Exposed",
+		Description: "An exposed ASP.NET ELMAH (Error Logging Modules and Handlers) interface has been detected.\nThis debug interface reveals detailed error information including stack traces, server variables,\nand application state. When accessible, it can expose sensitive technical details about the\napplication's internal structure and runtime state that could aid in crafting attacks.\n",
+		Remediation: "1. Restrict access to ELMAH through proper authentication\n2. Move error logging to a secure location\n3. Use secure logging alternatives in production\n4. Review logs for sensitive data exposure\n5. Implement secure error handling\n",
+		Cwe:         215,
+		Severity:    "Medium",
+		References: []string{
+			"https://blog.elmah.io/elmah-security-and-allowremoteaccess-explained/",
+			"https://elmah.github.io/a/securing-error-log-pages/",
+			"https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure",
+		},
+	},
+	{
 		Code:        EmailAddressesCode,
 		Title:       "Email Addresses Detected",
 		Description: "The application exposes email addresses, potentially making users or administrators targets for spam or phishing attacks.",
@@ -461,7 +475,8 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "Critical",
 		References: []string{
 			"https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure",
-			"https://www.acunetix.com/vulnerabilities/web/environment-file-exposed/",
+			"https://dotenvx.com/docs/env-file",
+			"https://securinglaravel.com/security-tip-protect-your-env-file/",
 		},
 	},
 	{

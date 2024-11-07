@@ -1,0 +1,19 @@
+code: elmah_exposed
+title: ASP.NET ELMAH Handler Exposed
+description: |
+  An exposed ASP.NET ELMAH (Error Logging Modules and Handlers) interface has been detected.
+  This debug interface reveals detailed error information including stack traces, server variables,
+  and application state. When accessible, it can expose sensitive technical details about the
+  application's internal structure and runtime state that could aid in crafting attacks.
+remediation: |
+  1. Restrict access to ELMAH through proper authentication
+  2. Move error logging to a secure location
+  3. Use secure logging alternatives in production
+  4. Review logs for sensitive data exposure
+  5. Implement secure error handling
+cwe: 215
+severity: Medium
+references:
+  - https://blog.elmah.io/elmah-security-and-allowremoteaccess-explained/
+  - https://elmah.github.io/a/securing-error-log-pages/
+  - https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure

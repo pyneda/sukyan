@@ -44,6 +44,7 @@ func DiscoverAll(baseURL string, opts http_utils.HistoryCreationOptions) ([]Disc
 		"trace_axd":      DiscoverAspNetTrace,
 		"htaccess":       DiscoverWebServerControlFiles,
 		"env_files":      DiscoverEnvFiles,
+		"elmah":          DiscoverElmah,
 	}
 
 	for source, discoverFunc := range discoveryFunctions {

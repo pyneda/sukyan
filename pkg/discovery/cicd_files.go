@@ -47,10 +47,16 @@ var CICDBuildFilePaths = []string{
 func IsCICDBuildFileValidationFunc(history *db.History) (bool, string, int) {
 	if history.StatusCode == 200 {
 		details := fmt.Sprintf("Exposed CI/CD or infrastructure configuration file detected: %s\n", history.URL)
-		confidence := 70
+		confidence := 30
 
-		if history.ResponseContentType == "text/yaml" || history.ResponseContentType == "application/json" {
-			confidence += 10
+		if history.ResponseContentType == "text/yaml" {
+			confidence += 50
+			details += "- Content-Type indicates configuration format\n"
+		} else if history.ResponseContentType == "application/json" {
+			confidence += 30
+			details += "- Content-Type indicates configuration format\n"
+		} else if history.ResponseContentType == "text/plain" {
+			confidence += 20
 			details += "- Content-Type indicates configuration format\n"
 		}
 
@@ -65,12 +71,12 @@ func IsCICDBuildFileValidationFunc(history *db.History) (bool, string, int) {
 		bodyStr := strings.ToLower(string(history.ResponseBody))
 		for _, indicator := range sensitiveIndicators {
 			if strings.Contains(bodyStr, strings.ToLower(indicator)) {
-				confidence = min(confidence+5, 100)
+				confidence += 5
 				details += fmt.Sprintf("- Contains sensitive indicator: %s\n", indicator)
 			}
 		}
 
-		return true, details, confidence
+		return true, details, min(confidence, 100)
 	}
 	return false, "", 0
 }

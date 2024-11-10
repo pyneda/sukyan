@@ -2,7 +2,9 @@ package discovery
 
 import (
 	"fmt"
+	"net/http"
 
+	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
 )
@@ -10,6 +12,14 @@ import (
 type DiscoveryResult struct {
 	Source  string
 	Results DiscoverAndCreateIssueResults
+}
+
+type DiscoveryOptions struct {
+	BaseURL                string
+	BaseRequest            db.History
+	NotFoundSample         db.History
+	HistoryCreationOptions http_utils.HistoryCreationOptions
+	HttpClient             http.Client
 }
 
 func DiscoverAll(baseURL string, opts http_utils.HistoryCreationOptions) ([]DiscoveryResult, error) {

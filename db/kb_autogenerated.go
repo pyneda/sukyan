@@ -129,9 +129,9 @@ var issueTemplates = []IssueTemplate{
 		Description: "A page with characteristics of a common admin interface or login page has been identified. Unauthorized access to such areas could expose sensitive configurations or data.\n",
 		Remediation: "This is an informational issue. Review whether exposing this admin interface is necessary. If exposure is required, ensure it is secured with appropriate access controls such as IP whitelisting, VPNs, and strong authentication mechanisms.\n",
 		Cwe:         306,
-		Severity:    "Informative",
+		Severity:    "Info",
 		References: []string{
-			"https://owasp.org/www-project-top-ten/2017/A2-Broken-Authentication.html",
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/05-Enumerate_Infrastructure_and_Application_Admin_Interfaces",
 		},
 	},
 	{

@@ -66,7 +66,7 @@ func InitDb() *DatabaseConnection {
 	// }
 
 	// Migrate other tables
-	if err := db.AutoMigrate(&Workspace{}, &History{}, &Issue{}, &OOBTest{}, &OOBInteraction{}, &Task{}, &TaskJob{}, &WebSocketConnection{}, &WebSocketMessage{}, &JsonWebToken{}, &StoredBrowserActions{}, &User{}, &RefreshToken{}); err != nil {
+	if err := db.AutoMigrate(&Workspace{}, &History{}, &Issue{}, &OOBTest{}, &OOBInteraction{}, &Task{}, &TaskJob{}, &WebSocketConnection{}, &WebSocketMessage{}, &JsonWebToken{}, &WorkspaceCookie{}, &StoredBrowserActions{}, &User{}, &RefreshToken{}); err != nil {
 		log.Error().Err(err).Msg("Failed to migrate other tables")
 		os.Exit(1)
 	}

@@ -44,7 +44,7 @@ var PrometheusMetricsPaths = []string{
 func IsPrometheusMetricsValidationFunc(history *db.History) (bool, string, int) {
 	if history.StatusCode == 200 {
 		details := fmt.Sprintf("Prometheus metrics endpoint found: %s\n", history.URL)
-		confidence := 80
+		confidence := 30
 
 		bodyStr := string(history.ResponseBody)
 
@@ -108,6 +108,7 @@ func IsPrometheusMetricsValidationFunc(history *db.History) (bool, string, int) 
 		for _, pattern := range metricPatterns {
 			if strings.Contains(bodyStr, pattern) {
 				details += fmt.Sprintf("- Exposes %s metrics\n", pattern)
+				confidence += 15
 			}
 		}
 
@@ -138,6 +139,7 @@ func IsPrometheusMetricsValidationFunc(history *db.History) (bool, string, int) 
 		for _, pattern := range sensitivePatterns {
 			if strings.Contains(strings.ToLower(bodyStr), pattern) {
 				details += fmt.Sprintf("- Contains potentially sensitive metric: %s\n", pattern)
+				confidence += 5
 			}
 		}
 

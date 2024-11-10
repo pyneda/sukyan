@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
@@ -36,11 +37,30 @@ var VersionControlPaths = []string{
 }
 
 func IsVersionControlFileValidationFunc(history *db.History) (bool, string, int) {
-	if history.StatusCode == 200 {
-		details := fmt.Sprintf("Exposed version control file detected: %s\n", history.URL)
-		return true, details, 90
+	if history.StatusCode != 200 {
+		return false, "", 0
 	}
-	return false, "", 0
+
+	confidence := 50
+	details := fmt.Sprintf("Version control file exposed: %s\n", history.URL)
+
+	bodyStr := strings.ToLower(string(history.ResponseBody))
+	if strings.Contains(bodyStr, "[core]") ||
+		strings.Contains(bodyStr, "ref: refs/") ||
+		strings.Contains(bodyStr, "[remote") {
+		confidence = 100
+		details += "File contains version control system data\n"
+	}
+
+	if strings.Contains(strings.ToLower(history.ResponseContentType), "text/plain") {
+		confidence += 5
+	}
+
+	if confidence > 100 {
+		confidence = 100
+	}
+
+	return true, details, confidence
 }
 
 func DiscoverVersionControlFiles(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {

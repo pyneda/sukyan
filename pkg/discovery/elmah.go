@@ -16,11 +16,11 @@ func IsElmahValidationFunc(history *db.History) (bool, string, int) {
 	if history.StatusCode == 200 {
 		bodyStr := string(history.ResponseBody)
 		details := fmt.Sprintf("ASP.NET ELMAH handler detected at: %s\n", history.URL)
-		confidence := 50
+		confidence := 30
 
 		contentType := strings.ToLower(history.ResponseContentType)
 		if strings.Contains(contentType, "text/html") {
-			confidence += 20
+			confidence += 10
 		}
 
 		elmahPatterns := map[string]string{

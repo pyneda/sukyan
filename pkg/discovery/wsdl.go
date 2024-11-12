@@ -68,11 +68,14 @@ var wsdlUIMarkers = []string{
 }
 
 func IsWSDLValidationFunc(history *db.History) (bool, string, int) {
+	if history.StatusCode == 404 {
+		return false, "", 0
+	}
 	confidence := 50
 	details := make([]string, 0)
 
 	if history.StatusCode != 200 {
-		confidence = 30
+		confidence = 0
 	}
 
 	contentType := strings.ToLower(history.ResponseContentType)

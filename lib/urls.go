@@ -237,3 +237,13 @@ func NormalizeURL(urlStr string) (string, error) {
 	}
 	return normalizedFullURL, nil
 }
+
+// JoinURLPath joins a base URL and a URL path.
+func JoinURLPath(baseURL, urlPath string) string {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return baseURL + "/" + strings.TrimPrefix(urlPath, "/")
+	}
+	u.Path = path.Join(u.Path, urlPath)
+	return u.String()
+}

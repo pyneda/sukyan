@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc/pool"
@@ -150,7 +151,7 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 				mu.Unlock()
 			}
 
-			targetURL := joinURLPath(input.URL, currentPath)
+			targetURL := lib.JoinURLPath(input.URL, currentPath)
 
 			var bodyReader io.Reader
 			if input.Body != "" {

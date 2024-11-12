@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
 )
@@ -15,11 +14,10 @@ type DiscoveryResult struct {
 }
 
 type DiscoveryOptions struct {
-	BaseURL                string
-	BaseRequest            db.History
-	NotFoundSample         db.History
-	HistoryCreationOptions http_utils.HistoryCreationOptions
-	HttpClient             http.Client
+	BaseURL                string                            `json:"base_url"`
+	HistoryCreationOptions http_utils.HistoryCreationOptions `json:"history_creation_options"`
+	HttpClient             http.Client                       `json:"-"`
+	SiteBehavior           http_utils.SiteBehavior           `json:"site_behavior"`
 }
 
 func DiscoverAll(baseURL string, opts http_utils.HistoryCreationOptions) ([]DiscoveryResult, error) {

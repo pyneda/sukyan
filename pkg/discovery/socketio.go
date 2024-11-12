@@ -29,7 +29,7 @@ var SocketIOPaths = []string{
 }
 
 func isSocketIOValidationFunc(history *db.History) (bool, string, int) {
-	if history.StatusCode != 200 && history.StatusCode != 400 && history.StatusCode != 404 {
+	if history.StatusCode != 200 && history.StatusCode != 400 {
 		return false, "", 0
 	}
 

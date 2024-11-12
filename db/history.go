@@ -46,6 +46,10 @@ type History struct {
 	PlaygroundSession    PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
+func (h History) ResponseHash() string {
+	return lib.HashBytes(h.ResponseBody)
+}
+
 func (h History) TableHeaders() []string {
 	return []string{"ID", "URL", "Method", "Response Body Size", "Workspace", "Task", "Source"}
 }

@@ -7,5 +7,6 @@ remediation:
   Avoid displaying email addresses publicly, or use techniques to obfuscate
   them to make it harder for automated tools to collect them.
 cwe: 200
-severity: Low
-references: []
+severity: Info
+references: 
+  - https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure

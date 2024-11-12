@@ -463,8 +463,10 @@ var issueTemplates = []IssueTemplate{
 		Description: "The application exposes email addresses, potentially making users or administrators targets for spam or phishing attacks.",
 		Remediation: "Avoid displaying email addresses publicly, or use techniques to obfuscate them to make it harder for automated tools to collect them.",
 		Cwe:         200,
-		Severity:    "Low",
-		References:  []string{},
+		Severity:    "Info",
+		References: []string{
+			"https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure",
+		},
 	},
 	{
 		Code:        EnvironmentFileExposedCode,

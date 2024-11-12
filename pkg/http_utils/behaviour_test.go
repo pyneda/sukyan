@@ -43,7 +43,7 @@ func createCustomErrorServer() *testServer {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if r.URL.Path == "/" {
-			fmt.Fprintln(w, "<html><body>Welcome page</body></html>")
+			fmt.Fprintln(w, "<html><body style='background-color: gray;'><h1>Welcome page!</h1></body></html>")
 			return
 		}
 		fmt.Fprintln(w, "<html><body>Custom error page - Not found</body></html>")

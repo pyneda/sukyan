@@ -16,7 +16,7 @@ func IsAspNetTraceValidationFunc(history *db.History) (bool, string, int) {
 	if history.StatusCode == 200 {
 		bodyStr := string(history.ResponseBody)
 		details := fmt.Sprintf("ASP.NET Trace Viewer detected at: %s\n", history.URL)
-		confidence := 40
+		confidence := 30
 
 		if strings.Contains(strings.ToLower(history.ResponseContentType), "text/html") {
 			confidence += 10
@@ -54,11 +54,6 @@ func IsAspNetTraceValidationFunc(history *db.History) (bool, string, int) {
 		}
 
 		if confidence >= 50 {
-			details += "\nWARNING: ASP.NET tracing is enabled and publicly accessible. This can expose sensitive application details including:\n"
-			details += "- Application variables and session state\n"
-			details += "- Request/response headers and cookies\n"
-			details += "- Server variables and configuration\n"
-			details += "- Detailed error messages and stack traces\n"
 			return true, details, min(confidence, 100)
 		}
 	}

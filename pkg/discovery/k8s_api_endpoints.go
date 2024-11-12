@@ -61,7 +61,7 @@ func IsKubernetesValidationFunc(history *db.History) (bool, string, int) {
 	}
 
 	if history.StatusCode == 200 {
-		confidence = 80
+		confidence = 30
 
 		// Check response structure
 		k8sIndicators := map[string]string{
@@ -75,13 +75,13 @@ func IsKubernetesValidationFunc(history *db.History) (bool, string, int) {
 
 		for indicator, description := range k8sIndicators {
 			if strings.Contains(bodyStr, indicator) {
-				confidence += 5
+				confidence += 20
 				details += fmt.Sprintf("- Contains %s\n", description)
 			}
 		}
 
 		if strings.Contains(history.ResponseContentType, "application/json") {
-			confidence += 5
+			confidence += 20
 		}
 	}
 
@@ -90,10 +90,9 @@ func IsKubernetesValidationFunc(history *db.History) (bool, string, int) {
 		if history.StatusCode == 200 {
 			details += "\nWARNING: Unauthenticated access to Kubernetes API detected\n"
 		}
-		return true, details, confidence
 	}
 
-	return false, "", 0
+	return confidence >= minConfidence(), details, confidence
 }
 
 func DiscoverKubernetesEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {

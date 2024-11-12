@@ -75,7 +75,7 @@ func IsCICDBuildFileValidationFunc(history *db.History) (bool, string, int) {
 			}
 		}
 
-		return true, details, min(confidence, 100)
+		return confidence >= 50, details, min(confidence, 100)
 	}
 	return false, "", 0
 }

@@ -24,7 +24,7 @@ func IsAdminInterfaceValidationFunc(history *db.History) (bool, string, int) {
 	}
 
 	if history.StatusCode == 200 {
-		confidence = 50
+		confidence = 30
 		details += "- Received 200 OK status\n"
 
 		adminKeywords := []struct {
@@ -32,12 +32,14 @@ func IsAdminInterfaceValidationFunc(history *db.History) (bool, string, int) {
 			Description string
 			Confidence  int
 		}{
-			{"admin", "Admin keyword in content", 10},
+			{"admin", "Admin keyword in content", 5},
 			{"dashboard", "Dashboard keyword in content", 10},
 			{"control panel", "Control panel keyword in content", 10},
 			{"manage account", "Manage account keyword in content", 10},
 			{"administrator", "Administrator keyword in content", 10},
 			{"admin login", "Admin login keyword in content", 10},
+			{"backoffice", "Backoffice keyword in content", 10},
+			{"admin panel", "Admin panel keyword in content", 10},
 		}
 
 		bodyContent := strings.ToLower(string(history.ResponseBody))
@@ -55,13 +57,13 @@ func IsAdminInterfaceValidationFunc(history *db.History) (bool, string, int) {
 			doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(history.ResponseBody)))
 			if err == nil {
 				if doc.Find(`input[type="password"]`).Length() > 0 || doc.Find(`input[name="username"], input[name="password"]`).Length() > 0 {
-					confidence += 20
+					confidence += 40
 					details += "- Contains login form elements\n"
 				}
 			}
 		}
 	} else if history.StatusCode == 401 || history.StatusCode == 403 {
-		confidence = 80
+		confidence = 70
 		details += "- Received restricted access status (401 or 403)\n"
 		if authHeader, ok := headers["WWW-Authenticate"]; ok {
 			for _, val := range authHeader {
@@ -74,7 +76,7 @@ func IsAdminInterfaceValidationFunc(history *db.History) (bool, string, int) {
 		}
 	}
 
-	return confidence >= 50, details, min(confidence, 100)
+	return confidence >= minConfidence(), details, min(confidence, 100)
 }
 
 func DiscoverAdminInterfaces(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {

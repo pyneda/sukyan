@@ -142,7 +142,7 @@ func IsPrometheusMetricsValidationFunc(history *db.History) (bool, string, int) 
 			}
 		}
 
-		return true, details, min(confidence, 100)
+		return confidence >= minConfidence(), details, min(confidence, 100)
 	}
 
 	return false, "", 0

@@ -62,10 +62,10 @@ func IsDockerAPIValidationFunc(history *db.History) (bool, string, int) {
 
 	switch history.StatusCode {
 	case 200:
-		confidence += 40
+		confidence += 20
 		var jsonData map[string]interface{}
 		if err := json.Unmarshal([]byte(bodyStr), &jsonData); err == nil {
-			confidence += 20
+			confidence += 30
 			details += "- Valid JSON response received\n"
 		}
 	case 401, 403:
@@ -130,11 +130,8 @@ func IsDockerAPIValidationFunc(history *db.History) (bool, string, int) {
 	}
 
 	// Final confidence adjustment and return
-	if confidence >= 40 {
-		return true, details, min(confidence, 100)
-	}
+	return confidence >= minConfidence(), details, min(confidence, 100)
 
-	return false, "", 0
 }
 
 func DiscoverDockerAPIEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {

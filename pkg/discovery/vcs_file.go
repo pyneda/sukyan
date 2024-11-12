@@ -40,8 +40,24 @@ func IsVersionControlFileValidationFunc(history *db.History) (bool, string, int)
 		return false, "", 0
 	}
 
-	confidence := 50
+	confidence := 30
 	details := fmt.Sprintf("Version control file exposed: %s\n", history.URL)
+
+	if strings.Contains(history.ResponseContentType, "text/plain") {
+		confidence += 30
+		details += "- Correct content type for version control files\n"
+	}
+
+	if strings.Contains(history.ResponseContentType, "application/xml") ||
+		strings.Contains(history.ResponseContentType, "text/xml") {
+		confidence += 30
+		details += "- Correct content type for version control files\n"
+	}
+
+	if strings.Contains(history.ResponseContentType, "application/octet-stream") {
+		confidence += 30
+		details += "- Correct content type for version control files\n"
+	}
 
 	bodyStr := strings.ToLower(string(history.ResponseBody))
 	if strings.Contains(bodyStr, "[core]") ||
@@ -51,15 +67,7 @@ func IsVersionControlFileValidationFunc(history *db.History) (bool, string, int)
 		details += "File contains version control system data\n"
 	}
 
-	if strings.Contains(strings.ToLower(history.ResponseContentType), "text/plain") {
-		confidence += 5
-	}
-
-	if confidence > 100 {
-		confidence = 100
-	}
-
-	return true, details, confidence
+	return confidence >= minConfidence(), details, min(confidence, 100)
 }
 
 func DiscoverVersionControlFiles(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {

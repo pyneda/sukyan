@@ -8,17 +8,16 @@ import (
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
+	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc/pool"
 )
 
 type SiteBehavior struct {
-	NotFoundReturns404 bool                `json:"not_found_returns_404"`
-	NotFoundChanges    bool                `json:"not_found_changes"`
-	NotFoundSamples    []*db.History       `json:"not_found_samples"`
-	BaseURLSample      *db.History         `json:"base_url_sample"`
-	CommonBodyParts    []string            `json:"common_body_parts"`
-	CommonHeaders      map[string][]string `json:"common_headers"`
-	CommonHash         string              `json:"common_hash"`
+	NotFoundReturns404 bool          `json:"not_found_returns_404"`
+	NotFoundChanges    bool          `json:"not_found_changes"`
+	NotFoundSamples    []*db.History `json:"not_found_samples"`
+	BaseURLSample      *db.History   `json:"base_url_sample"`
+	CommonHash         string        `json:"common_hash"`
 }
 
 type SiteBehaviourCheckOptions struct {
@@ -86,14 +85,12 @@ func CheckSiteBehavior(options SiteBehaviourCheckOptions) (*SiteBehavior, error)
 		return nil, fmt.Errorf("failed to create base history: %w", err)
 	}
 
-	// Create pool for parallel requests
 	var mu sync.Mutex
 	p := pool.NewWithResults[struct {
 		History *db.History
 		Error   error
 	}]().WithContext(context.Background()).WithMaxGoroutines(concurrency)
 
-	// Test not found paths
 	for _, path := range getNotFoundCheckPaths() {
 		currentPath := path
 		p.Go(func(ctx context.Context) (struct {
@@ -190,22 +187,61 @@ func (b *SiteBehavior) analyzeResponses() {
 
 func (b *SiteBehavior) IsNotFound(history *db.History) bool {
 	if history == nil {
+		log.Debug().Msg("history is nil, returning false")
 		return false
 	}
 
-	if b.CommonHash == b.BaseURLSample.ResponseHash() {
-		return true
-	}
-
 	if b.NotFoundReturns404 {
+		log.Debug().Int("status_code", history.StatusCode).Msg("NotFoundReturns404 is true, checking if status code is 404")
 		return history.StatusCode == 404
 	}
 
-	for _, sample := range b.NotFoundSamples {
-		if history.ResponseHash() == sample.ResponseHash() {
+	if history.URL != b.BaseURLSample.URL {
+		log.Debug().Str("history_url", history.URL).Str("base_url_sample", b.BaseURLSample.URL).Msg("history.URL != b.BaseURLSample.URL")
+		if b.BaseURLSample.ResponseHash() == history.ResponseHash() {
+			log.Debug().Msg("history response hash matches base URL sample response hash, returning true")
+			return true
+		}
+
+		if len(history.ResponseBody) == len(b.BaseURLSample.ResponseBody) {
+			log.Debug().Msg("history response body length matches base URL sample response body length, returning true")
 			return true
 		}
 	}
 
+	if b.CommonHash == history.ResponseHash() {
+		log.Debug().Str("history_hash", history.ResponseHash()).Str("common_hash", b.CommonHash).Msg("history response hash matches CommonHash, returning true")
+		return true
+	}
+
+	for _, sample := range b.NotFoundSamples {
+		if history.ResponseHash() == sample.ResponseHash() {
+			log.Debug().Interface("sample", sample).Str("history_hash", history.ResponseHash()).Str("sample_hash", sample.ResponseHash()).Msg("history response hash matches not found sample response hash, returning true")
+			return true
+		}
+
+		if len(history.ResponseBody) == len(sample.ResponseBody) {
+			log.Debug().Int("history_length", len(history.ResponseBody)).Int("sample_length", len(sample.ResponseBody)).Msg("history response body length matches not found sample response body length, returning true")
+			return true
+		}
+
+		similarity := lib.ComputeSimilarity(history.ResponseBody, sample.ResponseBody)
+		log.Debug().Float64("similarity", similarity).Msg("Response similarity with not found sample")
+		if similarity > 0.9 {
+			log.Debug().Float64("similarity", similarity).Msg("history response is similar to not found sample, returning true")
+			return true
+		}
+	}
+
+	if b.NotFoundChanges && history.URL != b.BaseURLSample.URL {
+		similarity := lib.ComputeSimilarity(history.ResponseBody, b.BaseURLSample.ResponseBody)
+		log.Debug().Float64("similarity", similarity).Msg("Response similarity with base URL sample")
+		if similarity > 0.9 {
+			log.Debug().Float64("similarity", similarity).Msg("history response is similar to base URL sample, returning true")
+			return true
+		}
+	}
+
+	log.Debug().Str("url", history.URL).Msg("no match found, returning false")
 	return false
 }

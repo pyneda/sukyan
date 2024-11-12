@@ -43,7 +43,6 @@ func IsEnvFileValidationFunc(history *db.History) (bool, string, int) {
 			"_URL=":    "Service URLs",
 			"PORT=":    "Service ports",
 			"DEBUG":    "Debugging configuration",
-			"LOG":      "Logging configuration",
 		}
 
 		foundPatterns := make([]string, 0)
@@ -54,19 +53,26 @@ func IsEnvFileValidationFunc(history *db.History) (bool, string, int) {
 			}
 		}
 
-		// Check for KEY=VALUE pattern which is typical in env files
-		lines := strings.Split(bodyStr, "\n")
-		envLineCount := 0
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line != "" && !strings.HasPrefix(line, "#") && strings.Contains(line, "=") {
-				envLineCount++
+		if len(foundPatterns) == 0 && strings.Contains(contentType, "text/html") {
+			return false, "", 0
+		} else if strings.Contains(contentType, "text/html") {
+			confidence -= 50
+		} else {
+			// Check for KEY=VALUE pattern which is typical in env files
+			lines := strings.Split(bodyStr, "\n")
+			envLineCount := 0
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if line != "" && !strings.HasPrefix(line, "#") && strings.Contains(line, "=") {
+					envLineCount++
+				}
 			}
-		}
 
-		if envLineCount > 0 {
-			confidence += 30
-			details += fmt.Sprintf("- Contains %d environment variable assignments\n", envLineCount)
+			if envLineCount > 0 {
+				confidence += 30
+				details += fmt.Sprintf("- Contains %d environment variable assignments\n", envLineCount)
+			}
+
 		}
 
 		if len(foundPatterns) > 0 {
@@ -76,7 +82,9 @@ func IsEnvFileValidationFunc(history *db.History) (bool, string, int) {
 			}
 		}
 
-		return true, details, min(confidence, 100)
+		if confidence > 30 {
+			return true, details, min(confidence, 100)
+		}
 	}
 
 	return false, "", 0

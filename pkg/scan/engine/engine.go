@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"net/http"
 	"strings"
 	"time"
 
@@ -167,13 +168,35 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 
 	db.Connection.SetTaskStatus(task.ID, db.TaskStatusScanning)
 
+	transport := http_utils.CreateHttpTransport()
+	transport.ForceAttemptHTTP2 = true
+	discoveryClient := &http.Client{
+		Transport: transport,
+	}
+
 	for _, baseURL := range baseURLs {
 		createOpts := http_utils.HistoryCreationOptions{
 			Source:      db.SourceScanner,
 			WorkspaceID: options.WorkspaceID,
 			TaskID:      task.ID,
 		}
-		discovery.DiscoverAll(baseURL, createOpts)
+		siteBehaviour, err := http_utils.CheckSiteBehavior(http_utils.SiteBehaviourCheckOptions{
+			BaseURL:                baseURL,
+			Client:                 discoveryClient,
+			HistoryCreationOptions: createOpts,
+			Concurrency:            10,
+		})
+		if err != nil {
+			scanLog.Error().Err(err).Str("base_url", baseURL).Msg("Could not check site behavior")
+			continue
+		}
+		discoverOpts := discovery.DiscoveryOptions{
+			BaseURL:                baseURL,
+			HistoryCreationOptions: createOpts,
+			HttpClient:             discoveryClient,
+			SiteBehavior:           siteBehaviour,
+		}
+		discovery.DiscoverAll(discoverOpts)
 	}
 
 	itemScanOptions := scan_options.HistoryItemScanOptions{

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
 var gRPCPaths = []string{
@@ -116,17 +115,17 @@ func IsGRPCValidationFunc(history *db.History) (bool, string, int) {
 	return false, "", 0
 }
 
-func DiscoverGRPCEndpoints(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoverGRPCEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	defaultBody := []byte{0x00, 0x00, 0x00, 0x00, 0x00} // Flag byte (0x00) + 4 bytes length (0x00000000)
 	encodedBody := base64.StdEncoding.EncodeToString(defaultBody)
 
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
-			URL:         baseURL,
+			URL:         options.BaseURL,
 			Method:      "POST",
 			Body:        encodedBody,
 			Paths:       gRPCPaths,
-			Concurrency: 10,
+			Concurrency: DefaultConcurrency,
 			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept":       "application/grpc, application/grpc-web, application/grpc-web-text, */*",
@@ -134,7 +133,9 @@ func DiscoverGRPCEndpoints(baseURL string, opts http_utils.HistoryCreationOption
 				"Content-Type": "application/grpc-web+proto",
 				"X-User-Agent": "grpc-web-javascript/0.1",
 			},
-			HistoryCreationOptions: opts,
+			HistoryCreationOptions: options.HistoryCreationOptions,
+			HttpClient:             options.HttpClient,
+			SiteBehavior:           options.SiteBehavior,
 		},
 		ValidationFunc: IsGRPCValidationFunc,
 		IssueCode:      db.GrpcEndpointDetectedCode,

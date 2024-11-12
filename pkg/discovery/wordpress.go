@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
 var WordPressPaths = []string{
@@ -88,10 +87,10 @@ func IsWordPressValidationFunc(history *db.History) (bool, string, int) {
 	return false, "", 0
 }
 
-func DiscoverWordPressEndpoints(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoverWordPressEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
-			URL:         baseURL,
+			URL:         options.BaseURL,
 			Method:      "GET",
 			Paths:       WordPressPaths,
 			Concurrency: 10,
@@ -99,8 +98,11 @@ func DiscoverWordPressEndpoints(baseURL string, opts http_utils.HistoryCreationO
 			Headers: map[string]string{
 				"Accept": "text/html,application/json",
 			},
-			HistoryCreationOptions: opts,
+			HistoryCreationOptions: options.HistoryCreationOptions,
+			HttpClient:             options.HttpClient,
+			SiteBehavior:           options.SiteBehavior,
 		},
 		ValidationFunc: IsWordPressValidationFunc,
+		IssueCode:      db.WordpressDetectedCode,
 	})
 }

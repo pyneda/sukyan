@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
 var PHPInfoPaths = []string{
@@ -60,18 +59,20 @@ func isPHPInfoValidationFunc(history *db.History) (bool, string, int) {
 	return false, "", 0
 }
 
-func DiscoverPHPInfo(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoverPHPInfo(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
-			URL:         baseURL,
+			URL:         options.BaseURL,
 			Method:      "GET",
 			Paths:       PHPInfoPaths,
-			Concurrency: 10,
+			Concurrency: DefaultConcurrency,
 			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 			},
-			HistoryCreationOptions: opts,
+			HistoryCreationOptions: options.HistoryCreationOptions,
+			HttpClient:             options.HttpClient,
+			SiteBehavior:           options.SiteBehavior,
 		},
 		ValidationFunc: isPHPInfoValidationFunc,
 		IssueCode:      db.PhpInfoDetectedCode,

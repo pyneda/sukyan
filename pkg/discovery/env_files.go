@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
 var EnvFilePaths = []string{
@@ -83,18 +82,20 @@ func IsEnvFileValidationFunc(history *db.History) (bool, string, int) {
 	return false, "", 0
 }
 
-func DiscoverEnvFiles(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoverEnvFiles(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
-			URL:         baseURL,
+			URL:         options.BaseURL,
 			Method:      "GET",
 			Paths:       EnvFilePaths,
-			Concurrency: 10,
+			Concurrency: DefaultConcurrency,
 			Timeout:     5,
 			Headers: map[string]string{
 				"Accept": "text/plain,*/*",
 			},
-			HistoryCreationOptions: opts,
+			HistoryCreationOptions: options.HistoryCreationOptions,
+			HttpClient:             options.HttpClient,
+			SiteBehavior:           options.SiteBehavior,
 		},
 		ValidationFunc: IsEnvFileValidationFunc,
 		IssueCode:      db.EnvironmentFileExposedCode,

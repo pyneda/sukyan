@@ -16,23 +16,31 @@ type DiscoveryResult struct {
 type DiscoveryOptions struct {
 	BaseURL                string                            `json:"base_url"`
 	HistoryCreationOptions http_utils.HistoryCreationOptions `json:"history_creation_options"`
-	HttpClient             http.Client                       `json:"-"`
-	SiteBehavior           http_utils.SiteBehavior           `json:"site_behavior"`
+	HttpClient             *http.Client                      `json:"-"`
+	SiteBehavior           *http_utils.SiteBehavior          `json:"site_behavior"`
 }
 
-func DiscoverAll(baseURL string, opts http_utils.HistoryCreationOptions) ([]DiscoveryResult, error) {
+func DiscoverAll(options DiscoveryOptions) ([]DiscoveryResult, error) {
 	var allResults []DiscoveryResult
 	var errors []error
 
-	discoveryFunctions := map[string]func(string, http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error){
+	if options.HttpClient == nil {
+		transport := http_utils.CreateHttpTransport()
+		transport.ForceAttemptHTTP2 = true
+		options.HttpClient = &http.Client{
+			Transport: transport,
+		}
+	}
+
+	discoveryFunctions := map[string]func(DiscoveryOptions) (DiscoverAndCreateIssueResults, error){
 		"openapi":        DiscoverOpenapiDefinitions,
 		"graphql":        DiscoverGraphQLEndpoints,
 		"kubernetes":     DiscoverKubernetesEndpoints,
 		"wordpress":      DiscoverWordPressEndpoints,
 		"config_files":   DiscoverSensitiveConfigFiles,
 		"actuator":       DiscoverActuatorEndpoints,
+		"metrics":        DiscoverMetricsEndpoints,
 		"docker":         DiscoverDockerAPIEndpoints,
-		"metrics":        DiscoveMetricsEndpoints,
 		"vcs":            DiscoverVersionControlFiles,
 		"cicd":           DiscoverCICDBuildFiles,
 		"admin":          DiscoverAdminInterfaces,
@@ -57,7 +65,7 @@ func DiscoverAll(baseURL string, opts http_utils.HistoryCreationOptions) ([]Disc
 
 	for source, discoverFunc := range discoveryFunctions {
 		log.Info().Str("check", source).Msg("Discovering hidden paths")
-		results, err := discoverFunc(baseURL, opts)
+		results, err := discoverFunc(options)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("%s discovery failed: %w", source, err))
 		} else {

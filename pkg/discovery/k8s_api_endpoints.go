@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
 var KubernetesPaths = []string{
@@ -97,10 +96,10 @@ func IsKubernetesValidationFunc(history *db.History) (bool, string, int) {
 	return false, "", 0
 }
 
-func DiscoverKubernetesEndpoints(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoverKubernetesEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
-			URL:         baseURL,
+			URL:         options.BaseURL,
 			Method:      "GET",
 			Paths:       KubernetesPaths,
 			Concurrency: 10,
@@ -108,7 +107,9 @@ func DiscoverKubernetesEndpoints(baseURL string, opts http_utils.HistoryCreation
 			Headers: map[string]string{
 				"Accept": "application/json",
 			},
-			HistoryCreationOptions: opts,
+			HistoryCreationOptions: options.HistoryCreationOptions,
+			HttpClient:             options.HttpClient,
+			SiteBehavior:           options.SiteBehavior,
 		},
 		ValidationFunc: IsKubernetesValidationFunc,
 		IssueCode:      db.KubernetesApiDetectedCode,

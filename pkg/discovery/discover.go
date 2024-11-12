@@ -35,14 +35,16 @@ func DefaultValidationFunc(history *db.History) (bool, string, int) {
 type DiscoveryInput struct {
 	URL                    string `json:"url"`
 	HistoryCreationOptions http_utils.HistoryCreationOptions
-	Method                 string            `json:"method"`
-	Body                   string            `json:"body"`
-	Concurrency            int               `json:"concurrency"`
-	Timeout                int               `json:"timeout"`
-	Paths                  []string          `json:"paths"`
-	Headers                map[string]string `json:"headers"`
-	StopAfterValid         bool              `json:"stop_after_valid"`
-	ValidationFunc         ValidationFunc    `json:"-"`
+	Method                 string                   `json:"method"`
+	Body                   string                   `json:"body"`
+	Concurrency            int                      `json:"concurrency"`
+	Timeout                int                      `json:"timeout"`
+	Paths                  []string                 `json:"paths"`
+	Headers                map[string]string        `json:"headers"`
+	StopAfterValid         bool                     `json:"stop_after_valid"`
+	ValidationFunc         ValidationFunc           `json:"-"`
+	HttpClient             *http.Client             `json:"-"`
+	SiteBehavior           *http_utils.SiteBehavior `json:"-"`
 }
 
 type DiscoverResults struct {
@@ -116,10 +118,13 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 		}
 	)
 
-	transport := http_utils.CreateHttpTransport()
-	transport.ForceAttemptHTTP2 = true
-	client := &http.Client{
-		Transport: transport,
+	client := input.HttpClient
+	if client == nil {
+		transport := http_utils.CreateHttpTransport()
+		transport.ForceAttemptHTTP2 = true
+		client = &http.Client{
+			Transport: transport,
+		}
 	}
 
 	for _, path := range input.Paths {
@@ -193,6 +198,11 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 				return result, nil
 			}
 			result.History = history
+
+			if input.SiteBehavior != nil && input.SiteBehavior.IsNotFound(history) {
+				log.Debug().Msg("skipping not found response based on site behavior")
+				return result, nil
+			}
 
 			if valid, _, _ := input.ValidationFunc(history); valid && input.StopAfterValid {
 				mu.Lock()

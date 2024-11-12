@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
 var ActuatorPaths = []string{
@@ -73,10 +72,10 @@ func IsActuatorValidationFunc(history *db.History) (bool, string, int) {
 	return false, "", 0
 }
 
-func DiscoverActuatorEndpoints(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoverActuatorEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
-			URL:         baseURL,
+			URL:         options.BaseURL,
 			Method:      "GET",
 			Paths:       ActuatorPaths,
 			Concurrency: 10,
@@ -84,7 +83,9 @@ func DiscoverActuatorEndpoints(baseURL string, opts http_utils.HistoryCreationOp
 			Headers: map[string]string{
 				"Accept": "application/json",
 			},
-			HistoryCreationOptions: opts,
+			HistoryCreationOptions: options.HistoryCreationOptions,
+			HttpClient:             options.HttpClient,
+			SiteBehavior:           options.SiteBehavior,
 		},
 		ValidationFunc: IsActuatorValidationFunc,
 		IssueCode:      db.ExposedSpringActuatorEndpointsCode,

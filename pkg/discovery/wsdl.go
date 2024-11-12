@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
 // WSDLPaths contains common paths where WSDL files might be found
@@ -186,18 +185,20 @@ func isWSDLUI(history *db.History) bool {
 	return markerCount >= 2
 }
 
-func DiscoverWSDLDefinitions(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoverWSDLDefinitions(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
-			URL:         baseURL,
+			URL:         options.BaseURL,
 			Method:      "GET",
 			Paths:       WSDLPaths,
-			Concurrency: 10,
+			Concurrency: DefaultConcurrency,
 			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "application/wsdl+xml, text/xml, application/xml, */*",
 			},
-			HistoryCreationOptions: opts,
+			HistoryCreationOptions: options.HistoryCreationOptions,
+			HttpClient:             options.HttpClient,
+			SiteBehavior:           options.SiteBehavior,
 		},
 		ValidationFunc: IsWSDLValidationFunc,
 		IssueCode:      db.WsdlDefinitionDetectedCode,

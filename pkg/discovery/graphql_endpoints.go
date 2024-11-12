@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
 var GraphQLPaths = []string{
@@ -184,23 +183,25 @@ func containsGraphQLErrorPattern(text string) bool {
 	return false
 }
 
-func DiscoverGraphQLEndpoints(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoverGraphQLEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	introspectionQuery := `{"query": "query { __schema { queryType { name } types { name kind } } }"}`
 	// TODO: Another check for full schema introspection query, to parse it and generate requests to scan
 
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
-			URL:         baseURL,
+			URL:         options.BaseURL,
 			Method:      "POST",
 			Body:        introspectionQuery,
 			Paths:       GraphQLPaths,
-			Concurrency: 10,
+			Concurrency: DefaultConcurrency,
 			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Content-Type": "application/json",
 				"Accept":       "application/json",
 			},
-			HistoryCreationOptions: opts,
+			HistoryCreationOptions: options.HistoryCreationOptions,
+			HttpClient:             options.HttpClient,
+			SiteBehavior:           options.SiteBehavior,
 		},
 		ValidationFunc: IsGraphQLValidationFunc,
 		IssueCode:      db.GraphqlEndpointDetectedCode,

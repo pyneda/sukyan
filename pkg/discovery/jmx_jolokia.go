@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
 var JMXHttpPaths = []string{
@@ -103,18 +102,20 @@ func IsHTTPJMXValidationFunc(history *db.History) (bool, string, int) {
 	return false, "", 0
 }
 
-func DiscoverHTTPJMXEndpoints(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoverHTTPJMXEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
-			URL:         baseURL,
+			URL:         options.BaseURL,
 			Method:      "GET",
 			Paths:       JMXHttpPaths,
-			Concurrency: 10,
+			Concurrency: DefaultConcurrency,
 			Timeout:     5,
 			Headers: map[string]string{
 				"Accept": "application/json,text/html",
 			},
-			HistoryCreationOptions: opts,
+			HistoryCreationOptions: options.HistoryCreationOptions,
+			HttpClient:             options.HttpClient,
+			SiteBehavior:           options.SiteBehavior,
 		},
 		ValidationFunc: IsHTTPJMXValidationFunc,
 		IssueCode:      db.ExposedJolokiaEndpointCode,

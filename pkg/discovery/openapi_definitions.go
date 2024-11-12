@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
 var OpenAPIPaths = []string{
@@ -166,18 +165,20 @@ func isSwaggerUI(history *db.History) bool {
 	return markerCount >= 2
 }
 
-func DiscoverOpenapiDefinitions(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoverOpenapiDefinitions(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
-			URL:         baseURL,
+			URL:         options.BaseURL,
 			Method:      "GET",
 			Paths:       OpenAPIPaths,
 			Concurrency: 10,
-			Timeout:     DefaultTimeout,
+			Timeout:     5,
 			Headers: map[string]string{
 				"Accept": "application/json, application/yaml, */*",
 			},
-			HistoryCreationOptions: opts,
+			HistoryCreationOptions: options.HistoryCreationOptions,
+			HttpClient:             options.HttpClient,
+			SiteBehavior:           options.SiteBehavior,
 		},
 		ValidationFunc: IsOpenAPIValidationFunc,
 		IssueCode:      db.OpenapiDefinitionFoundCode,

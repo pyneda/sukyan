@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
 var ConfigFilePaths = []string{
@@ -90,10 +89,10 @@ func IsSensitiveConfigFileValidationFunc(history *db.History) (bool, string, int
 	return false, "", 0
 }
 
-func DiscoverSensitiveConfigFiles(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoverSensitiveConfigFiles(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
-			URL:         baseURL,
+			URL:         options.BaseURL,
 			Method:      "GET",
 			Paths:       ConfigFilePaths,
 			Concurrency: 10,
@@ -101,7 +100,9 @@ func DiscoverSensitiveConfigFiles(baseURL string, opts http_utils.HistoryCreatio
 			Headers: map[string]string{
 				"Accept": "text/plain,application/json",
 			},
-			HistoryCreationOptions: opts,
+			HistoryCreationOptions: options.HistoryCreationOptions,
+			HttpClient:             options.HttpClient,
+			SiteBehavior:           options.SiteBehavior,
 		},
 		ValidationFunc: IsSensitiveConfigFileValidationFunc,
 		IssueCode:      db.SensitiveConfigDetectedCode,

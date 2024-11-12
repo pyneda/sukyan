@@ -2,9 +2,6 @@ package discovery
 
 import (
 	"net/http"
-	"net/url"
-	"path"
-	"strings"
 )
 
 func min(a, b int) int {
@@ -12,15 +9,6 @@ func min(a, b int) int {
 		return a
 	}
 	return b
-}
-
-func joinURLPath(baseURL, urlPath string) string {
-	u, err := url.Parse(baseURL)
-	if err != nil {
-		return baseURL + "/" + strings.TrimPrefix(urlPath, "/")
-	}
-	u.Path = path.Join(u.Path, urlPath)
-	return u.String()
 }
 
 func setDefaultHeaders(req *http.Request, hasBody bool) {

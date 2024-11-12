@@ -64,7 +64,7 @@ func isCloudMetadataValidationFunc(history *db.History) (bool, string, int) {
 
 	bodyStr := string(history.ResponseBody)
 	details := fmt.Sprintf("Cloud metadata endpoint exposed: %s\n", history.URL)
-	confidence := 80
+	confidence := 30
 
 	indicators := map[string]map[string]string{
 		"AWS": {
@@ -112,7 +112,7 @@ func isCloudMetadataValidationFunc(history *db.History) (bool, string, int) {
 		foundIndicators := 0
 		for indicator, description := range providerIndicators {
 			if strings.Contains(bodyStr, indicator) {
-				confidence += 5
+				confidence += 20
 				details += fmt.Sprintf("- Contains %s %s: %s\n", provider, description, indicator)
 				foundIndicators++
 			}
@@ -126,7 +126,7 @@ func isCloudMetadataValidationFunc(history *db.History) (bool, string, int) {
 		for header, expectedValue := range expectedHeaders {
 			if value, exists := headers[header]; exists {
 				if expectedValue == "" || strings.Contains(strings.Join(value, ""), expectedValue) {
-					confidence += 10
+					confidence += 20
 					details += fmt.Sprintf("- Found %s metadata header: %s\n", provider, header)
 				}
 			}
@@ -146,16 +146,12 @@ func isCloudMetadataValidationFunc(history *db.History) (bool, string, int) {
 
 	for _, pattern := range sensitivePatterns {
 		if strings.Contains(strings.ToLower(bodyStr), strings.ToLower(pattern)) {
-			confidence += 10
+			confidence += 20
 			details += fmt.Sprintf("- Contains sensitive information: %s\n", pattern)
 		}
 	}
 
-	if confidence > 100 {
-		confidence = 100
-	}
-
-	return confidence >= 80, details, confidence
+	return confidence >= 50, details, min(confidence, 100)
 }
 
 func DiscoverCloudMetadata(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {

@@ -31,6 +31,7 @@ require (
 	github.com/pyneda/nuclei-api v0.0.0-20230715211054-636941207b06
 	github.com/quic-go/quic-go v0.42.0
 	github.com/rs/zerolog v1.32.0
+	github.com/sergi/go-diff v1.3.1
 	github.com/sourcegraph/conc v0.3.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.18.2

@@ -37,7 +37,7 @@ func IsSensitiveConfigFileValidationFunc(history *db.History) (bool, string, int
 
 	// Base confidence for 200 status code response
 	if history.StatusCode == 200 {
-		confidence += 50
+		confidence += 30
 		details += "- Received 200 OK status for configuration file endpoint\n"
 	}
 
@@ -62,31 +62,40 @@ func IsSensitiveConfigFileValidationFunc(history *db.History) (bool, string, int
 
 	for indicator, description := range configIndicators {
 		if strings.Contains(bodyStr, indicator) {
-			confidence += 10
+			confidence += 30
 			details += fmt.Sprintf("- Contains sensitive indicator: %s\n", description)
 		}
 	}
 
-	// Check for sensitive headers (e.g., exposing content-type as text/plain)
-	headers, err := history.GetResponseHeadersAsMap()
-	if err == nil {
-		if contentType, ok := headers["Content-Type"]; ok {
-			for _, val := range contentType {
-				if strings.Contains(val, "text/plain") {
-					confidence += 10
-					details += "- Content-Type is text/plain, possibly exposing raw data\n"
-					break
-				}
-			}
-		}
+	if strings.Contains(history.ResponseContentType, "text/plain") {
+		confidence += 30
+		details += "- Correct content type for configuration files\n"
 	}
 
-	// Return true if confidence is at a reasonable level
-	if confidence >= 50 {
-		return true, details, confidence
+	if strings.Contains(history.ResponseContentType, "text/yaml") ||
+		strings.Contains(history.ResponseContentType, "application/x-yaml") {
+		confidence += 30
+		details += "- Correct content type for YAML configuration files\n"
 	}
 
-	return false, "", 0
+	if strings.Contains(history.ResponseContentType, "application/json") {
+		confidence += 30
+		details += "- Correct content type for JSON configuration files\n"
+	}
+
+	if strings.Contains(history.ResponseContentType, "application/xml") ||
+		strings.Contains(history.ResponseContentType, "text/xml") {
+		confidence += 30
+		details += "- Correct content type for XML configuration files\n"
+	}
+
+	if strings.Contains(history.ResponseContentType, "application/octet-stream") {
+		confidence += 30
+		details += "- Correct content type for binary configuration files\n"
+	}
+
+	return confidence >= minConfidence(), details, min(confidence, 100)
+
 }
 
 func DiscoverSensitiveConfigFiles(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {

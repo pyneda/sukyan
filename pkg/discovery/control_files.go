@@ -20,11 +20,11 @@ func IsWebServerControlFileValidationFunc(history *db.History) (bool, string, in
 	if history.StatusCode == 200 {
 		bodyStr := string(history.ResponseBody)
 		details := fmt.Sprintf("Web server access control file detected at: %s\n", history.URL)
-		confidence := 50
+		confidence := 30
 
 		contentType := strings.ToLower(history.ResponseContentType)
 		if strings.Contains(contentType, "text/plain") {
-			confidence += 20
+			confidence += 30
 			details += "- Served with text/plain content type\n"
 		}
 
@@ -57,7 +57,7 @@ func IsWebServerControlFileValidationFunc(history *db.History) (bool, string, in
 			}
 		}
 
-		return true, details, min(100, confidence)
+		return confidence >= minConfidence(), details, min(100, confidence)
 	}
 
 	return false, "", 0

@@ -37,23 +37,24 @@ var ActuatorPaths = []string{
 func IsActuatorValidationFunc(history *db.History) (bool, string, int) {
 	if history.StatusCode == 200 {
 		details := fmt.Sprintf("Spring Boot Actuator endpoint found: %s\n", history.URL)
-		confidence := 80
+		confidence := 40
 
 		var jsonBody map[string]interface{}
 		if strings.Contains(history.ResponseContentType, "application/json") {
+			confidence += 10
 			if err := json.Unmarshal([]byte(history.ResponseBody), &jsonBody); err == nil {
 				bodyStr := string(history.ResponseBody)
 
 				if _, exists := jsonBody["status"]; exists {
-					confidence += 10
+					confidence += 30
 					details += "- Exposes application status information\n"
 				}
 				if _, exists := jsonBody["propertySources"]; exists {
-					confidence += 10
+					confidence += 40
 					details += "- Exposes environment properties\n"
 				}
 				if _, exists := jsonBody["beans"]; exists {
-					confidence += 10
+					confidence += 40
 					details += "- Exposes application beans configuration\n"
 				}
 
@@ -61,12 +62,13 @@ func IsActuatorValidationFunc(history *db.History) (bool, string, int) {
 				for _, pattern := range sensitivePatterns {
 					if strings.Contains(strings.ToLower(bodyStr), pattern) {
 						details += fmt.Sprintf("- Contains potentially sensitive information related to: %s\n", pattern)
+						confidence += 10
 					}
 				}
 			}
 		}
 
-		return true, details, min(confidence, 100)
+		return confidence >= 50, details, min(confidence, 100)
 	}
 
 	return false, "", 0

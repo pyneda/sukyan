@@ -112,7 +112,11 @@ func isCloudMetadataValidationFunc(history *db.History) (bool, string, int) {
 		foundIndicators := 0
 		for indicator, description := range providerIndicators {
 			if strings.Contains(bodyStr, indicator) {
-				confidence += 20
+				if strings.Contains(strings.ToLower(history.URL), strings.ToLower(indicator)) {
+					confidence += 5
+				} else {
+					confidence += 20
+				}
 				details += fmt.Sprintf("- Contains %s %s: %s\n", provider, description, indicator)
 				foundIndicators++
 			}
@@ -145,8 +149,13 @@ func isCloudMetadataValidationFunc(history *db.History) (bool, string, int) {
 	}
 
 	for _, pattern := range sensitivePatterns {
-		if strings.Contains(strings.ToLower(bodyStr), strings.ToLower(pattern)) {
-			confidence += 5
+		lowerPattern := strings.ToLower(pattern)
+		if strings.Contains(strings.ToLower(bodyStr), lowerPattern) {
+			if strings.Contains(strings.ToLower(history.URL), lowerPattern) {
+				confidence += 2
+			} else {
+				confidence += 5
+			}
 			details += fmt.Sprintf("- Contains sensitive information: %s\n", pattern)
 		}
 	}

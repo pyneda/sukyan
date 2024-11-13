@@ -200,7 +200,7 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 			result.History = history
 
 			if input.SiteBehavior != nil && input.SiteBehavior.IsNotFound(history) {
-				log.Info().Msg("skipping not found response based on site behavior")
+				log.Debug().Int("history", int(history.ID)).Str("url", history.URL).Int("status_code", history.StatusCode).Msg("skipping not found response based on site behavior")
 				return result, nil
 			}
 

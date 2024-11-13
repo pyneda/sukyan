@@ -121,8 +121,13 @@ func isPaymentTestEndpointValidationFunc(history *db.History) (bool, string, int
 
 	for provider, indicators := range paymentProviders {
 		for _, indicator := range indicators {
-			if strings.Contains(strings.ToLower(bodyStr), strings.ToLower(indicator)) {
-				confidence += 15
+			lowerIndicator := strings.ToLower(indicator)
+			if strings.Contains(strings.ToLower(bodyStr), lowerIndicator) {
+				if strings.Contains(strings.ToLower(history.URL), lowerIndicator) {
+					confidence += 5
+				} else {
+					confidence += 20
+				}
 				details += fmt.Sprintf("- Contains %s payment test indicator: %s\n", provider, indicator)
 			}
 		}
@@ -145,20 +150,8 @@ func isPaymentTestEndpointValidationFunc(history *db.History) (bool, string, int
 		}
 	}
 
-	if strings.Contains(strings.ToLower(history.URL), "test") ||
-		strings.Contains(strings.ToLower(history.URL), "sandbox") {
-		confidence += 10
-	}
+	return confidence >= minConfidence(), details, confidence
 
-	if confidence > 100 {
-		confidence = 100
-	}
-
-	if confidence >= 25 {
-		return true, details, confidence
-	}
-
-	return false, "", 0
 }
 
 func DiscoverPaymentTestEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {

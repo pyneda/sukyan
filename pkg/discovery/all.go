@@ -6,6 +6,7 @@ import (
 
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
+	"github.com/sourcegraph/conc/pool"
 )
 
 type DiscoveryResult struct {
@@ -63,16 +64,41 @@ func DiscoverAll(options DiscoveryOptions) ([]DiscoveryResult, error) {
 		"elmah":          DiscoverElmah,
 	}
 
+	p := pool.NewWithResults[struct {
+		Result DiscoveryResult
+		Error  error
+	}]().WithMaxGoroutines(5)
+
 	for source, discoverFunc := range discoveryFunctions {
-		log.Info().Str("check", source).Msg("Discovering hidden paths")
-		results, err := discoverFunc(options)
-		if err != nil {
-			errors = append(errors, fmt.Errorf("%s discovery failed: %w", source, err))
+		source := source
+		discoverFunc := discoverFunc
+
+		p.Go(func() struct {
+			Result DiscoveryResult
+			Error  error
+		} {
+			log.Info().Str("check", source).Msg("Discovering hidden paths")
+			results, err := discoverFunc(options)
+			return struct {
+				Result DiscoveryResult
+				Error  error
+			}{
+				Result: DiscoveryResult{
+					Source:  source,
+					Results: results,
+				},
+				Error: err,
+			}
+		})
+	}
+
+	responses := p.Wait()
+
+	for _, resp := range responses {
+		if resp.Error != nil {
+			errors = append(errors, fmt.Errorf("%s discovery failed: %w", resp.Result.Source, resp.Error))
 		} else {
-			allResults = append(allResults, DiscoveryResult{
-				Source:  source,
-				Results: results,
-			})
+			allResults = append(allResults, resp.Result)
 		}
 	}
 

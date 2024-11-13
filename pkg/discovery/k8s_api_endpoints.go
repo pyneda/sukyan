@@ -61,7 +61,7 @@ func IsKubernetesValidationFunc(history *db.History) (bool, string, int) {
 	}
 
 	if history.StatusCode == 200 {
-		confidence = 30
+		confidence = 25
 
 		// Check response structure
 		k8sIndicators := map[string]string{
@@ -86,7 +86,7 @@ func IsKubernetesValidationFunc(history *db.History) (bool, string, int) {
 	}
 
 	// Return true if we have any level of confidence
-	if confidence > 0 {
+	if confidence >= minConfidence()+20 {
 		if history.StatusCode == 200 {
 			details += "\nWARNING: Unauthenticated access to Kubernetes API detected\n"
 		}

@@ -48,9 +48,9 @@ type axis2Pattern struct {
 
 var axis2Fingerprints = []axis2Pattern{
 	// HTML Title patterns
-	{pattern: "<title>Axis 2 - ", description: "Axis2 page title", weight: 30, location: "body"},
-	{pattern: "<title>Axis2 :: ", description: "Axis2 page title variation", weight: 30, location: "body"},
-	{pattern: "<title>Welcome to Apache Axis2", description: "Axis2 welcome page", weight: 35, location: "body"},
+	{pattern: "<title>Axis 2 - ", description: "Axis2 page title", weight: 40, location: "body"},
+	{pattern: "<title>Axis2 :: ", description: "Axis2 page title variation", weight: 40, location: "body"},
+	{pattern: "<title>Welcome to Apache Axis2", description: "Axis2 welcome page", weight: 45, location: "body"},
 
 	// Admin interface patterns
 	{pattern: "Axis2 Administration Page", description: "Admin interface", weight: 40, location: "body"},
@@ -87,7 +87,7 @@ var axis2Fingerprints = []axis2Pattern{
 	{pattern: "The requested service is not available", description: "Service error", weight: 25, location: "error"},
 
 	// Configuration patterns
-	{pattern: "engagingglobally", description: "Global configuration", weight: 25, location: "body"},
+	{pattern: "engagingglobally", description: "Global configuration", weight: 10, location: "body"},
 	{pattern: "engageToService", description: "Service configuration", weight: 25, location: "body"},
 	{pattern: "View Global Chain", description: "Handler chain view", weight: 25, location: "body"},
 
@@ -105,8 +105,8 @@ var axis2Fingerprints = []axis2Pattern{
 	{pattern: "Operation Specific Parameters", description: "Operation params", weight: 25, location: "body"},
 
 	// Authentication related
-	{pattern: "username", description: "Authentication form", weight: 20, location: "body"},
-	{pattern: "Invalid auth credentials", description: "Auth error", weight: 25, location: "error"},
+	{pattern: "username", description: "Authentication form", weight: 10, location: "body"},
+	{pattern: "Invalid auth credentials", description: "Auth error", weight: 10, location: "error"},
 
 	// XML patterns
 	{pattern: "application/xml", description: "XML content type", weight: 15, location: "header"},
@@ -169,13 +169,8 @@ func IsAxis2ValidationFunc(history *db.History) (bool, string, int) {
 		}
 	}
 
-	// Additional context-based confidence adjustments
-	if strings.Contains(history.URL, "axis2-admin") || strings.Contains(history.URL, "axis2-web") {
-		confidence += 10
-	}
-
 	if strings.Contains(bodyStr, "axis2") && strings.Contains(bodyStr, "apache") {
-		confidence += 10
+		confidence += 5
 	}
 
 	if len(matches) > 0 {
@@ -185,14 +180,8 @@ func IsAxis2ValidationFunc(history *db.History) (bool, string, int) {
 		}
 	}
 
-	if confidence >= 50 {
-		if confidence > 100 {
-			confidence = 100
-		}
-		return true, details, confidence
-	}
+	return confidence >= minConfidence(), details, confidence
 
-	return false, "", 0
 }
 
 func DiscoverAxis2Endpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {

@@ -246,8 +246,13 @@ func IsDBManagementValidationFunc(history *db.History) (bool, string, int) {
 		systemMatches := 0
 		for pattern, description := range patterns {
 			if strings.Contains(bodyStr, pattern) {
-				systemMatches++
+				if strings.Contains(strings.ToLower(history.URL), strings.ToLower(pattern)) {
+					confidence += 5
+				} else {
+					confidence += 25
+				}
 				details += fmt.Sprintf("- Found %s %s\n", system, description)
+				systemMatches++
 			}
 		}
 		if systemMatches > 0 {

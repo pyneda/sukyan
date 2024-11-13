@@ -195,7 +195,7 @@ func IsDBManagementValidationFunc(history *db.History) (bool, string, int) {
 
 		for selector, description := range interfaceElements {
 			if doc.Find(selector).Length() > 0 {
-				confidence += 25
+				confidence += 50
 				details += fmt.Sprintf("- Found %s\n", description)
 			}
 		}
@@ -251,15 +251,12 @@ func IsDBManagementValidationFunc(history *db.History) (bool, string, int) {
 			}
 		}
 		if systemMatches > 0 {
-			confidence += min(systemMatches*10, 30)
+			confidence += systemMatches * 20
 		}
 	}
 
-	if confidence >= 40 {
-		return true, details, min(confidence, 100)
-	}
+	return confidence >= minConfidence(), details, min(confidence, 100)
 
-	return false, "", 0
 }
 
 func DiscoverDBManagementInterfaces(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {

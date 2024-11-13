@@ -146,7 +146,7 @@ func isCloudMetadataValidationFunc(history *db.History) (bool, string, int) {
 
 	for _, pattern := range sensitivePatterns {
 		if strings.Contains(strings.ToLower(bodyStr), strings.ToLower(pattern)) {
-			confidence += 20
+			confidence += 5
 			details += fmt.Sprintf("- Contains sensitive information: %s\n", pattern)
 		}
 	}

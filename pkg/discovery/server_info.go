@@ -52,20 +52,17 @@ func isServerInfoValidationFunc(history *db.History) (bool, string, int) {
 
 	for _, indicator := range serverIndicators {
 		if strings.Contains(bodyLower, indicator) {
-			confidence += 20
+			if indicator == "version" || indicator == "modules" {
+				confidence += 5
+			} else {
+				confidence += 30
+			}
 			details += fmt.Sprintf("- Contains server information: %s\n", indicator)
 		}
 	}
 
-	if confidence > 100 {
-		confidence = 100
-	}
+	return confidence >= minConfidence(), details, min(confidence, 100)
 
-	if confidence >= 40 {
-		return true, details, confidence
-	}
-
-	return false, "", 0
 }
 
 func DiscoverServerInfo(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {

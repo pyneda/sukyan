@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/pyneda/sukyan/db"
@@ -190,45 +192,66 @@ func (b *SiteBehavior) IsNotFound(history *db.History) bool {
 		log.Debug().Msg("history is nil, returning false")
 		return false
 	}
+	logger := history.Logger()
 
 	if b.NotFoundReturns404 {
-		log.Debug().Int("status_code", history.StatusCode).Msg("NotFoundReturns404 is true, checking if status code is 404")
+		logger.Debug().Int("status_code", history.StatusCode).Msg("NotFoundReturns404 is true, checking if status code is 404")
 		return history.StatusCode == 404
 	}
 
+	if strings.Contains(strings.ToLower(history.ResponseContentType), "text/html") {
+		bodyStr := string(history.ResponseBody)
+		titleRegex := regexp.MustCompile(`(?i)<title[^>]*>(.*?)</title>`)
+		if matches := titleRegex.FindStringSubmatch(bodyStr); len(matches) > 1 {
+			title := strings.ToLower(matches[1])
+			if strings.Contains(title, "404") || strings.Contains(title, "not found") {
+				logger.Debug().Str("title", matches[1]).Msg("Found 404/not found in HTML title, returning true")
+				return true
+			}
+		}
+		h1Regex := regexp.MustCompile(`(?i)<h1[^>]*>(.*?)</h1>`)
+		if matches := h1Regex.FindStringSubmatch(bodyStr); len(matches) > 1 {
+			title := strings.ToLower(matches[1])
+			if strings.Contains(title, "404") || strings.Contains(title, "not found") {
+				logger.Debug().Str("title", matches[1]).Msg("Found 404/not found in H1 HTML title, returning true")
+				return true
+			}
+		}
+	}
+
 	if history.URL != b.BaseURLSample.URL {
-		log.Debug().Str("history_url", history.URL).Str("base_url_sample", b.BaseURLSample.URL).Msg("history.URL != b.BaseURLSample.URL")
+		logger.Debug().Str("history_url", history.URL).Str("base_url_sample", b.BaseURLSample.URL).Msg("history.URL != b.BaseURLSample.URL")
 		if b.BaseURLSample.ResponseHash() == history.ResponseHash() {
-			log.Debug().Msg("history response hash matches base URL sample response hash, returning true")
+			logger.Debug().Msg("history response hash matches base URL sample response hash, returning true")
 			return true
 		}
 
 		if len(history.ResponseBody) == len(b.BaseURLSample.ResponseBody) {
-			log.Debug().Msg("history response body length matches base URL sample response body length, returning true")
+			logger.Debug().Msg("history response body length matches base URL sample response body length, returning true")
 			return true
 		}
 	}
 
 	if b.CommonHash == history.ResponseHash() {
-		log.Debug().Str("history_hash", history.ResponseHash()).Str("common_hash", b.CommonHash).Msg("history response hash matches CommonHash, returning true")
+		logger.Debug().Str("history_hash", history.ResponseHash()).Str("common_hash", b.CommonHash).Msg("history response hash matches CommonHash, returning true")
 		return true
 	}
 
 	for _, sample := range b.NotFoundSamples {
 		if history.ResponseHash() == sample.ResponseHash() {
-			log.Debug().Interface("sample", sample).Str("history_hash", history.ResponseHash()).Str("sample_hash", sample.ResponseHash()).Msg("history response hash matches not found sample response hash, returning true")
+			logger.Debug().Interface("sample", sample).Str("history_hash", history.ResponseHash()).Str("sample_hash", sample.ResponseHash()).Msg("history response hash matches not found sample response hash, returning true")
 			return true
 		}
 
 		if len(history.ResponseBody) == len(sample.ResponseBody) {
-			log.Debug().Int("history_length", len(history.ResponseBody)).Int("sample_length", len(sample.ResponseBody)).Msg("history response body length matches not found sample response body length, returning true")
+			logger.Debug().Int("history_length", len(history.ResponseBody)).Int("sample_length", len(sample.ResponseBody)).Msg("history response body length matches not found sample response body length, returning true")
 			return true
 		}
 
 		similarity := lib.ComputeSimilarity(history.ResponseBody, sample.ResponseBody)
-		log.Debug().Float64("similarity", similarity).Msg("Response similarity with not found sample")
+		logger.Debug().Float64("similarity", similarity).Msg("Response similarity with not found sample")
 		if similarity > 0.9 {
-			log.Debug().Float64("similarity", similarity).Msg("history response is similar to not found sample, returning true")
+			logger.Debug().Float64("similarity", similarity).Msg("history response is similar to not found sample, returning true")
 			return true
 		}
 	}

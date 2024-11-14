@@ -36,64 +36,54 @@ func isSocketIOValidationFunc(history *db.History) (bool, string, int) {
 	details := fmt.Sprintf("Socket.IO endpoint found: %s\n", history.URL)
 	confidence := 0
 
-	socketioIndicators := []string{
-		"\"sid\":\"",
-		"\"upgrades\":",
-		"\"pingInterval\":",
-		"\"pingTimeout\":",
-		"\"maxPayload\":",
-		"engineio",
-		"websocket",
-		"polling",
-	}
-
-	headers, _ := history.GetResponseHeadersAsMap()
-
-	if strings.Contains(history.URL, "socket.io") {
-		confidence += 20
-		details += "- Socket.IO path pattern detected\n"
-	}
-
+	var jsonData map[string]interface{}
 	if strings.Contains(history.ResponseContentType, "application/json") {
-		var jsonData map[string]interface{}
+		confidence += 15
 		if err := json.Unmarshal([]byte(bodyStr), &jsonData); err == nil {
-			for _, indicator := range socketioIndicators {
-				if strings.Contains(bodyStr, indicator) {
-					confidence += 10
-					details += fmt.Sprintf("- Contains Socket.IO configuration: %s\n", indicator)
+			if sid, ok := jsonData["sid"].(string); ok && sid != "" {
+				confidence += 35
+				details += "- Valid Socket.IO session ID detected\n"
+			}
+
+			if upgrades, ok := jsonData["upgrades"].([]interface{}); ok {
+				for _, upgrade := range upgrades {
+					if upgradeStr, ok := upgrade.(string); ok && upgradeStr == "websocket" {
+						confidence += 20
+						details += "- WebSocket upgrade supported\n"
+						break
+					}
+				}
+			}
+
+			configParams := map[string]string{
+				"pingInterval": "Ping interval configuration",
+				"pingTimeout":  "Ping timeout configuration",
+				"maxPayload":   "Maximum payload size configuration",
+			}
+
+			for param, description := range configParams {
+				if _, ok := jsonData[param]; ok {
+					confidence += 20
+					details += fmt.Sprintf("- %s present\n", description)
 				}
 			}
 		}
 	}
 
-	for header, values := range headers {
-		headerValue := strings.Join(values, " ")
-		if strings.Contains(strings.ToLower(header), "websocket") ||
-			strings.Contains(strings.ToLower(headerValue), "websocket") {
-			confidence += 10
-			details += "- WebSocket header detected\n"
+	headers, _ := history.GetResponseHeadersAsMap()
+	if headers != nil {
+		if _, hasUpgrade := headers["Upgrade"]; hasUpgrade {
+			confidence += 40
+			details += "- WebSocket upgrade header present\n"
+		}
+
+		if origins, hasCORS := headers["Access-Control-Allow-Origin"]; hasCORS {
+			confidence += 5
+			details += fmt.Sprintf("- CORS configuration present: %v\n", origins)
 		}
 	}
 
-	if cors, exists := headers["Access-Control-Allow-Origin"]; exists {
-		details += fmt.Sprintf("- CORS configuration: %v\n", cors)
-		confidence += 5
-	}
-
-	if strings.Contains(bodyStr, "Bad request") || strings.Contains(bodyStr, "Not Found") {
-		confidence += 10
-		details += "- Standard Socket.IO error response detected\n"
-	}
-
-	if confidence > 100 {
-		confidence = 100
-	}
-
-	if confidence >= 25 {
-		return true, details, confidence
-	}
-
-	return false, "", 0
+	return confidence >= minConfidence(), details, min(confidence, 100)
 }
 
 func DiscoverSocketIO(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {

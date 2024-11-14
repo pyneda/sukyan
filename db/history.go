@@ -8,6 +8,7 @@ import (
 
 	"github.com/pyneda/sukyan/lib"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -44,6 +45,11 @@ type History struct {
 	Task                 Task              `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	PlaygroundSessionID  *uint             `json:"playground_session_id" gorm:"index" `
 	PlaygroundSession    PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+func (h History) Logger() *zerolog.Logger {
+	logger := log.With().Uint("history", h.ID).Str("method", h.Method).Str("url", h.URL).Logger()
+	return &logger
 }
 
 func (h History) ResponseHash() string {

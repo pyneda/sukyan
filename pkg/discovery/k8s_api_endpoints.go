@@ -83,13 +83,10 @@ func IsKubernetesValidationFunc(history *db.History) (bool, string, int) {
 		if strings.Contains(history.ResponseContentType, "application/json") {
 			confidence += 20
 		}
-	}
-
-	// Return true if we have any level of confidence
-	if confidence >= minConfidence()+20 {
-		if history.StatusCode == 200 {
-			details += "\nWARNING: Unauthenticated access to Kubernetes API detected\n"
+		if strings.Contains(history.ResponseContentType, "text/html") {
+			confidence -= 20
 		}
+
 	}
 
 	return confidence >= minConfidence(), details, confidence
@@ -101,7 +98,7 @@ func DiscoverKubernetesEndpoints(options DiscoveryOptions) (DiscoverAndCreateIss
 			URL:         options.BaseURL,
 			Method:      "GET",
 			Paths:       KubernetesPaths,
-			Concurrency: 10,
+			Concurrency: DefaultConcurrency,
 			Timeout:     DefaultTimeout,
 			Headers: map[string]string{
 				"Accept": "application/json",

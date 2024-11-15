@@ -8,6 +8,7 @@ import (
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/tokens"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
@@ -185,6 +186,44 @@ func FileUploadScan(item *db.History) {
 	}
 }
 
+func attemtToCrackJwtIfRequired(item *db.History, jwt *db.JsonWebToken) {
+	if jwt != nil && !jwt.TestedEmbeddedWordlist && !jwt.Cracked {
+		log.Info().Uint("token_id", jwt.ID).Str("token", jwt.Token).Msg("Token seen for the first time, attempting to crack it with embedded wordlist")
+		crackResult, err := tokens.CrackJWTAndCreateIssue(item, jwt)
+		if err != nil {
+			log.Err(err).Uint("token_id", jwt.ID).Str("token", jwt.Token).Msg("Failed to crack JWT")
+		} else if crackResult.Found {
+			log.Info().Uint("token_id", jwt.ID).Str("token", jwt.Token).Str("secret", crackResult.Secret).Msg("JWT cracked")
+		} else {
+			log.Info().Uint("token_id", jwt.ID).Str("token", jwt.Token).Msg("JWT secret could not be found")
+		}
+	} else if jwt != nil && jwt.Cracked {
+		log.Info().Uint("token_id", jwt.ID).Str("token", jwt.Token).Msg("Token already cracked")
+		noTaskJob := uint(0)
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("A JWT token that had been cracked previously has been discovered in a %s request to %s\n\n", item.Method, item.URL))
+		sb.WriteString("Details:\n")
+		sb.WriteString(fmt.Sprintf("- Algorithm: %s\n", jwt.Algorithm))
+
+		sb.WriteString(fmt.Sprintf("- Discovered Secret: %s\n\n", jwt.Secret))
+		issue, err := db.CreateIssueFromHistoryAndTemplate(
+			item,
+			db.JwtWeakSigningSecretCode,
+			sb.String(),
+			100,
+			"",
+			item.WorkspaceID,
+			item.TaskID,
+			&noTaskJob,
+		)
+		if err != nil {
+			log.Error().Err(err).Str("token", jwt.Token).Msg("Failed to create issue for already cracked JWT")
+		} else {
+			log.Info().Str("token", jwt.Token).Str("secret", jwt.Secret).Uint("issue_id", issue.ID).Msg("Created issue for already cracked JWT")
+		}
+	}
+}
+
 func JwtDetectionScan(item *db.History) {
 
 	// Check ResponseBody
@@ -195,7 +234,13 @@ func JwtDetectionScan(item *db.History) {
 		log.Info().Strs("matches", matches).Msg("Found JWTs")
 		for _, match := range matches {
 			sb.WriteString(fmt.Sprintf("\n - %s", match))
-			db.Connection.GetOrCreateJWTFromTokenAndHistory(match, item.ID)
+			jwt, err := db.Connection.GetOrCreateJWTFromTokenAndHistory(match, item.ID)
+			if err != nil {
+				log.Err(err).Msg("Failed to get or create JWT")
+				continue
+			}
+			attemtToCrackJwtIfRequired(item, jwt)
+
 		}
 		details := sb.String()
 		db.CreateIssueFromHistoryAndTemplate(item, db.JwtDetectedCode, details, 90, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID)
@@ -225,7 +270,12 @@ func checkHeadersForJwt(item *db.History, headers map[string][]string) {
 				sb.WriteString(fmt.Sprintf("Detected potential JWTs in %s header:", key))
 				for _, match := range matches {
 					sb.WriteString(fmt.Sprintf("\n - %s", match))
-					db.Connection.GetOrCreateJWTFromTokenAndHistory(match, item.ID)
+					jwt, err := db.Connection.GetOrCreateJWTFromTokenAndHistory(match, item.ID)
+					if err != nil {
+						log.Err(err).Msg("Failed to get or create JWT")
+						continue
+					}
+					attemtToCrackJwtIfRequired(item, jwt)
 				}
 
 			}

@@ -14,19 +14,22 @@ import (
 
 type JsonWebToken struct {
 	BaseModel
-	Token       string         `gorm:"type:text" json:"token"`
-	Header      datatypes.JSON `gorm:"type:json" json:"header" swaggerignore:"true"`
-	Payload     datatypes.JSON `gorm:"type:json" json:"payload" swaggerignore:"true"`
-	Signature   string         `gorm:"type:text" json:"signature"`
-	Algorithm   string         `gorm:"type:text" json:"algorithm"`
-	Issuer      string         `gorm:"type:text" json:"issuer"`
-	Subject     string         `gorm:"type:text" json:"subject"`
-	Audience    string         `gorm:"type:text" json:"audience"`
-	Expiration  time.Time      `gorm:"type:timestamp" json:"expiration"`
-	IssuedAt    time.Time      `gorm:"type:timestamp" json:"issued_at"`
-	Histories   []History      `gorm:"many2many:json_web_token_histories;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"histories"`
-	Workspace   Workspace      `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID *uint          `json:"workspace_id"`
+	Token                  string         `gorm:"type:text" json:"token"`
+	Header                 datatypes.JSON `gorm:"type:json" json:"header" swaggerignore:"true"`
+	Payload                datatypes.JSON `gorm:"type:json" json:"payload" swaggerignore:"true"`
+	Signature              string         `gorm:"type:text" json:"signature"`
+	Algorithm              string         `gorm:"type:text" json:"algorithm"`
+	Issuer                 string         `gorm:"type:text" json:"issuer"`
+	Subject                string         `gorm:"type:text" json:"subject"`
+	Audience               string         `gorm:"type:text" json:"audience"`
+	Expiration             time.Time      `gorm:"type:timestamp" json:"expiration"`
+	IssuedAt               time.Time      `gorm:"type:timestamp" json:"issued_at"`
+	Histories              []History      `gorm:"many2many:json_web_token_histories;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"histories"`
+	Workspace              Workspace      `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	WorkspaceID            *uint          `json:"workspace_id"`
+	TestedEmbeddedWordlist bool           `json:"tested_embedded_wordlist"`
+	Cracked                bool           `json:"cracked"`
+	Secret                 string         `json:"secret"`
 }
 
 func (j JsonWebToken) TableHeaders() []string {
@@ -197,4 +200,13 @@ func (d *DatabaseConnection) ListJsonWebTokens(filters JwtFilters) ([]*JsonWebTo
 		return nil, err
 	}
 	return jwts, nil
+}
+
+func (d *DatabaseConnection) UpdateJWT(jwtID uint, jwt *JsonWebToken) error {
+	result := d.db.Model(&JsonWebToken{}).Where("id = ?", jwtID).Updates(jwt)
+	if result.Error != nil {
+		log.Error().Err(result.Error).Interface("jwt", jwt).Msg("Failed to update JWT")
+		return result.Error
+	}
+	return nil
 }

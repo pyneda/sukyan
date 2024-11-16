@@ -9,7 +9,11 @@ import (
 )
 
 func TestGetChildrenHistories(t *testing.T) {
-	workspace, err := Connection.CreateDefaultWorkspace()
+	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+		Code:        "history-test",
+		Title:       "history test workspace",
+		Description: "Workspace for history validation tests",
+	})
 	assert.Nil(t, err)
 	workspaceID := workspace.ID
 
@@ -30,7 +34,11 @@ func TestGetChildrenHistories(t *testing.T) {
 }
 
 func TestCreateHistoryIgnoredExtensions(t *testing.T) {
-	workspace, err := Connection.CreateDefaultWorkspace()
+	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+		Code:        "history-test",
+		Title:       "history test workspace",
+		Description: "Workspace for history validation tests",
+	})
 	assert.Nil(t, err)
 	workspaceID := workspace.ID
 
@@ -45,7 +53,11 @@ func TestCreateHistoryIgnoredExtensions(t *testing.T) {
 }
 
 func TestCreateHistoryIgnoredContentTypes(t *testing.T) {
-	workspace, err := Connection.CreateDefaultWorkspace()
+	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+		Code:        "history-test",
+		Title:       "history test workspace",
+		Description: "Workspace for history validation tests",
+	})
 	assert.Nil(t, err)
 	workspaceID := workspace.ID
 
@@ -60,7 +72,11 @@ func TestCreateHistoryIgnoredContentTypes(t *testing.T) {
 }
 
 func TestCreateHistoryIgnoredMaxSize(t *testing.T) {
-	workspace, err := Connection.CreateDefaultWorkspace()
+	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+		Code:        "history-test",
+		Title:       "history test workspace",
+		Description: "Workspace for history validation tests",
+	})
 	assert.Nil(t, err)
 	workspaceID := workspace.ID
 
@@ -75,7 +91,11 @@ func TestCreateHistoryIgnoredMaxSize(t *testing.T) {
 }
 
 func TestGetRootHistoryNodes(t *testing.T) {
-	workspace, err := Connection.CreateDefaultWorkspace()
+	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+		Code:        "history-test",
+		Title:       "history test workspace",
+		Description: "Workspace for history validation tests",
+	})
 	assert.Nil(t, err)
 	workspaceID := workspace.ID
 

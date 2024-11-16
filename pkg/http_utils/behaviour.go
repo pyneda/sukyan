@@ -27,6 +27,7 @@ type SiteBehaviourCheckOptions struct {
 	BaseURL                string
 	HistoryCreationOptions HistoryCreationOptions
 	Client                 *http.Client
+	Headers                map[string][]string `json:"headers" validate:"omitempty"`
 }
 
 func (o *SiteBehaviourCheckOptions) Validate() error {
@@ -74,6 +75,16 @@ func CheckSiteBehavior(options SiteBehaviourCheckOptions) (*SiteBehavior, error)
 		return nil, fmt.Errorf("failed to create base request: %w", err)
 	}
 
+	for key, values := range options.Headers {
+		for _, value := range values {
+			baseReq.Header.Add(key, value)
+		}
+	}
+	if baseReq.Header.Get("User-Agent") == "" {
+		baseReq.Header.Set("User-Agent", DefaultUserAgent)
+	}
+	baseReq.Header.Set("Connection", "keep-alive")
+
 	baseResp, err := SendRequest(client, baseReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get base response: %w", err)
@@ -112,7 +123,14 @@ func CheckSiteBehavior(options SiteBehaviourCheckOptions) (*SiteBehavior, error)
 			}
 
 			req = req.WithContext(ctx)
-			req.Header.Set("User-Agent", DefaultUserAgent)
+			for key, values := range options.Headers {
+				for _, value := range values {
+					baseReq.Header.Add(key, value)
+				}
+			}
+			if req.Header.Get("User-Agent") == "" {
+				req.Header.Set("User-Agent", DefaultUserAgent)
+			}
 			req.Header.Set("Connection", "keep-alive")
 
 			resp, err := SendRequest(client, req)

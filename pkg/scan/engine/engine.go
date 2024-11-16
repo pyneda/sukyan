@@ -185,6 +185,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 			Client:                 discoveryClient,
 			HistoryCreationOptions: createOpts,
 			Concurrency:            10,
+			Headers:                options.Headers,
 		})
 		if err != nil {
 			scanLog.Error().Err(err).Str("base_url", baseURL).Msg("Could not check site behavior")

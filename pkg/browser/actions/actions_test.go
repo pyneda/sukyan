@@ -94,7 +94,7 @@ func startTestServer() *http.Server {
 	})
 
 	server := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":9999",
 		Handler: mux,
 	}
 
@@ -124,7 +124,7 @@ func TestClickAndVisibility(t *testing.T) {
 	rodBrowser := setupRodBrowser(t, true)
 	defer rodBrowser.Close()
 
-	page := rodBrowser.MustPage("http://localhost:8080/page1")
+	page := rodBrowser.MustPage("http://localhost:9999/page1")
 	page.MustWaitLoad()
 
 	actions := []Action{
@@ -152,7 +152,7 @@ func TestFormFillAndSubmit(t *testing.T) {
 	rodBrowser := setupRodBrowser(t, true)
 	defer rodBrowser.Close()
 
-	page := rodBrowser.MustPage("http://localhost:8080/page1")
+	page := rodBrowser.MustPage("http://localhost:9999/page1")
 	page.MustWaitLoad()
 
 	actions := []Action{
@@ -206,7 +206,7 @@ func TestFormFillAndScrollOnPage2(t *testing.T) {
 	actions := []Action{
 		{
 			Type: ActionNavigate,
-			URL:  "http://localhost:8080/page2",
+			URL:  "http://localhost:9999/page2",
 		},
 		{
 			Type:     ActionFill,

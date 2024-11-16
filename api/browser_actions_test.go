@@ -13,14 +13,17 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setupTestApp() *fiber.App {
-	app := fiber.New()
-	return app
-}
-
 func TestCreateStoredBrowserActions(t *testing.T) {
-	app := setupTestApp()
+	app := fiber.New()
 	app.Post("/api/v1/browser-actions", CreateStoredBrowserActions)
+
+	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+		Code:        "test-browser-actions",
+		Title:       "Test Browser Actions Workspace",
+		Description: "Temporary workspace for browser actions tests",
+	})
+	assert.Nil(t, err)
+	assert.NotNil(t, workspace)
 
 	input := BrowserActionsInput{
 		BrowserActions: actions.BrowserActions{
@@ -31,33 +34,40 @@ func TestCreateStoredBrowserActions(t *testing.T) {
 			},
 		},
 		Scope:       db.BrowserActionScopeWorkspace,
-		WorkspaceID: new(uint),
+		WorkspaceID: &workspace.ID,
 	}
-	*input.WorkspaceID = 1
 
-	body, _ := json.Marshal(input)
+	body, err := json.Marshal(input)
+	assert.Nil(t, err)
+
 	req := httptest.NewRequest("POST", "/api/v1/browser-actions", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, _ := app.Test(req)
-
+	resp, err := app.Test(req)
+	assert.Nil(t, err)
 	assert.Equal(t, fiber.StatusCreated, resp.StatusCode)
 
 	var result db.StoredBrowserActions
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.Nil(t, err)
 	assert.NotEqual(t, 0, result.ID)
 	assert.Equal(t, input.Title, result.Title)
 	assert.Equal(t, len(input.Actions), len(result.Actions))
 	assert.Equal(t, input.Scope, result.Scope)
-	assert.Equal(t, input.WorkspaceID, result.WorkspaceID)
+	assert.Equal(t, workspace.ID, *result.WorkspaceID)
 }
 
 func TestUpdateStoredBrowserActions(t *testing.T) {
-	app := setupTestApp()
+	app := fiber.New()
 	app.Put("/api/v1/browser-actions/:id", UpdateStoredBrowserActions)
 
-	// First, create a StoredBrowserActions to update
+	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+		Code:        "test-browser-actions-update",
+		Title:       "Test Browser Actions Update Workspace",
+		Description: "Temporary workspace for browser actions update tests",
+	})
+	assert.Nil(t, err)
+
 	initialInput := BrowserActionsInput{
 		BrowserActions: actions.BrowserActions{
 			Title: "Test Actions for Update",
@@ -65,35 +75,40 @@ func TestUpdateStoredBrowserActions(t *testing.T) {
 				{Type: actions.ActionWait, Duration: 5000},
 			},
 		},
-		Scope: db.BrowserActionScopeGlobal,
+		Scope:       db.BrowserActionScopeWorkspace,
+		WorkspaceID: &workspace.ID,
 	}
+
 	createdSBA, err := db.Connection.CreateStoredBrowserActions(&db.StoredBrowserActions{
-		Title:   initialInput.Title,
-		Actions: initialInput.Actions,
-		Scope:   initialInput.Scope,
+		Title:       initialInput.Title,
+		Actions:     initialInput.Actions,
+		Scope:       initialInput.Scope,
+		WorkspaceID: initialInput.WorkspaceID,
 	})
 	assert.Nil(t, err)
 
-	// Now, update it
 	updatedInput := BrowserActionsInput{
 		BrowserActions: actions.BrowserActions{
 			Title:   "Updated Test Actions",
 			Actions: []actions.Action{{Type: actions.ActionNavigate, URL: "https://example.com"}},
 		},
-		Scope: db.BrowserActionScopeGlobal,
+		Scope:       db.BrowserActionScopeWorkspace,
+		WorkspaceID: &workspace.ID,
 	}
 
-	body, _ := json.Marshal(updatedInput)
+	body, err := json.Marshal(updatedInput)
+	assert.Nil(t, err)
+
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/v1/browser-actions/%d", createdSBA.ID), strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, _ := app.Test(req)
-
+	resp, err := app.Test(req)
+	assert.Nil(t, err)
 	assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 
 	var result db.StoredBrowserActions
-	json.NewDecoder(resp.Body).Decode(&result)
-
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	assert.Nil(t, err)
 	assert.Equal(t, createdSBA.ID, result.ID)
 	assert.Equal(t, updatedInput.Title, result.Title)
 	assert.Equal(t, len(updatedInput.Actions), len(result.Actions))
@@ -101,8 +116,15 @@ func TestUpdateStoredBrowserActions(t *testing.T) {
 }
 
 func TestCreateStoredBrowserActionsValidation(t *testing.T) {
-	app := setupTestApp()
+	app := fiber.New()
 	app.Post("/api/v1/browser-actions", CreateStoredBrowserActions)
+
+	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+		Code:        "test-browser-actions-validation",
+		Title:       "Test Browser Actions Validation",
+		Description: "Workspace for browser actions validation tests",
+	})
+	assert.Nil(t, err)
 
 	testCases := []struct {
 		name  string
@@ -113,6 +135,7 @@ func TestCreateStoredBrowserActionsValidation(t *testing.T) {
 			input: BrowserActionsInput{
 				BrowserActions: actions.BrowserActions{Title: "", Actions: []actions.Action{{Type: "click", Selector: "#button"}}},
 				Scope:          db.BrowserActionScopeGlobal,
+				WorkspaceID:    &workspace.ID,
 			},
 		},
 		{
@@ -120,6 +143,7 @@ func TestCreateStoredBrowserActionsValidation(t *testing.T) {
 			input: BrowserActionsInput{
 				BrowserActions: actions.BrowserActions{Title: "Test Actions", Actions: []actions.Action{}},
 				Scope:          db.BrowserActionScopeGlobal,
+				WorkspaceID:    &workspace.ID,
 			},
 		},
 		{
@@ -127,6 +151,7 @@ func TestCreateStoredBrowserActionsValidation(t *testing.T) {
 			input: BrowserActionsInput{
 				BrowserActions: actions.BrowserActions{Title: "Test Actions", Actions: []actions.Action{{Type: "invalid_type"}}},
 				Scope:          db.BrowserActionScopeGlobal,
+				WorkspaceID:    &workspace.ID,
 			},
 		},
 		{
@@ -134,6 +159,7 @@ func TestCreateStoredBrowserActionsValidation(t *testing.T) {
 			input: BrowserActionsInput{
 				BrowserActions: actions.BrowserActions{Title: "Test Actions", Actions: []actions.Action{{Type: "click"}}},
 				Scope:          db.BrowserActionScopeGlobal,
+				WorkspaceID:    &workspace.ID,
 			},
 		},
 		{
@@ -152,17 +178,22 @@ func TestCreateStoredBrowserActionsValidation(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			resp, _ := app.Test(req)
-
-			assert.NotEqual(t, fiber.StatusCreated, resp.StatusCode, "Expected an error response")
+			assert.NotEqual(t, fiber.StatusCreated, resp.StatusCode)
 		})
 	}
 }
 
 func TestUpdateStoredBrowserActionsValidation(t *testing.T) {
-	app := setupTestApp()
+	app := fiber.New()
 	app.Put("/api/v1/browser-actions/:id", UpdateStoredBrowserActions)
 
-	// Create a valid StoredBrowserActions to update
+	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+		Code:        "test-browser-actions-update-validation",
+		Title:       "Test Browser Actions Update Validation",
+		Description: "Workspace for browser actions update validation tests",
+	})
+	assert.Nil(t, err)
+
 	validInput := BrowserActionsInput{
 		BrowserActions: actions.BrowserActions{
 			Title: "Valid Actions",
@@ -170,13 +201,17 @@ func TestUpdateStoredBrowserActionsValidation(t *testing.T) {
 				{Type: "click", Selector: "#button"},
 			},
 		},
-		Scope: db.BrowserActionScopeGlobal,
+		Scope:       db.BrowserActionScopeWorkspace,
+		WorkspaceID: &workspace.ID,
 	}
-	createdSBA, _ := db.Connection.CreateStoredBrowserActions(&db.StoredBrowserActions{
-		Title:   validInput.Title,
-		Actions: validInput.Actions,
-		Scope:   validInput.Scope,
+
+	createdSBA, err := db.Connection.CreateStoredBrowserActions(&db.StoredBrowserActions{
+		Title:       validInput.Title,
+		Actions:     validInput.Actions,
+		Scope:       validInput.Scope,
+		WorkspaceID: validInput.WorkspaceID,
 	})
+	assert.Nil(t, err)
 
 	testCases := []struct {
 		name  string
@@ -226,8 +261,7 @@ func TestUpdateStoredBrowserActionsValidation(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			resp, _ := app.Test(req)
-
-			assert.NotEqual(t, fiber.StatusOK, resp.StatusCode, "Expected an error response")
+			assert.NotEqual(t, fiber.StatusOK, resp.StatusCode)
 		})
 	}
 }

@@ -3376,6 +3376,9 @@ const docTemplate = `{
                 "audience": {
                     "type": "string"
                 },
+                "cracked": {
+                    "type": "boolean"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -3397,11 +3400,17 @@ const docTemplate = `{
                 "issuer": {
                     "type": "string"
                 },
+                "secret": {
+                    "type": "string"
+                },
                 "signature": {
                     "type": "string"
                 },
                 "subject": {
                     "type": "string"
+                },
+                "tested_embedded_wordlist": {
+                    "type": "boolean"
                 },
                 "token": {
                     "type": "string"

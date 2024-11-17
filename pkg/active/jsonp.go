@@ -1,0 +1,239 @@
+package active
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/url"
+	"strings"
+
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/http_utils"
+	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
+	"github.com/rs/zerolog/log"
+	"github.com/sourcegraph/conc/pool"
+)
+
+var jsonpCallbackParameters = []string{
+	"callback",
+	"jsonp",
+	"cb",
+	"json",
+	"jquery",
+	"jsonpcallback",
+	"jcb",
+	"call",
+}
+
+func getCallbacksForMode(mode scan_options.ScanMode, hasJsonParam bool) []string {
+	switch {
+	case mode == scan_options.ScanModeFuzz:
+		return jsonpCallbackParameters
+	case mode == scan_options.ScanModeSmart:
+		if hasJsonParam {
+			return jsonpCallbackParameters
+		}
+		return jsonpCallbackParameters[:5]
+	case mode == scan_options.ScanModeFast:
+		if hasJsonParam {
+			return jsonpCallbackParameters
+		}
+		return jsonpCallbackParameters[:2]
+	default:
+		return jsonpCallbackParameters[:2]
+	}
+}
+
+func JSONPCallbackScan(history *db.History, options ActiveModuleOptions) {
+	auditLog := log.With().Str("audit", "jsonp").Str("url", history.URL).Uint("workspace", options.WorkspaceID).Logger()
+
+	if options.Concurrency == 0 {
+		options.Concurrency = 5
+	}
+
+	if isJsonpResponse(string(history.ResponseBody)) {
+		createJSONPIssue(history, "Endpoint returns JSONP response by default", 90, options)
+		return
+	}
+
+	hasJsonParam := hasJsonpParameter(history)
+	callbacksToTest := getCallbacksForMode(options.ScanMode, hasJsonParam)
+
+	client := http_utils.CreateHttpClient()
+	p := pool.New().WithMaxGoroutines(options.Concurrency)
+
+	for _, param := range callbacksToTest {
+		callbackParam := param
+		p.Go(func() {
+			testCallback := lib.GenerateRandomString(8)
+			request, err := http_utils.BuildRequestFromHistoryItem(history)
+			if err != nil {
+				auditLog.Error().Err(err).Msg("Error creating request")
+				return
+			}
+
+			q := request.URL.Query()
+			q.Add(callbackParam, testCallback)
+			request.URL.RawQuery = q.Encode()
+
+			response, err := client.Do(request)
+			if err != nil {
+				auditLog.Error().Err(err).Msg("Error during request")
+				return
+			}
+
+			responseData, _, err := http_utils.ReadFullResponse(response, false)
+			if err != nil {
+				auditLog.Error().Err(err).Msg("Error reading response")
+				return
+			}
+
+			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, http_utils.HistoryCreationOptions{
+				Source:              db.SourceScanner,
+				WorkspaceID:         options.WorkspaceID,
+				TaskID:              options.TaskID,
+				CreateNewBodyStream: false,
+			})
+			if err != nil {
+				auditLog.Error().Err(err).Msg("Error creating history from response")
+				return
+			}
+
+			bodyStr := string(responseData.Body)
+			if isJsonpResponse(bodyStr) {
+				isControllable := strings.Contains(bodyStr, testCallback+"(")
+
+				callbackType := "possible"
+				if isControllable {
+					callbackType = "controllable"
+				}
+
+				paramDiscovery := "No JSONP parameter was initially present"
+				if hasJsonParam {
+					paramDiscovery = "JSONP parameter was already present"
+				}
+
+				controlDetails := "A JSONP response was received but the callback function name might not be fully controllable"
+				if isControllable {
+					controlDetails = "The callback function name is fully controllable via URL parameter"
+				}
+
+				details := fmt.Sprintf(`
+JSONP endpoint detected with %s callback function.
+
+Test Details:
+- Tested Parameter: %s
+- Test Value: %s
+- URL: %s
+- Scan Mode: %s
+- Parameter Discovery: %s
+
+%s
+
+Original Response:
+%s
+
+Modified Response:
+%s
+`,
+					callbackType,
+					callbackParam,
+					testCallback,
+					request.URL.String(),
+					options.ScanMode,
+					paramDiscovery,
+					controlDetails,
+					string(history.ResponseBody),
+					bodyStr)
+
+				confidence := 75
+				if isControllable {
+					confidence = 90
+				}
+				createJSONPIssue(newHistory, details, confidence, options)
+			}
+		})
+	}
+
+	p.Wait()
+	auditLog.Info().
+		Str("scan_mode", string(options.ScanMode)).
+		Bool("has_jsonp_param", hasJsonParam).
+		Int("callbacks_tested", len(callbacksToTest)).
+		Msg("Finished JSONP scan")
+}
+
+func isJsonpResponse(body string) bool {
+	// Remove trailing semicolon if present
+	body = strings.TrimRight(body, ";")
+	body = strings.TrimSpace(body)
+
+	// Basic format check: should end with ) and contain (
+	if !strings.HasSuffix(body, ")") || !strings.Contains(body, "(") {
+		return false
+	}
+
+	// Split into function name and content
+	parts := strings.SplitN(body, "(", 2)
+	if len(parts) != 2 {
+		return false
+	}
+
+	funcName := strings.TrimSpace(parts[0])
+	content := strings.TrimSpace(parts[1])
+
+	// Function name validation
+	if funcName == "" || strings.ContainsAny(funcName, "(){}[]<>") {
+		return false
+	}
+
+	// Remove trailing ) from content
+	content = strings.TrimSuffix(content, ")")
+
+	// Validate JSON content
+	var js interface{}
+	if err := json.Unmarshal([]byte(content), &js); err != nil {
+		return false
+	}
+
+	return true
+}
+func createJSONPIssue(history *db.History, details string, confidence int, options ActiveModuleOptions) {
+	db.CreateIssueFromHistoryAndTemplate(
+		history,
+		db.JsonpEndpointDetectedCode,
+		details,
+		confidence,
+		"",
+		&options.WorkspaceID,
+		&options.TaskID,
+		&options.TaskJobID,
+	)
+}
+
+func hasJsonpParameter(history *db.History) bool {
+	u, err := url.Parse(history.URL)
+	if err != nil {
+		return false
+	}
+
+	queryParams := u.Query()
+
+	for _, param := range jsonpCallbackParameters {
+		if queryParams.Has(param) {
+			return true
+		}
+	}
+
+	jsonpSubstrings := []string{"callback", "jsonp", "json"}
+	for paramName := range queryParams {
+		paramLower := strings.ToLower(paramName)
+		for _, substr := range jsonpSubstrings {
+			if strings.Contains(paramLower, substr) {
+				return true
+			}
+		}
+	}
+
+	return false
+}

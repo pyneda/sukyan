@@ -1,0 +1,26 @@
+code: jsonp_endpoint_detected
+title: JSONP Endpoint Detected
+description: |
+  The application implements JSONP (JSON with Padding) functionality, which allows the response data to be wrapped in a 
+  caller-specified callback function. While JSONP is a legitimate technique for bypassing the Same-Origin Policy to enable 
+  cross-origin data sharing, it can lead to security issues if not properly implemented. An attacker could potentially 
+  exploit JSONP endpoints to steal sensitive data by making the victim's browser request the JSONP endpoint with a 
+  specially crafted callback function.
+remediation: |
+  JSONP is inherently designed to bypass Same-Origin Policy restrictions, making it fundamentally unsuitable for endpoints 
+  that handle sensitive data. The primary recommendation is to avoid using JSONP for any sensitive operations or data access.
+
+  If the endpoint must remain accessible cross-origin:
+  1. Consider replacing JSONP with CORS (Cross-Origin Resource Sharing), which provides better security controls
+  2. If JSONP must be maintained:
+     - Implement strict callback name validation using a whitelist of allowed function names
+     - Add proper authentication checks to prevent unauthorized access
+     - Set appropriate Cache-Control headers to prevent response caching
+     - Consider implementing token-based protection against CSRF attacks
+  3. Evaluate if the endpoint really needs to be accessible cross-origin
+  4. Document all JSONP endpoints and regularly review their necessity and security
+cwe: 939
+severity: Medium
+references:
+  - https://en.wikipedia.org/wiki/JSONP
+  - https://securitycafe.ro/2017/01/18/practical-jsonp-injection/

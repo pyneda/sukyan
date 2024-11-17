@@ -166,6 +166,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		}
 		methods.Run()
 	}
+	JSONPCallbackScan(item, activeOptions)
 
 	log.Info().Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Msg("Finished scanning history item")
 }

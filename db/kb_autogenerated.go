@@ -61,6 +61,7 @@ var (
 	JavaSerializedObjectDetectedCode     IssueCode = "java_serialized_object_detected"
 	JavaServerHeaderCode                 IssueCode = "java_server_header"
 	JettyServerHeaderCode                IssueCode = "jetty_server_header"
+	JsonpEndpointDetectedCode            IssueCode = "jsonp_endpoint_detected"
 	JwtDetectedCode                      IssueCode = "jwt_detected"
 	JwtWeakSigningSecretCode             IssueCode = "jwt_weak_signing_secret"
 	KubernetesApiDetectedCode            IssueCode = "kubernetes_api_detected"
@@ -806,6 +807,18 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         200,
 		Severity:    "Low",
 		References:  []string{},
+	},
+	{
+		Code:        JsonpEndpointDetectedCode,
+		Title:       "JSONP Endpoint Detected",
+		Description: "The application implements JSONP (JSON with Padding) functionality, which allows the response data to be wrapped in a \ncaller-specified callback function. While JSONP is a legitimate technique for bypassing the Same-Origin Policy to enable \ncross-origin data sharing, it can lead to security issues if not properly implemented. An attacker could potentially \nexploit JSONP endpoints to steal sensitive data by making the victim's browser request the JSONP endpoint with a \nspecially crafted callback function.\n",
+		Remediation: "JSONP is inherently designed to bypass Same-Origin Policy restrictions, making it fundamentally unsuitable for endpoints \nthat handle sensitive data. The primary recommendation is to avoid using JSONP for any sensitive operations or data access.\n\nIf the endpoint must remain accessible cross-origin:\n1. Consider replacing JSONP with CORS (Cross-Origin Resource Sharing), which provides better security controls\n2. If JSONP must be maintained:\n   - Implement strict callback name validation using a whitelist of allowed function names\n   - Add proper authentication checks to prevent unauthorized access\n   - Set appropriate Cache-Control headers to prevent response caching\n   - Consider implementing token-based protection against CSRF attacks\n3. Evaluate if the endpoint really needs to be accessible cross-origin\n4. Document all JSONP endpoints and regularly review their necessity and security\n",
+		Cwe:         939,
+		Severity:    "Medium",
+		References: []string{
+			"https://en.wikipedia.org/wiki/JSONP",
+			"https://securitycafe.ro/2017/01/18/practical-jsonp-injection/",
+		},
 	},
 	{
 		Code:        JwtDetectedCode,

@@ -1,0 +1,32 @@
+code: activex_detected
+title: ActiveX Controls Usage Detected
+description: |
+  The application appears to be using ActiveX controls, which is a deprecated technology
+  primarily associated with Internet Explorer. ActiveX controls are no longer supported
+  by modern web browsers and pose significant security risks. These controls had extensive
+  access to the Windows operating system and were a common attack vector for malware.
+  With Internet Explorer's end-of-life on June 15, 2022, continued use of ActiveX
+  creates both security vulnerabilities and severe functionality issues.
+remediation: |
+  To address this security concern:
+  1. Identify all ActiveX controls and functionality in your application
+  2. Plan a migration strategy to modern web technologies:
+     - Replace ActiveX controls with standard HTML5 elements and JavaScript
+     - Use modern APIs for file operations and system interactions
+     - Implement secure alternatives for any custom functionality
+     - Consider Progressive Web Apps (PWAs) for advanced features
+     - Use WebAssembly for performance-critical components
+  3. Remove all ActiveX-related code including:
+     - Object/Embed tags with ClassIDs
+     - ActiveXObject JavaScript calls
+     - .cab and .ocx files
+  4. Update any documentation that references ActiveX functionality
+  5. Implement user notifications about technology changes if necessary
+  6. Consider implementing feature detection for graceful fallbacks
+cwe: 477
+severity: High
+references:
+  - https://en.wikipedia.org/wiki/ActiveX
+  - https://learn.microsoft.com/en-us/lifecycle/announcements/internet-explorer-11-end-of-support
+  - https://docs.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/aa751972(v=vs.85)
+  - https://support.microsoft.com/en-us/windows/out-of-date-activex-controls-3ad33b2d-1cee-5d46-1234-e70714324850

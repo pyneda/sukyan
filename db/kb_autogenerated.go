@@ -92,6 +92,7 @@ var (
 	ServerInfoDetectedCode               IssueCode = "server_info_detected"
 	ServerSidePrototypePollutionCode     IssueCode = "server_side_prototype_pollution"
 	SessionTokenInUrlCode                IssueCode = "session_token_in_url"
+	SilverlightDetectedCode              IssueCode = "silverlight_detected"
 	SniInjectionCode                     IssueCode = "sni_injection"
 	SocketioDetectedCode                 IssueCode = "socketio_detected"
 	SqlInjectionCode                     IssueCode = "sql_injection"
@@ -1176,6 +1177,19 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "Medium",
 		References: []string{
 			"https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html",
+		},
+	},
+	{
+		Code:        SilverlightDetectedCode,
+		Title:       "Microsoft Silverlight Usage Detected",
+		Description: "The application appears to be using Microsoft Silverlight, which has reached end-of-life status\nas of October 12, 2021. Silverlight is no longer supported by Microsoft or any major web browsers.\nIts continued use poses significant security risks as it can no longer receive security updates.\nAdditionally, most users will be unable to run Silverlight content as modern browsers have\ncompletely removed support for this technology.\n",
+		Remediation: "To address this security concern:\n1. Identify all Silverlight content and functionality in your application\n2. Plan a migration strategy to modern web technologies:\n   - Use HTML5 <video> and <audio> elements for media streaming\n   - Replace Silverlight animations with CSS animations or JavaScript\n   - Use HTML5 Canvas or WebGL for interactive graphics\n   - Consider frameworks like Three.js for 3D content\n   - Use modern JavaScript frameworks for rich internet applications\n3. Remove all Silverlight-related code and content\n4. Update any documentation or user guides that reference Silverlight functionality\n5. Implement user notifications about the technology change if necessary\n",
+		Cwe:         477,
+		Severity:    "High",
+		References: []string{
+			"https://learn.microsoft.com/en-us/lifecycle/products/silverlight-5",
+			"https://learn.microsoft.com/en-us/lifecycle/announcements/silverlight-end-of-support",
+			"https://blogs.windows.com/msedgedev/2015/07/02/moving-to-html5-premium-media/",
 		},
 	},
 	{

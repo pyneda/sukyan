@@ -1,0 +1,26 @@
+code: silverlight_detected
+title: Microsoft Silverlight Usage Detected
+description: |
+  The application appears to be using Microsoft Silverlight, which has reached end-of-life status
+  as of October 12, 2021. Silverlight is no longer supported by Microsoft or any major web browsers.
+  Its continued use poses significant security risks as it can no longer receive security updates.
+  Additionally, most users will be unable to run Silverlight content as modern browsers have
+  completely removed support for this technology.
+remediation: |
+  To address this security concern:
+  1. Identify all Silverlight content and functionality in your application
+  2. Plan a migration strategy to modern web technologies:
+     - Use HTML5 <video> and <audio> elements for media streaming
+     - Replace Silverlight animations with CSS animations or JavaScript
+     - Use HTML5 Canvas or WebGL for interactive graphics
+     - Consider frameworks like Three.js for 3D content
+     - Use modern JavaScript frameworks for rich internet applications
+  3. Remove all Silverlight-related code and content
+  4. Update any documentation or user guides that reference Silverlight functionality
+  5. Implement user notifications about the technology change if necessary
+cwe: 477
+severity: High
+references:
+  - https://learn.microsoft.com/en-us/lifecycle/products/silverlight-5
+  - https://learn.microsoft.com/en-us/lifecycle/announcements/silverlight-end-of-support
+  - https://blogs.windows.com/msedgedev/2015/07/02/moving-to-html5-premium-media/

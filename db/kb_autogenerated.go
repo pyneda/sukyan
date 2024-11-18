@@ -44,6 +44,7 @@ var (
 	ExposedPrometheusMetricsCode         IssueCode = "exposed_prometheus_metrics"
 	ExposedSpringActuatorEndpointsCode   IssueCode = "exposed_spring_actuator_endpoints"
 	FileUploadDetectedCode               IssueCode = "file_upload_detected"
+	FlashUsageDetectedCode               IssueCode = "flash_usage_detected"
 	ForbiddenBypassCode                  IssueCode = "forbidden_bypass"
 	GrailsExceptionCode                  IssueCode = "grails_exception"
 	GraphqlIntrospectionEnabledCode      IssueCode = "graphql_introspection_enabled"
@@ -607,6 +608,19 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://book.hacktricks.xyz/pentesting-web/file-upload",
 			"https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+		},
+	},
+	{
+		Code:        FlashUsageDetectedCode,
+		Title:       "Adobe Flash Usage Detected",
+		Description: "The application appears to be using Adobe Flash technology, which has reached end-of-life status\nas of December 31, 2020. Flash is no longer supported by Adobe or any major web browsers, and\nits continued use poses significant security risks. Flash applications can no longer receive\nsecurity updates, making them vulnerable to known exploits and potential attack vectors.\nAdditionally, most users will be unable to run Flash content as modern browsers have completely\nremoved Flash support.\n",
+		Remediation: "To address this security concern:\n1. Identify all Flash content and functionality in your application\n2. Plan a migration strategy to modern web technologies:\n   - Use HTML5 <video> and <audio> elements for media playback\n   - Replace Flash animations with CSS animations or JavaScript\n   - Use HTML5 Canvas or WebGL for interactive graphics\n   - Consider frameworks like Three.js for 3D content\n   - Use modern JavaScript frameworks for interactive applications\n3. Remove all Flash-related code and content from your application\n4. Update any documentation or user guides that reference Flash functionality\n5. Consider implementing browser warnings for legacy users who might still have Flash content cached\n",
+		Cwe:         477,
+		Severity:    "High",
+		References: []string{
+			"https://www.adobe.com/products/flashplayer/end-of-life-alternative.html",
+			"https://blogs.windows.com/msedgedev/2020/09/04/update-adobe-flash-end-support/",
+			"https://en.wikipedia.org/wiki/Adobe_Flash_Player",
 		},
 	},
 	{

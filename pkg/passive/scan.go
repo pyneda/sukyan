@@ -84,6 +84,7 @@ func ScanHistoryItem(item *db.History) {
 	ServerSideIncludesUsageScan(item)
 	WebAssemblyDetectionScan(item)
 	FlashDetectionScan(item)
+	SilverlightDetectionScan(item)
 
 	if viper.GetBool("passive.checks.exceptions.enabled") {
 		ExceptionsScan(item)
@@ -611,6 +612,68 @@ func FlashDetectionScan(item *db.History) {
 		db.CreateIssueFromHistoryAndTemplate(
 			item,
 			db.FlashUsageDetectedCode,
+			sb.String(),
+			confidence,
+			"",
+			item.WorkspaceID,
+			item.TaskID,
+			&defaultTaskJobID,
+		)
+	}
+}
+
+func SilverlightDetectionScan(item *db.History) {
+	matchAgainst := string(item.RawResponse)
+	if matchAgainst == "" {
+		matchAgainst = strings.ToLower(string(item.ResponseBody))
+	}
+
+	var sb strings.Builder
+	confidence := 80
+	issueDetected := false
+
+	parsedURL, err := url.Parse(item.URL)
+	if err == nil && strings.HasSuffix(strings.ToLower(parsedURL.Path), ".xap") {
+		issueDetected = true
+		confidence = 100
+		sb.WriteString("Silverlight application package (.xap) detected.\n")
+	}
+
+	if strings.Contains(strings.ToLower(item.ResponseContentType), "application/x-silverlight-app") {
+		if !issueDetected {
+			issueDetected = true
+		}
+		confidence = 100
+		sb.WriteString("Silverlight content detected: Response Content-Type is 'application/x-silverlight-app'.\n")
+	}
+
+	// Check for Silverlight-specific HTML/JavaScript patterns
+	silverlightPatterns := []struct {
+		pattern     string
+		description string
+	}{
+		{`silverlight\.js`, "Silverlight JavaScript library"},
+		{`<object[^>]+data="data:application/x-silverlight`, "Silverlight object element"},
+		{`<object[^>]+type="application/x-silverlight`, "Silverlight object element"},
+		{`Silverlight\.createObject`, "Silverlight JavaScript initialization"},
+		{`EnableSilverlight`, "Silverlight activation code"},
+		{`silverlight.xap`, "Silverlight application reference"},
+		{`Microsoft.Silverlight`, "Silverlight namespace reference"},
+	}
+
+	for _, pattern := range silverlightPatterns {
+		if strings.Contains(strings.ToLower(matchAgainst), strings.ToLower(pattern.pattern)) {
+			if !issueDetected {
+				issueDetected = true
+			}
+			sb.WriteString(fmt.Sprintf("Silverlight usage detected: Found %s.\n", pattern.description))
+		}
+	}
+
+	if issueDetected {
+		db.CreateIssueFromHistoryAndTemplate(
+			item,
+			db.SilverlightDetectedCode,
 			sb.String(),
 			confidence,
 			"",

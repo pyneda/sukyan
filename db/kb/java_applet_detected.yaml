@@ -1,0 +1,40 @@
+code: java_applet_detected
+title: Java Applet Usage Detected
+description: |
+  The application appears to use Java Applets, which is a critically outdated technology that has been
+  completely removed from modern browsers and the Java platform itself. Java Applets were officially
+  deprecated by Oracle in Java 9 and removed entirely in Java 11. This technology posed significant
+  security risks due to:
+  
+  1. The ability to execute arbitrary code on client machines
+  2. A history of critical security vulnerabilities
+  3. Extensive system access capabilities
+  4. Frequent use as a malware distribution vector
+  
+  The presence of Java Applet code in an application indicates severely outdated technology practices
+  and potential security vulnerabilities. This technology is completely non-functional in modern
+  browsers, creating both security and usability issues.
+remediation: |
+  To address this critical security concern:
+  1. Immediately identify all Java Applet content and functionality in your application
+  2. Implement a migration strategy to modern web technologies:
+     - Use HTML5 and JavaScript for interactive features
+     - Replace Java-based calculations with server-side processing or WebAssembly
+     - Consider Progressive Web Apps (PWAs) for advanced functionality
+     - Use modern APIs for client-side features
+     - Consider using JavaScript frameworks for complex UI interactions
+  3. Remove all Java Applet related code including:
+     - <applet> tags and associated parameters
+     - .jar, .class, and .jnlp files
+     - Java deployment toolkit scripts
+     - Object/Embed tags referencing Java content
+  4. Update server configurations to remove Java-specific MIME types and applets functionality
+  5. Review and update any documentation referencing Java Applets
+  6. Scan for other legacy technologies that might be present
+  7. Consider implementing security headers to prevent Java content execution
+cwe: 477
+severity: Critical
+references:
+  - https://www.oracle.com/technetwork/java/javase/javaclientroadmapupdatev2020may-6548840.pdf
+  - https://blogs.oracle.com/java/post/moving-to-a-plugin-free-web
+  - https://blog.polybdenum.com/2021/05/05/how-i-hacked-google-app-engine-anatomy-of-a-java-bytecode-exploit.html

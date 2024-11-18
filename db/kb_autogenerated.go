@@ -59,6 +59,7 @@ var (
 	IdorCode                             IssueCode = "idor"
 	IncorrectContentTypeHeaderCode       IssueCode = "incorrect_content_type_header"
 	IndexeddbUsageDetectedCode           IssueCode = "indexeddb_usage_detected"
+	JavaAppletDetectedCode               IssueCode = "java_applet_detected"
 	JavaDeserializationCode              IssueCode = "java_deserialization"
 	JavaSerializedObjectDetectedCode     IssueCode = "java_serialized_object_detected"
 	JavaServerHeaderCode                 IssueCode = "java_server_header"
@@ -791,6 +792,19 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API",
 			"https://www.researchgate.net/publication/259081595_An_Investigation_into_Possible_Attacks_on_HTML5_IndexedDB_and_their_Prevention",
+		},
+	},
+	{
+		Code:        JavaAppletDetectedCode,
+		Title:       "Java Applet Usage Detected",
+		Description: "The application appears to use Java Applets, which is a critically outdated technology that has been\ncompletely removed from modern browsers and the Java platform itself. Java Applets were officially\ndeprecated by Oracle in Java 9 and removed entirely in Java 11. This technology posed significant\nsecurity risks due to:\n\n1. The ability to execute arbitrary code on client machines\n2. A history of critical security vulnerabilities\n3. Extensive system access capabilities\n4. Frequent use as a malware distribution vector\n\nThe presence of Java Applet code in an application indicates severely outdated technology practices\nand potential security vulnerabilities. This technology is completely non-functional in modern\nbrowsers, creating both security and usability issues.\n",
+		Remediation: "To address this critical security concern:\n1. Immediately identify all Java Applet content and functionality in your application\n2. Implement a migration strategy to modern web technologies:\n   - Use HTML5 and JavaScript for interactive features\n   - Replace Java-based calculations with server-side processing or WebAssembly\n   - Consider Progressive Web Apps (PWAs) for advanced functionality\n   - Use modern APIs for client-side features\n   - Consider using JavaScript frameworks for complex UI interactions\n3. Remove all Java Applet related code including:\n   - <applet> tags and associated parameters\n   - .jar, .class, and .jnlp files\n   - Java deployment toolkit scripts\n   - Object/Embed tags referencing Java content\n4. Update server configurations to remove Java-specific MIME types and applets functionality\n5. Review and update any documentation referencing Java Applets\n6. Scan for other legacy technologies that might be present\n7. Consider implementing security headers to prevent Java content execution\n",
+		Cwe:         477,
+		Severity:    "Critical",
+		References: []string{
+			"https://www.oracle.com/technetwork/java/javase/javaclientroadmapupdatev2020may-6548840.pdf",
+			"https://blogs.oracle.com/java/post/moving-to-a-plugin-free-web",
+			"https://blog.polybdenum.com/2021/05/05/how-i-hacked-google-app-engine-anatomy-of-a-java-bytecode-exploit.html",
 		},
 	},
 	{

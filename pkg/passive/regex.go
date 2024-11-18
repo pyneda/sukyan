@@ -127,3 +127,58 @@ var apiKeysPatternsMap = map[string]*regexp.Regexp{
 	"Yandex API Key":                    regexp.MustCompile(`AQVN[A-Za-z0-9_-]{35,38}`),
 	"Yandex AWS Access Token":           regexp.MustCompile(`YC[a-zA-Z0-9_-]{38}`),
 }
+
+var javaAppletPatterns = []struct {
+	regex       *regexp.Regexp
+	description string
+}{
+	{regexp.MustCompile(`(?i)<applet[^>]*>`), "Applet HTML tag"},
+	{regexp.MustCompile(`(?i)deployJava\.js`), "Java deployment toolkit"},
+	{regexp.MustCompile(`(?i)<object[^>]+classid="?java:[^"]*"?`), "Java object element"},
+	{regexp.MustCompile(`(?i)<object[^>]+type="?application/x-java[^"]*"?`), "Java object MIME type"},
+	{regexp.MustCompile(`(?i)archive="[^"]*\.jar"`), "JAR archive reference"},
+	{regexp.MustCompile(`(?i)code="[^"]*\.class"`), "Java class reference"},
+	{regexp.MustCompile(`(?i)deployJava\.runApplet`), "Applet deployment call"},
+	{regexp.MustCompile(`(?i)<param[^>]+name="classloader"`), "Java classloader parameter"},
+	{regexp.MustCompile(`(?i)javaws`), "Java Web Start reference"},
+}
+
+var activeXPatterns = []struct {
+	regex       *regexp.Regexp
+	description string
+}{
+	{regexp.MustCompile(`(?i)classid="clsid:[^"]+"`), "ActiveX ClassID identifier"},
+	{regexp.MustCompile(`(?i)new\s+ActiveXObject`), "ActiveX JavaScript instantiation"},
+	{regexp.MustCompile(`(?i)CreateObject\(['"]`), "ActiveX creation call"},
+	{regexp.MustCompile(`(?i)<object[^>]+classid=`), "ActiveX object element"},
+	{regexp.MustCompile(`(?i)codebase="[^"]+\.cab"`), "ActiveX codebase attribute"},
+	{regexp.MustCompile(`(?i)MSXML2\.XMLHTTP`), "ActiveX XMLHTTP object"},
+	{regexp.MustCompile(`(?i)ShockwaveFlash\.ShockwaveFlash`), "ActiveX Flash object"},
+	{regexp.MustCompile(`(?i)WMPlayer\.OCX`), "ActiveX Windows Media Player"},
+	{regexp.MustCompile(`(?i)Shell\.Application`), "ActiveX Shell object"},
+}
+
+var silverlightPatterns = []struct {
+	regex       *regexp.Regexp
+	description string
+}{
+	{regexp.MustCompile(`(?i)silverlight\.js`), "Silverlight JavaScript library"},
+	{regexp.MustCompile(`(?i)<object[^>]+data="data:application/x-silverlight`), "Silverlight object element"},
+	{regexp.MustCompile(`(?i)<object[^>]+type="application/x-silverlight`), "Silverlight object element"},
+	{regexp.MustCompile(`(?i)Silverlight\.createObject`), "Silverlight JavaScript initialization"},
+	{regexp.MustCompile(`(?i)EnableSilverlight`), "Silverlight activation code"},
+	{regexp.MustCompile(`(?i)Microsoft\.Silverlight`), "Silverlight namespace reference"},
+}
+
+var flashPatterns = []struct {
+	regex       *regexp.Regexp
+	description string
+}{
+	{regexp.MustCompile(`(?i)<object[^>]+application/x-shockwave-flash`), "Flash object element"},
+	{regexp.MustCompile(`(?i)<embed[^>]+application/x-shockwave-flash`), "Flash embed element"},
+	{regexp.MustCompile(`(?i)classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"`), "Flash ActiveX control"},
+	{regexp.MustCompile(`(?i)new\s+swfobject`), "SWFObject JavaScript usage"},
+	{regexp.MustCompile(`(?i)swfobject\.embedswf`), "SWFObject embed call"},
+	{regexp.MustCompile(`(?i)allowscriptaccess="[^"]*"`), "Flash script access parameter"},
+	{regexp.MustCompile(`(?i)flashvars=["'][^"']*["']`), "Flash variables parameter"},
+}

@@ -85,6 +85,7 @@ func ScanHistoryItem(item *db.History) {
 	WebAssemblyDetectionScan(item)
 	FlashDetectionScan(item)
 	SilverlightDetectionScan(item)
+	ActiveXDetectionScan(item)
 
 	if viper.GetBool("passive.checks.exceptions.enabled") {
 		ExceptionsScan(item)
@@ -674,6 +675,74 @@ func SilverlightDetectionScan(item *db.History) {
 		db.CreateIssueFromHistoryAndTemplate(
 			item,
 			db.SilverlightDetectedCode,
+			sb.String(),
+			confidence,
+			"",
+			item.WorkspaceID,
+			item.TaskID,
+			&defaultTaskJobID,
+		)
+	}
+}
+
+func ActiveXDetectionScan(item *db.History) {
+	matchAgainst := string(item.RawResponse)
+	if matchAgainst == "" {
+		matchAgainst = strings.ToLower(string(item.ResponseBody))
+	}
+
+	var sb strings.Builder
+	confidence := 80
+	issueDetected := false
+
+	activexPatterns := []struct {
+		pattern     string
+		description string
+	}{
+		{`classid="clsid:`, "ActiveX ClassID identifier"},
+		{`new ActiveXObject`, "ActiveX JavaScript instantiation"},
+		{`CreateObject`, "ActiveX creation call"},
+		{`<object[^>]+classid`, "ActiveX object element"},
+		{`codebase=`, "ActiveX codebase attribute"},
+		{`/axstream`, "ActiveX streaming content"},
+		{`MSXML2.XMLHTTP`, "ActiveX XMLHTTP object"},
+		{`ShockwaveFlash.ShockwaveFlash`, "ActiveX Flash object"},
+		{`WMPlayer.OCX`, "ActiveX Windows Media Player"},
+		{`Shell.Application`, "ActiveX Shell object"},
+	}
+
+	for _, pattern := range activexPatterns {
+		if strings.Contains(strings.ToLower(matchAgainst), strings.ToLower(pattern.pattern)) {
+			if !issueDetected {
+				issueDetected = true
+			}
+			sb.WriteString(fmt.Sprintf("ActiveX usage detected: Found %s.\n", pattern.description))
+		}
+	}
+
+	parsedURL, err := url.Parse(item.URL)
+	if err == nil {
+		if strings.HasSuffix(strings.ToLower(parsedURL.Path), ".cab") ||
+			strings.HasSuffix(strings.ToLower(parsedURL.Path), ".ocx") {
+			issueDetected = true
+			confidence = 100
+			sb.WriteString(fmt.Sprintf("ActiveX component detected in URL: %s\n", parsedURL.Path))
+		}
+	}
+
+	if strings.Contains(strings.ToLower(item.ResponseContentType), "application/x-oleobject") {
+		if !issueDetected {
+			issueDetected = true
+		}
+		confidence = 100
+		sb.WriteString("ActiveX content detected: Response Content-Type is 'application/x-oleobject'.\n")
+	}
+
+	if issueDetected {
+
+		db.CreateIssueFromHistoryAndTemplate(
+			item,
+			db.ActivexDetectedCode,
 			sb.String(),
 			confidence,
 			"",

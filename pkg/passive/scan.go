@@ -83,6 +83,7 @@ func ScanHistoryItem(item *db.History) {
 	WebSocketUsageScan(item)
 	ServerSideIncludesUsageScan(item)
 	WebAssemblyDetectionScan(item)
+	FlashDetectionScan(item)
 
 	if viper.GetBool("passive.checks.exceptions.enabled") {
 		ExceptionsScan(item)
@@ -540,5 +541,82 @@ func WebAssemblyDetectionScan(item *db.History) {
 	if issueDetected {
 		details := sb.String()
 		db.CreateIssueFromHistoryAndTemplate(item, db.WebassemblyDetectedCode, details, confidence, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID)
+	}
+}
+
+func FlashDetectionScan(item *db.History) {
+	matchAgainst := string(item.RawResponse)
+	if matchAgainst == "" {
+		matchAgainst = strings.ToLower(string(item.ResponseBody))
+	}
+
+	var sb strings.Builder
+	confidence := 80
+	issueDetected := false
+
+	extensions := []string{".swf", ".flv", ".as", ".fla"}
+	parsedURL, err := url.Parse(item.URL)
+	if err == nil {
+		for _, ext := range extensions {
+			if strings.HasSuffix(strings.ToLower(parsedURL.Path), ext) {
+				issueDetected = true
+				sb.WriteString(fmt.Sprintf("Flash file detected: URL ends with '%s' extension.\n", ext))
+				break
+			}
+		}
+	}
+
+	flashContentTypes := []string{
+		"application/x-shockwave-flash",
+		"video/x-flv",
+		"application/x-flash",
+	}
+
+	for _, contentType := range flashContentTypes {
+		if strings.Contains(strings.ToLower(item.ResponseContentType), contentType) {
+			if !issueDetected {
+				issueDetected = true
+			}
+			confidence = 100
+			sb.WriteString(fmt.Sprintf("Flash content detected: Response header 'Content-Type' is '%s'.\n", contentType))
+		}
+	}
+
+	// Check for common Flash HTML elements and JavaScript
+	flashIndicators := []struct {
+		pattern     string
+		description string
+	}{
+		{`<object[^>]+application/x-shockwave-flash`, "Flash object element"},
+		{`<embed[^>]+application/x-shockwave-flash`, "Flash embed element"},
+		{`classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"`, "Flash ActiveX control"},
+		{`new swfobject`, "SWFObject JavaScript usage"},
+		{`swfobject\.embedswf`, "SWFObject embed call"},
+		{`allowscriptaccess="`, "Flash script access parameter"},
+		{`flashvars=`, "Flash variables parameter"},
+		{`/flash/`, "Flash directory reference"},
+		{`/swf/`, "SWF directory reference"},
+	}
+
+	for _, indicator := range flashIndicators {
+		if strings.Contains(strings.ToLower(matchAgainst), strings.ToLower(indicator.pattern)) {
+			if !issueDetected {
+				issueDetected = true
+			}
+			sb.WriteString(fmt.Sprintf("Flash usage detected: Found %s.\n", indicator.description))
+		}
+	}
+
+	if issueDetected {
+		db.CreateIssueFromHistoryAndTemplate(
+			item,
+			db.FlashUsageDetectedCode,
+			sb.String(),
+			confidence,
+			"",
+			item.WorkspaceID,
+			item.TaskID,
+			&defaultTaskJobID,
+		)
 	}
 }

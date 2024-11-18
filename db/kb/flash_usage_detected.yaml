@@ -1,0 +1,27 @@
+code: flash_usage_detected
+title: Adobe Flash Usage Detected
+description: |
+  The application appears to be using Adobe Flash technology, which has reached end-of-life status
+  as of December 31, 2020. Flash is no longer supported by Adobe or any major web browsers, and
+  its continued use poses significant security risks. Flash applications can no longer receive
+  security updates, making them vulnerable to known exploits and potential attack vectors.
+  Additionally, most users will be unable to run Flash content as modern browsers have completely
+  removed Flash support.
+remediation: |
+  To address this security concern:
+  1. Identify all Flash content and functionality in your application
+  2. Plan a migration strategy to modern web technologies:
+     - Use HTML5 <video> and <audio> elements for media playback
+     - Replace Flash animations with CSS animations or JavaScript
+     - Use HTML5 Canvas or WebGL for interactive graphics
+     - Consider frameworks like Three.js for 3D content
+     - Use modern JavaScript frameworks for interactive applications
+  3. Remove all Flash-related code and content from your application
+  4. Update any documentation or user guides that reference Flash functionality
+  5. Consider implementing browser warnings for legacy users who might still have Flash content cached
+cwe: 477
+severity: High
+references:
+  - https://www.adobe.com/products/flashplayer/end-of-life-alternative.html
+  - https://blogs.windows.com/msedgedev/2020/09/04/update-adobe-flash-end-support/
+  - https://en.wikipedia.org/wiki/Adobe_Flash_Player

@@ -241,8 +241,9 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 
 type DiscoverAndCreateIssueInput struct {
 	DiscoveryInput
-	ValidationFunc ValidationFunc
-	IssueCode      db.IssueCode
+	ValidationFunc   ValidationFunc
+	IssueCode        db.IssueCode
+	SeverityOverride string
 }
 
 type DiscoverAndCreateIssueResults struct {
@@ -276,7 +277,7 @@ func DiscoverAndCreateIssue(input DiscoverAndCreateIssueInput) (DiscoverAndCreat
 				input.IssueCode,
 				message,
 				confidence,
-				"",
+				input.SeverityOverride,
 				&input.HistoryCreationOptions.WorkspaceID,
 				&input.HistoryCreationOptions.TaskID,
 				&input.HistoryCreationOptions.TaskJobID,

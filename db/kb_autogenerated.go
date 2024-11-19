@@ -45,6 +45,7 @@ var (
 	ExposedPrometheusMetricsCode         IssueCode = "exposed_prometheus_metrics"
 	ExposedSpringActuatorEndpointsCode   IssueCode = "exposed_spring_actuator_endpoints"
 	FileUploadDetectedCode               IssueCode = "file_upload_detected"
+	FlashCrossdomainPolicyCode           IssueCode = "flash_crossdomain_policy"
 	FlashUsageDetectedCode               IssueCode = "flash_usage_detected"
 	ForbiddenBypassCode                  IssueCode = "forbidden_bypass"
 	GrailsExceptionCode                  IssueCode = "grails_exception"
@@ -625,6 +626,20 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://book.hacktricks.xyz/pentesting-web/file-upload",
 			"https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+		},
+	},
+	{
+		Code:        FlashCrossdomainPolicyCode,
+		Title:       "Flash Cross-Domain Policy File Detected",
+		Description: "A Flash cross-domain policy file (crossdomain.xml) has been detected. This file, historically used to control cross-origin requests in Flash applications, \nrepresents both a potential security risk and the presence of legacy technology, as Adobe Flash has been officially deprecated and discontinued since December 2020. \n\nWhen present and misconfigured, these policy files can allow unauthorized domains to make cross-origin requests, potentially leading to unauthorized data access \nor cross-site request forgery attacks. Furthermore, the presence of this file might indicate other legacy Flash components in the application that should be modernized.\n",
+		Remediation: "Given that Adobe Flash has been discontinued and is no longer supported by modern browsers, the primary recommendation is to remove the crossdomain.xml file \nentirely and migrate any remaining Flash content to modern web technologies.\n\nIf the policy file must be temporarily maintained during migration:\n- Ensure the policy is as restrictive as possible by limiting allowed domains to only those absolutely necessary.\n- Enable the secure attribute to enforce HTTPS connections where the policy is still needed.\n- Audit and remove any unnecessary header permissions, particularly for sensitive headers like Authorization or Cookie.\n\nA comprehensive security review should be conducted to identify and migrate any remaining Flash components in the application, as they represent a growing \nsecurity risk due to lack of updates and support.\n",
+		Cwe:         942,
+		Severity:    "Medium",
+		References: []string{
+			"https://www.adobe.com/products/flashplayer/end-of-life.html",
+			"https://owasp.org/www-project-web-security-testing-guide/stable/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/08-Test_RIA_Cross_Domain_Policy",
+			"https://www.adobe.com/devnet-docs/acrobatetk/tools/AppSec/CrossDomain_PolicyFile_Specification.pdf",
+			"https://code.google.com/archive/p/doctype-mirror/wikis/ArticleFlashSecurity.wiki",
 		},
 	},
 	{

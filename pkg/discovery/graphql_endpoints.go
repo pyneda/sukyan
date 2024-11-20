@@ -134,11 +134,8 @@ func IsGraphQLValidationFunc(history *db.History) (bool, string, int) {
 		}
 	}
 
-	if confidence > 50 {
-		return true, strings.Join(details, "\n"), confidence
-	}
+	return confidence >= minConfidence(), strings.Join(details, "\n"), min(confidence, 100)
 
-	return false, "", 0
 }
 
 func isGraphQLUI(history *db.History) bool {

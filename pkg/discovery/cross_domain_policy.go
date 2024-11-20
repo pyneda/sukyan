@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
 )
 
@@ -156,10 +155,10 @@ func IsFlashCrossDomainValidationFunc(history *db.History) (bool, string, int) {
 	return true, details, confidence
 }
 
-func DiscoverFlashCrossDomainPolicy(baseURL string, opts http_utils.HistoryCreationOptions) (DiscoverAndCreateIssueResults, error) {
+func DiscoverFlashCrossDomainPolicy(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
-			URL:         baseURL,
+			URL:         options.BaseURL,
 			Method:      "GET",
 			Paths:       []string{"crossdomain.xml"},
 			Concurrency: 1,
@@ -167,7 +166,10 @@ func DiscoverFlashCrossDomainPolicy(baseURL string, opts http_utils.HistoryCreat
 			Headers: map[string]string{
 				"Accept": "text/xml,application/xml,text/plain",
 			},
-			HistoryCreationOptions: opts,
+			HistoryCreationOptions: options.HistoryCreationOptions,
+			HttpClient:             options.HttpClient,
+			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsFlashCrossDomainValidationFunc,
 		IssueCode:      db.FlashCrossdomainPolicyCode,

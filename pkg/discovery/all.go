@@ -67,6 +67,7 @@ func DiscoverAll(options DiscoveryOptions) ([]DiscoveryResult, error) {
 		"elmah":                    DiscoverElmah,
 		"tomcat_uri_normalization": DiscoverTomcatUriNormalization,
 		"tomcat_examples":          DiscoverTomcatExamples,
+		"crossdomain":              DiscoverFlashCrossDomainPolicy,
 	}
 
 	p := pool.NewWithResults[struct {

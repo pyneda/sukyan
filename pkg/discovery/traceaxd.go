@@ -13,10 +13,11 @@ var AspNetTracePaths = []string{
 
 // IsAspNetTraceValidationFunc validates if the response indicates an exposed ASP.NET trace page
 func IsAspNetTraceValidationFunc(history *db.History) (bool, string, int) {
+	confidence := 0
 	if history.StatusCode == 200 {
 		bodyStr := string(history.ResponseBody)
 		details := fmt.Sprintf("ASP.NET Trace Viewer detected at: %s\n", history.URL)
-		confidence := 30
+		confidence = 30
 
 		if strings.Contains(strings.ToLower(history.ResponseContentType), "text/html") {
 			confidence += 10
@@ -53,12 +54,9 @@ func IsAspNetTraceValidationFunc(history *db.History) (bool, string, int) {
 			}
 		}
 
-		if confidence >= 50 {
-			return true, details, min(confidence, 100)
-		}
 	}
 
-	return false, "", 0
+	return confidence >= minConfidence(), "", min(confidence, 100)
 }
 
 func DiscoverAspNetTrace(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {

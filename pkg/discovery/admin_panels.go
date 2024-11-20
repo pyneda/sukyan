@@ -93,6 +93,7 @@ func DiscoverAdminInterfaces(options DiscoveryOptions) (DiscoverAndCreateIssueRe
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsAdminInterfaceValidationFunc,
 		IssueCode:      db.AdminInterfaceDetectedCode,

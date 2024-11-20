@@ -112,6 +112,7 @@ func DiscoverSensitiveConfigFiles(options DiscoveryOptions) (DiscoverAndCreateIs
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsSensitiveConfigFileValidationFunc,
 		IssueCode:      db.SensitiveConfigDetectedCode,

@@ -167,6 +167,7 @@ func DiscoverMetricsEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueR
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsPrometheusMetricsValidationFunc,
 		IssueCode:      db.ExposedPrometheusMetricsCode,

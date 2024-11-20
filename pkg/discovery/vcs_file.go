@@ -84,6 +84,7 @@ func DiscoverVersionControlFiles(options DiscoveryOptions) (DiscoverAndCreateIss
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsVersionControlFileValidationFunc,
 		IssueCode:      db.VersionControlFileDetectedCode,

@@ -94,6 +94,7 @@ func DiscoverCICDBuildFiles(options DiscoveryOptions) (DiscoverAndCreateIssueRes
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsCICDBuildFileValidationFunc,
 		IssueCode:      db.CiCdInfrastructureFileDetectedCode,

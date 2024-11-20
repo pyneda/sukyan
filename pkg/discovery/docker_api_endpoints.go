@@ -148,6 +148,7 @@ func DiscoverDockerAPIEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssu
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsDockerAPIValidationFunc,
 		IssueCode:      db.DockerApiDetectedCode,

@@ -1,0 +1,24 @@
+code: tomcat_examples_info_leak
+title: Apache Tomcat Example Scripts Information Leakage
+description: |
+  The application server appears to expose Apache Tomcat example scripts that were not removed from the production environment. 
+  These example scripts that come with Apache Tomcat v4.x - v7.x can be used by attackers to gain sensitive information about 
+  the system, including server configuration, system properties, and environment details. Additionally, these scripts are known 
+  to be vulnerable to cross-site scripting (XSS) injection attacks.
+
+  The presence of these example scripts indicates improper server hardening and could provide attackers with valuable 
+  information for further attacks.
+remediation: |
+  To fix this vulnerability:
+  1. Remove all example scripts and documentation from production Tomcat installations
+  2. If examples are needed for development, maintain them only in development environments
+  3. Follow Tomcat security hardening guides to properly configure production servers
+  4. Consider implementing security filters or URL rewriting rules to block access to /examples/ directories
+  5. Regularly audit web server configurations to ensure no test/example content is exposed
+cwe: 200
+severity: High
+references:
+  - https://web.archive.org/web/20230316111032/https://www.rapid7.com/db/vulnerabilities/apache-tomcat-example-leaks/
+  - https://tomcat.apache.org/migration-8.html
+  - https://www.exploit-db.com/exploits/30189
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/02-Test_Application_Platform_Configuration

@@ -73,6 +73,7 @@ func DiscoverPHPInfo(options DiscoveryOptions) (DiscoverAndCreateIssueResults, e
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: isPHPInfoValidationFunc,
 		IssueCode:      db.PhpInfoDetectedCode,

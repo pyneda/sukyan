@@ -179,6 +179,7 @@ func DiscoverOpenapiDefinitions(options DiscoveryOptions) (DiscoverAndCreateIssu
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsOpenAPIValidationFunc,
 		IssueCode:      db.OpenapiDefinitionFoundCode,

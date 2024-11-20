@@ -116,6 +116,7 @@ func DiscoverHTTPJMXEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueR
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsHTTPJMXValidationFunc,
 		IssueCode:      db.ExposedJolokiaEndpointCode,

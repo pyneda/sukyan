@@ -23,6 +23,26 @@ func (sm ScanMode) IsHigherOrEqual(other ScanMode) bool {
 	return order[sm] >= order[other]
 }
 
+func (sm ScanMode) IsLowerOrEqual(other ScanMode) bool {
+	order := map[ScanMode]int{
+		ScanModeFast:  1,
+		ScanModeSmart: 2,
+		ScanModeFuzz:  3,
+	}
+	return order[sm] <= order[other]
+}
+
+func (sm ScanMode) MaxDiscoveryPathsPerModule() int {
+	switch sm {
+	case ScanModeFast:
+		return 4
+	case ScanModeSmart:
+		return 15
+	default:
+		return -1
+	}
+}
+
 type HistoryItemScanOptions struct {
 	WorkspaceID        uint              `json:"workspace_id" validate:"required,min=0"`
 	TaskID             uint              `json:"task_id" validate:"required,min=0"`

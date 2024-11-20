@@ -88,6 +88,7 @@ func DiscoverActuatorEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssue
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsActuatorValidationFunc,
 		IssueCode:      db.ExposedSpringActuatorEndpointsCode,

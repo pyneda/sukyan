@@ -198,6 +198,7 @@ func DiscoverAxis2Endpoints(options DiscoveryOptions) (DiscoverAndCreateIssueRes
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsAxis2ValidationFunc,
 		IssueCode:      db.ExposedAxis2EndpointCode,

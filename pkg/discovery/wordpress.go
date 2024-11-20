@@ -101,6 +101,7 @@ func DiscoverWordPressEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssu
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsWordPressValidationFunc,
 		IssueCode:      db.WordpressDetectedCode,

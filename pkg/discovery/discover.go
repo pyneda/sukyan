@@ -14,6 +14,7 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
+	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc/pool"
 )
@@ -45,6 +46,7 @@ type DiscoveryInput struct {
 	ValidationFunc         ValidationFunc           `json:"-"`
 	HttpClient             *http.Client             `json:"-"`
 	SiteBehavior           *http_utils.SiteBehavior `json:"-"`
+	ScanMode               scan_options.ScanMode    `json:"-"`
 }
 
 type DiscoverResults struct {
@@ -255,6 +257,12 @@ type DiscoverAndCreateIssueResults struct {
 func DiscoverAndCreateIssue(input DiscoverAndCreateIssueInput) (DiscoverAndCreateIssueResults, error) {
 	if input.ValidationFunc == nil {
 		input.ValidationFunc = DefaultValidationFunc
+	}
+
+	maxPaths := input.ScanMode.MaxDiscoveryPathsPerModule()
+	if maxPaths > 0 && len(input.Paths) > maxPaths {
+		log.Debug().Str("scan_mode", input.ScanMode.String()).Int("max_paths", maxPaths).Int("paths", len(input.Paths)).Msg("Too many discovery module paths for this scan mode, truncating")
+		input.Paths = input.Paths[:maxPaths]
 	}
 
 	results, err := DiscoverPaths(input.DiscoveryInput)

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/pyneda/sukyan/pkg/http_utils"
+	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc/pool"
 )
@@ -19,6 +20,8 @@ type DiscoveryOptions struct {
 	HistoryCreationOptions http_utils.HistoryCreationOptions `json:"history_creation_options"`
 	HttpClient             *http.Client                      `json:"-"`
 	SiteBehavior           *http_utils.SiteBehavior          `json:"site_behavior"`
+	BaseHeaders            map[string][]string               `json:"base_headers" validate:"omitempty"`
+	ScanMode               scan_options.ScanMode             `json:"scan_mode" validate:"omitempty,oneof=fast smart fuzz"`
 }
 
 func DiscoverAll(options DiscoveryOptions) ([]DiscoveryResult, error) {
@@ -34,34 +37,36 @@ func DiscoverAll(options DiscoveryOptions) ([]DiscoveryResult, error) {
 	}
 
 	discoveryFunctions := map[string]func(DiscoveryOptions) (DiscoverAndCreateIssueResults, error){
-		"openapi":        DiscoverOpenapiDefinitions,
-		"graphql":        DiscoverGraphQLEndpoints,
-		"kubernetes":     DiscoverKubernetesEndpoints,
-		"wordpress":      DiscoverWordPressEndpoints,
-		"config_files":   DiscoverSensitiveConfigFiles,
-		"actuator":       DiscoverActuatorEndpoints,
-		"metrics":        DiscoverMetricsEndpoints,
-		"docker":         DiscoverDockerAPIEndpoints,
-		"vcs":            DiscoverVersionControlFiles,
-		"cicd":           DiscoverCICDBuildFiles,
-		"admin":          DiscoverAdminInterfaces,
-		"db_management":  DiscoverDBManagementInterfaces,
-		"cloud_metadata": DiscoverCloudMetadata,
-		"sso":            DiscoverSSOEndpoints,
-		"oauth":          DiscoverOAuthEndpoints,
-		"phpinfo":        DiscoverPHPInfo,
-		"payment_test":   DiscoverPaymentTestEndpoints,
-		"socketio":       DiscoverSocketIO,
-		"server_info":    DiscoverServerInfo,
-		"logs":           DiscoverLogFiles,
-		"jmx":            DiscoverHTTPJMXEndpoints,
-		"axis2":          DiscoverAxis2Endpoints,
-		"grpc":           DiscoverGRPCEndpoints,
-		"wsdl":           DiscoverWSDLDefinitions,
-		"trace_axd":      DiscoverAspNetTrace,
-		"htaccess":       DiscoverWebServerControlFiles,
-		"env_files":      DiscoverEnvFiles,
-		"elmah":          DiscoverElmah,
+		"openapi":                  DiscoverOpenapiDefinitions,
+		"graphql":                  DiscoverGraphQLEndpoints,
+		"kubernetes":               DiscoverKubernetesEndpoints,
+		"wordpress":                DiscoverWordPressEndpoints,
+		"config_files":             DiscoverSensitiveConfigFiles,
+		"actuator":                 DiscoverActuatorEndpoints,
+		"metrics":                  DiscoverMetricsEndpoints,
+		"docker":                   DiscoverDockerAPIEndpoints,
+		"vcs":                      DiscoverVersionControlFiles,
+		"cicd":                     DiscoverCICDBuildFiles,
+		"admin":                    DiscoverAdminInterfaces,
+		"db_management":            DiscoverDBManagementInterfaces,
+		"cloud_metadata":           DiscoverCloudMetadata,
+		"sso":                      DiscoverSSOEndpoints,
+		"oauth":                    DiscoverOAuthEndpoints,
+		"phpinfo":                  DiscoverPHPInfo,
+		"payment_test":             DiscoverPaymentTestEndpoints,
+		"socketio":                 DiscoverSocketIO,
+		"server_info":              DiscoverServerInfo,
+		"logs":                     DiscoverLogFiles,
+		"jmx":                      DiscoverHTTPJMXEndpoints,
+		"axis2":                    DiscoverAxis2Endpoints,
+		"grpc":                     DiscoverGRPCEndpoints,
+		"wsdl":                     DiscoverWSDLDefinitions,
+		"trace_axd":                DiscoverAspNetTrace,
+		"htaccess":                 DiscoverWebServerControlFiles,
+		"env_files":                DiscoverEnvFiles,
+		"elmah":                    DiscoverElmah,
+		"tomcat_uri_normalization": DiscoverTomcatUriNormalization,
+		"tomcat_examples":          DiscoverTomcatExamples,
 	}
 
 	p := pool.NewWithResults[struct {

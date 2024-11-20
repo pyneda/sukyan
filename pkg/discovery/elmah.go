@@ -73,6 +73,7 @@ func DiscoverElmah(options DiscoveryOptions) (DiscoverAndCreateIssueResults, err
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsElmahValidationFunc,
 		IssueCode:      db.ElmahExposedCode,

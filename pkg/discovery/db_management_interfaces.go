@@ -278,6 +278,7 @@ func DiscoverDBManagementInterfaces(options DiscoveryOptions) (DiscoverAndCreate
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsDBManagementValidationFunc,
 		IssueCode:      db.DbManagementInterfaceDetectedCode,

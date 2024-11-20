@@ -134,6 +134,7 @@ func DiscoverOAuthEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueRes
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: isOAuthEndpointValidationFunc,
 		IssueCode:      db.OauthEndpointDetectedCode,

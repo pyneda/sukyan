@@ -196,6 +196,8 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 			HistoryCreationOptions: createOpts,
 			HttpClient:             discoveryClient,
 			SiteBehavior:           siteBehaviour,
+			BaseHeaders:            options.Headers,
+			ScanMode:               options.Mode,
 		}
 		discovery.DiscoverAll(discoverOpts)
 	}

@@ -202,6 +202,7 @@ func DiscoverGraphQLEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueR
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsGraphQLValidationFunc,
 		IssueCode:      db.GraphqlEndpointDetectedCode,

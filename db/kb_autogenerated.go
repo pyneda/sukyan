@@ -108,6 +108,8 @@ var (
 	StrictTransportSecurityHeaderCode    IssueCode = "strict_transport_security_header"
 	TechStackFingerprintCode             IssueCode = "tech_stack_fingerprint"
 	Text4shellCode                       IssueCode = "text4shell"
+	TomcatExamplesInfoLeakCode           IssueCode = "tomcat_examples_info_leak"
+	TomcatUriNormalizationCode           IssueCode = "tomcat_uri_normalization"
 	UnencryptedPasswordSubmissionCode    IssueCode = "unencrypted_password_submission"
 	UnencryptedWebsocketConnectionCode   IssueCode = "unencrypted_websocket_connection"
 	VersionControlFileDetectedCode       IssueCode = "version_control_file_detected"
@@ -1373,6 +1375,32 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://security.apache.org/blog/cve-2022-42889/",
 			"https://nvd.nist.gov/vuln/detail/cve-2022-42889",
+		},
+	},
+	{
+		Code:        TomcatExamplesInfoLeakCode,
+		Title:       "Apache Tomcat Example Scripts Information Leakage",
+		Description: "The application server appears to expose Apache Tomcat example scripts that were not removed from the production environment. \nThese example scripts that come with Apache Tomcat v4.x - v7.x can be used by attackers to gain sensitive information about \nthe system, including server configuration, system properties, and environment details. Additionally, these scripts are known \nto be vulnerable to cross-site scripting (XSS) injection attacks.\n\nThe presence of these example scripts indicates improper server hardening and could provide attackers with valuable \ninformation for further attacks.\n",
+		Remediation: "To fix this vulnerability:\n1. Remove all example scripts and documentation from production Tomcat installations\n2. If examples are needed for development, maintain them only in development environments\n3. Follow Tomcat security hardening guides to properly configure production servers\n4. Consider implementing security filters or URL rewriting rules to block access to /examples/ directories\n5. Regularly audit web server configurations to ensure no test/example content is exposed\n",
+		Cwe:         200,
+		Severity:    "High",
+		References: []string{
+			"https://web.archive.org/web/20230316111032/https://www.rapid7.com/db/vulnerabilities/apache-tomcat-example-leaks/",
+			"https://tomcat.apache.org/migration-8.html",
+			"https://www.exploit-db.com/exploits/30189",
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/02-Test_Application_Platform_Configuration",
+		},
+	},
+	{
+		Code:        TomcatUriNormalizationCode,
+		Title:       "Tomcat URI Normalization Bypass Detected",
+		Description: "The application infrastructure appears to be vulnerable to URI normalization bypass attacks. The remote server fails to properly normalize URLs containing path parameters, allowing potential access to restricted Tomcat management interfaces.\n\nThis vulnerability typically occurs when a reverse proxy and Tomcat server handle path normalization differently, creating a security bypass condition that could expose sensitive management interfaces.\n",
+		Remediation: "The primary mitigation for this vulnerability is to isolate management interfaces from public access. This can be achieved by restricting the Tomcat Manager to internal networks only and ensuring it's not accessible through the public-facing infrastructure.\n\nInfrastructure components should be configured to handle URL normalization consistently. Special attention should be paid to the reverse proxy configuration, ensuring it properly normalizes paths before forwarding requests to the backend Tomcat server. Additionally, implementing strict access controls at both the network and application level will provide defense in depth against potential bypass attempts.\n",
+		Cwe:         22,
+		Severity:    "High",
+		References: []string{
+			"https://book.hacktricks.xyz/network-services-pentesting/pentesting-web/tomcat#double-url-encoding",
+			"https://i.blackhat.com/us-18/Wed-August-8/us-18-Orange-Tsai-Breaking-Parser-Logic-Take-Your-Path-Normalization-Off-And-Pop-0days-Out-2.pdf",
 		},
 	},
 	{

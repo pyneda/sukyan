@@ -75,6 +75,7 @@ func DiscoverAspNetTrace(options DiscoveryOptions) (DiscoverAndCreateIssueResult
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsAspNetTraceValidationFunc,
 		IssueCode:      db.AspnetTraceEnabledCode,

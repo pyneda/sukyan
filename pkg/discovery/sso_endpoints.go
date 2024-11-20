@@ -99,6 +99,7 @@ func DiscoverSSOEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResul
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: isSSOSetupValidationFunc,
 		IssueCode:      db.SsoMetadataDetectedCode,

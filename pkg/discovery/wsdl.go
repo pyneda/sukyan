@@ -199,6 +199,7 @@ func DiscoverWSDLDefinitions(options DiscoveryOptions) (DiscoverAndCreateIssueRe
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsWSDLValidationFunc,
 		IssueCode:      db.WsdlDefinitionDetectedCode,

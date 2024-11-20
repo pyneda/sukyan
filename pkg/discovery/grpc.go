@@ -136,6 +136,7 @@ func DiscoverGRPCEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResu
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsGRPCValidationFunc,
 		IssueCode:      db.GrpcEndpointDetectedCode,

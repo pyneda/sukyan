@@ -79,6 +79,7 @@ func DiscoverServerInfo(options DiscoveryOptions) (DiscoverAndCreateIssueResults
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: isServerInfoValidationFunc,
 		IssueCode:      db.ServerInfoDetectedCode,

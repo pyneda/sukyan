@@ -1,0 +1,15 @@
+code: tomcat_uri_normalization
+title: Tomcat URI Normalization Bypass Detected
+description: |
+  The application infrastructure appears to be vulnerable to URI normalization bypass attacks. The remote server fails to properly normalize URLs containing path parameters, allowing potential access to restricted Tomcat management interfaces.
+  
+  This vulnerability typically occurs when a reverse proxy and Tomcat server handle path normalization differently, creating a security bypass condition that could expose sensitive management interfaces.
+remediation: |
+  The primary mitigation for this vulnerability is to isolate management interfaces from public access. This can be achieved by restricting the Tomcat Manager to internal networks only and ensuring it's not accessible through the public-facing infrastructure.
+
+  Infrastructure components should be configured to handle URL normalization consistently. Special attention should be paid to the reverse proxy configuration, ensuring it properly normalizes paths before forwarding requests to the backend Tomcat server. Additionally, implementing strict access controls at both the network and application level will provide defense in depth against potential bypass attempts.
+cwe: 22
+severity: High
+references:
+  - https://book.hacktricks.xyz/network-services-pentesting/pentesting-web/tomcat#double-url-encoding
+  - https://i.blackhat.com/us-18/Wed-August-8/us-18-Orange-Tsai-Breaking-Parser-Logic-Take-Your-Path-Normalization-Off-And-Pop-0days-Out-2.pdf

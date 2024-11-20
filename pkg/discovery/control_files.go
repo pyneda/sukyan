@@ -78,6 +78,7 @@ func DiscoverWebServerControlFiles(options DiscoveryOptions) (DiscoverAndCreateI
 			HistoryCreationOptions: options.HistoryCreationOptions,
 			HttpClient:             options.HttpClient,
 			SiteBehavior:           options.SiteBehavior,
+			ScanMode:               options.ScanMode,
 		},
 		ValidationFunc: IsWebServerControlFileValidationFunc,
 		IssueCode:      db.WebserverControlFileExposedCode,

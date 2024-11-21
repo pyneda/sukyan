@@ -68,6 +68,9 @@ func DiscoverAll(options DiscoveryOptions) ([]DiscoveryResult, error) {
 		"tomcat_uri_normalization": DiscoverTomcatUriNormalization,
 		"tomcat_examples":          DiscoverTomcatExamples,
 		"crossdomain":              DiscoverFlashCrossDomainPolicy,
+		"jboss_invoker":            DiscoverJBossInvokers,
+		"jboss_console":            DiscoverJBossConsoles,
+		"jboss_status":             DiscoverJBossStatus,
 	}
 
 	p := pool.NewWithResults[struct {

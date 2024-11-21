@@ -1,0 +1,18 @@
+code: jboss_invoker_detected
+title: Jboss Invoker Detected
+description: |
+  An exposed JBoss invoker has been detected. JBoss invoker servlets handle remote method invocation and deserialization of Java objects, which can be exploited by attackers if accessible. These endpoints are particularly dangerous as they have been associated with multiple critical vulnerabilities including remote code execution through Java deserialization attacks.
+  
+  The following risks are associated with exposed invoker servlets:
+  - Remote code execution through Java deserialization vulnerabilities
+  - Unauthorized access to JMX operations
+  - Information disclosure about internal application components
+  - Potential for denial of service attacks
+remediation: |
+    The JBoss invoker servlets should not be exposed to untrusted networks. Configure the application server to restrict access to these endpoints by implementing proper URL filtering rules and network segmentation. If remote access is required, ensure it is limited to specific trusted IPs and protected with strong authentication. Keep the JBoss server updated with all security patches to prevent known deserialization vulnerabilities.
+cwe: 502
+severity: Critical
+references:
+  - https://nvd.nist.gov/vuln/detail/CVE-2017-12149
+  - https://nvd.nist.gov/vuln/detail/CVE-2017-7504
+  - https://owasp.org/www-community/vulnerabilities/Deserialization_of_untrusted_data

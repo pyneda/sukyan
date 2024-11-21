@@ -1,0 +1,20 @@
+code: jboss_console_detected
+title: JBoss Management Console Detected
+description: |
+  A JBoss management console has been detected on the target application. The JBoss management console provides administrative access to the application server and could allow an attacker to execute arbitrary code, deploy malicious applications, or modify server configurations if accessed with default or weak credentials.
+  
+  The management console can be used to:
+  - Deploy new applications
+  - Modify server configurations
+  - Access sensitive system information
+  - Execute JMX operations
+  - Manage server resources and components
+remediation: |
+  The JBoss management console should not be accessible from untrusted networks. Configure the server to only expose the management interfaces on private networks or localhost, requiring administrators to use a VPN or bastion host for remote access. If external access is required, ensure strong authentication is configured with non-default credentials, HTTPS is enforced, and access is restricted to specific IP addresses.
+cwe: 284
+severity: High
+references:
+  - https://developer.jboss.org/docs/DOC-12190
+  - https://docs.redhat.com/en/documentation/red_hat_jboss_enterprise_application_platform/6.4/html/security_guide/chap-secure_the_management_interfaces
+  - https://www.exploit-db.com/search?q=jboss
+  - https://github.com/joaomatosf/jexboss

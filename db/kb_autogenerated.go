@@ -64,6 +64,9 @@ var (
 	JavaDeserializationCode              IssueCode = "java_deserialization"
 	JavaSerializedObjectDetectedCode     IssueCode = "java_serialized_object_detected"
 	JavaServerHeaderCode                 IssueCode = "java_server_header"
+	JbossConsoleDetectedCode             IssueCode = "jboss_console_detected"
+	JbossInvokerDetectedCode             IssueCode = "jboss_invoker_detected"
+	JbossStatusDetectedCode              IssueCode = "jboss_status_detected"
 	JettyServerHeaderCode                IssueCode = "jetty_server_header"
 	JsonpEndpointDetectedCode            IssueCode = "jsonp_endpoint_detected"
 	JwtDetectedCode                      IssueCode = "jwt_detected"
@@ -859,6 +862,47 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         200,
 		Severity:    "Low",
 		References:  []string{},
+	},
+	{
+		Code:        JbossConsoleDetectedCode,
+		Title:       "JBoss Management Console Detected",
+		Description: "A JBoss management console has been detected on the target application. The JBoss management console provides administrative access to the application server and could allow an attacker to execute arbitrary code, deploy malicious applications, or modify server configurations if accessed with default or weak credentials.\n\nThe management console can be used to:\n- Deploy new applications\n- Modify server configurations\n- Access sensitive system information\n- Execute JMX operations\n- Manage server resources and components\n",
+		Remediation: "The JBoss management console should not be accessible from untrusted networks. Configure the server to only expose the management interfaces on private networks or localhost, requiring administrators to use a VPN or bastion host for remote access. If external access is required, ensure strong authentication is configured with non-default credentials, HTTPS is enforced, and access is restricted to specific IP addresses.\n",
+		Cwe:         284,
+		Severity:    "High",
+		References: []string{
+			"https://developer.jboss.org/docs/DOC-12190",
+			"https://docs.redhat.com/en/documentation/red_hat_jboss_enterprise_application_platform/6.4/html/security_guide/chap-secure_the_management_interfaces",
+			"https://www.exploit-db.com/search?q=jboss",
+			"https://github.com/joaomatosf/jexboss",
+		},
+	},
+	{
+		Code:        JbossInvokerDetectedCode,
+		Title:       "Jboss Invoker Detected",
+		Description: "An exposed JBoss invoker has been detected. JBoss invoker servlets handle remote method invocation and deserialization of Java objects, which can be exploited by attackers if accessible. These endpoints are particularly dangerous as they have been associated with multiple critical vulnerabilities including remote code execution through Java deserialization attacks.\n\nThe following risks are associated with exposed invoker servlets:\n- Remote code execution through Java deserialization vulnerabilities\n- Unauthorized access to JMX operations\n- Information disclosure about internal application components\n- Potential for denial of service attacks\n",
+		Remediation: "The JBoss invoker servlets should not be exposed to untrusted networks. Configure the application server to restrict access to these endpoints by implementing proper URL filtering rules and network segmentation. If remote access is required, ensure it is limited to specific trusted IPs and protected with strong authentication. Keep the JBoss server updated with all security patches to prevent known deserialization vulnerabilities.\n",
+		Cwe:         502,
+		Severity:    "Critical",
+		References: []string{
+			"https://nvd.nist.gov/vuln/detail/CVE-2017-12149",
+			"https://nvd.nist.gov/vuln/detail/CVE-2017-7504",
+			"https://owasp.org/www-community/vulnerabilities/Deserialization_of_untrusted_data",
+		},
+	},
+	{
+		Code:        JbossStatusDetectedCode,
+		Title:       "JBoss Status Information Disclosure",
+		Description: "A JBoss status servlet has been detected that exposes information about the server configuration and runtime environment. This information disclosure can assist attackers in identifying vulnerabilities, targeting specific server components, or planning more sophisticated attacks.\n\nThe exposed information may include:\n- JVM version and memory usage\n- Operating system details\n- System properties and environment variables\n- Thread pool information\n- Server configuration settings\n- Runtime performance metrics\n",
+		Remediation: "Configure JBoss to restrict access to status pages, servlets and monitoring endpoints. These pages should only be accessible from internal networks or through authenticated administrative interfaces. For monitoring purposes, consider using dedicated monitoring solutions that can collect metrics securely without exposing sensitive information to unauthorized users.\n",
+		Cwe:         200,
+		Severity:    "Medium",
+		References: []string{
+			"https://access.redhat.com/solutions/20048",
+			"https://www.rapid7.com/db/modules/auxiliary/scanner/http/jboss_status/",
+			"https://blog.carnal0wnage.com/2012/04/from-low-to-pwned-3-jbosstomcat-server.html",
+			"https://nvd.nist.gov/vuln/detail/cve-2010-1429",
+		},
 	},
 	{
 		Code:        JettyServerHeaderCode,

@@ -1,0 +1,21 @@
+code: jboss_status_detected
+title: JBoss Status Information Disclosure
+description: |
+  A JBoss status servlet has been detected that exposes information about the server configuration and runtime environment. This information disclosure can assist attackers in identifying vulnerabilities, targeting specific server components, or planning more sophisticated attacks.
+  
+  The exposed information may include:
+  - JVM version and memory usage
+  - Operating system details
+  - System properties and environment variables
+  - Thread pool information
+  - Server configuration settings
+  - Runtime performance metrics
+remediation: |
+  Configure JBoss to restrict access to status pages, servlets and monitoring endpoints. These pages should only be accessible from internal networks or through authenticated administrative interfaces. For monitoring purposes, consider using dedicated monitoring solutions that can collect metrics securely without exposing sensitive information to unauthorized users.
+cwe: 200
+severity: Medium
+references:
+  - https://access.redhat.com/solutions/20048
+  - https://www.rapid7.com/db/modules/auxiliary/scanner/http/jboss_status/
+  - https://blog.carnal0wnage.com/2012/04/from-low-to-pwned-3-jbosstomcat-server.html
+  - https://nvd.nist.gov/vuln/detail/cve-2010-1429

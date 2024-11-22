@@ -43,7 +43,7 @@ func IsTomcatExampleValidationFunc(history *db.History) (bool, string, int) {
 
 	if strings.Contains(bodyStr, "Licensed to the Apache Software Foundation (ASF)") {
 		confidence += 30
-		details = append(details, "Contains Apache Software Foundation license header")
+		details = append(details, "- Contains Apache Software Foundation license header")
 	}
 
 	pathSpecificIndicators := map[string]struct {
@@ -90,14 +90,14 @@ func IsTomcatExampleValidationFunc(history *db.History) (bool, string, int) {
 	for pathKey, info := range pathSpecificIndicators {
 		if strings.Contains(history.URL, pathKey) && strings.Contains(bodyStr, info.indicator) {
 			confidence += info.value
-			details = append(details, fmt.Sprintf("Identified %s example: %s", pathKey, info.description))
+			details = append(details, fmt.Sprintf("- Identified %s example: %s", pathKey, info.description))
 		}
 	}
 
 	for indicator, info := range infoLeakIndicators {
 		if strings.Contains(bodyStr, indicator) {
 			confidence += info.value
-			details = append(details, info.detail)
+			details = append(details, fmt.Sprintf("- %s", info.detail))
 		}
 	}
 
@@ -106,7 +106,7 @@ func IsTomcatExampleValidationFunc(history *db.History) (bool, string, int) {
 			for _, value := range server {
 				if strings.Contains(value, "Apache-Coyote") {
 					confidence += 20
-					details = append(details, "Apache Tomcat server signature detected")
+					details = append(details, "- Apache Tomcat server signature detected")
 					break
 				}
 			}

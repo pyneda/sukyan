@@ -66,7 +66,7 @@ var axis2Fingerprints = []axis2Pattern{
 	{pattern: "Service Groups", description: "Service groups listing", weight: 30, location: "body"},
 
 	// Technical indicators
-	{pattern: "org.apache.axis2", description: "Axis2 package reference", weight: 25, location: "error"},
+	{pattern: "org.apache.axis2", description: "Axis2 package reference", weight: 25, location: "body"},
 	{pattern: "org.apache.axiom", description: "Axiom package reference", weight: 25, location: "error"},
 	{pattern: "AxisServlet", description: "Axis2 servlet reference", weight: 30, location: "error"},
 	{pattern: "Apache-Axis2", description: "Server identification", weight: 35, location: "header"},
@@ -111,6 +111,16 @@ var axis2Fingerprints = []axis2Pattern{
 	// XML patterns
 	{pattern: "application/xml", description: "XML content type", weight: 15, location: "header"},
 	{pattern: "text/xml", description: "XML content type", weight: 15, location: "header"},
+
+	// Other
+	{pattern: "axis2-web/css/axis-style.css", description: "Axis2 CSS styles", weight: 50, location: "body"},
+	{pattern: "axis2-web/images/axis_l.jpg", description: "Axis2 logo reference", weight: 50, location: "body"},
+	{pattern: "successfully deployed the Axis2 Web Application", description: "Default Axis2 deployment text", weight: 35, location: "body"},
+
+	// Happy axis checks
+	{pattern: "Essential Components", description: "Essential components title", weight: 30, location: "body"},
+	{pattern: "The core axis2 libraries are present", description: "Axis2 core libraries text", weight: 30, location: "body"},
+	{pattern: "<h1>Axis2 Happiness Page</h1>", description: "Happy Axis2 page title", weight: 30, location: "body"},
 }
 
 func IsAxis2ValidationFunc(history *db.History) (bool, string, int) {
@@ -180,7 +190,7 @@ func IsAxis2ValidationFunc(history *db.History) (bool, string, int) {
 		}
 	}
 
-	return confidence >= minConfidence(), details, confidence
+	return confidence >= minConfidence(), details, min(confidence, 100)
 
 }
 

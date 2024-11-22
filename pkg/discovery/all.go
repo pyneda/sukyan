@@ -86,7 +86,7 @@ func DiscoverAll(options DiscoveryOptions) ([]DiscoveryResult, error) {
 			Result DiscoveryResult
 			Error  error
 		} {
-			log.Info().Str("check", source).Msg("Discovering hidden paths")
+			log.Info().Str("check", source).Str("url", options.BaseURL).Msg("Discovering hidden paths")
 			results, err := discoverFunc(options)
 			return struct {
 				Result DiscoveryResult

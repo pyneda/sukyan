@@ -83,7 +83,7 @@ func IsGRPCValidationFunc(history *db.History) (bool, string, int) {
 	matchedMarkers := []string{}
 
 	for _, marker := range commonMarkers {
-		if strings.Contains(bodyLower, strings.ToLower(marker)) {
+		if strings.Contains(bodyLower, strings.ToLower(marker)) && !strings.Contains(history.URL, marker) {
 			markerCount++
 			matchedMarkers = append(matchedMarkers, marker)
 		}

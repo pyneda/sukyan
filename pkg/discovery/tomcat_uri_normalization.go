@@ -42,6 +42,11 @@ func IsTomcatManagerResponse(history *db.History) (bool, string, int) {
 			confidence += 50
 			details = append(details, "Found Apache Tomcat signature in response")
 		}
+
+		if strings.Contains(responseBody, "$CATALINA_HOME") {
+			confidence += 50
+			details = append(details, "Found $CATALINA_HOME in response")
+		}
 	}
 
 	return confidence >= minConfidence(), strings.Join(details, "\n"), min(confidence, 100)

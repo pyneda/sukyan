@@ -15,7 +15,7 @@ import (
 const historyItemModulesConcurrency = 10
 
 func ScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options scan_options.HistoryItemScanOptions) {
-	taskLog := log.With().Uint("workspace", options.WorkspaceID).Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
+	taskLog := log.With().Uint("workspace", options.WorkspaceID).Str("mode", options.Mode.String()).Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
 	taskLog.Info().Msg("Starting to scan history item")
 
 	activeOptions := ActiveModuleOptions{
@@ -48,25 +48,20 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		switch options.Mode {
 		case scan_options.ScanModeSmart:
 			for _, insertionPoint := range insertionPoints {
-				if insertionPoint.Behaviour.IsDynamic {
+				if insertionPoint.Behaviour.IsDynamic || insertionPoint.Behaviour.IsReflected || insertionPoint.Type == scan.InsertionPointTypeBody || insertionPoint.Type == scan.InsertionPointTypeParameter {
 					insertionPointsToAudit = append(insertionPointsToAudit, insertionPoint)
-				}
-
-				if insertionPoint.Behaviour.IsReflected {
 					xssInsertionPoints = append(xssInsertionPoints, insertionPoint)
-					// TODO: Think about a better way to decide which insertion points to use here
-				} else if len(xssInsertionPoints) == 0 && insertionPoint.Behaviour.IsDynamic && insertionPoint.Type != scan.InsertionPointTypeHeader && insertionPoint.Type != scan.InsertionPointTypeCookie {
-					xssInsertionPoints = append(insertionPointsToAudit, insertionPoint)
+				} else {
+					taskLog.Debug().Str("insertionPoint", insertionPoint.Name).Msg("Skipping insertion point")
 				}
 			}
 		case scan_options.ScanModeFast:
 			for _, insertionPoint := range insertionPoints {
-				if insertionPoint.Behaviour.IsDynamic {
+				if insertionPoint.Behaviour.IsDynamic || insertionPoint.Behaviour.IsReflected {
 					insertionPointsToAudit = append(insertionPointsToAudit, insertionPoint)
-				}
-
-				if insertionPoint.Behaviour.IsReflected {
 					xssInsertionPoints = append(xssInsertionPoints, insertionPoint)
+				} else {
+					taskLog.Debug().Str("insertionPoint", insertionPoint.Name).Msg("Skipping insertion point")
 				}
 			}
 

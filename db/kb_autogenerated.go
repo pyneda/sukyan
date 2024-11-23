@@ -90,6 +90,7 @@ var (
 	PhpInfoDetectedCode                  IssueCode = "php_info_detected"
 	PrivateIpsCode                       IssueCode = "private_ips"
 	PrivateKeysCode                      IssueCode = "private_keys"
+	ReactDevelopmentModeCode             IssueCode = "react_development_mode"
 	ReflectedInputCode                   IssueCode = "reflected_input"
 	RemoteFileInclusionCode              IssueCode = "remote_file_inclusion"
 	SecretsInJsCode                      IssueCode = "secrets_in_js"
@@ -1178,6 +1179,18 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://en.wikipedia.org/wiki/Public-key_cryptography",
 			"https://cheatsheetseries.owasp.org/cheatsheets/Key_Management_Cheat_Sheet.html",
+		},
+	},
+	{
+		Code:        ReactDevelopmentModeCode,
+		Title:       "React Development Mode Detected",
+		Description: "The application is running React in development mode, which includes additional debugging features and error messages that can expose sensitive implementation details about the application. Development mode bundles are typically larger, slower, and include source maps that could help attackers understand the application structure and find vulnerabilities. This mode also exposes React's internal state and component hierarchy, which could aid in crafting targeted attacks.\n",
+		Remediation: "Ensure that the application is properly built for production before deployment. For most React applications, this involves using the correct build commands and environment configurations. Run 'npm run build' or equivalent build command for your environment, which will create optimized production bundles. Verify that your deployment process uses these production builds and that environment variables are properly set to indicate production mode. Additionally, implement proper security headers and remove any debug-related environment variables from your production servers.\n",
+		Cwe:         489,
+		Severity:    "Medium",
+		References: []string{
+			"https://reactjs.org/docs/optimizing-performance.html#use-the-production-build",
+			"https://react.dev/learn/react-developer-tools",
 		},
 	},
 	{

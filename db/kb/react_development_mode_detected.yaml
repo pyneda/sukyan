@@ -1,0 +1,11 @@
+code: react_development_mode
+title: React Development Mode Detected
+description: |
+  The application is running React in development mode, which includes additional debugging features and error messages that can expose sensitive implementation details about the application. Development mode bundles are typically larger, slower, and include source maps that could help attackers understand the application structure and find vulnerabilities. This mode also exposes React's internal state and component hierarchy, which could aid in crafting targeted attacks.
+remediation: |
+  Ensure that the application is properly built for production before deployment. For most React applications, this involves using the correct build commands and environment configurations. Run 'npm run build' or equivalent build command for your environment, which will create optimized production bundles. Verify that your deployment process uses these production builds and that environment variables are properly set to indicate production mode. Additionally, implement proper security headers and remove any debug-related environment variables from your production servers.
+cwe: 489
+severity: Medium
+references:
+  - https://reactjs.org/docs/optimizing-performance.html#use-the-production-build
+  - https://react.dev/learn/react-developer-tools

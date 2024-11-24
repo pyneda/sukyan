@@ -466,6 +466,8 @@ definitions:
         $ref: '#/definitions/db.Pagination'
       playground_session_id:
         type: integer
+      query:
+        type: string
       request_content_types:
         items:
           type: string

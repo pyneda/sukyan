@@ -65,7 +65,17 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 		return hasAlert
 	}
 	note := "This request has been replayed in browser without payloads to avoid FPs by ensuring that it does not trigger an alert dialog"
-	_, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, request, x.WorkspaceID, x.TaskID, 0, note, db.SourceScanner)
+
+	_, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(browser.ReplayAndCreateHistoryOptions{
+		Page:                pageWithCancel,
+		Request:             request,
+		RawURL:              "",
+		WorkspaceID:         x.WorkspaceID,
+		TaskID:              x.TaskID,
+		PlaygroundSessionID: 0,
+		Note:                note,
+		Source:              db.SourceScanner,
+	})
 	if navigationErr != nil {
 		taskLog.Error().Msg("Navigation error")
 	}
@@ -219,7 +229,20 @@ func (x *AlertAudit) reportIssue(history *db.History, scanRequest *http.Request,
 }
 
 func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.InsertionPoint, payload string, b *rod.Browser, issueCode db.IssueCode) error {
-	testurl := scanRequest.URL.String()
+
+	var testurl string
+	var err error
+	if insertionPoint.Type == scan.InsertionPointTypeParameter {
+		testurl, err = lib.BuildURLWithParam(scanRequest.URL.String(), insertionPoint.Name, payload, false)
+		if err != nil {
+			testurl = scanRequest.URL.String()
+		}
+	}
+
+	if testurl == "" {
+		testurl = scanRequest.URL.String()
+	}
+
 	taskLog := log.With().Str("method", scanRequest.Method).Str("url", testurl).Interface("insertionPoint", insertionPoint).Str("payload", payload).Str("audit", string(issueCode)).Logger()
 
 	taskLog.Debug().Msg("Getting a browser page")
@@ -234,7 +257,7 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 	pageWithCancel := page.Context(ctx)
 	defer pageWithCancel.Close()
 	go func() {
-		time.Sleep(30 * time.Second)
+		time.Sleep(60 * time.Second)
 		cancel()
 	}()
 	taskLog.Debug().Str("url", testurl).Msg("Navigating to the page")
@@ -263,8 +286,17 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 		"Replaying request in browser to test for  %s\nInsertion point: %s\nType: %s\nOriginal data: %s\nCurrent value: %s\nPayload: %s",
 		issueCode, insertionPoint.Name, insertionPoint.Type, insertionPoint.OriginalData, insertionPoint.Value, payload,
 	)
-	history, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, scanRequest, x.WorkspaceID, x.TaskID, 0, note, db.SourceScanner)
 
+	history, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(browser.ReplayAndCreateHistoryOptions{
+		Page:                pageWithCancel,
+		Request:             scanRequest,
+		RawURL:              testurl,
+		WorkspaceID:         x.WorkspaceID,
+		TaskID:              x.TaskID,
+		PlaygroundSessionID: 0,
+		Note:                note,
+		Source:              db.SourceScanner,
+	})
 	if navigationErr != nil {
 		taskLog.Error().Str("url", testurl).Msg("Navigation error")
 	}

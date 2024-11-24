@@ -71,13 +71,24 @@ func ReplayRequestInBrowser(page *rod.Page, req *http.Request) error {
 	return page.Navigate(req.URL.String())
 }
 
-func ReplayRequestInBrowserAndCreateHistory(page *rod.Page, req *http.Request, workspaceID, taskID, playgroundSessionID uint, note, source string) (history *db.History, err error) {
+type ReplayAndCreateHistoryOptions struct {
+	Page                *rod.Page
+	Request             *http.Request
+	RawURL              string
+	WorkspaceID         uint
+	TaskID              uint
+	PlaygroundSessionID uint
+	Note                string
+	Source              string
+}
 
-	router := page.HijackRequests()
+func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) (history *db.History, err error) {
+
+	router := opts.Page.HijackRequests()
 	defer router.Stop()
 	requestHandled := false
-	if note == "" {
-		note = "Create history from replay in browser"
+	if opts.Note == "" {
+		opts.Note = "Create history from replay in browser"
 	}
 
 	router.MustAdd("*", func(ctx *rod.Hijack) {
@@ -88,28 +99,25 @@ func ReplayRequestInBrowserAndCreateHistory(page *rod.Page, req *http.Request, w
 		}
 		requestHandled = true
 
-		// reqBody := []byte{}
-
-		ctx.Request.Req().Method = req.Method
-		for key, values := range req.Header {
+		ctx.Request.Req().Method = opts.Request.Method
+		for key, values := range opts.Request.Header {
 			for _, value := range values {
 				ctx.Request.Req().Header.Add(key, value)
 			}
 		}
 
-		if req.Body != nil {
-			// log.Info().Msg("Replaying request with body")
-			bodyBytes, err := io.ReadAll(req.Body)
+		if opts.Request.Body != nil {
+			bodyBytes, err := io.ReadAll(opts.Request.Body)
 			if err != nil {
 				ctx.OnError(err)
-				req.Body.Close()
+				opts.Request.Body.Close()
 				return
 			}
-			req.Body.Close()
+			opts.Request.Body.Close()
 
 			// Set the new body on the context and the original request for future use
 			newBodyReader := bytes.NewReader(bodyBytes)
-			req.Body = io.NopCloser(newBodyReader)
+			opts.Request.Body = io.NopCloser(newBodyReader)
 			ctx.Request.Req().Body = io.NopCloser(bytes.NewReader(bodyBytes))
 			ctx.Request.SetBody(bodyBytes)
 		}
@@ -118,7 +126,7 @@ func ReplayRequestInBrowserAndCreateHistory(page *rod.Page, req *http.Request, w
 		if err != nil {
 			log.Error().Err(err).Msg("Error loading hijacked response in replay function")
 		}
-		history = CreateHistoryFromHijack(ctx.Request, ctx.Response, source, note, workspaceID, taskID, playgroundSessionID)
+		history = CreateHistoryFromHijack(ctx.Request, ctx.Response, opts.Source, opts.Note, opts.WorkspaceID, opts.TaskID, opts.PlaygroundSessionID)
 		// NOTE: This shouldn't be necessary, but it seems that the body is not being set on the history object when replaying the request
 		// if history.RequestBody == nil && len(reqBody) > 0 {
 		// 	history.RequestBody = reqBody
@@ -129,7 +137,13 @@ func ReplayRequestInBrowserAndCreateHistory(page *rod.Page, req *http.Request, w
 
 	go router.Run()
 
-	err = page.Navigate(req.URL.String())
+	requestURL := opts.RawURL
+
+	if requestURL == "" {
+		requestURL = opts.Request.URL.String()
+	}
+
+	err = opts.Page.Navigate(requestURL)
 
 	if history == nil || history.ID == 0 {
 		time.Sleep(2 * time.Second)

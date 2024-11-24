@@ -159,7 +159,15 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 	}
 
 	log.Info().Msg("Replaying request in browser")
-	history, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(pageWithCancel, request, input.Session.WorkspaceID, 0, input.Session.ID, "Browser replay", db.SourceRepeater)
+	history, navigationErr := browser.ReplayRequestInBrowserAndCreateHistory(browser.ReplayAndCreateHistoryOptions{
+		Page:                pageWithCancel,
+		Request:             request,
+		WorkspaceID:         input.Session.WorkspaceID,
+		TaskID:              0,
+		PlaygroundSessionID: input.Session.ID,
+		Note:                "Browser replay",
+		Source:              db.SourceRepeater,
+	})
 	if navigationErr != nil {
 		log.Error().Err(navigationErr).Msg("Error replaying request in browser")
 		return ReplayResult{}, navigationErr

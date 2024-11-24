@@ -95,6 +95,8 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 
 		cstiPayloads := payloads.GetCSTIPayloads()
 		alert.RunWithPayloads(item, xssInsertionPoints, cstiPayloads, db.CstiCode)
+	} else {
+		taskLog.Debug().Msg("No insertion points to audit")
 	}
 
 	if item.StatusCode >= 300 || item.StatusCode < 400 {

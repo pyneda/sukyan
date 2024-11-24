@@ -195,6 +195,7 @@ func (h *History) getCreateQueryData() (History, History) {
 
 // HistoryFilter represents available history filters
 type HistoryFilter struct {
+	Query                string     `json:"query" validate:"omitempty,ascii"`
 	StatusCodes          []int      `json:"status_codes" validate:"omitempty,dive,gte=100,lte=599"`
 	Methods              []string   `json:"methods" validate:"omitempty,dive,oneof=GET POST PUT DELETE PATCH HEAD OPTIONS TRACE"`
 	ResponseContentTypes []string   `json:"response_content_types" validate:"omitempty,dive,ascii"`
@@ -211,41 +212,43 @@ type HistoryFilter struct {
 
 // ListHistory Lists history
 func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History, count int64, err error) {
-	//err = d.db.Find(&items).Error
-	filterQuery := make(map[string]interface{})
+	query := d.db.Model(&History{})
+
+	if filter.Query != "" {
+		likeQuery := "%" + filter.Query + "%"
+		query = query.Where("url LIKE ? OR note LIKE ?", likeQuery, likeQuery)
+	}
 
 	if len(filter.StatusCodes) > 0 {
-		filterQuery["status_code"] = filter.StatusCodes
+		query = query.Where("status_code IN ?", filter.StatusCodes)
 	}
 	if len(filter.Methods) > 0 {
-		filterQuery["method"] = filter.Methods
+		query = query.Where("method IN ?", filter.Methods)
 	}
 	if len(filter.Sources) > 0 {
-		filterQuery["source"] = filter.Sources
+		query = query.Where("source IN ?", filter.Sources)
 	}
-
 	if len(filter.ResponseContentTypes) > 0 {
-		filterQuery["response_content_type"] = filter.ResponseContentTypes
+		query = query.Where("response_content_type IN ?", filter.ResponseContentTypes)
 	}
-
 	if len(filter.RequestContentTypes) > 0 {
-		filterQuery["request_content_type"] = filter.RequestContentTypes
+		query = query.Where("request_content_type IN ?", filter.RequestContentTypes)
 	}
-
 	if filter.WorkspaceID > 0 {
-		filterQuery["workspace_id"] = filter.WorkspaceID
+		query = query.Where("workspace_id = ?", filter.WorkspaceID)
 	}
-
 	if filter.TaskID > 0 {
-		filterQuery["task_id"] = filter.TaskID
+		query = query.Where("task_id = ?", filter.TaskID)
 	}
-
 	if len(filter.IDs) > 0 {
-		filterQuery["id"] = filter.IDs
+		query = query.Where("id IN ?", filter.IDs)
+	}
+	if filter.PlaygroundSessionID > 0 {
+		query = query.Where("playground_session_id = ?", filter.PlaygroundSessionID)
 	}
 
-	if filter.PlaygroundSessionID > 0 {
-		filterQuery["playground_session_id"] = filter.PlaygroundSessionID
+	if err := query.Count(&count).Error; err != nil {
+		return nil, 0, err
 	}
 
 	validSortBy := map[string]bool{
@@ -274,18 +277,12 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 		}
 	}
 
-	// Perform the query
-	if filterQuery != nil && len(filterQuery) > 0 {
-		err = d.db.Scopes(Paginate(&filter.Pagination)).Where(filterQuery).Order(order).Find(&items).Error
-		d.db.Model(&History{}).Where(filterQuery).Count(&count)
-	} else {
-		err = d.db.Scopes(Paginate(&filter.Pagination)).Order(order).Find(&items).Error
-		d.db.Model(&History{}).Count(&count)
+	err = query.Scopes(Paginate(&filter.Pagination)).Order(order).Find(&items).Error
+	if err != nil {
+		return nil, 0, err
 	}
 
-	// Add pagination: https://gorm.io/docs/scopes.html#pagination
-
-	log.Debug().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Int("total_results", len(items)).Msg("Getting history items")
+	log.Debug().Interface("filters", filter).Int("gathered", len(items)).Int64("count", count).Msg("Getting history items")
 
 	return items, count, err
 }

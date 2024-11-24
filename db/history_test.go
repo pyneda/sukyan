@@ -1,6 +1,7 @@
 package db
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -171,4 +172,209 @@ func TestGetHistoryByID(t *testing.T) {
 	fetchedHistory, err := Connection.GetHistoryByID(history.ID)
 	assert.Nil(t, err)
 	assert.Equal(t, history.ID, fetchedHistory.ID)
+}
+
+func TestListHistory(t *testing.T) {
+	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+		Code:        "list-history-test",
+		Title:       "List History Test",
+		Description: "Workspace for testing history listing functionality",
+	})
+	assert.Nil(t, err)
+	workspaceID := workspace.ID
+	assert.Nil(t, Connection.db.Unscoped().Where("workspace_id = ?", workspaceID).Delete(&History{}).Error)
+
+	testCases := []struct {
+		url         string
+		method      string
+		statusCode  int
+		source      string
+		contentType string
+		note        string
+	}{
+		{"/api/users", "GET", 200, "Scanner", "application/json", "User listing endpoint"},
+		{"/api/admin", "POST", 403, "Scanner", "application/json", "Failed admin access"},
+		{"/images/logo.png", "GET", 200, "Crawler", "image/png", "Website logo"},
+		{"/api/products", "PUT", 500, "Repeater", "application/json", "Server error in products API"},
+		{"/docs/index.html", "GET", 404, "Browser", "text/html", "Missing documentation"},
+		{"/api/auth", "POST", 401, "Scanner", "application/json", "Invalid authentication attempt"},
+		{"/api/users/search", "GET", 200, "Browser", "application/json", "Search functionality test"},
+	}
+
+	createdIDs := make([]uint, 0)
+	for _, tc := range testCases {
+		history := &History{
+			URL:                 tc.url,
+			Method:              tc.method,
+			StatusCode:          tc.statusCode,
+			Source:              tc.source,
+			ResponseContentType: tc.contentType,
+			Note:                tc.note,
+			WorkspaceID:         &workspaceID,
+		}
+		created, err := Connection.CreateHistory(history)
+		assert.Nil(t, err)
+		createdIDs = append(createdIDs, created.ID)
+	}
+
+	// Test cases for filtering
+	t.Run("Query Filter", func(t *testing.T) {
+		filter := HistoryFilter{
+			Query:       "api",
+			WorkspaceID: workspaceID,
+			Pagination: Pagination{
+				Page:     1,
+				PageSize: 10,
+			},
+		}
+		items, count, err := Connection.ListHistory(filter)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(5), count)
+		for _, item := range items {
+			assert.Contains(t, strings.ToLower(item.URL), "api")
+		}
+	})
+
+	t.Run("Status Code Filter", func(t *testing.T) {
+		filter := HistoryFilter{
+			StatusCodes: []int{200},
+			WorkspaceID: workspaceID,
+			Pagination: Pagination{
+				Page:     1,
+				PageSize: 10,
+			},
+		}
+		items, count, err := Connection.ListHistory(filter)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(3), count)
+		for _, item := range items {
+			assert.Equal(t, 200, item.StatusCode)
+		}
+	})
+
+	t.Run("Method Filter", func(t *testing.T) {
+		filter := HistoryFilter{
+			Methods:     []string{"GET"},
+			WorkspaceID: workspaceID,
+			Pagination: Pagination{
+				Page:     1,
+				PageSize: 10,
+			},
+		}
+		items, count, err := Connection.ListHistory(filter)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(4), count)
+		for _, item := range items {
+			assert.Equal(t, "GET", item.Method)
+		}
+	})
+
+	t.Run("Source Filter", func(t *testing.T) {
+		filter := HistoryFilter{
+			Sources:     []string{"Scanner"},
+			WorkspaceID: workspaceID,
+			Pagination: Pagination{
+				Page:     1,
+				PageSize: 10,
+			},
+		}
+		items, count, err := Connection.ListHistory(filter)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(3), count)
+		for _, item := range items {
+			assert.Equal(t, "Scanner", item.Source)
+		}
+	})
+
+	t.Run("Content Type Filter", func(t *testing.T) {
+		filter := HistoryFilter{
+			ResponseContentTypes: []string{"application/json"},
+			WorkspaceID:          workspaceID,
+			Pagination: Pagination{
+				Page:     1,
+				PageSize: 10,
+			},
+		}
+		items, count, err := Connection.ListHistory(filter)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(5), count)
+		for _, item := range items {
+			assert.Equal(t, "application/json", item.ResponseContentType)
+		}
+	})
+
+	t.Run("Combined Filters", func(t *testing.T) {
+		filter := HistoryFilter{
+			Query:       "api",
+			Methods:     []string{"GET"},
+			StatusCodes: []int{200},
+			WorkspaceID: workspaceID,
+			Pagination: Pagination{
+				Page:     1,
+				PageSize: 10,
+			},
+		}
+		items, count, err := Connection.ListHistory(filter)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(2), count)
+		for _, item := range items {
+			assert.Contains(t, strings.ToLower(item.URL), "api")
+			assert.Equal(t, "GET", item.Method)
+			assert.Equal(t, 200, item.StatusCode)
+		}
+	})
+
+	t.Run("Note Search", func(t *testing.T) {
+		filter := HistoryFilter{
+			Query:       "error",
+			WorkspaceID: workspaceID,
+			Pagination: Pagination{
+				Page:     1,
+				PageSize: 10,
+			},
+		}
+		items, count, err := Connection.ListHistory(filter)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(1), count)
+		assert.Contains(t, items[0].Note, "error")
+	})
+
+	t.Run("Pagination", func(t *testing.T) {
+		filter := HistoryFilter{
+			WorkspaceID: workspaceID,
+			Pagination: Pagination{
+				Page:     1,
+				PageSize: 3,
+			},
+		}
+		items, count, err := Connection.ListHistory(filter)
+		assert.Nil(t, err)
+		assert.Equal(t, int64(7), count)
+		assert.Equal(t, 3, len(items))
+	})
+
+	t.Run("Sort By URL", func(t *testing.T) {
+		filter := HistoryFilter{
+			WorkspaceID: workspaceID,
+			SortBy:      "url",
+			SortOrder:   "asc",
+			Pagination: Pagination{
+				Page:     1,
+				PageSize: 10,
+			},
+		}
+		items, _, err := Connection.ListHistory(filter)
+		assert.Nil(t, err)
+		for i := 1; i < len(items); i++ {
+			assert.True(t, items[i-1].URL <= items[i].URL)
+		}
+	})
+
+	// Cleanup test data
+	for _, id := range createdIDs {
+		err := Connection.db.Unscoped().Delete(&History{}, id).Error
+		assert.Nil(t, err)
+	}
+	err = Connection.DeleteWorkspace(workspaceID)
+	assert.Nil(t, err)
 }

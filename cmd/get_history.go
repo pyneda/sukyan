@@ -16,6 +16,7 @@ var filterMethods []string
 var filterPageSize int
 var filterPage int
 var filterHistorySources []string
+var filterQuery string
 
 // historyCmd represents the history command
 var historyCmd = &cobra.Command{
@@ -40,6 +41,7 @@ var historyCmd = &cobra.Command{
 			Methods:              filterMethods,
 			WorkspaceID:          uint(workspaceID),
 			Sources:              filterHistorySources,
+			Query:                filterQuery,
 			Pagination: db.Pagination{
 				Page:     filterPage,
 				PageSize: filterPageSize,
@@ -69,6 +71,7 @@ func init() {
 	getCmd.AddCommand(historyCmd)
 
 	historyCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
+	historyCmd.Flags().StringVarP(&filterQuery, "query", "q", "", "Filter by query")
 	historyCmd.Flags().StringSliceVarP(&filterHistorySources, "source", "S", []string{}, "Filter by source. Can be added multiple times.")
 	historyCmd.Flags().IntSliceVarP(&filterStatusCodes, "status", "s", []int{}, "Filter by status code. Can be added multiple times.")
 	historyCmd.Flags().StringSliceVarP(&filterContentTypes, "content-type", "t", []string{}, "Filter by content types. Can be added multiple times.")

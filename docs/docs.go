@@ -3173,6 +3173,9 @@ const docTemplate = `{
                 "playground_session_id": {
                     "type": "integer"
                 },
+                "query": {
+                    "type": "string"
+                },
                 "request_content_types": {
                     "type": "array",
                     "items": {

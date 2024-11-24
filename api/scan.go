@@ -138,10 +138,11 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 	for _, item := range items {
 		// TODO: maybe should validate that the history item and task belongs to the same workspace
 		options := scan_options.HistoryItemScanOptions{
-			WorkspaceID: *item.WorkspaceID,
-			TaskID:      input.TaskID,
-
-			Mode: scan_options.ScanModeSmart,
+			WorkspaceID:        *item.WorkspaceID,
+			TaskID:             input.TaskID,
+			InsertionPoints:    []string{"parameters", "urlpath", "body", "headers", "cookies", "json", "xml"},
+			ExperimentalAudits: false,
+			Mode:               scan_options.ScanModeSmart,
 		}
 		e.ScheduleHistoryItemScan(&item, engine.ScanJobTypeActive, options)
 	}

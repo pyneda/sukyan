@@ -30,29 +30,31 @@ type PlaygroundFuzzResponse struct {
 // @Param input body PlaygroundFuzzInput true "Set the fuzzing request configuration"
 // @Success 200 {string} PlaygroundFuzzResponse
 // @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz [post]
 func FuzzRequest(c *fiber.Ctx) error {
 	input := new(PlaygroundFuzzInput)
 
 	if err := c.BodyParser(input); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Cannot parse JSON",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Bad Request",
+			Message: "Cannot parse JSON body",
 		})
 	}
 
 	if err := validate.Struct(input); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Validation failed",
-			"message": err.Error(),
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Validation Failed",
+			Message: err.Error(),
 		})
 	}
 
 	session, err := db.Connection.GetPlaygroundSession(input.SessionID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Invalid session",
-			"message": "The provided session ID does not seem valid",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Invalid Session",
+			Message: "The provided session ID does not seem valid",
 		})
 	}
 
@@ -67,24 +69,24 @@ func FuzzRequest(c *fiber.Ctx) error {
 	task, err := db.Connection.NewTask(session.WorkspaceID, &session.ID, title, db.TaskStatusPending, db.TaskTypePlaygroundFuzzer)
 	if err != nil {
 		log.Error().Err(err).Interface("task", task).Msg("Task creation failed")
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "There was an error initiating fuzzing",
-			"message": "Cannot create a new task",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Fuzzing Initialization Failed",
+			Message: "Cannot create a new task",
 		})
 	}
 	requestsCount, err := manual.Fuzz(fuzzOptions, task.ID)
 	if err != nil {
 		log.Error().Err(err).Interface("options", fuzzOptions).Msg("Failed to initiate playground fuzzing")
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "There was an error initiating fuzzing",
-			"message": err.Error(),
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:   "Fuzzing Initialization Failed",
+			Message: err.Error(),
 		})
 	}
 
-	return c.JSON(fiber.Map{
-		"message":        "Fuzzing initiated successfully",
-		"task_id":        task.ID,
-		"requests_count": requestsCount,
+	return c.JSON(PlaygroundFuzzResponse{
+		Message:       "Fuzzing initiated successfully",
+		TaskID:        task.ID,
+		RequestsCount: requestsCount,
 	})
 
 }

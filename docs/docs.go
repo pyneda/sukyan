@@ -1388,6 +1388,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -2081,6 +2087,12 @@ const docTemplate = `{
                         "name": "task",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search query",
+                        "name": "query",
+                        "in": "query"
                     },
                     {
                         "type": "integer",

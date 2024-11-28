@@ -35,8 +35,9 @@ func ReplayRequest(c *fiber.Ctx) error {
 	input := new(PlaygroundReplayInput)
 
 	if err := c.BodyParser(input); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Cannot parse JSON",
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Bad Request",
+			Message: "Cannot parse JSON body",
 		})
 	}
 
@@ -93,9 +94,9 @@ func ReplayRequest(c *fiber.Ctx) error {
 	result, err := manual.Replay(options)
 	if err != nil {
 		log.Error().Err(err).Msg("Error replaying request")
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "There was an error replaying the request",
-			"message": err.Error(),
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Request Replay Failed",
+			Message: err.Error(),
 		})
 	}
 

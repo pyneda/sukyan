@@ -1,11 +1,12 @@
 package api
 
 import (
-	"github.com/pyneda/sukyan/db"
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -75,7 +76,7 @@ func FindTasks(c *fiber.Ctx) error {
 	})
 
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}
 	return c.Status(http.StatusOK).JSON(fiber.Map{"data": tasks, "count": count})
 }

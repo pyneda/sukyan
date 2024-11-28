@@ -65,6 +65,10 @@ func (d *DatabaseConnection) ListTaskJobs(filter TaskJobFilter) (items []*TaskJo
 		query = query.Where("title IN ?", filter.Titles)
 	}
 
+	if filter.Query != "" {
+		query = query.Where("title LIKE ?", "%"+filter.Query+"%")
+	}
+
 	if filter.TaskID != 0 {
 		query = query.Where("task_id = ?", filter.TaskID)
 	}

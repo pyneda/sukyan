@@ -1,12 +1,13 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/pyneda/sukyan/db"
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
 )
 
 // @Summary Search Task Jobs
@@ -15,6 +16,7 @@ import (
 // @Accept  json
 // @Produce  json
 // @Param task query int true "Task ID"
+// @Param query query string false "Search query"
 // @Param page_size query int false "Number of items per page" default(50)
 // @Param page query int false "Page number" default(1)
 // @Param status query string false "Comma-separated list of statuses to filter"
@@ -35,6 +37,7 @@ func FindTaskJobs(c *fiber.Ctx) error {
 	unparsedMethods := c.Query("methods")
 	unparsedSortBy := c.Query("sort_by")
 	unparsedSortOrder := c.Query("sort_order")
+	query := c.Query("query")
 
 	taskID, err := parseTaskID(c)
 	if err != nil {
@@ -95,6 +98,7 @@ func FindTaskJobs(c *fiber.Ctx) error {
 			Page:     page,
 			PageSize: pageSize,
 		},
+		Query:       query,
 		Statuses:    statuses,
 		Titles:      titles,
 		TaskID:      taskID,
@@ -105,7 +109,8 @@ func FindTaskJobs(c *fiber.Ctx) error {
 	})
 
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		log.Error().Err(err).Msg("Error listing task jobs")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}
 	return c.Status(http.StatusOK).JSON(fiber.Map{"data": taskJobs, "count": count})
 

@@ -98,7 +98,7 @@ func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 
 func (s *ScanEngine) scheduleActiveScan(item *db.History, options scan_options.HistoryItemScanOptions) {
 	s.activeScanPool.Go(func() {
-		taskJob, err := db.Connection.NewTaskJob(options.TaskID, "Active scan", db.TaskJobScheduled, item.ID)
+		taskJob, err := db.Connection.NewTaskJob(options.TaskID, "Active scan to "+item.URL, db.TaskJobScheduled, item.ID)
 		if err != nil {
 			log.Error().Err(err).Uint("history", item.ID).Msg("Could not create task job")
 			return

@@ -1,10 +1,11 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
-	"net/http"
 )
 
 // GetSitemap godoc
@@ -40,7 +41,7 @@ func GetSitemap(c *fiber.Ctx) error {
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("Error constructing sitemap")
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}
 	return c.Status(http.StatusOK).JSON(sitemap)
 }

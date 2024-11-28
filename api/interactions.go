@@ -1,10 +1,11 @@
 package api
 
 import (
-	"github.com/pyneda/sukyan/db"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/pyneda/sukyan/db"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -61,7 +62,7 @@ func FindInteractions(c *fiber.Ctx) error {
 
 	if err != nil {
 		// Should handle this better
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}
 	return c.Status(http.StatusOK).JSON(fiber.Map{"data": issues, "count": count})
 }
@@ -94,7 +95,7 @@ func GetInteractionDetail(c *fiber.Ctx) error {
 				"message": "The requested interaction does not exist",
 			})
 		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}
 
 	return c.Status(http.StatusOK).JSON(interaction)

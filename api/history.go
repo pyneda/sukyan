@@ -227,7 +227,7 @@ func FindHistory(c *fiber.Ctx) error {
 
 	if err != nil {
 		// Should handle this better
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}
 	return c.Status(http.StatusOK).JSON(fiber.Map{"data": items, "count": count})
 }
@@ -267,7 +267,7 @@ func GetChildren(c *fiber.Ctx) error {
 	// retrieve all the children history items
 	children, err := db.Connection.GetChildrenHistories(parent)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}
 
 	// map to the HistorySummary type
@@ -313,7 +313,7 @@ func GetRootNodes(c *fiber.Ctx) error {
 	}
 	children, err := db.Connection.GetRootHistoryNodes(workspaceID)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}
 
 	nodes := make([]RootNode, len(children))

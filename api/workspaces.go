@@ -1,9 +1,10 @@
 package api
 
 import (
-	"github.com/pyneda/sukyan/db"
 	"net/http"
 	"strconv"
+
+	"github.com/pyneda/sukyan/db"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -45,7 +46,7 @@ func FindWorkspaces(c *fiber.Ctx) error {
 	items, count, err := db.Connection.ListWorkspaces(filters)
 	if err != nil {
 		// Should handle this better
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}
 	return c.Status(http.StatusOK).JSON(fiber.Map{"data": items, "count": count})
 }
@@ -83,7 +84,7 @@ func CreateWorkspace(c *fiber.Ctx) error {
 
 	workspace, err := db.Connection.GetOrCreateWorkspace(workspace)
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}
 
 	db.Connection.InitializeWorkspacePlayground(workspace.ID)

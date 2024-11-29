@@ -43,6 +43,12 @@ func (sm ScanMode) MaxDiscoveryPathsPerModule() int {
 	}
 }
 
+type AuditCategories struct {
+	ServerSide bool `json:"server_side"`
+	ClientSide bool `json:"client_side"`
+	Passive    bool `json:"passive"`
+}
+
 type HistoryItemScanOptions struct {
 	WorkspaceID        uint              `json:"workspace_id" validate:"required,min=0"`
 	TaskID             uint              `json:"task_id" validate:"required,min=0"`
@@ -52,6 +58,7 @@ type HistoryItemScanOptions struct {
 	FingerprintTags    []string          `json:"fingerprint_tags" validate:"omitempty,dive"`
 	Fingerprints       []lib.Fingerprint `json:"fingerprints" validate:"omitempty,dive"`
 	ExperimentalAudits bool              `json:"experimental_audits"`
+	AuditCategories    AuditCategories   `json:"audit_categories" validate:"required"`
 }
 
 func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bool {
@@ -79,6 +86,7 @@ type FullScanOptions struct {
 	InsertionPoints    []string            `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
 	Mode               ScanMode            `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
 	ExperimentalAudits bool                `json:"experimental_audits"`
+	AuditCategories    AuditCategories     `json:"audit_categories" validate:"required"`
 }
 
 func GetValidInsertionPoints() []string {

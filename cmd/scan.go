@@ -8,6 +8,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/pyneda/sukyan/pkg/scan/engine"
+	"github.com/pyneda/sukyan/pkg/scan/options"
 	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 
 	"os"
@@ -24,13 +25,15 @@ var crawlDepth int
 var crawlMaxPages int
 var crawlExcludePatterns []string
 var workspaceID uint
-var scanTests []string
 var scanTitle string
 var requestsHeadersString string
 var insertionPoints []string
 var urlFile string
 var scanMode string
 var experimentalAudits bool
+var serverSideChecks bool
+var clientSideChecks bool
+var passiveChecks bool
 
 var validate = validator.New()
 
@@ -84,6 +87,11 @@ var scanCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		if !serverSideChecks && !clientSideChecks && !passiveChecks {
+			log.Warn().Msg("Full scan request received witout audit categories enabled")
+			os.Exit(1)
+		}
+
 		headers := lib.ParseHeadersStringToMap(requestsHeadersString)
 		log.Info().Interface("headers", headers).Msg("Parsed headers")
 
@@ -99,6 +107,11 @@ var scanCmd = &cobra.Command{
 			InsertionPoints:    insertionPoints,
 			Mode:               scan_options.GetScanMode(scanMode),
 			ExperimentalAudits: experimentalAudits,
+			AuditCategories: options.AuditCategories{
+				ServerSide: serverSideChecks,
+				ClientSide: clientSideChecks,
+				Passive:    passiveChecks,
+			},
 		}
 		if err := validate.Struct(options); err != nil {
 			log.Error().Err(err).Msg("Validation failed")
@@ -146,4 +159,7 @@ func init() {
 	scanCmd.Flags().StringVarP(&scanMode, "mode", "m", "smart", "Scan mode (fast, smart, fuzz)")
 	scanCmd.Flags().StringArrayVarP(&insertionPoints, "insertion-points", "I", scan_options.GetValidInsertionPoints(), "Insertion points to scan (all by default)")
 	scanCmd.Flags().BoolVar(&experimentalAudits, "experimental", false, "Enable experimental audits")
+	scanCmd.Flags().BoolVar(&serverSideChecks, "server-side", true, "Enable server-side audits")
+	scanCmd.Flags().BoolVar(&clientSideChecks, "client-side", true, "Enable client-side audits")
+	scanCmd.Flags().BoolVar(&passiveChecks, "passive", true, "Enable passive audits")
 }

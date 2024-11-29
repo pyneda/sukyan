@@ -146,6 +146,40 @@ func TestFullScanOptionsValidation(t *testing.T) {
 			},
 			valid: false,
 		},
+		{
+			name: "Valid Mixed AuditCategories",
+			options: FullScanOptions{
+				Title:       "Valid Title",
+				StartURLs:   []string{"https://valid.url"},
+				WorkspaceID: 1,
+				AuditCategories: AuditCategories{
+					ServerSide: false,
+					ClientSide: true,
+					Passive:    true,
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "Valid All Fields",
+			options: FullScanOptions{
+				Title:           "Valid Title",
+				StartURLs:       []string{"https://valid.url"},
+				MaxDepth:        1,
+				MaxPagesToCrawl: 5,
+				WorkspaceID:     1,
+				PagesPoolSize:   1,
+				Headers:         map[string][]string{"key": {"value"}},
+				InsertionPoints: []string{"urlpath", "body", "headers", "parameters", "xml", "cookies"},
+				Mode:            "fast",
+				AuditCategories: AuditCategories{
+					ServerSide: true,
+					ClientSide: true,
+					Passive:    true,
+				},
+			},
+			valid: true,
+		},
 	}
 
 	for _, test := range tests {

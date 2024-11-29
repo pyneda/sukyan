@@ -6,6 +6,7 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/scan/engine"
 	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
+	"github.com/rs/zerolog/log"
 )
 
 type PassiveScanInput struct {
@@ -56,6 +57,9 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 		options := scan_options.HistoryItemScanOptions{
 			WorkspaceID: *item.WorkspaceID,
 			TaskID:      0,
+			AuditCategories: scan_options.AuditCategories{
+				Passive: true,
+			},
 		}
 		e.ScheduleHistoryItemScan(&item, engine.ScanJobTypePassive, options)
 	}
@@ -77,7 +81,7 @@ type ActiveScanInput struct {
 // @Tags Scan
 // @Accept  json
 // @Produce  json
-// @Param input body PassiveScanInput true "List of items"
+// @Param input body ActiveScanInput true "Active scan items and configuration"
 // @Success 200 {object} ActionResponse
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
@@ -143,6 +147,11 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 			InsertionPoints:    []string{"parameters", "urlpath", "body", "headers", "cookies", "json", "xml"},
 			ExperimentalAudits: false,
 			Mode:               scan_options.ScanModeSmart,
+			AuditCategories: scan_options.AuditCategories{
+				ServerSide: true,
+				ClientSide: true,
+				Passive:    true,
+			},
 		}
 		e.ScheduleHistoryItemScan(&item, engine.ScanJobTypeActive, options)
 	}
@@ -185,6 +194,18 @@ func FullScanHandler(c *fiber.Ctx) error {
 			"error":   "Invalid workspace",
 			"message": "The provided workspace ID does not seem valid",
 		})
+	}
+
+	if !input.AuditCategories.ServerSide && !input.AuditCategories.ClientSide && !input.AuditCategories.Passive {
+		// return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		// 	"error":   "Invalid audit categories",
+		// 	"message": "At least one audit category must be enabled",
+		// })
+		log.Warn().Interface("input", input).Msg("Full scan request received witout audit categories enabled, enabling all")
+		// NOTE: At a later stage, might be better to return the error above
+		input.AuditCategories.ServerSide = true
+		input.AuditCategories.ClientSide = true
+		input.AuditCategories.Passive = true
 	}
 
 	if input.Title == "" {

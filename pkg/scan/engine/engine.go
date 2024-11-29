@@ -209,6 +209,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 		InsertionPoints:    options.InsertionPoints,
 		FingerprintTags:    fingerprintTags,
 		ExperimentalAudits: options.ExperimentalAudits,
+		AuditCategories:    options.AuditCategories,
 	}
 
 	websocketConnections, count, _ := db.Connection.ListWebSocketConnections(db.WebSocketConnectionFilter{
@@ -259,6 +260,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 						InsertionPoints:    lib.FilterOutString(options.InsertionPoints, "urlpath"),
 						FingerprintTags:    fingerprintTags,
 						ExperimentalAudits: options.ExperimentalAudits,
+						AuditCategories:    options.AuditCategories,
 					}
 					s.ScheduleHistoryItemScan(historyItem, ScanJobTypeAll, scanOptions)
 				} else {

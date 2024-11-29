@@ -132,6 +132,21 @@ definitions:
       message:
         type: string
     type: object
+  api.ActiveScanInput:
+    properties:
+      items:
+        items:
+          type: integer
+        type: array
+      task:
+        minimum: 0
+        type: integer
+      workspace:
+        minimum: 0
+        type: integer
+    required:
+    - items
+    type: object
   api.BrowserActionsInput:
     properties:
       actions:
@@ -1175,8 +1190,19 @@ definitions:
       size_human:
         type: string
     type: object
+  options.AuditCategories:
+    properties:
+      client_side:
+        type: boolean
+      passive:
+        type: boolean
+      server_side:
+        type: boolean
+    type: object
   options.FullScanOptions:
     properties:
+      audit_categories:
+        $ref: '#/definitions/options.AuditCategories'
       exclude_patterns:
         items:
           type: string
@@ -1222,6 +1248,7 @@ definitions:
         minimum: 0
         type: integer
     required:
+    - audit_categories
     - start_urls
     - workspace_id
     type: object
@@ -2404,12 +2431,12 @@ paths:
       description: Receives a list of items and schedules them for active scanning.
         Either the workspace ID or task ID must be provided.
       parameters:
-      - description: List of items
+      - description: Active scan items and configuration
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/api.PassiveScanInput'
+          $ref: '#/definitions/api.ActiveScanInput'
       produces:
       - application/json
       responses:

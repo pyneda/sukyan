@@ -1737,12 +1737,12 @@ const docTemplate = `{
                 "summary": "Submit items for active scanning",
                 "parameters": [
                     {
-                        "description": "List of items",
+                        "description": "Active scan items and configuration",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.PassiveScanInput"
+                            "$ref": "#/definitions/api.ActiveScanInput"
                         }
                     }
                 ],
@@ -2678,6 +2678,28 @@ const docTemplate = `{
             "properties": {
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "api.ActiveScanInput": {
+            "type": "object",
+            "required": [
+                "items"
+            ],
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "task": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "workspace": {
+                    "type": "integer",
+                    "minimum": 0
                 }
             }
         },
@@ -4206,13 +4228,31 @@ const docTemplate = `{
                 }
             }
         },
+        "options.AuditCategories": {
+            "type": "object",
+            "properties": {
+                "client_side": {
+                    "type": "boolean"
+                },
+                "passive": {
+                    "type": "boolean"
+                },
+                "server_side": {
+                    "type": "boolean"
+                }
+            }
+        },
         "options.FullScanOptions": {
             "type": "object",
             "required": [
+                "audit_categories",
                 "start_urls",
                 "workspace_id"
             ],
             "properties": {
+                "audit_categories": {
+                    "$ref": "#/definitions/options.AuditCategories"
+                },
                 "exclude_patterns": {
                     "type": "array",
                     "items": {

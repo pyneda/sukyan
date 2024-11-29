@@ -69,8 +69,8 @@ func (d *DatabaseConnection) ListTaskJobs(filter TaskJobFilter) (items []*TaskJo
 		query = query.Where("title LIKE ?", "%"+filter.Query+"%")
 	}
 
-	if filter.TaskID != 0 {
-		query = query.Where("task_id = ?", filter.TaskID)
+	if filter.TaskID > 0 {
+		query = query.Where("task_jobs.task_id = ?", filter.TaskID)
 	}
 
 	// Filters related to History

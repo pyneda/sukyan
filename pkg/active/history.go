@@ -70,33 +70,42 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			xssInsertionPoints = insertionPoints
 		}
 
-		scanner := scan.TemplateScanner{
-			Concurrency:         historyItemModulesConcurrency,
-			InteractionsManager: interactionsManager,
-			AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),
-			WorkspaceID:         options.WorkspaceID,
-			Mode:                options.Mode,
+		if options.AuditCategories.ServerSide {
+			scanner := scan.TemplateScanner{
+				Concurrency:         historyItemModulesConcurrency,
+				InteractionsManager: interactionsManager,
+				AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),
+				WorkspaceID:         options.WorkspaceID,
+				Mode:                options.Mode,
+			}
+			scanner.Run(item, payloadGenerators, insertionPointsToAudit, options)
 		}
-		scanner.Run(item, payloadGenerators, insertionPointsToAudit, options)
+
 		// reflectedIssues := issues[db.ReflectedInputCode.String()]
 		// if len(issues) == 0 {
 		// 	taskLog.Info().Int("issues", len(issues)).Msg("Issues detected using template scanner, proceeding to client side audits")
 		// }
 		// taskLog.Info().Int("reflected_input_issues", len(reflectedIssues)).Msg("Input returned in response issues detected, proceeding to client side audits")
-		alert := AlertAudit{
-			WorkspaceID:                options.WorkspaceID,
-			TaskID:                     options.TaskID,
-			TaskJobID:                  options.TaskJobID,
-			SkipInitialAlertValidation: false,
+		if options.AuditCategories.ClientSide {
+			alert := AlertAudit{
+				WorkspaceID:                options.WorkspaceID,
+				TaskID:                     options.TaskID,
+				TaskJobID:                  options.TaskJobID,
+				SkipInitialAlertValidation: false,
+			}
+			taskLog.Info().Msg("Starting client side audits")
+
+			xssPayloads := payloads.GetXSSPayloads()
+			alert.RunWithPayloads(item, xssInsertionPoints, xssPayloads, db.XssReflectedCode)
+
+			cstiPayloads := payloads.GetCSTIPayloads()
+			alert.RunWithPayloads(item, xssInsertionPoints, cstiPayloads, db.CstiCode)
+			taskLog.Info().Msg("Completed client side audits")
+
 		}
 
-		xssPayloads := payloads.GetXSSPayloads()
-		alert.RunWithPayloads(item, xssInsertionPoints, xssPayloads, db.XssReflectedCode)
-
-		cstiPayloads := payloads.GetCSTIPayloads()
-		alert.RunWithPayloads(item, xssInsertionPoints, cstiPayloads, db.CstiCode)
 	} else {
-		taskLog.Debug().Msg("No insertion points to audit")
+		taskLog.Info().Msg("No insertion points to audit")
 	}
 
 	if item.StatusCode >= 300 || item.StatusCode < 400 {
@@ -113,7 +122,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		}
 	}
 
-	if options.Mode == scan_options.ScanModeFuzz || scan.PlatformJava.MatchesAnyFingerprint(options.Fingerprints) {
+	if options.AuditCategories.ServerSide && (options.Mode == scan_options.ScanModeFuzz || scan.PlatformJava.MatchesAnyFingerprint(options.Fingerprints)) {
 		log4shell := Log4ShellInjectionAudit{
 			URL:                 item.URL,
 			Concurrency:         historyItemModulesConcurrency,
@@ -125,27 +134,30 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		log4shell.Run()
 	}
 
-	hostHeader := HostHeaderInjectionAudit{
-		URL:         item.URL,
-		Concurrency: historyItemModulesConcurrency,
-		WorkspaceID: options.WorkspaceID,
-		TaskID:      options.TaskID,
-		TaskJobID:   options.TaskJobID,
-	}
-	hostHeader.Run()
-	// NOTE: Checks below are probably not worth to run against every history item,
-	// but also not only once per target. Should find a way to run them only in some cases
-	// but ensuring they are checked against X different history items per target.
-	sni := SNIAudit{
-		HistoryItem:         item,
-		InteractionsManager: interactionsManager,
-		WorkspaceID:         options.WorkspaceID,
-		TaskID:              options.TaskID,
-		TaskJobID:           options.TaskJobID,
-	}
-	sni.Run()
+	if options.AuditCategories.ServerSide {
+		hostHeader := HostHeaderInjectionAudit{
+			URL:         item.URL,
+			Concurrency: historyItemModulesConcurrency,
+			WorkspaceID: options.WorkspaceID,
+			TaskID:      options.TaskID,
+			TaskJobID:   options.TaskJobID,
+		}
+		hostHeader.Run()
+		// NOTE: Checks below are probably not worth to run against every history item,
+		// but also not only once per target. Should find a way to run them only in some cases
+		// but ensuring they are checked against X different history items per target.
+		sni := SNIAudit{
+			HistoryItem:         item,
+			InteractionsManager: interactionsManager,
+			WorkspaceID:         options.WorkspaceID,
+			TaskID:              options.TaskID,
+			TaskJobID:           options.TaskJobID,
+		}
+		sni.Run()
 
-	HttpVersionsScan(item, activeOptions)
+		HttpVersionsScan(item, activeOptions)
+	}
+
 	if options.ExperimentalAudits {
 		cspp := ClientSidePrototypePollutionAudit{
 			HistoryItem: item,

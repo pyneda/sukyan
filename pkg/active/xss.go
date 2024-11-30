@@ -238,7 +238,10 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem, b *
 	} else {
 		taskLog.Debug().Str("url", testurl).Msg("Page fully loaded on browser")
 	}
-	pageWithCancel.MustClose()
+	err = pageWithCancel.Close()
+	if err != nil {
+		taskLog.Error().Err(err).Msg("Error closing browser page")
+	}
 	return nil
 }
 

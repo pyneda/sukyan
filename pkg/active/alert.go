@@ -87,6 +87,23 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 		taskLog.Debug().Msg("Page fully loaded on browser")
 	}
 
+	// NOTE: The event types should be based on the payload and context where it's being reflected
+	if !hasAlert {
+		err = browser.TriggerMouseEvents(
+			pageWithCancel,
+			browser.EventTypes{
+				Click:    false,
+				Hover:    true,
+				Movement: true,
+				Drag:     false,
+			},
+			&browser.DefaultMovementOptions,
+		)
+		if err != nil {
+			taskLog.Error().Err(err).Msg("Failed to trigger mouse events")
+		}
+	}
+
 	return hasAlert
 }
 

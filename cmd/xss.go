@@ -2,10 +2,12 @@ package cmd
 
 import (
 	//_ "embed"
-	"fmt"
+
 	"os"
 
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/active"
+	"github.com/rs/zerolog/log"
 
 	"github.com/spf13/cobra"
 )
@@ -24,20 +26,39 @@ var xssCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, urls []string) {
+
+		if workspaceID == 0 {
+			log.Error().Msg("Workspace ID is required")
+			os.Exit(1)
+		}
+
+		if urlFile != "" {
+			urlsFromFile, err := lib.ReadFileByLines(urlFile)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to read URLs from file")
+				os.Exit(1)
+			}
+			targets = append(targets, urlsFromFile...)
+		}
+
+		targets = lib.GetUniqueItems(targets)
+
 		if len(targets) == 0 {
-			fmt.Println("At least one target needs to be provided")
+			log.Error().Msg("At least one target url should be provided")
 			os.Exit(1)
 		}
+
 		if _, err := os.Stat(wordlist); os.IsNotExist(err) {
-			fmt.Printf("Wordlist does not exist: %s\n", wordlist)
+			log.Warn().Str("wordlist", wordlist).Msg("Wordlist does not exist")
 			os.Exit(1)
 		}
-		fmt.Println("Checking XSS with payloads...")
+		log.Info().Msg("Starting XSS testing")
 		for _, target := range targets {
 			xss := active.XSSAudit{
 				WorkspaceID: workspaceID,
 			}
 			xss.Run(target, testParams, wordlist, urlEncode)
+			log.Info().Str("url", target).Msg("XSS audit completed")
 		}
 
 	},
@@ -49,6 +70,7 @@ func init() {
 	xssCmd.Flags().BoolVarP(&urlEncode, "encode", "e", false, "URL encode the whole path (including the payload)")
 	xssCmd.Flags().StringVar(&wordlist, "wordlist", "default.txt", "XSS payloads wordlist")
 	xssCmd.Flags().StringArrayVarP(&targets, "url", "u", nil, "Targets")
+	xssCmd.Flags().StringVarP(&urlFile, "file", "f", "", "File containing multiple URLs to scan")
 	xssCmd.Flags().StringSliceVarP(&testParams, "params", "p", testParams, "Parameters to test.")
 	xssCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 }

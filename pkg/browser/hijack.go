@@ -34,6 +34,12 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 	router := browser.HijackRequests()
 	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
 	router.MustAdd("*", func(hj *rod.Hijack) {
+
+		if hj == nil || hj.Request == nil || hj.Request.URL() == nil {
+			log.Error().Msg("Invalid hijack object, request, or URL")
+			return
+		}
+
 		select {
 		case <-ctx.Done():
 			router.Stop()
@@ -86,13 +92,6 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 		}
 	})
 
-	// go func() {
-	// 	defer func() {
-	// 		router.Stop()
-	// 		close(resultsChannel)
-	// 	}()
-	// 	router.Run()
-	// }()
 	go router.Run()
 	return router
 

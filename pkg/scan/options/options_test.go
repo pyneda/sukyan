@@ -149,9 +149,10 @@ func TestFullScanOptionsValidation(t *testing.T) {
 		{
 			name: "Valid Mixed AuditCategories",
 			options: FullScanOptions{
-				Title:       "Valid Title",
-				StartURLs:   []string{"https://valid.url"},
-				WorkspaceID: 1,
+				Title:         "Valid Title",
+				StartURLs:     []string{"https://valid.url"},
+				WorkspaceID:   1,
+				PagesPoolSize: 3,
 				AuditCategories: AuditCategories{
 					ServerSide: false,
 					ClientSide: true,

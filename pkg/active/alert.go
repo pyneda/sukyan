@@ -40,6 +40,7 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 
 	taskLog := log.With().Uint("history", history.ID).Str("method", history.Method).Str("task", "ensure no alert").Str("url", history.URL).Logger()
 	hasAlert := false
+	done := make(chan struct{})
 
 	taskLog.Debug().Msg("Getting a browser page")
 	web.IgnoreCertificateErrors(page)
@@ -56,6 +57,7 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 	go pageWithCancel.EachEvent(
 		func(e *proto.PageJavascriptDialogOpening) (stop bool) {
 			hasAlert = true
+			close(done)
 			return true
 		})()
 
@@ -85,23 +87,6 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 		taskLog.Error().Err(loadError).Msg("Error waiting for page complete load")
 	} else {
 		taskLog.Debug().Msg("Page fully loaded on browser")
-	}
-
-	// NOTE: The event types should be based on the payload and context where it's being reflected
-	if !hasAlert {
-		err = browser.TriggerMouseEvents(
-			pageWithCancel,
-			browser.EventTypes{
-				Click:    false,
-				Hover:    true,
-				Movement: true,
-				Drag:     false,
-			},
-			&browser.DefaultMovementOptions,
-		)
-		if err != nil {
-			taskLog.Error().Err(err).Msg("Failed to trigger mouse events")
-		}
 	}
 
 	return hasAlert
@@ -285,6 +270,11 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 			func(e *proto.PageJavascriptDialogOpening) (stop bool) {
 				alertOpenEventChan <- e
 				taskLog.Warn().Str("browser_url", e.URL).Str("type", string(e.Type)).Str("dialog_text", e.Message).Bool("has_browser_handler", e.HasBrowserHandler).Msg("Reflected XSS Verified")
+
+				disableDialogErr := browser.CloseAllJSDialogs(pageWithCancel)
+				if disableDialogErr != nil {
+					taskLog.Error().Err(disableDialogErr).Msg("Error disabling javascript dialogs")
+				}
 				err := proto.PageHandleJavaScriptDialog{
 					Accept: true,
 					// PromptText: "",
@@ -323,6 +313,44 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 		taskLog.Error().Err(loadError).Msg("Error waiting for page complete load")
 	} else {
 		taskLog.Debug().Str("url", testurl).Msg("Page fully loaded on browser")
+	}
+
+	// select {
+	// case alertOpenEvent, ok := <-alertOpenEventChan:
+	// 	if !ok {
+	// 		return fmt.Errorf("no events received before channel was closed")
+	// 	}
+	// 	x.reportIssue(history, scanRequest, *alertOpenEvent, insertionPoint, payload, issueCode)
+	// 	return nil
+	// case <-time.After(3 * time.Second):
+	// 	return fmt.Errorf("operation timed out while waiting for events")
+
+	// }
+	select {
+	case alertOpenEvent, ok := <-alertOpenEventChan:
+		if !ok {
+			return fmt.Errorf("no events received before channel was closed")
+		}
+		x.reportIssue(history, scanRequest, *alertOpenEvent, insertionPoint, payload, issueCode)
+		return nil
+	case <-time.After(500 * time.Millisecond):
+	}
+
+	done := make(chan struct{})
+	eventTypes := browser.EventTypesForAlertPayload(payload)
+	if eventTypes.HasEventTypesToCheck() {
+		taskLog.Info().Str("url", testurl).Msg("No alert triggered, trying to trigger with mouse events")
+		err = browser.TriggerMouseEvents(
+			pageWithCancel,
+			eventTypes,
+			&browser.DefaultMovementOptions,
+			done,
+		)
+		if err != nil {
+			taskLog.Error().Err(err).Msg("Failed to trigger mouse events")
+		} else {
+			taskLog.Info().Str("url", testurl).Str("payload", payload).Msg("Mouse events triggering completed")
+		}
 	}
 
 	select {

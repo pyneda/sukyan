@@ -15,6 +15,7 @@ import (
 	"fmt"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
 )
@@ -37,6 +38,7 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 
 		if hj == nil || hj.Request == nil || hj.Request.URL() == nil {
 			log.Error().Msg("Invalid hijack object, request, or URL")
+			hj.ContinueRequest(&proto.FetchContinueRequest{})
 			return
 		}
 
@@ -48,11 +50,19 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 			// Continue as usual
 		}
 
+		if scheme := hj.Request.URL().Scheme; scheme != "http" && scheme != "https" {
+			log.Debug().
+				Str("url", hj.Request.URL().String()).
+				Str("scheme", scheme).
+				Msg("HijackWithContext skipping non-HTTP protocol")
+			hj.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
 		err := hj.LoadResponse(http.DefaultClient, true)
 		mustSkip := false
 
 		if err != nil {
-			log.Error().Err(err).Str("url", hj.Request.URL().String()).Msg("Error loading hijacked response")
+			log.Error().Err(err).Str("url", hj.Request.URL().String()).Msg("Error loading hijacked response in HijackWithContext")
 			mustSkip = true
 		}
 
@@ -102,12 +112,24 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
 	httpClient := http_utils.CreateHttpClient()
 	router.MustAdd("*", func(ctx *rod.Hijack) {
-
+		if ctx == nil || ctx.Request == nil || ctx.Request.URL() == nil {
+			log.Error().Msg("Invalid hijack object, request, or URL")
+			ctx.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
+		if scheme := ctx.Request.URL().Scheme; scheme != "http" && scheme != "https" {
+			log.Debug().
+				Str("url", ctx.Request.URL().String()).
+				Str("scheme", scheme).
+				Msg("Hijack skipping non-HTTP protocol")
+			ctx.ContinueRequest(&proto.FetchContinueRequest{})
+			return
+		}
 		err := ctx.LoadResponse(httpClient, true)
 		mustSkip := false
 
 		if err != nil {
-			log.Error().Err(err).Str("url", ctx.Request.URL().String()).Msg("Error loading hijacked response")
+			log.Error().Err(err).Str("url", ctx.Request.URL().String()).Msg("Error loading hijacked response in Hijack function")
 			mustSkip = true
 		}
 

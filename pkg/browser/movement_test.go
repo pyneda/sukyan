@@ -23,6 +23,7 @@ func TestMouseMovement(t *testing.T) {
 	testHTML := createTestHTML()
 	server := startTestServer(testHTML)
 	defer server.Close()
+	done := make(chan struct{})
 
 	b := setupRodBrowser(t, true)
 	defer b.MustClose()
@@ -47,7 +48,7 @@ func TestMouseMovement(t *testing.T) {
 		Hover: true,
 	}
 
-	err := TriggerMouseEvents(page, events, opts)
+	err := TriggerMouseEvents(page, events, opts, done)
 	assert.NoError(t, err)
 
 	// Check click was registered
@@ -98,8 +99,9 @@ func TestMovementTimeout(t *testing.T) {
 		Click: true,
 		Hover: true,
 	}
+	done := make(chan struct{})
 
-	err := TriggerMouseEvents(page, events, opts)
+	err := TriggerMouseEvents(page, events, opts, done)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), context.DeadlineExceeded.Error())
 }
@@ -108,6 +110,7 @@ func TestAlertTriggerOnMouseEvents(t *testing.T) {
 	testHTML := createXSSTestHTML()
 	server := startTestServer(testHTML)
 	defer server.Close()
+	done := make(chan struct{})
 
 	b := setupRodBrowser(t, true)
 	defer b.MustClose()
@@ -149,7 +152,7 @@ func TestAlertTriggerOnMouseEvents(t *testing.T) {
 	assert.True(t, visible, "Test element should be visible")
 
 	// Run mouse movements
-	err = TriggerMouseEvents(page, events, opts)
+	err = TriggerMouseEvents(page, events, opts, done)
 	assert.NoError(t, err)
 
 	// Wait for alert with timeout

@@ -11,6 +11,8 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/pyneda/sukyan/lib"
+	"github.com/rs/zerolog/log"
 )
 
 type EventTypes struct {
@@ -18,6 +20,33 @@ type EventTypes struct {
 	Hover    bool
 	Movement bool
 	Drag     bool
+}
+
+func (e EventTypes) HasEventTypesToCheck() bool {
+	return e.Click || e.Hover || e.Movement || e.Drag
+}
+
+func EventTypesForAlertPayload(payload string) EventTypes {
+	events := EventTypes{
+		Click:    false,
+		Hover:    false,
+		Movement: false,
+		Drag:     false,
+	}
+
+	if lib.ContainsAnySubstringIgnoreCase(payload, []string{"click", "ondbl"}) {
+		events.Click = true
+	}
+	if lib.ContainsAnySubstringIgnoreCase(payload, []string{"mouse", "onmo"}) {
+		events.Hover = true
+		events.Movement = true
+	}
+
+	if lib.ContainsAnySubstringIgnoreCase(payload, []string{"drag"}) {
+		events.Drag = true
+	}
+
+	return events
 }
 
 type MovementOptions struct {
@@ -30,6 +59,7 @@ type MovementOptions struct {
 	MaxRetries        int
 	RecoveryWait      time.Duration
 	MaxDuration       time.Duration
+	ActionTimeout     time.Duration
 }
 
 var (
@@ -42,7 +72,8 @@ var (
 		RandomMovements:   true,
 		MaxRetries:        3,
 		RecoveryWait:      500 * time.Millisecond,
-		MaxDuration:       2 * time.Minute,
+		MaxDuration:       30 * time.Second,
+		ActionTimeout:     5 * time.Second,
 	}
 
 	FastMovementOptions = MovementOptions{
@@ -54,6 +85,7 @@ var (
 		MaxRetries:      2,
 		RecoveryWait:    200 * time.Millisecond,
 		MaxDuration:     1 * time.Minute,
+		ActionTimeout:   3 * time.Second,
 	}
 
 	ThoroughMovementOptions = MovementOptions{
@@ -66,6 +98,7 @@ var (
 		MaxRetries:        5,
 		RecoveryWait:      1 * time.Second,
 		MaxDuration:       5 * time.Minute,
+		ActionTimeout:     10 * time.Second,
 	}
 
 	DefaultEventTypes = EventTypes{
@@ -214,9 +247,15 @@ func moveToElement(page *rod.Page, el *rod.Element, opts *MovementOptions) error
 	return nil
 }
 
-func interactWithElement(page *rod.Page, el *rod.Element, events EventTypes, opts *MovementOptions) error {
+func interactWithElement(page *rod.Page, el *rod.Element, events EventTypes, opts *MovementOptions, ctx context.Context) error {
 	if !IsElementInteractable(el) {
 		return errors.New("element is not interactable")
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
 	}
 
 	if err := moveToElement(page, el, opts); err != nil {
@@ -224,10 +263,22 @@ func interactWithElement(page *rod.Page, el *rod.Element, events EventTypes, opt
 	}
 
 	if events.Hover {
-		time.Sleep(opts.HoverDuration)
+		timer := time.NewTimer(opts.HoverDuration)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
 	}
 
 	if events.Click {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if err := page.Mouse.Click(proto.InputMouseButtonLeft, 1); err != nil {
 			return fmt.Errorf("failed to click: %w", err)
 		}
@@ -236,7 +287,7 @@ func interactWithElement(page *rod.Page, el *rod.Element, events EventTypes, opt
 	return nil
 }
 
-func TriggerMouseEvents(page *rod.Page, events EventTypes, opts *MovementOptions) error {
+func TriggerMouseEvents(page *rod.Page, events EventTypes, opts *MovementOptions, done <-chan struct{}) error {
 	if opts == nil {
 		opts = &DefaultMovementOptions
 	}
@@ -252,13 +303,35 @@ func TriggerMouseEvents(page *rod.Page, events EventTypes, opts *MovementOptions
 	for _, el := range elements {
 		select {
 		case <-ctx.Done():
+			log.Info().Str("action", "triggerMouseEvents").Msg("Context done")
 			return ctx.Err()
+		case <-done:
+			return nil
 		default:
 		}
 
 		var lastErr error
 		for retry := 0; retry < opts.MaxRetries; retry++ {
-			if err := interactWithElement(page, el, events, opts); err != nil {
+			select {
+			case <-ctx.Done():
+				log.Info().Str("action", "triggerMouseEvents").Msg("Context done")
+				return ctx.Err()
+			case <-done:
+				return nil
+			default:
+			}
+
+			actionTimeout := opts.MaxDuration / time.Duration(4)
+			if opts.ActionTimeout > 0 {
+				actionTimeout = opts.ActionTimeout
+			}
+			log.Info().Str("action", "interactWithElement").Msg("Interacting with element")
+			eleCtx, eleCancel := context.WithTimeout(ctx, actionTimeout)
+			err := interactWithElement(page, el, events, opts, eleCtx)
+			eleCancel()
+			log.Info().Str("action", "interactWithElement").Msg("Finished interacting with element")
+
+			if err != nil {
 				lastErr = err
 				time.Sleep(opts.RecoveryWait)
 				continue
@@ -271,7 +344,15 @@ func TriggerMouseEvents(page *rod.Page, events EventTypes, opts *MovementOptions
 		}
 
 		if opts.RandomMovements && rand.Float64() < 0.3 {
-			// Add some random movement between elements
+			select {
+			case <-ctx.Done():
+				log.Info().Str("action", "randomMovement").Msg("Context done")
+				return ctx.Err()
+			case <-done:
+				return nil
+			default:
+			}
+
 			pos := page.Mouse.Position()
 			offsetX := rand.Float64()*40 - 20
 			offsetY := rand.Float64()*40 - 20

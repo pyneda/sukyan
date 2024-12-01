@@ -69,6 +69,7 @@ func (x *XSSAudit) Run(targetUrl string, params []string, wordlistPath string, u
 		payload := scanner.Text()
 		p.Go(func() {
 			b := browserPool.NewBrowser()
+
 			taskLog.Debug().Msg("Got scan browser from the pool")
 			hijackResultsChannel := make(chan browser.HijackResult)
 			hijackContext, hijackCancel := context.WithCancel(context.Background())
@@ -157,6 +158,12 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem, b *
 		cancel()
 	}()
 	taskLog.Debug().Str("url", testurl).Msg("Navigating to the page")
+	hasAlert := false
+	done := make(chan struct{})
+	var closeOnce sync.Once
+
+	defer closeOnce.Do(func() { close(done) })
+
 	go pageWithCancel.EachEvent(func(e *proto.RuntimeConsoleAPICalled) {
 		// consoleData := pageWithCancel.MustObjectsToJSON(e.Args)
 
@@ -171,10 +178,16 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem, b *
 		func(e *proto.PageJavascriptDialogOpening) (stop bool) {
 			//log.Printf("XSS Verified on url: %s - PageHandleJavaScriptDialog triggered!!!", testurl)
 			//log.Printf("[XSS Verified] - Dialog type: %s - Message: %s - Has Browser Handler: %t - URL: %s", e.Type, e.Message, e.HasBrowserHandler, e.URL)
-
+			closeOnce.Do(func() { close(done) })
+			hasAlert = true
+			disableDialogErr := browser.CloseAllJSDialogs(pageWithCancel)
+			if disableDialogErr != nil {
+				taskLog.Error().Err(disableDialogErr).Msg("Error disabling javascript dialogs")
+			}
 			taskLog.Warn().Str("browser_url", e.URL).Str("param", item.Parameter).Str("type", string(e.Type)).Str("dialog_text", e.Message).Bool("has_browser_handler", e.HasBrowserHandler).Msg("Reflected XSS Verified")
 			history := x.GetHistory(e.URL)
 			if history.ID == 0 {
+				taskLog.Warn().Str("url", testurl).Msg("Could not find history for XSS, sleeping and trying again")
 				history = x.GetHistory(testurl)
 			}
 
@@ -213,16 +226,16 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem, b *
 			// log.Printf("Taking screenshot of XSS and saving to: %s", screenshot)
 			// pageWithCancel.MustScreenshot(screenshot)
 			//defer restore()
+
+			log.Info().Str("url", testurl).Str("param", item.Parameter).Msg("Reflected XSS detected, reported and closed dialog")
+
 			err := proto.PageHandleJavaScriptDialog{
 				Accept: true,
-				// PromptText: "",
 			}.Call(pageWithCancel)
 			if err != nil {
-				//log.Printf("Dialog from %s was already closed when attempted to close: %s", e.URL, err)
 				taskLog.Error().Err(err).Msg("Error handling javascript dialog")
-				// return true
 			} else {
-				taskLog.Debug().Msg("PageHandleJavaScriptDialog succedded")
+				taskLog.Info().Msg("Closing original javascript dialog succedded")
 			}
 
 			return true
@@ -237,6 +250,24 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem, b *
 		taskLog.Error().Err(err).Msg("Error waiting for page complete load")
 	} else {
 		taskLog.Debug().Str("url", testurl).Msg("Page fully loaded on browser")
+	}
+	if !hasAlert {
+		eventTypes := browser.EventTypesForAlertPayload(item.Payload)
+		if eventTypes.HasEventTypesToCheck() {
+			taskLog.Info().Str("url", testurl).Msg("No alert triggered, trying to trigger with mouse events")
+
+			err = browser.TriggerMouseEvents(
+				pageWithCancel,
+				eventTypes,
+				&browser.DefaultMovementOptions,
+				done,
+			)
+			if err != nil {
+				taskLog.Error().Err(err).Msg("Failed to trigger mouse events")
+			} else {
+				taskLog.Info().Str("url", testurl).Bool("alert_found", hasAlert).Msg("Mouse events triggering completed")
+			}
+		}
 	}
 	err = pageWithCancel.Close()
 	if err != nil {

@@ -104,15 +104,17 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History, options scan_options.H
 			return
 		}
 
-		options.TaskJobID = taskJob.ID
-		taskJob.Status = db.TaskJobRunning
-		db.Connection.UpdateTaskJob(taskJob)
+		s.wg.Go(func() {
+			options.TaskJobID = taskJob.ID
+			taskJob.Status = db.TaskJobRunning
+			db.Connection.UpdateTaskJob(taskJob)
 
-		active.ScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators, options)
+			active.ScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators, options)
 
-		taskJob.Status = db.TaskJobFinished
-		taskJob.CompletedAt = time.Now()
-		db.Connection.UpdateTaskJob(taskJob)
+			taskJob.Status = db.TaskJobFinished
+			taskJob.CompletedAt = time.Now()
+			db.Connection.UpdateTaskJob(taskJob)
+		})
 	})
 }
 

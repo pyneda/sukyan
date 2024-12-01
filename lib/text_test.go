@@ -64,3 +64,143 @@ func TestGuessDataType(t *testing.T) {
 		}
 	}
 }
+
+func TestContainsAnySubstring(t *testing.T) {
+	tests := []struct {
+		name       string
+		original   string
+		substrings []string
+		want       bool
+	}{
+		{
+			name:       "basic match",
+			original:   "Hello World",
+			substrings: []string{"Hello", "Goodbye"},
+			want:       true,
+		},
+		{
+			name:       "no match",
+			original:   "Hello World",
+			substrings: []string{"Goodbye", "Hi"},
+			want:       false,
+		},
+		{
+			name:       "partial match",
+			original:   "Hello World",
+			substrings: []string{"llo", "rld"},
+			want:       true,
+		},
+		{
+			name:       "case sensitive no match",
+			original:   "Hello World",
+			substrings: []string{"hello", "world"},
+			want:       false,
+		},
+		{
+			name:       "empty original string",
+			original:   "",
+			substrings: []string{"test"},
+			want:       false,
+		},
+		{
+			name:       "empty substring list",
+			original:   "Hello World",
+			substrings: []string{},
+			want:       false,
+		},
+		{
+			name:       "empty string in list",
+			original:   "Hello World",
+			substrings: []string{""},
+			want:       true,
+		},
+		{
+			name:       "special characters",
+			original:   "Hello! @World#",
+			substrings: []string{"!"},
+			want:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ContainsAnySubstring(tt.original, tt.substrings)
+			if got != tt.want {
+				t.Errorf("ContainsAnySubstring() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestContainsAnySubstringIgnoreCase(t *testing.T) {
+	tests := []struct {
+		name       string
+		original   string
+		substrings []string
+		want       bool
+	}{
+		{
+			name:       "exact match",
+			original:   "Hello World",
+			substrings: []string{"Hello", "Goodbye"},
+			want:       true,
+		},
+		{
+			name:       "case insensitive match",
+			original:   "Hello World",
+			substrings: []string{"hello", "world"},
+			want:       true,
+		},
+		{
+			name:       "mixed case match",
+			original:   "Hello World",
+			substrings: []string{"hELLo", "WoRLD"},
+			want:       true,
+		},
+		{
+			name:       "no match",
+			original:   "Hello World",
+			substrings: []string{"goodbye", "hi"},
+			want:       false,
+		},
+		{
+			name:       "partial case insensitive match",
+			original:   "Hello World",
+			substrings: []string{"LLO", "RLD"},
+			want:       true,
+		},
+		{
+			name:       "empty original string",
+			original:   "",
+			substrings: []string{"test"},
+			want:       false,
+		},
+		{
+			name:       "empty substring list",
+			original:   "Hello World",
+			substrings: []string{},
+			want:       false,
+		},
+		{
+			name:       "empty string in list",
+			original:   "Hello World",
+			substrings: []string{""},
+			want:       true,
+		},
+		{
+			name:       "special characters with case",
+			original:   "Hello! @World#",
+			substrings: []string{"WORLD#", "hello!"},
+			want:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ContainsAnySubstringIgnoreCase(tt.original, tt.substrings)
+			if got != tt.want {
+				t.Errorf("ContainsAnySubstringIgnoreCase() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

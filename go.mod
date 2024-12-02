@@ -29,7 +29,7 @@ require (
 	github.com/projectdiscovery/rawhttp v0.1.68
 	github.com/projectdiscovery/wappalyzergo v0.0.117
 	github.com/pyneda/nuclei-api v0.0.0-20230715211054-636941207b06
-	github.com/quic-go/quic-go v0.42.0
+	github.com/quic-go/quic-go v0.48.2
 	github.com/rs/zerolog v1.32.0
 	github.com/sergi/go-diff v1.3.1
 	github.com/sourcegraph/conc v0.3.0
@@ -160,7 +160,7 @@ require (
 	github.com/projectdiscovery/retryabledns v1.0.78 // indirect
 	github.com/projectdiscovery/retryablehttp-go v1.0.80 // indirect
 	github.com/projectdiscovery/utils v0.2.12 // indirect
-	github.com/quic-go/qpack v0.4.0 // indirect
+	github.com/quic-go/qpack v0.5.1 // indirect
 	github.com/refraction-networking/utls v1.6.7 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/xid v1.5.0 // indirect

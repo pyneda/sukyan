@@ -109,26 +109,43 @@ func ReadHttpResponseAndCreateHistory(response *http.Response, options HistoryCr
 }
 
 func CreateHistoryFromHttpResponse(response *http.Response, responseData FullResponseData, options HistoryCreationOptions) (*db.History, error) {
+
+	logger := log.With().
+		Str("source", options.Source).
+		Uint("workspace", options.WorkspaceID).
+		Logger()
+
 	if response == nil || response.Request == nil {
 		return nil, errors.New("response or request is nil")
 	}
 
 	requestHeaders, err := json.Marshal(response.Request.Header)
 	if err != nil {
-		log.Error().Err(err).Msg("Error converting request headers to json")
+		logger.Error().Err(err).Msg("Error converting request headers to json")
 	}
 	responseHeaders, err := json.Marshal(response.Header)
 	if err != nil {
-		log.Error().Err(err).Msg("Error converting response headers to json")
+		logger.Error().Err(err).Msg("Error converting response headers to json")
+	}
+
+	var requestBody []byte
+	if response.Request.Body != nil {
+		requestBody, _ = io.ReadAll(response.Request.Body)
+		response.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+		response.Request.ContentLength = int64(len(requestBody))
+
+		response.Request.GetBody = func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewBuffer(requestBody)), nil
+		}
+
 	}
 
 	requestDump, err := httputil.DumpRequestOut(response.Request, true)
 	if err != nil {
-		log.Error().Err(err).Msg("Error dumping request")
+		logger.Error().Err(err).Msg("Error dumping request")
 	}
-	var requestBody []byte
+
 	if response.Request.Body != nil {
-		requestBody, _ = io.ReadAll(response.Request.Body)
 		defer response.Request.Body.Close()
 	}
 

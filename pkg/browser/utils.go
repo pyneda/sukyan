@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -110,6 +111,7 @@ func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) 
 			bodyBytes, err := io.ReadAll(opts.Request.Body)
 			if err != nil {
 				ctx.OnError(err)
+				log.Err(err).Msg("Error reading request body in replay function")
 				opts.Request.Body.Close()
 				return
 			}
@@ -120,6 +122,10 @@ func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) 
 			opts.Request.Body = io.NopCloser(newBodyReader)
 			ctx.Request.Req().Body = io.NopCloser(bytes.NewReader(bodyBytes))
 			ctx.Request.SetBody(bodyBytes)
+
+			// Set the Content-Length header to the length of the new body
+			contentLength := len(bodyBytes)
+			ctx.Request.Req().Header.Set("Content-Length", strconv.Itoa(contentLength))
 		}
 		client := http_utils.CreateHttpClient()
 		err := ctx.LoadResponse(client, true)

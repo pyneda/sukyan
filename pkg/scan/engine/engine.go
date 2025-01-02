@@ -280,15 +280,33 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 	if waitCompletion {
 		time.Sleep(2 * time.Second)
 		s.wg.Wait()
+		waitForTaskCompletion(task.ID)
 		scanLog.Info().Msg("Active scans finished")
 		db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
 	} else {
 		go func() {
 			s.wg.Wait()
+			waitForTaskCompletion(task.ID)
 			scanLog.Info().Msg("Active scans finished")
 			db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
 		}()
 	}
 
 	return task, nil
+}
+
+func waitForTaskCompletion(taskID uint) {
+	scanLog := log.With().Uint("task", taskID).Logger()
+	for {
+		hasPending, err := db.Connection.TaskHasPendingJobs(taskID)
+		if err != nil {
+			scanLog.Error().Err(err).Msg("Error checking pending task jobs")
+			return
+		}
+		if !hasPending {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+	db.Connection.SetTaskStatus(taskID, db.TaskStatusFinished)
 }

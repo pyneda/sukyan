@@ -188,12 +188,17 @@ func DumpHijackRequest(req *rod.HijackRequest) (raw string, body string) {
 	} else {
 		reader := req.Req().Body
 		if reader != nil {
-			bodyBytes, _ := io.ReadAll(reader)
+			bodyBytes, err := io.ReadAll(reader)
+			if err != nil {
+				log.Error().Err(err).Msg("Error reading request body in DumpHijackRequest")
+			}
 			body = string(bodyBytes)
 			if len(bodyBytes) > 0 {
 				dump.WriteString("\n")
 				dump.WriteString(body)
 			}
+		} else {
+			log.Warn().Msg("DumpHijackRequest request body is empty")
 		}
 	}
 	raw = dump.String()

@@ -4,6 +4,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
@@ -15,7 +16,7 @@ type PagePoolManagerConfig struct {
 type PagePoolManager struct {
 	launcher             *launcher.Launcher
 	browser              *rod.Browser
-	pool                 rod.PagePool
+	pool                 rod.Pool[rod.Page]
 	config               PagePoolManagerConfig
 	workspaceID          uint
 	taskID               uint
@@ -65,9 +66,13 @@ func (b *PagePoolManager) Start(hijack bool, source string) {
 }
 
 func (b *PagePoolManager) NewPage() *rod.Page {
-	page := b.pool.Get(b.createPage)
+	page, err := b.pool.Get(b.createPage)
 	// page.HandleDialog()
 	// Set user-agent provided by browser manager config or config file
+	if err != nil {
+		log.Error().Err(err).Msg("Error getting page from pool")
+	}
+
 	if b.config.UserAgent != "" {
 		_ = page.SetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Test"})
 	} else if viper.GetString("navigation.user_agent") != "" {
@@ -81,8 +86,8 @@ func (b *PagePoolManager) ReleasePage(page *rod.Page) {
 	b.pool.Put(page)
 }
 
-func (b *PagePoolManager) createPage() *rod.Page {
-	return b.browser.MustPage()
+func (b *PagePoolManager) createPage() (*rod.Page, error) {
+	return b.browser.Page(proto.TargetCreateTarget{})
 }
 
 func (b *PagePoolManager) Close() {

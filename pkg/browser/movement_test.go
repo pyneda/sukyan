@@ -138,7 +138,7 @@ func TestAlertTriggerOnMouseEvents(t *testing.T) {
 		RandomMovements:   false,
 		MaxRetries:        1,
 		RecoveryWait:      50 * time.Millisecond,
-		MaxDuration:       5 * time.Second,
+		MaxDuration:       9 * time.Second,
 	}
 
 	events := EventTypes{

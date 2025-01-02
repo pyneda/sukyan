@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
@@ -28,7 +29,7 @@ type BrowserPoolManagerConfig struct {
 
 type BrowserPoolManager struct {
 	// launcher             *launcher.Launcher
-	pool                 rod.BrowserPool
+	pool                 rod.Pool[rod.Browser]
 	config               BrowserPoolManagerConfig
 	HijackResultsChannel chan HijackResult
 	hijack               bool
@@ -69,7 +70,10 @@ func (b *BrowserPoolManager) Start() {
 }
 
 func (b *BrowserPoolManager) NewBrowser() *rod.Browser {
-	browser := b.pool.Get(b.createBrowser)
+	browser, err := b.pool.Get(b.createBrowser)
+	if err != nil {
+		log.Error().Err(err).Msg("Error getting browser from pool")
+	}
 
 	// if b.config.UserAgent != "" {
 	// 	_ = browser.SetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Test"})
@@ -84,7 +88,7 @@ func (b *BrowserPoolManager) ReleaseBrowser(browser *rod.Browser) {
 	b.pool.Put(browser)
 }
 
-func (b *BrowserPoolManager) createBrowser() *rod.Browser {
+func (b *BrowserPoolManager) createBrowser() (*rod.Browser, error) {
 	l := GetBrowserLauncher()
 	controlURL := l.MustLaunch()
 	browser := rod.New().ControlURL(controlURL).MustConnect()
@@ -93,7 +97,7 @@ func (b *BrowserPoolManager) createBrowser() *rod.Browser {
 	if b.hijack {
 		Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, browser, b.config.Source, b.HijackResultsChannel, b.workspaceID, b.taskID)
 	}
-	return browser
+	return browser, nil
 }
 
 func (b *BrowserPoolManager) Cleanup() {

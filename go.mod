@@ -10,7 +10,7 @@ require (
 	github.com/elazarl/goproxy v0.0.0-20231017160920-1fe6677f404d
 	github.com/getkin/kin-openapi v0.128.0
 	github.com/go-playground/validator/v10 v10.15.5
-	github.com/go-rod/rod v0.114.8
+	github.com/go-rod/rod v0.116.2
 	github.com/gofiber/contrib/fiberzerolog v0.2.2
 	github.com/gofiber/contrib/jwt v1.0.7
 	github.com/gofiber/fiber/v2 v2.52.5
@@ -196,8 +196,8 @@ require (
 	github.com/yl2chen/cidranger v1.0.2 // indirect
 	github.com/ysmood/fetchup v0.2.4 // indirect
 	github.com/ysmood/goob v0.4.0 // indirect
-	github.com/ysmood/got v0.39.4 // indirect
-	github.com/ysmood/leakless v0.8.0 // indirect
+	github.com/ysmood/got v0.40.0 // indirect
+	github.com/ysmood/leakless v0.9.0 // indirect
 	github.com/yuin/goldmark v1.7.4 // indirect
 	github.com/yuin/goldmark-emoji v1.0.3 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect

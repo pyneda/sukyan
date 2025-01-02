@@ -336,3 +336,12 @@ func (d *DatabaseConnection) GetOrCreateDefaultWorkspaceTask(workspaceID uint) (
 	}
 	return task, result.Error
 }
+
+func (d *DatabaseConnection) TaskHasPendingJobs(taskID uint) (bool, error) {
+	var count int64
+	err := d.db.Model(&TaskJob{}).
+		Where("task_id = ? AND status IN ?", taskID, []TaskJobStatus{TaskJobScheduled, TaskJobRunning}).
+		Count(&count).Error
+
+	return count > 0, err
+}

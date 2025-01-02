@@ -92,6 +92,8 @@ func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) 
 		opts.Note = "Create history from replay in browser"
 	}
 
+	var reqBody []byte
+
 	router.MustAdd("*", func(ctx *rod.Hijack) {
 		// https://github.com/go-rod/rod/blob/4c4ccbecdd8110a434de73de08bdbb72e8c47cb0/examples_test.go#L473-L477
 		if requestHandled {
@@ -122,6 +124,7 @@ func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) 
 			opts.Request.Body = io.NopCloser(newBodyReader)
 			ctx.Request.Req().Body = io.NopCloser(bytes.NewReader(bodyBytes))
 			ctx.Request.SetBody(bodyBytes)
+			reqBody = bodyBytes
 
 			// Set the Content-Length header to the length of the new body
 			contentLength := len(bodyBytes)
@@ -134,10 +137,25 @@ func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) 
 		}
 		history = CreateHistoryFromHijack(ctx.Request, ctx.Response, opts.Source, opts.Note, opts.WorkspaceID, opts.TaskID, opts.PlaygroundSessionID)
 		// NOTE: This shouldn't be necessary, but it seems that the body is not being set on the history object when replaying the request
-		// if history.RequestBody == nil && len(reqBody) > 0 {
-		// 	history.RequestBody = reqBody
-		// 	history, _ = db.Connection.UpdateHistory(history)
-		// }
+		if len(history.RequestBody) == 0 && len(reqBody) > 0 {
+			history.RequestBody = reqBody
+			raw := string(history.RawRequest)
+			parts := strings.Split(raw, "\n\n")
+			if len(parts) == 1 {
+				// No body section yet, add it
+				history.RawRequest = []byte(raw + "\n\n" + string(reqBody))
+			} else {
+				// Replace existing body section
+				history.RawRequest = []byte(parts[0] + "\n\n" + string(reqBody))
+			}
+
+			history, err = db.Connection.UpdateHistory(history)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to update history with request body")
+			} else {
+				log.Debug().Uint("history", history.ID).Msg("Updated history with fixed request body")
+			}
+		}
 
 	})
 

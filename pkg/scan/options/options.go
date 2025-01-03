@@ -44,6 +44,7 @@ func (sm ScanMode) MaxDiscoveryPathsPerModule() int {
 }
 
 type AuditCategories struct {
+	Discovery  bool `json:"discovery"`
 	ServerSide bool `json:"server_side"`
 	ClientSide bool `json:"client_side"`
 	Passive    bool `json:"passive"`

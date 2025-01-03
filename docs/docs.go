@@ -4234,6 +4234,9 @@ const docTemplate = `{
                 "client_side": {
                     "type": "boolean"
                 },
+                "discovery": {
+                    "type": "boolean"
+                },
                 "passive": {
                     "type": "boolean"
                 },

@@ -193,15 +193,18 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 			scanLog.Error().Err(err).Str("base_url", baseURL).Msg("Could not check site behavior")
 			continue
 		}
-		discoverOpts := discovery.DiscoveryOptions{
-			BaseURL:                baseURL,
-			HistoryCreationOptions: createOpts,
-			HttpClient:             discoveryClient,
-			SiteBehavior:           siteBehaviour,
-			BaseHeaders:            options.Headers,
-			ScanMode:               options.Mode,
+		if options.AuditCategories.Discovery {
+			discoverOpts := discovery.DiscoveryOptions{
+				BaseURL:                baseURL,
+				HistoryCreationOptions: createOpts,
+				HttpClient:             discoveryClient,
+				SiteBehavior:           siteBehaviour,
+				BaseHeaders:            options.Headers,
+				ScanMode:               options.Mode,
+			}
+			discovery.DiscoverAll(discoverOpts)
 		}
-		discovery.DiscoverAll(discoverOpts)
+
 	}
 
 	itemScanOptions := scan_options.HistoryItemScanOptions{

@@ -1194,6 +1194,8 @@ definitions:
     properties:
       client_side:
         type: boolean
+      discovery:
+        type: boolean
       passive:
         type: boolean
       server_side:

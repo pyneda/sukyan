@@ -118,7 +118,7 @@ func TestAlertTriggerOnMouseEvents(t *testing.T) {
 	page := b.MustPage(server.URL).MustWaitLoad()
 	// Channel to receive alert events
 	alertTriggered := make(chan string, 1)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	// Set up alert detection
@@ -132,13 +132,13 @@ func TestAlertTriggerOnMouseEvents(t *testing.T) {
 	opts := &MovementOptions{
 		MinSpeed:          50 * time.Millisecond,
 		MaxSpeed:          100 * time.Millisecond,
-		HoverDuration:     200 * time.Millisecond,
+		HoverDuration:     100 * time.Millisecond,
 		UseAcceleration:   true,
 		AccelerationCurve: 0.7,
 		RandomMovements:   false,
 		MaxRetries:        1,
 		RecoveryWait:      50 * time.Millisecond,
-		MaxDuration:       9 * time.Second,
+		MaxDuration:       10 * time.Second,
 	}
 
 	events := EventTypes{

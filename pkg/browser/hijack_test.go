@@ -49,15 +49,15 @@ func TestHijackWithContext(t *testing.T) {
 
 	server := setupHijackMockServer()
 	defer server.Close()
-	rodBrowser := setupRodBrowser(t, true).MustPage(server.URL)
-	defer rodBrowser.Browser().MustClose()
+	browser := setupRodBrowser(t, true)
+	defer browser.MustClose()
 
 	resultsChannel := make(chan HijackResult)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	config := HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}
-	router := HijackWithContext(config, rodBrowser.Browser(), server.URL, resultsChannel, ctx, workspace.ID, 0)
+	router := HijackWithContext(config, browser, server.URL, resultsChannel, ctx, workspace.ID, 0)
 	defer router.Stop()
 
 	wg := sync.WaitGroup{}
@@ -98,10 +98,14 @@ func TestHijackWithContext(t *testing.T) {
 		}
 	}()
 
+	t.Log("server.URL", server.URL+"/final")
+
+	page := browser.MustPage(server.URL + "/final")
+
 	// Making requests to different endpoints
-	rodBrowser.MustNavigate(server.URL + "/json")
-	rodBrowser.MustNavigate(server.URL + "/text")
-	rodBrowser.MustNavigate(server.URL + "/redirect")
+	page.MustNavigate(server.URL + "/json")
+	page.MustNavigate(server.URL + "/text")
+	page.MustNavigate(server.URL + "/redirect")
 	wg.Wait()
 }
 
@@ -117,16 +121,16 @@ func TestHijack(t *testing.T) {
 
 	defer server.Close()
 
-	rodBrowser := setupRodBrowser(t, true).MustPage(server.URL)
-	defer rodBrowser.Browser().MustClose()
+	browser := setupRodBrowser(t, true)
+	defer browser.MustClose()
 
 	resultsChannel := make(chan HijackResult)
 
 	config := HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}
-	Hijack(config, rodBrowser.Browser(), "test", resultsChannel, workspace.ID, 0)
+	Hijack(config, browser, "test", resultsChannel, workspace.ID, 0)
 
 	wg := sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(4)
 
 	// Collecting and validating results
 	go func() {
@@ -156,16 +160,16 @@ func TestHijack(t *testing.T) {
 			}
 
 			processed++
-			if processed >= 3 {
+			if processed >= 4 {
 				close(resultsChannel)
 			}
 
 		}
 	}()
-
+	page := browser.MustPage(server.URL + "/final")
 	// Making requests to different endpoints
-	rodBrowser.MustNavigate(server.URL + "/json")
-	rodBrowser.MustNavigate(server.URL + "/text")
-	rodBrowser.MustNavigate(server.URL + "/redirect")
+	page.MustNavigate(server.URL + "/json")
+	page.MustNavigate(server.URL + "/text")
+	page.MustNavigate(server.URL + "/redirect")
 	wg.Wait()
 }

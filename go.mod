@@ -8,6 +8,7 @@ require (
 	github.com/BishopFox/jsluice v0.0.0-20240110145140-0ddfab153e06
 	github.com/PuerkitoBio/goquery v1.9.1
 	github.com/elazarl/goproxy v0.0.0-20231017160920-1fe6677f404d
+	github.com/fatih/color v1.15.0
 	github.com/getkin/kin-openapi v0.128.0
 	github.com/go-playground/validator/v10 v10.15.5
 	github.com/go-rod/rod v0.116.2
@@ -79,7 +80,6 @@ require (
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
-	github.com/fatih/color v1.15.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/gaissmai/bart v0.13.0 // indirect

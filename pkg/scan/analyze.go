@@ -50,6 +50,7 @@ func AnalyzeInsertionPoints(item *db.History, insertionPoints []InsertionPoint, 
 		seenResponseFingerprints[fg]++
 		if fg != originalFingerprint && fg.statusCode > 0 {
 			insertionPoint.Behaviour.IsDynamic = true
+			log.Info().Str("insertionPoint", insertionPoint.Name).Msg("Dynamic insertion point detected")
 		}
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to check insertion point")
@@ -63,7 +64,8 @@ func AnalyzeInsertionPoints(item *db.History, insertionPoints []InsertionPoint, 
 
 		if !insertionPoint.Behaviour.IsDynamic {
 			basicPayloads := []string{
-				fmt.Sprint(lib.GenerateRandInt(10, 10000)),
+				fmt.Sprint(lib.GenerateRandInt(4, 10)),
+				fmt.Sprint(lib.GenerateRandInt(1000, 10000)),
 				"//",
 				"null",
 				"true",

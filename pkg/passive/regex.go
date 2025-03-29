@@ -29,7 +29,7 @@ var influxDBConnectionStringRegex = regexp.MustCompile(`influxdb:\/\/[a-zA-Z0-9]
 var memcachedConnectionStringRegex = regexp.MustCompile(`memcached:\/\/[a-zA-Z0-9]+:[a-zA-Z0-9]+@[\w\.-]+(:\d+)?`)
 
 var urlRegex = regexp.MustCompile(`(?:"|')((?:[a-zA-Z]{1,10}://|//)[^"'/]{1,}\.[a-zA-Z]{2,}[^"']{0,}|(?:/|\.\./|\./)[^"'><,;| *()(%%$^/\\\[\]][^"'><,;|()]{1,}|[a-zA-Z0-9_\-/]{1,}/[a-zA-Z0-9_\-/]{1,}\.(?:[a-zA-Z]{1,4}|action)(?:[\?|/][^"|']{0,}|)|[a-zA-Z0-9_\-]{1,}\.(?:php|asp|aspx|jsp|json|action|html|js|txt|xml)(?:\?[^"|']{0,}|))(?:"|')`)
-var jwtRegex = regexp.MustCompile(`[A-Za-z0-9-_]{20,}\.[A-Za-z0-9-_]{20,}\.[A-Za-z0-9-_]{20,}`)
+var jwtRegex = regexp.MustCompile(`eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{20,}`)
 var webAssemblyURLRegex = regexp.MustCompile(`(?i)(<script[^>]*>[^<]*\bwasm\b[^<]*<\/script>|<script[^>]*src\s*=\s*["']([^"']*\b\.wasm\b[^"']*)["'][^>]*><\/script>)`)
 
 var S3BucketPattern = regexp.MustCompile(`((?:\w+://)?(?:([\w.-]+)\.s3[\w.-]*\.amazonaws\.com|s3(?:[\w.-]*\.amazonaws\.com(?:(?::\d+)?\\?/)*|://)([\w.-]+))(?:(?::\d+)?\\?/)?(?:.*?\?.*Expires=(\d+))?)`)
@@ -124,8 +124,8 @@ var apiKeysPatternsMap = map[string]*regexp.Regexp{
 	"Vault Token":                       regexp.MustCompile(`hv[sb]\.(?:[A-Za-z0-9]{24}|[A-Za-z0-9_-]{91,})`),
 	"Web3 API Key":                      regexp.MustCompile(`(web3[a-z0-9_ \.,\-]{0,25})(=|>|:=|\|\|:|<=|=>|:).{0,5}['"]([A-Za-z0-9_=\-]+\.[A-Za-z0-9_=\-]+\.?[A-Za-z0-9_.+/=\-]*)['"]`),
 	"Yandex Access Token":               regexp.MustCompile(`t1\.[A-Z0-9a-z_-]+[=]{0,2}\.[A-Z0-9a-z_-]{86}[=]{0,2}`),
-	"Yandex API Key":                    regexp.MustCompile(`AQVN[A-Za-z0-9_-]{35,38}`),
-	"Yandex AWS Access Token":           regexp.MustCompile(`YC[a-zA-Z0-9_-]{38}`),
+	// "Yandex API Key":                    regexp.MustCompile(`AQVN[A-Za-z0-9_-]{35,38}`),
+	// "Yandex AWS Access Token":           regexp.MustCompile(`YC[a-zA-Z0-9_-]{38}`),
 }
 
 var javaAppletPatterns = []struct {

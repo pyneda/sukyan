@@ -28,7 +28,6 @@ var reportCmd = &cobra.Command{
 			fmt.Println("Please either provide a workspace or a task to generate a report")
 			return
 		}
-		reportOutput = ""
 
 		if taskID != 0 {
 			task, err := db.Connection.GetTaskByID(taskID, false)
@@ -36,7 +35,9 @@ var reportCmd = &cobra.Command{
 				fmt.Printf("Error fetching task details: %v\n", err)
 				return
 			}
-			reportOutput = fmt.Sprintf("%s-report.%s", lib.Slugify(task.Title), reportFormat)
+			if reportOutput == "" {
+				reportOutput = fmt.Sprintf("%s-report.%s", lib.Slugify(task.Title), reportFormat)
+			}
 			if reportTitle == "" {
 				reportTitle = fmt.Sprintf("Report for task: %s", task.Title)
 			}
@@ -48,7 +49,9 @@ var reportCmd = &cobra.Command{
 				fmt.Printf("Error fetching workspace details: %v\n", err)
 				return
 			}
-			reportOutput = fmt.Sprintf("%s-report.%s", lib.Slugify(workspace.Code), reportFormat)
+			if reportOutput == "" {
+				reportOutput = fmt.Sprintf("%s-report.%s", lib.Slugify(workspace.Code), reportFormat)
+			}
 			if reportTitle == "" {
 				reportTitle = fmt.Sprintf("Report for workspace: %s", workspace.Code)
 			}
@@ -122,6 +125,6 @@ func init() {
 	reportCmd.Flags().UintVarP(&taskID, "task", "t", 0, "Task ID")
 	reportCmd.Flags().StringVarP(&reportTitle, "title", "T", "", "Report Title")
 	reportCmd.Flags().StringVarP(&reportFormat, "format", "f", "html", "Report Format (html or json)")
-	reportCmd.Flags().StringVarP(&reportOutput, "output", "o", "", "Output file path)")
+	reportCmd.Flags().StringVarP(&reportOutput, "output", "o", "", "Output file path")
 	reportCmd.Flags().IntVarP(&minConfidence, "min-confidence", "c", 0, "Minimum issue confidence level to include in the report")
 }

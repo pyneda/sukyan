@@ -8,10 +8,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 
-	"gorm.io/datatypes"
-
 	"bytes"
-	"encoding/json"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -119,14 +116,14 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		return nil, errors.New("response or request is nil")
 	}
 
-	requestHeaders, err := json.Marshal(response.Request.Header)
-	if err != nil {
-		logger.Error().Err(err).Msg("Error converting request headers to json")
-	}
-	responseHeaders, err := json.Marshal(response.Header)
-	if err != nil {
-		logger.Error().Err(err).Msg("Error converting response headers to json")
-	}
+	// requestHeaders, err := json.Marshal(response.Request.Header)
+	// if err != nil {
+	// 	logger.Error().Err(err).Msg("Error converting request headers to json")
+	// }
+	// responseHeaders, err := json.Marshal(response.Header)
+	// if err != nil {
+	// 	logger.Error().Err(err).Msg("Error converting response headers to json")
+	// }
 
 	var requestBody []byte
 	if response.Request.Body != nil {
@@ -158,11 +155,7 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		URL:                 response.Request.URL.String(),
 		Depth:               lib.CalculateURLDepth(response.Request.URL.String()),
 		StatusCode:          response.StatusCode,
-		RequestHeaders:      datatypes.JSON(requestHeaders),
-		RequestBody:         requestBody,
 		RequestBodySize:     len(requestBody),
-		ResponseHeaders:     datatypes.JSON(responseHeaders),
-		ResponseBody:        responseData.Body,
 		ResponseBodySize:    responseData.BodySize,
 		Method:              response.Request.Method,
 		ResponseContentType: response.Header.Get("Content-Type"),

@@ -6,6 +6,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// TODO: Refactor this
 func CreateJavascriptSourcesAndSinksInformationalIssue(history *db.History, jsSources []string, jsSinks []string, jquerySinks []string) {
 	sourcesFound := len(jsSources) > 0
 	sinksFound := len(jsSinks) > 0 || len(jquerySinks) > 0
@@ -41,7 +42,6 @@ func CreateJavascriptSourcesAndSinksInformationalIssue(history *db.History, jsSo
 	}
 
 	description = description + "\n\nThis might need manual analysis."
-
 	issue := db.Issue{
 		Title:         title,
 		Description:   description,
@@ -52,7 +52,7 @@ func CreateJavascriptSourcesAndSinksInformationalIssue(history *db.History, jsSo
 		StatusCode:    history.StatusCode,
 		HTTPMethod:    history.Method,
 		Request:       history.RawRequest,
-		Response:      history.ResponseBody,
+		Response:      history.RawResponse,
 		FalsePositive: false,
 		Confidence:    90,
 		Severity:      "Info",

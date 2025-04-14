@@ -97,6 +97,6 @@ func PrintHistory(history History) {
 	sb.WriteString("URL: " + history.URL)
 	sb.WriteString("\nMethod: " + history.Method)
 	sb.WriteString("\nContent Type: " + history.ResponseContentType)
-	sb.WriteString("\nResponse Body:\n" + string(history.ResponseBody))
+	sb.WriteString("\nResponse Body:\n" + string(history.ResponseBodySize))
 	fmt.Print(sb.String())
 }

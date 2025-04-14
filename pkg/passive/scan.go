@@ -112,7 +112,12 @@ func DirectoryListingScan(item *db.History) {
 		"[To Parent Directory]",
 	}
 	isDirectoryListing := false
-	bodyStr := string(item.ResponseBody)
+	body, err := item.ResponseBody()
+	if err != nil {
+		log.Debug().Err(err).Str("history_id", string(item.ID)).Msg("Failed to get response body")
+		return
+	}
+	bodyStr := string(body)
 	for _, match := range matches {
 
 		if strings.Contains(bodyStr, match) {
@@ -127,9 +132,7 @@ func DirectoryListingScan(item *db.History) {
 func PrivateIPScan(item *db.History) {
 	host, _ := lib.GetHostFromURL(item.URL)
 	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
+
 	matches := privateIPRegex.FindAllString(matchAgainst, -1)
 	matches = lib.FilterOutString(matches, host)
 
@@ -146,10 +149,6 @@ func PrivateIPScan(item *db.History) {
 
 func DatabaseErrorScan(item *db.History) {
 	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
-
 	match := SearchDatabaseErrors(matchAgainst)
 	if match != nil {
 		errorDescription := fmt.Sprintf("Discovered database error: \n - Database type: %s\n - Error: %s", match.DatabaseName, match.MatchStr)
@@ -161,9 +160,6 @@ func DatabaseErrorScan(item *db.History) {
 
 func EmailAddressScan(item *db.History) {
 	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
 	matches := emailRegex.FindAllString(matchAgainst, -1)
 
 	if len(matches) > 0 {
@@ -179,7 +175,13 @@ func EmailAddressScan(item *db.History) {
 
 func FileUploadScan(item *db.History) {
 	// This is too simple, could also check the headers for content-type: multipart/form-data and other things
-	matches := fileUploadRegex.FindAllString(string(item.ResponseBody), -1)
+	body, err := item.ResponseBody()
+	if err != nil {
+		log.Debug().Err(err).Str("history_id", string(item.ID)).Msg("Failed to get response body")
+		return
+	}
+
+	matches := fileUploadRegex.FindAllString(string(body), -1)
 	if len(matches) > 0 {
 		var sb strings.Builder
 		sb.WriteString("Discovered file upload inputs:")
@@ -230,9 +232,12 @@ func attemtToCrackJwtIfRequired(item *db.History, jwt *db.JsonWebToken) {
 }
 
 func JwtDetectionScan(item *db.History) {
-
-	// Check ResponseBody
-	matches := jwtRegex.FindAllString(string(item.ResponseBody), -1)
+	body, err := item.ResponseBody()
+	if err != nil {
+		log.Debug().Err(err).Str("history_id", string(item.ID)).Msg("Failed to get response body")
+		return
+	}
+	matches := jwtRegex.FindAllString(string(body), -1)
 	if len(matches) > 0 {
 		var sb strings.Builder
 		sb.WriteString("Detected potential JWTs in response body:")
@@ -320,9 +325,14 @@ func PrivateKeyScan(item *db.History) {
 		{"OpenSSH", opensshPrivateKeyRegex},
 		{"PEM", pemPrivateKeyRegex},
 	}
+	body, err := item.ResponseBody()
+	if err != nil {
+		log.Debug().Err(err).Str("history_id", string(item.ID)).Msg("Failed to get response body")
+		return
+	}
 
 	for _, keyMatch := range keyMatches {
-		matches := keyMatch.Regex.FindAllString(string(item.ResponseBody), -1)
+		matches := keyMatch.Regex.FindAllString(string(body), -1)
 		if len(matches) > 0 {
 			var sb strings.Builder
 			sb.WriteString(fmt.Sprintf("Discovered %s Private Key(s):", keyMatch.Type))
@@ -337,9 +347,6 @@ func PrivateKeyScan(item *db.History) {
 
 func DBConnectionStringScan(item *db.History) {
 	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
 
 	connectionStringRegexes := []*regexp.Regexp{
 		mongoDBConnectionStringRegex,
@@ -409,9 +416,7 @@ func PasswordInGetRequestScan(item *db.History) {
 
 func StorageBucketDetectionScan(item *db.History) {
 	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
+
 	var sb strings.Builder
 	matched := false
 
@@ -451,9 +456,7 @@ func StorageBucketDetectionScan(item *db.History) {
 
 func LeakedApiKeysScan(item *db.History) {
 	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
+
 	var sb strings.Builder
 	matched := false
 
@@ -504,9 +507,7 @@ func ServerSideIncludesUsageScan(item *db.History) {
 
 func WebAssemblyDetectionScan(item *db.History) {
 	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
+
 	matches := webAssemblyURLRegex.FindAllString(matchAgainst, -1)
 
 	var sb strings.Builder

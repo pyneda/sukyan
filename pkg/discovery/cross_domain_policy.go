@@ -106,14 +106,15 @@ func IsFlashCrossDomainValidationFunc(history *db.History) (bool, string, int) {
 	if !strings.Contains(contentType, "xml") && !strings.Contains(contentType, "text/plain") {
 		return false, "", 0
 	}
+	body, _ := history.ResponseBody()
 
-	bodyStr := string(history.ResponseBody)
+	bodyStr := string(body)
 	if !strings.Contains(bodyStr, "<cross-domain-policy") {
 		return false, "", 0
 	}
 
 	var policy CrossDomainPolicy
-	if err := xml.Unmarshal(history.ResponseBody, &policy); err != nil {
+	if err := xml.Unmarshal(body, &policy); err != nil {
 		log.Warn().Str("url", history.URL).Err(err).Msg("Failed to unmarshal cross-domain policy XML")
 		return false, "", 0
 	}

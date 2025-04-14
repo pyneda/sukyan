@@ -217,8 +217,10 @@ func (b *SiteBehavior) IsNotFound(history *db.History) bool {
 		return history.StatusCode == 404
 	}
 
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
+
 	if strings.Contains(strings.ToLower(history.ResponseContentType), "text/html") {
-		bodyStr := string(history.ResponseBody)
 		titleRegex := regexp.MustCompile(`(?i)<title[^>]*>(.*?)</title>`)
 		if matches := titleRegex.FindStringSubmatch(bodyStr); len(matches) > 1 {
 			title := strings.ToLower(matches[1])
@@ -244,7 +246,8 @@ func (b *SiteBehavior) IsNotFound(history *db.History) bool {
 			return true
 		}
 
-		if len(history.ResponseBody) == len(b.BaseURLSample.ResponseBody) {
+		sampleBody, _ := b.BaseURLSample.ResponseBody()
+		if len(bodyStr) == len(string(sampleBody)) {
 			logger.Debug().Msg("history response body length matches base URL sample response body length, returning true")
 			return true
 		}
@@ -260,13 +263,14 @@ func (b *SiteBehavior) IsNotFound(history *db.History) bool {
 			logger.Debug().Interface("sample", sample).Str("history_hash", history.ResponseHash()).Str("sample_hash", sample.ResponseHash()).Msg("history response hash matches not found sample response hash, returning true")
 			return true
 		}
+		sampleBody, _ := sample.ResponseBody()
 
-		if len(history.ResponseBody) == len(sample.ResponseBody) {
-			logger.Debug().Int("history_length", len(history.ResponseBody)).Int("sample_length", len(sample.ResponseBody)).Msg("history response body length matches not found sample response body length, returning true")
+		if len(bodyStr) == len(string(sampleBody)) {
+			logger.Debug().Int("history_length", len(bodyStr)).Int("sample_length", len(sampleBody)).Msg("history response body length matches not found sample response body length, returning true")
 			return true
 		}
 
-		similarity := lib.ComputeSimilarity(history.ResponseBody, sample.ResponseBody)
+		similarity := lib.ComputeSimilarity(body, sampleBody)
 		logger.Debug().Float64("similarity", similarity).Msg("Response similarity with not found sample")
 		if similarity > 0.9 {
 			logger.Debug().Float64("similarity", similarity).Msg("history response is similar to not found sample, returning true")
@@ -275,7 +279,8 @@ func (b *SiteBehavior) IsNotFound(history *db.History) bool {
 	}
 
 	if b.NotFoundChanges && history.URL != b.BaseURLSample.URL {
-		similarity := lib.ComputeSimilarity(history.ResponseBody, b.BaseURLSample.ResponseBody)
+		sampleBody, _ := b.BaseURLSample.ResponseBody()
+		similarity := lib.ComputeSimilarity(body, sampleBody)
 		log.Debug().Float64("similarity", similarity).Msg("Response similarity with base URL sample")
 		if similarity > 0.9 {
 			log.Debug().Float64("similarity", similarity).Msg("history response is similar to base URL sample, returning true")

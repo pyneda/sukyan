@@ -73,7 +73,8 @@ var DBManagementPaths = []string{
 }
 
 func IsDBManagementValidationFunc(history *db.History) (bool, string, int) {
-	bodyStr := strings.ToLower(string(history.ResponseBody))
+	body, _ := history.ResponseBody()
+	bodyStr := strings.ToLower(string(body))
 	details := fmt.Sprintf("Database management interface found: %s\n", history.URL)
 	confidence := 0
 
@@ -97,7 +98,7 @@ func IsDBManagementValidationFunc(history *db.History) (bool, string, int) {
 		details += "- Authentication required (typical for DB management interface)\n"
 	}
 
-	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(history.ResponseBody))
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
 	if err == nil {
 		forms := doc.Find("form")
 		forms.Each(func(i int, form *goquery.Selection) {

@@ -17,8 +17,10 @@ func FingerprintHistoryItems(items []*db.History) []lib.Fingerprint {
 
 	allFingerprints := []string{}
 	for _, item := range items {
-		headers, _ := item.GetResponseHeadersAsMap()
-		fingerprints := wappalyzerClient.Fingerprint(headers, []byte(item.ResponseBody))
+		headers, _ := item.ResponseHeaders()
+		body, _ := item.ResponseBody()
+
+		fingerprints := wappalyzerClient.Fingerprint(headers, body)
 		for key := range fingerprints {
 			allFingerprints = append(allFingerprints, key)
 		}

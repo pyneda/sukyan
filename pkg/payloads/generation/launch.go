@@ -1,7 +1,6 @@
 package generation
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
@@ -50,16 +49,19 @@ func (rc *ResponseConditionLaunchCondition) Check(history *db.History) bool {
 
 		switch rc.Part {
 		case Body:
-			matchAgainst = string(history.ResponseBody)
+			body, _ := history.ResponseBody()
+			matchAgainst = string(body)
 
 		case Headers:
-			headersMap := make(map[string]string)
-			if err := json.Unmarshal(history.ResponseHeaders, &headersMap); err == nil {
-				for _, value := range headersMap {
-					matchAgainst += value
-				}
+			headersMap, err := history.ResponseHeaders()
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to get response headers")
 			} else {
-				log.Error().Err(err).Msg("Failed to unmarshal response headers")
+				for _, values := range headersMap {
+					for _, value := range values {
+						matchAgainst += value
+					}
+				}
 			}
 
 		case Raw:

@@ -32,9 +32,6 @@ var activeXContentTypes = []string{"application/x-oleobject"}
 
 func JavaAppletDetectionScan(item *db.History) {
 	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
 
 	var sb strings.Builder
 	confidence := 80
@@ -86,9 +83,6 @@ func JavaAppletDetectionScan(item *db.History) {
 
 func FlashDetectionScan(item *db.History) {
 	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
 
 	var sb strings.Builder
 	confidence := 80
@@ -137,9 +131,6 @@ func FlashDetectionScan(item *db.History) {
 
 func SilverlightDetectionScan(item *db.History) {
 	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
 
 	var sb strings.Builder
 	confidence := 80
@@ -182,9 +173,6 @@ func SilverlightDetectionScan(item *db.History) {
 
 func ActiveXDetectionScan(item *db.History) {
 	matchAgainst := string(item.RawResponse)
-	if matchAgainst == "" {
-		matchAgainst = string(item.ResponseBody)
-	}
 
 	var sb strings.Builder
 	confidence := 80

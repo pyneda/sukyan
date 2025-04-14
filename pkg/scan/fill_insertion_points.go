@@ -13,6 +13,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
@@ -75,10 +77,16 @@ func createRequestFromCookie(history *db.History, builder InsertionPointBuilder)
 }
 
 func createRequestFromBody(history *db.History, builders []InsertionPointBuilder) (io.Reader, string, error) {
+	body, err := history.RequestBody()
+	if err != nil {
+		return nil, "", err
+	}
 	switch {
 	case strings.Contains(history.RequestContentType, "application/x-www-form-urlencoded"):
-		values, err := url.ParseQuery(string(history.RequestBody))
+
+		values, err := url.ParseQuery(string(body))
 		if err != nil {
+			log.Error().Err(err).Uint("history_id", history.ID).Msg("Error parsing form data creating scan request from body")
 			return nil, "", err
 		}
 		for _, builder := range builders {
@@ -87,7 +95,7 @@ func createRequestFromBody(history *db.History, builders []InsertionPointBuilder
 		return strings.NewReader(values.Encode()), "application/x-www-form-urlencoded", nil
 	case strings.Contains(history.RequestContentType, "application/json"):
 		var requestBody map[string]interface{}
-		if err := json.Unmarshal(history.RequestBody, &requestBody); err != nil {
+		if err := json.Unmarshal(body, &requestBody); err != nil {
 			return nil, "", err
 		}
 		for _, builder := range builders {
@@ -124,7 +132,12 @@ func createMultipartForm(history *db.History, builder InsertionPointBuilder, b *
 		return nil, "", errors.New("invalid Content-Type, boundary not found")
 	}
 
-	reader := multipart.NewReader(strings.NewReader(string(history.RequestBody)), boundary)
+	body, err := history.RequestBody()
+	if err != nil {
+		return nil, "", err
+	}
+
+	reader := multipart.NewReader(strings.NewReader(string(body)), boundary)
 	form, err := reader.ReadForm(10 << 20) // Max memory 10 MB
 	if err != nil {
 		return nil, "", err

@@ -12,7 +12,12 @@ import (
 )
 
 func UnencryptedPasswordFormDetectionScan(item *db.History) {
-	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(item.ResponseBody))
+	body, err := item.ResponseBody()
+	if err != nil {
+		log.Debug().Err(err).Str("historyID", fmt.Sprintf("%d", item.ID)).Msg("Failed to get response body")
+		return
+	}
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
 	if err != nil {
 		log.Error().Err(err).Str("historyID", fmt.Sprintf("%d", item.ID)).Msg("Failed to parse HTML document")
 		return

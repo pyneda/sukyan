@@ -1,50 +1,45 @@
 package db
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/pyneda/sukyan/lib"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 // History holds table for storing requests history found
+// History holds table for storing requests history found
 type History struct {
 	// Similar schema: https://github.com/gilcrest/httplog
 	BaseModel
-	StatusCode           int               `gorm:"index" json:"status_code"`
-	URL                  string            `gorm:"index" json:"url"`
-	Depth                int               `gorm:"index" json:"depth"`
-	RequestHeaders       datatypes.JSON    `json:"request_headers"  swaggerignore:"true"`
-	RequestBody          []byte            `json:"request_body"`
-	RequestBodySize      int               `gorm:"index" json:"request_body_size"`
-	RequestContentLength int64             `json:"request_content_length"`
-	ResponseHeaders      datatypes.JSON    `json:"response_headers" swaggerignore:"true"`
-	ResponseBody         []byte            `json:"response_body"`
-	RequestContentType   string            `gorm:"index" json:"request_content_type"`
-	ResponseBodySize     int               `gorm:"index" json:"response_body_size"`
-	ResponseContentType  string            `gorm:"index" json:"response_content_type"`
-	RawRequest           []byte            `json:"raw_request"`
-	RawResponse          []byte            `json:"raw_response"`
-	Method               string            `gorm:"index" json:"method"`
-	Proto                string            `json:"proto" gorm:"index"`
-	ParametersCount      int               `gorm:"index" json:"parameters_count"`
-	Evaluated            bool              `gorm:"index" json:"evaluated"`
-	Note                 string            `json:"note"`
-	Source               string            `gorm:"index" json:"source"`
-	JsonWebTokens        []JsonWebToken    `gorm:"many2many:json_web_token_histories;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"json_web_tokens"`
-	Workspace            Workspace         `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID          *uint             `json:"workspace_id" gorm:"index"`
-	TaskID               *uint             `json:"task_id" gorm:"index" `
-	Task                 Task              `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	PlaygroundSessionID  *uint             `json:"playground_session_id" gorm:"index" `
-	PlaygroundSession    PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	StatusCode          int               `gorm:"index" json:"status_code"`
+	URL                 string            `gorm:"index" json:"url"`
+	Depth               int               `gorm:"index" json:"depth"`
+	RawRequest          []byte            `json:"raw_request"`
+	RawResponse         []byte            `json:"raw_response"`
+	Method              string            `gorm:"index" json:"method"`
+	Proto               string            `json:"proto" gorm:"index"`
+	ParametersCount     int               `gorm:"index" json:"parameters_count"`
+	Evaluated           bool              `gorm:"index" json:"evaluated"`
+	Note                string            `json:"note"`
+	Source              string            `gorm:"index" json:"source"`
+	JsonWebTokens       []JsonWebToken    `gorm:"many2many:json_web_token_histories;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"json_web_tokens"`
+	Workspace           Workspace         `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	WorkspaceID         *uint             `json:"workspace_id" gorm:"index"`
+	TaskID              *uint             `json:"task_id" gorm:"index" `
+	Task                Task              `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	PlaygroundSessionID *uint             `json:"playground_session_id" gorm:"index" `
+	PlaygroundSession   PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+
+	// Optimized fields for fast queries
+	ResponseBodySize    int    `gorm:"index" json:"response_body_size"`
+	RequestBodySize     int    `gorm:"index" json:"request_body_size"`
+	RequestContentType  string `gorm:"index" json:"request_content_type"`
+	ResponseContentType string `gorm:"index" json:"response_content_type"`
 }
 
 func (h History) Logger() *zerolog.Logger {
@@ -53,7 +48,71 @@ func (h History) Logger() *zerolog.Logger {
 }
 
 func (h History) ResponseHash() string {
-	return lib.HashBytes(h.ResponseBody)
+	body, _ := h.ResponseBody()
+	return lib.HashBytes(body)
+}
+
+// RequestBody returns the request body extracted from RawRequest
+func (h History) RequestBody() ([]byte, error) {
+	_, body, err := lib.SplitHTTPMessage(h.RawRequest)
+	return body, err
+}
+
+// ResponseBody returns the response body extracted from RawResponse
+func (h History) ResponseBody() ([]byte, error) {
+	_, body, err := lib.SplitHTTPMessage(h.RawResponse)
+	return body, err
+}
+
+// RequestHeaders returns the request headers as a map
+func (h History) RequestHeaders() (map[string][]string, error) {
+	headers, _, err := lib.SplitHTTPMessage(h.RawRequest)
+	if err != nil {
+		return nil, err
+	}
+	return lib.ParseHTTPHeaders(headers)
+}
+
+// ResponseHeaders returns the response headers as a map
+func (h History) ResponseHeaders() (map[string][]string, error) {
+	headers, _, err := lib.SplitHTTPMessage(h.RawResponse)
+	if err != nil {
+		return nil, err
+	}
+	return lib.ParseHTTPHeaders(headers)
+}
+
+// RequestHeadersAsString returns the request headers as a string
+func (h History) RequestHeadersAsString() (string, error) {
+	headers, err := h.RequestHeaders()
+	if err != nil {
+		return "", err
+	}
+	return lib.FormatHeadersAsString(headers), nil
+}
+
+// ResponseHeadersAsString returns the response headers as a string
+func (h History) ResponseHeadersAsString() (string, error) {
+	headers, err := h.ResponseHeaders()
+	if err != nil {
+		return "", err
+	}
+	return lib.FormatHeadersAsString(headers), nil
+}
+
+// For backward compatibility
+func (h *History) GetResponseHeadersAsMap() (map[string][]string, error) {
+	return h.ResponseHeaders()
+}
+
+// For backward compatibility
+func (h *History) GetRequestHeadersAsMap() (map[string][]string, error) {
+	return h.RequestHeaders()
+}
+
+// For backward compatibility
+func (h *History) GetResponseHeadersAsString() (string, error) {
+	return h.ResponseHeadersAsString()
 }
 
 func (h History) TableHeaders() []string {
@@ -96,101 +155,6 @@ func (h History) Pretty() string {
 		lib.Blue, lib.ResetColor, string(h.RawRequest),
 		lib.Blue, lib.ResetColor, string(h.RawResponse),
 	)
-}
-
-func (h *History) GetResponseHeadersAsMap() (map[string][]string, error) {
-	intermediateMap := make(map[string]interface{})
-	err := json.Unmarshal([]byte(h.ResponseHeaders), &intermediateMap)
-	if err != nil {
-		return nil, err
-	}
-
-	stringMap := make(map[string][]string)
-	for key, value := range intermediateMap {
-		switch v := value.(type) {
-		case []interface{}:
-			for _, item := range v {
-				switch itemStr := item.(type) {
-				case string:
-					stringMap[key] = append(stringMap[key], itemStr)
-				default:
-					log.Warn().Interface("value", itemStr).Msg("value not a string")
-				}
-			}
-		case string:
-			stringMap[key] = append(stringMap[key], v)
-		default:
-			log.Warn().Interface("value", v).Msg("value not a []string")
-
-		}
-	}
-
-	return stringMap, nil
-}
-
-func (h *History) GetRequestHeadersAsMap() (map[string][]string, error) {
-	intermediateMap := make(map[string]interface{})
-	err := json.Unmarshal([]byte(h.RequestHeaders), &intermediateMap)
-	if err != nil {
-		return nil, err
-	}
-
-	stringMap := make(map[string][]string)
-	for key, value := range intermediateMap {
-		switch v := value.(type) {
-		case []interface{}:
-			for _, item := range v {
-				switch itemStr := item.(type) {
-				case string:
-					stringMap[key] = append(stringMap[key], itemStr)
-				default:
-					log.Warn().Interface("value", itemStr).Msg("value not a string")
-				}
-			}
-		case string:
-			stringMap[key] = append(stringMap[key], v)
-		default:
-			log.Warn().Interface("value", v).Msg("value not a []string")
-
-		}
-	}
-
-	return stringMap, nil
-}
-
-func (h *History) GetResponseHeadersAsString() (string, error) {
-	headersMap, err := h.GetResponseHeadersAsMap()
-	if err != nil {
-		log.Error().Err(err).Uint("history", h.ID).Msg("Error getting response headers as map")
-		return "", err
-	}
-	headers := make([]string, 0, len(headersMap))
-	for name, values := range headersMap {
-		for _, value := range values {
-			headers = append(headers, fmt.Sprintf("%s: %s", name, value))
-		}
-	}
-
-	return strings.Join(headers, "\n"), nil
-}
-
-func (h *History) getCreateQueryData() (History, History) {
-	conditions := History{
-		URL:                 h.URL,
-		StatusCode:          h.StatusCode,
-		Method:              h.Method,
-		ResponseContentType: h.ResponseContentType,
-		ResponseBodySize:    h.ResponseBodySize,
-	}
-	attrs := History{
-		RequestHeaders:       h.RequestHeaders,
-		RequestContentLength: h.RequestContentLength,
-		ResponseHeaders:      h.ResponseHeaders,
-		ResponseBody:         h.ResponseBody,
-		Evaluated:            h.Evaluated,
-		Note:                 h.Note,
-	}
-	return conditions, attrs
 }
 
 // HistoryFilter represents available history filters
@@ -289,9 +253,7 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 
 // CreateHistory saves an history item to the database
 func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
-	// conditions, attrs := record.getCreateQueryData()
 
-	// result := d.db.Where(conditions).Attrs(attrs).FirstOrCreate(&record)
 	if record.TaskID != nil && *record.TaskID == 0 {
 		record.TaskID = nil
 	}

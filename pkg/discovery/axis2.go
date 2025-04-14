@@ -127,8 +127,8 @@ func IsAxis2ValidationFunc(history *db.History) (bool, string, int) {
 	if history.StatusCode == 404 {
 		return false, "", 0
 	}
-
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	details := fmt.Sprintf("Apache Axis2 endpoint found: %s\n", history.URL)
 	confidence := 0
 	matches := make([]string, 0)

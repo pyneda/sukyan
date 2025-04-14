@@ -19,7 +19,12 @@ type ExtractedURLS struct {
 const maxInt = int(^uint(0) >> 1)
 
 func ExtractURLsFromHistoryItem(history *db.History) ExtractedURLS {
-	responseLinks := ExtractAndAnalyzeURLS(string(history.ResponseBody), history.URL)
+	body, err := history.ResponseBody()
+	if err != nil {
+		log.Debug().Err(err).Str("history_id", string(history.ID)).Msg("Failed to get response body")
+
+	}
+	responseLinks := ExtractAndAnalyzeURLS(string(body), history.URL)
 	headers, err := history.GetResponseHeadersAsMap()
 	if err != nil {
 		return responseLinks

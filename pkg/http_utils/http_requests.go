@@ -2,20 +2,27 @@ package http_utils
 
 import (
 	"bytes"
-	"github.com/pyneda/sukyan/db"
-	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
 )
 
 // BuildRequestFromHistoryItem gets a history item and returns an http.Request with the same data
 func BuildRequestFromHistoryItem(historyItem *db.History) (*http.Request, error) {
-	var body io.Reader
 	method := strings.ToUpper(historyItem.Method)
 
-	if historyItem.RequestBody != nil {
-		body = bytes.NewReader(historyItem.RequestBody)
+	requestBody, err := historyItem.RequestBody()
+	if err != nil {
+		log.Info().Err(err).Msg("Error extracting request body")
+		return nil, err
+	}
+
+	var body io.Reader
+	if len(requestBody) > 0 {
+		body = bytes.NewReader(requestBody)
 	}
 
 	request, err := http.NewRequest(method, historyItem.URL, body)
@@ -23,6 +30,7 @@ func BuildRequestFromHistoryItem(historyItem *db.History) (*http.Request, error)
 		log.Info().Err(err).Msg("Error creating the request")
 		return nil, err
 	}
+
 	SetRequestHeadersFromHistoryItem(request, historyItem)
 	return request, nil
 }

@@ -2,7 +2,6 @@ package browser
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -17,7 +16,6 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/rs/zerolog/log"
-	"gorm.io/datatypes"
 )
 
 // HijackConfig represents a hijack configuration to apply when using the browser
@@ -230,31 +228,31 @@ func DumpHijackResponse(res *rod.HijackResponse) (rawResponse string, body strin
 
 // CreateHistoryFromHijack saves a history request from hijack request/response items.
 func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string, workspaceID, taskID, playgroundSessionID uint) *db.History {
-	requestHeaders, err := json.Marshal(request.Headers())
-	if err != nil {
-		log.Error().Err(err).Msg("Error converting request headers to json")
-	}
-	responseHeaders, err := json.Marshal(response.Headers())
-	if err != nil {
-		log.Error().Err(err).Msg("Error converting response headers to json")
-	}
+	// requestHeaders, err := json.Marshal(request.Headers())
+	// if err != nil {
+	// 	log.Error().Err(err).Msg("Error converting request headers to json")
+	// }
+	// responseHeaders, err := json.Marshal(response.Headers())
+	// if err != nil {
+	// 	log.Error().Err(err).Msg("Error converting response headers to json")
+	// }
 	rawRequest, reqBody := DumpHijackRequest(request)
-	rawResponse, responseBody := DumpHijackResponse(response)
+	rawResponse, _ := DumpHijackResponse(response)
 	historyUrl := request.URL().String()
 	history := db.History{
-		StatusCode:           response.Payload().ResponseCode,
-		URL:                  historyUrl,
-		Depth:                lib.CalculateURLDepth(historyUrl),
-		RequestHeaders:       datatypes.JSON(requestHeaders),
-		RequestBody:          []byte(reqBody),
-		RequestBodySize:      len(reqBody),
-		RequestContentLength: request.Req().ContentLength,
-		RequestContentType:   request.Req().Header.Get("Content-Type"),
-		ResponseHeaders:      datatypes.JSON(responseHeaders),
-		ResponseBody:         []byte(responseBody), // []byte(response.Body()),
-		ResponseContentType:  response.Headers().Get("Content-Type"),
-		Evaluated:            false,
-		Method:               request.Req().Method,
+		StatusCode: response.Payload().ResponseCode,
+		URL:        historyUrl,
+		Depth:      lib.CalculateURLDepth(historyUrl),
+		// RequestHeaders:       datatypes.JSON(requestHeaders),
+		// RequestBody:          []byte(reqBody),
+		RequestBodySize: len(reqBody),
+		// RequestContentLength: request.Req().ContentLength,
+		RequestContentType: request.Req().Header.Get("Content-Type"),
+		// ResponseHeaders:      datatypes.JSON(responseHeaders),
+		// ResponseBody:         []byte(responseBody),
+		ResponseContentType: response.Headers().Get("Content-Type"),
+		Evaluated:           false,
+		Method:              request.Req().Method,
 		// ParametersCount:      len(request.URL().Query()),
 		Note:        note,
 		Source:      source,

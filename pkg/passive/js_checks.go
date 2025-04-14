@@ -2,10 +2,11 @@ package passive
 
 import (
 	"encoding/json"
-	"github.com/BishopFox/jsluice"
-	"github.com/pyneda/sukyan/db"
 	"regexp"
 	"strings"
+
+	"github.com/BishopFox/jsluice"
+	"github.com/pyneda/sukyan/db"
 )
 
 // 1. Outdated libraries matching could be based on retirejs dataset.
@@ -51,7 +52,8 @@ func findJquerySinks(text string) []string {
 }
 
 func PassiveJavascriptScan(item *db.History) {
-	bodyStr := string(item.ResponseBody)
+	body, _ := item.ResponseBody()
+	bodyStr := string(body)
 	jsSources := findJsSources(bodyStr)
 	jsSinks := findJsSinks(bodyStr)
 	jquerySinks := findJquerySinks(bodyStr)
@@ -63,7 +65,8 @@ func PassiveJavascriptScan(item *db.History) {
 
 func passiveJavascriptSecretsScan(item *db.History) {
 	// NOTE: By now we only support javascript, but should also be able to extract scripts from HTML and analyze them.
-	secrets := findSecretsInJavascript(item.ResponseBody)
+	body, _ := item.ResponseBody()
+	secrets := findSecretsInJavascript(body)
 	for _, secret := range secrets {
 		db.CreateIssueFromHistoryAndTemplate(item, db.SecretsInJsCode, secret.Details, 90, secret.Severity, item.WorkspaceID, item.TaskID, &defaultTaskJobID)
 	}

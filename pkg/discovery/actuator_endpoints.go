@@ -37,6 +37,8 @@ var ActuatorPaths = []string{
 func IsActuatorValidationFunc(history *db.History) (bool, string, int) {
 	confidence := 40
 	var details string
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 
 	if history.StatusCode == 200 {
 		details = fmt.Sprintf("Spring Boot Actuator endpoint found: %s\n", history.URL)
@@ -44,8 +46,7 @@ func IsActuatorValidationFunc(history *db.History) (bool, string, int) {
 		var jsonBody map[string]interface{}
 		if strings.Contains(history.ResponseContentType, "application/json") {
 			confidence += 10
-			if err := json.Unmarshal([]byte(history.ResponseBody), &jsonBody); err == nil {
-				bodyStr := string(history.ResponseBody)
+			if err := json.Unmarshal(body, &jsonBody); err == nil {
 
 				if _, exists := jsonBody["status"]; exists {
 					confidence += 30

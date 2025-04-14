@@ -14,7 +14,8 @@ func ReactDevelopmentModeScan(item *db.History) {
 
 	var sb strings.Builder
 	confidence := 0
-	bodyStr := string(item.ResponseBody)
+	body, _ := item.ResponseBody()
+	bodyStr := string(body)
 
 	devBundlePatterns := []string{
 		"react.development.js",

@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/datatypes"
 )
 
 func TestGetChildrenHistories(t *testing.T) {
@@ -46,10 +45,24 @@ func TestCreateHistoryIgnoredExtensions(t *testing.T) {
 	viper.Set("history.responses.ignored.extensions", []string{".jpg", ".png"})
 	ignoredExtensions := viper.GetStringSlice("history.responses.ignored.extensions")
 	assert.Contains(t, ignoredExtensions, ".jpg")
-	history := &History{URL: "/test.jpg", ResponseBody: []byte("image data"), WorkspaceID: &workspaceID}
+
+	// Create a raw HTTP response with image data
+	rawResponse := []byte("HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n\r\nimage data")
+
+	history := &History{
+		URL:         "/test.jpg",
+		RawResponse: rawResponse,
+		WorkspaceID: &workspaceID,
+	}
+
 	_, err = Connection.CreateHistory(history)
 	assert.Nil(t, err)
-	assert.Equal(t, "", string(history.ResponseBody))
+
+	// Check that the body was removed by extracting it from RawResponse
+	body, err := history.ResponseBody()
+	assert.Nil(t, err)
+	assert.Empty(t, body)
+
 	assert.Equal(t, "Response body was removed due to ignored file extension: .jpg", history.Note)
 }
 
@@ -65,10 +78,10 @@ func TestCreateHistoryIgnoredContentTypes(t *testing.T) {
 	viper.Set("history.responses.ignored.content_types", []string{"image"})
 	ignoredContentTypes := viper.GetStringSlice("history.responses.ignored.content_types")
 	assert.Contains(t, ignoredContentTypes, "image")
-	history := &History{URL: "/test-image", ResponseContentType: "image/jpeg", ResponseBody: []byte("image data"), WorkspaceID: &workspaceID}
+	history := &History{URL: "/test-image", ResponseContentType: "image/jpeg", RawResponse: []byte("image data"), WorkspaceID: &workspaceID}
 	_, err = Connection.CreateHistory(history)
 	assert.Nil(t, err)
-	assert.Equal(t, "", string(history.ResponseBody))
+	assert.Equal(t, false, strings.Contains(string(history.RawResponse), "image data"))
 	assert.Equal(t, "Response body was removed due to ignored content type: image", history.Note)
 }
 
@@ -84,10 +97,25 @@ func TestCreateHistoryIgnoredMaxSize(t *testing.T) {
 	viper.Set("history.responses.ignored.max_size", 10)
 	maxSize := viper.GetInt("history.responses.ignored.max_size")
 	assert.Equal(t, 10, maxSize)
-	history := &History{URL: "/test.html", ResponseBody: []byte("12345678901"), WorkspaceID: &workspaceID}
+
+	// Create a raw HTTP response with content exceeding the max size
+	rawResponse := []byte("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n12345678901")
+
+	history := &History{
+		URL:              "/test.html",
+		RawResponse:      rawResponse,
+		ResponseBodySize: 11, // Set this to trigger the size check
+		WorkspaceID:      &workspaceID,
+	}
+
 	_, err = Connection.CreateHistory(history)
 	assert.Nil(t, err)
-	assert.Equal(t, "", string(history.ResponseBody))
+
+	// Check that the body was removed by extracting it from RawResponse
+	body, err := history.ResponseBody()
+	assert.Nil(t, err)
+	assert.Empty(t, body)
+
 	assert.Equal(t, "Response body was removed due to exceeding max size limit.", history.Note)
 }
 
@@ -134,26 +162,42 @@ func TestGetHistoriesByID(t *testing.T) {
 	assert.Equal(t, 2, len(histories))
 }
 
-func TestGetResponseHeadersAsMap(t *testing.T) {
+func TestResponseHeaders(t *testing.T) {
+	// Create a history with raw response including headers
 	history := &History{
-		ResponseHeaders: datatypes.JSON(`{"Content-Type": ["application/json"], "Authorization": ["Bearer token"]}`),
+		RawResponse: []byte("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAuthorization: Bearer token\r\n\r\n{}"),
 	}
 
-	headers, err := history.GetResponseHeadersAsMap()
+	// Test the new method
+	headers, err := history.ResponseHeaders()
 	assert.Nil(t, err)
 	assert.Equal(t, "application/json", headers["Content-Type"][0])
 	assert.Equal(t, "Bearer token", headers["Authorization"][0])
+
+	// Test backward compatibility with deprecated method
+	legacyHeaders, err := history.GetResponseHeadersAsMap()
+	assert.Nil(t, err)
+	assert.Equal(t, "application/json", legacyHeaders["Content-Type"][0])
+	assert.Equal(t, "Bearer token", legacyHeaders["Authorization"][0])
 }
 
-func TestGetRequestHeadersAsMap(t *testing.T) {
+func TestRequestHeaders(t *testing.T) {
+	// Create a history with raw request including headers
 	history := &History{
-		RequestHeaders: datatypes.JSON(`{"User-Agent": ["TestAgent"], "Accept": ["application/json"]}`),
+		RawRequest: []byte("GET / HTTP/1.1\r\nUser-Agent: TestAgent\r\nAccept: application/json\r\n\r\n"),
 	}
 
-	headers, err := history.GetRequestHeadersAsMap()
+	// Test the new method
+	headers, err := history.RequestHeaders()
 	assert.Nil(t, err)
 	assert.Equal(t, "TestAgent", headers["User-Agent"][0])
 	assert.Equal(t, "application/json", headers["Accept"][0])
+
+	// Test backward compatibility with deprecated method
+	legacyHeaders, err := history.GetRequestHeadersAsMap()
+	assert.Nil(t, err)
+	assert.Equal(t, "TestAgent", legacyHeaders["User-Agent"][0])
+	assert.Equal(t, "application/json", legacyHeaders["Accept"][0])
 }
 
 func TestGetHistoryByID(t *testing.T) {

@@ -5,12 +5,13 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/lib"
-	"github.com/rs/zerolog/log"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
+	"github.com/rs/zerolog/log"
 )
 
 type RetireJsRepo map[string]RetireJsEntry
@@ -103,7 +104,12 @@ func (r *RetireScanner) HistoryScan(history *db.History) {
 		}
 
 		h := sha1.New()
-		h.Write(history.ResponseBody)
+		body, err := history.ResponseBody()
+		if err != nil {
+			log.Error().Err(err).Str("url", history.URL).Msg("Failed to read response body")
+			continue
+		}
+		h.Write(body)
 		hash := fmt.Sprintf("%x", h.Sum(nil))
 		if version, exists := entry.Extractors.Hashes[hash]; exists {
 			for _, vulnerability := range entry.Vulnerabilities {

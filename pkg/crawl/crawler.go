@@ -116,7 +116,8 @@ func (c *Crawler) Run() []*db.History {
 				inScopeHistoryItems = append(inScopeHistoryItems, hijackResult.History)
 			}
 			// Check if the same response has been processed before
-			responseHash := lib.HashBytes(hijackResult.History.ResponseBody)
+
+			responseHash := hijackResult.History.ResponseHash()
 			_, processed := c.processedResponseHashes.Load(responseHash)
 			if !processed {
 				c.processedResponseHashes.Store(responseHash, true)

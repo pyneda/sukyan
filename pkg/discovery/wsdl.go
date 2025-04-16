@@ -89,7 +89,8 @@ func IsWSDLValidationFunc(history *db.History) (bool, string, int) {
 		return true, "WSDL/Web Service UI detected", 95
 	}
 
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	bodyLower := strings.ToLower(bodyStr)
 
 	// Common WSDL XML elements and attributes
@@ -139,7 +140,7 @@ func IsWSDLValidationFunc(history *db.History) (bool, string, int) {
 	}
 
 	var wsdl WSDLDefinitions
-	if err := xml.Unmarshal(history.ResponseBody, &wsdl); err == nil {
+	if err := xml.Unmarshal(body, &wsdl); err == nil {
 		if wsdl.XMLName.Local == "definitions" {
 			confidence += 20
 			details = append(details, "Valid WSDL XML structure detected")
@@ -168,7 +169,8 @@ func IsWSDLValidationFunc(history *db.History) (bool, string, int) {
 }
 
 func isWSDLUI(history *db.History) bool {
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	bodyLower := strings.ToLower(bodyStr)
 
 	if !strings.Contains(strings.ToLower(history.ResponseContentType), "text/html") {

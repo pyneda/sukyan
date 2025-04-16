@@ -271,10 +271,9 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 		points = append(points, urlPathPoints...)
 	}
 
-	// Convert datatypes.JSON to http.Header equivalent
-	headers, err := history.GetRequestHeadersAsMap()
+	headers, err := history.RequestHeaders()
 	if err != nil {
-		log.Error().Err(err).Interface("headers", history.RequestHeaders).Msg("Error getting request headers as map")
+		log.Error().Err(err).Str("headers", "failed to parse").Msg("Error getting request headers as map")
 	} else {
 		if lib.SliceContains(scoped, "headers") {
 			// Headers
@@ -296,7 +295,10 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 	}
 
 	// Body parameters
-	bodyPoints, err := handleBodyParameters(history.RequestContentType, history.RequestBody)
+	body, _ := history.RequestBody()
+	bodyStr := string(body)
+
+	bodyPoints, err := handleBodyParameters(history.RequestContentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -305,9 +307,9 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 		points = append(points, InsertionPoint{
 			Type:         InsertionPointTypeFullBody,
 			Name:         "fullbody",
-			Value:        string(history.RequestBody),
-			ValueType:    lib.GuessDataType(string(history.RequestBody)),
-			OriginalData: string(history.RequestBody),
+			Value:        bodyStr,
+			ValueType:    lib.GuessDataType(bodyStr),
+			OriginalData: bodyStr,
 		})
 	}
 

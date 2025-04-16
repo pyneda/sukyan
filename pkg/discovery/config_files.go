@@ -31,7 +31,8 @@ var ConfigFilePaths = []string{
 }
 
 func IsSensitiveConfigFileValidationFunc(history *db.History) (bool, string, int) {
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	details := fmt.Sprintf("Potential sensitive configuration file detected: %s\n", history.URL)
 	confidence := 0
 

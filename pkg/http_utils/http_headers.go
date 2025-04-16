@@ -15,16 +15,15 @@ func SetRequestHeadersFromHistoryItem(request *http.Request, historyItem *db.His
 	headers, err := historyItem.GetRequestHeadersAsMap()
 	if err != nil {
 		log.Error().Err(err).Msg("Error setting headers for a new request due to an error getting the original request headers")
-		return err
-	}
-
-	for key, values := range headers {
-		if strings.ToLower(key) == "content-length" {
-			continue
-		}
-		for _, value := range values {
-			log.Debug().Str("key", key).Str("value", value).Msg("Setting header")
-			request.Header.Set(key, value)
+	} else {
+		for key, values := range headers {
+			if strings.ToLower(key) == "content-length" {
+				continue
+			}
+			for _, value := range values {
+				log.Debug().Str("key", key).Str("value", value).Msg("Setting header")
+				request.Header.Set(key, value)
+			}
 		}
 	}
 

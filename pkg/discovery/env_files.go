@@ -20,7 +20,8 @@ var EnvFilePaths = []string{
 
 func IsEnvFileValidationFunc(history *db.History) (bool, string, int) {
 	if history.StatusCode == 200 {
-		bodyStr := string(history.ResponseBody)
+		body, _ := history.ResponseBody()
+		bodyStr := string(body)
 		details := fmt.Sprintf("Environment configuration file detected at: %s\n", history.URL)
 		confidence := 50
 

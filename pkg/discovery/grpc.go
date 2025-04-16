@@ -64,7 +64,8 @@ func IsGRPCValidationFunc(history *db.History) (bool, string, int) {
 		}
 	}
 
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	bodyLower := strings.ToLower(bodyStr)
 
 	commonMarkers := []string{

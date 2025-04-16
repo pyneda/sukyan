@@ -12,9 +12,7 @@ import (
 )
 
 // History holds table for storing requests history found
-// History holds table for storing requests history found
 type History struct {
-	// Similar schema: https://github.com/gilcrest/httplog
 	BaseModel
 	StatusCode          int               `gorm:"index" json:"status_code"`
 	URL                 string            `gorm:"index" json:"url"`
@@ -34,12 +32,10 @@ type History struct {
 	Task                Task              `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	PlaygroundSessionID *uint             `json:"playground_session_id" gorm:"index" `
 	PlaygroundSession   PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-
-	// Optimized fields for fast queries
-	ResponseBodySize    int    `gorm:"index" json:"response_body_size"`
-	RequestBodySize     int    `gorm:"index" json:"request_body_size"`
-	RequestContentType  string `gorm:"index" json:"request_content_type"`
-	ResponseContentType string `gorm:"index" json:"response_content_type"`
+	ResponseBodySize    int               `gorm:"index" json:"response_body_size"`
+	RequestBodySize     int               `gorm:"index" json:"request_body_size"`
+	RequestContentType  string            `gorm:"index" json:"request_content_type"`
+	ResponseContentType string            `gorm:"index" json:"response_content_type"`
 }
 
 func (h History) Logger() *zerolog.Logger {

@@ -224,8 +224,9 @@ func (x *AlertAudit) reportIssue(history *db.History, scanRequest *http.Request,
 		sb.WriteString("\nThe following URL can be used to reproduce the issue: " + testurl)
 	}
 
-	if string(history.RequestBody) != "" {
-		sb.WriteString("\n\nThe request body:\n```\n" + string(history.RequestBody) + "\n```\n")
+	body, err := history.RequestBody()
+	if err != nil && string(body) != "" {
+		sb.WriteString("\n\nThe request body:\n```\n" + string(body) + "\n```\n")
 	}
 	db.CreateIssueFromHistoryAndTemplate(history, issueCode, sb.String(), 90, "", &x.WorkspaceID, &x.TaskID, &x.TaskJobID)
 }

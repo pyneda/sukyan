@@ -66,8 +66,8 @@ func IsCICDBuildFileValidationFunc(history *db.History) (bool, string, int) {
 			"auth_token", "api_key", "encryption_key", "slack_token",
 			"password", "oauth_token", "jwt_secret", "smtp_password",
 		}
-
-		bodyStr := strings.ToLower(string(history.ResponseBody))
+		body, _ := history.ResponseBody()
+		bodyStr := strings.ToLower(string(body))
 		for _, indicator := range sensitiveIndicators {
 			if strings.Contains(bodyStr, strings.ToLower(indicator)) {
 				confidence += 5

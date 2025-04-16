@@ -25,8 +25,8 @@ func isServerInfoValidationFunc(history *db.History) (bool, string, int) {
 	if history.StatusCode != 200 {
 		return false, "", 0
 	}
-
-	bodyLower := strings.ToLower(string(history.ResponseBody))
+	body, _ := history.ResponseBody()
+	bodyLower := strings.ToLower(string(body))
 	details := fmt.Sprintf("Server information page found: %s\n", history.URL)
 	confidence := 20
 

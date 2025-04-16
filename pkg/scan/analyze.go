@@ -35,10 +35,13 @@ func AnalyzeInsertionPoints(item *db.History, insertionPoints []InsertionPoint, 
 	client := http_utils.CreateHttpClient()
 	seenDataTypes := make(map[lib.DataType]bool)
 	seenResponseFingerprints := make(map[responseFingerprint]int)
+
+	originalBody, _ := item.ResponseBody()
+
 	originalFingerprint := responseFingerprint{
 		statusCode:     item.StatusCode,
-		bodyLength:     len(item.ResponseBody),
-		bodyWordsCount: len(strings.Fields(string(item.ResponseBody))),
+		bodyLength:     len(originalBody),
+		bodyWordsCount: len(strings.Fields(string(originalBody))),
 	}
 
 	for i := range insertionPoints {
@@ -56,7 +59,7 @@ func AnalyzeInsertionPoints(item *db.History, insertionPoints []InsertionPoint, 
 			log.Error().Err(err).Msg("Failed to check insertion point")
 		} else if h != nil {
 			// log.Info().Msg("Reflection detected")
-			body := string(h.ResponseBody)
+			body := string(originalBody)
 			if strings.Contains(body, payload) {
 				insertionPoint.Behaviour.IsReflected = true
 			}
@@ -113,10 +116,11 @@ func insertionPointCheck(item *db.History, insertionPoint *InsertionPoint, paylo
 	if err != nil {
 		return nil, responseFingerprint{}, err
 	}
+	historyBody, _ := history.ResponseBody()
 	fg := responseFingerprint{
 		statusCode:     history.StatusCode,
-		bodyLength:     len(history.ResponseBody),
-		bodyWordsCount: len(strings.Fields(string(history.ResponseBody))),
+		bodyLength:     len(historyBody),
+		bodyWordsCount: len(strings.Fields(string(historyBody))),
 	}
 	return history, fg, nil
 }

@@ -36,7 +36,8 @@ func IsTomcatManagerResponse(history *db.History) (bool, string, int) {
 	}
 
 	if history.StatusCode == 200 {
-		responseBody := string(history.ResponseBody)
+		body, _ := history.ResponseBody()
+		responseBody := string(body)
 		confidence += 10
 		if strings.Contains(responseBody, "Apache Tomcat") {
 			confidence += 50

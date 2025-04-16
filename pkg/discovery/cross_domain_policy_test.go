@@ -108,7 +108,7 @@ func TestIsFlashCrossDomainValidationFunc(t *testing.T) {
 			history: &db.History{
 				StatusCode:          404,
 				ResponseContentType: "text/xml",
-				ResponseBody:        []byte("<cross-domain-policy></cross-domain-policy>"),
+				RawResponse:         []byte("HTTP/1.1 404 Not Found\r\nContent-Type: text/xml\r\n\r\n<cross-domain-policy></cross-domain-policy>"),
 			},
 			expectValid:      false,
 			expectConfidence: 0,
@@ -118,7 +118,7 @@ func TestIsFlashCrossDomainValidationFunc(t *testing.T) {
 			history: &db.History{
 				StatusCode:          200,
 				ResponseContentType: "application/json",
-				ResponseBody:        []byte("<cross-domain-policy></cross-domain-policy>"),
+				RawResponse:         []byte("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n<cross-domain-policy></cross-domain-policy>"),
 			},
 			expectValid:      false,
 			expectConfidence: 0,
@@ -128,7 +128,7 @@ func TestIsFlashCrossDomainValidationFunc(t *testing.T) {
 			history: &db.History{
 				StatusCode:          200,
 				ResponseContentType: "text/xml",
-				ResponseBody:        []byte("not xml content"),
+				RawResponse:         []byte("HTTP/1.1 200 OK\r\nContent-Type: text/xml\r\n\r\nnot xml content"),
 			},
 			expectValid:      false,
 			expectConfidence: 0,
@@ -139,12 +139,14 @@ func TestIsFlashCrossDomainValidationFunc(t *testing.T) {
 				StatusCode:          200,
 				ResponseContentType: "text/xml",
 				URL:                 "https://example.com/crossdomain.xml",
-				ResponseBody: []byte(`
-					<?xml version="1.0"?>
-					<cross-domain-policy>
-						<allow-access-from domain="*.example.com" secure="true"/>
-					</cross-domain-policy>
-				`),
+				RawResponse: []byte(`HTTP/1.1 200 OK
+Content-Type: text/xml
+
+<?xml version="1.0"?>
+<cross-domain-policy>
+	<allow-access-from domain="*.example.com" secure="true"/>
+</cross-domain-policy>
+`),
 			},
 			expectValid:      true,
 			expectConfidence: 90,
@@ -155,13 +157,15 @@ func TestIsFlashCrossDomainValidationFunc(t *testing.T) {
 				StatusCode:          200,
 				ResponseContentType: "text/xml",
 				URL:                 "https://example.com/crossdomain.xml",
-				ResponseBody: []byte(`
-					<?xml version="1.0"?>
-					<cross-domain-policy>
-						<allow-access-from domain="*" secure="false"/>
-						<allow-http-request-headers-from domain="*" headers="*"/>
-					</cross-domain-policy>
-				`),
+				RawResponse: []byte(`HTTP/1.1 200 OK
+Content-Type: text/xml
+
+<?xml version="1.0"?>
+<cross-domain-policy>
+	<allow-access-from domain="*" secure="false"/>
+	<allow-http-request-headers-from domain="*" headers="*"/>
+</cross-domain-policy>
+`),
 			},
 			expectValid:      true,
 			expectConfidence: 90,
@@ -172,7 +176,7 @@ func TestIsFlashCrossDomainValidationFunc(t *testing.T) {
 				StatusCode:          200,
 				ResponseContentType: "text/html",
 				URL:                 "https://example.com/crossdomain.xml",
-				ResponseBody:        []byte("<html><body><h1>Hello, World!</h1></body></html>"),
+				RawResponse:         []byte("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html><body><h1>Hello, World!</h1></body></html>"),
 			},
 			expectValid:      false,
 			expectConfidence: 0,

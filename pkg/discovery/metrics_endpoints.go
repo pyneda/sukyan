@@ -48,7 +48,8 @@ func IsPrometheusMetricsValidationFunc(history *db.History) (bool, string, int) 
 	details := fmt.Sprintf("Prometheus metrics endpoint found: %s\n", history.URL)
 	confidence := 10
 
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 
 	if strings.Contains(history.ResponseContentType, "text/plain") {
 		confidence += 10

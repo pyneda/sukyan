@@ -50,8 +50,8 @@ func JSONPCallbackScan(history *db.History, options ActiveModuleOptions) {
 	if options.Concurrency == 0 {
 		options.Concurrency = 5
 	}
-
-	if isJsonpResponse(string(history.ResponseBody)) {
+	originalBody, err := history.ResponseBody()
+	if err != nil && isJsonpResponse(string(originalBody)) {
 		createJSONPIssue(history, "Endpoint returns JSONP response by default", 90, options)
 		return
 	}
@@ -143,7 +143,7 @@ Modified Response:
 					options.ScanMode,
 					paramDiscovery,
 					controlDetails,
-					string(history.ResponseBody),
+					string(originalBody),
 					bodyStr)
 
 				confidence := 75

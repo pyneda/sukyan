@@ -78,11 +78,22 @@ func TestCreateHistoryIgnoredContentTypes(t *testing.T) {
 	viper.Set("history.responses.ignored.content_types", []string{"image"})
 	ignoredContentTypes := viper.GetStringSlice("history.responses.ignored.content_types")
 	assert.Contains(t, ignoredContentTypes, "image")
-	history := &History{URL: "/test-image", ResponseContentType: "image/jpeg", RawResponse: []byte("image data"), WorkspaceID: &workspaceID}
-	_, err = Connection.CreateHistory(history)
+
+	rawResponse := []byte("HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nContent-Length: 10\r\n\r\nimagedata")
+
+	history := &History{
+		URL:                 "/api/images/profile-photo.jpg",
+		ResponseContentType: "image/jpeg",
+		RawResponse:         rawResponse,
+		WorkspaceID:         &workspaceID,
+	}
+
+	newHistory, err := Connection.CreateHistory(history)
 	assert.Nil(t, err)
-	assert.Equal(t, false, strings.Contains(string(history.RawResponse), "image data"))
-	assert.Equal(t, "Response body was removed due to ignored content type: image", history.Note)
+	body, err := newHistory.ResponseBody()
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(body), "Response body should be empty")
+	assert.Equal(t, "Response body was removed due to ignored file extension: .jpg", history.Note)
 }
 
 func TestCreateHistoryIgnoredMaxSize(t *testing.T) {

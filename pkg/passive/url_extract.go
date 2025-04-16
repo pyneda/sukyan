@@ -21,7 +21,7 @@ const maxInt = int(^uint(0) >> 1)
 func ExtractURLsFromHistoryItem(history *db.History) ExtractedURLS {
 	body, err := history.ResponseBody()
 	if err != nil {
-		log.Debug().Err(err).Str("history_id", string(history.ID)).Msg("Failed to get response body")
+		log.Debug().Err(err).Uint("history_id", history.ID).Msg("Failed to get response body")
 
 	}
 	responseLinks := ExtractAndAnalyzeURLS(string(body), history.URL)

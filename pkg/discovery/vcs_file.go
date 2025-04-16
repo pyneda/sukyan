@@ -58,8 +58,8 @@ func IsVersionControlFileValidationFunc(history *db.History) (bool, string, int)
 		confidence += 30
 		details += "- Correct content type for version control files\n"
 	}
-
-	bodyStr := strings.ToLower(string(history.ResponseBody))
+	body, _ := history.ResponseBody()
+	bodyStr := strings.ToLower(string(body))
 	if strings.Contains(bodyStr, "[core]") ||
 		strings.Contains(bodyStr, "ref: refs/") ||
 		strings.Contains(bodyStr, "[remote") {

@@ -21,7 +21,8 @@ func IsJBossInvokerValidationFunc(history *db.History) (bool, string, int) {
 	confidence := 0
 	details := make([]string, 0)
 
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	if history.StatusCode == 500 {
 		confidence += 40
 		details = append(details, "JBoss invoker endpoint returned server error")

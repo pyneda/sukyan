@@ -79,15 +79,21 @@ func TestHijackWithContext(t *testing.T) {
 			case server.URL + "/json":
 				assert.Contains(t, string(res.History.RawResponse), "JSON response")
 				assert.Contains(t, string(res.History.RawResponse), "Content-Type: application/json")
-				assert.Contains(t, string(res.History.ResponseBody), "JSON response")
+				body, err := res.History.ResponseBody()
+				assert.NoError(t, err)
+				assert.Contains(t, string(body), "JSON response")
 			case server.URL + "/text":
 				assert.Contains(t, string(res.History.RawResponse), "Text response")
 				assert.Contains(t, string(res.History.RawResponse), "Content-Type: text/plain")
-				assert.Contains(t, string(res.History.ResponseBody), "Text response")
+				body, err := res.History.ResponseBody()
+				assert.NoError(t, err)
+				assert.Contains(t, string(body), "Text response")
 			case server.URL + "/final":
 				assert.Contains(t, string(res.History.RawResponse), "Final destination")
 				assert.Contains(t, string(res.History.RawResponse), "Content-Type: text/plain")
-				assert.Contains(t, string(res.History.ResponseBody), "Final destination")
+				body, err := res.History.ResponseBody()
+				assert.NoError(t, err)
+				assert.Contains(t, string(body), "Final destination")
 			}
 
 			processed++
@@ -148,15 +154,21 @@ func TestHijack(t *testing.T) {
 			case server.URL + "/json":
 				assert.Contains(t, string(res.History.RawResponse), "JSON response")
 				assert.Contains(t, string(res.History.RawResponse), "Content-Type: application/json")
-				assert.Contains(t, string(res.History.ResponseBody), "JSON response")
+				body, err := res.History.ResponseBody()
+				assert.NoError(t, err)
+				assert.Contains(t, string(body), "JSON response")
 			case server.URL + "/text":
 				assert.Contains(t, string(res.History.RawResponse), "Text response")
 				assert.Contains(t, string(res.History.RawResponse), "Content-Type: text/plain")
-				assert.Contains(t, string(res.History.ResponseBody), "Text response")
+				body, err := res.History.ResponseBody()
+				assert.NoError(t, err)
+				assert.Contains(t, string(body), "Text response")
 			case server.URL + "/final":
 				assert.Contains(t, string(res.History.RawResponse), "Final destination")
 				assert.Contains(t, string(res.History.RawResponse), "Content-Type: text/plain")
-				assert.Contains(t, string(res.History.ResponseBody), "Final destination")
+				body, err := res.History.ResponseBody()
+				assert.NoError(t, err)
+				assert.Contains(t, string(body), "Final destination")
 			}
 
 			processed++

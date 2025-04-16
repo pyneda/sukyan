@@ -114,7 +114,7 @@ func DirectoryListingScan(item *db.History) {
 	isDirectoryListing := false
 	body, err := item.ResponseBody()
 	if err != nil {
-		log.Debug().Err(err).Str("history_id", string(item.ID)).Msg("Failed to get response body")
+		log.Debug().Err(err).Uint("history_id", item.ID).Msg("Failed to get response body")
 		return
 	}
 	bodyStr := string(body)
@@ -177,7 +177,7 @@ func FileUploadScan(item *db.History) {
 	// This is too simple, could also check the headers for content-type: multipart/form-data and other things
 	body, err := item.ResponseBody()
 	if err != nil {
-		log.Debug().Err(err).Str("history_id", string(item.ID)).Msg("Failed to get response body")
+		log.Debug().Err(err).Uint("history_id", item.ID).Msg("Failed to get response body")
 		return
 	}
 
@@ -234,7 +234,7 @@ func attemtToCrackJwtIfRequired(item *db.History, jwt *db.JsonWebToken) {
 func JwtDetectionScan(item *db.History) {
 	body, err := item.ResponseBody()
 	if err != nil {
-		log.Debug().Err(err).Str("history_id", string(item.ID)).Msg("Failed to get response body")
+		log.Debug().Err(err).Uint("history_id", item.ID).Msg("Failed to get response body")
 		return
 	}
 	matches := jwtRegex.FindAllString(string(body), -1)
@@ -327,7 +327,7 @@ func PrivateKeyScan(item *db.History) {
 	}
 	body, err := item.ResponseBody()
 	if err != nil {
-		log.Debug().Err(err).Str("history_id", string(item.ID)).Msg("Failed to get response body")
+		log.Debug().Err(err).Uint("history_id", item.ID).Msg("Failed to get response body")
 		return
 	}
 

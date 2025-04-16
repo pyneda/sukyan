@@ -15,7 +15,8 @@ var AspNetTracePaths = []string{
 func IsAspNetTraceValidationFunc(history *db.History) (bool, string, int) {
 	confidence := 0
 	if history.StatusCode == 200 {
-		bodyStr := string(history.ResponseBody)
+		body, _ := history.ResponseBody()
+		bodyStr := string(body)
 		details := fmt.Sprintf("ASP.NET Trace Viewer detected at: %s\n", history.URL)
 		confidence = 30
 

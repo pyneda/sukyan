@@ -1,7 +1,6 @@
 package http_utils
 
 import (
-	"encoding/json"
 	"net/http"
 	"reflect"
 	"testing"
@@ -12,7 +11,6 @@ import (
 func TestSetRequestHeadersFromHistoryItem(t *testing.T) {
 	request, _ := http.NewRequest("GET", "http://example.com", nil)
 
-	// Add some initial headers to the request
 	initialHeaders := map[string]string{
 		"Initial-Header-1": "Initial Value 1",
 		"Initial-Header-2": "Initial Value 2",
@@ -21,24 +19,24 @@ func TestSetRequestHeadersFromHistoryItem(t *testing.T) {
 		request.Header.Set(key, value)
 	}
 
-	headers := map[string][]string{
+	// Create a raw HTTP request with headers
+	rawRequest := []byte("GET /path HTTP/1.1\r\nContent-Type: application/json\r\nUser-Agent: test-agent\r\nX-Test: AAAAAAAAAAAAAAA\r\n\r\nSome body content")
+
+	historyItem := &db.History{
+		RawRequest: rawRequest,
+	}
+
+	SetRequestHeadersFromHistoryItem(request, historyItem)
+
+	// Expected headers from the raw request
+	expectedHeaders := map[string][]string{
 		"Content-Type": {"application/json"},
 		"User-Agent":   {"test-agent"},
 		"X-Test":       {"AAAAAAAAAAAAAAA"},
 	}
-	headersBytes, _ := json.Marshal(headers)
-
-	historyItem := &db.History{
-		RequestHeaders: headersBytes,
-	}
-
-	err := SetRequestHeadersFromHistoryItem(request, historyItem)
-	if err != nil {
-		t.Errorf("Expected no error, but got %v", err)
-	}
 
 	// Now we check if the headers were correctly set
-	for key, values := range headers {
+	for key, values := range expectedHeaders {
 		for _, value := range values {
 			if !reflect.DeepEqual(request.Header.Values(key), []string{value}) {
 				t.Errorf("Expected header %s to be set to %s, but got %v", key, value, request.Header.Values(key))
@@ -53,12 +51,24 @@ func TestSetRequestHeadersFromHistoryItem(t *testing.T) {
 		}
 	}
 
-	// Test the error scenario
+	// Test scenario with malformed raw request, where headers cannot be parsed and should stay intact
+	badRequest, _ := http.NewRequest("GET", "http://example.com", nil)
 	badHistoryItem := &db.History{
-		RequestHeaders: []byte("{"),
+		RawRequest: []byte("This is not a valid HTTP request"),
 	}
-	err = SetRequestHeadersFromHistoryItem(request, badHistoryItem)
-	if err == nil {
-		t.Errorf("Expected error due to bad JSON, but got none")
+
+	SetRequestHeadersFromHistoryItem(badRequest, badHistoryItem)
+
+	for key, value := range initialHeaders {
+		badRequest.Header.Set(key, value)
+	}
+
+	SetRequestHeadersFromHistoryItem(badRequest, badHistoryItem)
+
+	for key, value := range initialHeaders {
+		if badRequest.Header.Get(key) != value {
+			t.Errorf("Headers should remain intact when parsing fails. Expected %s: %s, got: %s",
+				key, value, badRequest.Header.Get(key))
+		}
 	}
 }

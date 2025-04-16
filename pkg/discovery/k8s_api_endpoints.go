@@ -37,7 +37,8 @@ var KubernetesPaths = []string{
 }
 
 func IsKubernetesValidationFunc(history *db.History) (bool, string, int) {
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	details := fmt.Sprintf("Kubernetes endpoint found: %s\n", history.URL)
 	confidence := 0
 

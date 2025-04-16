@@ -1,8 +1,6 @@
 package scan
 
 import (
-	"encoding/json"
-	"net/http"
 	"reflect"
 	"sort"
 	"testing"
@@ -43,18 +41,17 @@ func TestHandleURLParameters(t *testing.T) {
 }
 
 func TestHandleHeaders(t *testing.T) {
-	headerData := http.Header{
-		"Header1": []string{"1"},
-		"Header2": []string{"value2"},
-	}
-	jsonHeaderData, _ := json.Marshal(headerData)
+	rawRequest := []byte("GET /path HTTP/1.1\r\nHeader1: 1\r\nHeader2: value2\r\n\r\n")
+
 	history := &db.History{
-		RequestHeaders: jsonHeaderData,
+		RawRequest: rawRequest,
 	}
+
 	expected := []InsertionPoint{
-		{Type: InsertionPointTypeHeader, Name: "Header1", Value: "1", OriginalData: headerData["Header1"][0], ValueType: lib.TypeInt},
-		{Type: InsertionPointTypeHeader, Name: "Header2", Value: "value2", OriginalData: headerData["Header2"][0], ValueType: lib.TypeString},
+		{Type: InsertionPointTypeHeader, Name: "Header1", Value: "1", OriginalData: "1", ValueType: lib.TypeInt},
+		{Type: InsertionPointTypeHeader, Name: "Header2", Value: "value2", OriginalData: "value2", ValueType: lib.TypeString},
 	}
+
 	result, err := GetInsertionPoints(history, []string{"headers"})
 	if err != nil {
 		t.Fatal(err)
@@ -78,17 +75,18 @@ func TestHandleHeaders(t *testing.T) {
 }
 
 func TestHandleCookies(t *testing.T) {
-	headerData := http.Header{
-		"Cookie": []string{"cookie1=value1; cookie2=value2; sessionid=U2Vzc2lvbkNvb2tpZT1zYW1wbGUxMjM0NTY3OA=="},
-	}
-	jsonHeaderData, _ := json.Marshal(headerData)
+	rawRequest := []byte("GET /path HTTP/1.1\r\nCookie: cookie1=value1; cookie2=value2; sessionid=U2Vzc2lvbkNvb2tpZT1zYW1wbGUxMjM0NTY3OA==\r\n\r\n")
+
 	history := &db.History{
-		RequestHeaders: jsonHeaderData,
+		RawRequest: rawRequest,
 	}
+
+	cookieStr := "cookie1=value1; cookie2=value2; sessionid=U2Vzc2lvbkNvb2tpZT1zYW1wbGUxMjM0NTY3OA=="
+
 	expected := []InsertionPoint{
-		{Type: InsertionPointTypeCookie, Name: "cookie1", Value: "value1", OriginalData: headerData["Cookie"][0], ValueType: lib.TypeString},
-		{Type: InsertionPointTypeCookie, Name: "cookie2", Value: "value2", OriginalData: headerData["Cookie"][0], ValueType: lib.TypeString},
-		{Type: InsertionPointTypeCookie, Name: "sessionid", Value: "U2Vzc2lvbkNvb2tpZT1zYW1wbGUxMjM0NTY3OA==", OriginalData: headerData["Cookie"][0], ValueType: lib.TypeBase64},
+		{Type: InsertionPointTypeCookie, Name: "cookie1", Value: "value1", OriginalData: cookieStr, ValueType: lib.TypeString},
+		{Type: InsertionPointTypeCookie, Name: "cookie2", Value: "value2", OriginalData: cookieStr, ValueType: lib.TypeString},
+		{Type: InsertionPointTypeCookie, Name: "sessionid", Value: "U2Vzc2lvbkNvb2tpZT1zYW1wbGUxMjM0NTY3OA==", OriginalData: cookieStr, ValueType: lib.TypeBase64},
 	}
 
 	result, err := GetInsertionPoints(history, []string{"cookies"})
@@ -101,19 +99,26 @@ func TestHandleCookies(t *testing.T) {
 }
 
 func TestHandleBodyParameters(t *testing.T) {
+	rawRequest := []byte("POST /path HTTP/1.1\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nparam1=value1&param2=value2")
+
 	history := &db.History{
-		RequestBody:        []byte("param1=value1&param2=value2"),
+		RawRequest:         rawRequest,
 		RequestContentType: "application/x-www-form-urlencoded",
 	}
+
 	behaviour := InsertionPointBehaviour{
 		IsReflected: false,
 		IsDynamic:   false,
 	}
+
+	bodyContent := "param1=value1&param2=value2"
+
 	expected := []InsertionPoint{
-		{Type: InsertionPointTypeBody, Name: "param1", Value: "value1", OriginalData: string(history.RequestBody), ValueType: lib.TypeString, Behaviour: behaviour},
-		{Type: InsertionPointTypeBody, Name: "param2", Value: "value2", OriginalData: string(history.RequestBody), ValueType: lib.TypeString, Behaviour: behaviour},
-		{Type: InsertionPointTypeFullBody, Name: "fullbody", Value: "param1=value1&param2=value2", OriginalData: string(history.RequestBody), ValueType: lib.TypeString, Behaviour: behaviour},
+		{Type: InsertionPointTypeBody, Name: "param1", Value: "value1", OriginalData: bodyContent, ValueType: lib.TypeString, Behaviour: behaviour},
+		{Type: InsertionPointTypeBody, Name: "param2", Value: "value2", OriginalData: bodyContent, ValueType: lib.TypeString, Behaviour: behaviour},
+		{Type: InsertionPointTypeFullBody, Name: "fullbody", Value: bodyContent, OriginalData: bodyContent, ValueType: lib.TypeString, Behaviour: behaviour},
 	}
+
 	result, err := GetInsertionPoints(history, []string{"body"})
 	if err != nil {
 		t.Fatal(err)

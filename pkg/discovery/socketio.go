@@ -32,7 +32,8 @@ func isSocketIOValidationFunc(history *db.History) (bool, string, int) {
 		return false, "", 0
 	}
 
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	details := fmt.Sprintf("Socket.IO endpoint found: %s\n", history.URL)
 	confidence := 0
 

@@ -97,7 +97,8 @@ func IsOpenAPIValidationFunc(history *db.History) (bool, string, int) {
 	// 	return true, "Swagger/OpenAPI UI detected", 95
 	// }
 
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	bodyLower := strings.ToLower(bodyStr)
 
 	commonFields := []string{
@@ -143,7 +144,8 @@ func IsOpenAPIValidationFunc(history *db.History) (bool, string, int) {
 	}
 
 	var jsonObj map[string]interface{}
-	if json.Unmarshal(history.ResponseBody, &jsonObj) == nil {
+
+	if json.Unmarshal(body, &jsonObj) == nil {
 		if _, hasSwagger := jsonObj["swagger"]; hasSwagger {
 			confidence += 20
 			details = append(details, "Valid Swagger version field found")

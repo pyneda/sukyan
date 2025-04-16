@@ -1,14 +1,12 @@
 package scan
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 	"reflect"
 	"testing"
 
 	"github.com/pyneda/sukyan/db"
-	"gorm.io/datatypes"
 )
 
 func TestCreateRequestFromURLParameter(t *testing.T) {
@@ -59,14 +57,12 @@ func TestCreateRequestFromURLPath(t *testing.T) {
 }
 
 func TestCreateRequestFromHeader(t *testing.T) {
-	headerData := http.Header{
-		"Header1": []string{"value1"},
-		"Header2": []string{"value2"},
-	}
-	jsonHeaderData, _ := json.Marshal(headerData)
+	rawRequest := []byte("GET /path HTTP/1.1\r\nHeader1: value1\r\nHeader2: value2\r\n\r\nSome request body")
+
 	history := &db.History{
-		RequestHeaders: datatypes.JSON(jsonHeaderData),
+		RawRequest: rawRequest,
 	}
+
 	builder := InsertionPointBuilder{
 		Point: InsertionPoint{
 			Type: InsertionPointTypeHeader,
@@ -74,6 +70,7 @@ func TestCreateRequestFromHeader(t *testing.T) {
 		},
 		Payload: "modified_value1",
 	}
+
 	expectedHeaders := http.Header{
 		"Header1": []string{"modified_value1"},
 		"Header2": []string{"value2"},
@@ -90,13 +87,12 @@ func TestCreateRequestFromHeader(t *testing.T) {
 }
 
 func TestCreateRequestFromCookie(t *testing.T) {
-	headerData := http.Header{
-		"Cookie": []string{"cookie1=value1; cookie2=value2"},
-	}
-	jsonHeaderData, _ := json.Marshal(headerData)
+	rawRequest := []byte("GET /path HTTP/1.1\r\nCookie: cookie1=value1; cookie2=value2\r\nHost: example.com\r\n\r\nSome request body")
+
 	history := &db.History{
-		RequestHeaders: datatypes.JSON(jsonHeaderData),
+		RawRequest: rawRequest,
 	}
+
 	builder := InsertionPointBuilder{
 		Point: InsertionPoint{
 			Type: InsertionPointTypeCookie,
@@ -104,8 +100,10 @@ func TestCreateRequestFromCookie(t *testing.T) {
 		},
 		Payload: "modified_value",
 	}
+
 	expectedHeaders := http.Header{
 		"Cookie": []string{"cookie1=modified_value; cookie2=value2"},
+		"Host":   []string{"example.com"},
 	}
 
 	result, err := createRequestFromCookie(history, builder)
@@ -117,11 +115,15 @@ func TestCreateRequestFromCookie(t *testing.T) {
 		t.Errorf("Expected headers: %+v, Got: %+v", expectedHeaders, result)
 	}
 }
+
 func TestCreateRequestFromBody_FormUrlEncoded(t *testing.T) {
+	rawRequest := []byte("POST /path HTTP/1.1\r\nContent-Type: application/x-www-form-urlencoded\r\nHost: example.com\r\n\r\nparam1=value1&param2=value2")
+
 	history := &db.History{
+		RawRequest:         rawRequest,
 		RequestContentType: "application/x-www-form-urlencoded",
-		RequestBody:        []byte("param1=value1&param2=value2"),
 	}
+
 	builder := InsertionPointBuilder{
 		Point: InsertionPoint{
 			Type: InsertionPointTypeBody,
@@ -129,6 +131,7 @@ func TestCreateRequestFromBody_FormUrlEncoded(t *testing.T) {
 		},
 		Payload: "modified_value",
 	}
+
 	expectedBody := "param1=value1&param2=modified_value"
 	expectedContentType := "application/x-www-form-urlencoded"
 
@@ -150,10 +153,13 @@ func TestCreateRequestFromBody_FormUrlEncoded(t *testing.T) {
 }
 
 func TestCreateRequestFromBody_JSON(t *testing.T) {
+	rawRequest := []byte("POST /path HTTP/1.1\r\nContent-Type: application/json\r\nHost: example.com\r\n\r\n{\"param1\":\"value1\",\"param2\":\"value2\"}")
+
 	history := &db.History{
+		RawRequest:         rawRequest,
 		RequestContentType: "application/json",
-		RequestBody:        []byte(`{"param1":"value1","param2":"value2"}`),
 	}
+
 	builder := InsertionPointBuilder{
 		Point: InsertionPoint{
 			Type: InsertionPointTypeBody,
@@ -161,6 +167,7 @@ func TestCreateRequestFromBody_JSON(t *testing.T) {
 		},
 		Payload: "modified_value",
 	}
+
 	expectedBody := `{"param1":"value1","param2":"modified_value"}`
 	expectedContentType := "application/json"
 
@@ -180,16 +187,17 @@ func TestCreateRequestFromBody_JSON(t *testing.T) {
 		t.Errorf("Expected Content-Type: %s, Got: %s", expectedContentType, contentType)
 	}
 }
-
 func TestCreateRequestFromInsertionPoints(t *testing.T) {
+	// Create a raw HTTP request with JSON body
+	rawRequest := []byte("POST http://example.com HTTP/1.1\r\nContent-Type: application/json\r\n\r\n{\"param1\":\"value1\",\"param2\":\"value2\"}")
+
 	history := &db.History{
-		URL:                  "http://example.com",
-		RequestHeaders:       datatypes.JSON(json.RawMessage(`{"Content-Type": ["application/json"]}`)),
-		RequestContentType:   "application/json",
-		RequestBody:          []byte(`{"param1":"value1","param2":"value2"}`),
-		RequestContentLength: 32,
-		Method:               "POST",
+		URL:                "http://example.com",
+		RawRequest:         rawRequest,
+		RequestContentType: "application/json",
+		Method:             "POST",
 	}
+
 	builders := []InsertionPointBuilder{
 		{
 			Point: InsertionPoint{
@@ -247,15 +255,16 @@ func TestCreateRequestFromInsertionPoints(t *testing.T) {
 		t.Errorf("Expected body: %s, Got: %s", expectedBody, resultBody)
 	}
 }
-
 func TestCreateRequestFromInsertionPoints_NoURLBuilder(t *testing.T) {
+	rawRequest := []byte("POST http://example.com HTTP/1.1\r\nContent-Type: application/json\r\n\r\n{\"param1\":\"value1\",\"param2\":\"value2\"}")
+
 	history := &db.History{
 		URL:                "http://example.com",
-		RequestHeaders:     datatypes.JSON(json.RawMessage(`{"Content-Type": ["application/json"]}`)),
+		RawRequest:         rawRequest,
 		RequestContentType: "application/json",
-		RequestBody:        []byte(`{"param1":"value1","param2":"value2"}`),
 		Method:             "POST",
 	}
+
 	builders := []InsertionPointBuilder{
 		{
 			Point: InsertionPoint{
@@ -301,13 +310,15 @@ func TestCreateRequestFromInsertionPoints_NoURLBuilder(t *testing.T) {
 }
 
 func TestCreateRequestFromInsertionPoints_UnsupportedType(t *testing.T) {
+	rawRequest := []byte("POST http://example.com HTTP/1.1\r\nContent-Type: application/json\r\n\r\n{\"param1\":\"value1\",\"param2\":\"value2\"}")
+
 	history := &db.History{
 		URL:                "http://example.com",
-		RequestHeaders:     datatypes.JSON(json.RawMessage(`{"Content-Type": ["application/json"]}`)),
+		RawRequest:         rawRequest,
 		RequestContentType: "application/json",
-		RequestBody:        []byte(`{"param1":"value1","param2":"value2"}`),
 		Method:             "POST",
 	}
+
 	builders := []InsertionPointBuilder{
 		{
 			Point: InsertionPoint{
@@ -324,29 +335,3 @@ func TestCreateRequestFromInsertionPoints_UnsupportedType(t *testing.T) {
 		t.Errorf("Expected error: %s, Got: %v", expectedErrMsg, err)
 	}
 }
-
-// func TestCreateRequestFromInsertionPoints_InvalidContentType(t *testing.T) {
-// 	history := &db.History{
-// 		URL:                "http://example.com",
-// 		RequestHeaders:     datatypes.JSON(json.RawMessage(`{"Content-Type": ["application/aaa"]}`)),
-// 		RequestContentType: "application/aaaa",
-
-// 		RequestBody:        []byte(`{"param1":"value1","param2":"value2"}`),
-// 		Method:             "POST",
-// 	}
-// 	builders := []InsertionPointBuilder{
-// 		{
-// 			Point: InsertionPoint{
-// 				Type: "Body",
-// 				Name: "param1",
-// 			},
-// 			Payload: "modified_value1",
-// 		},
-// 	}
-// 	expectedErrMsg := "unsupported Content-Type for body"
-
-// 	_, err := CreateRequestFromInsertionPoints(history, builders)
-// 	if err == nil || err.Error() != expectedErrMsg {
-// 		t.Errorf("Expected error: %s, Got: %v", expectedErrMsg, err)
-// 	}
-// }

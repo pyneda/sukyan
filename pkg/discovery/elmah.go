@@ -13,7 +13,8 @@ var ElmahPaths = []string{
 
 func IsElmahValidationFunc(history *db.History) (bool, string, int) {
 	if history.StatusCode == 200 {
-		bodyStr := string(history.ResponseBody)
+		body, _ := history.ResponseBody()
+		bodyStr := string(body)
 		details := fmt.Sprintf("ASP.NET ELMAH handler detected at: %s\n", history.URL)
 		confidence := 30
 

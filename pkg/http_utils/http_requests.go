@@ -23,6 +23,8 @@ func BuildRequestFromHistoryItem(historyItem *db.History) (*http.Request, error)
 	var body io.Reader
 	if len(requestBody) > 0 {
 		body = bytes.NewReader(requestBody)
+	} else {
+		body = bytes.NewReader([]byte{})
 	}
 
 	request, err := http.NewRequest(method, historyItem.URL, body)

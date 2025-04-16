@@ -109,7 +109,8 @@ func IsGraphQLValidationFunc(history *db.History) (bool, string, int) {
 	}
 
 	var response GraphQLValidationResponse
-	if err := json.Unmarshal(history.ResponseBody, &response); err == nil {
+	body, _ := history.ResponseBody()
+	if err := json.Unmarshal(body, &response); err == nil {
 		if response.Data != nil && len(response.Data.Schema.Types) > 0 {
 			confidence = 100
 			details = append(details, "Valid GraphQL schema introspection response")
@@ -139,7 +140,8 @@ func IsGraphQLValidationFunc(history *db.History) (bool, string, int) {
 }
 
 func isGraphQLUI(history *db.History) bool {
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	bodyLower := strings.ToLower(bodyStr)
 
 	if !strings.Contains(strings.ToLower(history.ResponseContentType), "text/html") {

@@ -61,8 +61,8 @@ func isCloudMetadataValidationFunc(history *db.History) (bool, string, int) {
 	if history.StatusCode != 200 {
 		return false, "", 0
 	}
-
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	details := fmt.Sprintf("Cloud metadata endpoint exposed: %s\n", history.URL)
 	confidence := 30
 

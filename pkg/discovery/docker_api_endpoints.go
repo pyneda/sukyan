@@ -47,7 +47,8 @@ var DockerAPIPaths = []string{
 }
 
 func IsDockerAPIValidationFunc(history *db.History) (bool, string, int) {
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	details := fmt.Sprintf("Docker API endpoint found: %s\n", history.URL)
 	confidence := 0
 

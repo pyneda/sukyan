@@ -18,7 +18,8 @@ var WebServerControlPaths = []string{
 // IsWebServerControlFileValidationFunc validates if the response indicates an exposed access control file
 func IsWebServerControlFileValidationFunc(history *db.History) (bool, string, int) {
 	if history.StatusCode == 200 {
-		bodyStr := string(history.ResponseBody)
+		body, _ := history.ResponseBody()
+		bodyStr := string(body)
 		details := fmt.Sprintf("Web server access control file detected at: %s\n", history.URL)
 		confidence := 30
 

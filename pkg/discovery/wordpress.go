@@ -17,7 +17,8 @@ var WordPressPaths = []string{
 }
 
 func IsWordPressValidationFunc(history *db.History) (bool, string, int) {
-	bodyStr := string(history.ResponseBody)
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	details := fmt.Sprintf("WordPress installation detected: %s\n", history.URL)
 	confidence := 0
 

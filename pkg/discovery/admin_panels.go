@@ -23,6 +23,8 @@ func IsAdminInterfaceValidationFunc(history *db.History) (bool, string, int) {
 		return false, "", 0
 	}
 
+	body, _ := history.ResponseBody()
+
 	if history.StatusCode == 200 {
 		confidence = 30
 		details += "- Received 200 OK status\n"
@@ -42,7 +44,7 @@ func IsAdminInterfaceValidationFunc(history *db.History) (bool, string, int) {
 			{"admin panel", "Admin panel keyword in content", 10},
 		}
 
-		bodyContent := strings.ToLower(string(history.ResponseBody))
+		bodyContent := strings.ToLower(string(body))
 		for _, keyword := range adminKeywords {
 			if strings.Contains(bodyContent, keyword.Keyword) {
 				confidence += keyword.Confidence
@@ -54,7 +56,7 @@ func IsAdminInterfaceValidationFunc(history *db.History) (bool, string, int) {
 			confidence += 10
 			details += "- Content-Type is HTML\n"
 
-			doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(history.ResponseBody)))
+			doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(body)))
 			if err == nil {
 				if doc.Find(`input[type="password"]`).Length() > 0 || doc.Find(`input[name="username"], input[name="password"]`).Length() > 0 {
 					confidence += 40

@@ -22,8 +22,8 @@ func IsJBossStatusValidationFunc(history *db.History) (bool, string, int) {
 
 	confidence := 0
 	details := make([]string, 0)
-	bodyStr := string(history.ResponseBody)
-
+	body, _ := history.ResponseBody()
+	bodyStr := string(body)
 	statusIndicators := map[string]struct {
 		pattern     string
 		description string

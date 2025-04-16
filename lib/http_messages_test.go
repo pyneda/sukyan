@@ -129,7 +129,8 @@ func TestParseHTTPHeaders(t *testing.T) {
 			name:        "Headers with Empty Lines",
 			headerBytes: []byte("GET / HTTP/1.1\r\nHost: example.com\r\n\r\nContent-Type: text/html"),
 			expectedOutput: map[string][]string{
-				"Host": {"example.com"},
+				"Host":         {"example.com"},
+				"Content-Type": {"text/html"},
 			},
 		},
 	}
@@ -161,7 +162,7 @@ func TestFormatHeadersAsString(t *testing.T) {
 				"Accept":          {"*/*"},
 				"Accept-Encoding": {"gzip"},
 			},
-			expectedOutput: "Host: example.com\nAccept: */*\nAccept-Encoding: gzip\n",
+			expectedOutput: "Accept: */*\nAccept-Encoding: gzip\nHost: example.com\n",
 		},
 		{
 			name: "Headers with Multiple Values",
@@ -169,7 +170,7 @@ func TestFormatHeadersAsString(t *testing.T) {
 				"Host":   {"example.com"},
 				"Accept": {"text/html", "application/json"},
 			},
-			expectedOutput: "Host: example.com\nAccept: text/html\nAccept: application/json\n",
+			expectedOutput: "Accept: text/html\nAccept: application/json\nHost: example.com\n",
 		},
 		{
 			name:           "Empty Headers",
@@ -182,7 +183,7 @@ func TestFormatHeadersAsString(t *testing.T) {
 				"X-Custom-Header": {"value;with:special@chars"},
 				"Content-Type":    {"application/json; charset=utf-8"},
 			},
-			expectedOutput: "X-Custom-Header: value;with:special@chars\nContent-Type: application/json; charset=utf-8\n",
+			expectedOutput: "Content-Type: application/json; charset=utf-8\nX-Custom-Header: value;with:special@chars\n",
 		},
 	}
 

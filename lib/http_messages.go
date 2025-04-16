@@ -9,17 +9,55 @@ import (
 )
 
 // SplitHTTPMessage splits an HTTP message into headers and body parts
+// It tries to handle various line ending formats and edge cases
 func SplitHTTPMessage(message []byte) ([]byte, []byte, error) {
+	// Try standard HTTP delimiter CRLF+CRLF
 	parts := bytes.SplitN(message, []byte("\r\n\r\n"), 2)
-	if len(parts) != 2 {
-		// Try with just \n\n in case the message uses LF instead of CRLF
-		parts = bytes.SplitN(message, []byte("\n\n"), 2)
-		if len(parts) != 2 {
-			return nil, nil, errors.New("invalid HTTP message format")
+	if len(parts) == 2 {
+		return parts[0], parts[1], nil
+	}
+
+	// Try LF+LF format
+	parts = bytes.SplitN(message, []byte("\n\n"), 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1], nil
+	}
+
+	// Try mixed format CRLF+LF (sometimes seen in hand-crafted requests)
+	parts = bytes.SplitN(message, []byte("\r\n\n"), 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1], nil
+	}
+
+	// Check if we have a request line but no headers
+	// REQUEST_METHOD URI HTTP/VERSION\r\n\r\n
+	// or
+	// REQUEST_METHOD URI HTTP/VERSION\n\n
+	if bytes.Contains(message, []byte(" HTTP/")) {
+		reqLineEnd := bytes.Index(message, []byte("\r\n"))
+		if reqLineEnd > 0 {
+			if len(message) > reqLineEnd+2 && bytes.Equal(message[reqLineEnd:reqLineEnd+4], []byte("\r\n\r\n")) {
+				return message[:reqLineEnd+2], message[reqLineEnd+4:], nil
+			}
+		}
+
+		reqLineEnd = bytes.Index(message, []byte("\n"))
+		if reqLineEnd > 0 {
+			if len(message) > reqLineEnd+1 && bytes.Equal(message[reqLineEnd:reqLineEnd+2], []byte("\n\n")) {
+				return message[:reqLineEnd+1], message[reqLineEnd+2:], nil
+			}
 		}
 	}
 
-	return parts[0], parts[1], nil
+	// If the message doesn't have a body
+	// but has valid headers, return an empty body
+	if bytes.Contains(message, []byte(" HTTP/")) ||
+		bytes.Contains(message, []byte("HTTP/")) ||
+		bytes.Contains(message, []byte(": ")) {
+		return message, []byte{}, nil
+	}
+
+	return nil, nil, errors.New("invalid HTTP message format")
 }
 
 // ParseHTTPHeaders parses HTTP headers from a byte array

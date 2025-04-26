@@ -8,6 +8,7 @@ detection_methods:
   - response_condition:
       status_code: 500
       confidence: 50
+      status_code_should_change: true
   - response_check:
       check: database_error
       confidence: 90

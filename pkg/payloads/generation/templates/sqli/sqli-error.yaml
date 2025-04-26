@@ -7,7 +7,8 @@ detection_methods:
       confidence: 80
   - response_condition:
       status_code: 500
-      confidence: 25
+      status_code_should_change: true
+      confidence: 40
 templates:
   - "' or "
   - "-- or "

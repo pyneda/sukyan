@@ -53,10 +53,11 @@ const (
 )
 
 type ResponseConditionDetectionMethod struct {
-	Contains   string               `yaml:"contains,omitempty"`
-	Part       ResponseContainsPart `yaml:"part,omitempty"`
-	StatusCode int                  `yaml:"status_code,omitempty"`
-	Confidence int                  `yaml:"confidence,omitempty"`
+	Contains               string               `yaml:"contains,omitempty"`
+	Part                   ResponseContainsPart `yaml:"part,omitempty"`
+	StatusCode             int                  `yaml:"status_code,omitempty"`
+	StatusCodeShouldChange bool                 `yaml:"status_chode_should_change,omitempty"`
+	Confidence             int                  `yaml:"confidence,omitempty"`
 	// TODO: Add support for the issue override
 	IssueOverride db.IssueCode `yaml:"issue_override,omitempty"`
 }

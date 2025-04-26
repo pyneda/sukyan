@@ -375,8 +375,14 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 		var sb strings.Builder
 		if m.StatusCode != 0 {
 			if m.StatusCode == result.Result.StatusCode {
-				sb.WriteString(fmt.Sprintf("Response status code is %d\n", m.StatusCode))
-				statusMatch = true
+				if m.StatusCodeShouldChange && result.Original.StatusCode == result.Result.StatusCode {
+					// If the status code should change and it didn't, it's not a match
+					// Main reason is to avoid false positives
+					statusMatch = false
+				} else {
+					sb.WriteString(fmt.Sprintf("Response status code is %d\n", m.StatusCode))
+					statusMatch = true
+				}
 			}
 		} else {
 			// If no status is defined, assume it's matched

@@ -3,316 +3,824 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sukyan Report - {{ .title }}</title>
+    <title>{{ .Title }} - Sukyan Scanner Report</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.4.6"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2/dist/fuse.min.js"></script>
+    <style>
+        /* Custom scrollbar for better UX */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        
+        /* Transitions and animations */
+        .fade-in {
+            animation: fadeIn 0.2s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Make code blocks look better */
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            tab-size: 4;
+            counter-reset: line;
+        }
+        
+        /* Collapsible groups */
+        .group-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .group-content.open {
+            max-height: 9999px;
+        }
+        
+        /* Highlighting for search results */
+        .highlight {
+            background-color: rgba(234, 179, 8, 0.3);
+            padding: 1px 2px;
+            border-radius: 2px;
+        }
+        
+        /* Lazy-loaded content */
+        .lazy-content {
+            opacity: 0;
+            transition: opacity 0.2s ease-out;
+        }
+        .lazy-content.loaded {
+            opacity: 1;
+        }
+    </style>
 </head>
-<body class="bg-gray-900 text-white">
-    <header class="p-4">
-        <h1 class="text-3xl font-bold text-center">{{ .title }}</h1>
-    </header>
-    <div id="app" class="mx-auto p-4 flex flex-col md:flex-row">
-        <div class="md:w-1/3 pr-4">
-            <div class="mb-4">
-                <input type="text" id="search" placeholder="Search issues..." class="w-full p-2 border border-gray-600 rounded bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <p id="result-count" class="text-sm text-gray-400 mt-2"></p>
+<div id="loading-overlay" class="fixed inset-0 h-screen flex items-center justify-center bg-gray-900 bg-opacity-70 z-50 ">
+  <div class="text-center">
+    <svg class="animate-spin h-10 w-10 text-blue-500 mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+    <p class="text-white">Initializing report data...</p>
+  </div>
+</div>
+<body class="bg-gray-900 text-gray-200 min-h-screen">
+    <!-- Header Bar -->
+    <div class="bg-gray-800 sticky top-0 z-10 shadow-lg border-b border-gray-700">
+        <div class="container mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center">
+            <div class="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <h1 class="text-xl md:text-2xl font-bold text-white">{{ .Title }}</h1>
             </div>
-            <div id="results" class="space-y-2"></div>
-            <div id="pagination" class="flex justify-center mt-4 space-x-2">
-                <button id="first" class="bg-gray-700 text-white p-1 rounded hidden">&laquo; First</button>
-                <button id="prev" class="bg-gray-700 text-white p-1 rounded hidden">&lsaquo; Previous</button>
-                <button id="next" class="bg-gray-700 text-white p-1 rounded hidden">Next &rsaquo;</button>
-                <button id="last" class="bg-gray-700 text-white p-1 rounded hidden">Last &raquo;</button>
+            <div class="mt-2 md:mt-0 flex space-x-3">
+            <!-- Actions placeholder -->
+
             </div>
         </div>
-        <div id="details" class="md:w-2/3 mt-4 md:mt-0 pl-4 bg-gray-800 p-6 rounded shadow flex-grow relative">
-            <h2 class="text-2xl font-bold mb-4">Select a vulnerability to see details</h2>
+    </div>
+    
+    <!-- Dashboard Summary -->
+    <div class="container mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-gray-800 p-5 rounded-lg shadow-lg border border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-400 mb-2">Total Issues</h3>
+                <div class="flex items-end">
+                    <p class="text-4xl font-bold text-white">{{ .Summary.TotalIssues }}</p>
+                    <p class="ml-2 text-gray-400">vulnerabilities</p>
+                </div>
+            </div>
+            <div class="bg-gray-800 p-5 rounded-lg shadow-lg border border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-400 mb-2">Critical & High</h3>
+                <div class="flex items-end">
+                    <p class="text-4xl font-bold text-red-500">{{ add .Summary.CriticalCount .Summary.HighCount }}</p>
+                    <p class="ml-2 text-gray-400">issues</p>
+                </div>
+            </div>
+            <div class="bg-gray-800 p-5 rounded-lg shadow-lg border border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-400 mb-2">Issue Types</h3>
+                <div class="flex items-end">
+                    <p class="text-4xl font-bold text-yellow-400">{{ .Summary.UniqueIssueTypes }}</p>
+                    <p class="ml-2 text-gray-400">categories</p>
+                </div>
+            </div>
+            <div class="bg-gray-800 p-5 rounded-lg shadow-lg border border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-400 mb-2">Unique Affected Endpoints</h3>
+                <div class="flex items-end">
+                    <p class="text-4xl font-bold text-blue-400">{{ .Summary.UniqueAffectedEndpoints }}</p>
+                    <p class="ml-2 text-gray-400">endpoints</p>
+                </div>
+            </div>
         </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-gray-800 p-5 rounded-lg shadow-lg border border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-400 mb-3">Issues by Severity</h3>
+                <div class="h-64">
+                    <canvas id="severityChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-gray-800 p-5 rounded-lg shadow-lg border border-gray-700">
+                <h3 class="text-lg font-semibold text-gray-400 mb-3">Top Issue Types</h3>
+                <div class="h-64">
+                    <canvas id="typesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content Area -->
+    <div class="container mx-auto px-4 pb-16 flex flex-col lg:flex-row gap-6">
+        <!-- Left sidebar with issue list -->
+        <div class="lg:w-1/3">
+            <div class="bg-gray-800 p-5 rounded-lg shadow-lg border border-gray-700 sticky top-24">
+                <div class="mb-4">
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            id="search-input" 
+                            placeholder="Search issues..." 
+                            class="w-full p-3 pl-10 border border-gray-700 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-3.5 h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <div class="flex items-center justify-between mt-2">
+                        <p id="result-count" class="text-sm text-gray-400">{{ .Summary.TotalIssues }} issues</p>
+                        <div class="flex items-center space-x-2">
+                            <label class="text-sm text-gray-400">Filter:</label>
+                            <select id="severity-filter" class="bg-gray-700 border border-gray-600 text-white rounded-md text-sm px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="all">All severities</option>
+                                <option value="Critical">Critical</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                                <option value="Info">Info</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Container for issue list -->
+                <div id="issues-container" class="space-y-3 max-h-[calc(100vh-280px)] overflow-y-auto pr-1"></div>
+                
+
+            </div>
+        </div>
+        
+        <!-- Right panel with issue details -->
+        <div id="details-container" class="lg:w-2/3">
+            <div id="issue-details" class="bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
+                <div class="flex items-center justify-center min-h-[200px]">
+                    <div class="text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h2 class="mt-4 text-xl font-medium text-gray-400">Select a vulnerability to see details</h2>
+                        <p class="mt-2 text-gray-500">Choose from the list on the left to view detailed information</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast notification for clipboard operations -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        Copied to clipboard
     </div>
 
     <script>
-        const vulnerabilities = {{ .issues | toJSON }};
-        const fuse = new Fuse(vulnerabilities, {
-            keys: ['url', 'title', 'description', 'details', 'remediation', 'code', 'severity']
-        });
+        
+        // Load grouped issues
+        const groupedIssues = {{ toJSON .GroupedIssues }};
+        
+        // Load summary data
+        const summaryData = {{ toJSON .Summary }};
 
-        const severityColors = {
-            Unknown: "text-gray-800",
-            Info: "text-blue-800",
-            Low: "text-green-800",
-            Medium: "text-yellow-800",
-            High: "text-red-800",
-            Critical: "text-red-800"
-        };
-
-        const itemsPerPage = 100;
+        // Setup application state
         let currentPage = 1;
-        let filteredResults = vulnerabilities;
-
-        function createSafeElement(tag, content, className) {
-            const element = document.createElement(tag);
-            if (className) {
-                element.className = className;
+        let itemsPerPage = 20;
+        let currentFilteredIssues = groupedIssues;
+        let currentSeverityFilter = 'all';
+        let currentSelectedIssue = null;
+        let searchTerm = '';
+        
+        // Initialize Fuse.js for search
+        const fuseOptions = {
+            keys: ['title', 'description', 'code', 'remediation'],
+            threshold: 0.4,
+            includeScore: true
+        };
+        const fuse = new Fuse(groupedIssues, fuseOptions);
+        
+        // Severity colors mapping
+        const severityColors = {
+            Critical: {
+                bg: 'bg-red-800',
+                text: 'text-red-800',
+                border: 'border-red-800',
+                light: 'bg-red-800 bg-opacity-20',
+            },
+            High: {
+                bg: 'bg-orange-700',
+                text: 'text-orange-700',
+                border: 'border-orange-700',
+                light: 'bg-orange-700 bg-opacity-20',
+            },
+            Medium: {
+                bg: 'bg-yellow-500',
+                text: 'text-yellow-500',
+                border: 'border-yellow-500',
+                light: 'bg-yellow-500 bg-opacity-20',
+            },
+            Low: {
+                bg: 'bg-green-500',
+                text: 'text-green-500',
+                border: 'border-green-500',
+                light: 'bg-green-500 bg-opacity-20',
+            },
+            Info: {
+                bg: 'bg-blue-500',
+                text: 'text-blue-500',
+                border: 'border-blue-500',
+                light: 'bg-blue-500 bg-opacity-20',
+            },
+            Unknown: {
+                bg: 'bg-gray-600',
+                text: 'text-gray-600',
+                border: 'border-gray-600',
+                light: 'bg-gray-600 bg-opacity-20',
             }
-            element.textContent = content;
-            return element;
-        }
-
-        function paginate(array, pageSize, pageNumber) {
-            return array.slice((pageNumber - 1) * pageSize, pageNumber * pageSize);
-        }
-
+        };
+        
+        // Helper functions
         function decodeBase64(base64) {
             try {
                 return atob(base64);
             } catch (e) {
-                console.error("Error decoding Base64:", e);
-                return "Invalid Base64 data";
+                console.error('Error decoding Base64:', e);
+                return 'Invalid Base64 data';
             }
         }
+        
+        function createElementWithClass(tag, className, content = null) {
+            const element = document.createElement(tag);
+            if (className) {
+                element.className = className;
+            }
+            if (content !== null) {
+                element.textContent = content;
+            }
+            return element;
+        }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text)
+                .then(() => showToast('Copied to clipboard'))
+                .catch(err => showToast('Failed to copy: ' + err));
+        }
+        
 
-        function renderResults(results) {
-            const resultsContainer = document.getElementById('results');
-            resultsContainer.innerHTML = '';
-            const paginatedResults = paginate(results, itemsPerPage, currentPage);
-
-            paginatedResults.forEach(item => {
-                const resultItem = document.createElement('div');
-                resultItem.className = 'bg-gray-700 p-4 rounded shadow cursor-pointer overflow-x-auto relative';
-
-                const title = createSafeElement('h3', `${item.id} - ${item.title}`, 'text-lg font-bold');
-
-                const topRightContainer = document.createElement('div');
-                topRightContainer.className = 'absolute top-2 right-2 flex space-x-2';
-
-                const severityColor = severityColors[item.severity] || severityColors.Unknown;
-                const severity = createSafeElement('span', `${item.severity}`, `text-sm font-medium ${severityColor}`);
-                severity.className += ' bg-gray-800 p-1 rounded';
-                severity.title = 'Severity';
-
-                const confidenceColor = item.confidence > 75 ? "text-green-500" : item.confidence >= 50 ? "text-orange-500" : "text-red-800";
-                const confidence = createSafeElement('span', `${item.confidence}/100`, `text-sm font-medium ${confidenceColor}`);
-                confidence.className += ' bg-gray-800 p-1 rounded';
-                confidence.title = 'Confidence';
-
-                topRightContainer.appendChild(severity);
-                topRightContainer.appendChild(confidence);
-
-                const description = createSafeElement('p', item.url, 'text-gray-400');
-
-                resultItem.appendChild(title);
-                resultItem.appendChild(topRightContainer);
-                resultItem.appendChild(description);
-                resultItem.addEventListener('click', () => {
-                    renderDetails(item);
-                });
-                resultsContainer.appendChild(resultItem);
+        
+        function highlightSearchTerm(text, term) {
+            if (!term || typeof text !== 'string') return text;
+            
+            const regex = new RegExp('(' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+            return text.replace(regex, '<span class="highlight">$1</span>');
+        }
+        
+        function createIssueCard(issue) {
+            const card = createElementWithClass('div', 'bg-gray-700 rounded-md p-4 cursor-pointer hover:bg-gray-600 transition relative overflow-hidden');
+            card.dataset.id = issue.id;
+            
+            // Add severity indicator stripe on the left
+            const severityStripe = createElementWithClass('div', `absolute left-0 top-0 bottom-0 w-1 ${severityColors[issue.severity]?.bg || 'bg-gray-500'}`);
+            card.appendChild(severityStripe);
+            
+            const cardContent = createElementWithClass('div', 'pl-2');
+            
+            // Title with issue code
+            const titleContainer = createElementWithClass('div', 'flex justify-between items-start mb-1');
+            
+            let titleText = issue.title;
+            if (searchTerm) {
+                const titleEl = createElementWithClass('h3', 'font-bold text-white text-base');
+                titleEl.innerHTML = highlightSearchTerm(titleText, searchTerm);
+                titleContainer.appendChild(titleEl);
+            } else {
+                const titleEl = createElementWithClass('h3', 'font-bold text-white text-base', titleText);
+                titleContainer.appendChild(titleEl);
+            }
+            
+            // Metadata container (severity and confidence)
+            const metaContainer = createElementWithClass('div', 'flex items-center space-x-2');
+            
+            // Severity badge
+            const severityBadge = createElementWithClass(
+                'span', 
+                `text-xs font-medium px-2 py-1 rounded ${severityColors[issue.severity]?.light || 'bg-gray-600'}`,
+                issue.severity
+            );
+            
+            // Confidence indicator
+            const confidenceColor = issue.confidence > 75 ? 'text-green-500' : 
+                                  issue.confidence >= 50 ? 'text-yellow-500' : 'text-red-500';
+            const confidenceBadge = createElementWithClass(
+                'span',
+                `text-xs font-medium ${confidenceColor} bg-gray-800 px-2 py-1 rounded`,
+                `${issue.confidence}%`
+            );
+            
+            metaContainer.appendChild(severityBadge);
+            metaContainer.appendChild(confidenceBadge);
+            
+            titleContainer.appendChild(metaContainer);
+            cardContent.appendChild(titleContainer);
+            
+            // URL (with possible highlighting)
+            if (searchTerm && issue.url) {
+                const urlEl = createElementWithClass('p', 'text-gray-400 text-sm truncate');
+                urlEl.innerHTML = highlightSearchTerm(issue.url, searchTerm);
+                cardContent.appendChild(urlEl);
+            } else if (issue.url) {
+                cardContent.appendChild(createElementWithClass('p', 'text-gray-400 text-sm truncate', issue.url));
+            }
+            
+            // False positive indicator if applicable
+            if (issue.false_positive) {
+                const fpBadge = createElementWithClass(
+                    'div',
+                    'absolute top-2 right-2 text-xs bg-yellow-600 text-white px-2 py-1 rounded',
+                    'False Positive'
+                );
+                card.appendChild(fpBadge);
+            }
+            
+            card.appendChild(cardContent);
+            
+            // Event listener to show details when clicked
+            card.addEventListener('click', () => {
+                // Deselect current card if any
+                const selectedCard = document.querySelector('.selected-card');
+                if (selectedCard) {
+                    selectedCard.classList.remove('selected-card', 'ring-2', 'ring-blue-500');
+                }
+                
+                // Select this card
+                card.classList.add('selected-card', 'ring-2', 'ring-blue-500');
+                
+                // Show details for this issue
+                showIssueDetails(issue);
+                currentSelectedIssue = issue;
             });
-
-            document.getElementById('result-count').textContent = `${results.length} results found`;
-        }
-
-        function renderDetails(item) {
-            const detailsContainer = document.getElementById('details');
-            detailsContainer.innerHTML = '';
-
-            const titleContainer = document.createElement('div');
-            titleContainer.className = 'flex justify-between items-center mb-4';
-
-            const title = createSafeElement('h2', item.title, 'text-2xl font-bold');
-
-            const topRightContainer = document.createElement('div');
-            topRightContainer.className = 'flex space-x-4 bg-gray-800';
-
-            const severityColor = severityColors[item.severity] || severityColors.Unknown;
-            const severity = createSafeElement('p', `${item.severity}`, `text-lg font-semibold bg-gray-900 px-2 py-1 rounded ${severityColor}`);
-            severity.title = 'Severity';
             
-            const confidenceColor = item.confidence > 75 ? "text-green-500" : item.confidence >= 50 ? "text-orange-500" : "text-red-800";
-            const confidence = createSafeElement('p', `${item.confidence}/100`, `text-lg font-semibold bg-gray-900 px-2 py-1 rounded ${confidenceColor}`);
-            confidence.title = "Confidence";
+            return card;
+        }
+        
+        function createGroupCard(group) {
+            const card = createElementWithClass('div', 'mb-4');
+            
+            // Create header
+            const header = createElementWithClass('div', `flex items-center justify-between p-3 rounded-t-lg cursor-pointer ${severityColors[group.severity]?.light || 'bg-gray-700'}`);
+            header.dataset.code = group.code;
+            
+            const titleWithCount = createElementWithClass('h3', 'font-semibold flex items-center', `${group.title} (${group.count})`);
+            
+            const collapseIcon = createElementWithClass('span', 'transform transition-transform');
+            collapseIcon.style.transform = 'rotate(-90deg)';
+            collapseIcon.innerHTML = '&#9660;'; // Down arrow icon
 
-            topRightContainer.appendChild(severity);
-            topRightContainer.appendChild(confidence);
+            header.appendChild(titleWithCount);
+            header.appendChild(collapseIcon);
+            
+            // Create content area for issues in this group
+            const content = createElementWithClass('div', 'border-l border-r border-b border-gray-600 rounded-b-lg overflow-hidden group-content');
+            content.dataset.code = group.code;
+            
+            // Add the issues to this group
+            group.issues.forEach(issue => {
+                // Apply current filters
+                if (currentSeverityFilter !== 'all' && issue.severity !== currentSeverityFilter) {
+                    return;
+                }
+                
+                content.appendChild(createIssueCard(issue));
+            });
+            
+            // Toggle expansion when header is clicked
+            header.addEventListener('click', () => {
+                content.classList.toggle('open');
+                collapseIcon.style.transform = content.classList.contains('open') ? 'rotate(0)' : 'rotate(-90deg)';
+            });
+            
+            card.appendChild(header);
+            card.appendChild(content);
+            
+            return card;
+        }
+        
+        function renderIssuesList() {
+            const container = document.getElementById('issues-container');
+            container.innerHTML = '';
 
-            titleContainer.appendChild(title);
-            titleContainer.appendChild(topRightContainer);
+            
+   
 
-            const urlLabel = createSafeElement('h4', 'URL', 'text-xl font-semibold');
-            const url = createSafeElement('p', item.url, 'text-gray-400 mb-4');
-
-            const createdAt = createSafeElement('p', `Created at: ${item.created_at}`, 'text-sm text-gray-400 mb-4');
-
-            const descriptionLabel = createSafeElement('h4', 'Description', 'text-xl font-semibold');
-            const description = createSafeElement('p', item.description, 'text-gray-400 mb-4 whitespace-pre-line');
-
-            detailsContainer.appendChild(titleContainer);
-            detailsContainer.appendChild(createdAt);
-            detailsContainer.appendChild(urlLabel);
-            detailsContainer.appendChild(url);
-            detailsContainer.appendChild(descriptionLabel);
-            detailsContainer.appendChild(description);
-
-            if (item.details) {
-                const detailsLabel = createSafeElement('h4', 'Details', 'text-xl font-semibold');
-                const details = createSafeElement('p', item.details, 'text-gray-400 mb-4 whitespace-pre-line');
-                detailsContainer.appendChild(detailsLabel);
-                detailsContainer.appendChild(details);
-            }
-
-            if (item.false_positive) {
-                const falsePositiveAlert = createSafeElement('div', 'This issue is marked as a false positive', 'bg-yellow-500 text-black p-2 rounded mb-4');
-                detailsContainer.appendChild(falsePositiveAlert);
-            }
-
-            if (item.curl_command) {
-                const curlLabel = createSafeElement('h4', 'cURL Command', 'text-xl font-semibold');
-                const curlCommand = document.createElement('pre');
-                curlCommand.className = 'bg-gray-900 p-2 rounded mb-4 text-gray-400 overflow-auto';
-                curlCommand.textContent = item.curl_command;
-                detailsContainer.appendChild(curlLabel);
-                detailsContainer.appendChild(curlCommand);
-            }
-
-            if (item.note) {
-                const noteLabel = createSafeElement('h4', 'Note', 'text-xl font-semibold');
-                const note = createSafeElement('p', item.note, 'text-gray-400 mb-4');
-                detailsContainer.appendChild(noteLabel);
-                detailsContainer.appendChild(note);
-            }
-
-            if (item.payload) {
-                const payloadLabel = createSafeElement('h4', 'Payload', 'text-xl font-semibold');
-                const payload = document.createElement('pre');
-                payload.className = 'bg-gray-900 p-2 rounded mb-4 text-gray-400 overflow-auto';
-                payload.textContent = item.payload;
-                detailsContainer.appendChild(payloadLabel);
-                detailsContainer.appendChild(payload);
-            }
-
-            if (item.remediation) {
-                const remediationLabel = createSafeElement('h4', 'Remediation', 'text-xl font-semibold');
-                const remediation = createSafeElement('p', item.remediation, 'text-gray-400 mb-4');
-                detailsContainer.appendChild(remediationLabel);
-                detailsContainer.appendChild(remediation);
-            }
-
-            if (item.request) {
-                const requestLabel = createSafeElement('h4', 'Request', 'text-xl font-semibold');
-                const request = document.createElement('pre');
-                request.className = 'bg-gray-900 p-2 rounded mb-4 text-gray-400 overflow-auto';
-                request.style.maxHeight = '400px';
-                request.textContent = decodeBase64(item.request);
-                detailsContainer.appendChild(requestLabel);
-                detailsContainer.appendChild(request);
-            }
-
-            if (item.response) {
-                const responseLabel = createSafeElement('h4', 'Response', 'text-xl font-semibold');
-                const response = document.createElement('pre');
-                response.className = 'bg-gray-900 p-2 rounded mb-4 text-gray-400 overflow-auto';
-                response.style.maxHeight = '400px';
-                response.textContent = decodeBase64(item.response);
-                detailsContainer.appendChild(responseLabel);
-                detailsContainer.appendChild(response);
-            }
-
-            if (item.references && item.references.length > 0) {
-                const referencesLabel = createSafeElement('h4', 'References', 'text-xl font-semibold');
-                const referencesList = document.createElement('ul');
-                referencesList.className = 'list-disc list-inside text-gray-400';
-                item.references.forEach(ref => {
-                    const listItem = document.createElement('li');
-                    const link = document.createElement('a');
-                    link.href = ref;
-                    link.textContent = ref;
-                    link.className = 'text-blue-400 underline';
-                    listItem.appendChild(link);
-                    referencesList.appendChild(listItem);
+            const filteredGroups  = currentFilteredIssues.filter(group => {
+                return group.issues.some(issue => {
+                    return currentSeverityFilter === 'all' || issue.severity === currentSeverityFilter;
                 });
-                detailsContainer.appendChild(referencesLabel);
-                detailsContainer.appendChild(referencesList);
-            }
-
-            // Scroll the details container into view
-            detailsContainer.scrollIntoView({ behavior: 'smooth' });
-        }
-
-        function updatePaginationButtons() {
-            const firstButton = document.getElementById('first');
-            const prevButton = document.getElementById('prev');
-            const nextButton = document.getElementById('next');
-            const lastButton = document.getElementById('last');
+            });
             
-            if (currentPage === 1) {
-                firstButton.classList.add('hidden');
-                prevButton.classList.add('hidden');
-            } else {
-                firstButton.classList.remove('hidden');
-                prevButton.classList.remove('hidden');
+            // Render grouped issues
+            filteredGroups.forEach(group => {
+                container.appendChild(createGroupCard(group));
+            });
+            
+            if (filteredGroups.length === 0) {
+                container.appendChild(createElementWithClass('div', 'text-center text-gray-500 py-6', 'No issues match your filters'));
             }
 
-            if (currentPage * itemsPerPage >= filteredResults.length) {
-                nextButton.classList.add('hidden');
-                lastButton.classList.add('hidden');
-            } else {
-                nextButton.classList.remove('hidden');
-                lastButton.classList.remove('hidden');
+            
+
+        }
+        
+        
+        function showIssueDetails(issue) {
+            const container = document.getElementById('issue-details');
+            container.innerHTML = '';
+            container.classList.add('fade-in');
+            
+            const headerSection = createElementWithClass('div', 'mb-6');
+            
+            const titleRow = createElementWithClass('div', 'flex justify-between items-start');
+            
+            const title = createElementWithClass('h2', 'text-2xl font-bold text-white', issue.title);
+            
+            const metaContainer = createElementWithClass('div', 'flex items-center space-x-3');
+            
+            const severityBadge = createElementWithClass(
+                'span', 
+                `text-sm font-medium px-3 py-1 rounded ${severityColors[issue.severity]?.light || 'bg-gray-600'}`,
+                issue.severity
+            );
+            
+            const confidenceColor = issue.confidence > 75 ? 'text-green-500' : 
+                                  issue.confidence >= 50 ? 'text-yellow-500' : 'text-red-500';
+            const confidenceBadge = createElementWithClass(
+                'span',
+                `text-sm font-medium ${confidenceColor} bg-gray-700 px-3 py-1 rounded`,
+                `${issue.confidence}% Confidence`
+            );
+            
+            metaContainer.appendChild(severityBadge);
+            metaContainer.appendChild(confidenceBadge);
+            
+            titleRow.appendChild(title);
+            titleRow.appendChild(metaContainer);
+            
+            headerSection.appendChild(titleRow);
+            
+            if (issue.created_at) {
+                headerSection.appendChild(createElementWithClass('p', 'text-sm text-gray-400 mt-2', `Detected: ${issue.created_at}`));
+            }
+            
+            const urlContainer = createElementWithClass('div', 'flex items-center mt-4 bg-gray-700 p-2 rounded');
+            const urlText = createElementWithClass('span', 'text-gray-300 flex-grow break-all', issue.url);
+            
+            const copyButton = createElementWithClass('button', 'ml-2 text-gray-400 hover:text-white p-1 transition');
+            copyButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            </svg>`;
+            copyButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                copyToClipboard(issue.url);
+            });
+            
+            urlContainer.appendChild(urlText);
+            urlContainer.appendChild(copyButton);
+            
+            headerSection.appendChild(urlContainer);
+            
+            // HTTP details
+            const httpDetails = createElementWithClass('div', 'flex flex-wrap mt-2 gap-2');
+            httpDetails.appendChild(createElementWithClass('span', 'bg-gray-700 px-2 py-1 rounded text-sm', `Method: ${issue.http_method}`));
+            httpDetails.appendChild(createElementWithClass('span', 'bg-gray-700 px-2 py-1 rounded text-sm', `Status: ${issue.status_code}`));
+            if (issue.cwe) {
+                httpDetails.appendChild(createElementWithClass('span', 'bg-gray-700 px-2 py-1 rounded text-sm', `CWE: ${issue.cwe}`));
+            }
+            
+            headerSection.appendChild(httpDetails);
+            
+            // False positive warning if needed
+            if (issue.false_positive) {
+                const fpWarning = createElementWithClass('div', 'bg-yellow-800 bg-opacity-30 border border-yellow-700 text-yellow-200 p-3 rounded-md mt-4 flex items-center');
+                fpWarning.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    This issue has been marked as a false positive
+                `;
+                headerSection.appendChild(fpWarning);
+            }
+            
+            container.appendChild(headerSection);
+            
+            if (issue.description) {
+                const descriptionSection = createElementWithClass('div', 'mb-6');
+                descriptionSection.appendChild(createElementWithClass('h3', 'text-xl font-semibold text-white mb-2', 'Description'));
+                descriptionSection.appendChild(createElementWithClass('div', 'text-gray-300 whitespace-pre-line', issue.description));
+                container.appendChild(descriptionSection);
+            }
+            
+            if (issue.details) {
+                const detailsSection = createElementWithClass('div', 'mb-6');
+                detailsSection.appendChild(createElementWithClass('h3', 'text-xl font-semibold text-white mb-2', 'Details'));
+                detailsSection.appendChild(createElementWithClass('div', 'text-gray-300 whitespace-pre-line', issue.details));
+                container.appendChild(detailsSection);
+            }
+            
+            if (issue.note) {
+                const noteSection = createElementWithClass('div', 'mb-6');
+                noteSection.appendChild(createElementWithClass('h3', 'text-xl font-semibold text-white mb-2', 'Note'));
+                noteSection.appendChild(createElementWithClass('div', 'text-gray-300 whitespace-pre-line', issue.note));
+                container.appendChild(noteSection);
+            }
+            
+            if (issue.remediation) {
+                const remediationSection = createElementWithClass('div', 'mb-6 bg-green-900 bg-opacity-20 p-4 rounded-md border border-green-800');
+                remediationSection.appendChild(createElementWithClass('h3', 'text-xl font-semibold text-white mb-2', 'Remediation'));
+                remediationSection.appendChild(createElementWithClass('div', 'text-gray-300 whitespace-pre-line', issue.remediation));
+                container.appendChild(remediationSection);
+            }
+            
+            // References section
+            if (issue.references && issue.references.length > 0) {
+                const referencesSection = createElementWithClass('div', 'mb-6');
+                referencesSection.appendChild(createElementWithClass('h3', 'text-xl font-semibold text-white mb-2', 'References'));
+                
+                const refList = createElementWithClass('ul', 'list-disc pl-5 space-y-1');
+                issue.references.forEach(ref => {
+                    const li = createElementWithClass('li', '');
+                    const a = createElementWithClass('a', 'text-blue-400 hover:underline', ref);
+                    a.href = ref;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    li.appendChild(a);
+                    refList.appendChild(li);
+                });
+                
+                referencesSection.appendChild(refList);
+                container.appendChild(referencesSection);
+            }
+            
+            
+            if (issue.payload) {
+                const payloadSection = createTechnicalSection('Payload', issue.payload);
+                container.appendChild(payloadSection);
+            }
+            
+            if (issue.curl_command) {
+                const curlSection = createTechnicalSection('cURL Command', issue.curl_command);
+                container.appendChild(curlSection);
+            }
+            
+            if (issue.request) {
+                const requestData = decodeBase64(issue.request);
+                const requestSection = createTechnicalSection('HTTP Request', requestData);
+                container.appendChild(requestSection);
+            }
+            
+            if (issue.response) {
+                const responseData = decodeBase64(issue.response);
+                const responseSection = createTechnicalSection('HTTP Response', responseData);
+                container.appendChild(responseSection);
             }
         }
+        
+        function createTechnicalSection(title, content) {
+            const section = createElementWithClass('div', 'mb-4 border border-gray-700 rounded-lg overflow-hidden');
+            
+            // Create collapsible header
+            const header = createElementWithClass('div', 'bg-gray-700 p-3 flex justify-between items-center cursor-pointer');
+            header.appendChild(createElementWithClass('h3', 'text-lg font-medium', title));
+            
+            const toggleIcon = createElementWithClass('span', 'text-gray-400');
+            toggleIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>';
+            header.appendChild(toggleIcon);
+            
+            // Create content area (collapsed by default)
+            const contentArea = createElementWithClass('div', 'hidden');
+            
+            const pre = createElementWithClass('pre', 'p-3 text-sm text-gray-300 bg-gray-800 overflow-x-auto', content);
+            
+            // Add copy button
+            const copyButtonContainer = createElementWithClass('div', 'flex justify-end p-2 bg-gray-700 border-t border-gray-600');
+            const copyButton = createElementWithClass('button', 'text-sm bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded flex items-center transition');
+            copyButton.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                </svg>
+                Copy
+            `;
+            copyButton.addEventListener('click', () => copyToClipboard(content));
+            copyButtonContainer.appendChild(copyButton);
+            
+            contentArea.appendChild(pre);
+            contentArea.appendChild(copyButtonContainer);
+            
+            // Toggle content visibility when header is clicked
+            header.addEventListener('click', () => {
+                contentArea.classList.toggle('hidden');
+                toggleIcon.innerHTML = contentArea.classList.contains('hidden') 
+                    ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>'
+                    : '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>';
+            });
+            
+            section.appendChild(header);
+            section.appendChild(contentArea);
+            
+            return section;
+        }
+        
+        function filterIssues() {
+            let filtered = groupedIssues.filter(issue => {
+                if (currentSeverityFilter !== 'all' && issue.severity !== currentSeverityFilter) {
+                    return false;
+                }
+                return true;
+            });
+            
+            if (searchTerm) {
+                const searchResults = fuse.search(searchTerm);
+                const matchedIds = new Set(searchResults.map(result => result.item.code));
+                filtered = filtered.filter(issue => matchedIds.has(issue.code));
+            }
+            
+            currentFilteredIssues = filtered;
+            currentPage = 1; 
+            
+            renderIssuesList();
+        }
+        
 
-        function changePage(increment) {
-            currentPage += increment;
-            renderResults(filteredResults);
-            updatePaginationButtons();
+        
+        function initializeCharts() {
+            // Severity chart (pie chart)
+            const severityCtx = document.getElementById('severityChart').getContext('2d');
+            const severityLabels = ['Critical', 'High', 'Medium', 'Low', 'Info'];
+            const severityData = [
+                summaryData.critical_count,
+                summaryData.high_count,
+                summaryData.medium_count,
+                summaryData.low_count,
+                summaryData.info_count
+            ];
+
+            const severityColors = [
+                '#dc2626', // Critical - red
+                '#c2410c', // High - orange 
+                '#d2a937', // Medium - yellow
+                '#2a8351', // Low - green
+                '#2564a7'  // Info - blue
+            ];
+            
+            new Chart(severityCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: severityLabels,
+                    datasets: [{
+                        data: severityData,
+                        backgroundColor: severityColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#e5e7eb' // Light gray text
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Top issue types (bar chart)
+            const typesCtx = document.getElementById('typesChart').getContext('2d');
+            
+            const typeLabels = summaryData.top_vuln_types.map(t => t.title);
+            const typeData = summaryData.top_vuln_types.map(t => t.count);
+            
+            new Chart(typesCtx, {
+                type: 'bar',
+                data: {
+                    labels: typeLabels,
+                    datasets: [{
+                        label: 'Issues',
+                        data: typeData,
+                        backgroundColor: '#3b82f6', // Blue
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: 'rgba(75, 85, 99, 0.2)' // Subtle grid lines
+                            },
+                            ticks: {
+                                color: '#e5e7eb' // Light gray text
+                            }
+                        },
+                        y: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#e5e7eb' // Light gray text
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function initApp() {
+            // Search functionality
+            document.getElementById('search-input').addEventListener('input', e => {
+                searchTerm = e.target.value.trim();
+                filterIssues();
+            });
+            
+            // Severity filter
+            document.getElementById('severity-filter').addEventListener('change', e => {
+                currentSeverityFilter = e.target.value;
+                filterIssues();
+            });
+            
+
+            
+
+            
+            
+            initializeCharts();
+            
+            renderIssuesList();
+
+            hideLoading();
         }
 
-        function goToPage(pageNumber) {
-            currentPage = pageNumber;
-            renderResults(filteredResults);
-            updatePaginationButtons();
+        function showLoading() {
+            document.getElementById('loading-overlay').classList.remove('hidden');
         }
 
-        document.getElementById('first').addEventListener('click', () => {
-            if (currentPage > 1) {
-                goToPage(1);
-            }
-        });
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }
 
-        document.getElementById('prev').addEventListener('click', () => {
-            if (currentPage > 1) {
-                changePage(-1);
-            }
-        });
-
-        document.getElementById('next').addEventListener('click', () => {
-            if (currentPage * itemsPerPage < filteredResults.length) {
-                changePage(1);
-            }
-        });
-
-        document.getElementById('last').addEventListener('click', () => {
-            const lastPage = Math.ceil(filteredResults.length / itemsPerPage);
-            if (currentPage < lastPage) {
-                goToPage(lastPage);
-            }
-        });
-
-        document.getElementById('search').addEventListener('input', (e) => {
-            const query = e.target.value;
-            currentPage = 1;
-            if (query) {
-                filteredResults = fuse.search(query).map(result => result.item);
-            } else {
-                filteredResults = vulnerabilities;
-            }
-            renderResults(filteredResults);
-            updatePaginationButtons();
-        });
-
-        filteredResults = vulnerabilities;
-        renderResults(filteredResults);
-        updatePaginationButtons();
+        showLoading();
+        document.addEventListener('DOMContentLoaded', initApp);
     </script>
+
 </body>
+
 </html>

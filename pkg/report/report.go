@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"time"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
@@ -45,9 +46,10 @@ func generateHTMLReport(options ReportOptions, w io.Writer) error {
 	funcMap := template.FuncMap{
 		"toString": toString,
 		"toJSON":   toJSON,
+		"add":      func(a, b int) int { return a + b },
 	}
 
-	// Parsing the template with the custom function map
+	// Parse the template with the custom function map
 	tmpl, err := template.New("report.tmpl").Funcs(funcMap).ParseFS(templates, "templates/report.tmpl")
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to parse report template")
@@ -58,9 +60,18 @@ func generateHTMLReport(options ReportOptions, w io.Writer) error {
 		return fmt.Errorf("no defined templates found")
 	}
 
-	data := map[string]interface{}{
-		"title":  options.Title,
-		"issues": options.Issues,
+	// Process and organize the issues
+	reportIssues := processIssues(options.Issues)
+	groupedIssues := groupIssuesByType(reportIssues)
+	summary := generateSummary(reportIssues)
+
+	// Prepare data for the template
+	data := HTMLReportData{
+		Title:         options.Title,
+		Summary:       summary,
+		Issues:        reportIssues,
+		GroupedIssues: groupedIssues,
+		GeneratedAt:   time.Now().Format("2006-01-02 15:04:05"),
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
@@ -96,6 +107,7 @@ func toString(value interface{}) string {
 		return fmt.Sprintf("%v", v)
 	}
 }
+
 func toJSON(value interface{}) template.JS {
 	bytes, err := json.Marshal(value)
 	if err != nil {

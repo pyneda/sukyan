@@ -48,6 +48,9 @@ func SetDefaultConfig() {
 	// Navigation
 	viper.SetDefault("navigation.user_agent", "")
 	viper.SetDefault("navigation.timeout", 10)
+	viper.SetDefault("navigation.wait_stable", true)
+	viper.SetDefault("navigation.wait_stable_duration", 2)
+	viper.SetDefault("navigation.wait_stable_timeout", 10)
 
 	viper.SetDefault("navigation.max_retries", 3)
 	viper.SetDefault("navigation.retry_delay", 5)

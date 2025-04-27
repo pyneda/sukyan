@@ -363,6 +363,25 @@ func (c *Crawler) loadPageAndGetAnchors(url string, page *rod.Page) CrawledPageR
 		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
 	}
 
+	if viper.GetBool("navigation.wait_stable") {
+		waitStableDuration := time.Duration(viper.GetInt("navigation.wait_stable_duration"))
+		waitStableTimeout := time.Duration(viper.GetInt("navigation.wait_stable_timeout"))
+
+		ctx, cancel := context.WithTimeout(context.Background(), waitStableTimeout*time.Second)
+		defer cancel()
+
+		pageWithTimeout := page.Context(ctx)
+
+		err = pageWithTimeout.WaitStable(waitStableDuration * time.Second)
+		if err != nil {
+			if ctx.Err() == context.DeadlineExceeded {
+				log.Warn().Str("url", url).Msg("Timeout reached while waiting for page to be stable, trying to get data anyway")
+			} else {
+				log.Warn().Err(err).Str("url", url).Msg("Error waiting for page to be stable, trying to get data anyway")
+			}
+		}
+	}
+
 	anchors, err := web.GetPageAnchors(page)
 	if err != nil {
 		log.Error().Msg("Could not get page anchors")

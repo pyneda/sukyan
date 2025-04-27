@@ -265,7 +265,7 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		Proto:               request.Req().Proto,
 	}
 	createdHistory, _ := db.Connection.CreateHistory(&history)
-	log.Debug().Interface("history", history).Msg("New history record created")
+	// log.Debug().Interface("history", history).Msg("New history record created")
 
 	return createdHistory
 }

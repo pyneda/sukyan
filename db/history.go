@@ -260,7 +260,7 @@ func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
 	enhanceHistoryItem(record)
 	result := d.db.Create(&record)
 	if result.Error != nil {
-		log.Error().Err(result.Error).Interface("history", record).Msg("Failed to create web history record")
+		log.Error().Err(result.Error).Str("url", record.URL).Str("method", record.Method).Str("source", record.Source).Msg("Failed to create web history record")
 	}
 	return record, result.Error
 }
@@ -269,7 +269,7 @@ func (d *DatabaseConnection) UpdateHistory(record *History) (*History, error) {
 	enhanceHistoryItem(record)
 	result := d.db.Save(&record)
 	if result.Error != nil {
-		log.Error().Err(result.Error).Interface("history", record).Msg("Failed to update web history record")
+		log.Error().Err(result.Error).Uint("history", record.ID).Msg("Failed to update web history record")
 	}
 	return record, result.Error
 }

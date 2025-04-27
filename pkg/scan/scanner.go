@@ -381,6 +381,7 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 					statusMatch = false
 				} else {
 					sb.WriteString(fmt.Sprintf("Response status code is %d\n", m.StatusCode))
+					sb.WriteString(fmt.Sprintf("Original status code is %d\n", result.Original.StatusCode))
 					statusMatch = true
 				}
 			}

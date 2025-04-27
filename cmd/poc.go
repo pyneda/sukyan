@@ -56,7 +56,7 @@ var pocCmd = &cobra.Command{
 
 		switch pocType {
 		case "cswh":
-			connection, err := db.Connection.GetWebSocketConnection(filterWebSocketConnectionID)
+			connection, err := db.Connection().GetWebSocketConnection(filterWebSocketConnectionID)
 			if err != nil {
 				fmt.Printf("Error fetching WebSocket connection: %v\n", err)
 				return

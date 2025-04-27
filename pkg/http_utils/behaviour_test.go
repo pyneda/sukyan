@@ -57,7 +57,7 @@ func setupTestWorkspace(t *testing.T) uint {
 		Title:       "Behaviour Test Workspace",
 		Description: "Test workspace for behavior detection tests",
 	}
-	createdWorkspace, err := db.Connection.GetOrCreateWorkspace(workspace)
+	createdWorkspace, err := db.Connection().GetOrCreateWorkspace(workspace)
 	if err != nil {
 		t.Fatalf("Failed to create test workspace: %v", err)
 	}

@@ -216,7 +216,7 @@ func (j *WorkspaceCookieJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
-	err := Connection.SetCookiesForURL(j.workspaceID, u, cookies)
+	err := Connection().SetCookiesForURL(j.workspaceID, u, cookies)
 	if err != nil {
 		log.Error().Err(err).
 			Uint("workspace_id", j.workspaceID).
@@ -229,5 +229,5 @@ func (j *WorkspaceCookieJar) Cookies(u *url.URL) []*http.Cookie {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
 
-	return Connection.GetCookiesForURL(j.workspaceID, u)
+	return Connection().GetCookiesForURL(j.workspaceID, u)
 }

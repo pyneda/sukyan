@@ -26,7 +26,7 @@ var getWorkspacesCmd = &cobra.Command{
 			filters.Query = query
 		}
 
-		items, _, err := db.Connection.ListWorkspaces(filters)
+		items, _, err := db.Connection().ListWorkspaces(filters)
 		if err != nil {
 			return err
 		}

@@ -50,7 +50,7 @@ func FuzzRequest(c *fiber.Ctx) error {
 		})
 	}
 
-	session, err := db.Connection.GetPlaygroundSession(input.SessionID)
+	session, err := db.Connection().GetPlaygroundSession(input.SessionID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Invalid Session",
@@ -66,7 +66,7 @@ func FuzzRequest(c *fiber.Ctx) error {
 		Options:         input.Options,
 	}
 	title := "Fuzz: " + input.URL
-	task, err := db.Connection.NewTask(session.WorkspaceID, &session.ID, title, db.TaskStatusPending, db.TaskTypePlaygroundFuzzer)
+	task, err := db.Connection().NewTask(session.WorkspaceID, &session.ID, title, db.TaskStatusPending, db.TaskTypePlaygroundFuzzer)
 	if err != nil {
 		log.Error().Err(err).Interface("task", task).Msg("Task creation failed")
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{

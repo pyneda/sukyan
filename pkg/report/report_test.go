@@ -11,7 +11,7 @@ import (
 )
 
 func setupTestWorkspace(t *testing.T) *db.Workspace {
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Code:        "test-report",
 		Title:       "Test Report",
 		Description: "Test Report Workspace",
@@ -49,7 +49,7 @@ func createTestIssue(workspaceID uint) *db.Issue {
 func TestGenerateReport(t *testing.T) {
 	workspace := setupTestWorkspace(t)
 	issue := createTestIssue(workspace.ID)
-	savedIssue, err := db.Connection.CreateIssue(*issue)
+	savedIssue, err := db.Connection().CreateIssue(*issue)
 	assert.NoError(t, err)
 
 	tests := []struct {
@@ -133,7 +133,7 @@ func TestGenerateReport(t *testing.T) {
 		})
 	}
 
-	err = db.Connection.DeleteWorkspace(workspace.ID)
+	err = db.Connection().DeleteWorkspace(workspace.ID)
 	assert.NoError(t, err)
 }
 

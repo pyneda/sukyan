@@ -33,7 +33,7 @@ func JwtListHandler(c *fiber.Ctx) error {
 	}
 
 	if input.WorkspaceID > 0 {
-		workspaceExists, _ := db.Connection.WorkspaceExists(input.WorkspaceID)
+		workspaceExists, _ := db.Connection().WorkspaceExists(input.WorkspaceID)
 		if !workspaceExists {
 			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 				Error:   "Invalid workspace",
@@ -53,7 +53,7 @@ func JwtListHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	jwts, err := db.Connection.ListJsonWebTokens(*input)
+	jwts, err := db.Connection().ListJsonWebTokens(*input)
 	if err != nil {
 		log.Error().Err(err).Msg("Error fetching JWTs")
 

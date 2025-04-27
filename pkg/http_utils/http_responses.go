@@ -170,5 +170,5 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		PlaygroundSessionID: playgroundSessionID,
 		Proto:               response.Proto,
 	}
-	return db.Connection.CreateHistory(&record)
+	return db.Connection().CreateHistory(&record)
 }

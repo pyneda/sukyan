@@ -57,6 +57,6 @@ func CreateJavascriptSourcesAndSinksInformationalIssue(history *db.History, jsSo
 		Confidence:    90,
 		Severity:      "Info",
 	}
-	db.Connection.CreateIssue(issue)
+	db.Connection().CreateIssue(issue)
 	log.Warn().Str("title", issue.Title).Str("url", issue.URL).Str("description", issue.Description).Msg("Created dangerous-js issue")
 }

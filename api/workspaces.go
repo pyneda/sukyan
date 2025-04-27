@@ -43,7 +43,7 @@ func FindWorkspaces(c *fiber.Ctx) error {
 	if query != "" {
 		filters.Query = query
 	}
-	items, count, err := db.Connection.ListWorkspaces(filters)
+	items, count, err := db.Connection().ListWorkspaces(filters)
 	if err != nil {
 		// Should handle this better
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
@@ -82,12 +82,12 @@ func CreateWorkspace(c *fiber.Ctx) error {
 		Description: input.Description,
 	}
 
-	workspace, err := db.Connection.GetOrCreateWorkspace(workspace)
+	workspace, err := db.Connection().GetOrCreateWorkspace(workspace)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}
 
-	db.Connection.InitializeWorkspacePlayground(workspace.ID)
+	db.Connection().InitializeWorkspacePlayground(workspace.ID)
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"data": workspace})
 }
@@ -110,12 +110,12 @@ func DeleteWorkspace(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})
 	}
-	exists, err := db.Connection.WorkspaceExists(uint(id))
+	exists, err := db.Connection().WorkspaceExists(uint(id))
 	if err != nil || !exists {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Workspace not found"})
 	}
 
-	if err := db.Connection.DeleteWorkspace(uint(id)); err != nil {
+	if err := db.Connection().DeleteWorkspace(uint(id)); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to delete workspace", "error": "Failed to delete workspace"})
 	}
 
@@ -152,11 +152,11 @@ func UpdateWorkspace(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})
 	}
-	if err := db.Connection.UpdateWorkspace(uint(id), &updatedWorkspace); err != nil {
+	if err := db.Connection().UpdateWorkspace(uint(id), &updatedWorkspace); err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Failed to update workspace", "error": "Failed to update workspace"})
 	}
 
-	workspace, err := db.Connection.GetWorkspaceByID(uint(id))
+	workspace, err := db.Connection().GetWorkspaceByID(uint(id))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Workspace not found", "error": "Workspace not found"})
 	}
@@ -182,7 +182,7 @@ func GetWorkspaceDetail(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})
 	}
 
-	workspace, err := db.Connection.GetWorkspaceByID(id)
+	workspace, err := db.Connection().GetWorkspaceByID(id)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Workspace not found", "error": "Workspace not found"})
 	}

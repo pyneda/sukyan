@@ -93,7 +93,7 @@ func FindTaskJobs(c *fiber.Ctx) error {
 		}
 	}
 
-	taskJobs, count, err := db.Connection.ListTaskJobs(db.TaskJobFilter{
+	taskJobs, count, err := db.Connection().ListTaskJobs(db.TaskJobFilter{
 		Pagination: db.Pagination{
 			Page:     page,
 			PageSize: pageSize,

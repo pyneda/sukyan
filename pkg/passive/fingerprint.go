@@ -71,7 +71,7 @@ func ReportFingerprints(baseURL string, fingerprints []lib.Fingerprint, workspac
 	issue.URL = baseURL
 	issue.TaskID = &taskID
 
-	created, err := db.Connection.CreateIssue(*issue)
+	created, err := db.Connection().CreateIssue(*issue)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create TechStackFingerprintCode issue")
 		return

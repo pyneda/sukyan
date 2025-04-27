@@ -1,13 +1,15 @@
 package api
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"gorm.io/gorm"
-	"strings"
+
+	"net/http"
 
 	"github.com/rs/zerolog/log"
-	"net/http"
 )
 
 // FindIssues godoc
@@ -56,7 +58,7 @@ func FindIssues(c *fiber.Ctx) error {
 		issueCodes = strings.Split(unparsedIssueCodes, ",")
 	}
 
-	issues, count, err := db.Connection.ListIssues(db.IssueFilter{
+	issues, count, err := db.Connection().ListIssues(db.IssueFilter{
 		WorkspaceID: workspaceID,
 		TaskID:      taskID,
 		TaskJobID:   taskJobID,
@@ -107,7 +109,7 @@ func FindIssuesGrouped(c *fiber.Ctx) error {
 		})
 	}
 
-	issues, err := db.Connection.ListIssuesGrouped(db.IssueFilter{
+	issues, err := db.Connection().ListIssuesGrouped(db.IssueFilter{
 		WorkspaceID: workspaceID,
 		TaskID:      taskID,
 		TaskJobID:   taskJobID,
@@ -142,7 +144,7 @@ func GetIssueDetail(c *fiber.Ctx) error {
 		})
 	}
 
-	issue, err := db.Connection.GetIssue(issueID, true)
+	issue, err := db.Connection().GetIssue(issueID, true)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -194,7 +196,7 @@ func SetFalsePositive(c *fiber.Ctx) error {
 		})
 	}
 
-	issue, err := db.Connection.GetIssue(issueID, false)
+	issue, err := db.Connection().GetIssue(issueID, false)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{

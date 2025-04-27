@@ -14,7 +14,7 @@ import (
 )
 
 func TestFindHistory(t *testing.T) {
-	workspace, err := db.Connection.CreateDefaultWorkspace()
+	workspace, err := db.Connection().CreateDefaultWorkspace()
 	assert.Nil(t, err)
 	app := fiber.New()
 
@@ -27,7 +27,7 @@ func TestFindHistory(t *testing.T) {
 }
 
 func TestFindHistoryPost(t *testing.T) {
-	workspace, err := db.Connection.CreateDefaultWorkspace()
+	workspace, err := db.Connection().CreateDefaultWorkspace()
 	assert.Nil(t, err)
 
 	app := fiber.New()
@@ -148,6 +148,6 @@ func TestFindHistoryPost(t *testing.T) {
 	}
 
 	// Clean up: Delete the workspace
-	err = db.Connection.DeleteWorkspace(workspace.ID)
+	err = db.Connection().DeleteWorkspace(workspace.ID)
 	assert.Nil(t, err)
 }

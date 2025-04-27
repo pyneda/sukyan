@@ -42,7 +42,7 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	items, err := db.Connection.GetHistoriesByID(input.Items)
+	items, err := db.Connection().GetHistoriesByID(input.Items)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Cannot get history items with provided IDs",
@@ -109,9 +109,9 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 	// 	})
 	// }
 
-	taskExists, _ := db.Connection.TaskExists(input.TaskID)
+	taskExists, _ := db.Connection().TaskExists(input.TaskID)
 	if !taskExists {
-		workspaceExists, _ := db.Connection.WorkspaceExists(input.WorkspaceID)
+		workspaceExists, _ := db.Connection().WorkspaceExists(input.WorkspaceID)
 		if !workspaceExists {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error":   "Invalid task",
@@ -119,7 +119,7 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 			})
 		}
 
-		task, err := db.Connection.GetOrCreateDefaultWorkspaceTask(input.WorkspaceID)
+		task, err := db.Connection().GetOrCreateDefaultWorkspaceTask(input.WorkspaceID)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error":   "Error creating default task",
@@ -129,7 +129,7 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 		input.TaskID = task.ID
 	}
 
-	items, err := db.Connection.GetHistoriesByID(input.Items)
+	items, err := db.Connection().GetHistoriesByID(input.Items)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Cannot get history items with provided IDs",
@@ -188,7 +188,7 @@ func FullScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	workspaceExists, _ := db.Connection.WorkspaceExists(input.WorkspaceID)
+	workspaceExists, _ := db.Connection().WorkspaceExists(input.WorkspaceID)
 	if !workspaceExists {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid workspace",

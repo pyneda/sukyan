@@ -29,7 +29,7 @@ var getInteractionsCmd = &cobra.Command{
 			WorkspaceID: workspaceID,
 		}
 
-		interactions, count, err := db.Connection.ListInteractions(filters)
+		interactions, count, err := db.Connection().ListInteractions(filters)
 		if err != nil {
 			log.Error().Err(err).Msg("Error listing interactions")
 			return

@@ -52,7 +52,7 @@ func FindInteractions(c *fiber.Ctx) error {
 		protocols = append(protocols, strings.Split(unparsedProtocols, ",")...)
 	}
 
-	issues, count, err := db.Connection.ListInteractions(db.InteractionsFilter{
+	issues, count, err := db.Connection().ListInteractions(db.InteractionsFilter{
 		Pagination: db.Pagination{
 			Page: page, PageSize: pageSize,
 		},
@@ -87,7 +87,7 @@ func GetInteractionDetail(c *fiber.Ctx) error {
 		})
 	}
 
-	interaction, err := db.Connection.GetInteraction(uint(interactionID))
+	interaction, err := db.Connection().GetInteraction(uint(interactionID))
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{

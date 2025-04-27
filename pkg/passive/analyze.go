@@ -2,11 +2,12 @@ package passive
 
 import (
 	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
-	"sort"
-	"strings"
 )
 
 type HeaderData struct {
@@ -30,7 +31,7 @@ func AnalyzeHeaders(baseURL string, histories []*db.History) HeaderAnalysisResul
 	issue.WorkspaceID = histories[0].WorkspaceID
 	issue.TaskID = histories[0].TaskID
 	issue.URL = baseURL
-	created, err := db.Connection.CreateIssue(*issue)
+	created, err := db.Connection().CreateIssue(*issue)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create HeaderInsightsReportCode issue")
 	}

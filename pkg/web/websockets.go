@@ -23,7 +23,7 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID uint, source s
 			TaskID:         &taskID,
 			Source:         source,
 		}
-		err := db.Connection.CreateWebSocketConnection(connection)
+		err := db.Connection().CreateWebSocketConnection(connection)
 		if err != nil {
 			log.Error().Uint("workspace", workspaceID).Err(err).Str("url", e.URL).Msg("Failed to create WebSocket connection")
 			return
@@ -46,7 +46,7 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID uint, source s
 		}
 		connection.StatusCode = e.Response.Status
 		connection.StatusText = e.Response.StatusText
-		err = db.Connection.UpdateWebSocketConnection(connection)
+		err = db.Connection().UpdateWebSocketConnection(connection)
 		if err != nil {
 			log.Error().Uint("workspace", workspaceID).Err(err).Str("url", connection.URL).Msg("Failed to update WebSocket connection")
 		}
@@ -65,7 +65,7 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID uint, source s
 			Timestamp:    time.Now(),
 			Direction:    db.MessageSent,
 		}
-		err := db.Connection.CreateWebSocketMessage(message)
+		err := db.Connection().CreateWebSocketMessage(message)
 		if err != nil {
 			log.Error().Uint("workspace", workspaceID).Err(err).Str("data", e.Response.PayloadData).Msg("Failed to create WebSocket message")
 		}
@@ -83,7 +83,7 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID uint, source s
 			Timestamp:    time.Now(),
 			Direction:    db.MessageReceived,
 		}
-		err := db.Connection.CreateWebSocketMessage(message)
+		err := db.Connection().CreateWebSocketMessage(message)
 		if err != nil {
 			log.Error().Uint("workspace", workspaceID).Err(err).Str("data", e.Response.PayloadData).Msg("Failed to create WebSocket message")
 		}
@@ -95,7 +95,7 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID uint, source s
 		}
 		now := time.Now()
 		connection.ClosedAt = now
-		err := db.Connection.UpdateWebSocketConnection(connection)
+		err := db.Connection().UpdateWebSocketConnection(connection)
 		if err != nil {
 			log.Error().Uint("workspace", workspaceID).Err(err).Str("url", connection.URL).Msg("Failed to update WebSocket connection closed at")
 		}

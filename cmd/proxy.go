@@ -1,10 +1,11 @@
 package cmd
 
 import (
+	"os"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/proxy"
 	"github.com/rs/zerolog/log"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -18,10 +19,10 @@ var proxyCmd = &cobra.Command{
 	Short: "Starts a proxy server",
 	Long:  `Starts a proxy server that can be used to intercept and store requests and response to a specific workspace.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		workspaceExists, _ := db.Connection.WorkspaceExists(workspaceID)
+		workspaceExists, _ := db.Connection().WorkspaceExists(workspaceID)
 		if !workspaceExists {
 			log.Error().Uint("id", workspaceID).Msg("Workspace does not exist")
-			workspaces, count, _ := db.Connection.ListWorkspaces(db.WorkspaceFilters{})
+			workspaces, count, _ := db.Connection().ListWorkspaces(db.WorkspaceFilters{})
 			if count == 0 {
 				log.Info().Msg("No workspaces found.")
 			} else {

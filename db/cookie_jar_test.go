@@ -12,7 +12,7 @@ import (
 )
 
 func setupTest(t *testing.T) (*Workspace, func()) {
-	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
 		Title:       "TestWorkspaceCookies",
 		Code:        "test-workspace-cookies-" + uuid.New().String(),
 		Description: "Test workspace for cookie tests",
@@ -21,8 +21,8 @@ func setupTest(t *testing.T) (*Workspace, func()) {
 	require.NotNil(t, workspace)
 
 	return workspace, func() {
-		Connection.db.Where("workspace_id = ?", workspace.ID).Delete(&WorkspaceCookie{})
-		Connection.DeleteWorkspace(workspace.ID)
+		Connection().DB().Where("workspace_id = ?", workspace.ID).Delete(&WorkspaceCookie{})
+		Connection().DeleteWorkspace(workspace.ID)
 	}
 }
 
@@ -43,11 +43,11 @@ func TestWorkspaceCookie_CRUD(t *testing.T) {
 			HttpOnly:    true,
 			SameSite:    "Strict",
 		}
-		err := Connection.CreateWorkspaceCookie(cookie)
+		err := Connection().CreateWorkspaceCookie(cookie)
 		require.NoError(t, err)
 		assert.NotEmpty(t, cookie.ID)
 
-		retrieved, err := Connection.GetWorkspaceCookie(cookie.ID)
+		retrieved, err := Connection().GetWorkspaceCookie(cookie.ID)
 		require.NoError(t, err)
 		assert.Equal(t, cookie.Name, retrieved.Name)
 		assert.Equal(t, cookie.Value, retrieved.Value)
@@ -61,14 +61,14 @@ func TestWorkspaceCookie_CRUD(t *testing.T) {
 			Domain:      "example.com",
 			Path:        "/",
 		}
-		err := Connection.CreateWorkspaceCookie(cookie)
+		err := Connection().CreateWorkspaceCookie(cookie)
 		require.NoError(t, err)
 
 		cookie.Value = "updated_value"
-		err = Connection.UpdateWorkspaceCookie(cookie)
+		err = Connection().UpdateWorkspaceCookie(cookie)
 		require.NoError(t, err)
 
-		retrieved, err := Connection.GetWorkspaceCookie(cookie.ID)
+		retrieved, err := Connection().GetWorkspaceCookie(cookie.ID)
 		require.NoError(t, err)
 		assert.Equal(t, "updated_value", retrieved.Value)
 	})
@@ -80,18 +80,18 @@ func TestWorkspaceCookie_CRUD(t *testing.T) {
 			Value:       "value",
 			Domain:      "example.com",
 		}
-		err := Connection.CreateWorkspaceCookie(cookie)
+		err := Connection().CreateWorkspaceCookie(cookie)
 		require.NoError(t, err)
 
-		err = Connection.DeleteWorkspaceCookie(cookie.ID)
+		err = Connection().DeleteWorkspaceCookie(cookie.ID)
 		require.NoError(t, err)
 
-		_, err = Connection.GetWorkspaceCookie(cookie.ID)
+		_, err = Connection().GetWorkspaceCookie(cookie.ID)
 		assert.Error(t, err)
 	})
 
 	t.Run("List", func(t *testing.T) {
-		Connection.db.Where("workspace_id = ?", workspace.ID).Delete(&WorkspaceCookie{})
+		Connection().DB().Where("workspace_id = ?", workspace.ID).Delete(&WorkspaceCookie{})
 
 		for i := 0; i < 3; i++ {
 			cookie := &WorkspaceCookie{
@@ -100,7 +100,7 @@ func TestWorkspaceCookie_CRUD(t *testing.T) {
 				Value:       "value",
 				Domain:      "example.com",
 			}
-			err := Connection.CreateWorkspaceCookie(cookie)
+			err := Connection().CreateWorkspaceCookie(cookie)
 			require.NoError(t, err)
 		}
 
@@ -108,7 +108,7 @@ func TestWorkspaceCookie_CRUD(t *testing.T) {
 			WorkspaceID: workspace.ID,
 			Domain:      "example.com",
 		}
-		cookies, count, err := Connection.ListWorkspaceCookies(filter)
+		cookies, count, err := Connection().ListWorkspaceCookies(filter)
 		require.NoError(t, err)
 		assert.Equal(t, int64(3), count)
 		assert.Len(t, cookies, 3)
@@ -145,7 +145,7 @@ func TestWorkspaceCookieJar(t *testing.T) {
 
 	t.Run("Domain Handling", func(t *testing.T) {
 		jar := NewWorkspaceCookieJar(workspace.ID)
-		Connection.db.Where("workspace_id = ?", workspace.ID).Delete(&WorkspaceCookie{})
+		Connection().DB().Where("workspace_id = ?", workspace.ID).Delete(&WorkspaceCookie{})
 
 		domain1URL, _ := url.Parse("https://domain1.com")
 		domain2URL, _ := url.Parse("https://domain2.com")

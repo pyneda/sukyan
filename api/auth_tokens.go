@@ -1,11 +1,12 @@
 package api
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/auth"
 	"github.com/rs/zerolog/log"
-	"time"
 )
 
 type Renew struct {
@@ -74,7 +75,7 @@ func RenewTokens(c *fiber.Ctx) error {
 		// 	})
 		// }
 		userID := claims.UserID
-		_, err := db.Connection.GetUserByID(userID)
+		_, err := db.Connection().GetUserByID(userID)
 		if err != nil {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 				"error": true,
@@ -93,7 +94,7 @@ func RenewTokens(c *fiber.Ctx) error {
 		}
 
 		// Delete old refresh token
-		if err := db.Connection.DeleteRefreshToken(userID); err != nil {
+		if err := db.Connection().DeleteRefreshToken(userID); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": true,
 				"msg":   err.Error(),
@@ -101,7 +102,7 @@ func RenewTokens(c *fiber.Ctx) error {
 		}
 
 		// Save new refresh token
-		if err := db.Connection.SaveRefreshToken(userID, tokens.Refresh); err != nil {
+		if err := db.Connection().SaveRefreshToken(userID, tokens.Refresh); err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": true,
 				"msg":   err.Error(),

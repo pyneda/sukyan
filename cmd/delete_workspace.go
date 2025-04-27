@@ -29,7 +29,7 @@ var deleteWorkspaceCmd = &cobra.Command{
 			fmt.Println("An ID needs to be provided")
 			os.Exit(0)
 		}
-		workspace, err := db.Connection.GetWorkspaceByID(uint(deleteWorkspaceID))
+		workspace, err := db.Connection().GetWorkspaceByID(uint(deleteWorkspaceID))
 		if err != nil {
 			fmt.Println("Could not find a workspace with the provided ID")
 			os.Exit(0)
@@ -50,7 +50,7 @@ var deleteWorkspaceCmd = &cobra.Command{
 			}
 		}
 
-		err = db.Connection.DeleteWorkspace(uint(deleteWorkspaceID))
+		err = db.Connection().DeleteWorkspace(uint(deleteWorkspaceID))
 		if err != nil {
 			fmt.Printf("Error during deletion: %s\n", err)
 		} else {

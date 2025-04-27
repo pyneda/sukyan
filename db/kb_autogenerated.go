@@ -806,7 +806,7 @@ var issueTemplates = []IssueTemplate{
 	{
 		Code:        IndexeddbUsageDetectedCode,
 		Title:       "IndexedDB Usage Detection Report",
-		Description: "This report highlights the usage of IndexedDB on specific pages of the application. IndexedDB is a low-level API for client-side storage of significant amounts of structured data, including files/blobs. This allows web applications to store data persistently in a user's browser, and to function efficiently without an internet connection. Monitoring IndexedDB usage can provide insights into the application's data storage capabilities and potential areas where sensitive data might be stored or exposed.",
+		Description: "This report highlights the usage of IndexedDB on specific pages of the application. IndexedDB is a low-level API for client-side storage of significant amounts of structured data, including files/blobs. This allows web applications to store data persistently in a user's browser, and to function efficiently without an internet Connection(). Monitoring IndexedDB usage can provide insights into the application's data storage capabilities and potential areas where sensitive data might be stored or exposed.",
 		Remediation: "No specific remediation steps are required as this report is intended for informational purposes only. It is advisable for developers and security teams to ensure that IndexedDB is used securely and in compliance with data protection standards. Data stored using IndexedDB should be encrypted if it contains sensitive or personal information. Regular security reviews and audits should be performed to validate data handling practices and to mitigate potential exposure risks.",
 		Cwe:         0,
 		Severity:    "Info",
@@ -1004,7 +1004,7 @@ var issueTemplates = []IssueTemplate{
 		Code:        MixedContentCode,
 		Title:       "Mixed Content",
 		Description: "The application serves both secure (HTTPS) and insecure (HTTP) content, which may lead to some content being vulnerable to man-in-the-middle attacks.",
-		Remediation: "Ensure all content is served over a secure connection. Use HTTPS for all resources and avoid linking to insecure (HTTP) resources.",
+		Remediation: "Ensure all content is served over a secure Connection(). Use HTTPS for all resources and avoid linking to insecure (HTTP) resources.",
 		Cwe:         16,
 		Severity:    "Medium",
 		References: []string{

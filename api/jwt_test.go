@@ -15,7 +15,7 @@ import (
 func TestJwtListHandler(t *testing.T) {
 	app := fiber.New()
 	app.Post("/api/v1/tokens/jwts", JwtListHandler)
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Code:        "TestJwtListHandler",
 		Title:       "TestJwtListHandler",
 		Description: "TestJwtListHandler",

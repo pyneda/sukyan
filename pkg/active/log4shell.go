@@ -224,7 +224,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 			Severity:      "Medium",
 			WorkspaceID:   &a.WorkspaceID,
 		}
-		db.Connection.CreateIssue(issue)
+		db.Connection().CreateIssue(issue)
 
 		log.Warn().Str("issue", issue.Title).Str("url", history.URL).Msg("New issue found")
 	}
@@ -244,5 +244,5 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		TaskID:            &a.TaskID,
 		TaskJobID:         &a.TaskJobID,
 	}
-	db.Connection.CreateOOBTest(oobTest)
+	db.Connection().CreateOOBTest(oobTest)
 }

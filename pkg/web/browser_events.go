@@ -61,7 +61,7 @@ func RunOnPage(page *rod.Page) {
 			// 	AdditionalInfo: jsonDetails,
 			// 	Severity:       "Info",
 			// }
-			// db.Connection.CreateIssue(browserAuditIssue)
+			// db.Connection().CreateIssue(browserAuditIssue)
 			// }
 
 		},

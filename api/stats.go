@@ -30,7 +30,7 @@ func WorkspaceStats(c *fiber.Ctx) error {
 		})
 	}
 
-	metrics, err := db.Connection.GetWorkspaceStats(workspaceID)
+	metrics, err := db.Connection().GetWorkspaceStats(workspaceID)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to retrieve workspace statistics")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -53,7 +53,7 @@ func WorkspaceStats(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/stats/system [get]
 func SystemStats(c *fiber.Ctx) error {
-	stats, err := db.Connection.GetSystemStats()
+	stats, err := db.Connection().GetSystemStats()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to retrieve system statistics")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{

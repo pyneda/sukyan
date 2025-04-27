@@ -1,10 +1,11 @@
 package scan
 
 import (
+	"time"
+
 	"github.com/projectdiscovery/interactsh/pkg/server"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
-	"time"
 )
 
 func SaveInteractionCallback(interaction *server.Interaction) {
@@ -19,9 +20,9 @@ func SaveInteractionCallback(interaction *server.Interaction) {
 		RemoteAddress: interaction.RemoteAddress,
 		Timestamp:     interaction.Timestamp,
 	}
-	db.Connection.CreateInteraction(&interactionToSave)
+	db.Connection().CreateInteraction(&interactionToSave)
 	select {
 	case <-time.After(5 * time.Second):
-		db.Connection.MatchInteractionWithOOBTest(interactionToSave)
+		db.Connection().MatchInteractionWithOOBTest(interactionToSave)
 	}
 }

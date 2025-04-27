@@ -37,7 +37,6 @@ func StartAPI() {
 	apiLogger := log.With().Str("type", "api").Logger()
 
 	apiLogger.Info().Msg("Initializing...")
-	db.InitDb()
 	generators, err := generation.LoadGenerators(viper.GetString("generators.directory"))
 	if err != nil {
 		apiLogger.Error().Err(err).Msg("Failed to load generators")
@@ -165,6 +164,8 @@ func StartAPI() {
 		apiLogger.Error().Err(err).Msg("Failed to load or generate certificates")
 
 	}
+
+	defer db.Cleanup()
 
 	listen_addres := fmt.Sprintf("%v:%v", viper.Get("api.listen.host"), viper.Get("api.listen.port"))
 	if err := app.ListenTLS(listen_addres, certPath, keyPath); err != nil {

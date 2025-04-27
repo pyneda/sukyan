@@ -69,7 +69,7 @@ func CrackJWTAndCreateIssue(history *db.History, token *db.JsonWebToken) (*JWTCr
 	result.TokenModel.TestedEmbeddedWordlist = true
 	result.TokenModel.Cracked = result.Found
 	result.TokenModel.Secret = result.Secret
-	if err := db.Connection.UpdateJWT(token.ID, result.TokenModel); err != nil {
+	if err := db.Connection().UpdateJWT(token.ID, result.TokenModel); err != nil {
 		log.Error().Err(err).Uint("token", token.ID).Bool("success", result.Found).Str("secret", result.Secret).Msg("Failed to update JWT with crack result")
 		result.Error = fmt.Errorf("failed to update JWT with crack results: %w", err)
 		return result, result.Error

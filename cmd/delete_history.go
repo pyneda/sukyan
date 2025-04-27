@@ -43,7 +43,7 @@ var deleteHistoryCmd = &cobra.Command{
 			Sources:              deleteHistoryFilterSources,
 			WorkspaceID:          workspaceID,
 		}
-		deletedCount, err := db.Connection.DeleteHistory(filter)
+		deletedCount, err := db.Connection().DeleteHistory(filter)
 		if err != nil {
 			fmt.Printf("Error during deletion: %s\n", err)
 		} else {

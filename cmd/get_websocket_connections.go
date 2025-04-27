@@ -40,7 +40,7 @@ var getWebSocketConnectionsCmd = &cobra.Command{
 			Sources:     filterHistorySources,
 		}
 
-		connections, _, err := db.Connection.ListWebSocketConnections(filters)
+		connections, _, err := db.Connection().ListWebSocketConnections(filters)
 		if err != nil {
 			return
 		}

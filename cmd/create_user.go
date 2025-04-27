@@ -35,7 +35,7 @@ var createUserCmd = &cobra.Command{
 			Active:       true,
 		}
 
-		user, err = db.Connection.CreateUser(user)
+		user, err = db.Connection().CreateUser(user)
 		if err != nil {
 			return fmt.Errorf("error creating user: %v", err)
 		}

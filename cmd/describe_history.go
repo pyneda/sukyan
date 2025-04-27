@@ -29,7 +29,7 @@ var describeHistoryCmd = &cobra.Command{
 			fmt.Println("An ID needs to be provided")
 			os.Exit(0)
 		}
-		history, err := db.Connection.GetHistory(uint(describeHistoryID))
+		history, err := db.Connection().GetHistory(uint(describeHistoryID))
 		if err != nil {
 			fmt.Println("Could not find a issue with the provided ID")
 			os.Exit(0)

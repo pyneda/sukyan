@@ -3,19 +3,20 @@ package api
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/report"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/report"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 func TestReportHandler(t *testing.T) {
 	// Initialize Fiber app
-	workspace, _ := db.Connection.CreateDefaultWorkspace()
+	workspace, _ := db.Connection().CreateDefaultWorkspace()
 
 	app := fiber.New()
 	app.Post("/report", ReportHandler)
@@ -37,7 +38,7 @@ func TestReportHandler(t *testing.T) {
 	}
 
 	for _, issue := range issues {
-		_, err := db.Connection.CreateIssue(issue)
+		_, err := db.Connection().CreateIssue(issue)
 		assert.Nil(t, err)
 	}
 

@@ -127,7 +127,7 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 			&a.TaskJobID,
 		)
 		issue.Title = fmt.Sprintf("%s: %s", issue.Title, history.Method)
-		db.Connection.CreateIssue(*issue)
+		db.Connection().CreateIssue(*issue)
 		log.Warn().Str("issue", issue.Title).Str("url", history.URL).Uint("workspace", a.WorkspaceID).Msg("New issue found")
 
 	}

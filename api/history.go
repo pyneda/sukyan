@@ -45,7 +45,7 @@ func FindHistoryPost(c *fiber.Ctx) error {
 	}
 
 	if filters.WorkspaceID > 0 {
-		workspaceExists, _ := db.Connection.WorkspaceExists(filters.WorkspaceID)
+		workspaceExists, _ := db.Connection().WorkspaceExists(filters.WorkspaceID)
 		if !workspaceExists {
 			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 				Error:   "Invalid workspace",
@@ -80,7 +80,7 @@ func FindHistoryPost(c *fiber.Ctx) error {
 		filters.SortOrder = "desc"
 	}
 
-	items, count, err := db.Connection.ListHistory(filters)
+	items, count, err := db.Connection().ListHistory(filters)
 	if err != nil {
 		log.Error().Err(err).Interface("filters", filters).Msg("Error fetching history")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -223,7 +223,7 @@ func FindHistory(c *fiber.Ctx) error {
 			"message": errors,
 		})
 	}
-	items, count, err := db.Connection.ListHistory(filters)
+	items, count, err := db.Connection().ListHistory(filters)
 
 	if err != nil {
 		// Should handle this better
@@ -259,13 +259,13 @@ func GetChildren(c *fiber.Ctx) error {
 	}
 
 	// retrieve the parent history item
-	parent, err := db.Connection.GetHistoryByID(uint(id))
+	parent, err := db.Connection().GetHistoryByID(uint(id))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "History not found"})
 	}
 
 	// retrieve all the children history items
-	children, err := db.Connection.GetChildrenHistories(parent)
+	children, err := db.Connection().GetChildrenHistories(parent)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}
@@ -311,7 +311,7 @@ func GetRootNodes(c *fiber.Ctx) error {
 			"message": "The provided workspace ID does not seem valid",
 		})
 	}
-	children, err := db.Connection.GetRootHistoryNodes(workspaceID)
+	children, err := db.Connection().GetRootHistoryNodes(workspaceID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": DefaultInternalServerErrorMessage})
 	}

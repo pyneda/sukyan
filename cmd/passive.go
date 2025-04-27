@@ -22,7 +22,7 @@ var passiveCmd = &cobra.Command{
 			fmt.Println("An ID needs to be provided")
 			os.Exit(0)
 		}
-		history, err := db.Connection.GetHistory(uint(passiveHistoryID))
+		history, err := db.Connection().GetHistory(uint(passiveHistoryID))
 		if err != nil {
 			log.Panic().Err(err).Msg("Could not find a issue with the provided ID")
 			os.Exit(0)

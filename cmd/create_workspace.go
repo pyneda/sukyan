@@ -28,14 +28,14 @@ var createWorkspaceCmd = &cobra.Command{
 			newWorkspaceDescription = fmt.Sprintf("Workspace for %s", newWorkspaceTitle)
 		}
 
-		workspace, err := db.Connection.GetWorkspaceByCode(newWorkspaceCode)
+		workspace, err := db.Connection().GetWorkspaceByCode(newWorkspaceCode)
 		if err != nil {
 			workspace := db.Workspace{
 				Title:       newWorkspaceTitle,
 				Code:        newWorkspaceCode,
 				Description: newWorkspaceDescription,
 			}
-			newWorkspace, err := db.Connection.CreateWorkspace(&workspace)
+			newWorkspace, err := db.Connection().CreateWorkspace(&workspace)
 			if err != nil {
 				return fmt.Errorf("error creating workspace: %v", err)
 			}

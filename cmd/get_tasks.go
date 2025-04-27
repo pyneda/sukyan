@@ -38,7 +38,7 @@ var getTasksCmd = &cobra.Command{
 			PlaygroundSessionID: playgroundSessionID,
 		}
 
-		tasks, _, err := db.Connection.ListTasks(filters)
+		tasks, _, err := db.Connection().ListTasks(filters)
 		if err != nil {
 			return err
 		}

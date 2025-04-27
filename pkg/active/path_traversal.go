@@ -2,11 +2,12 @@ package active
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
-	"strings"
 
 	"github.com/rs/zerolog/log"
 )
@@ -133,7 +134,7 @@ func (a *PathTraversalAudit) ProcessResult(result *fuzz.FuzzResult) {
 			Confidence:    confidence,
 			Severity:      "High",
 		}
-		db.Connection.CreateIssue(issue)
+		db.Connection().CreateIssue(issue)
 		log.Error().Str("payload", result.Payload.GetValue()).Strs("matches", matchedStrings).Strs("originalMatches", matchedStringsInExpectedResults).Int("confidence", confidence).Str("url", result.URL).Msg("New path traversal vulnerability added to database")
 	} else if confidence > 25 {
 		log.Error().Str("payload", result.Payload.GetValue()).Strs("matches", matchedStrings).Strs("originalMatches", matchedStringsInExpectedResults).Int("confidence", confidence).Str("url", result.URL).Msg("Possible path traversal or FP which would need review")

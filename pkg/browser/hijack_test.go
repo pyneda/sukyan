@@ -40,7 +40,7 @@ func setupHijackMockServer() *httptest.Server {
 // TestHijackWithContext tests the HijackWithContext function for different HTTP scenarios
 func TestHijackWithContext(t *testing.T) {
 
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Code:        "test-hijack",
 		Title:       "test-hijack",
 		Description: "test-hijack",
@@ -117,7 +117,7 @@ func TestHijackWithContext(t *testing.T) {
 
 func TestHijack(t *testing.T) {
 	server := setupHijackMockServer()
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Code:        "test-hijack",
 		Title:       "test-hijack",
 		Description: "test-hijack",

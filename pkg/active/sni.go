@@ -6,10 +6,11 @@ import (
 	"github.com/pyneda/sukyan/pkg/http_utils"
 
 	"crypto/tls"
-	"github.com/rs/zerolog/log"
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 // SNIAudit configuration
@@ -76,7 +77,7 @@ func (a *SNIAudit) Run() {
 		TaskID:            &a.TaskID,
 		TaskJobID:         &a.TaskJobID,
 	}
-	db.Connection.CreateOOBTest(oobTest)
+	db.Connection().CreateOOBTest(oobTest)
 
 	log.Info().Str("url", a.HistoryItem.URL).Msg("SNI Injection audit completed")
 }

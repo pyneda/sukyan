@@ -158,7 +158,7 @@ func (r *RetireScanner) HistoryScan(history *db.History) {
 			issue := db.FillIssueFromHistoryAndTemplate(history, db.VulnerableJavascriptDependencyCode, detailsBuilder.String(), 90, "", history.WorkspaceID, history.TaskID, &r.taskJobID)
 			issue.References = append(issue.References, lib.GetUniqueItems(references)...)
 			issue.Requests = []db.History{*history}
-			db.Connection.CreateIssue(*issue)
+			db.Connection().CreateIssue(*issue)
 		}
 	}
 

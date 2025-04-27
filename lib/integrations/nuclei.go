@@ -3,6 +3,10 @@ package integrations
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
+	"time"
+
 	pb "github.com/pyneda/nuclei-api/pkg/service"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -10,9 +14,6 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"io"
-	"strings"
-	"time"
 )
 
 func processNucleiResult(result *pb.ScanResult, workspaceID uint) {
@@ -73,7 +74,7 @@ func processNucleiResult(result *pb.ScanResult, workspaceID uint) {
 		WorkspaceID: &workspaceID,
 	}
 
-	new, err := db.Connection.CreateIssue(issue)
+	new, err := db.Connection().CreateIssue(issue)
 	if err != nil {
 		log.Error().Uint("workspace", workspaceID).Err(err).Interface("issue", issue).Msg("Could not create nuclei issue")
 		return

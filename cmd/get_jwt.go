@@ -46,7 +46,7 @@ var getJwtCmd = &cobra.Command{
 			return
 		}
 
-		jwts, err := db.Connection.ListJsonWebTokens(filters)
+		jwts, err := db.Connection().ListJsonWebTokens(filters)
 		if err != nil {
 			log.Error().Err(err).Msg("Error listing JWTs")
 			return

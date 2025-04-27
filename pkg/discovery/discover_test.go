@@ -113,7 +113,7 @@ func setupTestServer(config serverConfig) *httptest.Server {
 }
 
 func setupTestWorkspace(t *testing.T) *db.Workspace {
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Title: "TestDiscovery",
 		Code:  "test-discovery",
 	})

@@ -30,7 +30,7 @@ var reportCmd = &cobra.Command{
 		}
 
 		if taskID != 0 {
-			task, err := db.Connection.GetTaskByID(taskID, false)
+			task, err := db.Connection().GetTaskByID(taskID, false)
 			if err != nil {
 				fmt.Printf("Error fetching task details: %v\n", err)
 				return
@@ -44,7 +44,7 @@ var reportCmd = &cobra.Command{
 
 		}
 		if workspaceID != 0 {
-			workspace, err := db.Connection.GetWorkspaceByID(workspaceID)
+			workspace, err := db.Connection().GetWorkspaceByID(workspaceID)
 			if err != nil {
 				fmt.Printf("Error fetching workspace details: %v\n", err)
 				return
@@ -70,7 +70,7 @@ var reportCmd = &cobra.Command{
 			reportOutput = fmt.Sprintf("%s.%s", lib.Slugify(reportTitle), reportFormat)
 		}
 
-		issues, _, err := db.Connection.ListIssues(db.IssueFilter{
+		issues, _, err := db.Connection().ListIssues(db.IssueFilter{
 			WorkspaceID:   workspaceID,
 			TaskID:        taskID,
 			MinConfidence: minConfidence,

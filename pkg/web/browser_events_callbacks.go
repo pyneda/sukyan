@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+
 	"github.com/pyneda/sukyan/db"
 
 	"github.com/go-rod/rod/lib/proto"
@@ -66,7 +67,7 @@ func GetBrowserDatabaseCallbacks() (callbacks []interface{}) {
 			Confidence:  99,
 			Severity:    "Info",
 		}
-		db.Connection.CreateIssue(dbAddedIssue)
+		db.Connection().CreateIssue(dbAddedIssue)
 	})
 	return callbacks
 }

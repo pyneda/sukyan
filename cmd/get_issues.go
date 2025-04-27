@@ -20,7 +20,7 @@ var getIssuesCmd = &cobra.Command{
 	Aliases: []string{"i", "issue", "vulnerabilities", "v", "vulns", "vuln"},
 	Short:   "List detected issues",
 	Run: func(cmd *cobra.Command, args []string) {
-		issues, _, err := db.Connection.ListIssues(db.IssueFilter{
+		issues, _, err := db.Connection().ListIssues(db.IssueFilter{
 			Codes:       filterIssueCodes,
 			WorkspaceID: uint(workspaceID),
 			TaskID:      uint(filterTaskID),

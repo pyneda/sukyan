@@ -15,7 +15,7 @@ func TestFindWebSocketConnections(t *testing.T) {
 	app := fiber.New()
 	app.Get("/api/v1/wsconnections", FindWebSocketConnections)
 
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Title: "TestFindWebSocketConnections",
 		Code:  "TestFindWebSocketConnections",
 	})

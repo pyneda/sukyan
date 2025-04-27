@@ -98,7 +98,7 @@ func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 
 func (s *ScanEngine) scheduleActiveScan(item *db.History, options scan_options.HistoryItemScanOptions) {
 	s.activeScanPool.Go(func() {
-		taskJob, err := db.Connection.NewTaskJob(options.TaskID, "Active scan to "+item.URL, db.TaskJobScheduled, item.ID)
+		taskJob, err := db.Connection().NewTaskJob(options.TaskID, "Active scan to "+item.URL, db.TaskJobScheduled, item.ID)
 		if err != nil {
 			log.Error().Err(err).Uint("history", item.ID).Msg("Could not create task job")
 			return
@@ -107,32 +107,32 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History, options scan_options.H
 		s.wg.Go(func() {
 			options.TaskJobID = taskJob.ID
 			taskJob.Status = db.TaskJobRunning
-			db.Connection.UpdateTaskJob(taskJob)
+			db.Connection().UpdateTaskJob(taskJob)
 
 			active.ScanHistoryItem(item, s.InteractionsManager, s.payloadGenerators, options)
 
 			taskJob.Status = db.TaskJobFinished
 			taskJob.CompletedAt = time.Now()
-			db.Connection.UpdateTaskJob(taskJob)
+			db.Connection().UpdateTaskJob(taskJob)
 		})
 	})
 }
 
 func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompletion bool) (*db.Task, error) {
-	task, err := db.Connection.NewTask(options.WorkspaceID, nil, options.Title, db.TaskStatusCrawling, db.TaskTypeScan)
+	task, err := db.Connection().NewTask(options.WorkspaceID, nil, options.Title, db.TaskStatusCrawling, db.TaskTypeScan)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not create task")
 	}
 	// NOTE: Optimally, we would refactor the NewTask to accept the options struct directly
 	task.ScanOptions = options
-	db.Connection.UpdateTask(task.ID, task)
+	db.Connection().UpdateTask(task.ID, task)
 	ignoredExtensions := viper.GetStringSlice("crawl.ignored_extensions")
 
 	scanLog := log.With().Uint("task", task.ID).Str("title", options.Title).Uint("workspace", options.WorkspaceID).Logger()
 	crawler := crawl.NewCrawler(options.StartURLs, options.MaxPagesToCrawl, options.MaxDepth, options.PagesPoolSize, options.ExcludePatterns, options.WorkspaceID, task.ID, options.Headers)
 	historyItems := crawler.Run()
 	if len(historyItems) == 0 {
-		db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
+		db.Connection().SetTaskStatus(task.ID, db.TaskStatusFinished)
 		scanLog.Info().Msg("No history items gathered during crawl, exiting")
 		return task, nil
 	}
@@ -158,7 +158,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 	fingerprintTags := passive.GetUniqueNucleiTags(fingerprints)
 
 	if viper.GetBool("integrations.nuclei.enabled") {
-		db.Connection.SetTaskStatus(task.ID, db.TaskStatusNuclei)
+		db.Connection().SetTaskStatus(task.ID, db.TaskStatusNuclei)
 		scanLog.Info().Int("count", len(fingerprintTags)).Interface("tags", fingerprintTags).Msg("Gathered tags from fingerprints for Nuclei scan")
 		nucleiScanErr := integrations.NucleiScan(baseURLs, options.WorkspaceID)
 		if nucleiScanErr != nil {
@@ -168,7 +168,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 
 	retireScanner := integrations.NewRetireScanner()
 
-	db.Connection.SetTaskStatus(task.ID, db.TaskStatusScanning)
+	db.Connection().SetTaskStatus(task.ID, db.TaskStatusScanning)
 
 	transport := http_utils.CreateHttpTransport()
 	transport.ForceAttemptHTTP2 = true
@@ -217,7 +217,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 		AuditCategories:    options.AuditCategories,
 	}
 
-	websocketConnections, count, _ := db.Connection.ListWebSocketConnections(db.WebSocketConnectionFilter{
+	websocketConnections, count, _ := db.Connection().ListWebSocketConnections(db.WebSocketConnectionFilter{
 		WorkspaceID: options.WorkspaceID,
 		TaskID:      task.ID,
 		Sources:     []string{db.SourceCrawler},
@@ -285,13 +285,13 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 		s.wg.Wait()
 		waitForTaskCompletion(task.ID)
 		scanLog.Info().Msg("Active scans finished")
-		db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
+		db.Connection().SetTaskStatus(task.ID, db.TaskStatusFinished)
 	} else {
 		go func() {
 			s.wg.Wait()
 			waitForTaskCompletion(task.ID)
 			scanLog.Info().Msg("Active scans finished")
-			db.Connection.SetTaskStatus(task.ID, db.TaskStatusFinished)
+			db.Connection().SetTaskStatus(task.ID, db.TaskStatusFinished)
 		}()
 	}
 
@@ -301,7 +301,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 func waitForTaskCompletion(taskID uint) {
 	scanLog := log.With().Uint("task", taskID).Logger()
 	for {
-		hasPending, err := db.Connection.TaskHasPendingJobs(taskID)
+		hasPending, err := db.Connection().TaskHasPendingJobs(taskID)
 		if err != nil {
 			scanLog.Error().Err(err).Msg("Error checking pending task jobs")
 			return
@@ -311,5 +311,5 @@ func waitForTaskCompletion(taskID uint) {
 		}
 		time.Sleep(2 * time.Second)
 	}
-	db.Connection.SetTaskStatus(taskID, db.TaskStatusFinished)
+	db.Connection().SetTaskStatus(taskID, db.TaskStatusFinished)
 }

@@ -65,7 +65,7 @@ func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details s
 
 func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID *uint) (Issue, error) {
 	issue := FillIssueFromHistoryAndTemplate(history, code, details, confidence, severity, workspaceID, taskID, taskJobID)
-	createdIssue, err := Connection.CreateIssue(*issue)
+	createdIssue, err := Connection().CreateIssue(*issue)
 	if err != nil {
 		log.Error().Err(err).Str("issue", issue.Title).Str("url", history.URL).Msg("Failed to create issue")
 		return createdIssue, err
@@ -120,7 +120,7 @@ func CreateIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnecti
 		return Issue{}, err
 	}
 
-	createdIssue, err := Connection.CreateIssue(*issue)
+	createdIssue, err := Connection().CreateIssue(*issue)
 	if err != nil {
 		log.Error().Err(err).Str("issue", issue.Title).Str("url", connection.URL).Msg("Failed to create issue")
 		return createdIssue, err

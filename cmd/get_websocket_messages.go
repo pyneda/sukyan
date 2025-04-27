@@ -24,7 +24,7 @@ var listWebSocketMessagesCmd = &cobra.Command{
 			ConnectionID: filterWebSocketConnectionID,
 		}
 
-		messages, _, err := db.Connection.ListWebSocketMessages(filters)
+		messages, _, err := db.Connection().ListWebSocketMessages(filters)
 		if err != nil {
 			log.Error().Err(err).Msg("Error listing WebSocket messages")
 			return

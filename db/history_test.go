@@ -9,7 +9,7 @@ import (
 )
 
 func TestGetChildrenHistories(t *testing.T) {
-	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
 		Code:        "history-test",
 		Title:       "history test workspace",
 		Description: "Workspace for history validation tests",
@@ -18,23 +18,23 @@ func TestGetChildrenHistories(t *testing.T) {
 	workspaceID := workspace.ID
 
 	parent := &History{Depth: 1, URL: "/test", WorkspaceID: &workspaceID}
-	_, err = Connection.CreateHistory(parent)
+	_, err = Connection().CreateHistory(parent)
 	assert.Nil(t, err)
 
 	child1 := &History{Depth: 2, URL: "/test/child1", WorkspaceID: &workspaceID}
 	child2 := &History{Depth: 2, URL: "/test/child2", WorkspaceID: &workspaceID}
-	_, err = Connection.CreateHistory(child1)
+	_, err = Connection().CreateHistory(child1)
 	assert.Nil(t, err)
-	_, err = Connection.CreateHistory(child2)
+	_, err = Connection().CreateHistory(child2)
 	assert.Nil(t, err)
 
-	children, err := Connection.GetChildrenHistories(parent)
+	children, err := Connection().GetChildrenHistories(parent)
 	assert.Nil(t, err)
 	assert.Equal(t, true, len(children) >= 2)
 }
 
 func TestCreateHistoryIgnoredExtensions(t *testing.T) {
-	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
 		Code:        "history-test",
 		Title:       "history test workspace",
 		Description: "Workspace for history validation tests",
@@ -55,7 +55,7 @@ func TestCreateHistoryIgnoredExtensions(t *testing.T) {
 		WorkspaceID: &workspaceID,
 	}
 
-	_, err = Connection.CreateHistory(history)
+	_, err = Connection().CreateHistory(history)
 	assert.Nil(t, err)
 
 	// Check that the body was removed by extracting it from RawResponse
@@ -67,7 +67,7 @@ func TestCreateHistoryIgnoredExtensions(t *testing.T) {
 }
 
 func TestCreateHistoryIgnoredContentTypes(t *testing.T) {
-	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
 		Code:        "history-test",
 		Title:       "history test workspace",
 		Description: "Workspace for history validation tests",
@@ -88,7 +88,7 @@ func TestCreateHistoryIgnoredContentTypes(t *testing.T) {
 		WorkspaceID:         &workspaceID,
 	}
 
-	newHistory, err := Connection.CreateHistory(history)
+	newHistory, err := Connection().CreateHistory(history)
 	assert.Nil(t, err)
 	body, err := newHistory.ResponseBody()
 	assert.Nil(t, err)
@@ -97,7 +97,7 @@ func TestCreateHistoryIgnoredContentTypes(t *testing.T) {
 }
 
 func TestCreateHistoryIgnoredMaxSize(t *testing.T) {
-	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
 		Code:        "history-test",
 		Title:       "history test workspace",
 		Description: "Workspace for history validation tests",
@@ -119,7 +119,7 @@ func TestCreateHistoryIgnoredMaxSize(t *testing.T) {
 		WorkspaceID:      &workspaceID,
 	}
 
-	_, err = Connection.CreateHistory(history)
+	_, err = Connection().CreateHistory(history)
 	assert.Nil(t, err)
 
 	// Check that the body was removed by extracting it from RawResponse
@@ -131,7 +131,7 @@ func TestCreateHistoryIgnoredMaxSize(t *testing.T) {
 }
 
 func TestGetRootHistoryNodes(t *testing.T) {
-	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
 		Code:        "history-test",
 		Title:       "history test workspace",
 		Description: "Workspace for history validation tests",
@@ -141,18 +141,18 @@ func TestGetRootHistoryNodes(t *testing.T) {
 
 	root1 := &History{Depth: 0, URL: "/root1/", WorkspaceID: &workspaceID}
 	root2 := &History{Depth: 0, URL: "/root2/", WorkspaceID: &workspaceID}
-	_, err = Connection.CreateHistory(root1)
+	_, err = Connection().CreateHistory(root1)
 	assert.Nil(t, err)
-	_, err = Connection.CreateHistory(root2)
+	_, err = Connection().CreateHistory(root2)
 	assert.Nil(t, err)
 
-	roots, err := Connection.GetRootHistoryNodes(workspaceID)
+	roots, err := Connection().GetRootHistoryNodes(workspaceID)
 	assert.Nil(t, err)
 	assert.Equal(t, true, len(roots) >= 2)
 }
 
 func TestGetHistoriesByID(t *testing.T) {
-	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
 		Code:        "TestGetHistoriesByID",
 		Title:       "TestGetHistoriesByID",
 		Description: "TestGetHistoriesByID",
@@ -162,13 +162,13 @@ func TestGetHistoriesByID(t *testing.T) {
 
 	history1 := &History{URL: "/test1", WorkspaceID: &workspaceID}
 	history2 := &History{URL: "/test2", WorkspaceID: &workspaceID}
-	history1, err = Connection.CreateHistory(history1)
+	history1, err = Connection().CreateHistory(history1)
 	assert.Nil(t, err)
-	history2, err = Connection.CreateHistory(history2)
+	history2, err = Connection().CreateHistory(history2)
 	assert.Nil(t, err)
 
 	ids := []uint{history1.ID, history2.ID}
-	histories, err := Connection.GetHistoriesByID(ids)
+	histories, err := Connection().GetHistoriesByID(ids)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(histories))
 }
@@ -212,7 +212,7 @@ func TestRequestHeaders(t *testing.T) {
 }
 
 func TestGetHistoryByID(t *testing.T) {
-	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
 		Code:        "TestGetHistoryByID",
 		Title:       "TestGetHistoryByID",
 		Description: "TestGetHistoryByID",
@@ -221,23 +221,23 @@ func TestGetHistoryByID(t *testing.T) {
 	workspaceID := workspace.ID
 
 	history := &History{URL: "/test3", WorkspaceID: &workspaceID}
-	history, err = Connection.CreateHistory(history)
+	history, err = Connection().CreateHistory(history)
 	assert.Nil(t, err)
 
-	fetchedHistory, err := Connection.GetHistoryByID(history.ID)
+	fetchedHistory, err := Connection().GetHistoryByID(history.ID)
 	assert.Nil(t, err)
 	assert.Equal(t, history.ID, fetchedHistory.ID)
 }
 
 func TestListHistory(t *testing.T) {
-	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
 		Code:        "list-history-test",
 		Title:       "List History Test",
 		Description: "Workspace for testing history listing functionality",
 	})
 	assert.Nil(t, err)
 	workspaceID := workspace.ID
-	assert.Nil(t, Connection.db.Unscoped().Where("workspace_id = ?", workspaceID).Delete(&History{}).Error)
+	assert.Nil(t, Connection().DB().Unscoped().Where("workspace_id = ?", workspaceID).Delete(&History{}).Error)
 
 	testCases := []struct {
 		url         string
@@ -267,7 +267,7 @@ func TestListHistory(t *testing.T) {
 			Note:                tc.note,
 			WorkspaceID:         &workspaceID,
 		}
-		created, err := Connection.CreateHistory(history)
+		created, err := Connection().CreateHistory(history)
 		assert.Nil(t, err)
 		createdIDs = append(createdIDs, created.ID)
 	}
@@ -282,7 +282,7 @@ func TestListHistory(t *testing.T) {
 				PageSize: 10,
 			},
 		}
-		items, count, err := Connection.ListHistory(filter)
+		items, count, err := Connection().ListHistory(filter)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(5), count)
 		for _, item := range items {
@@ -299,7 +299,7 @@ func TestListHistory(t *testing.T) {
 				PageSize: 10,
 			},
 		}
-		items, count, err := Connection.ListHistory(filter)
+		items, count, err := Connection().ListHistory(filter)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(3), count)
 		for _, item := range items {
@@ -316,7 +316,7 @@ func TestListHistory(t *testing.T) {
 				PageSize: 10,
 			},
 		}
-		items, count, err := Connection.ListHistory(filter)
+		items, count, err := Connection().ListHistory(filter)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(4), count)
 		for _, item := range items {
@@ -333,7 +333,7 @@ func TestListHistory(t *testing.T) {
 				PageSize: 10,
 			},
 		}
-		items, count, err := Connection.ListHistory(filter)
+		items, count, err := Connection().ListHistory(filter)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(3), count)
 		for _, item := range items {
@@ -350,7 +350,7 @@ func TestListHistory(t *testing.T) {
 				PageSize: 10,
 			},
 		}
-		items, count, err := Connection.ListHistory(filter)
+		items, count, err := Connection().ListHistory(filter)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(5), count)
 		for _, item := range items {
@@ -369,7 +369,7 @@ func TestListHistory(t *testing.T) {
 				PageSize: 10,
 			},
 		}
-		items, count, err := Connection.ListHistory(filter)
+		items, count, err := Connection().ListHistory(filter)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(2), count)
 		for _, item := range items {
@@ -388,7 +388,7 @@ func TestListHistory(t *testing.T) {
 				PageSize: 10,
 			},
 		}
-		items, count, err := Connection.ListHistory(filter)
+		items, count, err := Connection().ListHistory(filter)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(1), count)
 		assert.Contains(t, items[0].Note, "error")
@@ -402,7 +402,7 @@ func TestListHistory(t *testing.T) {
 				PageSize: 3,
 			},
 		}
-		items, count, err := Connection.ListHistory(filter)
+		items, count, err := Connection().ListHistory(filter)
 		assert.Nil(t, err)
 		assert.Equal(t, int64(7), count)
 		assert.Equal(t, 3, len(items))
@@ -418,7 +418,7 @@ func TestListHistory(t *testing.T) {
 				PageSize: 10,
 			},
 		}
-		items, _, err := Connection.ListHistory(filter)
+		items, _, err := Connection().ListHistory(filter)
 		assert.Nil(t, err)
 		for i := 1; i < len(items); i++ {
 			assert.True(t, items[i-1].URL <= items[i].URL)
@@ -427,9 +427,9 @@ func TestListHistory(t *testing.T) {
 
 	// Cleanup test data
 	for _, id := range createdIDs {
-		err := Connection.db.Unscoped().Delete(&History{}, id).Error
+		err := Connection().DB().Unscoped().Delete(&History{}, id).Error
 		assert.Nil(t, err)
 	}
-	err = Connection.DeleteWorkspace(workspaceID)
+	err = Connection().DeleteWorkspace(workspaceID)
 	assert.Nil(t, err)
 }

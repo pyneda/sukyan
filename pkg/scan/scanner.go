@@ -260,7 +260,7 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 					TaskID:            &task.options.TaskID,
 					TaskJobID:         &task.options.TaskJobID,
 				}
-				db.Connection.CreateOOBTest(oobTest)
+				db.Connection().CreateOOBTest(oobTest)
 				taskLog.Debug().Interface("oobTest", oobTest).Msg("Created OOB Test")
 			}
 

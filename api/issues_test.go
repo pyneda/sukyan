@@ -21,12 +21,12 @@ func TestGetIssueDetail(t *testing.T) {
 	issue2Template := db.GetIssueTemplateByCode(db.OsCmdInjectionCode)
 
 	// Create the issues in the database
-	createdIssue1, err := db.Connection.CreateIssue(*issue1Template)
+	createdIssue1, err := db.Connection().CreateIssue(*issue1Template)
 	if err != nil {
 		t.Fatalf("Error creating mock issue: %s", err)
 	}
 
-	createdIssue2, err := db.Connection.CreateIssue(*issue2Template)
+	createdIssue2, err := db.Connection().CreateIssue(*issue2Template)
 	if err != nil {
 		t.Fatalf("Error creating mock issue: %s", err)
 	}

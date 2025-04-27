@@ -2,12 +2,13 @@ package api
 
 import (
 	"errors"
+	"strconv"
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
-	"strconv"
-	"strings"
 )
 
 func parseWorkspaceID(c *fiber.Ctx) (uint, error) {
@@ -20,7 +21,7 @@ func parseWorkspaceID(c *fiber.Ctx) (uint, error) {
 	}
 
 	workspaceID := uint(workspaceID64)
-	workspaceExists, _ := db.Connection.WorkspaceExists(workspaceID)
+	workspaceExists, _ := db.Connection().WorkspaceExists(workspaceID)
 	if !workspaceExists {
 		return 0, errors.New("Invalid workspace")
 	}
@@ -42,7 +43,7 @@ func parsePlaygroundCollectionID(c *fiber.Ctx) (uint, error) {
 	if collectionID == 0 {
 		return 0, nil
 	}
-	_, err = db.Connection.GetPlaygroundCollection(collectionID)
+	_, err = db.Connection().GetPlaygroundCollection(collectionID)
 	if err != nil {
 		return 0, err
 	}
@@ -64,7 +65,7 @@ func parsePlaygroundSessionID(c *fiber.Ctx) (uint, error) {
 	if sessionID == 0 {
 		return 0, nil
 	}
-	_, err = db.Connection.GetPlaygroundSession(sessionID)
+	_, err = db.Connection().GetPlaygroundSession(sessionID)
 	if err != nil {
 		return 0, err
 	}
@@ -87,7 +88,7 @@ func parseTaskID(c *fiber.Ctx) (uint, error) {
 	if taskID == 0 {
 		return 0, nil
 	}
-	taskExists, _ := db.Connection.TaskExists(taskID)
+	taskExists, _ := db.Connection().TaskExists(taskID)
 	if !taskExists {
 		return 0, errors.New("Invalid task")
 	}
@@ -109,7 +110,7 @@ func parseTaskJobID(c *fiber.Ctx) (uint, error) {
 	if taskJobID == 0 {
 		return 0, nil
 	}
-	taskJobExists, _ := db.Connection.TaskJobExists(taskJobID)
+	taskJobExists, _ := db.Connection().TaskJobExists(taskJobID)
 	if !taskJobExists {
 		return 0, errors.New("Invalid task job")
 	}

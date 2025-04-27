@@ -244,7 +244,7 @@ func JwtDetectionScan(item *db.History) {
 		log.Info().Strs("matches", matches).Msg("Found JWTs")
 		for _, match := range matches {
 			sb.WriteString(fmt.Sprintf("\n - %s", match))
-			jwt, err := db.Connection.GetOrCreateJWTFromTokenAndHistory(match, item.ID)
+			jwt, err := db.Connection().GetOrCreateJWTFromTokenAndHistory(match, item.ID)
 			if err != nil {
 				log.Err(err).Msg("Failed to get or create JWT")
 				continue
@@ -280,7 +280,7 @@ func checkHeadersForJwt(item *db.History, headers map[string][]string) {
 				sb.WriteString(fmt.Sprintf("Detected potential JWTs in %s header:", key))
 				for _, match := range matches {
 					sb.WriteString(fmt.Sprintf("\n - %s", match))
-					jwt, err := db.Connection.GetOrCreateJWTFromTokenAndHistory(match, item.ID)
+					jwt, err := db.Connection().GetOrCreateJWTFromTokenAndHistory(match, item.ID)
 					if err != nil {
 						log.Err(err).Msg("Failed to get or create JWT")
 						continue

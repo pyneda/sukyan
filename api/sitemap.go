@@ -35,7 +35,7 @@ func GetSitemap(c *fiber.Ctx) error {
 			"message": "The provided task ID does not seem valid",
 		})
 	}
-	sitemap, err := db.Connection.ConstructSitemap(db.SitemapFilter{
+	sitemap, err := db.Connection().ConstructSitemap(db.SitemapFilter{
 		WorkspaceID: workspaceID,
 		TaskID:      taskID,
 	})

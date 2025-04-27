@@ -51,7 +51,7 @@ func ReportHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	workspaceExists, _ := db.Connection.WorkspaceExists(input.WorkspaceID)
+	workspaceExists, _ := db.Connection().WorkspaceExists(input.WorkspaceID)
 	if !workspaceExists {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid workspace",
@@ -59,7 +59,7 @@ func ReportHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	issues, _, err := db.Connection.ListIssues(db.IssueFilter{
+	issues, _, err := db.Connection().ListIssues(db.IssueFilter{
 		WorkspaceID:   input.WorkspaceID,
 		MinConfidence: input.MinConfidence,
 	})

@@ -67,7 +67,7 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 			}
 		}
 	}
-	connections, count, err := db.Connection.ListWebSocketConnections(db.WebSocketConnectionFilter{
+	connections, count, err := db.Connection().ListWebSocketConnections(db.WebSocketConnectionFilter{
 		Pagination: db.Pagination{
 			Page:     page,
 			PageSize: pageSize,
@@ -121,7 +121,7 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 		connectionID = uint(unparsedUint)
 	}
 
-	messages, count, err := db.Connection.ListWebSocketMessages(db.WebSocketMessageFilter{
+	messages, count, err := db.Connection().ListWebSocketMessages(db.WebSocketMessageFilter{
 		Pagination: db.Pagination{
 			Page:     page,
 			PageSize: pageSize,
@@ -157,7 +157,7 @@ func FindWebSocketConnectionByID(c *fiber.Ctx) error {
 		})
 	}
 
-	connection, err := db.Connection.GetWebSocketConnection(uint(connectionID))
+	connection, err := db.Connection().GetWebSocketConnection(uint(connectionID))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{

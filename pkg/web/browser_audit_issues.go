@@ -32,7 +32,7 @@ func handleBrowserAuditIssues(url string, e *proto.AuditsIssueAdded, workspaceID
 		browserAuditIssue.Confidence = 80
 		browserAuditIssue.WorkspaceID = &workspaceID
 		browserAuditIssue.TaskID = &taskID
-		issue, _ := db.Connection.CreateIssue(*browserAuditIssue)
+		issue, _ := db.Connection().CreateIssue(*browserAuditIssue)
 		return issue
 	} else if e.Issue.Details.CorsIssueDetails != nil {
 		var details strings.Builder
@@ -65,7 +65,7 @@ func handleBrowserAuditIssues(url string, e *proto.AuditsIssueAdded, workspaceID
 		browserAuditIssue.Confidence = 80
 		browserAuditIssue.WorkspaceID = &workspaceID
 		browserAuditIssue.TaskID = &taskID
-		issue, _ := db.Connection.CreateIssue(*browserAuditIssue)
+		issue, _ := db.Connection().CreateIssue(*browserAuditIssue)
 		return issue
 
 	}

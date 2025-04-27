@@ -15,7 +15,7 @@ import (
 )
 
 func TestCreatePlaygroundCollection(t *testing.T) {
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Code:        "test-playground",
 		Title:       "test-playground",
 		Description: "test-playground",
@@ -73,13 +73,13 @@ func TestCreatePlaygroundCollection(t *testing.T) {
 }
 
 func TestListPlaygroundCollections(t *testing.T) {
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Code:        "test-playground",
 		Title:       "test-playground",
 		Description: "test-playground",
 	})
 	assert.NoError(t, err)
-	defer db.Connection.DeleteWorkspace(workspace.ID)
+	defer db.Connection().DeleteWorkspace(workspace.ID)
 
 	app := fiber.New()
 	app.Get("/api/v1/playground/collections", ListPlaygroundCollections)
@@ -109,7 +109,7 @@ func TestListPlaygroundCollections(t *testing.T) {
 func TestListPlaygroundSessions(t *testing.T) {
 	app := fiber.New()
 	app.Get("/api/v1/playground/sessions", ListPlaygroundSessions)
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Title: "playground Workspace",
 		Code:  "playground-workspace",
 	})
@@ -146,7 +146,7 @@ func TestCreatePlaygroundCollectionAndSession(t *testing.T) {
 	app := fiber.New()
 	app.Post("/api/v1/playground/collections", CreatePlaygroundCollection)
 	app.Post("/api/v1/playground/sessions", CreatePlaygroundSession)
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Code:        "test-playground",
 		Title:       "test-playground",
 		Description: "test-playground",

@@ -64,7 +64,7 @@ func FindTasks(c *fiber.Ctx) error {
 			"message": "The provided playground session ID does not seem valid",
 		})
 	}
-	tasks, count, err := db.Connection.ListTasks(db.TaskFilter{
+	tasks, count, err := db.Connection().ListTasks(db.TaskFilter{
 		Pagination: db.Pagination{
 			Page: page, PageSize: pageSize,
 		},

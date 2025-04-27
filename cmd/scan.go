@@ -72,11 +72,11 @@ var scanCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		workspaceExists, _ := db.Connection.WorkspaceExists(workspaceID)
+		workspaceExists, _ := db.Connection().WorkspaceExists(workspaceID)
 
 		if !workspaceExists {
 			log.Error().Uint("id", workspaceID).Msg("Workspace does not exist")
-			workspaces, count, _ := db.Connection.ListWorkspaces(db.WorkspaceFilters{})
+			workspaces, count, _ := db.Connection().ListWorkspaces(db.WorkspaceFilters{})
 			if count == 0 {
 				log.Info().Msg("No workspaces found")
 			} else {
@@ -131,7 +131,7 @@ var scanCmd = &cobra.Command{
 		engine := engine.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
 		task, _ := engine.FullScan(options, true)
 		log.Info().Msg("Scan completed")
-		stats, err := db.Connection.GetTaskStatsFromID(uint(task.ID))
+		stats, err := db.Connection().GetTaskStatsFromID(uint(task.ID))
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get task stats")
 		} else {

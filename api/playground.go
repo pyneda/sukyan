@@ -41,7 +41,7 @@ func CreatePlaygroundCollection(c *fiber.Ctx) error {
 		})
 	}
 
-	workspaceExists, err := db.Connection.WorkspaceExists(input.WorkspaceID)
+	workspaceExists, err := db.Connection().WorkspaceExists(input.WorkspaceID)
 	if !workspaceExists || err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid workspace",
@@ -55,7 +55,7 @@ func CreatePlaygroundCollection(c *fiber.Ctx) error {
 		WorkspaceID: input.WorkspaceID,
 	}
 
-	if err := db.Connection.CreatePlaygroundCollection(collection); err != nil {
+	if err := db.Connection().CreatePlaygroundCollection(collection); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to create Playground Collection",
 			"message": err.Error(),
@@ -67,7 +67,7 @@ func CreatePlaygroundCollection(c *fiber.Ctx) error {
 		WorkspaceID:  input.WorkspaceID,
 		CollectionID: collection.ID,
 	}
-	err = db.Connection.CreatePlaygroundSession(&session)
+	err = db.Connection().CreatePlaygroundSession(&session)
 	if err != nil {
 		log.Error().Err(err).Uint("collection", collection.ID).Msg("Failed to create initial collection playground session")
 	}
@@ -109,7 +109,7 @@ func CreatePlaygroundSession(c *fiber.Ctx) error {
 		})
 	}
 
-	collection, err := db.Connection.GetPlaygroundCollection(input.CollectionID)
+	collection, err := db.Connection().GetPlaygroundCollection(input.CollectionID)
 	if err != nil {
 		log.Error().Err(err).Interface("input", input).Msg("Failed to retrieve Playground Collection")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -128,7 +128,7 @@ func CreatePlaygroundSession(c *fiber.Ctx) error {
 		WorkspaceID:  collection.WorkspaceID,
 	}
 
-	if err := db.Connection.CreatePlaygroundSession(session); err != nil {
+	if err := db.Connection().CreatePlaygroundSession(session); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to create playground session",
 			"message": err.Error(),
@@ -181,7 +181,7 @@ func ListPlaygroundCollections(c *fiber.Ctx) error {
 		})
 	}
 
-	collections, count, err := db.Connection.ListPlaygroundCollections(filters)
+	collections, count, err := db.Connection().ListPlaygroundCollections(filters)
 	if err != nil {
 		log.Error().Err(err).Interface("filters", filters).Msg("Failed to retrieve Playground Collections")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -254,7 +254,7 @@ func ListPlaygroundSessions(c *fiber.Ctx) error {
 		})
 	}
 
-	sessions, count, err := db.Connection.ListPlaygroundSessions(input)
+	sessions, count, err := db.Connection().ListPlaygroundSessions(input)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to retrieve Playground Sessions",
@@ -317,7 +317,7 @@ func GetPlaygroundCollection(c *fiber.Ctx) error {
 		})
 	}
 
-	collection, err := db.Connection.GetPlaygroundCollectionByID(uint(id))
+	collection, err := db.Connection().GetPlaygroundCollectionByID(uint(id))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   "Not Found",
@@ -349,7 +349,7 @@ func GetPlaygroundSession(c *fiber.Ctx) error {
 		})
 	}
 
-	session, err := db.Connection.GetPlaygroundSessionByID(uint(id))
+	session, err := db.Connection().GetPlaygroundSessionByID(uint(id))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   "Not Found",

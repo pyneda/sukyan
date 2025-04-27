@@ -9,7 +9,7 @@ import (
 
 func TestGetWorkspaceByID(t *testing.T) {
 
-	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
 		Code:        "TestGetWorkspaceByID",
 		Title:       "TestGetWorkspaceByID",
 		Description: "TestGetWorkspaceByID",
@@ -17,17 +17,17 @@ func TestGetWorkspaceByID(t *testing.T) {
 	assert.NotNil(t, workspace)
 	assert.Nil(t, err)
 
-	fetchedWorkspace, err := Connection.GetWorkspaceByID(workspace.ID)
+	fetchedWorkspace, err := Connection().GetWorkspaceByID(workspace.ID)
 	assert.NotNil(t, fetchedWorkspace)
 	assert.Nil(t, err)
 
-	_, err = Connection.GetWorkspaceByID(99999)
+	_, err = Connection().GetWorkspaceByID(99999)
 	assert.NotNil(t, err)
 }
 
 func TestGetWorkspaceByCode(t *testing.T) {
 
-	workspace, err := Connection.GetOrCreateWorkspace(&Workspace{
+	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
 		Code:        "TestGetWorkspaceByCode",
 		Title:       "TestGetWorkspaceByCode",
 		Description: "TestGetWorkspaceByCode",
@@ -35,36 +35,36 @@ func TestGetWorkspaceByCode(t *testing.T) {
 	assert.NotNil(t, workspace)
 	assert.Nil(t, err)
 
-	fetchedWorkspace, err := Connection.GetWorkspaceByCode(workspace.Code)
+	fetchedWorkspace, err := Connection().GetWorkspaceByCode(workspace.Code)
 	assert.NotNil(t, fetchedWorkspace)
 	assert.Nil(t, err)
 
-	_, err = Connection.GetWorkspaceByCode("invalidCode")
+	_, err = Connection().GetWorkspaceByCode("invalidCode")
 	assert.NotNil(t, err)
 }
 
 func TestWorkspaceExists(t *testing.T) {
 
-	workspace, err := Connection.CreateDefaultWorkspace()
+	workspace, err := Connection().CreateDefaultWorkspace()
 	assert.NotNil(t, workspace)
 	assert.Nil(t, err)
 
-	exists, err := Connection.WorkspaceExists(workspace.ID)
+	exists, err := Connection().WorkspaceExists(workspace.ID)
 	assert.True(t, exists)
 	assert.Nil(t, err)
 
-	exists, err = Connection.WorkspaceExists(99999)
+	exists, err = Connection().WorkspaceExists(99999)
 	assert.False(t, exists)
 	assert.Nil(t, err)
 }
 
 func TestListWorkspaces(t *testing.T) {
 
-	_, err := Connection.CreateDefaultWorkspace()
+	_, err := Connection().CreateDefaultWorkspace()
 	assert.Nil(t, err)
 
 	filters := WorkspaceFilters{Query: ""}
-	items, count, err := Connection.ListWorkspaces(filters)
+	items, count, err := Connection().ListWorkspaces(filters)
 	assert.NotNil(t, items)
 	assert.Greater(t, count, int64(0))
 	assert.Nil(t, err)
@@ -78,12 +78,12 @@ func TestCreateWorkspace(t *testing.T) {
 		Description: "testDescription",
 	}
 
-	createdWorkspace, err := Connection.CreateWorkspace(newWorkspace)
+	createdWorkspace, err := Connection().CreateWorkspace(newWorkspace)
 	assert.NotNil(t, createdWorkspace)
 	assert.Nil(t, err)
 
 	// Try creating a workspace with a duplicate code
-	_, err = Connection.CreateWorkspace(newWorkspace)
+	_, err = Connection().CreateWorkspace(newWorkspace)
 	assert.NotNil(t, err)
 }
 
@@ -96,12 +96,12 @@ func TestGetOrCreateWorkspace(t *testing.T) {
 	}
 
 	// Test with a new workspace
-	workspace, err := Connection.GetOrCreateWorkspace(newWorkspace)
+	workspace, err := Connection().GetOrCreateWorkspace(newWorkspace)
 	assert.NotNil(t, workspace)
 	assert.Nil(t, err)
 
 	// Test with an existing workspace
-	workspace, err = Connection.GetOrCreateWorkspace(newWorkspace)
+	workspace, err = Connection().GetOrCreateWorkspace(newWorkspace)
 	assert.NotNil(t, workspace)
 	assert.Nil(t, err)
 }
@@ -113,16 +113,16 @@ func TestDeleteWorkspace(t *testing.T) {
 		Description: "description",
 	}
 
-	workspace, err := Connection.GetOrCreateWorkspace(newWorkspace)
+	workspace, err := Connection().GetOrCreateWorkspace(newWorkspace)
 	assert.NotNil(t, workspace)
 	assert.Nil(t, err)
 	// Create various objects to validate CASCADE constraint
 
-	history, err := Connection.CreateHistory(&History{URL: "http://example.com", StatusCode: 200, Method: "GET", WorkspaceID: &workspace.ID})
+	history, err := Connection().CreateHistory(&History{URL: "http://example.com", StatusCode: 200, Method: "GET", WorkspaceID: &workspace.ID})
 	assert.Nil(t, err)
 	assert.NotNil(t, history)
 	historyID := history.ID
-	history, err = Connection.GetHistoryByID(historyID)
+	history, err = Connection().GetHistoryByID(historyID)
 	assert.Nil(t, err)
 	assert.NotNil(t, history)
 
@@ -130,22 +130,22 @@ func TestDeleteWorkspace(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, issue)
 	issueID := issue.ID
-	issue, err = Connection.GetIssue(int(issueID), true)
+	issue, err = Connection().GetIssue(int(issueID), true)
 	assert.Nil(t, err)
 	assert.NotNil(t, issue)
 	// Delete the workspace
-	err = Connection.DeleteWorkspace(workspace.ID)
+	err = Connection().DeleteWorkspace(workspace.ID)
 	assert.Nil(t, err)
 
 	// Try fetching the deleted workspace
-	_, err = Connection.GetWorkspaceByID(workspace.ID)
+	_, err = Connection().GetWorkspaceByID(workspace.ID)
 	assert.NotNil(t, err)
 	// Try fetching the deleted history to validate CASCADE constraint
-	history, err = Connection.GetHistoryByID(historyID)
+	history, err = Connection().GetHistoryByID(historyID)
 	assert.NotNil(t, err)
 	assert.Nil(t, history)
 	// Try fetching the deleted issue to validate CASCADE constraint
-	issue, err = Connection.GetIssue(int(issueID), true)
+	issue, err = Connection().GetIssue(int(issueID), true)
 	assert.NotNil(t, err)
 	log.Warn().Interface("issue", issue).Msg("issue")
 	assert.Equal(t, issue.ID, uint(0))
@@ -155,7 +155,7 @@ func TestDeleteWorkspace(t *testing.T) {
 
 func TestUpdateWorkspace(t *testing.T) {
 
-	workspace, err := Connection.CreateDefaultWorkspace()
+	workspace, err := Connection().CreateDefaultWorkspace()
 	assert.NotNil(t, workspace)
 	assert.Nil(t, err)
 
@@ -166,11 +166,11 @@ func TestUpdateWorkspace(t *testing.T) {
 	}
 
 	// Update the workspace
-	err = Connection.UpdateWorkspace(workspace.ID, updatedWorkspace)
+	err = Connection().UpdateWorkspace(workspace.ID, updatedWorkspace)
 	assert.Nil(t, err)
 
 	// Fetch and validate
-	fetchedWorkspace, err := Connection.GetWorkspaceByID(workspace.ID)
+	fetchedWorkspace, err := Connection().GetWorkspaceByID(workspace.ID)
 	assert.NotNil(t, fetchedWorkspace)
 	assert.Nil(t, err)
 	assert.Equal(t, "updatedCode", fetchedWorkspace.Code)

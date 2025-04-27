@@ -23,14 +23,14 @@ func TestStoredBrowserActionsCreateAndFetch(t *testing.T) {
 	}
 
 	// Create
-	created, err := Connection.CreateStoredBrowserActions(sba)
+	created, err := Connection().CreateStoredBrowserActions(sba)
 	assert.NoError(t, err)
 	assert.NotZero(t, created.ID)
 	assert.Equal(t, sba.Title, created.Title)
 	assert.Equal(t, sba.Scope, created.Scope)
 
 	// Fetch
-	fetched, err := Connection.GetStoredBrowserActionsByID(created.ID)
+	fetched, err := Connection().GetStoredBrowserActionsByID(created.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, created.ID, fetched.ID)
 	assert.Equal(t, created.Title, fetched.Title)
@@ -60,7 +60,7 @@ func TestStoredBrowserActionsUpdate(t *testing.T) {
 		Scope:   BrowserActionScopeGlobal,
 	}
 
-	created, err := Connection.CreateStoredBrowserActions(sba)
+	created, err := Connection().CreateStoredBrowserActions(sba)
 	assert.NoError(t, err)
 
 	// Update with new actions
@@ -73,11 +73,11 @@ func TestStoredBrowserActionsUpdate(t *testing.T) {
 	created.Actions = updatedActions
 	created.Scope = BrowserActionScopeWorkspace
 
-	updated, err := Connection.UpdateStoredBrowserActions(created.ID, created)
+	updated, err := Connection().UpdateStoredBrowserActions(created.ID, created)
 	assert.NoError(t, err)
 
 	// Fetch and verify the update
-	fetched, err := Connection.GetStoredBrowserActionsByID(updated.ID)
+	fetched, err := Connection().GetStoredBrowserActionsByID(updated.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, "Updated Actions", fetched.Title)
 	assert.Equal(t, BrowserActionScopeWorkspace, fetched.Scope)

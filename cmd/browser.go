@@ -18,10 +18,10 @@ var browserCmd = &cobra.Command{
 	Use:   "browser",
 	Short: "Launch a browser that records all traffic",
 	Run: func(cmd *cobra.Command, args []string) {
-		workspaceExists, _ := db.Connection.WorkspaceExists(workspaceID)
+		workspaceExists, _ := db.Connection().WorkspaceExists(workspaceID)
 		if !workspaceExists {
 			log.Error().Uint("id", workspaceID).Msg("Workspace does not exist")
-			workspaces, count, _ := db.Connection.ListWorkspaces(db.WorkspaceFilters{})
+			workspaces, count, _ := db.Connection().ListWorkspaces(db.WorkspaceFilters{})
 			if count == 0 {
 				log.Info().Msg("No workspaces found.")
 			} else {
@@ -32,7 +32,7 @@ var browserCmd = &cobra.Command{
 			}
 			os.Exit(1)
 		}
-		task, err := db.Connection.NewTask(workspaceID, nil, sessionTitle, db.TaskStatusRunning, db.TaskTypeBrowser)
+		task, err := db.Connection().NewTask(workspaceID, nil, sessionTitle, db.TaskStatusRunning, db.TaskTypeBrowser)
 		if err != nil {
 			log.Error().Err(err).Msg("Could not create task")
 			os.Exit(1)

@@ -15,7 +15,7 @@ func TestFindTasks(t *testing.T) {
 	app := fiber.New()
 
 	app.Get("/tasks", FindTasks)
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Title: "TestFindTasks",
 		Code:  "TestFindTasks",
 	})

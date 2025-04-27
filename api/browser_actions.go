@@ -90,7 +90,7 @@ func CreateStoredBrowserActions(c *fiber.Ctx) error {
 		})
 	}
 	if input.WorkspaceID != nil {
-		workspaceExists, _ := db.Connection.WorkspaceExists(*input.WorkspaceID)
+		workspaceExists, _ := db.Connection().WorkspaceExists(*input.WorkspaceID)
 		if !workspaceExists {
 			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 				Error:   "Invalid workspace_id",
@@ -101,7 +101,7 @@ func CreateStoredBrowserActions(c *fiber.Ctx) error {
 
 	storedBrowserActions := convertToBrowserActions(*input)
 
-	createdSBA, err := db.Connection.CreateStoredBrowserActions(&storedBrowserActions)
+	createdSBA, err := db.Connection().CreateStoredBrowserActions(&storedBrowserActions)
 	if err != nil {
 		log.Error().Err(err).Msg("Error creating StoredBrowserActions")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -161,7 +161,7 @@ func UpdateStoredBrowserActions(c *fiber.Ctx) error {
 	}
 
 	if input.WorkspaceID != nil {
-		workspaceExists, _ := db.Connection.WorkspaceExists(*input.WorkspaceID)
+		workspaceExists, _ := db.Connection().WorkspaceExists(*input.WorkspaceID)
 		if !workspaceExists {
 			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 				Error:   "Invalid workspace_id",
@@ -173,7 +173,7 @@ func UpdateStoredBrowserActions(c *fiber.Ctx) error {
 	storedBrowserActions := convertToBrowserActions(*input)
 	storedBrowserActions.ID = uint(id)
 
-	updatedSBA, err := db.Connection.UpdateStoredBrowserActions(uint(id), &storedBrowserActions)
+	updatedSBA, err := db.Connection().UpdateStoredBrowserActions(uint(id), &storedBrowserActions)
 	if err != nil {
 		log.Error().Err(err).Msg("Error updating StoredBrowserActions")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -207,7 +207,7 @@ func GetStoredBrowserActions(c *fiber.Ctx) error {
 		})
 	}
 
-	sba, err := db.Connection.GetStoredBrowserActionsByID(uint(id))
+	sba, err := db.Connection().GetStoredBrowserActionsByID(uint(id))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
 			Error:   "Not found",
@@ -239,7 +239,7 @@ func DeleteStoredBrowserActions(c *fiber.Ctx) error {
 		})
 	}
 
-	err = db.Connection.DeleteStoredBrowserActions(uint(id))
+	err = db.Connection().DeleteStoredBrowserActions(uint(id))
 	if err != nil {
 		log.Error().Err(err).Msg("Error deleting StoredBrowserActions")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -304,7 +304,7 @@ func ListStoredBrowserActions(c *fiber.Ctx) error {
 		})
 	}
 
-	items, count, err := db.Connection.ListStoredBrowserActions(*filter)
+	items, count, err := db.Connection().ListStoredBrowserActions(*filter)
 	if err != nil {
 		log.Error().Err(err).Msg("Error listing StoredBrowserActions")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	stdlog "log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/spf13/viper"
@@ -19,20 +20,56 @@ type DatabaseConnection struct {
 	sqlDb *sql.DB
 }
 
-var Connection = InitDb()
+var (
+	connection *DatabaseConnection
+	once       sync.Once
+	mutex      sync.Mutex
+)
 
-func InitDb() *DatabaseConnection {
+// Connection returns the singleton database connection
+func Connection() *DatabaseConnection {
+	once.Do(func() {
+		connection = initDb()
+	})
+	return connection
+}
+
+// Close closes the database connection
+func (dc *DatabaseConnection) Close() {
+	if dc.sqlDb != nil {
+		dc.sqlDb.Close()
+	}
+}
+
+// DB returns the GORM database connection
+func (dc *DatabaseConnection) DB() *gorm.DB {
+	return dc.db
+}
+
+// RawDB returns the underlying sql.DB connection
+func (dc *DatabaseConnection) RawDB() *sql.DB {
+	return dc.sqlDb
+}
+
+func initDb() *DatabaseConnection {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// Return existing connection if already initialized
+	if connection != nil {
+		return connection
+	}
+
 	// Set up viper to read from the environment
 	viper.AutomaticEnv()
-
-	var dialector gorm.Dialector
 
 	dsn := viper.GetString("POSTGRES_DSN")
 	if dsn == "" {
 		log.Error().Msg("POSTGRES_DSN environment variable not set")
 		os.Exit(1)
 	}
-	dialector = postgres.Open(dsn)
+
+	dialector := postgres.Open(dsn)
 
 	newLogger := logger.New(
 		stdlog.New(os.Stdout, "\r\n", stdlog.LstdFlags),
@@ -44,6 +81,7 @@ func InitDb() *DatabaseConnection {
 			Colorful:                  false,
 		},
 	)
+
 	db, err := gorm.Open(dialector, &gorm.Config{
 		Logger: newLogger,
 	})
@@ -51,6 +89,8 @@ func InitDb() *DatabaseConnection {
 		log.Error().Err(err).Msg("Failed to connect to database")
 		os.Exit(1)
 	}
+
+	// Create PostgreSQL enum and extensions
 	sql := `DO $$ BEGIN
 		CREATE TYPE severity AS ENUM ('Unknown', 'Info', 'Low', 'Medium', 'High', 'Critical');
 	EXCEPTION
@@ -59,33 +99,72 @@ func InitDb() *DatabaseConnection {
 	db.Exec(sql)
 	db.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`)
 
-	// Migrate Issue separately after enum creation
-	// if err := db.AutoMigrate(&Issue{}); err != nil {
-	// 	log.Error().Err(err).Msg("Failed to migrate Issue table")
-	// 	os.Exit(1)
-	// }
-
-	// Migrate other tables
-	if err := db.AutoMigrate(&Workspace{}, &History{}, &Issue{}, &OOBTest{}, &OOBInteraction{}, &Task{}, &TaskJob{}, &WebSocketConnection{}, &WebSocketMessage{}, &JsonWebToken{}, &WorkspaceCookie{}, &StoredBrowserActions{}, &User{}, &RefreshToken{}); err != nil {
-		log.Error().Err(err).Msg("Failed to migrate other tables")
+	// Migrate models
+	if err := db.AutoMigrate(
+		&Workspace{},
+		&History{},
+		&Issue{},
+		&OOBTest{},
+		&OOBInteraction{},
+		&Task{},
+		&TaskJob{},
+		&WebSocketConnection{},
+		&WebSocketMessage{},
+		&JsonWebToken{},
+		&WorkspaceCookie{},
+		&StoredBrowserActions{},
+		&User{},
+		&RefreshToken{},
+		&PlaygroundCollection{},
+		&PlaygroundSession{}); err != nil {
+		log.Error().Err(err).Msg("Failed to migrate tables")
 		os.Exit(1)
 	}
 
-	if err := db.AutoMigrate(&PlaygroundCollection{}, &PlaygroundSession{}); err != nil {
-		log.Error().Err(err).Msg("Failed to migrate PlaygroundCollection or PlaygroundSession table")
-		os.Exit(1)
-	}
 	sqlDB, err := db.DB()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get underlying database connection")
 		os.Exit(1)
 	}
-	sqlDB.SetMaxIdleConns(viper.GetInt("db.max_idle_conns"))
-	sqlDB.SetMaxOpenConns(viper.GetInt("db.max_open_conns"))
-	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	maxIdleConns := viper.GetInt("db.max_idle_conns")
+	if maxIdleConns == 0 {
+		maxIdleConns = 5
+	}
+
+	maxOpenConns := viper.GetInt("db.max_open_conns")
+	if maxOpenConns == 0 {
+		maxOpenConns = 20
+	}
+
+	connMaxLifetime := viper.GetDuration("db.conn_max_lifetime")
+	if connMaxLifetime == 0 {
+		connMaxLifetime = 1 * time.Hour
+	}
+
+	log.Info().
+		Int("max_idle_conns", maxIdleConns).
+		Int("max_open_conns", maxOpenConns).
+		Dur("conn_max_lifetime", connMaxLifetime).
+		Msg("Configuring database connection pool")
+
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetConnMaxLifetime(connMaxLifetime)
 
 	return &DatabaseConnection{
 		db:    db,
 		sqlDb: sqlDB,
+	}
+}
+
+// Cleanup closes the database connection
+func Cleanup() {
+	if connection != nil {
+		if connection.sqlDb != nil {
+			log.Info().Msg("Closing database connection")
+			connection.sqlDb.Close()
+		}
+		connection = nil
 	}
 }

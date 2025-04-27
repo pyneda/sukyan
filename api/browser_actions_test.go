@@ -17,7 +17,7 @@ func TestCreateStoredBrowserActions(t *testing.T) {
 	app := fiber.New()
 	app.Post("/api/v1/browser-actions", CreateStoredBrowserActions)
 
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Code:        "test-browser-actions",
 		Title:       "Test Browser Actions Workspace",
 		Description: "Temporary workspace for browser actions tests",
@@ -61,7 +61,7 @@ func TestUpdateStoredBrowserActions(t *testing.T) {
 	app := fiber.New()
 	app.Put("/api/v1/browser-actions/:id", UpdateStoredBrowserActions)
 
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Code:        "test-browser-actions-update",
 		Title:       "Test Browser Actions Update Workspace",
 		Description: "Temporary workspace for browser actions update tests",
@@ -79,7 +79,7 @@ func TestUpdateStoredBrowserActions(t *testing.T) {
 		WorkspaceID: &workspace.ID,
 	}
 
-	createdSBA, err := db.Connection.CreateStoredBrowserActions(&db.StoredBrowserActions{
+	createdSBA, err := db.Connection().CreateStoredBrowserActions(&db.StoredBrowserActions{
 		Title:       initialInput.Title,
 		Actions:     initialInput.Actions,
 		Scope:       initialInput.Scope,
@@ -119,7 +119,7 @@ func TestCreateStoredBrowserActionsValidation(t *testing.T) {
 	app := fiber.New()
 	app.Post("/api/v1/browser-actions", CreateStoredBrowserActions)
 
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Code:        "test-browser-actions-validation",
 		Title:       "Test Browser Actions Validation",
 		Description: "Workspace for browser actions validation tests",
@@ -187,7 +187,7 @@ func TestUpdateStoredBrowserActionsValidation(t *testing.T) {
 	app := fiber.New()
 	app.Put("/api/v1/browser-actions/:id", UpdateStoredBrowserActions)
 
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Code:        "test-browser-actions-update-validation",
 		Title:       "Test Browser Actions Update Validation",
 		Description: "Workspace for browser actions update validation tests",
@@ -205,7 +205,7 @@ func TestUpdateStoredBrowserActionsValidation(t *testing.T) {
 		WorkspaceID: &workspace.ID,
 	}
 
-	createdSBA, err := db.Connection.CreateStoredBrowserActions(&db.StoredBrowserActions{
+	createdSBA, err := db.Connection().CreateStoredBrowserActions(&db.StoredBrowserActions{
 		Title:       validInput.Title,
 		Actions:     validInput.Actions,
 		Scope:       validInput.Scope,

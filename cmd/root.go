@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 
 	"github.com/rs/zerolog"
@@ -21,9 +22,18 @@ var prettyLogs bool
 var rootCmd = &cobra.Command{
 	Use:   "sukyan",
 	Short: `A web application vulnerability scanner`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		lib.ZeroConsoleAndFileLog()
+		if debugLogging {
+			zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		} else {
+			zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		}
+		return nil
+	},
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		db.Cleanup()
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -39,15 +49,6 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&debugLogging, "debug", false, "Use debug level logging")
 	rootCmd.PersistentFlags().BoolVar(&prettyLogs, "pretty", true, "Use pretty logging instead JSON")
 
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		lib.ZeroConsoleAndFileLog()
-		if debugLogging {
-			zerolog.SetGlobalLevel(zerolog.DebugLevel)
-		} else {
-			zerolog.SetGlobalLevel(zerolog.InfoLevel)
-		}
-		return nil
-	}
 }
 
 // initConfig reads in config file and ENV variables if set.

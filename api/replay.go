@@ -49,7 +49,7 @@ func ReplayRequest(c *fiber.Ctx) error {
 		})
 	}
 
-	session, err := db.Connection.GetPlaygroundSession(input.SessionID)
+	session, err := db.Connection().GetPlaygroundSession(input.SessionID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Invalid session",
@@ -61,7 +61,7 @@ func ReplayRequest(c *fiber.Ctx) error {
 	log.Debug().Interface("actions", input.BrowserActions).Msg("Replay request browser actions")
 
 	if input.Mode == "browser" && input.BrowserActions.PreRequestActionID != nil {
-		pre, err := db.Connection.GetStoredBrowserActionsByID(*input.BrowserActions.PreRequestActionID)
+		pre, err := db.Connection().GetStoredBrowserActionsByID(*input.BrowserActions.PreRequestActionID)
 		log.Info().Interface("actions", pre).Uint("id", pre.ID).Msg("Pre replay request actions")
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -73,7 +73,7 @@ func ReplayRequest(c *fiber.Ctx) error {
 	}
 
 	if input.Mode == "browser" && input.BrowserActions.PostRequestActionID != nil {
-		post, err := db.Connection.GetStoredBrowserActionsByID(*input.BrowserActions.PostRequestActionID)
+		post, err := db.Connection().GetStoredBrowserActionsByID(*input.BrowserActions.PostRequestActionID)
 		log.Info().Interface("actions", post).Uint("id", post.ID).Msg("Post replay request actions")
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{

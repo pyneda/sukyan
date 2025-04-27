@@ -18,7 +18,7 @@ func TestFindInteractions(t *testing.T) {
 	app := fiber.New()
 
 	app.Get("/interactions", FindInteractions)
-	workspace, err := db.Connection.GetOrCreateWorkspace(&db.Workspace{
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
 		Title: "Interactions Workspace",
 		Code:  "interactions-workspace",
 	})
@@ -42,7 +42,7 @@ func TestGetInteractionDetail(t *testing.T) {
 		Title: "Interactions Workspace",
 		Code:  "interactions-workspace",
 	}
-	_, err := db.Connection.CreateWorkspace(&workspace)
+	_, err := db.Connection().CreateWorkspace(&workspace)
 	assert.Nil(t, err)
 
 	// Create OOBTest
@@ -56,7 +56,7 @@ func TestGetInteractionDetail(t *testing.T) {
 		InsertionPoint:    "query",
 		WorkspaceID:       &workspace.ID,
 	}
-	test, err = db.Connection.CreateOOBTest(test)
+	test, err = db.Connection().CreateOOBTest(test)
 	assert.Nil(t, err)
 
 	// Create OOBInteraction
@@ -72,7 +72,7 @@ func TestGetInteractionDetail(t *testing.T) {
 		Timestamp:     time.Now(),
 		WorkspaceID:   &workspace.ID,
 	}
-	createdInteraction, err := db.Connection.CreateInteraction(&interaction)
+	createdInteraction, err := db.Connection().CreateInteraction(&interaction)
 	assert.Nil(t, err)
 
 	req := httptest.NewRequest("GET", "/api/v1/interactions/"+strconv.Itoa(int(createdInteraction.ID)), nil)

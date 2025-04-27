@@ -50,7 +50,7 @@ func UserSignIn(c *fiber.Ctx) error {
 	}
 
 	// Get user by email.
-	foundUser, err := db.Connection.GetUserByEmail(signIn.Email)
+	foundUser, err := db.Connection().GetUserByEmail(signIn.Email)
 	if err != nil {
 		// Return, if user not found.
 		return c.JSON(fiber.Map{
@@ -85,7 +85,7 @@ func UserSignIn(c *fiber.Ctx) error {
 
 	// Save refresh token to database.
 	refreshToken := &db.RefreshToken{UserID: foundUser.ID, Token: tokens.Refresh}
-	if err := db.Connection.CreateRefreshToken(refreshToken); err != nil {
+	if err := db.Connection().CreateRefreshToken(refreshToken); err != nil {
 		// Return status 500 and token save error.
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": true,
@@ -136,7 +136,7 @@ func UserSignOut(c *fiber.Ctx) error {
 	}
 
 	// Delete refresh token from database.
-	if err := db.Connection.DeleteRefreshToken(userIDUUID); err != nil {
+	if err := db.Connection().DeleteRefreshToken(userIDUUID); err != nil {
 		// Return status 500 and token deletion error.
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": true,

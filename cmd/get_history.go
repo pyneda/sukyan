@@ -35,7 +35,7 @@ var historyCmd = &cobra.Command{
 				return
 			}
 		}
-		items, _, err := db.Connection.ListHistory(db.HistoryFilter{
+		items, _, err := db.Connection().ListHistory(db.HistoryFilter{
 			StatusCodes:          filterStatusCodes,
 			ResponseContentTypes: filterContentTypes,
 			Methods:              filterMethods,

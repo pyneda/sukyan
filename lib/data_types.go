@@ -37,6 +37,7 @@ const (
 	TypeHTML    DataType = "HTML"
 	TypeJSCode  DataType = "JavaScript Code"
 	TypeString  DataType = "String"
+	TypeNull    DataType = "Null"
 )
 
 func isCommaSeparatedList(s string) bool {
@@ -138,6 +139,10 @@ func GuessDataType(s string) DataType {
 	}
 	if isJS {
 		return TypeJSCode
+	}
+
+	if strings.EqualFold(s, "null") {
+		return TypeNull
 	}
 
 	isHex := regexp.MustCompile(`\b[0-9a-fA-F]+\b`)

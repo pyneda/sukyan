@@ -17,6 +17,7 @@ import (
 
 type InsertionPointType string
 
+// HTTP insertion point types
 const (
 	InsertionPointTypeParameter InsertionPointType = "parameter"
 	InsertionPointTypeHeader    InsertionPointType = "header"
@@ -26,6 +27,237 @@ const (
 	InsertionPointTypeFullBody  InsertionPointType = "fullbody"
 )
 
+// WebSocket general insertion point types
+const (
+	InsertionPointTypeWSRawMessage InsertionPointType = "ws_raw_message"
+)
+
+// WebSocket JSON insertion point types
+const (
+	InsertionPointTypeWSJSONField      InsertionPointType = "ws_json_field"      // Any JSON field
+	InsertionPointTypeWSJSONValue      InsertionPointType = "ws_json_value"      // Value in a key-value pair
+	InsertionPointTypeWSJSONKey        InsertionPointType = "ws_json_key"        // Key in a key-value pair
+	InsertionPointTypeWSJSONArrayItem  InsertionPointType = "ws_json_array_item" // Array item
+	InsertionPointTypeWSJSONArrayIndex InsertionPointType = "ws_json_array_idx"  // Array index (position)
+	InsertionPointTypeWSJSONObject     InsertionPointType = "ws_json_object"     // Entire object
+	InsertionPointTypeWSJSONArray      InsertionPointType = "ws_json_array"      // Entire array
+)
+
+// WebSocket XML insertion point types
+const (
+	InsertionPointTypeWSXMLElement    InsertionPointType = "ws_xml_element"    // Element value/content
+	InsertionPointTypeWSXMLTag        InsertionPointType = "ws_xml_tag"        // Tag name itself
+	InsertionPointTypeWSXMLAttribute  InsertionPointType = "ws_xml_attribute"  // XML attribute value
+	InsertionPointTypeWSXMLNamespace  InsertionPointType = "ws_xml_namespace"  // Namespace value
+	InsertionPointTypeWSXMLNSPrefix   InsertionPointType = "ws_xml_ns_prefix"  // Namespace prefix
+	InsertionPointTypeWSXMLProcessing InsertionPointType = "ws_xml_processing" // Processing instruction
+)
+
+// String provides a string representation of the insertion point type
+func (ipt InsertionPointType) String() string {
+	return string(ipt)
+}
+
+// HumanReadableName returns a user-friendly name for the insertion point type
+func (ipt InsertionPointType) HumanReadableName() string {
+	switch ipt {
+	case InsertionPointTypeParameter:
+		return "URL Parameter"
+	case InsertionPointTypeHeader:
+		return "HTTP Header"
+	case InsertionPointTypeBody:
+		return "Request Body Field"
+	case InsertionPointTypeCookie:
+		return "Cookie"
+	case InsertionPointTypeURLPath:
+		return "URL Path Component"
+	case InsertionPointTypeFullBody:
+		return "Full Request Body"
+
+	// WebSocket JSON types
+	case InsertionPointTypeWSJSONField:
+		return "WebSocket JSON Field"
+	case InsertionPointTypeWSJSONValue:
+		return "WebSocket JSON Value"
+	case InsertionPointTypeWSJSONKey:
+		return "WebSocket JSON Key"
+	case InsertionPointTypeWSJSONArrayItem:
+		return "WebSocket JSON Array Item"
+	case InsertionPointTypeWSJSONArrayIndex:
+		return "WebSocket JSON Array Index"
+	case InsertionPointTypeWSJSONObject:
+		return "WebSocket JSON Object"
+	case InsertionPointTypeWSJSONArray:
+		return "WebSocket JSON Array"
+
+	// WebSocket XML types
+	case InsertionPointTypeWSXMLElement:
+		return "WebSocket XML Element Value"
+	case InsertionPointTypeWSXMLTag:
+		return "WebSocket XML Tag Name"
+	case InsertionPointTypeWSXMLAttribute:
+		return "WebSocket XML Attribute"
+	case InsertionPointTypeWSXMLNamespace:
+		return "WebSocket XML Namespace"
+	case InsertionPointTypeWSXMLNSPrefix:
+		return "WebSocket XML Namespace Prefix"
+	case InsertionPointTypeWSXMLProcessing:
+		return "WebSocket XML Processing Instruction"
+	case InsertionPointTypeWSRawMessage:
+		return "WebSocket Raw Message"
+	default:
+		return fmt.Sprintf("Unknown (%s)", string(ipt))
+	}
+}
+
+// AllInsertionPointTypes returns all supported insertion point types
+func AllInsertionPointTypes() []InsertionPointType {
+	return []InsertionPointType{
+		// HTTP types
+		InsertionPointTypeParameter,
+		InsertionPointTypeHeader,
+		InsertionPointTypeBody,
+		InsertionPointTypeCookie,
+		InsertionPointTypeURLPath,
+		InsertionPointTypeFullBody,
+
+		// WebSocket JSON types
+		InsertionPointTypeWSJSONField,
+		InsertionPointTypeWSJSONValue,
+		InsertionPointTypeWSJSONKey,
+		InsertionPointTypeWSJSONArrayItem,
+		InsertionPointTypeWSJSONArrayIndex,
+		InsertionPointTypeWSJSONObject,
+		InsertionPointTypeWSJSONArray,
+
+		// WebSocket XML types
+		InsertionPointTypeWSXMLElement,
+		InsertionPointTypeWSXMLTag,
+		InsertionPointTypeWSXMLAttribute,
+		InsertionPointTypeWSXMLNamespace,
+		InsertionPointTypeWSXMLNSPrefix,
+		InsertionPointTypeWSXMLProcessing,
+
+		// WebSocket general types
+		InsertionPointTypeWSRawMessage,
+	}
+}
+
+// HTTPInsertionPointTypes returns all HTTP-specific insertion point types
+func HTTPInsertionPointTypes() []InsertionPointType {
+	return []InsertionPointType{
+		InsertionPointTypeParameter,
+		InsertionPointTypeHeader,
+		InsertionPointTypeBody,
+		InsertionPointTypeCookie,
+		InsertionPointTypeURLPath,
+		InsertionPointTypeFullBody,
+	}
+}
+
+// WebSocketInsertionPointTypes returns all WebSocket-specific insertion point types
+func WebSocketInsertionPointTypes() []InsertionPointType {
+	return []InsertionPointType{
+		InsertionPointTypeWSJSONField,
+		InsertionPointTypeWSJSONValue,
+		InsertionPointTypeWSJSONKey,
+		InsertionPointTypeWSJSONArrayItem,
+		InsertionPointTypeWSJSONArrayIndex,
+		InsertionPointTypeWSJSONObject,
+		InsertionPointTypeWSJSONArray,
+
+		InsertionPointTypeWSXMLElement,
+		InsertionPointTypeWSXMLTag,
+		InsertionPointTypeWSXMLAttribute,
+		InsertionPointTypeWSXMLNamespace,
+		InsertionPointTypeWSXMLNSPrefix,
+		InsertionPointTypeWSXMLProcessing,
+
+		InsertionPointTypeWSRawMessage,
+	}
+}
+
+// WebSocketXMLInsertionPointTypes returns XML-specific WebSocket insertion point types
+func WebSocketXMLInsertionPointTypes() []InsertionPointType {
+	return []InsertionPointType{
+		InsertionPointTypeWSXMLElement,
+		InsertionPointTypeWSXMLTag,
+		InsertionPointTypeWSXMLAttribute,
+		InsertionPointTypeWSXMLNamespace,
+		InsertionPointTypeWSXMLNSPrefix,
+		InsertionPointTypeWSXMLProcessing,
+	}
+}
+
+// IsWebSocketType returns true if the insertion point type is WebSocket-specific
+func (ipt InsertionPointType) IsWebSocketType() bool {
+	switch ipt {
+	case InsertionPointTypeWSJSONField,
+		InsertionPointTypeWSJSONValue,
+		InsertionPointTypeWSJSONKey,
+		InsertionPointTypeWSJSONArrayItem,
+		InsertionPointTypeWSJSONArrayIndex,
+		InsertionPointTypeWSJSONObject,
+		InsertionPointTypeWSJSONArray:
+		return true
+
+	case InsertionPointTypeWSXMLElement,
+		InsertionPointTypeWSXMLTag,
+		InsertionPointTypeWSXMLAttribute,
+		InsertionPointTypeWSXMLNamespace,
+		InsertionPointTypeWSXMLNSPrefix,
+		InsertionPointTypeWSXMLProcessing:
+		return true
+
+	case InsertionPointTypeWSRawMessage:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsHTTPType returns true if the insertion point type is HTTP-specific
+func (ipt InsertionPointType) IsHTTPType() bool {
+	switch ipt {
+	case InsertionPointTypeParameter, InsertionPointTypeHeader, InsertionPointTypeBody,
+		InsertionPointTypeCookie, InsertionPointTypeURLPath, InsertionPointTypeFullBody:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsXMLType returns true if the insertion point type is XML-specific
+func (ipt InsertionPointType) IsXMLType() bool {
+	switch ipt {
+	case InsertionPointTypeWSXMLElement,
+		InsertionPointTypeWSXMLTag,
+		InsertionPointTypeWSXMLAttribute,
+		InsertionPointTypeWSXMLNamespace,
+		InsertionPointTypeWSXMLNSPrefix,
+		InsertionPointTypeWSXMLProcessing:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsJSONType returns true if the insertion point type is JSON-specific
+func (ipt InsertionPointType) IsJSONType() bool {
+	switch ipt {
+	case InsertionPointTypeWSJSONField,
+		InsertionPointTypeWSJSONValue,
+		InsertionPointTypeWSJSONKey,
+		InsertionPointTypeWSJSONArrayItem,
+		InsertionPointTypeWSJSONArrayIndex,
+		InsertionPointTypeWSJSONObject,
+		InsertionPointTypeWSJSONArray:
+		return true
+	default:
+		return false
+	}
+}
+
 type InsertionPoint struct {
 	Type         InsertionPointType
 	Name         string       // the name of the parameter/header/cookie
@@ -33,6 +265,10 @@ type InsertionPoint struct {
 	ValueType    lib.DataType // the type of the value (string, int, float, etc.)
 	OriginalData string       // the original data (URL, header string, body, cookie string) in which this insertion point was found
 	Behaviour    InsertionPointBehaviour
+}
+
+func (i *InsertionPoint) String() string {
+	return fmt.Sprintf("%s: %s", i.Type, i.Name)
 }
 
 type InsertionPointBehaviour struct {
@@ -50,8 +286,17 @@ type Transformation struct {
 	ToDatatype   lib.DataType
 }
 
-func (i *InsertionPoint) String() string {
-	return fmt.Sprintf("%s: %s", i.Type, i.Name)
+// WebSocketJSONInsertionPointTypes returns JSON-specific WebSocket insertion point types
+func WebSocketJSONInsertionPointTypes() []InsertionPointType {
+	return []InsertionPointType{
+		InsertionPointTypeWSJSONField,
+		InsertionPointTypeWSJSONValue,
+		InsertionPointTypeWSJSONKey,
+		InsertionPointTypeWSJSONArrayItem,
+		InsertionPointTypeWSJSONArrayIndex,
+		InsertionPointTypeWSJSONObject,
+		InsertionPointTypeWSJSONArray,
+	}
 }
 
 // Handle URL parameters

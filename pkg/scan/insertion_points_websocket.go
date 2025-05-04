@@ -18,7 +18,7 @@ func GetWebSocketMessageInsertionPoints(message *db.WebSocketMessage, scoped []s
 	var points []InsertionPoint
 
 	// Always add the raw message as an insertion point
-	if lib.SliceContains(scoped, "ws_raw") {
+	if lib.SliceContainsSubstring(scoped, "ws_raw") {
 		points = append(points, InsertionPoint{
 			Type:         InsertionPointTypeWSRawMessage,
 			Name:         "message",
@@ -29,7 +29,7 @@ func GetWebSocketMessageInsertionPoints(message *db.WebSocketMessage, scoped []s
 	}
 
 	// Try to determine if the message is JSON and extract JSON insertion points
-	if lib.SliceContains(scoped, "ws_json") && isLikelyJSON(message.PayloadData) {
+	if lib.SliceContainsSubstring(scoped, "ws_json") && isLikelyJSON(message.PayloadData) {
 		jsonPoints, err := extractJSONInsertionPoints(message.PayloadData)
 		if err != nil {
 			log.Debug().Err(err).Str("payload", message.PayloadData).Msg("Failed to extract JSON insertion points")
@@ -39,7 +39,7 @@ func GetWebSocketMessageInsertionPoints(message *db.WebSocketMessage, scoped []s
 	}
 
 	// Try to determine if the message is XML and extract XML insertion points
-	if lib.SliceContains(scoped, "ws_xml") && isLikelyXML(message.PayloadData) {
+	if lib.SliceContainsSubstring(scoped, "ws_xml") && isLikelyXML(message.PayloadData) {
 		xmlPoints, err := extractXMLInsertionPoints(message.PayloadData)
 		if err != nil {
 			log.Debug().Err(err).Str("payload", message.PayloadData).Msg("Failed to extract XML insertion points")

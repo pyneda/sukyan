@@ -65,6 +65,11 @@ func (f *TemplateScanner) checkConfig() {
 		f.client = http_utils.CreateHttpClient()
 	}
 
+	if f.Mode == "" {
+		log.Info().Interface("scanner", f).Msg("Mode is not set, setting smart as default")
+		f.Mode = options.ScanModeSmart
+	}
+
 }
 
 // shouldLaunch checks if the generator should be launched according to the launch conditions

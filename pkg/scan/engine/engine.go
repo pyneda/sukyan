@@ -98,7 +98,7 @@ func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 
 func (s *ScanEngine) scheduleActiveScan(item *db.History, options scan_options.HistoryItemScanOptions) {
 	s.activeScanPool.Go(func() {
-		taskJob, err := db.Connection().NewTaskJob(options.TaskID, "Active scan to "+item.URL, db.TaskJobScheduled, item.ID)
+		taskJob, err := db.Connection().NewTaskJob(options.TaskID, item.TaskTitle(), db.TaskJobScheduled, item.ID)
 		if err != nil {
 			log.Error().Err(err).Uint("history", item.ID).Msg("Could not create task job")
 			return
@@ -223,8 +223,14 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 		Sources:     []string{db.SourceCrawler},
 	})
 	if count > 0 {
-		go scan.EvaluateWebSocketConnections(websocketConnections, s.InteractionsManager, s.payloadGenerators, itemScanOptions)
-		scanLog.Info().Int64("count", count).Msg("Scheduled scan to the WebSocket connections discovered during crawl")
+		s.activeScanPool.Go(func() {
+			scanLog.Info().Int64("count", count).Msg("Scheduling scan to the WebSocket connections discovered during crawl")
+			s.wg.Go(func() {
+				scanLog.Info().Int64("count", count).Msg("Starting WebSocket connections scan")
+				scan.EvaluateWebSocketConnections(websocketConnections, s.InteractionsManager, s.payloadGenerators, itemScanOptions)
+				scanLog.Info().Int64("count", count).Msg("WebSocket connections scan finished")
+			})
+		})
 	} else {
 		scanLog.Info().Msg("No WebSocket connections discovered during crawl")
 	}

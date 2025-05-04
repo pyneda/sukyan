@@ -28,6 +28,10 @@ type WebSocketConnection struct {
 	Source          string             `json:"source"`
 }
 
+func (c WebSocketConnection) TaskTitle() string {
+	return fmt.Sprintf("[websocket] %s", c.URL)
+}
+
 func (c WebSocketConnection) TableHeaders() []string {
 	return []string{"ID", "URL", "StatusCode", "StatusText", "ClosedAt", "WorkspaceID", "TaskID", "Source"}
 }

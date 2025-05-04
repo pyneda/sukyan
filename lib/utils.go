@@ -37,6 +37,16 @@ func SliceContains(slice []string, item string) bool {
 	return ok
 }
 
+// SliceContainsSubstring utility function to check if any string in the slice contains the specified substring
+func SliceContainsSubstring(slice []string, item string) bool {
+	for _, s := range slice {
+		if strings.Contains(s, item) {
+			return true
+		}
+	}
+	return false
+}
+
 // SliceContainsInt utility function to check if a slice of integers contains the specified integer
 func SliceContainsInt(slice []int, item int) bool {
 	set := make(map[int]struct{}, len(slice))

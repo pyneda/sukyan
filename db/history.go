@@ -38,6 +38,10 @@ type History struct {
 	ResponseContentType string            `gorm:"index" json:"response_content_type"`
 }
 
+func (h History) TaskTitle() string {
+	return fmt.Sprintf("[%s] %s - %d", h.Method, h.URL, h.StatusCode)
+}
+
 func (h History) Logger() *zerolog.Logger {
 	logger := log.With().Uint("history", h.ID).Str("method", h.Method).Str("url", h.URL).Logger()
 	return &logger

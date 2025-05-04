@@ -18,14 +18,16 @@ var (
 
 type TaskJob struct {
 	BaseModel
-	Title       string        `json:"title"`
-	TaskID      uint          `json:"task_id"`
-	Task        Task          `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Status      TaskJobStatus `gorm:"index" json:"status"`
-	StartedAt   time.Time     `json:"started_at"`
-	CompletedAt time.Time     `json:"completed_at"`
-	HistoryID   uint          `json:"history_id"`
-	History     History       `json:"history" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Title                 string               `json:"title"`
+	TaskID                uint                 `json:"task_id"`
+	Task                  Task                 `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Status                TaskJobStatus        `gorm:"index" json:"status"`
+	StartedAt             time.Time            `json:"started_at"`
+	CompletedAt           time.Time            `json:"completed_at"`
+	HistoryID             *uint                `json:"history_id"`
+	History               History              `json:"history" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	WebsocketConnectionID *uint                `json:"websocket_connection_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	WebSocketConnection   *WebSocketConnection `json:"-" gorm:"foreignKey:WebsocketConnectionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 type TaskJobFilter struct {
@@ -114,7 +116,18 @@ func (d *DatabaseConnection) NewTaskJob(taskID uint, title string, status TaskJo
 		Status:    status,
 		Title:     title,
 		StartedAt: time.Now(),
-		HistoryID: historyID,
+		HistoryID: &historyID,
+	}
+	return d.CreateTaskJob(task)
+}
+
+func (d *DatabaseConnection) NewWebSocketTaskJob(taskID uint, title string, status TaskJobStatus, websocketConnectionID uint) (*TaskJob, error) {
+	task := &TaskJob{
+		TaskID:                taskID,
+		Status:                status,
+		Title:                 title,
+		StartedAt:             time.Now(),
+		WebsocketConnectionID: &websocketConnectionID,
 	}
 	return d.CreateTaskJob(task)
 }

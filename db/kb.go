@@ -139,3 +139,63 @@ func CreateIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnecti
 	log.Warn().Uint("id", createdIssue.ID).Str("issue", issue.Title).Str("url", connection.URL).Uint("workspace", workspaceIDValue).Uint("task", taskIDValue).Msg("New issue found")
 	return createdIssue, nil
 }
+
+// CreateIssueFromWebSocketMessage creates an issue from a WebSocket message
+func CreateIssueFromWebSocketMessage(message *WebSocketMessage, code IssueCode, details string, confidence int, severityOverride string, workspaceID, taskID, taskJobID *uint, connectionID *uint) (Issue, error) {
+	template := GetIssueTemplateByCode(code)
+
+	issue := Issue{
+		Code:                  string(code),
+		Title:                 template.Title,
+		Description:           template.Description,
+		Details:               details,
+		Remediation:           template.Remediation,
+		References:            template.References,
+		Cwe:                   template.Cwe,
+		Confidence:            confidence,
+		WebsocketConnectionID: connectionID,
+		Payload:               message.PayloadData,
+		WorkspaceID:           workspaceID,
+		TaskID:                taskID,
+		TaskJobID:             taskJobID,
+	}
+
+	// Get connection details
+	if connectionID != nil && *connectionID > 0 {
+		connection, err := Connection().GetWebSocketConnection(*connectionID)
+		if err != nil {
+			log.Error().Err(err).Uint("connection_id", *connectionID).Msg("Error retrieving WebSocket connection")
+			// Continue even if connection retrieval fails
+		} else {
+			issue.URL = connection.URL
+			issue.Request = []byte(connection.RequestHeaders)
+			issue.Response = []byte(connection.ResponseHeaders)
+			issue.StatusCode = connection.StatusCode
+			issue.HTTPMethod = "WEBSOCKET"
+		}
+	}
+
+	// Override severity if specified
+	if severityOverride != "" {
+		issue.Severity = NewSeverity(severityOverride)
+	} else {
+		issue.Severity = template.Severity
+	}
+
+	// Save the issue to the database
+	err := Connection().db.Create(&issue).Error
+	if err != nil {
+		log.Error().Err(err).Interface("issue", issue).Msg("Error creating issue from WebSocket message")
+		return Issue{}, fmt.Errorf("error creating issue: %w", err)
+	}
+
+	log.Info().
+		Uint("id", issue.ID).
+		Str("code", issue.Code).
+		Str("title", issue.Title).
+		Str("url", issue.URL).
+		Int("confidence", issue.Confidence).
+		Msg("Created issue from WebSocket message")
+
+	return issue, nil
+}

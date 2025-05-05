@@ -48,6 +48,7 @@ type AuditCategories struct {
 	ServerSide bool `json:"server_side"`
 	ClientSide bool `json:"client_side"`
 	Passive    bool `json:"passive"`
+	WebSocket  bool `json:"websocket"`
 }
 
 type HistoryItemScanOptions struct {

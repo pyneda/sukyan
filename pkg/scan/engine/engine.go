@@ -224,14 +224,18 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 		Sources:     []string{db.SourceCrawler},
 	})
 	if count > 0 {
-		s.activeScanPool.Go(func() {
-			scanLog.Info().Int64("count", count).Msg("Scheduling scan to the WebSocket connections discovered during crawl")
-			s.wg.Go(func() {
-				scanLog.Info().Int64("count", count).Msg("Starting WebSocket connections scan")
-				s.EvaluateWebSocketConnections(websocketConnections, itemScanOptions)
-				scanLog.Info().Int64("count", count).Msg("WebSocket connections scan finished")
+		if options.AuditCategories.WebSocket {
+			s.activeScanPool.Go(func() {
+				scanLog.Info().Int64("count", count).Msg("Scheduling scan to the WebSocket connections discovered during crawl")
+				s.wg.Go(func() {
+					scanLog.Info().Int64("count", count).Msg("Starting WebSocket connections scan")
+					s.EvaluateWebSocketConnections(websocketConnections, itemScanOptions)
+					scanLog.Info().Int64("count", count).Msg("WebSocket connections scan finished")
+				})
 			})
-		})
+		} else {
+			scanLog.Info().Int64("count", count).Msg("WebSocket connections discovered during crawl, skipping scanning as WebSocket audit category is disabled")
+		}
 	} else {
 		scanLog.Info().Msg("No WebSocket connections discovered during crawl")
 	}

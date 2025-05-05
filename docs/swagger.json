@@ -3130,26 +3130,11 @@
                         "type": "integer"
                     }
                 },
-                "request_body": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
                 "request_body_size": {
-                    "type": "integer"
-                },
-                "request_content_length": {
                     "type": "integer"
                 },
                 "request_content_type": {
                     "type": "string"
-                },
-                "response_body": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
                 },
                 "response_body_size": {
                     "type": "integer"
@@ -4232,6 +4217,9 @@
                     "type": "boolean"
                 },
                 "server_side": {
+                    "type": "boolean"
+                },
+                "websocket": {
                     "type": "boolean"
                 }
             }

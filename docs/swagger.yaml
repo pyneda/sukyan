@@ -436,20 +436,10 @@ definitions:
         items:
           type: integer
         type: array
-      request_body:
-        items:
-          type: integer
-        type: array
       request_body_size:
-        type: integer
-      request_content_length:
         type: integer
       request_content_type:
         type: string
-      response_body:
-        items:
-          type: integer
-        type: array
       response_body_size:
         type: integer
       response_content_type:
@@ -1199,6 +1189,8 @@ definitions:
       passive:
         type: boolean
       server_side:
+        type: boolean
+      websocket:
         type: boolean
     type: object
   options.FullScanOptions:

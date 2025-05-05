@@ -151,6 +151,7 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 				ServerSide: true,
 				ClientSide: true,
 				Passive:    true,
+				WebSocket:  true,
 			},
 		}
 		e.ScheduleHistoryItemScan(&item, engine.ScanJobTypeActive, options)
@@ -196,7 +197,7 @@ func FullScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	if !input.AuditCategories.ServerSide && !input.AuditCategories.ClientSide && !input.AuditCategories.Passive {
+	if !input.AuditCategories.ServerSide && !input.AuditCategories.ClientSide && !input.AuditCategories.Passive && !input.AuditCategories.Discovery && !input.AuditCategories.WebSocket {
 		// return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 		// 	"error":   "Invalid audit categories",
 		// 	"message": "At least one audit category must be enabled",
@@ -206,6 +207,8 @@ func FullScanHandler(c *fiber.Ctx) error {
 		input.AuditCategories.ServerSide = true
 		input.AuditCategories.ClientSide = true
 		input.AuditCategories.Passive = true
+		input.AuditCategories.Discovery = true
+		input.AuditCategories.WebSocket = true
 	}
 
 	if input.Title == "" {

@@ -35,6 +35,7 @@ var serverSideChecks bool
 var clientSideChecks bool
 var passiveChecks bool
 var discoveryChecks bool
+var websocketChecks bool
 
 var validate = validator.New()
 
@@ -113,6 +114,7 @@ var scanCmd = &cobra.Command{
 				ClientSide: clientSideChecks,
 				Passive:    passiveChecks,
 				Discovery:  discoveryChecks,
+				WebSocket:  websocketChecks,
 			},
 		}
 		if err := validate.Struct(options); err != nil {
@@ -165,4 +167,5 @@ func init() {
 	scanCmd.Flags().BoolVar(&clientSideChecks, "client-side", true, "Enable client-side audits")
 	scanCmd.Flags().BoolVar(&passiveChecks, "passive", true, "Enable passive audits")
 	scanCmd.Flags().BoolVar(&discoveryChecks, "discovery", true, "Enable content discovery audits")
+	scanCmd.Flags().BoolVar(&websocketChecks, "websocket", true, "Enable WebSocket audits")
 }

@@ -141,7 +141,7 @@ func CreateIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnecti
 }
 
 // CreateIssueFromWebSocketMessage creates an issue from a WebSocket message
-func CreateIssueFromWebSocketMessage(message *WebSocketMessage, code IssueCode, details string, confidence int, severityOverride string, workspaceID, taskID, taskJobID *uint, connectionID *uint) (Issue, error) {
+func CreateIssueFromWebSocketMessage(message *WebSocketMessage, code IssueCode, details string, confidence int, severityOverride string, workspaceID, taskID, taskJobID, connectionID, upgradeRequestID *uint) (Issue, error) {
 	template := GetIssueTemplateByCode(code)
 
 	issue := Issue{
@@ -158,6 +158,17 @@ func CreateIssueFromWebSocketMessage(message *WebSocketMessage, code IssueCode, 
 		WorkspaceID:           workspaceID,
 		TaskID:                taskID,
 		TaskJobID:             taskJobID,
+	}
+
+	upgradeRequest, err := Connection().GetHistoryByID(*upgradeRequestID)
+	if err != nil {
+		log.Error().Err(err).Uint("upgrade_request_id", *upgradeRequestID).Msg("Error retrieving upgrade request while creating issue")
+	} else {
+		issue.URL = upgradeRequest.URL
+		issue.Request = upgradeRequest.RawRequest
+		issue.Response = upgradeRequest.RawResponse
+		issue.StatusCode = upgradeRequest.StatusCode
+		issue.HTTPMethod = upgradeRequest.Method
 	}
 
 	// Get connection details
@@ -183,7 +194,7 @@ func CreateIssueFromWebSocketMessage(message *WebSocketMessage, code IssueCode, 
 	}
 
 	// Save the issue to the database
-	err := Connection().db.Create(&issue).Error
+	err = Connection().db.Create(&issue).Error
 	if err != nil {
 		log.Error().Err(err).Interface("issue", issue).Msg("Error creating issue from WebSocket message")
 		return Issue{}, fmt.Errorf("error creating issue: %w", err)

@@ -39,7 +39,7 @@ type History struct {
 }
 
 func (h History) TaskTitle() string {
-	return fmt.Sprintf("[%s] %s - %d", h.Method, h.URL, h.StatusCode)
+	return fmt.Sprintf("Active scan %s", h.URL)
 }
 
 func (h History) Logger() *zerolog.Logger {

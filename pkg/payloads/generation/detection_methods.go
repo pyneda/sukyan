@@ -84,6 +84,12 @@ type TimeBasedDetectionMethod struct {
 }
 
 func (t *TimeBasedDetectionMethod) ParseSleepDuration(sleep string) time.Duration {
+	// try to parse the string directly as a duration (this handles formats like "5s", "100ms", "1.5m", etc)
+	duration, err := time.ParseDuration(sleep)
+	if err == nil {
+		return duration
+	}
+
 	sleepInt, err := strconv.Atoi(sleep)
 	if err != nil {
 		log.Error().Err(err).Str("sleep", sleep).Msg("Error converting sleep string to int")
@@ -101,8 +107,15 @@ func (t *TimeBasedDetectionMethod) ParseSleepDuration(sleep string) time.Duratio
 func (t *TimeBasedDetectionMethod) CheckIfResultDurationIsHigher(resultDuration time.Duration) bool {
 	sleepDuration := t.ParseSleepDuration(t.Sleep)
 
-	if sleepDuration != 0 && resultDuration >= sleepDuration {
-		return true
+	if sleepDuration == 0 {
+		log.Warn().Str("sleep", t.Sleep).Msg("Invalid sleep duration, cannot compare")
+		return false
 	}
-	return false
+
+	log.Debug().
+		Dur("actual", resultDuration).
+		Dur("expected", sleepDuration).
+		Msg("Comparing time-based detection durations")
+
+	return sleepDuration != 0 && resultDuration >= sleepDuration
 }

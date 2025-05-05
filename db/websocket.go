@@ -29,7 +29,7 @@ type WebSocketConnection struct {
 }
 
 func (c WebSocketConnection) TaskTitle() string {
-	return fmt.Sprintf("[websocket] %s", c.URL)
+	return fmt.Sprintf("WebSocket scan %s", c.URL)
 }
 
 func (c WebSocketConnection) TableHeaders() []string {

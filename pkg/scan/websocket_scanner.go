@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,10 +13,12 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
+	"gorm.io/datatypes"
 )
 
 // WebSocketScannerResult contains all the information about a WebSocket scan
@@ -35,6 +38,8 @@ type WebSocketScannerResult struct {
 	InsertionPoint    InsertionPoint
 	ObservationWindow time.Duration // How long we observed for responses
 	ElapsedTime       time.Duration // Total time of the test execution
+	StartTime         time.Time     // Start time of the test
+	PayloadSentAt     time.Time     // Time when the payload was sent
 
 	// Results
 	Issue *db.Issue
@@ -133,8 +138,24 @@ func (s *WebSocketScanner) shouldLaunch(conn *db.WebSocketConnection, generator 
 			if lib.SliceContains(condition.ParameterNames, insertionPoint.Name) {
 				conditionsMet++
 			}
+		case generation.ResponseCondition:
+			if condition.ResponseCondition.Part == generation.Headers {
+				if generator.Launch.Operator == generation.And || len(generator.Launch.Conditions) == 1 {
+					// websocket messages don't have headers, if we're using AND, we shouldn't be able to match
+					return false
+				}
+				conditionsMet--
+			} else {
+				conditionsMet++
+			}
+
+			if condition.ResponseCondition.StatusCode != 0 && (generator.Launch.Operator == generation.And || len(generator.Launch.Conditions) == 1) {
+				// websocket messages don't have status codes, if we're using AND, we shouldn't be able to match
+				return false
+			}
 
 		}
+
 	}
 
 	if generator.Launch.Operator == generation.Or {
@@ -276,7 +297,7 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 		result.ObservationWindow = s.ObservationWindow
 
 		// Load original messages
-		messages, _, err := db.Connection().ListWebSocketMessages(db.WebSocketMessageFilter{
+		originalMessages, _, err := db.Connection().ListWebSocketMessages(db.WebSocketMessageFilter{
 			ConnectionID: task.connection.ID,
 		})
 		if err != nil {
@@ -285,19 +306,17 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 			wg.Done()
 			continue
 		}
-		result.OriginalMessages = messages
+		result.OriginalMessages = originalMessages
 
-		if task.targetMessageIndex < 0 || task.targetMessageIndex >= len(messages) {
+		if task.targetMessageIndex < 0 || task.targetMessageIndex >= len(originalMessages) {
 			taskLog.Error().
 				Int("target_index", task.targetMessageIndex).
-				Int("messages_count", len(messages)).
+				Int("messages_count", len(originalMessages)).
 				Msg("Invalid target message index")
 			result.Err = fmt.Errorf("invalid target message index: %d", task.targetMessageIndex)
 			wg.Done()
 			continue
 		}
-
-		startTime := time.Now()
 
 		// Create a WebSocket connection
 		dialer, err := createWebSocketDialer(task.connection)
@@ -343,8 +362,11 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 			}
 		}
 
+		startTime := time.Now()
+		result.StartTime = startTime
+
 		// Connect to the WebSocket server
-		client, _, err := dialer.Dial(u.String(), httpHeaders)
+		client, upgradeResponse, err := dialer.Dial(u.String(), httpHeaders)
 		if err != nil {
 			taskLog.Error().Err(err).Msg("Failed to connect to WebSocket server")
 			result.Err = err
@@ -353,51 +375,49 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 		}
 		defer client.Close()
 
-		// Replay previous messages if needed to establish context
-		if task.options.ReplayMessages && task.targetMessageIndex > 0 {
-			err = replayPreviousMessages(client, messages, task.targetMessageIndex)
-			if err != nil {
-				taskLog.Error().Err(err).Msg("Failed to replay previous messages")
-				result.Err = err
-				wg.Done()
-				continue
-			}
-		}
-
-		// Prepare the modified message with payload
-		originalMessage := messages[task.targetMessageIndex]
-		modifiedMessage, err := CreateModifiedWebSocketMessage(
-			&originalMessage,
-			task.insertionPoint,
-			task.payload.Value,
-		)
+		// Create upgrade history for HTTP handshake
+		upgradeHistory, err := http_utils.ReadHttpResponseAndCreateHistory(upgradeResponse, http_utils.HistoryCreationOptions{
+			Source:              db.SourceScanner,
+			WorkspaceID:         uint(task.options.WorkspaceID),
+			TaskID:              uint(task.options.TaskID),
+			TaskJobID:           uint(task.options.TaskJobID),
+			CreateNewBodyStream: true,
+		})
 
 		if err != nil {
-			taskLog.Error().Err(err).Msg("Failed to inject payload into message")
-			result.Err = err
-			wg.Done()
-			continue
+			taskLog.Error().Err(err).Msg("Failed to create history from upgrade response, still trying to continue...")
 		}
-		result.ModifiedMessage = modifiedMessage
+
+		// Create a new WebSocketConnection record for this test
+		reqHeadersJSON, _ := json.Marshal(headers)
+		respHeadersMap := make(map[string][]string)
+		for k, v := range upgradeResponse.Header {
+			respHeadersMap[k] = v
+		}
+		respHeadersJSON, _ := json.Marshal(respHeadersMap)
+
+		newConnection := db.WebSocketConnection{
+			URL:             task.connection.URL,
+			RequestHeaders:  datatypes.JSON(reqHeadersJSON),
+			ResponseHeaders: datatypes.JSON(respHeadersJSON),
+			StatusCode:      upgradeResponse.StatusCode,
+			StatusText:      upgradeResponse.Status,
+			WorkspaceID:     &s.WorkspaceID,
+			TaskID:          &task.options.TaskID,
+			Source:          db.SourceScanner,
+		}
+
+		// Save the new connection to database
+		err = db.Connection().CreateWebSocketConnection(&newConnection)
+		if err != nil {
+			taskLog.Error().Err(err).Msg("Failed to save new WebSocket connection to database")
+			return
+		}
 
 		// Setup message collection
 		responseMessages := make([]db.WebSocketMessage, 0)
 		responseChan := make(chan db.WebSocketMessage, 100)
 		doneCollecting := make(chan struct{})
-
-		// Start collecting responses
-		go func() {
-			defer close(doneCollecting)
-
-			for {
-				select {
-				case msg := <-responseChan:
-					responseMessages = append(responseMessages, msg)
-				case <-time.After(s.ObservationWindow):
-					return
-				}
-			}
-		}()
 
 		// Start goroutine to read from the WebSocket
 		go func() {
@@ -415,7 +435,7 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 
 				// Create a WebSocketMessage from the received message
 				wsMessage := db.WebSocketMessage{
-					ConnectionID: task.connection.ID,
+					ConnectionID: newConnection.ID,
 					Opcode:       float64(messageType),
 					Mask:         false,
 					PayloadData:  string(message),
@@ -427,6 +447,39 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 			}
 		}()
 
+		// Replay previous messages if needed to establish context
+		if task.options.ReplayMessages && task.targetMessageIndex > 0 {
+			sentMessages, err := replayPreviousMessages(client, newConnection.ID, originalMessages, task.targetMessageIndex)
+			if err != nil {
+				taskLog.Error().Err(err).Msg("Failed to replay previous websocket messages")
+				result.Err = err
+				wg.Done()
+				continue
+			}
+
+			taskLog.Debug().Int("sent_messages", len(sentMessages)).Msg("Replayed previous WebSocket messages")
+
+		}
+
+		// Prepare the modified message with payload
+		originalMessage := originalMessages[task.targetMessageIndex]
+		modifiedMessage, err := CreateModifiedWebSocketMessage(
+			&originalMessage,
+			task.insertionPoint,
+			task.payload.Value,
+		)
+
+		if err != nil {
+			taskLog.Error().Err(err).Msg("Failed to inject payload into message")
+			result.Err = err
+			wg.Done()
+			continue
+		}
+
+		// Update the connection ID of the modified message to use the new connection
+		modifiedMessage.ConnectionID = newConnection.ID
+		result.ModifiedMessage = modifiedMessage
+
 		// Send the modified message
 		var messageType int
 		if modifiedMessage.Opcode == 1 {
@@ -434,6 +487,30 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 		} else {
 			messageType = websocket.BinaryMessage
 		}
+
+		// Start collecting responses
+		go func() {
+			defer close(doneCollecting)
+
+			for {
+				select {
+				case msg := <-responseChan:
+					responseMessages = append(responseMessages, msg)
+
+					// Save received message to the database
+					err := db.Connection().CreateWebSocketMessage(&msg)
+					if err != nil {
+						taskLog.Error().Err(err).Msg("Failed to save received WebSocket message")
+					}
+
+				case <-time.After(s.ObservationWindow):
+					return
+				}
+			}
+		}()
+
+		modifiedMessage.Timestamp = time.Now()
+		result.PayloadSentAt = modifiedMessage.Timestamp
 
 		err = client.WriteMessage(messageType, []byte(modifiedMessage.PayloadData))
 		if err != nil {
@@ -445,6 +522,12 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 			taskLog.Info().Str("payload", modifiedMessage.PayloadData).Msg("Sent modified WebSocket message")
 		}
 
+		// Store the modified message in the database
+		err = db.Connection().CreateWebSocketMessage(modifiedMessage)
+		if err != nil {
+			taskLog.Error().Err(err).Msg("Failed to save modified WebSocket message to database")
+		}
+
 		// Wait for the observation window to complete
 		<-doneCollecting
 
@@ -453,6 +536,13 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 		// Record results
 		result.ResponseMessages = responseMessages
 		result.ElapsedTime = time.Since(startTime)
+
+		// Update the connection's closed timestamp before finishing
+		newConnection.ClosedAt = time.Now()
+		err = db.Connection().UpdateWebSocketConnection(&newConnection)
+		if err != nil {
+			taskLog.Error().Err(err).Msg("Failed to update WebSocket connection close time")
+		}
 
 		// Evaluate result
 		vulnerable, details, confidence, err := s.EvaluateResult(result)
@@ -475,6 +565,7 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 				WorkspaceID:       &s.WorkspaceID,
 				TaskID:            &task.options.TaskID,
 				TaskJobID:         &task.options.TaskJobID,
+				HistoryID:         &upgradeHistory.ID,
 			}
 			db.Connection().CreateOOBTest(oobTest)
 			taskLog.Debug().Interface("oobTest", oobTest).Msg("Created OOB Test")
@@ -485,6 +576,7 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 			taskLog.Warn().Str("code", task.payload.IssueCode).Msg("Vulnerability found in WebSocket message, creating issue")
 
 			issueCode := db.IssueCode(task.payload.IssueCode)
+
 			fullDetails := fmt.Sprintf(
 				"The following payload was inserted in the `%s` %s of WebSocket message #%d: %s\n\n%s",
 				task.insertionPoint.Name,
@@ -502,7 +594,9 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 				&s.WorkspaceID,
 				&task.options.TaskID,
 				&task.options.TaskJobID,
-				&task.connection.ID)
+				&newConnection.ID,
+				&upgradeHistory.ID,
+			)
 
 			if err != nil {
 				taskLog.Error().Str("code", string(issueCode)).Err(err).Msg("Error creating issue")
@@ -611,12 +705,6 @@ func (s *WebSocketScanner) evaluateResponseCondition(result WebSocketScannerResu
 		}
 	}
 
-	// If contains is not specified, check if we received ANY response (we did if we got here)
-	if method.Contains == "" {
-		sb.WriteString(fmt.Sprintf("Received %d response messages\n", len(result.ResponseMessages)))
-		return true, sb.String(), method.Confidence, nil
-	}
-
 	return false, "", 0, nil
 }
 
@@ -634,16 +722,31 @@ func (s *WebSocketScanner) evaluateReflection(result WebSocketScannerResult, met
 
 // evaluateTimeBased checks if the scan execution took longer than expected
 func (s *WebSocketScanner) evaluateTimeBased(result WebSocketScannerResult, method *generation.TimeBasedDetectionMethod) (bool, string, int, error) {
-	if method.CheckIfResultDurationIsHigher(result.ElapsedTime) {
-		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("Test execution took %s, which is greater than the expected payload sleep time of %s\n",
-			result.ElapsedTime, method.Sleep))
+	matched := false
+	var sb strings.Builder
+	confidence := 0
 
-		// NOTE: Additional validation could be done here, similar to the http template scanner
-
-		return true, sb.String(), method.Confidence, nil
+	for i, msg := range result.ResponseMessages {
+		duration := msg.Timestamp.Sub(result.PayloadSentAt)
+		if method.CheckIfResultDurationIsHigher(duration) {
+			sb.WriteString(fmt.Sprintf("WebSocket response message #%d took %s, which is greater than the expected payload sleep time of %s\n", i, duration, method.Sleep))
+			sb.WriteString(fmt.Sprintf(" - Payload: %s\n", result.Payload.Value))
+			sb.WriteString(fmt.Sprintf(" - Payload sent at: %s\n", result.PayloadSentAt))
+			sb.WriteString(fmt.Sprintf(" - Response received at: %s\n\n", msg.Timestamp))
+			// NOTE: Additional validation could be done here, similar to the http template scanner
+			if confidence == 0 {
+				confidence = method.Confidence
+			} else {
+				confidence += 5
+			}
+			matched = true
+		}
 	}
-	return false, "", 0, nil
+
+	if confidence > 100 {
+		confidence = 100
+	}
+	return matched, sb.String(), confidence, nil
 }
 
 // evaluateResponseCheck checks for error patterns in WebSocket response messages

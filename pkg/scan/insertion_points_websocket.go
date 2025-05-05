@@ -361,6 +361,7 @@ func extractXMLInsertionPoints(data string) ([]InsertionPoint, error) {
 func CreateModifiedWebSocketMessage(original *db.WebSocketMessage, insertionPoint InsertionPoint, payload string) (*db.WebSocketMessage, error) {
 	// Create a new message based on the original
 	modified := *original
+	modified.ID = 0
 
 	switch insertionPoint.Type {
 	case InsertionPointTypeWSRawMessage:

@@ -78,7 +78,7 @@ func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsMan
 
 	log.Info().Uint("connection", item.ID).Int("messages", len(messages)).Msg("Found messages to replay")
 	scanner := WebSocketScanner{
-		Concurrency:         4,
+		Concurrency:         6,
 		InteractionsManager: interactionsManager,
 		AvoidRepeatedIssues: true,
 		WorkspaceID:         options.WorkspaceID,

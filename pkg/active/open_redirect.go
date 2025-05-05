@@ -78,6 +78,7 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 				Source:              db.SourceScanner,
 				WorkspaceID:         options.WorkspaceID,
 				TaskID:              options.TaskID,
+				TaskJobID:           options.TaskJobID,
 				CreateNewBodyStream: true,
 			})
 

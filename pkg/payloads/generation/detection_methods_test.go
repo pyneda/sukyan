@@ -3,6 +3,8 @@ package generation
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCheckIfResultDurationIsHigher(t *testing.T) {
@@ -28,4 +30,24 @@ func TestCheckIfResultDurationIsHigher(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTimeBasedDetectionMethod_ParseSleepDuration_DirectCases(t *testing.T) {
+	method := &TimeBasedDetectionMethod{}
+
+	// Test standard duration formats
+	assert.Equal(t, 5*time.Second, method.ParseSleepDuration("5s"))
+	assert.Equal(t, 100*time.Millisecond, method.ParseSleepDuration("100ms"))
+	assert.Equal(t, 2*time.Minute, method.ParseSleepDuration("2m"))
+	assert.Equal(t, 2*time.Hour, method.ParseSleepDuration("2h"))
+
+	// Test integer conversion logic
+	assert.Equal(t, 5*time.Second, method.ParseSleepDuration("5"))
+	assert.Equal(t, 999*time.Second, method.ParseSleepDuration("999"))
+	assert.Equal(t, 1000*time.Millisecond, method.ParseSleepDuration("1000"))
+	assert.Equal(t, 5000*time.Millisecond, method.ParseSleepDuration("5000"))
+
+	// Test error handling (should return 0)
+	assert.Equal(t, time.Duration(0), method.ParseSleepDuration("invalid"))
+	assert.Equal(t, time.Duration(0), method.ParseSleepDuration(""))
 }

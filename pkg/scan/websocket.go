@@ -1,7 +1,6 @@
 package scan
 
 import (
-	"net/url"
 	"time"
 
 	"github.com/pyneda/sukyan/db"
@@ -10,45 +9,6 @@ import (
 	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 )
-
-func EvaluateWebSocketConnections(connections []db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options options.HistoryItemScanOptions) {
-	connectionsPerHost := make(map[string][]db.WebSocketConnection)
-	cleartextConnectionsPerHost := make(map[string][]db.WebSocketConnection)
-	for _, item := range connections {
-		u, err := url.Parse(item.URL)
-		if err != nil {
-			log.Error().Err(err).Str("url", item.URL).Uint("connection", item.ID).Msg("Could not parse websocket connection url URL")
-			continue
-		}
-
-		connectionOptions := options
-		taskJob, err := db.Connection().NewWebSocketTaskJob(
-			options.TaskID,
-			item.TaskTitle(),
-			db.TaskJobRunning,
-			item.ID,
-		)
-		if err != nil {
-			log.Error().Err(err).Str("url", item.URL).Uint("connection", item.ID).Msg("Could not create task job for websocket connection")
-			continue
-		}
-
-		connectionOptions.TaskJobID = taskJob.ID
-
-		host := u.Host
-		connectionsPerHost[host] = append(connectionsPerHost[host], item)
-		if u.Scheme == "ws" {
-			cleartextConnectionsPerHost[host] = append(cleartextConnectionsPerHost[host], item)
-			db.CreateIssueFromWebSocketConnectionAndTemplate(&item, db.UnencryptedWebsocketConnectionCode, "", 100, "", &connectionOptions.WorkspaceID, &connectionOptions.TaskID, &connectionOptions.TaskJobID)
-		}
-		ActiveScanWebSocketConnection(&item, interactionsManager, payloadGenerators, connectionOptions)
-		taskJob.Status = db.TaskJobFinished
-		taskJob.CompletedAt = time.Now()
-		db.Connection().UpdateTaskJob(taskJob)
-	}
-	log.Info().Msg("Completed active scanning websocket connections")
-
-}
 
 func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options options.HistoryItemScanOptions) {
 	log.Info().Uint("connection", item.ID).Msg("Active scanning websocket connection")

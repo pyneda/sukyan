@@ -1,11 +1,14 @@
 package config
 
 import (
+	"fmt"
+
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
 func LoadConfig() {
+	fmt.Println("loading config")
 	viper.SetConfigName("config")       // name of config file (without extension)
 	viper.SetConfigType("yaml")         // REQUIRED if the config file does not have the extension in the name
 	viper.AddConfigPath("/etc/sukyan/") // path to look for the config file in
@@ -22,7 +25,6 @@ func LoadConfig() {
 }
 
 func SetDefaultConfig() {
-	viper.SetDefault("workspace.id", 1)
 
 	// Logging
 	viper.SetDefault("logging.console.level", "info")
@@ -88,10 +90,6 @@ func SetDefaultConfig() {
 	viper.SetDefault("passive.checks.js.enabled", true)
 	viper.SetDefault("passive.checks.missconfigurations.enabled", true)
 	viper.SetDefault("passive.checks.exceptions.enabled", true)
-
-	// Reporting
-	viper.SetDefault("reporting.issues.max_repeated_per_host", 20)
-	viper.SetDefault("reporting.issues.", 10)
 
 	// Forms
 	viper.SetDefault("forms.auto_fill", true)

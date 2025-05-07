@@ -53,11 +53,7 @@ func SetDefaultConfig() {
 	viper.SetDefault("navigation.wait_stable_duration", 2)
 	viper.SetDefault("navigation.wait_stable_timeout", 10)
 
-	viper.SetDefault("navigation.max_retries", 3)
-	viper.SetDefault("navigation.retry_delay", 5)
 	viper.SetDefault("navigation.max_redirects", 10)
-	viper.SetDefault("navigation.headers", map[string]string{})
-	viper.SetDefault("navigation.cookies", map[string]string{})
 	viper.SetDefault("navigation.proxy", "")
 	viper.SetDefault("navigation.auth.basic.username", "admin")
 	viper.SetDefault("navigation.auth.basic.password", "password")
@@ -65,8 +61,6 @@ func SetDefaultConfig() {
 	viper.SetDefault("navigation.browser.disable_gpu", true)
 
 	// Crawl
-	viper.SetDefault("crawl.max_depth", 10)
-	viper.SetDefault("crawl.pool_size", 4)
 	viper.SetDefault("crawl.headless", true)
 	viper.SetDefault("crawl.page_setup_timeout", 15)
 	viper.SetDefault("crawl.interaction.timeout", 10)
@@ -78,9 +72,6 @@ func SetDefaultConfig() {
 
 	// Scan
 	viper.SetDefault("scan.magic_words", []string{"null", "None", "Undefined", "Blank"})
-	viper.SetDefault("scan.crawl.enabled", false)
-	viper.SetDefault("scan.concurrency.max_audits", 4)
-	viper.SetDefault("scan.concurrency.per_browser_audit", 4)
 	viper.SetDefault("scan.concurrency.per_http_audit", 16)
 	viper.SetDefault("scan.concurrency.passive", 30)
 	viper.SetDefault("scan.concurrency.active", 15)
@@ -98,8 +89,6 @@ func SetDefaultConfig() {
 	viper.SetDefault("generators.directory", "/etc/sukyan/generators")
 
 	// Passive
-	// viper.SetDefault("passive.wappalyzer", false)
-	// viper.SetDefault("passive.retirejs", false)
 	viper.SetDefault("passive.checks.headers.enabled", true)
 	viper.SetDefault("passive.checks.js.enabled", true)
 	viper.SetDefault("passive.checks.missconfigurations.enabled", true)

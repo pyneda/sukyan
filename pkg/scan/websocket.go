@@ -1,16 +1,13 @@
 package scan
 
 import (
-	"time"
-
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
-	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 )
 
-func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options options.HistoryItemScanOptions) {
+func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options WebSocketScanOptions) {
 	log.Info().Uint("connection", item.ID).Msg("Active scanning websocket connection")
 	scopedInsertionPoints := []string{}
 	for _, t := range WebSocketInsertionPointTypes() {
@@ -38,22 +35,8 @@ func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsMan
 
 	log.Info().Uint("connection", item.ID).Int("messages", len(messages)).Msg("Found messages to replay")
 	scanner := WebSocketScanner{
-		Concurrency:         6,
 		InteractionsManager: interactionsManager,
 		AvoidRepeatedIssues: true,
-		WorkspaceID:         options.WorkspaceID,
-		Mode:                options.Mode,
-		ObservationWindow:   5 * time.Second,
-	}
-
-	wsOptions := WebSocketScanOptions{
-		WorkspaceID:       options.WorkspaceID,
-		TaskID:            options.TaskID,
-		TaskJobID:         options.TaskJobID,
-		Mode:              options.Mode,
-		FingerprintTags:   options.FingerprintTags,
-		ReplayMessages:    true, // Default to replaying messages to maintain state
-		ObservationWindow: 5 * time.Second,
 	}
 
 	for i, msg := range messages {
@@ -89,7 +72,7 @@ func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsMan
 			Msg("Found insertion points for WebSocket message")
 
 		// Run scan for this message and its insertion points
-		results := scanner.Run(item, messages, i, payloadGenerators, insertionPoints, wsOptions)
+		results := scanner.Run(item, messages, i, payloadGenerators, insertionPoints, options)
 
 		totalVulnerabilities := 0
 		for issueCode, scanResults := range results {

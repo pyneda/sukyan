@@ -48,12 +48,8 @@ type WebSocketScannerResult struct {
 
 // WebSocketScanner is the main scanner for WebSocket connections
 type WebSocketScanner struct {
-	Concurrency         int
 	InteractionsManager *integrations.InteractionsManager
 	AvoidRepeatedIssues bool
-	WorkspaceID         uint
-	Mode                options.ScanMode
-	ObservationWindow   time.Duration // How long to wait for responses after sending a modified message
 	issuesFound         sync.Map
 	results             sync.Map
 }
@@ -67,6 +63,7 @@ type WebSocketScanOptions struct {
 	FingerprintTags   []string
 	ReplayMessages    bool          // Whether to replay previous messages to establish context
 	ObservationWindow time.Duration // How long to wait for responses
+	Concurrency       int
 }
 
 // WebSocketScannerTask represents a single fuzzing task
@@ -85,23 +82,6 @@ type MessageBuilder struct {
 	Payload string
 }
 
-// checkConfig sets default configuration values if not specified
-func (s *WebSocketScanner) checkConfig() {
-	if s.Concurrency == 0 {
-		log.Info().Interface("scanner", s).Msg("Concurrency is not set, setting 4 as default")
-		s.Concurrency = 4
-	}
-	if s.ObservationWindow == 0 {
-		log.Info().Interface("scanner", s).Msg("ObservationWindow is not set, setting 5s as default")
-		s.ObservationWindow = 5 * time.Second
-	}
-
-	if s.Mode == "" {
-		log.Info().Interface("scanner", s).Msg("Scan mode is not set, setting smart as default")
-		s.Mode = options.ScanModeSmart
-	}
-}
-
 // shouldLaunch checks if the generator should be launched according to the launch conditions
 func (s *WebSocketScanner) shouldLaunch(conn *db.WebSocketConnection, generator *generation.PayloadGenerator, insertionPoint InsertionPoint, options WebSocketScanOptions) bool {
 
@@ -110,6 +90,21 @@ func (s *WebSocketScanner) shouldLaunch(conn *db.WebSocketConnection, generator 
 	}
 
 	conditionsMet := 0
+	allWebsocketUnsupportedConditions := true
+	for _, condition := range generator.Launch.Conditions {
+		if condition.Type != generation.ResponseCondition ||
+			(condition.ResponseCondition.Part != generation.Headers &&
+				condition.ResponseCondition.StatusCode == 0) {
+			// Found a condition that is supported in WebSocket context
+			allWebsocketUnsupportedConditions = false
+			break
+		}
+	}
+
+	// If all conditions check headers or status codes, skip for WebSockets
+	if allWebsocketUnsupportedConditions {
+		return false
+	}
 
 	// NOTE: Some adjustments might be needed here for websocket
 	for _, condition := range generator.Launch.Conditions {
@@ -175,17 +170,21 @@ func (s *WebSocketScanner) Run(
 	options WebSocketScanOptions) map[string][]WebSocketScannerResult {
 
 	var wg sync.WaitGroup
-	s.checkConfig()
 
 	// Use provided observation window if specified
 	if options.ObservationWindow > 0 {
-		s.ObservationWindow = options.ObservationWindow
+		options.ObservationWindow = 5 * time.Second
 	}
 
-	pendingTasks := make(chan WebSocketScannerTask, s.Concurrency)
+	concurrency := options.Concurrency
+	if concurrency <= 0 {
+		concurrency = 6
+	}
+
+	pendingTasks := make(chan WebSocketScannerTask, concurrency)
 	defer close(pendingTasks)
 
-	for i := 0; i < s.Concurrency; i++ {
+	for i := 0; i < concurrency; i++ {
 		go s.worker(&wg, pendingTasks)
 	}
 
@@ -226,8 +225,9 @@ func (s *WebSocketScanner) Run(
 					pendingTasks <- task
 				}
 			} else {
-				log.Debug().
-					Str("connection", connection.URL).
+				log.Info().
+					Str("url", connection.URL).
+					Uint("connection_id", connection.ID).
 					Int("target_index", targetMessageIndex).
 					Str("generator", generator.ID).
 					Str("insertion_point", insertionPoint.String()).
@@ -294,7 +294,7 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 		result.TargetMessageIndex = task.targetMessageIndex
 		result.Payload = task.payload
 		result.InsertionPoint = task.insertionPoint
-		result.ObservationWindow = s.ObservationWindow
+		result.ObservationWindow = task.options.ObservationWindow
 
 		// Load original messages
 		originalMessages, _, err := db.Connection().ListWebSocketMessages(db.WebSocketMessageFilter{
@@ -402,7 +402,7 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 			ResponseHeaders: datatypes.JSON(respHeadersJSON),
 			StatusCode:      upgradeResponse.StatusCode,
 			StatusText:      upgradeResponse.Status,
-			WorkspaceID:     &s.WorkspaceID,
+			WorkspaceID:     &task.options.WorkspaceID,
 			TaskID:          &task.options.TaskID,
 			Source:          db.SourceScanner,
 		}
@@ -503,7 +503,7 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 						taskLog.Error().Err(err).Msg("Failed to save received WebSocket message")
 					}
 
-				case <-time.After(s.ObservationWindow):
+				case <-time.After(task.options.ObservationWindow):
 					return
 				}
 			}
@@ -562,7 +562,7 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 				Target:            task.connection.URL,
 				Payload:           task.payload.Value,
 				InsertionPoint:    task.insertionPoint.String(),
-				WorkspaceID:       &s.WorkspaceID,
+				WorkspaceID:       &task.options.WorkspaceID,
 				TaskID:            &task.options.TaskID,
 				TaskJobID:         &task.options.TaskJobID,
 				HistoryID:         &upgradeHistory.ID,
@@ -591,7 +591,7 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 				fullDetails,
 				confidence,
 				"",
-				&s.WorkspaceID,
+				&task.options.WorkspaceID,
 				&task.options.TaskID,
 				&task.options.TaskJobID,
 				&newConnection.ID,

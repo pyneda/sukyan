@@ -224,12 +224,27 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 		Sources:     []string{db.SourceCrawler},
 	})
 	if count > 0 {
+
 		if options.AuditCategories.WebSocket {
 			s.activeScanPool.Go(func() {
 				scanLog.Info().Int64("count", count).Msg("Scheduling scan to the WebSocket connections discovered during crawl")
 				s.wg.Go(func() {
+					websocketScanOptions := scan.WebSocketScanOptions{
+						WorkspaceID:     options.WorkspaceID,
+						TaskID:          task.ID,
+						Mode:            options.Mode,
+						FingerprintTags: fingerprintTags,
+						ReplayMessages:  options.WebSocketOptions.ReplayMessages,
+						Concurrency:     options.WebSocketOptions.Concurrency,
+					}
+					observationWindow := options.WebSocketOptions.ObservationWindow
+					if observationWindow > 0 {
+						websocketScanOptions.ObservationWindow = time.Duration(observationWindow) * time.Second
+					} else {
+						websocketScanOptions.ObservationWindow = 5 * time.Second
+					}
 					scanLog.Info().Int64("count", count).Msg("Starting WebSocket connections scan")
-					s.EvaluateWebSocketConnections(websocketConnections, itemScanOptions)
+					s.evaluateWebSocketConnections(websocketConnections, websocketScanOptions)
 					scanLog.Info().Int64("count", count).Msg("WebSocket connections scan finished")
 				})
 			})
@@ -294,12 +309,14 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 	if waitCompletion {
 		time.Sleep(2 * time.Second)
 		s.wg.Wait()
+		s.activeScanPool.Wait()
 		waitForTaskCompletion(task.ID)
 		scanLog.Info().Msg("Active scans finished")
 		db.Connection().SetTaskStatus(task.ID, db.TaskStatusFinished)
 	} else {
 		go func() {
 			s.wg.Wait()
+			s.activeScanPool.Wait()
 			waitForTaskCompletion(task.ID)
 			scanLog.Info().Msg("Active scans finished")
 			db.Connection().SetTaskStatus(task.ID, db.TaskStatusFinished)
@@ -309,7 +326,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 	return task, nil
 }
 
-func (s *ScanEngine) EvaluateWebSocketConnections(connections []db.WebSocketConnection, options options.HistoryItemScanOptions) {
+func (s *ScanEngine) evaluateWebSocketConnections(connections []db.WebSocketConnection, options scan.WebSocketScanOptions) {
 	connectionsPerHost := make(map[string][]db.WebSocketConnection)
 	cleartextConnectionsPerHost := make(map[string][]db.WebSocketConnection)
 	for _, item := range connections {

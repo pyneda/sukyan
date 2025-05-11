@@ -20,7 +20,6 @@ import (
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
-	"github.com/pyneda/sukyan/pkg/scan/engine"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 
@@ -49,7 +48,6 @@ func StartAPI() {
 		OnInteractionCallback: scan.SaveInteractionCallback,
 	}
 	interactionsManager.Start()
-	engine := engine.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
 
 	apiLogger.Info().Msg("Initialized everything. Starting the API...")
 
@@ -146,7 +144,9 @@ func StartAPI() {
 	// Make a group for all scan endpoints which require the scan engine
 	scan_app := api.Group("/scan")
 	scan_app.Use(func(c *fiber.Ctx) error {
-		c.Locals("engine", engine)
+		// c.Locals("engine", engine)
+		c.Locals("generators", generators)
+		c.Locals("interactionsManager", interactionsManager)
 		return c.Next()
 	})
 

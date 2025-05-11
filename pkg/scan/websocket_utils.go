@@ -54,6 +54,8 @@ func replayPreviousMessages(client *websocket.Conn, newConnectionID uint, messag
 			log.Error().Err(err).Msg("Failed to save replayed WebSocket message")
 		}
 
+		replayedMessages = append(replayedMessages, replayedMsg)
+
 		// Small delay to avoid overwhelming the server
 		time.Sleep(100 * time.Millisecond)
 	}

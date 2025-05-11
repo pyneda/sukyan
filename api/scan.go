@@ -4,9 +4,12 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan/engine"
 	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 type PassiveScanInput struct {
@@ -50,7 +53,9 @@ func PassiveScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	e := c.Locals("engine").(*engine.ScanEngine)
+	generators := c.Locals("generators").([]*generation.PayloadGenerator)
+	interactionsManager := c.Locals("interactionsManager").(*integrations.InteractionsManager)
+	e := engine.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
 
 	for _, item := range items {
 		// NOTE: By now, passive scans do not create task jobs, so we pass 0 as task ID
@@ -137,7 +142,9 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	e := c.Locals("engine").(*engine.ScanEngine)
+	generators := c.Locals("generators").([]*generation.PayloadGenerator)
+	interactionsManager := c.Locals("interactionsManager").(*integrations.InteractionsManager)
+	e := engine.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
 
 	for _, item := range items {
 		// TODO: maybe should validate that the history item and task belongs to the same workspace
@@ -215,7 +222,10 @@ func FullScanHandler(c *fiber.Ctx) error {
 		input.Title = "Full scan"
 	}
 
-	e := c.Locals("engine").(*engine.ScanEngine)
+	generators := c.Locals("generators").([]*generation.PayloadGenerator)
+	interactionsManager := c.Locals("interactionsManager").(*integrations.InteractionsManager)
+	e := engine.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
+
 	go e.FullScan(*input, false)
 
 	return c.JSON(fiber.Map{

@@ -228,25 +228,23 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 		if options.AuditCategories.WebSocket {
 			s.activeScanPool.Go(func() {
 				scanLog.Info().Int64("count", count).Msg("Scheduling scan to the WebSocket connections discovered during crawl")
-				s.wg.Go(func() {
-					websocketScanOptions := scan.WebSocketScanOptions{
-						WorkspaceID:     options.WorkspaceID,
-						TaskID:          task.ID,
-						Mode:            options.Mode,
-						FingerprintTags: fingerprintTags,
-						ReplayMessages:  options.WebSocketOptions.ReplayMessages,
-						Concurrency:     options.WebSocketOptions.Concurrency,
-					}
-					observationWindow := options.WebSocketOptions.ObservationWindow
-					if observationWindow > 0 {
-						websocketScanOptions.ObservationWindow = time.Duration(observationWindow) * time.Second
-					} else {
-						websocketScanOptions.ObservationWindow = 5 * time.Second
-					}
-					scanLog.Info().Int64("count", count).Msg("Starting WebSocket connections scan")
-					s.evaluateWebSocketConnections(websocketConnections, websocketScanOptions)
-					scanLog.Info().Int64("count", count).Msg("WebSocket connections scan finished")
-				})
+				websocketScanOptions := scan.WebSocketScanOptions{
+					WorkspaceID:     options.WorkspaceID,
+					TaskID:          task.ID,
+					Mode:            options.Mode,
+					FingerprintTags: fingerprintTags,
+					ReplayMessages:  options.WebSocketOptions.ReplayMessages,
+					Concurrency:     options.WebSocketOptions.Concurrency,
+				}
+				observationWindow := options.WebSocketOptions.ObservationWindow
+				if observationWindow > 0 {
+					websocketScanOptions.ObservationWindow = time.Duration(observationWindow) * time.Second
+				} else {
+					websocketScanOptions.ObservationWindow = 5 * time.Second
+				}
+				scanLog.Info().Int64("count", count).Msg("Starting WebSocket connections scan")
+				s.evaluateWebSocketConnections(websocketConnections, websocketScanOptions)
+				scanLog.Info().Int64("count", count).Msg("WebSocket connections scan finished")
 			})
 		} else {
 			scanLog.Info().Int64("count", count).Msg("WebSocket connections discovered during crawl, skipping scanning as WebSocket audit category is disabled")
@@ -349,23 +347,21 @@ func (s *ScanEngine) evaluateWebSocketConnections(connections []db.WebSocketConn
 				return
 			}
 
-			s.wg.Go(func() {
-				connectionOptions.TaskJobID = taskJob.ID
+			connectionOptions.TaskJobID = taskJob.ID
 
-				taskJob.Status = db.TaskJobRunning
-				db.Connection().UpdateTaskJob(taskJob)
+			taskJob.Status = db.TaskJobRunning
+			db.Connection().UpdateTaskJob(taskJob)
 
-				host := u.Host
-				connectionsPerHost[host] = append(connectionsPerHost[host], item)
-				if u.Scheme == "ws" {
-					cleartextConnectionsPerHost[host] = append(cleartextConnectionsPerHost[host], item)
-					db.CreateIssueFromWebSocketConnectionAndTemplate(&item, db.UnencryptedWebsocketConnectionCode, "", 100, "", &connectionOptions.WorkspaceID, &connectionOptions.TaskID, &connectionOptions.TaskJobID)
-				}
-				scan.ActiveScanWebSocketConnection(&item, s.InteractionsManager, s.payloadGenerators, connectionOptions)
-				taskJob.Status = db.TaskJobFinished
-				taskJob.CompletedAt = time.Now()
-				db.Connection().UpdateTaskJob(taskJob)
-			})
+			host := u.Host
+			connectionsPerHost[host] = append(connectionsPerHost[host], item)
+			if u.Scheme == "ws" {
+				cleartextConnectionsPerHost[host] = append(cleartextConnectionsPerHost[host], item)
+				db.CreateIssueFromWebSocketConnectionAndTemplate(&item, db.UnencryptedWebsocketConnectionCode, "", 100, "", &connectionOptions.WorkspaceID, &connectionOptions.TaskID, &connectionOptions.TaskJobID)
+			}
+			scan.ActiveScanWebSocketConnection(&item, s.InteractionsManager, s.payloadGenerators, connectionOptions)
+			taskJob.Status = db.TaskJobFinished
+			taskJob.CompletedAt = time.Now()
+			db.Connection().UpdateTaskJob(taskJob)
 
 		})
 	}

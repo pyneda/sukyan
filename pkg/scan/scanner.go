@@ -254,7 +254,7 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 			if task.payload.InteractionDomain.URL != "" {
 				oobTest := db.OOBTest{
 					Code:              issueCode,
-					TestName:          "Fuzz Test",
+					TestName:          "OOB Test",
 					InteractionDomain: task.payload.InteractionDomain.URL,
 					InteractionFullID: task.payload.InteractionDomain.ID,
 					Target:            newHistory.URL,
@@ -268,7 +268,6 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 				db.Connection().CreateOOBTest(oobTest)
 				taskLog.Debug().Interface("oobTest", oobTest).Msg("Created OOB Test")
 			}
-
 			if vulnerable {
 				taskLog.Warn().Msg("Vulnerable")
 				// Should handle the additional details and confidence

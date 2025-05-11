@@ -18,6 +18,11 @@ detection_methods:
       contains: "{{.header_key}}:%20 {{.header_value}}"
       part: headers
       confidence: 70
+launch:
+  operator: or
+  conditions:
+  - type: avoid_websocket_messages
+    value: "true"
 vars:
   - name: header_key
     value: "X-Key"

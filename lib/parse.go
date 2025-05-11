@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -17,4 +18,19 @@ func ParseHeadersStringToMap(headersStr string) map[string][]string {
 		}
 	}
 	return headers
+}
+
+// ParseBool parses a string into a boolean value.
+func ParseBool(str string) (bool, error) {
+	s := strings.ToLower(strings.TrimSpace(str))
+
+	switch s {
+	case "true", "t", "yes", "y", "1", "on", "enable", "enabled":
+		return true, nil
+
+	case "false", "f", "no", "n", "0", "off", "disable", "disabled":
+		return false, nil
+	}
+
+	return false, fmt.Errorf("cannot parse %q as boolean", str)
 }

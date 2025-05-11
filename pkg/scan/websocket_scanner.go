@@ -21,6 +21,18 @@ import (
 	"gorm.io/datatypes"
 )
 
+type WebSocketDetectedIssue struct {
+	code           db.IssueCode
+	insertionPoint InsertionPoint
+	connectionID   uint
+	messageIndex   int
+}
+
+func (di WebSocketDetectedIssue) String() string {
+	return fmt.Sprintf("%s:%s:%d:%d:%s", di.code, di.insertionPoint.String(),
+		di.connectionID, di.messageIndex)
+}
+
 // WebSocketScannerResult contains all the information about a WebSocket scan
 type WebSocketScannerResult struct {
 	OriginalConnection *db.WebSocketConnection // The original WebSocket connection we're testing
@@ -92,6 +104,12 @@ func (s *WebSocketScanner) shouldLaunch(conn *db.WebSocketConnection, generator 
 	conditionsMet := 0
 	allWebsocketUnsupportedConditions := true
 	for _, condition := range generator.Launch.Conditions {
+		if condition.Type == generation.AvoidWebSocketMessages {
+			skip, _ := lib.ParseBool(condition.Value)
+			if skip {
+				return false
+			}
+		}
 		if condition.Type != generation.ResponseCondition ||
 			(condition.ResponseCondition.Part != generation.Headers &&
 				condition.ResponseCondition.StatusCode == 0) {
@@ -198,14 +216,15 @@ func (s *WebSocketScanner) Run(
 	}
 
 	// Create tasks for each insertion point and payload combination
-	for _, insertionPoint := range insertionPoints {
-		log.Debug().
-			Str("connection", connection.URL).
-			Int("targetMsg", targetMessageIndex).
-			Str("point", insertionPoint.String()).
-			Msg("Scanning WebSocket insertion point")
+	// NOTE: Trying to iterate per generation and insertion point, so gives more chances to respect the avoid repeated issues
+	for _, generator := range payloadGenerators {
+		for _, insertionPoint := range insertionPoints {
+			log.Debug().
+				Str("connection", connection.URL).
+				Int("targetMsg", targetMessageIndex).
+				Str("point", insertionPoint.String()).
+				Msg("Scanning WebSocket insertion point")
 
-		for _, generator := range payloadGenerators {
 			if s.shouldLaunch(connection, generator, insertionPoint, options) {
 				payloads, err := generator.BuildPayloads(*s.InteractionsManager)
 				if err != nil {
@@ -276,11 +295,16 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 		taskLog.Debug().Interface("task", task).Msg("New WebSocket scanner task received")
 
 		// Skip if we've already found this issue (if avoiding duplicates)
+
+		issueKey := WebSocketDetectedIssue{
+			code:           db.IssueCode(task.payload.IssueCode),
+			insertionPoint: task.insertionPoint,
+			connectionID:   task.connection.ID,
+			messageIndex:   task.targetMessageIndex,
+		}
+
 		if s.AvoidRepeatedIssues {
-			_, ok := s.issuesFound.Load(DetectedIssue{
-				code:           db.IssueCode(task.payload.IssueCode),
-				insertionPoint: task.insertionPoint,
-			}.String())
+			_, ok := s.issuesFound.Load(issueKey.String())
 			if ok {
 				taskLog.Debug().Msg("Skipping task as issue already found for this insertion point")
 				wg.Done()
@@ -419,8 +443,11 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 		responseChan := make(chan db.WebSocketMessage, 100)
 		doneCollecting := make(chan struct{})
 
+		connectionID := newConnection.ID
+
 		// Start goroutine to read from the WebSocket
-		go func() {
+		readerID := fmt.Sprintf("reader-%d", connectionID)
+		go func(connID uint, readerID string) {
 			for {
 				messageType, message, err := client.ReadMessage()
 				if err != nil {
@@ -428,14 +455,16 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 						websocket.CloseGoingAway,
 						websocket.CloseNormalClosure,
 						websocket.CloseAbnormalClosure) {
-						taskLog.Error().Err(err).Msg("WebSocket read error")
+						taskLog.Error().
+							Str("reader_id", readerID).
+							Err(err).
+							Msg("WebSocket read error")
 					}
 					return
 				}
 
-				// Create a WebSocketMessage from the received message
 				wsMessage := db.WebSocketMessage{
-					ConnectionID: newConnection.ID,
+					ConnectionID: connID,
 					Opcode:       float64(messageType),
 					Mask:         false,
 					PayloadData:  string(message),
@@ -443,9 +472,34 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 					Direction:    db.MessageReceived,
 				}
 
+				taskLog.Debug().
+					Str("reader_id", readerID).
+					Uint("connection_id", connID).
+					Str("payload", string(message)).
+					Msg("Received WebSocket message")
+
 				responseChan <- wsMessage
 			}
-		}()
+		}(connectionID, readerID)
+
+		// Handle OOB test if needed
+		if task.payload.InteractionDomain.URL != "" {
+			oobTest := db.OOBTest{
+				Code:              db.IssueCode(task.payload.IssueCode),
+				TestName:          "WebSocket OOB Test",
+				InteractionDomain: task.payload.InteractionDomain.URL,
+				InteractionFullID: task.payload.InteractionDomain.ID,
+				Target:            task.connection.URL,
+				Payload:           task.payload.Value,
+				InsertionPoint:    task.insertionPoint.String(),
+				WorkspaceID:       &task.options.WorkspaceID,
+				TaskID:            &task.options.TaskID,
+				TaskJobID:         &task.options.TaskJobID,
+				HistoryID:         &upgradeHistory.ID,
+			}
+			db.Connection().CreateOOBTest(oobTest)
+			taskLog.Debug().Interface("oobTest", oobTest).Msg("Created OOB Test")
+		}
 
 		// Replay previous messages if needed to establish context
 		if task.options.ReplayMessages && task.targetMessageIndex > 0 {
@@ -453,7 +507,7 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 			if err != nil {
 				taskLog.Error().Err(err).Msg("Failed to replay previous websocket messages")
 				result.Err = err
-				wg.Done()
+				// wg.Done()
 				continue
 			}
 
@@ -470,10 +524,10 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 		)
 
 		if err != nil {
-			taskLog.Error().Err(err).Msg("Failed to inject payload into message")
+			taskLog.Error().Err(err).Str("original_message", originalMessage.String()).Msg("Failed to inject payload into message")
 			result.Err = err
 			wg.Done()
-			continue
+			return
 		}
 
 		// Update the connection ID of the modified message to use the new connection
@@ -516,8 +570,7 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 		if err != nil {
 			taskLog.Error().Err(err).Msg("Failed to send modified WebSocket message")
 			result.Err = err
-			wg.Done()
-			continue
+			// wg.Done()
 		} else {
 			taskLog.Info().Str("payload", modifiedMessage.PayloadData).Msg("Sent modified WebSocket message")
 		}
@@ -548,27 +601,8 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 		vulnerable, details, confidence, err := s.EvaluateResult(result)
 		if err != nil {
 			taskLog.Error().Err(err).Msg("Error evaluating WebSocket scan result")
-			wg.Done()
-			continue
-		}
-
-		// Handle OOB test if needed
-		if task.payload.InteractionDomain.URL != "" {
-			oobTest := db.OOBTest{
-				Code:              db.IssueCode(task.payload.IssueCode),
-				TestName:          "WebSocket Fuzz Test",
-				InteractionDomain: task.payload.InteractionDomain.URL,
-				InteractionFullID: task.payload.InteractionDomain.ID,
-				Target:            task.connection.URL,
-				Payload:           task.payload.Value,
-				InsertionPoint:    task.insertionPoint.String(),
-				WorkspaceID:       &task.options.WorkspaceID,
-				TaskID:            &task.options.TaskID,
-				TaskJobID:         &task.options.TaskJobID,
-				HistoryID:         &upgradeHistory.ID,
-			}
-			db.Connection().CreateOOBTest(oobTest)
-			taskLog.Debug().Interface("oobTest", oobTest).Msg("Created OOB Test")
+			// wg.Done()
+			// continue
 		}
 
 		// Create issue if vulnerable
@@ -607,15 +641,19 @@ func (s *WebSocketScanner) worker(wg *sync.WaitGroup, pendingTasks chan WebSocke
 
 			// Store issue key to avoid duplicates
 			if s.AvoidRepeatedIssues {
-				s.issuesFound.Store(DetectedIssue{
+				s.issuesFound.Store(issueKey.String(), true)
+				broadIssueKey := WebSocketDetectedIssue{
 					code:           issueCode,
 					insertionPoint: task.insertionPoint,
-				}.String(), true)
+					connectionID:   task.connection.ID,
+					messageIndex:   task.targetMessageIndex,
+				}
+				s.issuesFound.Store(broadIssueKey.String(), true)
 			}
 		}
-
-		wg.Done()
 	}
+
+	wg.Done()
 }
 
 // EvaluateResult evaluates all detection methods for a WebSocket scan result

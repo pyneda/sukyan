@@ -89,7 +89,7 @@ type FullScanOptions struct {
 	Mode               ScanMode                 `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
 	ExperimentalAudits bool                     `json:"experimental_audits"`
 	AuditCategories    AuditCategories          `json:"audit_categories" validate:"required"`
-	WebSocketOptions   FullScanWebSocketOptions `json:"websocket_options"`
+	WebSocketOptions   FullScanWebSocketOptions `json:"websocket_options" validate:"omitempty"`
 }
 
 type FullScanWebSocketOptions struct {

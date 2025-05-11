@@ -1,8 +1,9 @@
 package lib
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParseHeadersStringToMap(t *testing.T) {
@@ -54,5 +55,31 @@ func TestParseHeadersStringToMap(t *testing.T) {
 			actual := ParseHeadersStringToMap(tt.input)
 			assert.Equal(t, tt.expected, actual)
 		})
+	}
+}
+
+func TestParseBool(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"true", true},
+		{"false", false},
+		{"t", true},
+		{"f", false},
+		{"yes", true},
+		{"no", false},
+		{"y", true},
+		{"n", false},
+		{"1", true},
+		{"0", false},
+		{"on", true},
+		{"off", false},
+	}
+
+	for _, test := range tests {
+		result, err := ParseBool(test.input)
+		assert.NoError(t, err)
+		assert.Equal(t, test.expected, result)
 	}
 }

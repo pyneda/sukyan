@@ -15,6 +15,7 @@ const (
 	ParameterValueDataType LaunchConditionType = "parameter_value_data_type"
 	ParameterName          LaunchConditionType = "insertion_point_name"
 	ResponseCondition      LaunchConditionType = "response_condition"
+	AvoidWebSocketMessages LaunchConditionType = "avoid_websocket_messages"
 )
 
 type LaunchCondition struct {

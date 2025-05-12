@@ -10,6 +10,19 @@ const (
 	ScanModeFuzz  ScanMode = "fuzz"
 )
 
+func NewScanMode(mode string) ScanMode {
+	switch mode {
+	case ScanModeFast.String():
+		return ScanModeFast
+	case ScanModeSmart.String():
+		return ScanModeSmart
+	case ScanModeFuzz.String():
+		return ScanModeFuzz
+	default:
+		return ScanModeSmart
+	}
+}
+
 func (sm ScanMode) String() string {
 	return string(sm)
 }

@@ -208,10 +208,15 @@ func (m WebSocketMessage) Pretty() string {
 }
 
 func (d *DatabaseConnection) CreateWebSocketConnection(connection *WebSocketConnection) error {
-	err := d.db.Create(connection).Error
-	return err
-}
+	tx := d.db.Begin()
 
+	if err := tx.Create(connection).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
 func (d *DatabaseConnection) GetWebSocketConnection(id uint) (*WebSocketConnection, error) {
 	var connection WebSocketConnection
 	err := d.db.Preload("Messages").First(&connection, id).Error
@@ -219,13 +224,25 @@ func (d *DatabaseConnection) GetWebSocketConnection(id uint) (*WebSocketConnecti
 }
 
 func (d *DatabaseConnection) CreateWebSocketMessage(message *WebSocketMessage) error {
-	err := d.db.Create(message).Error
-	return err
+	tx := d.db.Begin()
+
+	if err := tx.Create(message).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }
 
 func (d *DatabaseConnection) UpdateWebSocketConnection(connection *WebSocketConnection) error {
-	err := d.db.Save(connection).Error
-	return err
+	tx := d.db.Begin()
+
+	if err := tx.Save(connection).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }
 
 type WebSocketConnectionFilter struct {

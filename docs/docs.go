@@ -1761,6 +1761,51 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/scan/active/websocket": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Receives a list of WebSocket connection IDs and schedules them for active scanning. Either the workspace ID or task ID must be provided.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scan"
+                ],
+                "summary": "Submit WebSocket connections for active scanning",
+                "parameters": [
+                    {
+                        "description": "Active WebSocket scan connections and configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ActiveWebSocketScanInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/scan/full": {
             "post": {
                 "security": [
@@ -2691,6 +2736,49 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "task": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "workspace": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "api.ActiveWebSocketScanInput": {
+            "type": "object",
+            "required": [
+                "connections"
+            ],
+            "properties": {
+                "concurrency": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 1
+                },
+                "connections": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "fast",
+                        "smart",
+                        "fuzz"
+                    ]
+                },
+                "observation_window": {
+                    "type": "integer",
+                    "maximum": 120,
+                    "minimum": 0
+                },
+                "replay_messages": {
+                    "type": "boolean"
                 },
                 "task": {
                     "type": "integer",
@@ -4303,9 +4391,30 @@ const docTemplate = `{
                     "maxLength": 255,
                     "minLength": 1
                 },
+                "websocket_options": {
+                    "$ref": "#/definitions/options.FullScanWebSocketOptions"
+                },
                 "workspace_id": {
                     "type": "integer",
                     "minimum": 0
+                }
+            }
+        },
+        "options.FullScanWebSocketOptions": {
+            "type": "object",
+            "properties": {
+                "concurrency": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 1
+                },
+                "observation_window": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 1
+                },
+                "replay_messages": {
+                    "type": "boolean"
                 }
             }
         },

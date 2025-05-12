@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -226,7 +227,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 	if count > 0 {
 
 		if options.AuditCategories.WebSocket {
-			s.activeScanPool.Go(func() {
+			s.wg.Go(func() {
 				scanLog.Info().Int64("count", count).Msg("Scheduling scan to the WebSocket connections discovered during crawl")
 				websocketScanOptions := scan.WebSocketScanOptions{
 					WorkspaceID:     options.WorkspaceID,
@@ -243,7 +244,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 					websocketScanOptions.ObservationWindow = 5 * time.Second
 				}
 				scanLog.Info().Int64("count", count).Msg("Starting WebSocket connections scan")
-				s.evaluateWebSocketConnections(websocketConnections, websocketScanOptions)
+				s.EvaluateWebSocketConnections(websocketConnections, websocketScanOptions)
 				scanLog.Info().Int64("count", count).Msg("WebSocket connections scan finished")
 			})
 		} else {
@@ -324,49 +325,66 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 	return task, nil
 }
 
-func (s *ScanEngine) evaluateWebSocketConnections(connections []db.WebSocketConnection, options scan.WebSocketScanOptions) {
-	connectionsPerHost := make(map[string][]db.WebSocketConnection)
-	cleartextConnectionsPerHost := make(map[string][]db.WebSocketConnection)
-	for _, item := range connections {
+func (s *ScanEngine) EvaluateWebSocketConnections(connections []db.WebSocketConnection, options scan.WebSocketScanOptions) {
+	cleartextHostsReported := make(map[string]bool)
+
+	for i := range connections {
+		item := &connections[i]
 		u, err := url.Parse(item.URL)
 		if err != nil {
 			log.Error().Err(err).Str("url", item.URL).Uint("connection", item.ID).Msg("Could not parse websocket connection url URL")
 			continue
 		}
 
-		s.activeScanPool.Go(func() {
-			connectionOptions := options
-			taskJob, err := db.Connection().NewWebSocketTaskJob(
-				options.TaskID,
-				item.TaskTitle(),
-				db.TaskJobRunning,
-				item.ID,
+		if u.Scheme == "ws" && !cleartextHostsReported[u.Host] {
+			cleartextHostsReported[u.Host] = true
+			var taskJobID uint
+			db.CreateIssueFromWebSocketConnectionAndTemplate(
+				item,
+				db.UnencryptedWebsocketConnectionCode,
+				fmt.Sprintf("Cleartext WebSocket connections detected on host: %s", u.Host),
+				100,
+				"",
+				&options.WorkspaceID,
+				&options.TaskID,
+				&taskJobID,
 			)
-			if err != nil {
-				log.Error().Err(err).Str("url", item.URL).Uint("connection", item.ID).Msg("Could not create task job for websocket connection")
-				return
-			}
+		}
 
-			connectionOptions.TaskJobID = taskJob.ID
-
-			taskJob.Status = db.TaskJobRunning
-			db.Connection().UpdateTaskJob(taskJob)
-
-			host := u.Host
-			connectionsPerHost[host] = append(connectionsPerHost[host], item)
-			if u.Scheme == "ws" {
-				cleartextConnectionsPerHost[host] = append(cleartextConnectionsPerHost[host], item)
-				db.CreateIssueFromWebSocketConnectionAndTemplate(&item, db.UnencryptedWebsocketConnectionCode, "", 100, "", &connectionOptions.WorkspaceID, &connectionOptions.TaskID, &connectionOptions.TaskJobID)
-			}
-			scan.ActiveScanWebSocketConnection(&item, s.InteractionsManager, s.payloadGenerators, connectionOptions)
-			taskJob.Status = db.TaskJobFinished
-			taskJob.CompletedAt = time.Now()
-			db.Connection().UpdateTaskJob(taskJob)
-
-		})
+		s.scheduleWebSocketConnectionScan(item, options)
 	}
-	log.Info().Msg("Completed active scanning websocket connections")
 
+	log.Info().
+		Int("total_connections", len(connections)).
+		Int("cleartext_hosts", len(cleartextHostsReported)).
+		Msg("Completed scheduling active WebSocket connection scans")
+}
+
+func (s *ScanEngine) scheduleWebSocketConnectionScan(item *db.WebSocketConnection, options scan.WebSocketScanOptions) {
+	s.activeScanPool.Go(func() {
+		connectionOptions := options
+		taskJob, err := db.Connection().NewWebSocketTaskJob(
+			options.TaskID,
+			item.TaskTitle(),
+			db.TaskJobRunning,
+			item.ID,
+		)
+		if err != nil {
+			log.Error().Err(err).Str("url", item.URL).Uint("connection", item.ID).Msg("Could not create task job for websocket connection")
+			return
+		}
+
+		connectionOptions.TaskJobID = taskJob.ID
+
+		taskJob.Status = db.TaskJobRunning
+		db.Connection().UpdateTaskJob(taskJob)
+
+		scan.ActiveScanWebSocketConnection(item, s.InteractionsManager, s.payloadGenerators, connectionOptions)
+
+		taskJob.Status = db.TaskJobFinished
+		taskJob.CompletedAt = time.Now()
+		db.Connection().UpdateTaskJob(taskJob)
+	})
 }
 
 func waitForTaskCompletion(taskID uint) {

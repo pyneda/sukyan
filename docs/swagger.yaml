@@ -147,6 +147,37 @@ definitions:
     required:
     - items
     type: object
+  api.ActiveWebSocketScanInput:
+    properties:
+      concurrency:
+        maximum: 100
+        minimum: 1
+        type: integer
+      connections:
+        items:
+          type: integer
+        type: array
+      mode:
+        enum:
+        - fast
+        - smart
+        - fuzz
+        type: string
+      observation_window:
+        maximum: 120
+        minimum: 0
+        type: integer
+      replay_messages:
+        type: boolean
+      task:
+        minimum: 0
+        type: integer
+      workspace:
+        minimum: 0
+        type: integer
+    required:
+    - connections
+    type: object
   api.BrowserActionsInput:
     properties:
       actions:
@@ -1238,6 +1269,8 @@ definitions:
         maxLength: 255
         minLength: 1
         type: string
+      websocket_options:
+        $ref: '#/definitions/options.FullScanWebSocketOptions'
       workspace_id:
         minimum: 0
         type: integer
@@ -1245,6 +1278,19 @@ definitions:
     - audit_categories
     - start_urls
     - workspace_id
+    type: object
+  options.FullScanWebSocketOptions:
+    properties:
+      concurrency:
+        maximum: 100
+        minimum: 1
+        type: integer
+      observation_window:
+        maximum: 100
+        minimum: 1
+        type: integer
+      replay_messages:
+        type: boolean
     type: object
   options.ScanMode:
     enum:
@@ -2445,6 +2491,35 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Submit items for active scanning
+      tags:
+      - Scan
+  /api/v1/scan/active/websocket:
+    post:
+      consumes:
+      - application/json
+      description: Receives a list of WebSocket connection IDs and schedules them
+        for active scanning. Either the workspace ID or task ID must be provided.
+      parameters:
+      - description: Active WebSocket scan connections and configuration
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.ActiveWebSocketScanInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ActionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Submit WebSocket connections for active scanning
       tags:
       - Scan
   /api/v1/scan/full:

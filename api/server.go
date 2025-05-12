@@ -153,6 +153,7 @@ func StartAPI() {
 	scan_app.Post("/full", JWTProtected(), FullScanHandler)
 	scan_app.Post("/passive", JWTProtected(), PassiveScanHandler)
 	scan_app.Post("/active", JWTProtected(), ActiveScanHandler)
+	scan_app.Post("/active/websocket", JWTProtected(), ActiveWebSocketScanHandler)
 
 	certPath := viper.GetString("server.cert.file")
 	keyPath := viper.GetString("server.key.file")

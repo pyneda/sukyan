@@ -418,28 +418,27 @@ func (s *WebSocketScanner) executeWebSocketTest(ctx context.Context, result *Web
 		return
 	}
 	defer client.Close()
-
-	newConnection, err := s.setupWebSocketConnection(task, upgradeResponse, headers)
-	if err != nil {
-		taskLog.Error().Err(err).Msg("Failed to set up WebSocket connection")
-		result.Err = err
-		return
-	}
-
 	upgradeHistory, err := http_utils.ReadHttpResponseAndCreateHistory(upgradeResponse, http_utils.HistoryCreationOptions{
 		Source:              db.SourceScanner,
 		WorkspaceID:         uint(task.options.WorkspaceID),
 		TaskID:              uint(task.options.TaskID),
 		TaskJobID:           uint(task.options.TaskJobID),
 		CreateNewBodyStream: true,
+		IsWebSocketUpgrade:  true,
 	})
 	if err != nil {
 		taskLog.Error().Err(err).Msg("Failed to create history from upgrade response, still trying to continue...")
 	}
+	newConnection, err := s.setupWebSocketConnection(task, upgradeHistory, upgradeResponse)
+	if err != nil {
+		taskLog.Error().Err(err).Msg("Failed to set up WebSocket connection")
+		result.Err = err
+		return
+	}
 
 	// Launch OOB test if needed
 	if task.payload.InteractionDomain.URL != "" {
-		s.createOOBTest(task, *upgradeHistory)
+		go s.createOOBTest(task, *upgradeHistory)
 	}
 
 	var wg sync.WaitGroup
@@ -617,8 +616,7 @@ func (s *WebSocketScanner) readWebSocketMessages(ctx context.Context, client *we
 }
 
 // setupWebSocketConnection creates and sets up a new WebSocket connection in the database
-func (s *WebSocketScanner) setupWebSocketConnection(task WebSocketScannerTask,
-	upgradeResponse *http.Response, headers map[string][]string) (db.WebSocketConnection, error) {
+func (s *WebSocketScanner) setupWebSocketConnection(task WebSocketScannerTask, upgradeHistory *db.History, upgradeResponse *http.Response) (db.WebSocketConnection, error) {
 
 	// Prepare response headers
 	respHeadersMap := make(map[string][]string)
@@ -627,23 +625,28 @@ func (s *WebSocketScanner) setupWebSocketConnection(task WebSocketScannerTask,
 	}
 
 	// Convert headers to JSON
+	headers, err := upgradeHistory.RequestHeaders()
+	if err != nil {
+		headers = make(map[string][]string)
+	}
 	reqHeadersJSON, _ := json.Marshal(headers)
 	respHeadersJSON, _ := json.Marshal(respHeadersMap)
 
 	// Create a new connection record
 	newConnection := db.WebSocketConnection{
-		URL:             task.connection.URL,
-		RequestHeaders:  datatypes.JSON(reqHeadersJSON),
-		ResponseHeaders: datatypes.JSON(respHeadersJSON),
-		StatusCode:      upgradeResponse.StatusCode,
-		StatusText:      upgradeResponse.Status,
-		WorkspaceID:     &task.options.WorkspaceID,
-		TaskID:          &task.options.TaskID,
-		Source:          db.SourceScanner,
+		URL:              task.connection.URL,
+		RequestHeaders:   datatypes.JSON(reqHeadersJSON),
+		ResponseHeaders:  datatypes.JSON(respHeadersJSON),
+		StatusCode:       upgradeResponse.StatusCode,
+		StatusText:       upgradeResponse.Status,
+		WorkspaceID:      &task.options.WorkspaceID,
+		TaskID:           &task.options.TaskID,
+		Source:           db.SourceScanner,
+		UpgradeRequestID: &upgradeHistory.ID,
 	}
 
 	// Save to database
-	err := db.Connection().CreateWebSocketConnection(&newConnection)
+	err = db.Connection().CreateWebSocketConnection(&newConnection)
 	if err != nil {
 		return newConnection, err
 	}

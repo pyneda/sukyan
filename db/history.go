@@ -36,6 +36,7 @@ type History struct {
 	RequestBodySize     int               `gorm:"index" json:"request_body_size"`
 	RequestContentType  string            `gorm:"index" json:"request_content_type"`
 	ResponseContentType string            `gorm:"index" json:"response_content_type"`
+	IsWebSocketUpgrade  bool              `json:"is_websocket_upgrade"`
 }
 
 func (h History) TaskTitle() string {

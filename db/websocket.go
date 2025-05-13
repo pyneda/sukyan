@@ -14,18 +14,20 @@ import (
 
 type WebSocketConnection struct {
 	BaseModel
-	URL             string             `json:"url"`
-	RequestHeaders  datatypes.JSON     `json:"request_headers" swaggerignore:"true"`
-	ResponseHeaders datatypes.JSON     `json:"response_headers" swaggerignore:"true"`
-	StatusCode      int                `gorm:"index" json:"status_code"`
-	StatusText      string             `json:"status_text"`
-	Messages        []WebSocketMessage `json:"messages" gorm:"foreignKey:ConnectionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	ClosedAt        time.Time          `json:"closed_at"` // timestamp for when the connection is closed
-	Workspace       Workspace          `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID     *uint              `json:"workspace_id"`
-	TaskID          *uint              `json:"task_id" gorm:"index" `
-	Task            Task               `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	Source          string             `json:"source"`
+	URL              string             `json:"url"`
+	RequestHeaders   datatypes.JSON     `json:"request_headers" swaggerignore:"true"`
+	ResponseHeaders  datatypes.JSON     `json:"response_headers" swaggerignore:"true"`
+	StatusCode       int                `gorm:"index" json:"status_code"`
+	StatusText       string             `json:"status_text"`
+	Messages         []WebSocketMessage `json:"messages" gorm:"foreignKey:ConnectionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ClosedAt         time.Time          `json:"closed_at"` // timestamp for when the connection is closed
+	Workspace        Workspace          `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	WorkspaceID      *uint              `json:"workspace_id"`
+	TaskID           *uint              `json:"task_id" gorm:"index" `
+	Task             Task               `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Source           string             `json:"source"`
+	UpgradeRequestID *uint              `json:"upgrade_request_id" gorm:"index"`
+	UpgradeRequest   History            `json:"-" gorm:"foreignKey:UpgradeRequestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 func (c WebSocketConnection) TaskTitle() string {
@@ -219,7 +221,7 @@ func (d *DatabaseConnection) CreateWebSocketConnection(connection *WebSocketConn
 }
 func (d *DatabaseConnection) GetWebSocketConnection(id uint) (*WebSocketConnection, error) {
 	var connection WebSocketConnection
-	err := d.db.Preload("Messages").First(&connection, id).Error
+	err := d.db.Preload("Messages").Preload("UpgradeRequest").First(&connection, id).Error
 	return &connection, err
 }
 

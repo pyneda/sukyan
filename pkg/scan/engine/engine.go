@@ -100,7 +100,7 @@ func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 
 func (s *ScanEngine) scheduleActiveScan(item *db.History, options scan_options.HistoryItemScanOptions) {
 	s.activeScanPool.Go(func() {
-		taskJob, err := db.Connection().NewTaskJob(options.TaskID, item.TaskTitle(), db.TaskJobScheduled, item.ID)
+		taskJob, err := db.Connection().NewTaskJob(options.TaskID, item.TaskTitle(), db.TaskJobScheduled, item)
 		if err != nil {
 			log.Error().Err(err).Uint("history", item.ID).Msg("Could not create task job")
 			return
@@ -367,7 +367,7 @@ func (s *ScanEngine) scheduleWebSocketConnectionScan(item *db.WebSocketConnectio
 			options.TaskID,
 			item.TaskTitle(),
 			db.TaskJobRunning,
-			item.ID,
+			item,
 		)
 		if err != nil {
 			log.Error().Err(err).Str("url", item.URL).Uint("connection", item.ID).Msg("Could not create task job for websocket connection")

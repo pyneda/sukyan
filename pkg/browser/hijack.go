@@ -228,37 +228,22 @@ func DumpHijackResponse(res *rod.HijackResponse) (rawResponse string, body strin
 
 // CreateHistoryFromHijack saves a history request from hijack request/response items.
 func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string, workspaceID, taskID, playgroundSessionID uint) *db.History {
-	// requestHeaders, err := json.Marshal(request.Headers())
-	// if err != nil {
-	// 	log.Error().Err(err).Msg("Error converting request headers to json")
-	// }
-	// responseHeaders, err := json.Marshal(response.Headers())
-	// if err != nil {
-	// 	log.Error().Err(err).Msg("Error converting response headers to json")
-	// }
 	rawRequest, reqBody := DumpHijackRequest(request)
 	rawResponse, _ := DumpHijackResponse(response)
 	historyUrl := request.URL().String()
 	history := db.History{
-		StatusCode: response.Payload().ResponseCode,
-		URL:        historyUrl,
-		Depth:      lib.CalculateURLDepth(historyUrl),
-		// RequestHeaders:       datatypes.JSON(requestHeaders),
-		// RequestBody:          []byte(reqBody),
-		RequestBodySize: len(reqBody),
-		// RequestContentLength: request.Req().ContentLength,
-		RequestContentType: request.Req().Header.Get("Content-Type"),
-		// ResponseHeaders:      datatypes.JSON(responseHeaders),
-		// ResponseBody:         []byte(responseBody),
+		StatusCode:          response.Payload().ResponseCode,
+		URL:                 historyUrl,
+		Depth:               lib.CalculateURLDepth(historyUrl),
+		RequestBodySize:     len(reqBody),
+		RequestContentType:  request.Req().Header.Get("Content-Type"),
 		ResponseContentType: response.Headers().Get("Content-Type"),
 		Evaluated:           false,
 		Method:              request.Req().Method,
-		// ParametersCount:      len(request.URL().Query()),
-		Note:        note,
-		Source:      source,
-		RawRequest:  []byte(rawRequest),
-		RawResponse: []byte(rawResponse),
-		// ResponseContentLength: response.ContentLength,
+		Note:                note,
+		Source:              source,
+		RawRequest:          []byte(rawRequest),
+		RawResponse:         []byte(rawResponse),
 		WorkspaceID:         &workspaceID,
 		TaskID:              &taskID,
 		PlaygroundSessionID: &playgroundSessionID,

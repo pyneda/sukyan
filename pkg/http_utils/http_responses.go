@@ -85,6 +85,7 @@ type HistoryCreationOptions struct {
 	CreateNewBodyStream bool
 	PlaygroundSessionID uint
 	TaskJobID           uint
+	IsWebSocketUpgrade  bool
 }
 
 func ReadHttpResponseAndCreateHistory(response *http.Response, options HistoryCreationOptions) (*db.History, error) {
@@ -169,6 +170,7 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		// TaskJobID:           &options.TaskJobID,
 		PlaygroundSessionID: playgroundSessionID,
 		Proto:               response.Proto,
+		IsWebSocketUpgrade:  options.IsWebSocketUpgrade || response.StatusCode == http.StatusSwitchingProtocols,
 	}
 	return db.Connection().CreateHistory(&record)
 }

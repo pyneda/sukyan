@@ -28,6 +28,9 @@ type TaskJob struct {
 	History               History              `json:"history" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WebsocketConnectionID *uint                `json:"websocket_connection_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	WebSocketConnection   *WebSocketConnection `json:"-" gorm:"foreignKey:WebsocketConnectionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	URL                   string               `json:"url"`
+	Method                string               `json:"method"`
+	OriginalStatusCode    int                  `json:"original_status_code"`
 }
 
 type TaskJobFilter struct {
@@ -110,24 +113,36 @@ func (d *DatabaseConnection) ListTaskJobs(filter TaskJobFilter) (items []*TaskJo
 	return items, count, err
 }
 
-func (d *DatabaseConnection) NewTaskJob(taskID uint, title string, status TaskJobStatus, historyID uint) (*TaskJob, error) {
+func (d *DatabaseConnection) NewTaskJob(taskID uint, title string, status TaskJobStatus, originalHistory *History) (*TaskJob, error) {
 	task := &TaskJob{
-		TaskID:    taskID,
-		Status:    status,
-		Title:     title,
-		StartedAt: time.Now(),
-		HistoryID: &historyID,
+		TaskID:             taskID,
+		Status:             status,
+		Title:              title,
+		StartedAt:          time.Now(),
+		HistoryID:          &originalHistory.ID,
+		URL:                originalHistory.URL,
+		Method:             originalHistory.Method,
+		OriginalStatusCode: originalHistory.StatusCode,
 	}
 	return d.CreateTaskJob(task)
 }
 
-func (d *DatabaseConnection) NewWebSocketTaskJob(taskID uint, title string, status TaskJobStatus, websocketConnectionID uint) (*TaskJob, error) {
+func (d *DatabaseConnection) NewWebSocketTaskJob(taskID uint, title string, status TaskJobStatus, originalConnection *WebSocketConnection) (*TaskJob, error) {
+
+	method := "GET?"
+	if originalConnection.UpgradeRequest.Method != "" {
+		method = originalConnection.UpgradeRequest.Method
+	}
 	task := &TaskJob{
 		TaskID:                taskID,
 		Status:                status,
 		Title:                 title,
 		StartedAt:             time.Now(),
-		WebsocketConnectionID: &websocketConnectionID,
+		HistoryID:             originalConnection.UpgradeRequestID,
+		WebsocketConnectionID: &originalConnection.ID,
+		URL:                   originalConnection.URL,
+		Method:                method,
+		OriginalStatusCode:    originalConnection.StatusCode,
 	}
 	return d.CreateTaskJob(task)
 }

@@ -3193,6 +3193,9 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "is_websocket_upgrade": {
+                    "type": "boolean"
+                },
                 "json_web_tokens": {
                     "type": "array",
                     "items": {
@@ -4011,6 +4014,9 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "upgrade_request_id": {
+                    "type": "integer"
                 },
                 "url": {
                     "type": "string"

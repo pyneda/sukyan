@@ -8,8 +8,7 @@ require (
 	github.com/BishopFox/jsluice v0.0.0-20240110145140-0ddfab153e06
 	github.com/PuerkitoBio/goquery v1.9.1
 	github.com/elazarl/goproxy v0.0.0-20231017160920-1fe6677f404d
-	github.com/fatih/color v1.15.0
-	github.com/getkin/kin-openapi v0.128.0
+	github.com/getkin/kin-openapi v0.131.0
 	github.com/go-playground/validator/v10 v10.15.5
 	github.com/go-rod/rod v0.116.2
 	github.com/gofiber/contrib/fiberzerolog v0.2.2
@@ -23,7 +22,6 @@ require (
 	github.com/jpillora/go-tld v1.2.1
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mingrammer/commonregex v1.0.1
-	github.com/mitchellh/go-homedir v1.1.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/projectdiscovery/cdncheck v1.0.9
 	github.com/projectdiscovery/dsl v0.0.26
@@ -81,6 +79,7 @@ require (
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
+	github.com/fatih/color v1.15.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/gaissmai/bart v0.13.0 // indirect
@@ -104,7 +103,6 @@ require (
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/invopop/yaml v0.3.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20231201235250-de7065d80cb9 // indirect
 	github.com/jackc/pgx/v5 v5.5.5 // indirect
@@ -140,6 +138,8 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.3-0.20240618155329-98d742f6907a // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
+	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
+	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
 	github.com/onsi/ginkgo/v2 v2.17.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.0 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect

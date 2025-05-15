@@ -10,16 +10,26 @@ import (
 )
 
 var (
-	scannerBrowserPool *BrowserPoolManager
-	once               sync.Once
+	scannerBrowserPool    *BrowserPoolManager
+	playgroundBrowserPool *BrowserPoolManager
+	scannerOnce           sync.Once
+	playgroundOnce        sync.Once
 )
 
 // GetBrowserPoolManager returns a singleton instance of BrowserPoolManager used by active scanners
 func GetScannerBrowserPoolManager() *BrowserPoolManager {
-	once.Do(func() {
+	scannerOnce.Do(func() {
 		scannerBrowserPool = NewBrowserPoolManager(BrowserPoolManagerConfig{PoolSize: viper.GetInt("scan.browser.pool_size"), Source: db.SourceScanner}, 0, 0)
 	})
 	return scannerBrowserPool
+}
+
+// GetPlaygroundBrowserPoolManager returns a singleton instance of BrowserPoolManager used by the playground
+func GetPlaygroundBrowserPoolManager() *BrowserPoolManager {
+	playgroundOnce.Do(func() {
+		playgroundBrowserPool = NewBrowserPoolManager(BrowserPoolManagerConfig{PoolSize: 3, Source: db.SourceRepeater}, 0, 0)
+	})
+	return playgroundBrowserPool
 }
 
 type BrowserPoolManagerConfig struct {

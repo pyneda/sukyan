@@ -113,7 +113,7 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 	}
 	log.Info().Str("url", request.URL.String()).Msg("Replaying request in browser")
 
-	browserPool := browser.GetScannerBrowserPoolManager()
+	browserPool := browser.GetPlaygroundBrowserPoolManager()
 	b := browserPool.NewBrowser()
 	page := b.MustPage("")
 	defer browserPool.ReleaseBrowser(b)

@@ -1,0 +1,12 @@
+code: negotiate_auth_detected
+title: Negotiate/Kerberos Authentication Detected
+description:
+  The application is using Negotiate Authentication on this endpoint, which can involve either Kerberos or NTLM protocols depending on client capabilities. Negotiate allows the client and server to determine the most secure common authentication protocol. Kerberos is generally more secure than NTLM, but both require proper implementation to maintain security.
+remediation:
+  Ensure Negotiate Authentication is used over HTTPS to protect authentication exchanges. Configure servers to prefer Kerberos over NTLM when possible. Regularly update systems to protect against known vulnerabilities in these protocols. Monitor authentication traffic for unusual patterns that could indicate attacks like Kerberos Golden Ticket or Silver Ticket attacks.
+cwe: 287
+severity: Info
+references:
+  - https://www.ietf.org/rfc/rfc4559.txt
+  - https://docs.microsoft.com/en-us/windows/win32/secauthn/microsoft-kerberos
+  - https://attack.mitre.org/techniques/T1558/

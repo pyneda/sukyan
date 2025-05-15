@@ -1,0 +1,12 @@
+code: ntlm_auth_detected
+title: NTLM Authentication Detected
+description:
+  The application is using NTLM (NT LAN Manager) Authentication on this endpoint. NTLM is a Microsoft proprietary protocol that uses a challenge-response mechanism. While more secure than plaintext passwords, NTLM has known vulnerabilities and is generally considered outdated compared to modern authentication methods.
+remediation:
+  If possible, replace NTLM with more modern authentication protocols like Kerberos or OAuth 2.0. If NTLM must be used, ensure it's always over HTTPS. Disable NTLMv1 which has serious security flaws and use NTLMv2 only. Consider implementing network segmentation and monitoring to detect potential NTLM relay attacks.
+cwe: 287
+severity: Medium
+references:
+  - https://docs.microsoft.com/en-us/windows/win32/secauthn/microsoft-ntlm
+  - https://en.wikipedia.org/wiki/NTLM
+  - https://attack.mitre.org/techniques/T1187/

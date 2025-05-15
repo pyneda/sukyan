@@ -1,0 +1,12 @@
+code: bearer_auth_detected
+title: Bearer Authentication Detected
+description:
+  The application is using Bearer Authentication (OAuth 2.0) on this endpoint. Bearer tokens are sent in the Authorization header and authorize access to protected resources. While this is a modern authentication approach, tokens must be properly secured, as anyone who possesses a bearer token can access the associated resources without additional credentials.
+remediation:
+  Always use Bearer Authentication over HTTPS to protect tokens in transit. Implement proper token validation, including checking expiration, issuer, and audience claims. Use short-lived tokens and implement token revocation capabilities. Consider implementing additional protections like PKCE (Proof Key for Code Exchange) for public clients, and secure token storage on client side.
+cwe: 798
+severity: Info
+references:
+  - https://tools.ietf.org/html/rfc6750
+  - https://oauth.net/2/
+  - https://auth0.com/docs/secure/tokens/access-tokens/protect-access-tokens

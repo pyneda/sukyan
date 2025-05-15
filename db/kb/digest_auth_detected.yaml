@@ -1,0 +1,11 @@
+code: digest_auth_detected
+title: Digest Authentication Detected
+description:
+  The application is using Digest Authentication on this endpoint. Digest Authentication is more secure than Basic Authentication as it uses cryptographic hashing to protect credentials. However, when used over unencrypted HTTP connections, it can still be vulnerable to man-in-the-middle attacks and replay attacks. The security of Digest Authentication also depends on the algorithm used.
+remediation:
+  Ensure Digest Authentication is used over HTTPS connections to prevent man-in-the-middle attacks and ensure it uses strong algorithms or alternative authentication methods. Implement proper nonce management to prevent replay attacks. For enhanced security, consider adding rate limiting and account lockout policies to prevent brute force attacks.
+cwe: 522
+severity: Info
+references:
+  - https://tools.ietf.org/html/rfc2617
+  - https://www.ietf.org/rfc/rfc7616.html

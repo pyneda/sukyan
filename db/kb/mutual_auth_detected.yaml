@@ -1,0 +1,11 @@
+code: mutual_auth_detected
+title: Mutual Authentication Detected
+description:
+  The application is using Mutual Authentication on this endpoint, which requires both the client and server to authenticate to each other. This provides stronger security by ensuring that clients are connecting to legitimate servers and not imposters, while also verifying client identity to the server. Mutual authentication is often implemented using SSL/TLS client certificates.
+remediation:
+  Ensure proper certificate validation is implemented on both client and server sides. Use strong cryptographic algorithms and key lengths. Implement proper certificate revocation checking. Regularly rotate and renew certificates before expiration. Consider implementing additional security measures like certificate pinning for high-security applications.
+cwe: 295
+severity: Info
+references:
+  - https://tools.ietf.org/html/rfc8120
+  - https://www.cloudflare.com/learning/access-management/what-is-mutual-authentication/

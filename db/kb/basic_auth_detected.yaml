@@ -1,0 +1,12 @@
+code: basic_auth_detected
+title: Basic Authentication Detected
+description:
+  The application is using HTTP Basic Authentication on this endpoint. Basic Authentication transmits credentials as base64-encoded text in the Authorization header. While this is acceptable when used over HTTPS connections where the traffic is encrypted, it poses a severe security risk when used over unencrypted HTTP connections, as the credentials can be easily intercepted and decoded by attackers monitoring network traffic.
+remediation:
+  If Basic Authentication is being used over HTTP, immediately switch to HTTPS to encrypt credentials in transit. For additional security, consider implementing rate limiting to prevent brute force attacks, using strong password policies, and potentially restricting access by IP address where appropriate.
+cwe: 522
+severity: Info
+references:
+  - https://tools.ietf.org/html/rfc7617
+  - https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication
+  - https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html

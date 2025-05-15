@@ -12,6 +12,8 @@ var (
 	Base32EncodedDataInParameterCode     IssueCode = "base32_encoded_data_in_parameter"
 	Base36EncodedDataInParameterCode     IssueCode = "base36_encoded_data_in_parameter"
 	Base64EncodedDataInParameterCode     IssueCode = "base64_encoded_data_in_parameter"
+	BasicAuthDetectedCode                IssueCode = "basic_auth_detected"
+	BearerAuthDetectedCode               IssueCode = "bearer_auth_detected"
 	BlindSqlInjectionCode                IssueCode = "blind_sql_injection"
 	CacheControlHeaderCode               IssueCode = "cache_control_header"
 	CacheStorageUsageDetectedCode        IssueCode = "cache_storage_usage_detected"
@@ -28,6 +30,7 @@ var (
 	DatabaseErrorsCode                   IssueCode = "database_errors"
 	DbConnectionStringsCode              IssueCode = "db_connection_strings"
 	DbManagementInterfaceDetectedCode    IssueCode = "db_management_interface_detected"
+	DigestAuthDetectedCode               IssueCode = "digest_auth_detected"
 	DirectoryListingCode                 IssueCode = "directory_listing"
 	DjangoDebugExceptionCode             IssueCode = "django_debug_exception"
 	DockerApiDetectedCode                IssueCode = "docker_api_detected"
@@ -76,8 +79,11 @@ var (
 	Log4shellCode                        IssueCode = "log4shell"
 	MissingContentTypeHeaderCode         IssueCode = "missing_content_type_header"
 	MixedContentCode                     IssueCode = "mixed_content"
+	MutualAuthDetectedCode               IssueCode = "mutual_auth_detected"
+	NegotiateAuthDetectedCode            IssueCode = "negotiate_auth_detected"
 	NetworkAuthChallengeDetectedCode     IssueCode = "network_auth_challenge_detected"
 	NosqlInjectionCode                   IssueCode = "nosql_injection"
+	NtlmAuthDetectedCode                 IssueCode = "ntlm_auth_detected"
 	OauthEndpointDetectedCode            IssueCode = "oauth_endpoint_detected"
 	OobCommunicationsCode                IssueCode = "oob_communications"
 	OpenRedirectCode                     IssueCode = "open_redirect"
@@ -116,6 +122,7 @@ var (
 	TomcatUriNormalizationCode           IssueCode = "tomcat_uri_normalization"
 	UnencryptedPasswordSubmissionCode    IssueCode = "unencrypted_password_submission"
 	UnencryptedWebsocketConnectionCode   IssueCode = "unencrypted_websocket_connection"
+	UnknownAuthDetectedCode              IssueCode = "unknown_auth_detected"
 	VersionControlFileDetectedCode       IssueCode = "version_control_file_detected"
 	VulnerableJavascriptDependencyCode   IssueCode = "vulnerable_javascript_dependency"
 	WafDetectedCode                      IssueCode = "waf_detected"
@@ -236,6 +243,32 @@ var issueTemplates = []IssueTemplate{
 			"https://owasp.org/www-community/vulnerabilities/Information_exposure_through_query_strings_in_url",
 			"https://base64.guru/blog/base64-encryption-is-a-lie",
 			"https://auth0.com/blog/encoding-encryption-hashing/",
+		},
+	},
+	{
+		Code:        BasicAuthDetectedCode,
+		Title:       "Basic Authentication Detected",
+		Description: "The application is using HTTP Basic Authentication on this endpoint. Basic Authentication transmits credentials as base64-encoded text in the Authorization header. While this is acceptable when used over HTTPS connections where the traffic is encrypted, it poses a severe security risk when used over unencrypted HTTP connections, as the credentials can be easily intercepted and decoded by attackers monitoring network traffic.",
+		Remediation: "If Basic Authentication is being used over HTTP, immediately switch to HTTPS to encrypt credentials in transit. For additional security, consider implementing rate limiting to prevent brute force attacks, using strong password policies, and potentially restricting access by IP address where appropriate.",
+		Cwe:         522,
+		Severity:    "Info",
+		References: []string{
+			"https://tools.ietf.org/html/rfc7617",
+			"https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication",
+			"https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+		},
+	},
+	{
+		Code:        BearerAuthDetectedCode,
+		Title:       "Bearer Authentication Detected",
+		Description: "The application is using Bearer Authentication (OAuth 2.0) on this endpoint. Bearer tokens are sent in the Authorization header and authorize access to protected resources. While this is a modern authentication approach, tokens must be properly secured, as anyone who possesses a bearer token can access the associated resources without additional credentials.",
+		Remediation: "Always use Bearer Authentication over HTTPS to protect tokens in transit. Implement proper token validation, including checking expiration, issuer, and audience claims. Use short-lived tokens and implement token revocation capabilities. Consider implementing additional protections like PKCE (Proof Key for Code Exchange) for public clients, and secure token storage on client side.",
+		Cwe:         798,
+		Severity:    "Info",
+		References: []string{
+			"https://tools.ietf.org/html/rfc6750",
+			"https://oauth.net/2/",
+			"https://auth0.com/docs/secure/tokens/access-tokens/protect-access-tokens",
 		},
 	},
 	{
@@ -420,6 +453,18 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "Info",
 		References: []string{
 			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/01-Test_Network_Infrastructure_Configuration",
+		},
+	},
+	{
+		Code:        DigestAuthDetectedCode,
+		Title:       "Digest Authentication Detected",
+		Description: "The application is using Digest Authentication on this endpoint. Digest Authentication is more secure than Basic Authentication as it uses cryptographic hashing to protect credentials. However, when used over unencrypted HTTP connections, it can still be vulnerable to man-in-the-middle attacks and replay attacks. The security of Digest Authentication also depends on the algorithm used, with MD5-based implementations being considered cryptographically weak.",
+		Remediation: "Ensure Digest Authentication is used over HTTPS connections to prevent man-in-the-middle attacks. If the implementation uses MD5, consider upgrading to stronger algorithms or alternative authentication methods. Implement proper nonce management to prevent replay attacks. For enhanced security, consider adding rate limiting and account lockout policies to prevent brute force attacks.",
+		Cwe:         522,
+		Severity:    "Info",
+		References: []string{
+			"https://tools.ietf.org/html/rfc2617",
+			"https://www.ietf.org/rfc/rfc7616.html",
 		},
 	},
 	{
@@ -1013,6 +1058,31 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        MutualAuthDetectedCode,
+		Title:       "Mutual Authentication Detected",
+		Description: "The application is using Mutual Authentication on this endpoint, which requires both the client and server to authenticate to each other. This provides stronger security by ensuring that clients are connecting to legitimate servers and not imposters, while also verifying client identity to the server. Mutual authentication is often implemented using SSL/TLS client certificates.",
+		Remediation: "Ensure proper certificate validation is implemented on both client and server sides. Use strong cryptographic algorithms and key lengths. Implement proper certificate revocation checking. Regularly rotate and renew certificates before expiration. Consider implementing additional security measures like certificate pinning for high-security applications.",
+		Cwe:         295,
+		Severity:    "Info",
+		References: []string{
+			"https://tools.ietf.org/html/rfc8120",
+			"https://www.cloudflare.com/learning/access-management/what-is-mutual-authentication/",
+		},
+	},
+	{
+		Code:        NegotiateAuthDetectedCode,
+		Title:       "Negotiate/Kerberos Authentication Detected",
+		Description: "The application is using Negotiate Authentication on this endpoint, which can involve either Kerberos or NTLM protocols depending on client capabilities. Negotiate allows the client and server to determine the most secure common authentication protocol. Kerberos is generally more secure than NTLM, but both require proper implementation to maintain security.",
+		Remediation: "Ensure Negotiate Authentication is used over HTTPS to protect authentication exchanges. Configure servers to prefer Kerberos over NTLM when possible. Regularly update systems to protect against known vulnerabilities in these protocols. Monitor authentication traffic for unusual patterns that could indicate attacks like Kerberos Golden Ticket or Silver Ticket attacks.",
+		Cwe:         287,
+		Severity:    "Info",
+		References: []string{
+			"https://www.ietf.org/rfc/rfc4559.txt",
+			"https://docs.microsoft.com/en-us/windows/win32/secauthn/microsoft-kerberos",
+			"https://attack.mitre.org/techniques/T1558/",
+		},
+	},
+	{
 		Code:        NetworkAuthChallengeDetectedCode,
 		Title:       "Network Authentication Challenge Detection",
 		Description: "This report details instances where network authentication challenges (e.g., HTTP Basic Authentication, Digest Authentication) have been detected within the application. These authentication mechanisms prompt users to provide credentials to access certain network resources. While effective for simple authentication needs, these methods can expose credentials to risks if not used over secure connections or if implemented without additional security measures.",
@@ -1034,6 +1104,19 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/05.6-Testing_for_NoSQL_Injection",
 			"https://book.hacktricks.xyz/pentesting-web/nosql-injection",
+		},
+	},
+	{
+		Code:        NtlmAuthDetectedCode,
+		Title:       "NTLM Authentication Detected",
+		Description: "The application is using NTLM (NT LAN Manager) Authentication on this endpoint. NTLM is a Microsoft proprietary protocol that uses a challenge-response mechanism. While more secure than plaintext passwords, NTLM has known vulnerabilities and is generally considered outdated compared to modern authentication methods.",
+		Remediation: "If possible, replace NTLM with more modern authentication protocols like Kerberos or OAuth 2.0. If NTLM must be used, ensure it's always over HTTPS. Disable NTLMv1 which has serious security flaws and use NTLMv2 only. Consider implementing network segmentation and monitoring to detect potential NTLM relay attacks.",
+		Cwe:         287,
+		Severity:    "Medium",
+		References: []string{
+			"https://docs.microsoft.com/en-us/windows/win32/secauthn/microsoft-ntlm",
+			"https://en.wikipedia.org/wiki/NTLM",
+			"https://attack.mitre.org/techniques/T1187/",
 		},
 	},
 	{
@@ -1484,6 +1567,18 @@ var issueTemplates = []IssueTemplate{
 			"https://owasp.org/www-community/vulnerabilities/WebSocket_Security",
 			"https://tools.ietf.org/html/rfc6455",
 			"https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/WSS",
+		},
+	},
+	{
+		Code:        UnknownAuthDetectedCode,
+		Title:       "Unknown Authentication Method Detected",
+		Description: "The application is using an uncommon or custom authentication method on this endpoint. While this doesn't necessarily indicate a vulnerability, uncommon authentication methods may not have undergone the same level of security scrutiny as standard methods and could potentially contain implementation flaws or vulnerabilities.",
+		Remediation: "Evaluate whether the custom authentication method is necessary or if a standard, well-tested authentication protocol would be more appropriate. If the custom method must be used, ensure it follows security best practices such as using HTTPS, implementing proper session management, protecting against brute force attacks, and securing any authentication tokens or credentials properly.",
+		Cwe:         287,
+		Severity:    "Info",
+		References: []string{
+			"https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/",
 		},
 	},
 	{

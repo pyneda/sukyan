@@ -100,6 +100,8 @@ func ScanHistoryItem(item *db.History) {
 	if viper.GetBool("passive.checks.headers.enabled") {
 		ScanHistoryItemHeaders(item)
 	}
+
+	AuthenticationScan(item)
 }
 
 func DirectoryListingScan(item *db.History) {

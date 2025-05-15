@@ -1,0 +1,11 @@
+code: unknown_auth_detected
+title: Unknown Authentication Method Detected
+description:
+  The application is using an uncommon or custom authentication method on this endpoint. While this doesn't necessarily indicate a vulnerability, uncommon authentication methods may not have undergone the same level of security scrutiny as standard methods and could potentially contain implementation flaws or vulnerabilities.
+remediation:
+  Evaluate whether the custom authentication method is necessary or if a standard, well-tested authentication protocol would be more appropriate. If the custom method must be used, ensure it follows security best practices such as using HTTPS, implementing proper session management, protecting against brute force attacks, and securing any authentication tokens or credentials properly.
+cwe: 287
+severity: Info
+references:
+  - https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/

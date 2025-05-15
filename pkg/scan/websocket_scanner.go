@@ -55,6 +55,7 @@ type WebSocketScannerResult struct {
 	ElapsedTime       time.Duration // Total time of the test execution
 	StartTime         time.Time     // Start time of the test
 	PayloadSentAt     time.Time     // Time when the payload was sent
+	IssueOverride     db.IssueCode  // Override issue code if needed
 
 	// Results
 	Issue *db.Issue
@@ -201,7 +202,7 @@ func (s *WebSocketScanner) Run(
 
 	// Set default observation window if not specified
 	if options.ObservationWindow <= 0 {
-		options.ObservationWindow = 5 * time.Second
+		options.ObservationWindow = 10 * time.Second
 	}
 
 	// Set default concurrency
@@ -564,10 +565,13 @@ func (s *WebSocketScanner) executeWebSocketTest(ctx context.Context, result *Web
 	}
 
 	// Evaluate result
-	vulnerable, details, confidence, err := s.EvaluateResult(*result)
+	vulnerable, details, confidence, issueOverride, err := s.EvaluateResult(*result)
 	if err != nil {
 		taskLog.Error().Err(err).Msg("Error evaluating WebSocket scan result")
 		return
+	}
+	if issueOverride != "" {
+		result.IssueOverride = issueOverride
 	}
 
 	// Create issue if vulnerable
@@ -677,6 +681,10 @@ func (s *WebSocketScanner) handleVulnerability(result *WebSocketScannerResult, t
 	details string, confidence int, upgradeHistory db.History, newConnection db.WebSocketConnection, taskLog zerolog.Logger) {
 
 	issueCode := db.IssueCode(task.payload.IssueCode)
+	if result.IssueOverride != "" {
+		issueCode = result.IssueOverride
+		details = fmt.Sprintf("%s\n\n This issue has been detected looking for %s, but matched a response condition of %s and has been overriden", details, task.payload.IssueCode, result.IssueOverride)
+	}
 
 	fullDetails := fmt.Sprintf(
 		"The following payload was inserted in the `%s` %s of WebSocket message #%d: %s\n\n%s",
@@ -728,16 +736,17 @@ func (s *WebSocketScanner) handleVulnerability(result *WebSocketScannerResult, t
 }
 
 // EvaluateResult evaluates all detection methods for a WebSocket scan result
-func (s *WebSocketScanner) EvaluateResult(result WebSocketScannerResult) (bool, string, int, error) {
+func (s *WebSocketScanner) EvaluateResult(result WebSocketScannerResult) (bool, string, int, db.IssueCode, error) {
 	// Iterate through payload detection methods
 	vulnerable := false
 	condition := result.Payload.DetectionCondition
 	confidence := 0
 	var sb strings.Builder
+	var issueOverride db.IssueCode
 
 	for _, detectionMethod := range result.Payload.DetectionMethods {
 		// Evaluate the detection method
-		detectionMethodResult, description, conf, err := s.EvaluateDetectionMethod(result, detectionMethod)
+		detectionMethodResult, description, conf, override, err := s.EvaluateDetectionMethod(result, detectionMethod)
 
 		if conf > confidence {
 			confidence = conf
@@ -748,31 +757,33 @@ func (s *WebSocketScanner) EvaluateResult(result WebSocketScannerResult) (bool, 
 		}
 
 		if err != nil {
-			return false, "", confidence, err
+			return false, "", confidence, "", err
 		}
 
 		if detectionMethodResult {
+			// Not returning as we want the details of all detection methods
+			// if condition == generation.Or {
+			// 	return true, sb.String(), confidence, nil
+			// }
 			vulnerable = true
-			// If condition is OR, we can return immediately
-			if condition == generation.Or {
-				return true, sb.String(), confidence, nil
+			if override != "" {
+				issueOverride = override
 			}
 		} else if condition == generation.And {
-			// If condition is AND and one method failed, the whole test fails
-			return false, "", confidence, nil
+			return false, "", confidence, issueOverride, nil
 		}
 	}
 
-	return vulnerable, sb.String(), confidence, nil
+	return vulnerable, sb.String(), confidence, issueOverride, nil
 }
 
 // EvaluateDetectionMethod evaluates a single detection method against WebSocket responses
-func (s *WebSocketScanner) EvaluateDetectionMethod(result WebSocketScannerResult, method generation.DetectionMethod) (bool, string, int, error) {
+func (s *WebSocketScanner) EvaluateDetectionMethod(result WebSocketScannerResult, method generation.DetectionMethod) (bool, string, int, db.IssueCode, error) {
 	switch m := method.GetMethod().(type) {
 	case *generation.OOBInteractionDetectionMethod:
 		// OOB detection is handled externally by the interaction manager
 		log.Debug().Msg("OOB Interaction detection method validation handled by interaction manager")
-		return false, "OOB Interaction detection will be validated by interaction callbacks", m.Confidence, nil
+		return false, "OOB Interaction detection will be validated by interaction callbacks", m.Confidence, "", nil
 
 	case *generation.ResponseConditionDetectionMethod:
 		return s.evaluateResponseCondition(result, m)
@@ -788,19 +799,19 @@ func (s *WebSocketScanner) EvaluateDetectionMethod(result WebSocketScannerResult
 
 	case *generation.BrowserEventsDetectionMethod:
 		log.Warn().Msg("Browser Events detection method not implemented for WebSocket scanning")
-		return false, "", 0, nil
+		return false, "", 0, "", nil
 
 	default:
-		return false, "", 0, fmt.Errorf("unsupported detection method type for WebSocket scanning")
+		return false, "", 0, "", fmt.Errorf("unsupported detection method type for WebSocket scanning")
 	}
 }
 
 // evaluateResponseCondition checks for specific content in WebSocket response messages
-func (s *WebSocketScanner) evaluateResponseCondition(result WebSocketScannerResult, method *generation.ResponseConditionDetectionMethod) (bool, string, int, error) {
+func (s *WebSocketScanner) evaluateResponseCondition(result WebSocketScannerResult, method *generation.ResponseConditionDetectionMethod) (bool, string, int, db.IssueCode, error) {
 	var sb strings.Builder
 
 	if len(result.ResponseMessages) == 0 {
-		return false, "No response messages received", 0, nil
+		return false, "No response messages received", 0, "", nil
 	}
 
 	// Check for content match in any response message
@@ -809,28 +820,28 @@ func (s *WebSocketScanner) evaluateResponseCondition(result WebSocketScannerResu
 			if strings.Contains(msg.PayloadData, method.Contains) {
 				sb.WriteString(fmt.Sprintf("Response message #%d contains the value: %s\n",
 					i, method.Contains))
-				return true, sb.String(), method.Confidence, nil
+				return true, sb.String(), method.Confidence, method.IssueOverride, nil
 			}
 		}
 	}
 
-	return false, "", 0, nil
+	return false, "", 0, "", nil
 }
 
 // evaluateReflection checks if a payload is reflected in any response message
-func (s *WebSocketScanner) evaluateReflection(result WebSocketScannerResult, method *generation.ReflectionDetectionMethod) (bool, string, int, error) {
+func (s *WebSocketScanner) evaluateReflection(result WebSocketScannerResult, method *generation.ReflectionDetectionMethod) (bool, string, int, db.IssueCode, error) {
 	for i, msg := range result.ResponseMessages {
 		if strings.Contains(msg.PayloadData, method.Value) {
 			description := fmt.Sprintf("WebSocket response message #%d contains the reflected value: %s",
 				i, method.Value)
-			return true, description, method.Confidence, nil
+			return true, description, method.Confidence, "", nil
 		}
 	}
-	return false, "", 0, nil
+	return false, "", 0, "", nil
 }
 
 // evaluateTimeBased checks if the scan execution took longer than expected
-func (s *WebSocketScanner) evaluateTimeBased(result WebSocketScannerResult, method *generation.TimeBasedDetectionMethod) (bool, string, int, error) {
+func (s *WebSocketScanner) evaluateTimeBased(result WebSocketScannerResult, method *generation.TimeBasedDetectionMethod) (bool, string, int, db.IssueCode, error) {
 	matched := false
 	var sb strings.Builder
 	confidence := 0
@@ -855,27 +866,27 @@ func (s *WebSocketScanner) evaluateTimeBased(result WebSocketScannerResult, meth
 	if confidence > 100 {
 		confidence = 100
 	}
-	return matched, sb.String(), confidence, nil
+	return matched, sb.String(), confidence, "", nil
 }
 
 // evaluateResponseCheck checks for error patterns in WebSocket response messages
-func (s *WebSocketScanner) evaluateResponseCheck(result WebSocketScannerResult, method *generation.ResponseCheckDetectionMethod) (bool, string, int, error) {
+func (s *WebSocketScanner) evaluateResponseCheck(result WebSocketScannerResult, method *generation.ResponseCheckDetectionMethod) (bool, string, int, db.IssueCode, error) {
 	for i, msg := range result.ResponseMessages {
 		if method.Check == generation.DatabaseErrorCondition {
 			errorResult := passive.SearchDatabaseErrors(msg.PayloadData)
 			if errorResult != nil {
 				description := fmt.Sprintf("Database error in response message #%d:\n - Database: %s\n - Error: %s",
 					i, errorResult.DatabaseName, errorResult.MatchStr)
-				return true, description, method.Confidence, nil
+				return true, description, method.Confidence, method.IssueOverride, nil
 			}
 		} else if method.Check == generation.XPathErrorCondition {
 			errorResult := passive.SearchXPathErrors(msg.PayloadData)
 			if errorResult != "" {
 				description := fmt.Sprintf("XPath error in response message #%d:\n - Error: %s",
 					i, errorResult)
-				return true, description, method.Confidence, nil
+				return true, description, method.Confidence, method.IssueOverride, nil
 			}
 		}
 	}
-	return false, "", 0, nil
+	return false, "", 0, "", nil
 }

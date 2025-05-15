@@ -238,8 +238,8 @@ func FullScanHandler(c *fiber.Ctx) error {
 
 type ActiveWebSocketScanInput struct {
 	Connections       []uint `json:"connections" validate:"required,dive,min=0"`
-	WorkspaceID       uint   `json:"workspace" validate:"omitempty,min=0"`
-	TaskID            uint   `json:"task" validate:"omitempty,min=0"`
+	WorkspaceID       uint   `json:"workspace_id" validate:"omitempty,min=0"`
+	TaskID            uint   `json:"task_id" validate:"omitempty,min=0"`
 	ReplayMessages    bool   `json:"replay_messages"`
 	ObservationWindow int    `json:"observation_window" validate:"omitempty,min=0,max=120"`
 	Concurrency       int    `json:"concurrency" validate:"omitempty,min=1,max=100"`
@@ -275,7 +275,7 @@ func ActiveWebSocketScanHandler(c *fiber.Ctx) error {
 
 	// Apply defaults
 	if input.ObservationWindow == 0 {
-		input.ObservationWindow = 5
+		input.ObservationWindow = 10
 	}
 
 	if input.Concurrency == 0 {
@@ -291,6 +291,7 @@ func ActiveWebSocketScanHandler(c *fiber.Ctx) error {
 	if !taskExists {
 		workspaceExists, _ := db.Connection().WorkspaceExists(input.WorkspaceID)
 		if !workspaceExists {
+			log.Warn().Interface("input", input).Msg("Active WebSocket scan request received without a valid workspace ID")
 			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 				Error:   "Invalid workspace",
 				Message: "The provided workspace and/or task ID provided does not seem valid",

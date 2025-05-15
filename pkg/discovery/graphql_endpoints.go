@@ -88,7 +88,7 @@ type GraphQLValidationResponse struct {
 }
 
 func IsGraphQLValidationFunc(history *db.History) (bool, string, int) {
-	confidence := 50
+	confidence := 40
 	details := make([]string, 0)
 
 	if history.StatusCode != 200 {
@@ -100,8 +100,11 @@ func IsGraphQLValidationFunc(history *db.History) (bool, string, int) {
 		confidence += 10
 		details = append(details, "JSON content type detected")
 	} else if strings.Contains(contentType, "application/graphql") {
-		confidence += 20
+		confidence += 50
 		details = append(details, "GraphQL content type detected")
+	} else {
+		confidence -= 10
+		details = append(details, "Non-GraphQL content type detected")
 	}
 
 	if isGraphQLUI(history) {

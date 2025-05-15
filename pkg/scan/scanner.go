@@ -210,6 +210,7 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 		}
 
 		req, err := CreateRequestFromInsertionPoints(task.history, builders)
+
 		if err != nil {
 			taskLog.Error().Err(err).Msg("Error building request from insertion points")
 			result.Err = err
@@ -235,25 +236,9 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 				CreateNewBodyStream: false,
 			}
 			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, options)
-			taskLog.Debug().Str("rawrequest", string(newHistory.RawRequest)).Msg("Request from history created in TemplateScanner")
-			result.Result = newHistory
-			result.Err = err
-			result.Response = *response
-			result.Payload = task.payload
-			result.InsertionPoint = task.insertionPoint
-			result.Original = task.history
-			result.ResponseData = responseData
-			vulnerable, details, confidence, err := f.EvaluateResult(result)
-			if err != nil {
-				taskLog.Error().Err(err).Msg("Error evaluating result")
-				wg.Done()
-				continue
-			}
-			issueCode := db.IssueCode(task.payload.IssueCode)
-
 			if task.payload.InteractionDomain.URL != "" {
 				oobTest := db.OOBTest{
-					Code:              issueCode,
+					Code:              db.IssueCode(task.payload.IssueCode),
 					TestName:          "OOB Test",
 					InteractionDomain: task.payload.InteractionDomain.URL,
 					InteractionFullID: task.payload.InteractionDomain.ID,
@@ -268,6 +253,28 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 				db.Connection().CreateOOBTest(oobTest)
 				taskLog.Debug().Interface("oobTest", oobTest).Msg("Created OOB Test")
 			}
+
+			taskLog.Debug().Str("rawrequest", string(newHistory.RawRequest)).Msg("Request from history created in TemplateScanner")
+			result.Result = newHistory
+			result.Err = err
+			result.Response = *response
+			result.Payload = task.payload
+			result.InsertionPoint = task.insertionPoint
+			result.Original = task.history
+			result.ResponseData = responseData
+			vulnerable, details, confidence, issueOverride, err := f.EvaluateResult(result)
+
+			if err != nil {
+				taskLog.Error().Err(err).Msg("Error evaluating result")
+				wg.Done()
+				continue
+			}
+			issueCode := db.IssueCode(task.payload.IssueCode)
+			if issueOverride != "" {
+				issueCode = issueOverride
+				details = fmt.Sprintf("%s\n\n This issue has been detected looking for %s, but matched a response condition of %s and has been overriden", details, task.payload.IssueCode, issueOverride)
+			}
+
 			if vulnerable {
 				taskLog.Warn().Msg("Vulnerable")
 				// Should handle the additional details and confidence
@@ -295,23 +302,26 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 	}
 }
 
-func (f *TemplateScanner) EvaluateResult(result TemplateScannerResult) (bool, string, int, error) {
+func (f *TemplateScanner) EvaluateResult(result TemplateScannerResult) (bool, string, int, db.IssueCode, error) {
 	// Iterate through payload detection methods
 	vulnerable := false
 	condition := result.Payload.DetectionCondition
 	confidence := 0
 	var sb strings.Builder
+	var issueOverride db.IssueCode
+
 	for _, detectionMethod := range result.Payload.DetectionMethods {
 		// Evaluate the detection method
-		detectionMethodResult, description, conf, err := f.EvaluateDetectionMethod(result, detectionMethod)
+		detectionMethodResult, description, conf, override, err := f.EvaluateDetectionMethod(result, detectionMethod)
 		if conf > confidence {
 			confidence = conf
 		}
 		if description != "" {
 			sb.WriteString(description + "\n")
 		}
+
 		if err != nil {
-			return false, "", confidence, err
+			return false, "", confidence, "", err
 		}
 
 		if detectionMethodResult {
@@ -320,13 +330,16 @@ func (f *TemplateScanner) EvaluateResult(result TemplateScannerResult) (bool, st
 			// 	return true, sb.String(), confidence, nil
 			// }
 			vulnerable = true
+			if override != "" {
+				issueOverride = override
+			}
 		} else if condition == generation.And {
-			return false, "", confidence, nil
+			return false, "", confidence, "", nil
 		}
 
 	}
 
-	return vulnerable, sb.String(), confidence, nil
+	return vulnerable, sb.String(), confidence, issueOverride, nil
 }
 
 type repeatedHistoryItem struct {
@@ -368,7 +381,7 @@ func (f *TemplateScanner) repeatHistoryItem(history *db.History) (repeatedHistor
 }
 
 // EvaluateDetectionMethod evaluates a detection method and returns a boolean indicating if it matched, a description of the match, the confidence and a possible error
-func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, method generation.DetectionMethod) (bool, string, int, error) {
+func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, method generation.DetectionMethod) (bool, string, int, db.IssueCode, error) {
 	switch m := method.GetMethod().(type) {
 	case *generation.OOBInteractionDetectionMethod:
 		log.Debug().Msg("OOB Interaction detection method not implemented yet")
@@ -420,18 +433,18 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 			confidence = m.Confidence
 		}
 
-		return matched, sb.String(), confidence, nil
+		return matched, sb.String(), confidence, m.IssueOverride, nil
 
 	case *generation.ReflectionDetectionMethod:
 		if strings.Contains(result.ResponseData.RawString, m.Value) {
 			log.Info().Msg("Matched Reflection method")
 			description := fmt.Sprintf("Response contains the value %s", m.Value)
-			return true, description, m.Confidence, nil
+			return true, description, m.Confidence, "", nil
 		}
-		return false, "", 0, nil
+		return false, "", 0, "", nil
 	case *generation.BrowserEventsDetectionMethod:
 		log.Warn().Msg("Browser Events detection method not implemented yet")
-		return false, "", 0, nil
+		return false, "", 0, "", nil
 	case *generation.TimeBasedDetectionMethod:
 		if m.CheckIfResultDurationIsHigher(result.Duration) {
 			var sb strings.Builder
@@ -498,36 +511,36 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 			}
 
 			if originalTrueCount == 0 && payloadTrueCount > attempts/2 {
-				return true, sb.String(), 100, nil
+				return true, sb.String(), 100, "", nil
 			}
 
 			if finalConfidence > 50 {
 				log.Debug().Msgf("System is vulnerable with %d%% confidence", finalConfidence)
-				return true, sb.String(), finalConfidence, nil
+				return true, sb.String(), finalConfidence, "", nil
 			} else {
 				log.Debug().Msgf("System is not vulnerable with %d%% confidence", finalConfidence)
-				return false, "", finalConfidence, nil
+				return false, "", finalConfidence, "", nil
 			}
 
 		}
-		return false, "", 0, nil
+		return false, "", 0, "", nil
 	case *generation.ResponseCheckDetectionMethod:
 		if m.Check == generation.DatabaseErrorCondition {
 			result := passive.SearchDatabaseErrors(result.ResponseData.RawString)
 			if result != nil {
 				log.Info().Interface("database_error", result).Msg("Matched DatabaseErrorCondition")
 				description := fmt.Sprintf("Database error was returned in response:\n - Database: %s\n - Error: %s", result.DatabaseName, result.MatchStr)
-				return true, description, m.Confidence, nil
+				return true, description, m.Confidence, m.IssueOverride, nil
 			}
 		} else if m.Check == generation.XPathErrorCondition {
 			result := passive.SearchXPathErrors(result.ResponseData.RawString)
 			if result != "" {
 				log.Info().Str("xpath_error", result).Msg("Matched XPathErrorCondition")
 				description := fmt.Sprintf("XPath error was returned in response:\n - Error: %s", result)
-				return true, description, m.Confidence, nil
+				return true, description, m.Confidence, m.IssueOverride, nil
 			}
 		}
-		return false, "", 0, nil
+		return false, "", 0, m.IssueOverride, nil
 	}
-	return false, "", 0, nil
+	return false, "", 0, "", nil
 }

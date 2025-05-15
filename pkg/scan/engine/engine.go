@@ -241,7 +241,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 				if observationWindow > 0 {
 					websocketScanOptions.ObservationWindow = time.Duration(observationWindow) * time.Second
 				} else {
-					websocketScanOptions.ObservationWindow = 5 * time.Second
+					websocketScanOptions.ObservationWindow = 10 * time.Second
 				}
 				scanLog.Info().Int64("count", count).Msg("Starting WebSocket connections scan")
 				s.EvaluateWebSocketConnections(websocketConnections, websocketScanOptions)

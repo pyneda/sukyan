@@ -63,8 +63,9 @@ type ResponseConditionDetectionMethod struct {
 }
 
 type ResponseCheckDetectionMethod struct {
-	Check      ResponseConditionCheck `yaml:"check"`
-	Confidence int                    `yaml:"confidence,omitempty"`
+	Check         ResponseConditionCheck `yaml:"check"`
+	Confidence    int                    `yaml:"confidence,omitempty"`
+	IssueOverride db.IssueCode           `yaml:"issue_override,omitempty"`
 }
 
 type ReflectionDetectionMethod struct {

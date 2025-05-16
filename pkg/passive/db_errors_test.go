@@ -15,7 +15,7 @@ func TestSearchDatabaseErrors(t *testing.T) {
 		{"PostgreSQL", "PostgreSQL ERROR: column does not exist", "PostgreSQL", "PostgreSQL ERROR"},
 		{"MS SQL Server", "Driver for SQL Server failed to connect", "Microsoft SQL Server", "Driver for SQL Server"},
 		{"MS Access", "Microsoft Access Driver error", "Microsoft Access", "Microsoft Access Driver"},
-		{"Oracle", "Oracle error: ORA-0090", "Oracle", "ORA-0090"},
+		{"Oracle", "error received ORA-00090 when querying the database", "Oracle", "ORA-00090"},
 		{"IBM DB2", "CLI Driver for DB2 SQL error", "IBM DB2", "CLI Driver for DB2"},
 		{"SQLite", "[SQLITE_ERROR] SQL error", "SQLite", "[SQLITE_ERROR]"},
 		{"Sybase", "Sybase message: Server is not responding", "Sybase", "Sybase message"},

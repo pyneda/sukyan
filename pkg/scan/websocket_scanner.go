@@ -32,7 +32,7 @@ type WebSocketDetectedIssue struct {
 }
 
 func (di WebSocketDetectedIssue) String() string {
-	return fmt.Sprintf("%s:%s:%d:%d:%s", di.code, di.insertionPoint.String(),
+	return fmt.Sprintf("%s:%s:%d:%d", di.code, di.insertionPoint.String(),
 		di.connectionID, di.messageIndex)
 }
 

@@ -74,8 +74,8 @@ var apiKeysPatternsMap = map[string]*regexp.Regexp{
 	"Facebook Access Token":             regexp.MustCompile(`EAACEdEose0cBA[0-9A-Za-z]+`),
 	"Facebook Oauth":                    regexp.MustCompile(`[fF][aA][cC][eE][bB][oO][oO][kK][^\s]*['|\"][0-9a-f]{32}['|\"]`),
 	"GitHub":                            regexp.MustCompile(`[gG][iI][tT][hH][uU][bB].*['|\"][0-9a-zA-Z]{35,40}['|\"]`),
-	"Generic API Key":                   regexp.MustCompile(`[aA][pP][iI]_?[kK][eE][yY].*['|\"][0-9a-zA-Z]{32,45}['|\"]`),
-	"Generic Secret":                    regexp.MustCompile(`[sS][eE][cC][rR][eE][tT].*['|\"][0-9a-zA-Z]{32,45}['|\"]`),
+	"Generic API Key":                   regexp.MustCompile(`(?i)api_?key.*?['"][0-9a-zA-Z]{32,45}['"](?:\s|$|;|,)`),
+	"Generic Secret":                    regexp.MustCompile(`(?i)secret.*?['"][0-9a-zA-Z]{32,45}['"](?:\s|$|;|,)`),
 	"Google API Key":                    regexp.MustCompile(`AIza[0-9A-Za-z\\-_]{35}`),
 	"Google Cloud Platform API Key":     regexp.MustCompile(`AIza[0-9A-Za-z\\-_]{35}`),
 	"Google Cloud Platform OAuth":       regexp.MustCompile(`[0-9]+-[0-9A-Za-z_]{32}\\.apps\\.googleusercontent\\.com`),
@@ -120,12 +120,9 @@ var apiKeysPatternsMap = map[string]*regexp.Regexp{
 	"Square Oauth Secret":               regexp.MustCompile(`sq0csp-[0-9A-Za-z\\-_]{43}`),
 	"Telegram Bot API Key":              regexp.MustCompile(`[0-9]+:AA[0-9A-Za-z\\-_]{33}`),
 	"Twilio API Key":                    regexp.MustCompile(`SK[0-9a-fA-F]{32}`),
-	"Twitter Access Token":              regexp.MustCompile(`[tT][wW][iI][tT][tT][eE][rR][^\s]*[0-9a-zA-Z]{35,44}`),
 	"Vault Token":                       regexp.MustCompile(`hv[sb]\.(?:[A-Za-z0-9]{24}|[A-Za-z0-9_-]{91,})`),
 	"Web3 API Key":                      regexp.MustCompile(`(web3[a-z0-9_ \.,\-]{0,25})(=|>|:=|\|\|:|<=|=>|:).{0,5}['"]([A-Za-z0-9_=\-]+\.[A-Za-z0-9_=\-]+\.?[A-Za-z0-9_.+/=\-]*)['"]`),
 	"Yandex Access Token":               regexp.MustCompile(`t1\.[A-Z0-9a-z_-]+[=]{0,2}\.[A-Z0-9a-z_-]{86}[=]{0,2}`),
-	// "Yandex API Key":                    regexp.MustCompile(`AQVN[A-Za-z0-9_-]{35,38}`),
-	// "Yandex AWS Access Token":           regexp.MustCompile(`YC[a-zA-Z0-9_-]{38}`),
 }
 
 var javaAppletPatterns = []struct {

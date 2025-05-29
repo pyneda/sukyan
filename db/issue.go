@@ -250,6 +250,27 @@ func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) ([]*GroupedIs
 	return groupedIssues, nil
 }
 
+func (d *DatabaseConnection) ListUniqueIssueCodes(filter IssueFilter) ([]string, error) {
+	var codes []string
+	query := d.db.Model(&Issue{}).Distinct("code")
+
+	if filter.WorkspaceID != 0 {
+		query = query.Where("workspace_id = ?", filter.WorkspaceID)
+	}
+	if filter.TaskID != 0 {
+		query = query.Where("task_id = ?", filter.TaskID)
+	}
+	if filter.TaskJobID != 0 {
+		query = query.Where("task_job_id = ?", filter.TaskJobID)
+	}
+	if filter.MinConfidence > 0 {
+		query = query.Where("confidence >= ?", filter.MinConfidence)
+	}
+
+	err := query.Pluck("code", &codes).Error
+	return codes, err
+}
+
 // ListIssuesGrouped Lists grouped issues
 // func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) (issues []*GroupedIssue, err error) {
 // 	query := d.db.Model(&Issue{}).Select("title, severity, code, COUNT(*)").Group("title,severity,code")

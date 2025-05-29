@@ -142,7 +142,7 @@ func initDb() *DatabaseConnection {
 		connMaxLifetime = 1 * time.Hour
 	}
 
-	log.Info().
+	log.Debug().
 		Int("max_idle_conns", maxIdleConns).
 		Int("max_open_conns", maxOpenConns).
 		Dur("conn_max_lifetime", connMaxLifetime).
@@ -162,7 +162,7 @@ func initDb() *DatabaseConnection {
 func Cleanup() {
 	if connection != nil {
 		if connection.sqlDb != nil {
-			log.Info().Msg("Closing database connection")
+			log.Debug().Msg("Closing database connection")
 			connection.sqlDb.Close()
 		}
 		connection = nil

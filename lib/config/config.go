@@ -1,14 +1,11 @@
 package config
 
 import (
-	"fmt"
-
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
 func LoadConfig() {
-	fmt.Println("loading config")
 	viper.SetConfigName("config")       // name of config file (without extension)
 	viper.SetConfigType("yaml")         // REQUIRED if the config file does not have the extension in the name
 	viper.AddConfigPath("/etc/sukyan/") // path to look for the config file in

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pyneda/sukyan/db"
@@ -46,6 +47,8 @@ type ScanEngine struct {
 	ctx                       context.Context
 	cancel                    context.CancelFunc
 	isPaused                  bool
+	wsDeduplicationManagers   map[uint]*scan.WebSocketDeduplicationManager
+	wsDeduplicationMu         sync.RWMutex
 }
 
 func NewScanEngine(payloadGenerators []*generation.PayloadGenerator, maxConcurrentPassiveScans, maxConcurrentActiveScans int, interactionsManager *integrations.InteractionsManager) *ScanEngine {
@@ -60,6 +63,7 @@ func NewScanEngine(payloadGenerators []*generation.PayloadGenerator, maxConcurre
 		activeScanPool:            pool.New().WithMaxGoroutines(maxConcurrentActiveScans),
 		ctx:                       ctx,
 		cancel:                    cancel,
+		wsDeduplicationManagers:   make(map[uint]*scan.WebSocketDeduplicationManager),
 	}
 }
 
@@ -92,6 +96,39 @@ func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJ
 	}
 }
 
+// Get or create deduplication manager for a task
+func (s *ScanEngine) getOrCreateWSDeduplicationManager(taskID uint, mode options.ScanMode) *scan.WebSocketDeduplicationManager {
+	s.wsDeduplicationMu.Lock()
+	defer s.wsDeduplicationMu.Unlock()
+
+	if manager, exists := s.wsDeduplicationManagers[taskID]; exists {
+		return manager
+	}
+
+	manager := scan.NewWebSocketDeduplicationManager(mode)
+	s.wsDeduplicationManagers[taskID] = manager
+	return manager
+}
+
+// Clean up deduplication manager for a task
+func (s *ScanEngine) cleanupWSDeduplicationManager(taskID uint) {
+	s.wsDeduplicationMu.Lock()
+	defer s.wsDeduplicationMu.Unlock()
+
+	delete(s.wsDeduplicationManagers, taskID)
+}
+
+// Get deduplication statistics for a task
+func (s *ScanEngine) getWSDeduplicationStats(taskID uint) map[string]interface{} {
+	s.wsDeduplicationMu.RLock()
+	defer s.wsDeduplicationMu.RUnlock()
+
+	if manager, exists := s.wsDeduplicationManagers[taskID]; exists {
+		return manager.GetStatistics()
+	}
+	return nil
+}
+
 func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 	s.passiveScanPool.Go(func() {
 		passive.ScanHistoryItem(item)
@@ -121,10 +158,14 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History, options scan_options.H
 }
 
 func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompletion bool) (*db.Task, error) {
+
 	task, err := db.Connection().NewTask(options.WorkspaceID, nil, options.Title, db.TaskStatusCrawling, db.TaskTypeScan)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not create task")
 	}
+
+	s.getOrCreateWSDeduplicationManager(task.ID, options.Mode)
+
 	// NOTE: Optimally, we would refactor the NewTask to accept the options struct directly
 	task.ScanOptions = options
 	db.Connection().UpdateTask(task.ID, task)
@@ -312,6 +353,12 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 		waitForTaskCompletion(task.ID)
 		scanLog.Info().Msg("Active scans finished")
 		db.Connection().SetTaskStatus(task.ID, db.TaskStatusFinished)
+		// Log WebSocket deduplication statistics if available and cleanup the manager
+		if stats := s.getWSDeduplicationStats(task.ID); stats != nil {
+			scanLog.Info().Interface("websocket_dedup_stats", stats).Msg("WebSocket deduplication statistics")
+		}
+		s.cleanupWSDeduplicationManager(task.ID)
+
 	} else {
 		go func() {
 			s.wg.Wait()
@@ -319,6 +366,11 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 			waitForTaskCompletion(task.ID)
 			scanLog.Info().Msg("Active scans finished")
 			db.Connection().SetTaskStatus(task.ID, db.TaskStatusFinished)
+			// Log WebSocket deduplication statistics if available and cleanup the manager
+			if stats := s.getWSDeduplicationStats(task.ID); stats != nil {
+				scanLog.Info().Interface("websocket_dedup_stats", stats).Msg("WebSocket deduplication statistics")
+			}
+			s.cleanupWSDeduplicationManager(task.ID)
 		}()
 	}
 
@@ -378,8 +430,9 @@ func (s *ScanEngine) scheduleWebSocketConnectionScan(item *db.WebSocketConnectio
 
 		taskJob.Status = db.TaskJobRunning
 		db.Connection().UpdateTaskJob(taskJob)
+		deduplicationManager := s.getOrCreateWSDeduplicationManager(options.TaskID, options.Mode)
 
-		scan.ActiveScanWebSocketConnection(item, s.InteractionsManager, s.payloadGenerators, connectionOptions)
+		scan.ActiveScanWebSocketConnection(item, s.InteractionsManager, s.payloadGenerators, connectionOptions, deduplicationManager)
 
 		taskJob.Status = db.TaskJobFinished
 		taskJob.CompletedAt = time.Now()

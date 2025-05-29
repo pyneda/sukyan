@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options WebSocketScanOptions) {
+func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options WebSocketScanOptions, deduplicationManager *WebSocketDeduplicationManager) {
 	log.Info().Uint("connection", item.ID).Msg("Active scanning websocket connection")
 	scopedInsertionPoints := []string{}
 	for _, t := range WebSocketInsertionPointTypes() {
@@ -38,10 +38,23 @@ func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsMan
 		InteractionsManager: interactionsManager,
 		AvoidRepeatedIssues: true,
 	}
+	skippedMessages := 0
+	scannedMessages := 0
 
 	for i, msg := range messages {
 		// Only scan messages that were sent from client to server
 		if msg.Direction != db.MessageSent {
+			continue
+		}
+
+		if deduplicationManager != nil && !deduplicationManager.ShouldScanMessage(item.ID, &msg) {
+			skippedMessages++
+			log.Debug().
+				Uint("connection", item.ID).
+				Uint("message", msg.ID).
+				Int("index", i).
+				Str("mode", options.Mode.String()).
+				Msg("Skipping WebSocket message due to deduplication rules")
 			continue
 		}
 
@@ -71,6 +84,10 @@ func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsMan
 			Int("insertionPoints", len(insertionPoints)).
 			Msg("Found insertion points for WebSocket message")
 
+		if deduplicationManager != nil {
+			deduplicationManager.MarkMessageAsScanned(item.ID, &msg)
+		}
+		scannedMessages++
 		// Run scan for this message and its insertion points
 		results := scanner.Run(item, messages, i, payloadGenerators, insertionPoints, options)
 
@@ -91,5 +108,10 @@ func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsMan
 			Msg("Completed scanning WebSocket message")
 	}
 
-	log.Info().Uint("connection", item.ID).Msg("Completed active scanning WebSocket connection")
+	log.Info().
+		Uint("connection", item.ID).
+		Int("scanned_messages", scannedMessages).
+		Int("skipped_messages", skippedMessages).
+		Str("mode", options.Mode.String()).
+		Msg("Completed active scanning WebSocket connection")
 }

@@ -294,7 +294,7 @@ func (s *WebSocketScanner) generateTasks(
 					})
 				}
 			} else {
-				log.Info().
+				log.Debug().
 					Str("url", connection.URL).
 					Uint("connection_id", connection.ID).
 					Int("target_index", targetMessageIndex).
@@ -840,33 +840,393 @@ func (s *WebSocketScanner) evaluateReflection(result WebSocketScannerResult, met
 	return false, "", 0, "", nil
 }
 
-// evaluateTimeBased checks if the scan execution took longer than expected
-func (s *WebSocketScanner) evaluateTimeBased(result WebSocketScannerResult, method *generation.TimeBasedDetectionMethod) (bool, string, int, db.IssueCode, error) {
-	matched := false
-	var sb strings.Builder
-	confidence := 0
+// BaselineResult represents timing data from baseline message collection
+type BaselineResult struct {
+	duration time.Duration
+	success  bool
+	error    error
+}
 
-	for i, msg := range result.ResponseMessages {
-		duration := msg.Timestamp.Sub(result.PayloadSentAt)
-		if method.CheckIfResultDurationIsHigher(duration) {
-			sb.WriteString(fmt.Sprintf("WebSocket response message #%d took %s, which is greater than the expected payload sleep time of %s\n", i, duration, method.Sleep))
-			sb.WriteString(fmt.Sprintf(" - Payload: %s\n", result.Payload.Value))
-			sb.WriteString(fmt.Sprintf(" - Payload sent at: %s\n", result.PayloadSentAt))
-			sb.WriteString(fmt.Sprintf(" - Response received at: %s\n\n", msg.Timestamp))
-			// NOTE: Additional validation could be done here, similar to the http template scanner
-			if confidence == 0 {
-				confidence = method.Confidence
-			} else {
-				confidence += 5
+// collectWebSocketBaseline performs baseline collection by sending the original message multiple times
+func (s *WebSocketScanner) collectWebSocketBaseline(originalConnection *db.WebSocketConnection, targetMessageIndex int, attempts int) ([]BaselineResult, error) {
+	var baselineResults []BaselineResult
+	originalMessages := originalConnection.Messages
+
+	if targetMessageIndex >= len(originalMessages) {
+		return nil, fmt.Errorf("target message index %d is out of bounds", targetMessageIndex)
+	}
+
+	targetMessage := originalMessages[targetMessageIndex]
+
+	for i := 0; i < attempts; i++ {
+		// Create new WebSocket connection for baseline measurement
+		dialer, err := createWebSocketDialer(originalConnection)
+		if err != nil {
+			baselineResults = append(baselineResults, BaselineResult{
+				duration: 0,
+				success:  false,
+				error:    fmt.Errorf("failed to create dialer: %w", err),
+			})
+			continue
+		}
+
+		client, _, err := dialer.Dial(originalConnection.URL, nil)
+		if err != nil {
+			baselineResults = append(baselineResults, BaselineResult{
+				duration: 0,
+				success:  false,
+				error:    fmt.Errorf("failed to dial websocket: %w", err),
+			})
+			continue
+		}
+
+		// Create temporary connection record for tracking
+		tempConnection := &db.WebSocketConnection{
+			URL:              originalConnection.URL,
+			RequestHeaders:   originalConnection.RequestHeaders,
+			ResponseHeaders:  originalConnection.ResponseHeaders,
+			StatusCode:       originalConnection.StatusCode,
+			StatusText:       originalConnection.StatusText,
+			WorkspaceID:      originalConnection.WorkspaceID,
+			TaskID:           originalConnection.TaskID,
+			Source:           db.SourceScanner,
+			UpgradeRequestID: originalConnection.UpgradeRequestID,
+		}
+		err = db.Connection().CreateWebSocketConnection(tempConnection)
+		if err != nil {
+			client.Close()
+			baselineResults = append(baselineResults, BaselineResult{
+				duration: 0,
+				success:  false,
+				error:    fmt.Errorf("failed to create temp connection: %w", err),
+			})
+			continue
+		}
+
+		// Replay previous messages to establish context
+		if targetMessageIndex > 0 {
+			_, err = replayPreviousMessages(client, tempConnection.ID, originalMessages, targetMessageIndex)
+			if err != nil {
+				client.Close()
+				baselineResults = append(baselineResults, BaselineResult{
+					duration: 0,
+					success:  false,
+					error:    fmt.Errorf("failed to replay previous messages: %w", err),
+				})
+				continue
 			}
-			matched = true
+		}
+
+		// Send the original message and measure response time
+		var messageType int
+		if targetMessage.Opcode == 1 {
+			messageType = websocket.TextMessage
+		} else {
+			messageType = websocket.BinaryMessage
+		}
+
+		startTime := time.Now()
+		err = client.WriteMessage(messageType, []byte(targetMessage.PayloadData))
+		if err != nil {
+			client.Close()
+			baselineResults = append(baselineResults, BaselineResult{
+				duration: 0,
+				success:  false,
+				error:    fmt.Errorf("failed to send message: %w", err),
+			})
+			continue
+		}
+
+		// Wait for first response or timeout
+		client.SetReadDeadline(time.Now().Add(10 * time.Second))
+		_, _, err = client.ReadMessage()
+		responseTime := time.Now()
+		duration := responseTime.Sub(startTime)
+
+		client.Close()
+
+		if err != nil {
+			// Treat timeout or read errors as potential indicators
+			baselineResults = append(baselineResults, BaselineResult{
+				duration: duration,
+				success:  false,
+				error:    fmt.Errorf("read error: %w", err),
+			})
+		} else {
+			baselineResults = append(baselineResults, BaselineResult{
+				duration: duration,
+				success:  true,
+				error:    nil,
+			})
+		}
+
+		// Small delay between attempts
+		time.Sleep(2 * time.Second)
+	}
+
+	return baselineResults, nil
+}
+
+// sendPayloadAndMeasureTiming creates a new WebSocket connection and measures the timing of sending the payload
+func (s *WebSocketScanner) sendPayloadAndMeasureTiming(result WebSocketScannerResult, method *generation.TimeBasedDetectionMethod) (BaselineResult, error) {
+	dialer, err := createWebSocketDialer(result.OriginalConnection)
+	if err != nil {
+		return BaselineResult{
+			duration: 0,
+			success:  false,
+			error:    fmt.Errorf("failed to create dialer: %w", err),
+		}, err
+	}
+
+	client, _, err := dialer.Dial(result.OriginalConnection.URL, nil)
+	if err != nil {
+		return BaselineResult{
+			duration: 0,
+			success:  false,
+			error:    fmt.Errorf("failed to dial websocket: %w", err),
+		}, err
+	}
+	defer client.Close()
+
+	// Create temporary connection record for tracking
+	tempConnection := &db.WebSocketConnection{
+		URL:              result.OriginalConnection.URL,
+		RequestHeaders:   result.OriginalConnection.RequestHeaders,
+		ResponseHeaders:  result.OriginalConnection.ResponseHeaders,
+		StatusCode:       result.OriginalConnection.StatusCode,
+		StatusText:       result.OriginalConnection.StatusText,
+		WorkspaceID:      result.OriginalConnection.WorkspaceID,
+		TaskID:           result.OriginalConnection.TaskID,
+		Source:           db.SourceScanner,
+		UpgradeRequestID: result.OriginalConnection.UpgradeRequestID,
+	}
+	err = db.Connection().CreateWebSocketConnection(tempConnection)
+	if err != nil {
+		return BaselineResult{
+			duration: 0,
+			success:  false,
+			error:    fmt.Errorf("failed to create temp connection: %w", err),
+		}, err
+	}
+
+	// Replay previous messages to establish context
+	if result.TargetMessageIndex > 0 {
+		_, err = replayPreviousMessages(client, tempConnection.ID, result.OriginalMessages, result.TargetMessageIndex)
+		if err != nil {
+			return BaselineResult{
+				duration: 0,
+				success:  false,
+				error:    fmt.Errorf("failed to replay previous messages: %w", err),
+			}, err
 		}
 	}
 
-	if confidence > 100 {
-		confidence = 100
+	// Create the modified message with payload (same as in the original scan)
+	originalMessage := result.OriginalMessages[result.TargetMessageIndex]
+	modifiedMessage, err := CreateModifiedWebSocketMessage(
+		&originalMessage,
+		result.InsertionPoint,
+		result.Payload.Value,
+	)
+	if err != nil {
+		return BaselineResult{
+			duration: 0,
+			success:  false,
+			error:    fmt.Errorf("failed to create modified message: %w", err),
+		}, err
 	}
-	return matched, sb.String(), confidence, "", nil
+
+	// Send the payload message and measure response time
+	var messageType int
+	if modifiedMessage.Opcode == 1 {
+		messageType = websocket.TextMessage
+	} else {
+		messageType = websocket.BinaryMessage
+	}
+
+	startTime := time.Now()
+	err = client.WriteMessage(messageType, []byte(modifiedMessage.PayloadData))
+	if err != nil {
+		return BaselineResult{
+			duration: 0,
+			success:  false,
+			error:    fmt.Errorf("failed to send message: %w", err),
+		}, err
+	}
+
+	// Wait for first response or timeout
+	client.SetReadDeadline(time.Now().Add(10 * time.Second))
+	_, _, err = client.ReadMessage()
+	responseTime := time.Now()
+	duration := responseTime.Sub(startTime)
+
+	if err != nil {
+		// Treat timeout or read errors as potential indicators
+		return BaselineResult{
+			duration: duration,
+			success:  false,
+			error:    fmt.Errorf("read error: %w", err),
+		}, nil
+	} else {
+		return BaselineResult{
+			duration: duration,
+			success:  true,
+			error:    nil,
+		}, nil
+	}
+}
+
+// evaluateTimeBased checks if the scan execution took longer than expected with enhanced validation
+func (s *WebSocketScanner) evaluateTimeBased(result WebSocketScannerResult, method *generation.TimeBasedDetectionMethod) (bool, string, int, db.IssueCode, error) {
+	var sb strings.Builder
+
+	// Focus on the first response message for primary detection
+	if len(result.ResponseMessages) == 0 {
+		return false, "No response messages received for time-based evaluation", 0, "", nil
+	}
+
+	firstResponse := result.ResponseMessages[0]
+	primaryDuration := firstResponse.Timestamp.Sub(result.PayloadSentAt)
+
+	// Check if the primary response indicates a time-based vulnerability
+	if !method.CheckIfResultDurationIsHigher(primaryDuration) {
+		return false, fmt.Sprintf("Primary response time %s is not greater than expected sleep time %s", primaryDuration, method.Sleep), 0, "", nil
+	}
+
+	sb.WriteString(fmt.Sprintf("Initial time-based detection: WebSocket response took %s, which is greater than the expected payload sleep time of %s\n", primaryDuration, method.Sleep))
+	sb.WriteString(fmt.Sprintf(" - Payload: %s\n", result.Payload.Value))
+	sb.WriteString(fmt.Sprintf(" - Payload sent at: %s\n", result.PayloadSentAt))
+	sb.WriteString(fmt.Sprintf(" - First response received at: %s\n\n", firstResponse.Timestamp))
+
+	defaultDelay := 30
+	attempts := 6
+	finalConfidence := method.Confidence
+	confidenceIncrement := 25
+	confidenceDecrement := 35
+	originalTrueCount := 0
+	payloadTrueCount := 0
+	expectedSleepDuration := method.ParseSleepDuration(method.Sleep)
+
+	sb.WriteString("Revalidation results:\n")
+	sb.WriteString("=============================\n")
+
+	// Collect baseline timing data
+	sb.WriteString("Collecting baseline timing data...\n")
+	baselineResults, err := s.collectWebSocketBaseline(result.OriginalConnection, result.TargetMessageIndex, 3)
+	if err != nil {
+		sb.WriteString(fmt.Sprintf("Warning: Failed to collect baseline data: %s\n", err))
+	}
+
+	// Calculate baseline statistics
+	var baselineSuccessfulDurations []time.Duration
+	baselineFailures := 0
+	for _, baseline := range baselineResults {
+		if baseline.success {
+			baselineSuccessfulDurations = append(baselineSuccessfulDurations, baseline.duration)
+		} else {
+			baselineFailures++
+		}
+	}
+
+	var avgBaseline time.Duration
+	if len(baselineSuccessfulDurations) > 0 {
+		var total time.Duration
+		for _, d := range baselineSuccessfulDurations {
+			total += d
+		}
+		avgBaseline = total / time.Duration(len(baselineSuccessfulDurations))
+		sb.WriteString(fmt.Sprintf("Baseline average response time: %s (from %d successful attempts)\n", avgBaseline, len(baselineSuccessfulDurations)))
+	} else {
+		sb.WriteString("Warning: No successful baseline measurements obtained\n")
+	}
+
+	// Revalidation attempts
+	for i := 1; i < attempts; i++ {
+		delay := time.Duration(defaultDelay*i) * time.Second
+
+		// Test original message timing
+		originalBaseline, err := s.collectWebSocketBaseline(result.OriginalConnection, result.TargetMessageIndex, 1)
+		if err != nil || len(originalBaseline) == 0 || !originalBaseline[0].success {
+			sb.WriteString(fmt.Sprintf("Attempt %d: Error measuring original message timing\n", i))
+			sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))
+			time.Sleep(delay)
+			continue
+		}
+
+		originalDuration := originalBaseline[0].duration
+		originalIsHigher := method.CheckIfResultDurationIsHigher(originalDuration)
+		if originalIsHigher {
+			originalTrueCount++
+			finalConfidence -= confidenceDecrement
+		}
+
+		// Create a new test with the payload to measure current timing
+		payloadResult, err := s.sendPayloadAndMeasureTiming(result, method)
+		if err != nil {
+			sb.WriteString(fmt.Sprintf("Attempt %d: Error measuring payload timing: %s\n", i, err))
+			sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))
+			time.Sleep(delay)
+			continue
+		}
+
+		payloadIsHigher := method.CheckIfResultDurationIsHigher(payloadResult.duration)
+		if payloadIsHigher {
+			payloadTrueCount++
+			finalConfidence += confidenceIncrement
+		}
+
+		// Compare response times and adjust confidence
+		if originalDuration > payloadResult.duration || payloadResult.duration < expectedSleepDuration {
+			finalConfidence -= confidenceDecrement
+		}
+
+		// Additional statistical comparison with baseline
+		if avgBaseline > 0 {
+			// If original response is now faster than payload response, increase confidence
+			if originalDuration < payloadResult.duration && payloadResult.duration >= expectedSleepDuration {
+				finalConfidence += confidenceIncrement
+			}
+			// If original response is similar to payload response, decrease confidence
+			if abs(originalDuration-payloadResult.duration) < time.Second {
+				finalConfidence -= confidenceDecrement
+			}
+		}
+
+		sb.WriteString(fmt.Sprintf("Attempt %d:\n - Original took %s\n - Payload took %s\n", i, originalDuration, payloadResult.duration))
+
+		if originalIsHigher {
+			sb.WriteString(fmt.Sprintf(" * Original message also delayed, sleeping for %s seconds.\n", delay))
+			time.Sleep(delay)
+		}
+
+		sb.WriteString("\n")
+	}
+
+	// Final confidence adjustment
+	if finalConfidence > 100 {
+		finalConfidence = 100
+	} else if finalConfidence < 0 {
+		finalConfidence = 0
+	}
+
+	// Statistical analysis similar to HTTP scanner
+	if originalTrueCount == 0 && payloadTrueCount > attempts/2 {
+		return true, sb.String(), 100, "", nil
+	}
+
+	if finalConfidence > 50 {
+		return true, sb.String(), finalConfidence, "", nil
+	} else {
+		return false, sb.String(), finalConfidence, "", nil
+	}
+}
+
+// abs returns the absolute value of the duration difference
+func abs(a time.Duration) time.Duration {
+	if a < 0 {
+		return -a
+	}
+	return a
 }
 
 // evaluateResponseCheck checks for error patterns in WebSocket response messages

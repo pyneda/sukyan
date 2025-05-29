@@ -67,7 +67,7 @@ func SetDefaultConfig() {
 	// Scan
 	viper.SetDefault("scan.magic_words", []string{"null", "None", "Undefined", "Blank"})
 	viper.SetDefault("scan.concurrency.passive", 30)
-	viper.SetDefault("scan.concurrency.active", 15)
+	viper.SetDefault("scan.concurrency.active", 30)
 	viper.SetDefault("scan.browser.pool_size", 6)
 
 	viper.SetDefault("scan.oob.enabled", true)

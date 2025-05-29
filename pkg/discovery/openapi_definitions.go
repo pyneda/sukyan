@@ -77,25 +77,26 @@ var OpenAPIPaths = []string{
 }
 
 func IsOpenAPIValidationFunc(history *db.History) (bool, string, int) {
-	confidence := 50
+	confidence := 20
 	details := make([]string, 0)
 
 	if history.StatusCode != 200 {
-		confidence = 30
+		confidence = 15
 	}
 
 	contentType := strings.ToLower(history.ResponseContentType)
 	if strings.Contains(contentType, "application/json") {
-		confidence += 10
+		confidence += 20
+		if strings.HasSuffix(history.URL, "json") {
+			confidence += 10
+		}
 		details = append(details, "JSON content type detected")
 	} else if strings.Contains(contentType, "application/yaml") || strings.Contains(contentType, "application/x-yaml") {
-		confidence += 10
+		confidence += 30
 		details = append(details, "YAML content type detected")
+	} else if strings.Contains(contentType, "text/html") {
+		confidence -= 20
 	}
-
-	// if isSwaggerUI(history) {
-	// 	return true, "Swagger/OpenAPI UI detected", 95
-	// }
 
 	body, _ := history.ResponseBody()
 	bodyStr := string(body)
@@ -165,24 +166,6 @@ func IsOpenAPIValidationFunc(history *db.History) (bool, string, int) {
 
 	return false, "", 0
 }
-
-// func isSwaggerUI(history *db.History) bool {
-// 	bodyStr := string(history.ResponseBody)
-// 	bodyLower := strings.ToLower(bodyStr)
-
-// 	if !strings.Contains(strings.ToLower(history.ResponseContentType), "text/html") {
-// 		return false
-// 	}
-
-// 	markerCount := 0
-// 	for _, marker := range swaggerUIMarkers {
-// 		if strings.Contains(bodyLower, marker) {
-// 			markerCount++
-// 		}
-// 	}
-
-// 	return markerCount >= 2
-// }
 
 func DiscoverOpenapiDefinitions(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{

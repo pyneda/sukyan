@@ -112,15 +112,15 @@ func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) 
 			if err != nil {
 				ctx.OnError(err)
 				log.Err(err).Msg("Error reading request body in replay function")
-				opts.Request.Body.Close()
+				// opts.Request.Body.Close()
 				return
 			}
 			opts.Request.Body.Close()
 
 			// Set the new body on the context and the original request for future use
-			newBodyReader := bytes.NewReader(bodyBytes)
-			opts.Request.Body = io.NopCloser(newBodyReader)
+			opts.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 			ctx.Request.Req().Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
 			ctx.Request.SetBody(bodyBytes)
 
 			// Set the Content-Length header to the length of the new body

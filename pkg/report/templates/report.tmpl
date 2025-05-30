@@ -199,7 +199,7 @@
         </div>
     </div>
     
-    <!-- Toast notification for clipboard operations -->
+        <!-- Toast notification for clipboard operations -->
     <div id="toast" class="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50">
         Copied to clipboard
     </div>
@@ -305,6 +305,19 @@
             navigator.clipboard.writeText(text)
                 .then(() => showToast('Copied to clipboard'))
                 .catch(err => showToast('Failed to copy: ' + err));
+        }
+        
+        function toggleMessages(messagesId) {
+            const messagesDiv = document.getElementById(messagesId);
+            const toggleText = document.getElementById('toggle-text-' + messagesId.split('-')[1]);
+            
+            if (messagesDiv.classList.contains('hidden')) {
+                messagesDiv.classList.remove('hidden');
+                toggleText.textContent = 'Hide Messages';
+            } else {
+                messagesDiv.classList.add('hidden');
+                toggleText.textContent = 'Show Messages';
+            }
         }
         
 
@@ -600,55 +613,98 @@
                 referencesSection.appendChild(refList);
                 container.appendChild(referencesSection);
             }
-            
-            
+            container.appendChild(createElementWithClass('h3', 'text-xl font-semibold text-white mb-2', 'Technical Details'));
             if (issue.payload) {
-                const payloadSection = createTechnicalSection('Payload', issue.payload);
+                const payloadSection = createTechnicalSection('Payload', issue.payload, false);
                 container.appendChild(payloadSection);
             }
             
             if (issue.curl_command) {
-                const curlSection = createTechnicalSection('cURL Command', issue.curl_command);
+                const curlSection = createTechnicalSection('cURL Command', issue.curl_command, false);
                 container.appendChild(curlSection);
             }
             
             if (issue.request) {
                 const requestData = decodeBase64(issue.request);
-                const requestSection = createTechnicalSection('HTTP Request', requestData);
+                const requestSection = createTechnicalSection('HTTP Request', requestData, issue.request_truncated);
                 container.appendChild(requestSection);
             }
             
             if (issue.response) {
                 const responseData = decodeBase64(issue.response);
-                const responseSection = createTechnicalSection('HTTP Response', responseData);
+                const responseSection = createTechnicalSection('HTTP Response', responseData, issue.response_truncated);
                 container.appendChild(responseSection);
+            }
+            
+            // WebSocket Connection section
+            if (issue.websocket_connection) {
+                const wsSection = createWebSocketSection(issue.websocket_connection);
+                container.appendChild(wsSection);
             }
         }
         
-        function createTechnicalSection(title, content) {
+        function createTechnicalSection(title, content, isTruncated = false) {
             const section = createElementWithClass('div', 'mb-4 border border-gray-700 rounded-lg overflow-hidden');
             
-            // Create collapsible header
-            const header = createElementWithClass('div', 'bg-gray-700 p-3 flex justify-between items-center cursor-pointer');
-            header.appendChild(createElementWithClass('h3', 'text-lg font-medium', title));
+            // Use consistent subtle styling for all sections
+            let headerClass = 'bg-gray-700';
+            let iconColor = 'text-gray-300';
+            let icon = '';
             
-            const toggleIcon = createElementWithClass('span', 'text-gray-400');
+            if (title.includes('Payload')) {
+                icon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>`;
+            } else if (title.includes('HTTP Request')) {
+                icon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>`;
+            } else if (title.includes('HTTP Response')) {
+                icon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                </svg>`;
+            } else if (title.includes('cURL')) {
+                icon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>`;
+            }
+            
+            // Create collapsible header
+            const header = createElementWithClass('div', `${headerClass} p-3 flex justify-between items-center cursor-pointer`);
+            
+            // Create title container with icon and truncation indicator if needed
+            const titleContainer = createElementWithClass('div', 'flex items-center');
+            
+            const titleWithIcon = createElementWithClass('div', 'flex items-center text-white');
+            titleWithIcon.innerHTML = `${icon}<h3 class="text-lg font-medium">${title}</h3>`;
+            titleContainer.appendChild(titleWithIcon);
+            
+            if (isTruncated) {
+                const truncationIndicator = createElementWithClass('span', 'ml-3 px-2 py-1 text-xs bg-yellow-600 text-yellow-100 rounded-full shadow-md');
+                truncationIndicator.textContent = 'TRUNCATED';
+                truncationIndicator.title = 'Content has been truncated due to size limits';
+                titleContainer.appendChild(truncationIndicator);
+            }
+            
+            header.appendChild(titleContainer);
+            
+            const toggleIcon = createElementWithClass('span', 'text-white opacity-75 hover:opacity-100 transition-opacity');
             toggleIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>';
             header.appendChild(toggleIcon);
             
             // Create content area (collapsed by default)
             const contentArea = createElementWithClass('div', 'hidden');
             
-            const pre = createElementWithClass('pre', 'p-3 text-sm text-gray-300 bg-gray-800 overflow-x-auto', content);
+            const pre = createElementWithClass('pre', 'p-4 text-sm text-gray-300 bg-gray-800 overflow-x-auto border-t border-gray-600', content);
             
-            // Add copy button
-            const copyButtonContainer = createElementWithClass('div', 'flex justify-end p-2 bg-gray-700 border-t border-gray-600');
-            const copyButton = createElementWithClass('button', 'text-sm bg-gray-600 hover:bg-gray-500 text-white px-3 py-1 rounded flex items-center transition');
+            // Add copy button with better styling
+            const copyButtonContainer = createElementWithClass('div', 'flex justify-end p-3 bg-gray-750 border-t border-gray-600');
+            const copyButton = createElementWithClass('button', 'text-sm bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-md flex items-center transition-all shadow-md hover:shadow-lg');
             copyButton.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
                 </svg>
-                Copy
+                Copy to Clipboard
             `;
             copyButton.addEventListener('click', () => copyToClipboard(content));
             copyButtonContainer.appendChild(copyButton);
@@ -668,6 +724,204 @@
             section.appendChild(contentArea);
             
             return section;
+        }
+        
+        function createWebSocketSection(wsConnection) {
+            const wsSection = createElementWithClass('div', 'mb-6');
+            
+            // WebSocket header
+            const header = createElementWithClass('h3', 'text-xl font-semibold text-white mb-4 flex items-center');
+            header.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.22c5.464-5.464 14.959-5.464 20.423 0" />
+                </svg>
+                WebSocket Connection
+            `;
+            wsSection.appendChild(header);
+            
+            // Connection info panel
+            const infoPanel = createElementWithClass('div', 'bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-600/30 rounded-lg p-4 mb-4');
+            
+            // Connection details
+            const connectionDetails = createElementWithClass('div', 'grid grid-cols-1 md:grid-cols-2 gap-4');
+            
+            // URL
+            const urlDiv = createElementWithClass('div', '');
+            urlDiv.innerHTML = `
+                <div class="text-sm text-gray-400 mb-1">WebSocket URL</div>
+                <div class="text-blue-300 font-mono text-sm break-all">${wsConnection.url}</div>
+            `;
+            connectionDetails.appendChild(urlDiv);
+            
+            // Status
+            const statusDiv = createElementWithClass('div', '');
+            const statusColor = wsConnection.status === 'connected' ? 'text-green-400' : 
+                               wsConnection.status === 'closed' ? 'text-red-400' : 'text-yellow-400';
+            statusDiv.innerHTML = `
+                <div class="text-sm text-gray-400 mb-1">Status</div>
+                <div class="flex items-center">
+                    <div class="w-2 h-2 rounded-full mr-2 ${wsConnection.status === 'connected' ? 'bg-green-400' : 
+                                                           wsConnection.status === 'closed' ? 'bg-red-400' : 'bg-yellow-400'}"></div>
+                    <span class="${statusColor} capitalize">${wsConnection.status}</span>
+                </div>
+            `;
+            connectionDetails.appendChild(statusDiv);
+            
+            // Timestamps
+            if (wsConnection.created_at) {
+                const connectedDiv = createElementWithClass('div', '');
+                connectedDiv.innerHTML = `
+                    <div class="text-sm text-gray-400 mb-1">Connected At</div>
+                    <div class="text-gray-300 text-sm">${wsConnection.created_at}</div>
+                `;
+                connectionDetails.appendChild(connectedDiv);
+            }
+            
+            if (wsConnection.closed_at) {
+                const closedDiv = createElementWithClass('div', '');
+                closedDiv.innerHTML = `
+                    <div class="text-sm text-gray-400 mb-1">Closed At</div>
+                    <div class="text-gray-300 text-sm">${wsConnection.closed_at}</div>
+                `;
+                connectionDetails.appendChild(closedDiv);
+            }
+            
+            infoPanel.appendChild(connectionDetails);
+            wsSection.appendChild(infoPanel);
+            
+            // Messages timeline
+            if (wsConnection.messages && wsConnection.messages.length > 0) {
+                const messagesHeader = createElementWithClass('h4', 'text-lg font-medium text-white mb-3 flex items-center');
+                messagesHeader.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    Message Flow (${wsConnection.messages.length} messages)
+                `;
+                wsSection.appendChild(messagesHeader);
+                
+                const timeline = createElementWithClass('div', 'space-y-3');
+                
+                // Sort messages by timestamp to ensure proper chronological order
+                const sortedMessages = [...wsConnection.messages].sort((a, b) => {
+                    if (!a.timestamp || !b.timestamp) return 0;
+                    return new Date(a.timestamp) - new Date(b.timestamp);
+                });
+                
+                sortedMessages.forEach((message, index) => {
+                    const messageDiv = createElementWithClass('div', 'relative');
+                    
+                    // Timeline connector (except for last message)
+                    if (index < sortedMessages.length - 1) {
+                        const connector = createElementWithClass('div', 'absolute left-6 top-12 w-0.5 h-8 bg-gray-600');
+                        messageDiv.appendChild(connector);
+                    }
+                    
+                    const messageContent = createElementWithClass('div', 
+                        `flex items-start space-x-3 ${message.direction === 'sent' ? 'flex-row' : 'flex-row'}`
+                    );
+                    
+                    // Direction icon with message index
+                    const iconDiv = createElementWithClass('div', 
+                        `flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center relative ${
+                            message.direction === 'sent' 
+                                ? 'bg-blue-600 text-blue-200' 
+                                : 'bg-green-600 text-green-200'
+                        }`
+                    );
+                    
+                    // Message index badge
+                    const indexBadge = createElementWithClass('div', 
+                        'absolute -top-1 -right-1 w-5 h-5 bg-gray-800 text-white text-xs rounded-full flex items-center justify-center border border-gray-600'
+                    );
+                    indexBadge.textContent = index + 1;
+                    iconDiv.appendChild(indexBadge);
+                    
+                    iconDiv.innerHTML += message.direction === 'sent' 
+                        ? `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                           </svg>`
+                        : `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                           </svg>`;
+                    
+                    messageContent.appendChild(iconDiv);
+                    
+                    // Message bubble
+                    const messageBubble = createElementWithClass('div', 
+                        `flex-1 ${message.direction === 'sent' 
+                            ? 'bg-blue-900/40 border-blue-600/30' 
+                            : 'bg-green-900/40 border-green-600/30'
+                        } border rounded-lg p-4`
+                    );
+                    
+                    // Message header
+                    const messageHeader = createElementWithClass('div', 'flex justify-between items-center mb-2');
+                    const directionLabel = createElementWithClass('span', 
+                        `text-sm font-medium ${message.direction === 'sent' ? 'text-blue-300' : 'text-green-300'}`
+                    );
+                    directionLabel.textContent = `Message ${index + 1} (${message.direction === 'sent' ? 'Sent' : 'Received'})`;
+                    messageHeader.appendChild(directionLabel);
+                    
+                    if (message.timestamp) {
+                        const timestamp = createElementWithClass('span', 'text-xs text-gray-400');
+                        timestamp.textContent = message.timestamp;
+                        messageHeader.appendChild(timestamp);
+                    }
+                    
+                    messageBubble.appendChild(messageHeader);
+                    
+                    // Message content
+                    const messageText = createElementWithClass('div', 'text-gray-200 text-sm');
+                    const content = message.payload_data || '(No message content)';
+                    
+                    // Try to format JSON if it looks like JSON
+                    let formattedContent = content;
+                    try {
+                        if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+                            formattedContent = JSON.stringify(JSON.parse(content), null, 2);
+                        }
+                    } catch (e) {
+                        // Not JSON, use as-is
+                    }
+                    
+                    const preElement = createElementWithClass('pre', 'whitespace-pre-wrap font-mono text-xs bg-black/20 p-2 rounded mt-2 overflow-x-auto');
+                    preElement.textContent = formattedContent;
+                    messageText.appendChild(preElement);
+                    
+                    // Copy button for message content
+                    const copyBtn = createElementWithClass('button', 
+                        'mt-2 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded flex items-center transition'
+                    );
+                    copyBtn.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        </svg>
+                        Copy
+                    `;
+                    copyBtn.addEventListener('click', () => copyToClipboard(formattedContent));
+                    messageText.appendChild(copyBtn);
+                    
+                    messageBubble.appendChild(messageText);
+                    messageContent.appendChild(messageBubble);
+                    messageDiv.appendChild(messageContent);
+                    timeline.appendChild(messageDiv);
+                });
+                
+                wsSection.appendChild(timeline);
+            } else {
+                // No messages
+                const noMessages = createElementWithClass('div', 'text-center py-8 text-gray-400');
+                noMessages.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto mb-3 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                    <p>No WebSocket messages recorded</p>
+                `;
+                wsSection.appendChild(noMessages);
+            }
+            
+            return wsSection;
         }
         
         function filterIssues() {

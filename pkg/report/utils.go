@@ -7,15 +7,33 @@ import (
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
+	"github.com/rs/zerolog/log"
 )
 
 // processIssues converts db.Issue objects to optimized ReportIssue objects
-func processIssues(issues []*db.Issue) []*ReportIssue {
+func processIssues(issues []*db.Issue, maxRequestSize int) []*ReportIssue {
 	reportIssues := make([]*ReportIssue, 0, len(issues))
 
 	for _, issue := range issues {
-		requestBase64 := base64.StdEncoding.EncodeToString(issue.Request)
-		responseBase64 := base64.StdEncoding.EncodeToString(issue.Response)
+		request := issue.Request
+		response := issue.Response
+		requestTruncated := false
+		responseTruncated := false
+
+		// Truncate request and response if maxRequestSize is specified and > 0
+		if maxRequestSize > 0 {
+			if len(request) > maxRequestSize {
+				request = request[:maxRequestSize]
+				requestTruncated = true
+			}
+			if len(response) > maxRequestSize {
+				response = response[:maxRequestSize]
+				responseTruncated = true
+			}
+		}
+
+		requestBase64 := base64.StdEncoding.EncodeToString(request)
+		responseBase64 := base64.StdEncoding.EncodeToString(response)
 
 		createdAt := ""
 		if !issue.CreatedAt.IsZero() {
@@ -23,26 +41,39 @@ func processIssues(issues []*db.Issue) []*ReportIssue {
 		}
 
 		reportIssue := &ReportIssue{
-			ID:            issue.ID,
-			Code:          issue.Code,
-			Title:         issue.Title,
-			Description:   issue.Description,
-			Details:       issue.Details,
-			Remediation:   issue.Remediation,
-			URL:           issue.URL,
-			StatusCode:    issue.StatusCode,
-			HTTPMethod:    issue.HTTPMethod,
-			Payload:       issue.Payload,
-			CreatedAt:     createdAt,
-			Confidence:    issue.Confidence,
-			Severity:      string(issue.Severity),
-			FalsePositive: issue.FalsePositive,
-			References:    issue.References,
-			CURLCommand:   issue.CURLCommand,
-			Note:          issue.Note,
-			Request:       requestBase64,
-			Response:      responseBase64,
-			CWE:           issue.Cwe,
+			ID:                issue.ID,
+			Code:              issue.Code,
+			Title:             issue.Title,
+			Description:       issue.Description,
+			Details:           issue.Details,
+			Remediation:       issue.Remediation,
+			URL:               issue.URL,
+			StatusCode:        issue.StatusCode,
+			HTTPMethod:        issue.HTTPMethod,
+			Payload:           issue.Payload,
+			CreatedAt:         createdAt,
+			Confidence:        issue.Confidence,
+			Severity:          string(issue.Severity),
+			FalsePositive:     issue.FalsePositive,
+			References:        issue.References,
+			CURLCommand:       issue.CURLCommand,
+			Note:              issue.Note,
+			Request:           requestBase64,
+			Response:          responseBase64,
+			RequestTruncated:  requestTruncated,
+			ResponseTruncated: responseTruncated,
+			CWE:               issue.Cwe,
+		}
+
+		// Include WebSocket connection data if this is a WebSocket-related issue
+		if issue.WebsocketConnectionID != nil && *issue.WebsocketConnectionID > 0 {
+			wsConnection, err := db.Connection().GetWebSocketConnection(*issue.WebsocketConnectionID)
+			if err != nil {
+				log.Error().Err(err).Uint("connection_id", *issue.WebsocketConnectionID).Msg("Failed to fetch WebSocket connection for issue")
+			} else {
+				reportWsConnection := processWebSocketConnection(wsConnection)
+				reportIssue.WebSocketConnection = reportWsConnection
+			}
 		}
 
 		reportIssues = append(reportIssues, reportIssue)
@@ -114,6 +145,10 @@ func groupIssuesByType(issues []*ReportIssue) []*GroupedIssues {
 	// Convert map to slice for template usage
 	groups := make([]*GroupedIssues, 0, len(groupMap))
 	for _, group := range groupMap {
+		// Sort issues within each group by confidence (high to low)
+		sort.Slice(group.Issues, func(i, j int) bool {
+			return group.Issues[i].Confidence > group.Issues[j].Confidence
+		})
 		groups = append(groups, group)
 	}
 
@@ -210,4 +245,53 @@ func generateSummary(issues []*ReportIssue) Summary {
 		TopVulnTypes:            topTypes,
 		SeverityCounts:          severityCounts,
 	}
+}
+
+// processWebSocketConnection converts a single db.WebSocketConnection object to optimized ReportWebSocketConnection object
+func processWebSocketConnection(conn *db.WebSocketConnection) *ReportWebSocketConnection {
+	requestHeaders, _ := conn.GetRequestHeadersAsMap()
+	responseHeaders, _ := conn.GetResponseHeadersAsMap()
+
+	createdAt := ""
+	if !conn.CreatedAt.IsZero() {
+		createdAt = conn.CreatedAt.Format("2006-01-02 15:04:05")
+	}
+
+	closedAt := ""
+	if !conn.ClosedAt.IsZero() {
+		closedAt = conn.ClosedAt.Format("2006-01-02 15:04:05")
+	}
+
+	messages := make([]*ReportWebSocketMessage, 0, len(conn.Messages))
+	for _, msg := range conn.Messages {
+		timestamp := ""
+		if !msg.Timestamp.IsZero() {
+			timestamp = msg.Timestamp.Format("2006-01-02 15:04:05")
+		}
+
+		reportMessage := &ReportWebSocketMessage{
+			ID:          msg.ID,
+			Opcode:      msg.Opcode,
+			Mask:        msg.Mask,
+			PayloadData: msg.PayloadData,
+			Timestamp:   timestamp,
+			Direction:   string(msg.Direction),
+		}
+		messages = append(messages, reportMessage)
+	}
+
+	reportConn := &ReportWebSocketConnection{
+		ID:              conn.ID,
+		URL:             conn.URL,
+		StatusCode:      conn.StatusCode,
+		StatusText:      conn.StatusText,
+		CreatedAt:       createdAt,
+		ClosedAt:        closedAt,
+		Source:          conn.Source,
+		Messages:        messages,
+		RequestHeaders:  requestHeaders,
+		ResponseHeaders: responseHeaders,
+	}
+
+	return reportConn
 }

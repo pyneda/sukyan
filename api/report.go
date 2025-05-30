@@ -13,10 +13,11 @@ import (
 
 // ReportRequest represents the structure of the JSON payload for generating a report.
 type ReportRequest struct {
-	WorkspaceID   uint                `json:"workspace_id" validate:"required"`
-	Title         string              `json:"title" validate:"required"`
-	Format        report.ReportFormat `json:"format" validate:"required,oneof=html json"`
-	MinConfidence int                 `json:"min_confidence" validate:"omitempty"`
+	WorkspaceID    uint                `json:"workspace_id" validate:"required"`
+	Title          string              `json:"title" validate:"required"`
+	Format         report.ReportFormat `json:"format" validate:"required,oneof=html json"`
+	MinConfidence  int                 `json:"min_confidence" validate:"omitempty"`
+	MaxRequestSize int                 `json:"max_request_size" validate:"omitempty"`
 }
 
 // ReportHandler godoc
@@ -72,10 +73,11 @@ func ReportHandler(c *fiber.Ctx) error {
 	}
 
 	options := report.ReportOptions{
-		WorkspaceID: input.WorkspaceID,
-		Issues:      issues,
-		Title:       input.Title,
-		Format:      input.Format,
+		WorkspaceID:    input.WorkspaceID,
+		Issues:         issues,
+		Title:          input.Title,
+		Format:         input.Format,
+		MaxRequestSize: input.MaxRequestSize,
 	}
 
 	// Create a buffer to temporarily hold the generated report

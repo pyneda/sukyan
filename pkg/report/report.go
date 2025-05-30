@@ -24,11 +24,12 @@ const (
 )
 
 type ReportOptions struct {
-	WorkspaceID uint
-	Issues      []*db.Issue
-	Title       string
-	Format      ReportFormat
-	TaskID      uint
+	WorkspaceID    uint
+	Issues         []*db.Issue
+	Title          string
+	Format         ReportFormat
+	TaskID         uint
+	MaxRequestSize int // Maximum size for requests in bytes (0 = no limit)
 }
 
 func GenerateReport(options ReportOptions, w io.Writer) error {
@@ -61,8 +62,9 @@ func generateHTMLReport(options ReportOptions, w io.Writer) error {
 	}
 
 	// Process and organize the issues
-	reportIssues := processIssues(options.Issues)
+	reportIssues := processIssues(options.Issues, options.MaxRequestSize)
 	groupedIssues := groupIssuesByType(reportIssues)
+
 	summary := generateSummary(reportIssues)
 
 	// Prepare data for the template
@@ -83,10 +85,13 @@ func generateHTMLReport(options ReportOptions, w io.Writer) error {
 }
 
 func generateJSONReport(options ReportOptions, w io.Writer) error {
+	// Process issues with max request size
+	reportIssues := processIssues(options.Issues, options.MaxRequestSize)
+
 	data := map[string]interface{}{
 		"title":       options.Title,
 		"workspaceID": options.WorkspaceID,
-		"issues":      options.Issues,
+		"issues":      reportIssues,
 	}
 
 	encoder := json.NewEncoder(w)

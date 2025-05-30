@@ -13,10 +13,11 @@ import (
 )
 
 var (
-	reportTitle   string
-	reportFormat  string
-	reportOutput  string
-	minConfidence int
+	reportTitle    string
+	reportFormat   string
+	reportOutput   string
+	minConfidence  int
+	maxRequestSize int
 )
 
 // reportCmd represents the report command
@@ -82,11 +83,12 @@ var reportCmd = &cobra.Command{
 		}
 
 		options := report.ReportOptions{
-			WorkspaceID: workspaceID,
-			Issues:      issues,
-			Title:       reportTitle,
-			Format:      format,
-			TaskID:      taskID,
+			WorkspaceID:    workspaceID,
+			Issues:         issues,
+			Title:          reportTitle,
+			Format:         format,
+			TaskID:         taskID,
+			MaxRequestSize: maxRequestSize,
 		}
 
 		var buf bytes.Buffer
@@ -127,4 +129,5 @@ func init() {
 	reportCmd.Flags().StringVarP(&reportFormat, "format", "f", "html", "Report Format (html or json)")
 	reportCmd.Flags().StringVarP(&reportOutput, "output", "o", "", "Output file path")
 	reportCmd.Flags().IntVarP(&minConfidence, "min-confidence", "c", 0, "Minimum issue confidence level to include in the report")
+	reportCmd.Flags().IntVar(&maxRequestSize, "max-request-size", 0, "Maximum size (in bytes) for request/response content in the report. 0 means no limit")
 }

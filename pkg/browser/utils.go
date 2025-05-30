@@ -107,15 +107,17 @@ func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) 
 			}
 		}
 
+		// Store the request body before LoadResponse consumes it
+		var requestBodyBytes []byte
 		if opts.Request.Body != nil {
 			bodyBytes, err := io.ReadAll(opts.Request.Body)
 			if err != nil {
 				ctx.OnError(err)
 				log.Err(err).Msg("Error reading request body in replay function")
-				// opts.Request.Body.Close()
 				return
 			}
 			opts.Request.Body.Close()
+			requestBodyBytes = bodyBytes
 
 			// Set the new body on the context and the original request for future use
 			opts.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
@@ -132,7 +134,13 @@ func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) 
 		if err != nil {
 			log.Error().Err(err).Msg("Error loading hijacked response in replay function")
 		}
-		history = CreateHistoryFromHijack(ctx.Request, ctx.Response, opts.Source, opts.Note, opts.WorkspaceID, opts.TaskID, opts.PlaygroundSessionID)
+
+		// Pass the original body to preserve it in the history record
+		if len(requestBodyBytes) > 0 {
+			history = CreateHistoryFromHijackWithBody(ctx.Request, ctx.Response, opts.Source, opts.Note, opts.WorkspaceID, opts.TaskID, opts.PlaygroundSessionID, requestBodyBytes)
+		} else {
+			history = CreateHistoryFromHijack(ctx.Request, ctx.Response, opts.Source, opts.Note, opts.WorkspaceID, opts.TaskID, opts.PlaygroundSessionID)
+		}
 
 	})
 

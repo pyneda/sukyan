@@ -160,7 +160,9 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 	go router.Run()
 }
 
-func DumpHijackRequest(req *rod.HijackRequest) (raw string, body string) {
+// DumpHijackRequest creates a raw HTTP request dump from a hijack request
+// If originalBody is provided, it will be used instead of trying to read from the request streams
+func DumpHijackRequest(req *rod.HijackRequest, originalBody ...[]byte) (raw string, body string) {
 	var dump strings.Builder
 	reqUrl := req.URL()
 	path := reqUrl.Path
@@ -171,34 +173,38 @@ func DumpHijackRequest(req *rod.HijackRequest) (raw string, body string) {
 		path += "#" + reqUrl.Fragment
 	}
 	method := req.Req().Method
-	dump.WriteString(fmt.Sprintf("%s %s %s\n", method, path, "HTTP/1.1")) // Using HTTP/1.1 as a placeholder
+	dump.WriteString(fmt.Sprintf("%s %s %s\n", method, path, "HTTP/1.1"))
 
 	// Headers
 	for k, v := range req.Headers() {
 		dump.WriteString(fmt.Sprintf("%s: %s\n", k, v))
 	}
 
-	// Body
-	body = req.Body()
-	if len(body) > 0 {
-		dump.WriteString("\n")
-		dump.WriteString(string(body))
+	// Body - use provided originalBody if available, otherwise fall back to normal retrieval
+	if len(originalBody) > 0 && len(originalBody[0]) > 0 {
+		body = string(originalBody[0])
 	} else {
-		reader := req.Req().Body
-		if reader != nil {
-			bodyBytes, err := io.ReadAll(reader)
-			if err != nil {
-				log.Error().Err(err).Msg("Error reading request body in DumpHijackRequest")
+		// Fall back to normal body retrieval
+		body = req.Body()
+		if len(body) == 0 {
+			reader := req.Req().Body
+			if reader != nil {
+				bodyBytes, err := io.ReadAll(reader)
+				if err != nil {
+					log.Debug().Err(err).Msg("Error reading request body from consumed stream")
+				} else {
+					body = string(bodyBytes)
+				}
 			}
-			body = string(bodyBytes)
-			if len(bodyBytes) > 0 {
-				dump.WriteString("\n")
-				dump.WriteString(body)
-			}
-		} else {
-			log.Warn().Msg("DumpHijackRequest request body is empty")
 		}
 	}
+
+	// Add body to dump if we have any
+	if len(body) > 0 {
+		dump.WriteString("\n")
+		dump.WriteString(body)
+	}
+
 	raw = dump.String()
 	return raw, body
 }
@@ -251,6 +257,34 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 	}
 	createdHistory, _ := db.Connection().CreateHistory(&history)
 	// log.Debug().Interface("history", history).Msg("New history record created")
+
+	return createdHistory
+}
+
+// CreateHistoryFromHijackWithBody saves a history request from hijack request/response items with optional original body
+func CreateHistoryFromHijackWithBody(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string, workspaceID, taskID, playgroundSessionID uint, originalBody ...[]byte) *db.History {
+	rawRequest, reqBody := DumpHijackRequest(request, originalBody...)
+	rawResponse, _ := DumpHijackResponse(response)
+	historyUrl := request.URL().String()
+	history := db.History{
+		StatusCode:          response.Payload().ResponseCode,
+		URL:                 historyUrl,
+		Depth:               lib.CalculateURLDepth(historyUrl),
+		RequestBodySize:     len(reqBody),
+		RequestContentType:  request.Req().Header.Get("Content-Type"),
+		ResponseContentType: response.Headers().Get("Content-Type"),
+		Evaluated:           false,
+		Method:              request.Req().Method,
+		Note:                note,
+		Source:              source,
+		RawRequest:          []byte(rawRequest),
+		RawResponse:         []byte(rawResponse),
+		WorkspaceID:         &workspaceID,
+		TaskID:              &taskID,
+		PlaygroundSessionID: &playgroundSessionID,
+		Proto:               request.Req().Proto,
+	}
+	createdHistory, _ := db.Connection().CreateHistory(&history)
 
 	return createdHistory
 }

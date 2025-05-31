@@ -21,6 +21,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/pyneda/sukyan/pkg/scan/options"
 	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
+	"github.com/pyneda/sukyan/pkg/scope"
 
 	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc"
@@ -171,6 +172,9 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 	db.Connection().UpdateTask(task.ID, task)
 	ignoredExtensions := viper.GetStringSlice("crawl.ignored_extensions")
 
+	scope := scope.Scope{}
+	scope.CreateScopeItemsFromUrls(options.StartURLs, "www")
+
 	scanLog := log.With().Uint("task", task.ID).Str("title", options.Title).Uint("workspace", options.WorkspaceID).Logger()
 	crawler := crawl.NewCrawler(options.StartURLs, options.MaxPagesToCrawl, options.MaxDepth, options.PagesPoolSize, options.ExcludePatterns, options.WorkspaceID, task.ID, options.Headers)
 	historyItems := crawler.Run()
@@ -260,13 +264,25 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 		AuditCategories:    options.AuditCategories,
 	}
 
-	websocketConnections, count, _ := db.Connection().ListWebSocketConnections(db.WebSocketConnectionFilter{
+	websocketConnections, originalCount, _ := db.Connection().ListWebSocketConnections(db.WebSocketConnectionFilter{
 		WorkspaceID: options.WorkspaceID,
 		TaskID:      task.ID,
 		Sources:     []string{db.SourceCrawler},
 	})
-	if count > 0 {
+	var inScopeWebsocketConnections []db.WebSocketConnection
+	for _, conn := range websocketConnections {
+		if scope.IsInScope(conn.URL) {
+			inScopeWebsocketConnections = append(inScopeWebsocketConnections, conn)
+		} else {
+			scanLog.Debug().Str("url", conn.URL).Msg("WebSocket connection discovered during crawler is out of scope, skipping scan")
+		}
+	}
+	count := int64(len(inScopeWebsocketConnections))
+	if originalCount > count {
+		scanLog.Warn().Int64("original_count", originalCount).Int64("count", count).Msg("Some WebSocket connections discovered during crawl are out of scope, skipping scan for them")
+	}
 
+	if count > 0 {
 		if options.AuditCategories.WebSocket {
 			s.wg.Go(func() {
 				scanLog.Info().Int64("count", count).Msg("Scheduling scan to the WebSocket connections discovered during crawl")
@@ -284,8 +300,10 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 				} else {
 					websocketScanOptions.ObservationWindow = 10 * time.Second
 				}
+
 				scanLog.Info().Int64("count", count).Msg("Starting WebSocket connections scan")
-				s.EvaluateWebSocketConnections(websocketConnections, websocketScanOptions)
+
+				s.EvaluateWebSocketConnections(inScopeWebsocketConnections, websocketScanOptions)
 				scanLog.Info().Int64("count", count).Msg("WebSocket connections scan finished")
 			})
 		} else {

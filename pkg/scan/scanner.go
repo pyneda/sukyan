@@ -231,9 +231,9 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 					TaskJobID:      &task.options.TaskJobID,
 				})
 				if err != nil {
-					taskLog.Error().Err(err).Msg("Error creating OOB Test")
+					taskLog.Error().Str("full_id", task.payload.InteractionDomain.ID).Str("interaction_domain", task.payload.InteractionDomain.URL).Err(err).Msg("Error creating OOB Test")
 				} else {
-					taskLog.Debug().Interface("oobTest", oobTest).Msg("Created OOB Test")
+					taskLog.Info().Uint("id", oobTest.ID).Str("full_id", task.payload.InteractionDomain.ID).Str("interaction_domain", task.payload.InteractionDomain.URL).Msg("Created OOB Test")
 				}
 			}
 			startTime := time.Now()

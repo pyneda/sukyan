@@ -107,7 +107,7 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 
 func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, workspaceID, taskID uint) {
 	router := browser.HijackRequests()
-	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
+	ignoreKeywords := []string{"google", "twitter", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
 	httpClient := http_utils.CreateHttpClient()
 	router.MustAdd("*", func(ctx *rod.Hijack) {
 		if ctx == nil || ctx.Request == nil || ctx.Request.URL() == nil {

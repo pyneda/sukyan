@@ -8,7 +8,7 @@ import (
 )
 
 func AuthenticationScan(item *db.History) {
-	log.Info().Str("url", item.URL).Msg("Scanning for Authentication mechanisms")
+	log.Debug().Str("url", item.URL).Msg("Passive scanning  for Authentication mechanisms")
 	headers, err := item.ResponseHeaders()
 	if err != nil {
 		log.Warn().Err(err).Uint("history_id", item.ID).Msg("Failed to get response headers")

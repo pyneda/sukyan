@@ -165,9 +165,16 @@ func (d *DatabaseConnection) GetInteraction(interactionID uint) (*OOBInteraction
 func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteraction) (OOBTest, error) {
 	oobTest := OOBTest{}
 	fullID := strings.ToLower(interaction.FullID)
-	result := d.db.Where(&OOBTest{InteractionFullID: fullID}).First(&oobTest)
+	// Remove protocol prefixes like "imap://", "http://", "ldap://", etc.
+	if idx := strings.Index(fullID, "://"); idx != -1 {
+		fullID = fullID[idx+3:]
+	}
+
+	log.Debug().Str("extracted_id", fullID).Str("original_full_id", interaction.FullID).Msg("Attempting to match OOB test")
+
+	result := d.db.Where("interaction_full_id = ?", fullID).First(&oobTest)
 	if result.Error != nil {
-		log.Error().Err(result.Error).Interface("interaction", interaction).Msg("Failed to find OOBTest")
+		log.Error().Err(result.Error).Str("extracted_id", fullID).Interface("interaction", interaction).Msg("Failed to find OOBTest")
 	} else {
 		log.Info().Interface("oobTest", oobTest).Interface("interaction", interaction).Msg("Matched Interaction and OOBTest")
 		interaction.OOBTestID = &oobTest.ID
@@ -241,6 +248,77 @@ func (d *DatabaseConnection) ListInteractions(filter InteractionsFilter) (items 
 	}
 
 	log.Debug().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Msg("Getting interaction items")
+
+	return items, count, err
+}
+
+type OOBTestsFilter struct {
+	TestNames          []string
+	Targets            []string
+	InteractionDomains []string
+	InteractionFullIDs []string
+	Payloads           []string
+	InsertionPoints    []string
+	Codes              []string
+	Pagination         Pagination
+	WorkspaceID        uint
+	TaskID             uint
+	TaskJobID          uint
+}
+
+// ListOOBTests Lists OOB tests
+func (d *DatabaseConnection) ListOOBTests(filter OOBTestsFilter) (items []*OOBTest, count int64, err error) {
+	query := d.db.Model(&OOBTest{})
+
+	if len(filter.TestNames) > 0 {
+		query = query.Where("test_name IN ?", filter.TestNames)
+	}
+	if len(filter.Targets) > 0 {
+		query = query.Where("target IN ?", filter.Targets)
+	}
+	if len(filter.InteractionDomains) > 0 {
+		query = query.Where("interaction_domain IN ?", filter.InteractionDomains)
+	}
+	if len(filter.InteractionFullIDs) > 0 {
+		query = query.Where("interaction_full_id IN ?", filter.InteractionFullIDs)
+	}
+	if len(filter.Payloads) > 0 {
+		query = query.Where("payload IN ?", filter.Payloads)
+	}
+	if len(filter.InsertionPoints) > 0 {
+		query = query.Where("insertion_point IN ?", filter.InsertionPoints)
+	}
+	if len(filter.Codes) > 0 {
+		query = query.Where("code IN ?", filter.Codes)
+	}
+
+	if filter.WorkspaceID > 0 {
+		query = query.Where("workspace_id = ?", filter.WorkspaceID)
+	}
+	if filter.TaskID > 0 {
+		query = query.Where("task_id = ?", filter.TaskID)
+	}
+	if filter.TaskJobID > 0 {
+		query = query.Where("task_job_id = ?", filter.TaskJobID)
+	}
+
+	if err := query.Count(&count).Error; err != nil {
+		log.Error().Err(err).Msg("Failed to count OOB tests")
+		return nil, 0, err
+	}
+
+	if filter.Pagination.PageSize > 0 && filter.Pagination.Page > 0 {
+		query = query.Scopes(Paginate(&filter.Pagination))
+	}
+
+	query = query.Order("created_at desc")
+
+	if err := query.Find(&items).Error; err != nil {
+		log.Error().Err(err).Msg("Failed to list OOB tests")
+		return nil, 0, err
+	}
+
+	log.Debug().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Msg("Getting OOB test items")
 
 	return items, count, err
 }

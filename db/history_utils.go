@@ -29,13 +29,34 @@ func enhanceHistoryItem(record *History) {
 		}
 	}
 
-	if record.ParametersCount == 0 {
+	if record.ParametersCount == 0 || record.CleanURL == "" {
 		parsedUrl, err := url.Parse(record.URL)
 		if err != nil {
 			log.Error().Str("url", record.URL).Err(err).Msg("Error parsing URL")
 		} else {
 			parameters := parsedUrl.Query()
-			record.ParametersCount = len(parameters)
+			if record.ParametersCount == 0 {
+				record.ParametersCount = len(parameters)
+			}
+
+			if record.CleanURL == "" {
+				parsedUrl.RawQuery = ""
+				parsedUrl.Fragment = ""
+				cleanURL := parsedUrl.String()
+
+				// Truncate CleanURL if it exceeds PostgreSQL btree index limit
+				const maxCleanURLLength = 2000
+				if len(cleanURL) > maxCleanURLLength {
+					record.CleanURL = cleanURL[:maxCleanURLLength]
+					if record.Note != "" {
+						record.Note += "\n"
+					}
+					record.Note += "CleanURL has been truncated due to length exceeding database index limit"
+					log.Debug().Str("url", record.URL).Int("original_length", len(cleanURL)).Msg("CleanURL truncated")
+				} else {
+					record.CleanURL = cleanURL
+				}
+			}
 		}
 	}
 

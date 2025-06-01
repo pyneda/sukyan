@@ -81,7 +81,7 @@ func (d *DatabaseConnection) CreateOOBTest(item OOBTest) (OOBTest, error) {
 
 	// Check if payload contains invalid UTF-8 sequences (binary data)
 	if !utf8.ValidString(item.Payload) {
-		log.Warn().Str("original_payload_length", fmt.Sprintf("%d bytes", len(item.Payload))).Msg("OOBTest payload contains binary data, encoding as base64")
+		log.Debug().Str("original_payload_length", fmt.Sprintf("%d bytes", len(item.Payload))).Msg("OOBTest payload contains binary data, encoding as base64")
 		encodedPayload := base64.StdEncoding.EncodeToString([]byte(item.Payload))
 		item.Payload = encodedPayload
 

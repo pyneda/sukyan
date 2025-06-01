@@ -30,6 +30,7 @@ vars:
   - name: sleep_time
     value: "{{randomInt 5 9}}"
 templates:
+  - "sleep {{.sleep_time}}"
   - "&& sleep {{.sleep_time}}"
   - "|| sleep {{.sleep_time}}"
   - "& sleep {{.sleep_time}}"

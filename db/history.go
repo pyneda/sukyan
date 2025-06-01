@@ -15,7 +15,8 @@ import (
 type History struct {
 	BaseModel
 	StatusCode          int               `gorm:"index" json:"status_code"`
-	URL                 string            `gorm:"index" json:"url"`
+	URL                 string            `json:"url"`
+	CleanURL            string            `gorm:"index" json:"clean_url"`
 	Depth               int               `gorm:"index" json:"depth"`
 	RawRequest          []byte            `json:"raw_request"`
 	RawResponse         []byte            `json:"raw_response"`

@@ -58,7 +58,7 @@ func (p Platform) MatchesAnyFingerprint(fingerprints []lib.Fingerprint) bool {
 			}
 		}
 	}
-	log.Info().Str("platform", p.String()).Interface("fingerprints", fingerprints).Msg("No matching fingerprints found for platform")
+	log.Debug().Str("platform", p.String()).Interface("fingerprints", fingerprints).Msg("No matching fingerprints found for platform")
 	return false
 
 }

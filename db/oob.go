@@ -1,9 +1,11 @@
 package db
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
@@ -30,6 +32,7 @@ type OOBTest struct {
 	TaskID            *uint     `json:"task_id"`
 	TaskJobID         *uint     `json:"task_job_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	TaskJob           TaskJob   `json:"-" gorm:"foreignKey:TaskJobID"`
+	Note              string    `json:"note"`
 }
 
 func (o OOBTest) TableHeaders() []string {
@@ -75,6 +78,21 @@ func (o OOBTest) Pretty() string {
 // CreateOOBTest saves an OOBTest to the database
 func (d *DatabaseConnection) CreateOOBTest(item OOBTest) (OOBTest, error) {
 	item.InteractionFullID = strings.ToLower(item.InteractionFullID)
+
+	// Check if payload contains invalid UTF-8 sequences (binary data)
+	if !utf8.ValidString(item.Payload) {
+		log.Warn().Str("original_payload_length", fmt.Sprintf("%d bytes", len(item.Payload))).Msg("OOBTest payload contains binary data, encoding as base64")
+		encodedPayload := base64.StdEncoding.EncodeToString([]byte(item.Payload))
+		item.Payload = encodedPayload
+
+		transformationNote := fmt.Sprintf("Original payload contained binary data and was base64 encoded (original length: %d bytes)", len([]byte(item.Payload)))
+		if item.Note == "" {
+			item.Note = transformationNote
+		} else {
+			item.Note = item.Note + "\n" + transformationNote
+		}
+	}
+
 	result := d.db.Create(&item)
 	if result.Error != nil {
 		log.Error().Err(result.Error).Interface("item", item).Msg("Failed to create OOBTest")
@@ -327,7 +345,7 @@ func (d *DatabaseConnection) ListOOBTests(filter OOBTestsFilter) (items []*OOBTe
 func (d *DatabaseConnection) UpdateOOBTestHistoryID(oobTestID uint, historyID *uint) error {
 	result := d.db.Model(&OOBTest{}).Where("id = ?", oobTestID).Update("history_id", historyID)
 	if result.Error != nil {
-		log.Error().Err(result.Error).Uint("oob_test_id", oobTestID).Msg("Failed to update OOBTest history ID")
+		log.Error().Err(result.Error).Uint("history_id", *historyID).Uint("oob_test_id", oobTestID).Msg("Failed to update OOBTest history ID")
 	}
 	return result.Error
 }

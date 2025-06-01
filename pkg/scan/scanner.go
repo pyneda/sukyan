@@ -86,15 +86,15 @@ func (f *TemplateScanner) shouldLaunch(history *db.History, generator *generatio
 				continue
 			}
 			if lib.SliceContains(options.FingerprintTags, condition.Value) {
-				log.Info().Str("fingerprint_tag", condition.Value).Interface("fingerprints", options.Fingerprints).Interface("condition", condition).Msg("Platform condition met by fingerprint tag")
+				log.Debug().Str("fingerprint_tag", condition.Value).Interface("fingerprints", options.Fingerprints).Interface("condition", condition).Msg("Platform condition met by fingerprint tag")
 				conditionsMet++
 			} else {
 				platform := ParsePlatform(condition.Value)
 				if platform.MatchesAnyFingerprint(options.Fingerprints) {
-					log.Info().Str("platform", condition.Value).Interface("fingerprints", options.Fingerprints).Interface("condition", condition).Msg("Platform condition met by fingerprint")
+					log.Debug().Str("platform", condition.Value).Interface("fingerprints", options.Fingerprints).Interface("condition", condition).Msg("Platform condition met by fingerprint")
 					conditionsMet++
 				} else {
-					log.Info().Str("platform", condition.Value).Interface("fingerprints", options.Fingerprints).Interface("condition", condition).Msg("Platform condition not met")
+					log.Debug().Str("platform", condition.Value).Interface("fingerprints", options.Fingerprints).Interface("condition", condition).Msg("Platform condition not met")
 				}
 			}
 
@@ -265,7 +265,7 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 				CreateNewBodyStream: false,
 			}
 			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, options)
-			if task.payload.InteractionDomain.URL != "" && newHistory != nil {
+			if task.payload.InteractionDomain.URL != "" && newHistory != nil && newHistory.ID != 0 {
 				db.Connection().UpdateOOBTestHistoryID(oobTest.ID, &newHistory.ID)
 			}
 

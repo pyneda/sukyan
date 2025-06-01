@@ -81,12 +81,20 @@ func (f *TemplateScanner) shouldLaunch(history *db.History, generator *generatio
 	for _, condition := range generator.Launch.Conditions {
 		switch condition.Type {
 		case generation.Platform:
+			if condition.Value == "" {
+				log.Debug().Msg("Platform condition has an empty value, skipping")
+				continue
+			}
 			if lib.SliceContains(options.FingerprintTags, condition.Value) {
+				log.Info().Str("fingerprint_tag", condition.Value).Interface("fingerprints", options.Fingerprints).Interface("condition", condition).Msg("Platform condition met by fingerprint tag")
 				conditionsMet++
 			} else {
 				platform := ParsePlatform(condition.Value)
 				if platform.MatchesAnyFingerprint(options.Fingerprints) {
+					log.Info().Str("platform", condition.Value).Interface("fingerprints", options.Fingerprints).Interface("condition", condition).Msg("Platform condition met by fingerprint")
 					conditionsMet++
+				} else {
+					log.Info().Str("platform", condition.Value).Interface("fingerprints", options.Fingerprints).Interface("condition", condition).Msg("Platform condition not met")
 				}
 			}
 
@@ -233,7 +241,7 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 				if err != nil {
 					taskLog.Error().Str("full_id", task.payload.InteractionDomain.ID).Str("interaction_domain", task.payload.InteractionDomain.URL).Err(err).Msg("Error creating OOB Test")
 				} else {
-					taskLog.Info().Uint("id", oobTest.ID).Str("full_id", task.payload.InteractionDomain.ID).Str("interaction_domain", task.payload.InteractionDomain.URL).Msg("Created OOB Test")
+					taskLog.Debug().Uint("id", oobTest.ID).Str("full_id", task.payload.InteractionDomain.ID).Str("interaction_domain", task.payload.InteractionDomain.URL).Msg("Created OOB Test")
 				}
 			}
 			startTime := time.Now()

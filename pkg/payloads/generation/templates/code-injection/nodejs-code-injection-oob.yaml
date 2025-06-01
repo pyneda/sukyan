@@ -12,6 +12,7 @@ launch:
   operator: or
   conditions:
     - type: platform
+      value: node
     - type: scan_mode
       value: fuzz
 templates:
@@ -23,4 +24,4 @@ categories:
   - oob
   - injection
 platforms:
-  - nodejs
+  - node

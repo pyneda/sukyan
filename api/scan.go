@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/pyneda/sukyan/pkg/scan/engine"
@@ -151,17 +152,23 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 
 	for _, item := range items {
 		// TODO: maybe should validate that the history item and task belongs to the same workspace
+
+		fingerprints := passive.FingerprintHistoryItems([]*db.History{&item})
+
 		options := scan_options.HistoryItemScanOptions{
 			WorkspaceID:        *item.WorkspaceID,
 			TaskID:             input.TaskID,
 			InsertionPoints:    []string{"parameters", "urlpath", "body", "headers", "cookies", "json", "xml"},
 			ExperimentalAudits: false,
 			Mode:               scan_options.ScanModeSmart,
+			Fingerprints:       fingerprints,
+			FingerprintTags:    passive.GetUniqueNucleiTags(fingerprints),
 			AuditCategories: scan_options.AuditCategories{
 				ServerSide: true,
 				ClientSide: true,
 				Passive:    true,
 				WebSocket:  true,
+				Discovery:  false,
 			},
 		}
 		e.ScheduleHistoryItemScan(&item, engine.ScanJobTypeActive, options)

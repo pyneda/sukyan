@@ -260,6 +260,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 		Mode:               options.Mode,
 		InsertionPoints:    options.InsertionPoints,
 		FingerprintTags:    fingerprintTags,
+		Fingerprints:       fingerprints,
 		ExperimentalAudits: options.ExperimentalAudits,
 		AuditCategories:    options.AuditCategories,
 	}
@@ -348,6 +349,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 						Mode:               options.Mode,
 						InsertionPoints:    lib.FilterOutString(options.InsertionPoints, "urlpath"),
 						FingerprintTags:    fingerprintTags,
+						Fingerprints:       fingerprints,
 						ExperimentalAudits: options.ExperimentalAudits,
 						AuditCategories:    options.AuditCategories,
 					}

@@ -12,6 +12,7 @@ launch:
   operator: or
   conditions:
     - type: platform
+      value: ruby
     - type: scan_mode
       value: fuzz
 templates:

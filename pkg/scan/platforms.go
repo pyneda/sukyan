@@ -4,14 +4,20 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/lib"
+	"github.com/rs/zerolog/log"
 )
 
 type Platform string
 
 const (
-	PlatformJava Platform = "java"
-	PlatformPhp  Platform = "php"
-	PlatformNode Platform = "node"
+	PlatformJava   Platform = "java"
+	PlatformPhp    Platform = "php"
+	PlatformNode   Platform = "node"
+	PlatformPython Platform = "python"
+	PlatformRuby   Platform = "ruby"
+	PlatformGo     Platform = "go"
+	PlatformAsp    Platform = "asp"
+	PlatformPerl   Platform = "perl"
 )
 
 func ParsePlatform(platform string) Platform {
@@ -22,6 +28,14 @@ func ParsePlatform(platform string) Platform {
 		return PlatformPhp
 	case "node":
 		return PlatformNode
+	case "python":
+		return PlatformPython
+	case "ruby":
+		return PlatformRuby
+	case "go":
+		return PlatformGo
+	case "aspnet":
+		return PlatformAsp
 	default:
 		return ""
 	}
@@ -44,6 +58,7 @@ func (p Platform) MatchesAnyFingerprint(fingerprints []lib.Fingerprint) bool {
 			}
 		}
 	}
+	log.Info().Str("platform", p.String()).Interface("fingerprints", fingerprints).Msg("No matching fingerprints found for platform")
 	return false
 
 }
@@ -56,8 +71,98 @@ func SoftwareList(platform Platform) []string {
 		return PhpSoftwareList()
 	case PlatformNode:
 		return NodeSoftwareList()
+	case PlatformPython:
+		return PythonSoftwareList()
+	case PlatformRuby:
+		return RubySoftwareList()
+	case PlatformGo:
+		return GoSoftwareList()
+	case PlatformAsp:
+		return AspNetSoftwareList()
+	case PlatformPerl:
+		return PerlSoftwareList()
 	default:
 		return []string{}
+	}
+}
+
+func PythonSoftwareList() []string {
+	return []string{
+		"python",
+		"django",
+		"flask",
+		"pyramid",
+		"bottle",
+		"web2py",
+		"tornado",
+		"fastapi",
+		"falcon",
+		"dash",
+		"streamlit",
+		"pylons",
+		"cherrypy",
+		"uvicorn",
+		"gunicorn",
+	}
+}
+
+func RubySoftwareList() []string {
+	return []string{
+		"ruby",
+		"ruby on rails",
+		"sinatra",
+		"padrino",
+		"hanami",
+		"cuba",
+		"ramaze",
+		"roda",
+		"volt",
+		"coco",
+		"kamal",
+	}
+}
+
+func GoSoftwareList() []string {
+	return []string{
+		"go",
+		"gin",
+		"echo",
+		"beego",
+		"revel",
+		"fiber",
+		"chi",
+		"gofiber",
+		"iris",
+		"echo framework",
+	}
+}
+
+func AspNetSoftwareList() []string {
+	return []string{
+		"asp",
+		"asp.net",
+		"asp.net core",
+		"dotnet",
+		"microsoft asp.net",
+		"microsoft dotnet",
+		"microsoft .net",
+		"microsoft .net core",
+		"microsoft web api",
+		"microsoft mvc",
+	}
+}
+
+func PerlSoftwareList() []string {
+	return []string{
+		"perl",
+		"catalyst",
+		"dancer",
+		"mojo",
+		"plack",
+		"mason",
+		"template toolkit",
+		"cgi.pm",
+		"mod_perl",
 	}
 }
 

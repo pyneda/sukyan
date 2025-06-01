@@ -12,6 +12,7 @@ launch:
   operator: or
   conditions:
     - type: platform
+      value: perl
     - type: scan_mode
       value: fuzz
 templates:

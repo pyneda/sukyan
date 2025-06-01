@@ -46,17 +46,22 @@ func GetIssueTemplateByCode(code IssueCode) *Issue {
 
 func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID *uint) *Issue {
 	issue := GetIssueTemplateByCode(code)
-	issue.URL = history.URL
-	issue.Request = history.RawRequest
-	issue.Response = history.RawResponse
-	issue.StatusCode = history.StatusCode
-	issue.HTTPMethod = history.Method
+	if history != nil {
+		issue.URL = history.URL
+		issue.Request = history.RawRequest
+		issue.Response = history.RawResponse
+		issue.StatusCode = history.StatusCode
+		issue.HTTPMethod = history.Method
+		issue.Requests = []History{*history}
+	} else {
+		log.Warn().Str("code", string(code)).Msg("No history provided for issue creation")
+	}
+
 	issue.Confidence = confidence
 	issue.Details = details
 	issue.WorkspaceID = workspaceID
 	issue.TaskID = taskID
 	issue.TaskJobID = taskJobID
-	issue.Requests = []History{*history}
 	if severity != "" {
 		issue.Severity = NewSeverity(severity)
 	}

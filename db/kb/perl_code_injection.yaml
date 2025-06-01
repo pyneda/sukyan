@@ -1,0 +1,14 @@
+code: perl_code_injection
+title: Perl Code Injection
+description: The application allows the execution of arbitrary Perl code through user input.
+remediation:
+  Avoid using eval(), do(), require() with user input, and other dynamic code 
+  execution functions. Use proper input validation and sanitization. Consider 
+  using safer alternatives like Safe.pm for restricted evaluation or predefined 
+  subroutine mappings instead of dynamic code execution.
+cwe: 94
+severity: High
+references:
+  - https://owasp.org/www-community/attacks/Code_Injection
+  - https://perldoc.perl.org/functions/eval
+  - https://metacpan.org/pod/Safe

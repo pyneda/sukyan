@@ -63,6 +63,7 @@ func SoftwareList(platform Platform) []string {
 
 func JavaSoftwareList() []string {
 	return []string{
+		"java",
 		"Adobe Experience Manager",
 		"Ametys",
 		"Apache Tomcat",
@@ -114,6 +115,7 @@ func JavaSoftwareList() []string {
 
 func PhpSoftwareList() []string {
 	return []string{
+		"php",
 		"1C-Bitrix",
 		"AbhiCMS",
 		"Adminer",

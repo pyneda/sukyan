@@ -1,0 +1,14 @@
+code: javascript_code_injection
+title: JavaScript Code Injection
+description: The application allows the execution of arbitrary JavaScript code through user input.
+remediation:
+  Avoid using eval(), Function(), setTimeout(), setInterval(), and other dynamic 
+  code execution functions with user input. Use proper input validation and 
+  sanitization. Consider using JSON.parse() for data and predefined function 
+  mappings instead of dynamic code execution.
+cwe: 94
+severity: High
+references:
+  - https://owasp.org/www-community/attacks/Code_Injection
+  - https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval
+  - https://cheatsheetseries.owasp.org/cheatsheets/DOM_based_XSS_Prevention_Cheat_Sheet.html

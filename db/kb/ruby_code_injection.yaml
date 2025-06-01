@@ -1,0 +1,14 @@
+code: ruby_code_injection
+title: Ruby Code Injection
+description: The application allows the execution of arbitrary Ruby code through user input.
+remediation:
+  Avoid using eval(), instance_eval(), class_eval(), binding.eval(), and other 
+  dynamic code execution methods with user input. Use proper input validation and 
+  sanitization. Consider using safer alternatives like send() with whitelisted 
+  method names or predefined method mappings.
+cwe: 94
+severity: High
+references:
+  - https://owasp.org/www-community/attacks/Code_Injection
+  - https://ruby-doc.org/core/Kernel.html#method-i-eval
+  - https://guides.rubyonrails.org/security.html#injection

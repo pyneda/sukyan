@@ -215,6 +215,27 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 			taskLog.Error().Err(err).Msg("Error building request from insertion points")
 			result.Err = err
 		} else {
+			var oobTest db.OOBTest
+			if task.payload.InteractionDomain.URL != "" {
+				oobTest, err = db.Connection().CreateOOBTest(db.OOBTest{
+					Code:              db.IssueCode(task.payload.IssueCode),
+					TestName:          "OOB Test",
+					InteractionDomain: task.payload.InteractionDomain.URL,
+					InteractionFullID: task.payload.InteractionDomain.ID,
+					Target:            req.URL.String(),
+					Payload:           task.payload.Value,
+					// HistoryID:         &newHistory.ID,
+					InsertionPoint: task.insertionPoint.String(),
+					WorkspaceID:    &f.WorkspaceID,
+					TaskID:         &task.options.TaskID,
+					TaskJobID:      &task.options.TaskJobID,
+				})
+				if err != nil {
+					taskLog.Error().Err(err).Msg("Error creating OOB Test")
+				} else {
+					taskLog.Debug().Interface("oobTest", oobTest).Msg("Created OOB Test")
+				}
+			}
 			startTime := time.Now()
 			response, err := http_utils.SendRequest(f.client, req)
 			if err != nil {
@@ -236,22 +257,8 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 				CreateNewBodyStream: false,
 			}
 			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, options)
-			if task.payload.InteractionDomain.URL != "" {
-				oobTest := db.OOBTest{
-					Code:              db.IssueCode(task.payload.IssueCode),
-					TestName:          "OOB Test",
-					InteractionDomain: task.payload.InteractionDomain.URL,
-					InteractionFullID: task.payload.InteractionDomain.ID,
-					Target:            newHistory.URL,
-					Payload:           task.payload.Value,
-					HistoryID:         &newHistory.ID,
-					InsertionPoint:    task.insertionPoint.String(),
-					WorkspaceID:       &f.WorkspaceID,
-					TaskID:            &task.options.TaskID,
-					TaskJobID:         &task.options.TaskJobID,
-				}
-				db.Connection().CreateOOBTest(oobTest)
-				taskLog.Debug().Interface("oobTest", oobTest).Msg("Created OOB Test")
+			if task.payload.InteractionDomain.URL != "" && newHistory != nil {
+				db.Connection().UpdateOOBTestHistoryID(oobTest.ID, &newHistory.ID)
 			}
 
 			taskLog.Debug().Str("rawrequest", string(newHistory.RawRequest)).Msg("Request from history created in TemplateScanner")

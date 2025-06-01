@@ -1,0 +1,24 @@
+id: php-code-injection
+issue_code: php_code_injection
+detection_conditions: or
+detection_methods:
+  - response_condition:
+      contains: "sukyan-test"
+      confidence: 90
+vars:
+  - name: test
+    value: "test"
+launch:
+  operator: or
+  conditions:
+    - type: platform
+    - type: scan_mode
+      value: fuzz
+templates:
+  - "${@print(chr(115).chr(117).chr(107).chr(121).chr(97).chr(110).chr(45).chr(116).chr(101).chr(115).chr(116))}"
+  - ";print(chr(115).chr(117).chr(107).chr(121).chr(97).chr(110).chr(45).chr(116).chr(101).chr(115).chr(116));$var="
+categories:
+  - oob
+  - injection
+platforms:
+  - php

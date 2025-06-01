@@ -1,0 +1,13 @@
+code: asp_code_injection
+title: ASP.NET Code Injection
+description: The application allows the execution of arbitrary ASP.NET code through user input.
+remediation:
+  Avoid using dynamic code compilation and execution functions like CodeDom or Roslyn 
+  with user input. Use proper input validation and sanitization. Consider using 
+  safer alternatives like predefined method mappings or configuration-based approaches.
+cwe: 94
+severity: High
+references:
+  - https://owasp.org/www-community/attacks/Code_Injection
+  - https://docs.microsoft.com/en-us/dotnet/framework/reflection-and-codedom/
+  - https://cheatsheetseries.owasp.org/cheatsheets/DotNet_Security_Cheat_Sheet.html

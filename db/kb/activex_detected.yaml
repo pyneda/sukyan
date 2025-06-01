@@ -24,7 +24,7 @@ remediation: |
   5. Implement user notifications about technology changes if necessary
   6. Consider implementing feature detection for graceful fallbacks
 cwe: 477
-severity: High
+severity: Low
 references:
   - https://en.wikipedia.org/wiki/ActiveX
   - https://learn.microsoft.com/en-us/lifecycle/announcements/internet-explorer-11-end-of-support

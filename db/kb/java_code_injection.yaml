@@ -1,0 +1,14 @@
+code: java_code_injection
+title: Java Code Injection
+description: The application allows the execution of arbitrary Java code through user input.
+remediation:
+  Avoid using reflection, dynamic class loading, or script engines with user input.
+  Use proper input validation and sanitization. Consider using safer alternatives
+  like predefined method mappings or configuration-based approaches instead of
+  dynamic code execution.
+cwe: 94
+severity: High
+references:
+  - https://owasp.org/www-community/attacks/Code_Injection
+  - https://docs.oracle.com/javase/tutorial/reflect/
+  - https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html

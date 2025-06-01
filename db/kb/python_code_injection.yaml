@@ -1,0 +1,14 @@
+code: python_code_injection
+title: Python Code Injection
+description: The application allows the execution of arbitrary Python code through user input.
+remediation:
+  Avoid using eval(), exec(), compile(), and other dynamic code execution functions 
+  with user input. Use proper input validation and sanitization. Consider using 
+  safer alternatives like ast.literal_eval() for data evaluation or predefined 
+  function mappings instead of dynamic code execution.
+cwe: 94
+severity: High
+references:
+  - https://owasp.org/www-community/attacks/Code_Injection
+  - https://docs.python.org/3/library/functions.html#eval
+  - https://docs.python.org/3/library/ast.html#ast.literal_eval

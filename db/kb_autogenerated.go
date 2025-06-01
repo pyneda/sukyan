@@ -7,6 +7,7 @@ var (
 	AdminInterfaceDetectedCode           IssueCode = "admin_interface_detected"
 	ApacheStrutsDevModeCode              IssueCode = "apache_struts_dev_mode"
 	ApacheTapestryExceptionCode          IssueCode = "apache_tapestry_exception"
+	AspCodeInjectionCode                 IssueCode = "asp_code_injection"
 	AspNetMvcHeaderCode                  IssueCode = "asp_net_mvc_header"
 	AspnetTraceEnabledCode               IssueCode = "aspnet_trace_enabled"
 	Base32EncodedDataInParameterCode     IssueCode = "base32_encoded_data_in_parameter"
@@ -64,9 +65,11 @@ var (
 	IncorrectContentTypeHeaderCode       IssueCode = "incorrect_content_type_header"
 	IndexeddbUsageDetectedCode           IssueCode = "indexeddb_usage_detected"
 	JavaAppletDetectedCode               IssueCode = "java_applet_detected"
+	JavaCodeInjectionCode                IssueCode = "java_code_injection"
 	JavaDeserializationCode              IssueCode = "java_deserialization"
 	JavaSerializedObjectDetectedCode     IssueCode = "java_serialized_object_detected"
 	JavaServerHeaderCode                 IssueCode = "java_server_header"
+	JavascriptCodeInjectionCode          IssueCode = "javascript_code_injection"
 	JbossConsoleDetectedCode             IssueCode = "jboss_console_detected"
 	JbossInvokerDetectedCode             IssueCode = "jboss_invoker_detected"
 	JbossStatusDetectedCode              IssueCode = "jboss_status_detected"
@@ -82,6 +85,7 @@ var (
 	MutualAuthDetectedCode               IssueCode = "mutual_auth_detected"
 	NegotiateAuthDetectedCode            IssueCode = "negotiate_auth_detected"
 	NetworkAuthChallengeDetectedCode     IssueCode = "network_auth_challenge_detected"
+	NodejsCodeInjectionCode              IssueCode = "nodejs_code_injection"
 	NosqlInjectionCode                   IssueCode = "nosql_injection"
 	NtlmAuthDetectedCode                 IssueCode = "ntlm_auth_detected"
 	OauthEndpointDetectedCode            IssueCode = "oauth_endpoint_detected"
@@ -93,12 +97,16 @@ var (
 	PasswordFieldAutocompleteEnabledCode IssueCode = "password_field_autocomplete_enabled"
 	PasswordInGetRequestCode             IssueCode = "password_in_get_request"
 	PaymentTestEndpointDetectedCode      IssueCode = "payment_test_endpoint_detected"
+	PerlCodeInjectionCode                IssueCode = "perl_code_injection"
+	PhpCodeInjectionCode                 IssueCode = "php_code_injection"
 	PhpInfoDetectedCode                  IssueCode = "php_info_detected"
 	PrivateIpsCode                       IssueCode = "private_ips"
 	PrivateKeysCode                      IssueCode = "private_keys"
+	PythonCodeInjectionCode              IssueCode = "python_code_injection"
 	ReactDevelopmentModeCode             IssueCode = "react_development_mode"
 	ReflectedInputCode                   IssueCode = "reflected_input"
 	RemoteFileInclusionCode              IssueCode = "remote_file_inclusion"
+	RubyCodeInjectionCode                IssueCode = "ruby_code_injection"
 	SecretsInJsCode                      IssueCode = "secrets_in_js"
 	SensitiveConfigDetectedCode          IssueCode = "sensitive_config_detected"
 	ServerHeaderCode                     IssueCode = "server_header"
@@ -148,7 +156,7 @@ var issueTemplates = []IssueTemplate{
 		Description: "The application appears to be using ActiveX controls, which is a deprecated technology\nprimarily associated with Internet Explorer. ActiveX controls are no longer supported\nby modern web browsers and pose significant security risks. These controls had extensive\naccess to the Windows operating system and were a common attack vector for malware.\nWith Internet Explorer's end-of-life on June 15, 2022, continued use of ActiveX\ncreates both security vulnerabilities and severe functionality issues.\n",
 		Remediation: "To address this security concern:\n1. Identify all ActiveX controls and functionality in your application\n2. Plan a migration strategy to modern web technologies:\n   - Replace ActiveX controls with standard HTML5 elements and JavaScript\n   - Use modern APIs for file operations and system interactions\n   - Implement secure alternatives for any custom functionality\n   - Consider Progressive Web Apps (PWAs) for advanced features\n   - Use WebAssembly for performance-critical components\n3. Remove all ActiveX-related code including:\n   - Object/Embed tags with ClassIDs\n   - ActiveXObject JavaScript calls\n   - .cab and .ocx files\n4. Update any documentation that references ActiveX functionality\n5. Implement user notifications about technology changes if necessary\n6. Consider implementing feature detection for graceful fallbacks\n",
 		Cwe:         477,
-		Severity:    "High",
+		Severity:    "Low",
 		References: []string{
 			"https://en.wikipedia.org/wiki/ActiveX",
 			"https://learn.microsoft.com/en-us/lifecycle/announcements/internet-explorer-11-end-of-support",
@@ -186,6 +194,19 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         209,
 		Severity:    "Medium",
 		References:  []string{},
+	},
+	{
+		Code:        AspCodeInjectionCode,
+		Title:       "ASP.NET Code Injection",
+		Description: "The application allows the execution of arbitrary ASP.NET code through user input.",
+		Remediation: "Avoid using dynamic code compilation and execution functions like CodeDom or Roslyn with user input. Use proper input validation and sanitization. Consider using safer alternatives like predefined method mappings or configuration-based approaches.",
+		Cwe:         94,
+		Severity:    "High",
+		References: []string{
+			"https://owasp.org/www-community/attacks/Code_Injection",
+			"https://docs.microsoft.com/en-us/dotnet/framework/reflection-and-codedom/",
+			"https://cheatsheetseries.owasp.org/cheatsheets/DotNet_Security_Cheat_Sheet.html",
+		},
 	},
 	{
 		Code:        AspNetMvcHeaderCode,
@@ -458,8 +479,8 @@ var issueTemplates = []IssueTemplate{
 	{
 		Code:        DigestAuthDetectedCode,
 		Title:       "Digest Authentication Detected",
-		Description: "The application is using Digest Authentication on this endpoint. Digest Authentication is more secure than Basic Authentication as it uses cryptographic hashing to protect credentials. However, when used over unencrypted HTTP connections, it can still be vulnerable to man-in-the-middle attacks and replay attacks. The security of Digest Authentication also depends on the algorithm used, with MD5-based implementations being considered cryptographically weak.",
-		Remediation: "Ensure Digest Authentication is used over HTTPS connections to prevent man-in-the-middle attacks. If the implementation uses MD5, consider upgrading to stronger algorithms or alternative authentication methods. Implement proper nonce management to prevent replay attacks. For enhanced security, consider adding rate limiting and account lockout policies to prevent brute force attacks.",
+		Description: "The application is using Digest Authentication on this endpoint. Digest Authentication is more secure than Basic Authentication as it uses cryptographic hashing to protect credentials. However, when used over unencrypted HTTP connections, it can still be vulnerable to man-in-the-middle attacks and replay attacks. The security of Digest Authentication also depends on the algorithm used.",
+		Remediation: "Ensure Digest Authentication is used over HTTPS connections to prevent man-in-the-middle attacks and ensure it uses strong algorithms or alternative authentication methods. Implement proper nonce management to prevent replay attacks. For enhanced security, consider adding rate limiting and account lockout policies to prevent brute force attacks.",
 		Cwe:         522,
 		Severity:    "Info",
 		References: []string{
@@ -874,6 +895,19 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        JavaCodeInjectionCode,
+		Title:       "Java Code Injection",
+		Description: "The application allows the execution of arbitrary Java code through user input.",
+		Remediation: "Avoid using reflection, dynamic class loading, or script engines with user input. Use proper input validation and sanitization. Consider using safer alternatives like predefined method mappings or configuration-based approaches instead of dynamic code execution.",
+		Cwe:         94,
+		Severity:    "High",
+		References: []string{
+			"https://owasp.org/www-community/attacks/Code_Injection",
+			"https://docs.oracle.com/javase/tutorial/reflect/",
+			"https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html",
+		},
+	},
+	{
 		Code:        JavaDeserializationCode,
 		Title:       "Insecure Java Deserialization Detected",
 		Description: "The application appears to be vulnerable to insecure Java deserialization attacks. This vulnerability arises when an application deserializes untrusted data without proper validation. An attacker can exploit this vulnerability to execute arbitrary code, bypass authentication, or perform other malicious activities.",
@@ -908,6 +942,19 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         200,
 		Severity:    "Low",
 		References:  []string{},
+	},
+	{
+		Code:        JavascriptCodeInjectionCode,
+		Title:       "JavaScript Code Injection",
+		Description: "The application allows the execution of arbitrary JavaScript code through user input.",
+		Remediation: "Avoid using eval(), Function(), setTimeout(), setInterval(), and other dynamic code execution functions with user input. Use proper input validation and sanitization. Consider using JSON.parse() for data and predefined function mappings instead of dynamic code execution.",
+		Cwe:         94,
+		Severity:    "High",
+		References: []string{
+			"https://owasp.org/www-community/attacks/Code_Injection",
+			"https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval",
+			"https://cheatsheetseries.owasp.org/cheatsheets/DOM_based_XSS_Prevention_Cheat_Sheet.html",
+		},
 	},
 	{
 		Code:        JbossConsoleDetectedCode,
@@ -1095,6 +1142,19 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        NodejsCodeInjectionCode,
+		Title:       "Node.js Code Injection",
+		Description: "The application allows the execution of arbitrary Node.js code through user input.",
+		Remediation: "Avoid using eval(), Function(), vm.runInContext(), child_process.exec(), and other dynamic code execution functions with user input. Use proper input validation and sanitization. Consider using safer alternatives like vm.runInNewContext() with restricted contexts or predefined function mappings.",
+		Cwe:         94,
+		Severity:    "High",
+		References: []string{
+			"https://owasp.org/www-community/attacks/Code_Injection",
+			"https://nodejs.org/api/vm.html",
+			"https://cheatsheetseries.owasp.org/cheatsheets/Nodejs_Security_Cheat_Sheet.html",
+		},
+	},
+	{
 		Code:        NosqlInjectionCode,
 		Title:       "NoSQL Injection Detected",
 		Description: "The application appears to be vulnerable to NoSQL injection attacks. This vulnerability occurs when the application uses user-supplied input to construct NoSQL queries without properly sanitizing or validating the input first. An attacker can exploit this vulnerability to manipulate queries, potentially leading to unauthorized data access, data loss, or data corruption.",
@@ -1230,6 +1290,32 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        PerlCodeInjectionCode,
+		Title:       "Perl Code Injection",
+		Description: "The application allows the execution of arbitrary Perl code through user input.",
+		Remediation: "Avoid using eval(), do(), require() with user input, and other dynamic code execution functions. Use proper input validation and sanitization. Consider using safer alternatives like Safe.pm for restricted evaluation or predefined subroutine mappings instead of dynamic code execution.",
+		Cwe:         94,
+		Severity:    "High",
+		References: []string{
+			"https://owasp.org/www-community/attacks/Code_Injection",
+			"https://perldoc.perl.org/functions/eval",
+			"https://metacpan.org/pod/Safe",
+		},
+	},
+	{
+		Code:        PhpCodeInjectionCode,
+		Title:       "PHP Code Injection",
+		Description: "The application allows the execution of arbitrary PHP code through user input.",
+		Remediation: "Avoid using eval(), create_function(), and other dynamic code execution functions. If unavoidable, use proper input validation and sanitization. Consider using safer alternatives like predefined function mappings or whitelisted operations.",
+		Cwe:         94,
+		Severity:    "High",
+		References: []string{
+			"https://owasp.org/www-community/attacks/Code_Injection",
+			"https://cheatsheetseries.owasp.org/cheatsheets/PHP_Configuration_Cheat_Sheet.html",
+			"https://book.hacktricks.xyz/pentesting-web/php-tricks-esp/php-useful-functions-disable_functions-open_basedir-bypass",
+		},
+	},
+	{
 		Code:        PhpInfoDetectedCode,
 		Title:       "PHPInfo Page Detected",
 		Description: "A PHPInfo page was discovered on the server. The phpinfo() function outputs sensitive \ninformation about PHP's configuration including installed modules, server settings, \npaths, environment variables and configuration options. This information can be used \nby attackers to identify vulnerabilities and plan targeted attacks.\n",
@@ -1265,6 +1351,19 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        PythonCodeInjectionCode,
+		Title:       "Python Code Injection",
+		Description: "The application allows the execution of arbitrary Python code through user input.",
+		Remediation: "Avoid using eval(), exec(), compile(), and other dynamic code execution functions with user input. Use proper input validation and sanitization. Consider using safer alternatives like ast.literal_eval() for data evaluation or predefined function mappings instead of dynamic code execution.",
+		Cwe:         94,
+		Severity:    "High",
+		References: []string{
+			"https://owasp.org/www-community/attacks/Code_Injection",
+			"https://docs.python.org/3/library/functions.html#eval",
+			"https://docs.python.org/3/library/ast.html#ast.literal_eval",
+		},
+	},
+	{
 		Code:        ReactDevelopmentModeCode,
 		Title:       "React Development Mode Detected",
 		Description: "The application is running React in development mode, which includes additional debugging features and error messages that can expose sensitive implementation details about the application. Development mode bundles are typically larger, slower, and include source maps that could help attackers understand the application structure and find vulnerabilities. This mode also exposes React's internal state and component hierarchy, which could aid in crafting targeted attacks.\n",
@@ -1296,6 +1395,19 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "High",
 		References: []string{
 			"https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/07-Input_Validation_Testing/11.2-Testing_for_Remote_File_Inclusion",
+		},
+	},
+	{
+		Code:        RubyCodeInjectionCode,
+		Title:       "Ruby Code Injection",
+		Description: "The application allows the execution of arbitrary Ruby code through user input.",
+		Remediation: "Avoid using eval(), instance_eval(), class_eval(), binding.eval(), and other dynamic code execution methods with user input. Use proper input validation and sanitization. Consider using safer alternatives like send() with whitelisted method names or predefined method mappings.",
+		Cwe:         94,
+		Severity:    "High",
+		References: []string{
+			"https://owasp.org/www-community/attacks/Code_Injection",
+			"https://ruby-doc.org/core/Kernel.html#method-i-eval",
+			"https://guides.rubyonrails.org/security.html#injection",
 		},
 	},
 	{

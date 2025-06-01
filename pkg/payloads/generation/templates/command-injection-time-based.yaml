@@ -1,0 +1,40 @@
+id: "command_injection_time_based"
+issue_code: "os_cmd_injection"
+detection_condition: "or"
+detection_methods:
+  - time_based:
+      sleep: "{{.sleep_time}}"
+      confidence: 80
+  - response_condition:
+      contains: command not found
+      confidence: 70
+  - response_condition:
+      contains: invalid option
+      confidence: 70
+  - response_condition:
+      contains: unknown option
+      confidence: 70
+  - response_condition:
+      contains: "Syntax error:"
+      confidence: 70
+  - response_condition:
+      contains: "/bin/sh:"
+      confidence: 80
+  - response_condition:
+      contains: "/bin/bash:"
+      confidence: 80
+  - response_condition:
+      contains: "is not recognized as an internal or external command"
+      confidence: 80
+vars:
+  - name: sleep_time
+    value: "{{randomInt 5 9}}"
+templates:
+  - "&& sleep {{.sleep_time}}"
+  - "|| sleep {{.sleep_time}}"
+  - "& sleep {{.sleep_time}}"
+  - "; sleep {{.sleep_time}}"
+  - "| sleep {{.sleep_time}}"
+  - "%0A sleep {{.sleep_time}}"
+categories:
+  - command_injection

@@ -244,3 +244,12 @@ func (d *DatabaseConnection) ListInteractions(filter InteractionsFilter) (items 
 
 	return items, count, err
 }
+
+// UpdateOOBTestHistoryID updates an existing OOBTest with history ID
+func (d *DatabaseConnection) UpdateOOBTestHistoryID(oobTestID uint, historyID *uint) error {
+	result := d.db.Model(&OOBTest{}).Where("id = ?", oobTestID).Update("history_id", historyID)
+	if result.Error != nil {
+		log.Error().Err(result.Error).Uint("oob_test_id", oobTestID).Msg("Failed to update OOBTest history ID")
+	}
+	return result.Error
+}

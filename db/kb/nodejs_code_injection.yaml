@@ -1,0 +1,14 @@
+code: nodejs_code_injection
+title: Node.js Code Injection
+description: The application allows the execution of arbitrary Node.js code through user input.
+remediation:
+  Avoid using eval(), Function(), vm.runInContext(), child_process.exec(), and other 
+  dynamic code execution functions with user input. Use proper input validation and 
+  sanitization. Consider using safer alternatives like vm.runInNewContext() with 
+  restricted contexts or predefined function mappings.
+cwe: 94
+severity: High
+references:
+  - https://owasp.org/www-community/attacks/Code_Injection
+  - https://nodejs.org/api/vm.html
+  - https://cheatsheetseries.owasp.org/cheatsheets/Nodejs_Security_Cheat_Sheet.html

@@ -178,7 +178,7 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 				request.Header.Set(key, value)
 			}
 
-			response, err := http_utils.SendRequest(client, request)
+			response, err := http_utils.SendRequestWithTimeout(client, request, 30*time.Second)
 			if err != nil {
 				log.Warn().Err(err).Msg("failed to send request")
 				result.Error = fmt.Errorf("failed to send request: %w", err)

@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -133,7 +134,7 @@ func CheckSiteBehavior(options SiteBehaviourCheckOptions) (*SiteBehavior, error)
 			}
 			req.Header.Set("Connection", "keep-alive")
 
-			resp, err := SendRequest(client, req)
+			resp, err := SendRequestWithTimeout(client, req, 30*time.Second)
 			if err != nil {
 				result.Error = err
 				return result, nil

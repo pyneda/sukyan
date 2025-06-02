@@ -2,15 +2,17 @@ package http_utils
 
 import (
 	"crypto/tls"
+
 	"github.com/quic-go/quic-go/http3"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 
-	"golang.org/x/net/http2"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
+
+	"golang.org/x/net/http2"
 )
 
 func getProxyFunc() func(*http.Request) (*url.URL, error) {
@@ -77,7 +79,6 @@ func CreateHttpClient() *http.Client {
 	transport := CreateHttpTransport()
 	client := &http.Client{
 		Transport: transport,
-		// Timeout:   time.Duration(viper.GetInt("navigation.timeout")) * time.Second,
 	}
 	return client
 }

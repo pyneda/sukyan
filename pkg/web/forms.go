@@ -3,9 +3,11 @@ package web
 import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
+
 	// "github.com/pyneda/sukyan/lib"
-	"github.com/rs/zerolog/log"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type InputNameValue struct {
@@ -72,21 +74,24 @@ var predefinedNameValues = []InputNameValue{
 	{Name: "securityAnswer", Value: "DefaultAnswer"},
 }
 
-func SubmitForm(form *rod.Element, page *rod.Page) {
+func SubmitForm(form *rod.Element, page *rod.Page) bool {
 	submit, err := form.Element("[type=submit]")
-	// page.Activate()
+	// page.Timeout(200 * time.Millisecond).Activate()
 	if err == nil {
 		log.Info().Interface("submit", submit).Msg("Submit button found, clicking it")
-		submit.Timeout(5*time.Second).Click(proto.InputMouseButtonLeft, 1)
-		return
+		serr := submit.Timeout(2*time.Second).Click(proto.InputMouseButtonLeft, 1)
+		if serr == nil {
+			return true
+		}
 	}
-	_, serr := form.Timeout(5 * time.Second).Eval(`() => this.submit()`)
+	_, serr := form.Timeout(2 * time.Second).Eval(`() => this.submit()`)
 	if serr == nil {
 		log.Info().Interface("form", form).Msg("Form submitted using javascript")
-		return
+		return true
 	} else {
 		log.Error().Err(serr).Msg("Could not submit form")
 	}
+	return false
 
 }
 
@@ -116,21 +121,39 @@ func AutoFillInput(input *rod.Element, page *rod.Page) {
 	// Get the name and type of the input element
 	name, _ := input.Attribute("name")
 	typeAttr, _ := input.Attribute("type")
-	// page.Activate()
 
-	// handle time inputs
-	// if lib.SliceContains(timeInputs, *typeAttr) {
-	// 	input.InputTime(time.Now().Add(24 * time.Hour))
-	// 	return
-	// }
-	// if *typeAttr == "checkbox" && !input.MustProperty("checked").Bool() {
-	// 	input.Timeout(5*time.Second).Click(proto.InputMouseButtonLeft, 1)
-	// 	return
-	// }
+	if typeAttr != nil && *typeAttr == "submit" {
+		log.Debug().Msg("Form input auto filling skipped for input of type 'submit'")
+		return
+	}
 
-	// if typeAttr == "file" {
-	// 	input.MustSetFiles("/path/to/default/file")
-	// }
+	// Check if element is visible before proceeding
+	visible, err := input.Visible()
+	if err != nil || !visible {
+		log.Debug().Msg("Form input auto filling skipped for invisible input")
+		return
+	}
+
+	// Check if element is disabled
+	disabled, err := input.Disabled()
+	if err != nil || disabled {
+		log.Debug().Msg("Form input auto filling skipped for disabled input")
+		return
+	}
+
+	// Check if element is readonly
+	readonly, _ := input.Property("readonly")
+	if readonly.Bool() {
+		log.Debug().Msg("Form input auto filling skipped for readonly input")
+		return
+	}
+
+	// Quick interactability check with short timeout to avoid hanging
+	_, interactErr := input.Timeout(500 * time.Millisecond).Interactable()
+	if interactErr != nil {
+		log.Debug().Err(interactErr).Msg("Form input auto filling skipped for non-interactable input")
+		return
+	}
 
 	valuesByName := make(map[string]string)
 	for _, v := range predefinedNameValues {
@@ -153,7 +176,12 @@ func AutoFillInput(input *rod.Element, page *rod.Page) {
 
 	// If a predefined value was found, set the input value
 	if exists {
-		input.Timeout(5 * time.Second).Input(value)
+		err := input.Timeout(2 * time.Second).Input(value)
+		if err != nil {
+			log.Info().Err(err).Msg("Failed to input value into form input field")
+		} else {
+			log.Info().Str("value", value).Msg("Form input auto-filled")
+		}
 	}
 }
 
@@ -164,6 +192,33 @@ func AutoFillTextarea(textarea *rod.Element, page *rod.Page) {
 		return
 	}
 	name, _ := textarea.Attribute("name")
+
+	// Check if element is visible before proceeding
+	visible, err := textarea.Visible()
+	if err != nil || !visible {
+		log.Debug().Msg("Form textarea auto filling skipped for invisible textarea")
+		return
+	}
+	// Check if element is disabled
+	disabled, err := textarea.Disabled()
+	if err != nil || disabled {
+		log.Debug().Msg("Form textarea auto filling skipped for disabled textarea")
+		return
+	}
+
+	// Check if element is readonly
+	readonly, _ := textarea.Property("readonly")
+	if readonly.Bool() {
+		log.Debug().Msg("Form textarea auto filling skipped for readonly textarea")
+		return
+	}
+
+	// Quick interactability check with short timeout to avoid hanging
+	_, interactErr := textarea.Timeout(500 * time.Millisecond).Interactable()
+	if interactErr != nil {
+		log.Debug().Err(interactErr).Msg("Form textarea auto filling skipped for non-interactable textarea")
+		return
+	}
 
 	valuesByName := make(map[string]string)
 	for _, v := range predefinedNameValues {
@@ -180,5 +235,10 @@ func AutoFillTextarea(textarea *rod.Element, page *rod.Page) {
 		value = defaultTextareaValue
 	}
 
-	textarea.Timeout(5 * time.Second).Input(value)
+	err = textarea.Timeout(2 * time.Second).Input(value)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to input value into textarea")
+	} else {
+		log.Info().Str("value", value).Msg("Textarea auto-filled")
+	}
 }

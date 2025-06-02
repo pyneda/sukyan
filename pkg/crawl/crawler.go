@@ -333,7 +333,10 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	if !urlData.IsError {
 		log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Msg("Starting to interact with page")
 		interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout"))
-		lib.DoWorkWithTimeout(c.interactWithPage, []interface{}{page}, interactionTimeout*time.Second)
+		_, err := lib.DoWorkWithTimeout(c.interactWithPage, []interface{}{page}, interactionTimeout*time.Second)
+		if err != nil {
+			log.Warn().Err(err).Uint("workspace", c.workspaceID).Str("url", url).Msg("Timeout interacting with page")
+		}
 		log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Msg("Finished interacting with page")
 	}
 
@@ -404,20 +407,36 @@ func (c *Crawler) handleForms(page *rod.Page) (err error) {
 	if err != nil {
 		return err
 	}
+	if len(formElements) == 0 {
+		log.Debug().Uint("workspace", c.workspaceID).Msg("No forms found on page")
+		return nil
+	}
+	log.Info().Uint("workspace", c.workspaceID).Int("forms_found", len(formElements)).Msg("Found forms on page")
 	for _, form := range formElements {
 		xpath, err := form.GetXPath(true)
 		if err != nil {
+			log.Error().Err(err).Msg("Error getting XPath for form")
 			continue
 		}
 		e := SubmittedForm{
 			xpath: xpath,
 		}
+
+		skipPreviouslySubmittedForms := viper.GetBool("crawl.interaction.skip_previously_submitted_forms")
 		_, submitted := c.submittedForms.Load(e)
-		if !submitted {
+		if skipPreviouslySubmittedForms && submitted {
+			log.Info().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Skipping already submitted form")
+		} else {
+			log.Info().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Filling form")
 			web.AutoFillForm(form, page)
-			web.SubmitForm(form, page)
-			c.submittedForms.Store(e, true)
-			log.Info().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Submitted form")
+			log.Info().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Submitting form")
+			ok := web.SubmitForm(form, page)
+			if ok {
+				c.submittedForms.Store(e, true)
+				log.Info().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Submitted form")
+			} else {
+				log.Warn().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Could not submit form")
+			}
 		}
 	}
 	return err

@@ -222,6 +222,8 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 		if err != nil {
 			taskLog.Error().Err(err).Msg("Error building request from insertion points")
 			result.Err = err
+			wg.Done()
+			continue
 		} else {
 			var oobTest db.OOBTest
 			if task.payload.InteractionDomain.URL != "" {

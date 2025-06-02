@@ -61,8 +61,7 @@ func SendRequest(client *http.Client, req *http.Request) (*http.Response, error)
 	}
 
 	// After the client.Do call, replace the request body in the response
-	// This is done so that when you get the request from response.Request,
-	// it still has its body
+	// This is done so that the request from response.Request, still has its body
 	resp.Request.Body = bodyCopy
 
 	return resp, err

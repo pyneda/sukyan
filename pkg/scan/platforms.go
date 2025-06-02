@@ -52,8 +52,7 @@ func (p Platform) MatchesAnyFingerprint(fingerprints []lib.Fingerprint) bool {
 	for _, fingerprint := range fingerprints {
 		for _, software := range SoftwareList(p) {
 			if strings.EqualFold(fingerprint.Name, software) {
-				return true
-			} else if strings.EqualFold(string(p), software) {
+				log.Info().Str("platform", p.String()).Str("fingerprint", fingerprint.Name).Msg("Matched fingerprint with a platform")
 				return true
 			}
 		}

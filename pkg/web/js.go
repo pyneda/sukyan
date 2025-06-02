@@ -16,9 +16,62 @@ function processSrcset(srcset) {
         .map(s => s.trim().split(/\s+/)[0])
         .filter(Boolean);
 }
+function getFormUrls() {
+    var formUrls = [];
+    var forms = document.querySelectorAll('form');
+    
+    for (var form of forms) {
+        var action = form.action || window.location.href;
+        var params = new URLSearchParams();
+        
+        for (var input of form.querySelectorAll('input, select, textarea')) {
+            var name = input.name;
+            var value = '';
+            
+            if (!name) continue;
+            
+            if (input.type === 'checkbox' || input.type === 'radio') {
+                if (input.checked) {
+                    value = input.value || 'on';
+                } else if (input.defaultChecked) {
+                    value = input.value || 'on';
+                } else {
+                    continue;
+                }
+            } else if (input.type === 'submit' || input.type === 'button') {
+                continue;
+            } else if (input.tagName === 'SELECT') {
+                var selected = input.querySelector('option[selected]') || input.options[0];
+                value = selected ? selected.value : '';
+            } else {
+                value = input.value || input.defaultValue || input.placeholder || '';
+            }
+            
+            params.append(name, value);
+        }
+        
+        var baseUrl = absolutePath(action);
+        var queryString = params.toString();
+        
+        if (queryString) {
+            var separator = baseUrl.includes('?') ? '&' : '?';
+            formUrls.push(baseUrl + separator + queryString);
+        } else {
+            formUrls.push(baseUrl);
+        }
+    }
+    
+    return formUrls;
+}
 function getLinks() {
     var array = [];
     if (!document) return array;
+
+    try {
+        var formUrls = getFormUrls();
+        array = array.concat(formUrls);
+    } catch (error) {}
+
     var allElements = document.querySelectorAll("a");
     for (var el of allElements) {
         if (el.href && typeof el.href === 'string') {
@@ -74,6 +127,8 @@ function getLinks() {
             });
         }
     }
+
+
     
 
     array = array.filter(item => item.startsWith("http")).map(item => {

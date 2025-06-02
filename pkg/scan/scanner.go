@@ -247,7 +247,9 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 				}
 			}
 			startTime := time.Now()
-			response, err := http_utils.SendRequestWithTimeout(f.client, req, 2*time.Minute)
+			// response, err := http_utils.SendRequestWithTimeout(f.client, req, 2*time.Minute)
+			response, err := http_utils.SendRequest(f.client, req)
+
 			if err != nil {
 				taskLog.Error().Err(err).Msg("Error making request")
 				wg.Done()
@@ -372,7 +374,9 @@ func (f *TemplateScanner) repeatHistoryItem(history *db.History) (repeatedHistor
 		return repeatedHistoryItem{}, err
 	}
 	startTime := time.Now()
-	response, err := http_utils.SendRequestWithTimeout(f.client, request, 2*time.Minute)
+	// response, err := http_utils.SendRequestWithTimeout(f.client, request, 2*time.Minute)
+	response, err := http_utils.SendRequest(f.client, request)
+
 	if err != nil {
 		log.Error().Err(err).Msg("Error making request")
 		return repeatedHistoryItem{}, err

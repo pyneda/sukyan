@@ -1,0 +1,19 @@
+code: dependency_confusion
+title: Dependency Confusion
+description: |
+  Dependency confusion attacks exploit package manager resolution mechanisms to substitute malicious packages for legitimate dependencies. These attacks encompass various techniques including typosquatting (misspelled package names), namespace confusion (similar organization names), version manipulation (artificially high version numbers), and repository confusion (DNS-based attacks). 
+
+  The application's dependency configuration may allow attackers to publish malicious packages that get prioritized during installation due to package manager  resolution logic, higher version numbers, or misconfigured registry settings. This can result in arbitrary code execution during installation through pre-install scripts or at runtime, potentially compromising the application, development environment, and CI/CD pipeline.
+remediation: |
+  Implement comprehensive package management security controls to prevent dependency substitution attacks. Reserve your organization's namespace on all relevant public registries and configure package managers to explicitly prioritize private registries through proper configuration files. Use scoped packages with your organization's namespace for internal dependencies and implement strict version pinning through lock files to prevent unexpected package resolution. 
+  
+  Establish continuous monitoring for packages with names similar to your internal packages and integrate dependency validation tools into your CI/CD pipeline to verify package sources, checksums, and digital signatures before installation.
+cwe: 829
+severity: High
+references:
+  - https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610
+  - https://owasp.org/www-project-top-10-ci-cd-security-risks/CICD-SEC-03-Dependency-Chain-Abuse
+  - https://www.nist.gov/itl/executive-order-14028-improving-nations-cybersecurity/software-security-supply-chains
+  - https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-161r1.pdf
+  - https://snyk.io/blog/detect-prevent-dependency-confusion-attacks-npm-supply-chain-security/
+  - https://owasp.org/www-project-dep-scan/

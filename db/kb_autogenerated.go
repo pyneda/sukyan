@@ -31,6 +31,7 @@ var (
 	DatabaseErrorsCode                   IssueCode = "database_errors"
 	DbConnectionStringsCode              IssueCode = "db_connection_strings"
 	DbManagementInterfaceDetectedCode    IssueCode = "db_management_interface_detected"
+	DependencyConfusionCode              IssueCode = "dependency_confusion"
 	DigestAuthDetectedCode               IssueCode = "digest_auth_detected"
 	DirectoryListingCode                 IssueCode = "directory_listing"
 	DjangoDebugExceptionCode             IssueCode = "django_debug_exception"
@@ -474,6 +475,22 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "Info",
 		References: []string{
 			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/01-Test_Network_Infrastructure_Configuration",
+		},
+	},
+	{
+		Code:        DependencyConfusionCode,
+		Title:       "Dependency Confusion",
+		Description: "Dependency confusion attacks exploit package manager resolution mechanisms to substitute malicious packages for legitimate dependencies. These attacks encompass various techniques including typosquatting (misspelled package names), namespace confusion (similar organization names), version manipulation (artificially high version numbers), and repository confusion (DNS-based attacks). \n\nThe application's dependency configuration may allow attackers to publish malicious packages that get prioritized during installation due to package manager  resolution logic, higher version numbers, or misconfigured registry settings. This can result in arbitrary code execution during installation through pre-install scripts or at runtime, potentially compromising the application, development environment, and CI/CD pipeline.\n",
+		Remediation: "Implement comprehensive package management security controls to prevent dependency substitution attacks. Reserve your organization's namespace on all relevant public registries and configure package managers to explicitly prioritize private registries through proper configuration files. Use scoped packages with your organization's namespace for internal dependencies and implement strict version pinning through lock files to prevent unexpected package resolution. \n\nEstablish continuous monitoring for packages with names similar to your internal packages and integrate dependency validation tools into your CI/CD pipeline to verify package sources, checksums, and digital signatures before installation.\n",
+		Cwe:         829,
+		Severity:    "High",
+		References: []string{
+			"https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610",
+			"https://owasp.org/www-project-top-10-ci-cd-security-risks/CICD-SEC-03-Dependency-Chain-Abuse",
+			"https://www.nist.gov/itl/executive-order-14028-improving-nations-cybersecurity/software-security-supply-chains",
+			"https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-161r1.pdf",
+			"https://snyk.io/blog/detect-prevent-dependency-confusion-attacks-npm-supply-chain-security/",
+			"https://owasp.org/www-project-dep-scan/",
 		},
 	},
 	{

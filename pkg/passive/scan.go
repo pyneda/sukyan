@@ -88,6 +88,7 @@ func ScanHistoryItem(item *db.History) {
 	SilverlightDetectionScan(item)
 	ActiveXDetectionScan(item)
 	JavaAppletDetectionScan(item)
+	DependencyConfusionScan(item)
 
 	if viper.GetBool("passive.checks.exceptions.enabled") {
 		ExceptionsScan(item)

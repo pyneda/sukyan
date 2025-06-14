@@ -132,9 +132,13 @@ function getLinks() {
     
 
     array = array.filter(item => item.startsWith("http")).map(item => {
-        let url = new URL(item);
-        url.hash = '';
-        return url.href;
+        try {
+            let url = new URL(item);
+            url.hash = '';
+            return url.href;
+        } catch (error) {
+            return item;
+        }
     });
 
     return [...new Set(array)];

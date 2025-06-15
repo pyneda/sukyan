@@ -247,40 +247,78 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 				}
 			}
 			startTime := time.Now()
-			// response, err := http_utils.SendRequestWithTimeout(f.client, req, 2*time.Minute)
-			response, err := http_utils.SendRequest(f.client, req)
-
-			if err != nil {
-				taskLog.Error().Err(err).Msg("Error making request")
-				wg.Done()
-				continue
-			}
-			responseData, _, err := http_utils.ReadFullResponse(response, false)
-			if err != nil {
-				taskLog.Error().Err(err).Msg("Error reading response body, skipping")
-				wg.Done()
-				continue
-			}
+			timeout := f.calculateTimeoutForPayload(task.payload)
+			response, err := http_utils.SendRequestWithTimeout(f.client, req, timeout)
 			result.Duration = time.Since(startTime)
-			options := http_utils.HistoryCreationOptions{
-				Source:              db.SourceScanner,
-				WorkspaceID:         f.WorkspaceID,
-				TaskID:              task.options.TaskID,
-				CreateNewBodyStream: false,
-			}
-			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, options)
-			if task.payload.InteractionDomain.URL != "" && newHistory != nil && newHistory.ID != 0 {
-				db.Connection().UpdateOOBTestHistoryID(oobTest.ID, &newHistory.ID)
-			}
 
-			taskLog.Debug().Str("rawrequest", string(newHistory.RawRequest)).Msg("Request from history created in TemplateScanner")
-			result.Result = newHistory
-			result.Err = err
-			result.Response = *response
+			result.Original = task.history
 			result.Payload = task.payload
 			result.InsertionPoint = task.insertionPoint
-			result.Original = task.history
-			result.ResponseData = responseData
+			result.Err = err
+
+			if err != nil {
+				isTimeout := f.isTimeoutError(err)
+				isTimeBased, _ := f.isTimeBasedPayload(task.payload)
+
+				taskLog.Error().
+					Err(err).
+					Bool("is_timeout", isTimeout).
+					Bool("is_time_based", isTimeBased).
+					Dur("duration", result.Duration).
+					Dur("timeout", timeout).
+					Msg("Error making request")
+
+				// Handle timeouts when doing time-based tests
+				if isTimeout && isTimeBased {
+					options := http_utils.HistoryCreationOptions{
+						Source:              db.SourceScanner,
+						WorkspaceID:         f.WorkspaceID,
+						TaskID:              task.options.TaskID,
+						CreateNewBodyStream: false,
+					}
+
+					timeoutHistory, historyErr := http_utils.CreateTimeoutHistory(req, result.Duration, err, options)
+					if historyErr != nil {
+						taskLog.Error().Err(historyErr).Msg("Error creating timeout history record")
+						wg.Done()
+						continue
+					}
+
+					result.Result = timeoutHistory
+					if task.payload.InteractionDomain.URL != "" && timeoutHistory != nil && timeoutHistory.ID != 0 {
+						db.Connection().UpdateOOBTestHistoryID(oobTest.ID, &timeoutHistory.ID)
+					}
+				} else {
+					// For non-time-based payloads or non-timeout errors, skip evaluation
+					wg.Done()
+					continue
+				}
+			} else {
+				responseData, _, err := http_utils.ReadFullResponse(response, false)
+				if err != nil {
+					taskLog.Error().Err(err).Msg("Error reading response body, skipping")
+					wg.Done()
+					continue
+				}
+
+				options := http_utils.HistoryCreationOptions{
+					Source:              db.SourceScanner,
+					WorkspaceID:         f.WorkspaceID,
+					TaskID:              task.options.TaskID,
+					CreateNewBodyStream: false,
+				}
+				newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, options)
+				if task.payload.InteractionDomain.URL != "" && newHistory != nil && newHistory.ID != 0 {
+					db.Connection().UpdateOOBTestHistoryID(oobTest.ID, &newHistory.ID)
+				}
+
+				taskLog.Debug().Str("rawrequest", string(newHistory.RawRequest)).Msg("Request from history created in TemplateScanner")
+				result.Result = newHistory
+				result.Response = *response
+				result.ResponseData = responseData
+			}
+
+			// Evaluate the result for vulnerabilities
 			vulnerable, details, confidence, issueOverride, err := f.EvaluateResult(result)
 
 			if err != nil {
@@ -297,15 +335,26 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 			if vulnerable {
 				taskLog.Warn().Msg("Vulnerable")
 				// Should handle the additional details and confidence
-				fullDetails := fmt.Sprintf("The following payload was inserted in the `%s` %s: %s\n\n%s", task.insertionPoint.Name, task.insertionPoint.Type, task.payload.Value, details)
-				// taskLog.Warn().Interface("newHistory", newHistory).Str("issue", string(issueCode)).Str("details", fullDetails).Int("confidence", confidence).Uint("wksp", f.WorkspaceID).Msg("Creating issue")
-				createdIssue, err := db.CreateIssueFromHistoryAndTemplate(newHistory, issueCode, fullDetails, confidence, "", &f.WorkspaceID, &task.options.TaskID, &task.options.TaskJobID)
+				var historyForIssue *db.History
+				var fullDetails string
+
+				if result.Err != nil && f.isTimeoutError(result.Err) {
+					historyForIssue = result.Result
+					fullDetails = fmt.Sprintf("The following payload was inserted in the `%s` %s: %s\n\nRequest timed out after %s.\n\n%s",
+						task.insertionPoint.Name, task.insertionPoint.Type, task.payload.Value, result.Duration, details)
+				} else {
+					historyForIssue = result.Result
+					fullDetails = fmt.Sprintf("The following payload was inserted in the `%s` %s: %s\n\n%s", task.insertionPoint.Name, task.insertionPoint.Type, task.payload.Value, details)
+				}
+
+				createdIssue, err := db.CreateIssueFromHistoryAndTemplate(historyForIssue, issueCode, fullDetails, confidence, "", &f.WorkspaceID, &task.options.TaskID, &task.options.TaskJobID)
 				if err != nil {
 					taskLog.Error().Str("code", string(issueCode)).Interface("result", result).Err(err).Msg("Error creating issue")
 				} else if createdIssue.ID != 0 {
 					result.Issue = &createdIssue
 					f.results.Store(createdIssue.Code, result)
 				}
+
 				// Avoid repeated issues: could also provide a issue type `variant` and handle the insertion point
 				if f.AvoidRepeatedIssues {
 					f.issuesFound.Store(DetectedIssue{
@@ -364,29 +413,41 @@ func (f *TemplateScanner) EvaluateResult(result TemplateScannerResult) (bool, st
 type repeatedHistoryItem struct {
 	history  *db.History
 	duration time.Duration
+	timeout  bool
 }
 
 // repeatHistoryItem repeats a history item and returns the new history item and the duration
-func (f *TemplateScanner) repeatHistoryItem(history *db.History) (repeatedHistoryItem, error) {
+func (f *TemplateScanner) repeatHistoryItem(history *db.History, timeout time.Duration) (repeatedHistoryItem, error) {
 	request, err := http_utils.BuildRequestFromHistoryItem(history)
 	if err != nil {
 		log.Error().Err(err).Msg("Error building original request from history item to revalidate time based issue")
 		return repeatedHistoryItem{}, err
 	}
+
 	startTime := time.Now()
-	// response, err := http_utils.SendRequestWithTimeout(f.client, request, 2*time.Minute)
-	response, err := http_utils.SendRequest(f.client, request)
+	response, err := http_utils.SendRequestWithTimeout(f.client, request, timeout)
+	duration := time.Since(startTime)
 
 	if err != nil {
-		log.Error().Err(err).Msg("Error making request")
-		return repeatedHistoryItem{}, err
+		isTimeout := f.isTimeoutError(err)
+		log.Error().
+			Err(err).
+			Bool("is_timeout", isTimeout).
+			Dur("timeout", timeout).
+			Dur("actual_duration", duration).
+			Msg("Error making request during revalidation")
+
+		return repeatedHistoryItem{
+			timeout:  isTimeout,
+			duration: duration,
+		}, err
 	}
+
 	responseData, _, err := http_utils.ReadFullResponse(response, false)
 	if err != nil {
 		log.Error().Err(err).Msg("Error reading response body, skipping")
 		return repeatedHistoryItem{}, err
 	}
-	duration := time.Since(startTime)
 
 	options := http_utils.HistoryCreationOptions{
 		Source:              db.SourceScanner,
@@ -398,6 +459,7 @@ func (f *TemplateScanner) repeatHistoryItem(history *db.History) (repeatedHistor
 	return repeatedHistoryItem{
 		history:  newHistory,
 		duration: duration,
+		timeout:  false,
 	}, nil
 }
 
@@ -467,7 +529,10 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 		log.Warn().Msg("Browser Events detection method not implemented yet")
 		return false, "", 0, "", nil
 	case *generation.TimeBasedDetectionMethod:
-		if m.CheckIfResultDurationIsHigher(result.Duration) {
+		durationIsHigher := m.CheckIfResultDurationIsHigher(result.Duration)
+		requestTimedOut := result.Err != nil && f.isTimeoutError(result.Err)
+
+		if durationIsHigher || requestTimedOut {
 			var sb strings.Builder
 			defaultDelay := 30
 			attempts := 8
@@ -476,7 +541,12 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 			confidenceDecrement := 40
 			originalTrueCount := 0
 			payloadTrueCount := 0
-			sb.WriteString(fmt.Sprintf("Response took %s, which is greater than the sleep time injected in the payload of %s\n\n", result.Duration, m.Sleep))
+
+			if requestTimedOut {
+				sb.WriteString(fmt.Sprintf("Request timed out after %s, which may indicate the sleep payload of %s worked\n\n", result.Duration, m.Sleep))
+			} else {
+				sb.WriteString(fmt.Sprintf("Response took %s, which is greater than the sleep time injected in the payload of %s\n\n", result.Duration, m.Sleep))
+			}
 			// var originalResults []bool
 			// var payloadResults []bool
 			expectedSleepDuratoin := m.ParseSleepDuration(m.Sleep)
@@ -487,16 +557,40 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 
 				delay := time.Duration(defaultDelay*i) * time.Second
 
-				originalResult, err := f.repeatHistoryItem(result.Original)
+				// For revalidation, use a timeout that's longer than the expected sleep duration but still reasonable to prevent hanging
+				revalidationTimeout := expectedSleepDuratoin + 2*time.Minute
+				if revalidationTimeout < 1*time.Minute {
+					revalidationTimeout = 1 * time.Minute
+				}
+				if revalidationTimeout > 5*time.Minute {
+					revalidationTimeout = 5 * time.Minute
+				}
+
+				originalResult, err := f.repeatHistoryItem(result.Original, revalidationTimeout)
 				if err != nil {
-					sb.WriteString(fmt.Sprintf("Attempt %d: Error making request for original history item\n", i))
+					if f.isTimeoutError(err) {
+						// NOTE: If original times out, it might indicate network issues, so we continue but note it
+						sb.WriteString(fmt.Sprintf("Attempt %d: Original request timed out after %s (timeout: %s)\n", i, originalResult.duration, revalidationTimeout))
+						finalConfidence -= confidenceDecrement / 2
+					} else {
+						sb.WriteString(fmt.Sprintf("Attempt %d: Error making request for original history item: %s\n", i, err.Error()))
+					}
 					sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))
 					time.Sleep(delay)
 					continue
 				}
-				withPayloadResult, err := f.repeatHistoryItem(result.Result)
+				withPayloadResult, err := f.repeatHistoryItem(result.Result, revalidationTimeout)
 				if err != nil {
-					sb.WriteString(fmt.Sprintf("Attempt %d: Error making request for history item with payload\n", i))
+					if f.isTimeoutError(err) {
+						sb.WriteString(fmt.Sprintf("Attempt %d: Payload request timed out after %s (timeout: %s)\n", i, withPayloadResult.duration, revalidationTimeout))
+						if !originalResult.timeout {
+							payloadTrueCount++
+							finalConfidence += confidenceIncrement
+							sb.WriteString(" * Payload request timed out while original didn't\n")
+						}
+					} else {
+						sb.WriteString(fmt.Sprintf("Attempt %d: Error making request for history item with payload: %s\n", i, err.Error()))
+					}
 					sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))
 					time.Sleep(delay)
 					continue
@@ -564,4 +658,58 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 		return false, "", 0, m.IssueOverride, nil
 	}
 	return false, "", 0, "", nil
+}
+
+// isTimeBasedPayload checks if a payload contains time-based detection methods
+// and returns the expected sleep duration if found
+func (f *TemplateScanner) isTimeBasedPayload(payload generation.Payload) (bool, time.Duration) {
+	for _, method := range payload.DetectionMethods {
+		if timeBased := method.TimeBased; timeBased != nil {
+			expectedDuration := timeBased.ParseSleepDuration(timeBased.Sleep)
+			if expectedDuration > 0 {
+				return true, expectedDuration
+			}
+		}
+	}
+	return false, 0
+}
+
+// calculateTimeoutForPayload calculates an appropriate timeout for a payload
+func (f *TemplateScanner) calculateTimeoutForPayload(payload generation.Payload) time.Duration {
+	isTimeBased, expectedDuration := f.isTimeBasedPayload(payload)
+
+	if isTimeBased {
+		// For time-based payloads, add buffer to expected sleep duration
+		timeout := time.Duration(float64(expectedDuration) * 2.0)
+
+		// Set reasonable bounds: minimum 30s, maximum 5 minutes
+		if timeout < 30*time.Second {
+			timeout = 30 * time.Second
+		}
+		if timeout > 5*time.Minute {
+			timeout = 5 * time.Minute
+		}
+
+		log.Debug().
+			Dur("expected_sleep", expectedDuration).
+			Dur("calculated_timeout", timeout).
+			Str("payload", payload.Value).
+			Msg("Calculated timeout for time-based payload")
+
+		return timeout
+	}
+
+	return 2 * time.Minute
+}
+
+// isTimeoutError checks if an error is due to timeout
+func (f *TemplateScanner) isTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errorStr := err.Error()
+	return strings.Contains(errorStr, "timeout") ||
+		strings.Contains(errorStr, "deadline exceeded") ||
+		strings.Contains(errorStr, "context deadline exceeded") ||
+		strings.Contains(errorStr, "operation timed out")
 }

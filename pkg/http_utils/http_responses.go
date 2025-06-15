@@ -3,12 +3,14 @@ package http_utils
 import (
 	"github.com/rs/zerolog/log"
 
+	"bytes"
+	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httputil"
-
-	"bytes"
+	"time"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -138,7 +140,13 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 
 	}
 
-	requestDump, err := httputil.DumpRequestOut(response.Request, true)
+	// Create a fresh request with background context for dumping to avoid "context canceled" errors
+	requestForDump := response.Request.Clone(context.Background())
+	if response.Request.Body != nil {
+		requestForDump.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+	}
+
+	requestDump, err := httputil.DumpRequestOut(requestForDump, true)
 	if err != nil {
 		logger.Error().Err(err).Msg("Error dumping request")
 	}
@@ -172,5 +180,82 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		Proto:               response.Proto,
 		IsWebSocketUpgrade:  options.IsWebSocketUpgrade || response.StatusCode == http.StatusSwitchingProtocols,
 	}
+	return db.Connection().CreateHistory(&record)
+}
+
+// CreateTimeoutHistory creates a history record for requests that timed out
+func CreateTimeoutHistory(req *http.Request, duration time.Duration, timeoutErr error, options HistoryCreationOptions) (*db.History, error) {
+	logger := log.With().
+		Str("source", options.Source).
+		Uint("workspace", options.WorkspaceID).
+		Str("url", req.URL.String()).
+		Str("method", req.Method).
+		Dur("duration", duration).
+		Logger()
+
+	if req == nil {
+		return nil, errors.New("request is nil")
+	}
+
+	var requestBody []byte
+	if req.Body != nil {
+		requestBody, _ = io.ReadAll(req.Body)
+		req.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+		req.ContentLength = int64(len(requestBody))
+
+		req.GetBody = func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewBuffer(requestBody)), nil
+		}
+	}
+
+	// Create a fresh request with background context for dumping to avoid "context canceled" errors
+	requestForDump := req.Clone(context.Background())
+	if req.Body != nil {
+		requestForDump.Body = io.NopCloser(bytes.NewBuffer(requestBody))
+	}
+
+	requestDump, err := httputil.DumpRequestOut(requestForDump, true)
+	if err != nil {
+		logger.Error().Err(err).Msg("Error dumping timeout request")
+		requestDump = []byte(fmt.Sprintf("Error dumping timeout request: %v", err))
+	}
+
+	if req.Body != nil {
+		defer req.Body.Close()
+	}
+
+	var playgroundSessionID *uint
+	if options.PlaygroundSessionID > 0 {
+		playgroundSessionID = &options.PlaygroundSessionID
+	}
+
+	note := fmt.Sprintf("Request timed out after %s. Error: %v", duration, timeoutErr)
+
+	record := db.History{
+		URL:                 req.URL.String(),
+		Depth:               lib.CalculateURLDepth(req.URL.String()),
+		StatusCode:          0,
+		RequestBodySize:     len(requestBody),
+		ResponseBodySize:    0,
+		Method:              req.Method,
+		ResponseContentType: "",
+		RequestContentType:  req.Header.Get("Content-Type"),
+		Evaluated:           false,
+		Source:              options.Source,
+		RawRequest:          requestDump,
+		RawResponse:         nil,
+		Note:                note,
+		WorkspaceID:         &options.WorkspaceID,
+		TaskID:              &options.TaskID,
+		PlaygroundSessionID: playgroundSessionID,
+		Proto:               "HTTP/1.1",
+		IsWebSocketUpgrade:  options.IsWebSocketUpgrade,
+	}
+
+	logger.Debug().
+		Int("request_body_size", len(requestBody)).
+		Str("request_content_type", req.Header.Get("Content-Type")).
+		Msg("Creating timeout history record")
+
 	return db.Connection().CreateHistory(&record)
 }

@@ -215,7 +215,7 @@
         // Setup application state
         let currentPage = 1;
         let itemsPerPage = 20;
-        let currentFilteredIssues = groupedIssues;
+        let currentFilteredIssues = groupedIssues || [];
         let currentSeverityFilter = 'all';
         let currentSelectedIssue = null;
         let searchTerm = '';
@@ -226,7 +226,7 @@
             threshold: 0.4,
             includeScore: true
         };
-        const fuse = new Fuse(groupedIssues, fuseOptions);
+        const fuse = new Fuse(groupedIssues || [], fuseOptions);
         
         // Severity colors mapping
         const severityColors = {
@@ -330,8 +330,13 @@
         }
         
         function createIssueCard(issue) {
+            if (!issue) {
+                console.warn('Attempted to create card for null/undefined issue');
+                return createElementWithClass('div', 'bg-gray-700 rounded-md p-4 text-gray-400', 'Invalid issue data');
+            }
+            
             const card = createElementWithClass('div', 'bg-gray-700 rounded-md p-4 cursor-pointer hover:bg-gray-600 transition relative overflow-hidden');
-            card.dataset.id = issue.id;
+            card.dataset.id = issue.id || '';
             
             // Add severity indicator stripe on the left
             const severityStripe = createElementWithClass('div', `absolute left-0 top-0 bottom-0 w-1 ${severityColors[issue.severity]?.bg || 'bg-gray-500'}`);
@@ -418,6 +423,11 @@
         }
         
         function createGroupCard(group) {
+            if (!group || !group.issues) {
+                console.warn('Attempted to create group card for invalid group data');
+                return createElementWithClass('div', 'bg-gray-700 rounded-md p-4 text-gray-400', 'Invalid group data');
+            }
+            
             const card = createElementWithClass('div', 'mb-4');
             
             // Create header
@@ -463,11 +473,8 @@
             const container = document.getElementById('issues-container');
             container.innerHTML = '';
 
-            
-   
-
-            const filteredGroups  = currentFilteredIssues.filter(group => {
-                return group.issues.some(issue => {
+            const filteredGroups = (currentFilteredIssues || []).filter(group => {
+                return group.issues && group.issues.some(issue => {
                     return currentSeverityFilter === 'all' || issue.severity === currentSeverityFilter;
                 });
             });
@@ -487,6 +494,13 @@
         
         
         function showIssueDetails(issue) {
+            if (!issue) {
+                console.warn('Attempted to show details for null/undefined issue');
+                const container = document.getElementById('issue-details');
+                container.innerHTML = '<div class="text-center text-gray-500 py-6">No issue selected</div>';
+                return;
+            }
+            
             const container = document.getElementById('issue-details');
             container.innerHTML = '';
             container.classList.add('fade-in');
@@ -925,7 +939,7 @@
         }
         
         function filterIssues() {
-            let filtered = groupedIssues.filter(issue => {
+            let filtered = (groupedIssues || []).filter(issue => {
                 if (currentSeverityFilter !== 'all' && issue.severity !== currentSeverityFilter) {
                     return false;
                 }
@@ -948,14 +962,20 @@
         
         function initializeCharts() {
             // Severity chart (pie chart)
-            const severityCtx = document.getElementById('severityChart').getContext('2d');
+            const severityChartElement = document.getElementById('severityChart');
+            if (!severityChartElement) {
+                console.warn('Severity chart element not found');
+                return;
+            }
+            
+            const severityCtx = severityChartElement.getContext('2d');
             const severityLabels = ['Critical', 'High', 'Medium', 'Low', 'Info'];
             const severityData = [
-                summaryData.critical_count,
-                summaryData.high_count,
-                summaryData.medium_count,
-                summaryData.low_count,
-                summaryData.info_count
+                summaryData.critical_count || 0,
+                summaryData.high_count || 0,
+                summaryData.medium_count || 0,
+                summaryData.low_count || 0,
+                summaryData.info_count || 0
             ];
 
             const severityColors = [
@@ -991,10 +1011,16 @@
             });
             
             // Top issue types (bar chart)
-            const typesCtx = document.getElementById('typesChart').getContext('2d');
+            const typesChartElement = document.getElementById('typesChart');
+            if (!typesChartElement) {
+                console.warn('Types chart element not found');
+                return;
+            }
             
-            const typeLabels = summaryData.top_vuln_types.map(t => t.title);
-            const typeData = summaryData.top_vuln_types.map(t => t.count);
+            const typesCtx = typesChartElement.getContext('2d');
+            
+            const typeLabels = summaryData.top_vuln_types ? summaryData.top_vuln_types.map(t => t.title) : [];
+            const typeData = summaryData.top_vuln_types ? summaryData.top_vuln_types.map(t => t.count) : [];
             
             new Chart(typesCtx, {
                 type: 'bar',
@@ -1040,16 +1066,22 @@
         
         function initApp() {
             // Search functionality
-            document.getElementById('search-input').addEventListener('input', e => {
-                searchTerm = e.target.value.trim();
-                filterIssues();
-            });
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', e => {
+                    searchTerm = e.target.value.trim();
+                    filterIssues();
+                });
+            }
             
             // Severity filter
-            document.getElementById('severity-filter').addEventListener('change', e => {
-                currentSeverityFilter = e.target.value;
-                filterIssues();
-            });
+            const severityFilter = document.getElementById('severity-filter');
+            if (severityFilter) {
+                severityFilter.addEventListener('change', e => {
+                    currentSeverityFilter = e.target.value;
+                    filterIssues();
+                });
+            }
             
 
             

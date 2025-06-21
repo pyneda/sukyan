@@ -1,9 +1,11 @@
 package db
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
+	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 )
 
@@ -39,6 +41,7 @@ type TaskJobFilter struct {
 	Titles      []string   `json:"titles" validate:"omitempty,dive,ascii"`
 	Pagination  Pagination `json:"pagination"`
 	TaskID      uint       `json:"task_id" validate:"omitempty,numeric"`
+	WorkspaceID uint       `json:"workspace_id" validate:"omitempty,numeric"`
 	StatusCodes []int      `json:"status_codes" validate:"omitempty,dive,numeric"`
 	Methods     []string   `json:"methods" validate:"omitempty,dive,oneof=GET POST PUT DELETE PATCH HEAD OPTIONS TRACE"`
 	SortBy      string     `json:"sort_by" validate:"omitempty,oneof=id history_method history_url history_status history_parameters_count title status started_at completed_at created_at updated_at"`
@@ -64,18 +67,22 @@ func (d *DatabaseConnection) ListTaskJobs(filter TaskJobFilter) (items []*TaskJo
 
 	// Basic filters
 	if len(filter.Statuses) > 0 {
-		query = query.Where("status IN ?", filter.Statuses)
+		query = query.Where("task_jobs.status IN ?", filter.Statuses)
 	}
 	if len(filter.Titles) > 0 {
-		query = query.Where("title IN ?", filter.Titles)
+		query = query.Where("task_jobs.title IN ?", filter.Titles)
 	}
 
 	if filter.Query != "" {
-		query = query.Where("title LIKE ?", "%"+filter.Query+"%")
+		query = query.Where("task_jobs.title LIKE ?", "%"+filter.Query+"%")
 	}
 
 	if filter.TaskID > 0 {
 		query = query.Where("task_jobs.task_id = ?", filter.TaskID)
+	}
+
+	if filter.WorkspaceID > 0 {
+		query = query.Joins("JOIN tasks ON tasks.id = task_jobs.task_id").Where("tasks.workspace_id = ?", filter.WorkspaceID)
 	}
 
 	// Filters related to History
@@ -177,4 +184,80 @@ func (d *DatabaseConnection) TaskJobExists(id uint) (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (d *DatabaseConnection) DeleteTaskJobs(filter TaskJobFilter) (int64, error) {
+	query := d.db.Model(&TaskJob{})
+
+	if len(filter.Statuses) > 0 {
+		query = query.Where("task_jobs.status IN ?", filter.Statuses)
+	}
+	if len(filter.Titles) > 0 {
+		query = query.Where("task_jobs.title IN ?", filter.Titles)
+	}
+	if filter.TaskID > 0 {
+		query = query.Where("task_jobs.task_id = ?", filter.TaskID)
+	}
+
+	needsHistoryJoin := len(filter.StatusCodes) > 0 || len(filter.Methods) > 0
+
+	if needsHistoryJoin {
+		query = query.Joins("JOIN histories ON histories.id = task_jobs.history_id")
+		if len(filter.StatusCodes) > 0 {
+			query = query.Where("histories.status_code IN ?", filter.StatusCodes)
+		}
+		if len(filter.Methods) > 0 {
+			query = query.Where("histories.method IN ?", filter.Methods)
+		}
+	}
+
+	result := query.Delete(&TaskJob{})
+	if result.Error != nil {
+		log.Error().Err(result.Error).Msg("TaskJob deletion failed")
+		return 0, result.Error
+	}
+
+	return result.RowsAffected, nil
+}
+
+func (tj TaskJob) TableHeaders() []string {
+	return []string{"ID", "Title", "Status", "Task ID", "URL", "Method", "Status Code", "Started At", "Completed At"}
+}
+
+func (tj TaskJob) TableRow() []string {
+	formattedURL := tj.URL
+	if len(tj.URL) > PrintMaxURLLength {
+		formattedURL = tj.URL[0:PrintMaxURLLength] + "..."
+	}
+	return []string{
+		fmt.Sprintf("%d", tj.ID),
+		tj.Title,
+		string(tj.Status),
+		fmt.Sprintf("%d", tj.TaskID),
+		formattedURL,
+		tj.Method,
+		fmt.Sprintf("%d", tj.OriginalStatusCode),
+		tj.StartedAt.Format(time.RFC3339),
+		tj.CompletedAt.Format(time.RFC3339),
+	}
+}
+
+func (tj TaskJob) String() string {
+	return fmt.Sprintf("ID: %d, Title: %s, Status: %s, Task ID: %d, URL: %s, Method: %s, Status Code: %d, Started At: %s, Completed At: %s",
+		tj.ID, tj.Title, tj.Status, tj.TaskID, tj.URL, tj.Method, tj.OriginalStatusCode, tj.StartedAt.Format(time.RFC3339), tj.CompletedAt.Format(time.RFC3339))
+}
+
+func (tj TaskJob) Pretty() string {
+	return fmt.Sprintf(
+		"%sID:%s %d\n%sTitle:%s %s\n%sStatus:%s %s\n%sTask ID:%s %d\n%sURL:%s %s\n%sMethod:%s %s\n%sStatus Code:%s %d\n%sStarted At:%s %s\n%sCompleted At:%s %s\n",
+		lib.Blue, lib.ResetColor, tj.ID,
+		lib.Blue, lib.ResetColor, tj.Title,
+		lib.Blue, lib.ResetColor, tj.Status,
+		lib.Blue, lib.ResetColor, tj.TaskID,
+		lib.Blue, lib.ResetColor, tj.URL,
+		lib.Blue, lib.ResetColor, tj.Method,
+		lib.Blue, lib.ResetColor, tj.OriginalStatusCode,
+		lib.Blue, lib.ResetColor, tj.StartedAt.Format(time.RFC3339),
+		lib.Blue, lib.ResetColor, tj.CompletedAt.Format(time.RFC3339),
+	)
 }

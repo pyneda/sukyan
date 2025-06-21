@@ -308,7 +308,7 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 					task.retryCount++
 					time.Sleep(time.Duration(task.retryCount) * RetryDelayBase) // Progressive delay
 					pendingTasks <- task
-					wg.Done()
+					// Don't call wg.Done() here - the original wg.Add(1) should only be balanced once when the task truly completes
 					continue
 				}
 

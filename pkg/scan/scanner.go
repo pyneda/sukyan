@@ -35,6 +35,7 @@ type TemplateScanner struct {
 	AvoidRepeatedIssues bool
 	WorkspaceID         uint
 	Mode                options.ScanMode
+	MaxRetries          int
 	client              *http.Client
 	issuesFound         sync.Map
 	results             sync.Map
@@ -45,6 +46,7 @@ type TemplateScannerTask struct {
 	insertionPoint InsertionPoint
 	payload        generation.Payload
 	options        options.HistoryItemScanOptions
+	retryCount     int
 }
 
 type DetectedIssue struct {
@@ -70,11 +72,15 @@ func (f *TemplateScanner) checkConfig() {
 		f.Mode = options.ScanModeSmart
 	}
 
+	if f.MaxRetries == 0 {
+		f.MaxRetries = DefaultMaxRetries
+		log.Info().Int("max_retries", f.MaxRetries).Msg("MaxRetries not set, using default")
+	}
 }
 
 // shouldLaunch checks if the generator should be launched according to the launch conditions
 func (f *TemplateScanner) shouldLaunch(history *db.History, generator *generation.PayloadGenerator, insertionPoint InsertionPoint, options options.HistoryItemScanOptions) bool {
-	if generator.Launch.Conditions == nil || len(generator.Launch.Conditions) == 0 {
+	if generator == nil || len(generator.Launch.Conditions) == 0 {
 		return true
 	}
 	conditionsMet := 0
@@ -273,17 +279,40 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 			// Handle errors (including timeouts)
 			if executionResult.Err != nil {
 				isTimeBased, _ := f.isTimeBasedPayload(task.payload)
+				errorCategory := http_utils.CategorizeRequestError(executionResult.Err)
+				shouldRetry, shouldEvaluate := f.shouldHandleError(executionResult.Err, executionResult.TimedOut, isTimeBased, errorCategory)
 
 				taskLog.Error().
 					Err(executionResult.Err).
 					Bool("is_timeout", executionResult.TimedOut).
 					Bool("is_time_based", isTimeBased).
+					Str("error_category", errorCategory).
+					Bool("should_retry", shouldRetry).
+					Bool("should_evaluate", shouldEvaluate).
+					Str("insertion_point", task.insertionPoint.Name).
+					Str("payload_type", task.payload.IssueCode).
+					Str("payload_value", task.payload.Value).
+					Int("retry_count", task.retryCount).
 					Dur("duration", result.Duration).
 					Dur("timeout", timeout).
 					Msg("Error making request")
 
-				// For non-time-based payloads or non-timeout errors, skip evaluation
-				if !executionResult.TimedOut || !isTimeBased {
+				// retry logic for recoverable errors
+				if shouldRetry && task.retryCount < f.MaxRetries {
+					taskLog.Info().
+						Int("retry_count", task.retryCount).
+						Int("max_retries", f.MaxRetries).
+						Str("error_category", errorCategory).
+						Msg("Retrying request due to recoverable error")
+
+					task.retryCount++
+					time.Sleep(time.Duration(task.retryCount) * RetryDelayBase) // Progressive delay
+					pendingTasks <- task
+					wg.Done()
+					continue
+				}
+
+				if !shouldEvaluate {
 					wg.Done()
 					continue
 				}
@@ -671,3 +700,41 @@ func (f *TemplateScanner) calculateTimeoutForPayload(payload generation.Payload)
 
 	return 2 * time.Minute
 }
+
+// shouldHandleError determines if an error should be retried or evaluated
+func (f *TemplateScanner) shouldHandleError(err error, isTimeout bool, isTimeBased bool, errorCategory string) (shouldRetry bool, shouldEvaluate bool) {
+	if isTimeBased && isTimeout {
+		return false, true // Don't retry, but evaluate for time-based vulnerabilities
+	}
+
+	if isTimeout && !isTimeBased {
+		return true, false // Retry timeouts for non-time-based tests
+	}
+
+	// Categorize other errors
+	switch errorCategory {
+	case http_utils.ErrorCategoryConnectionClosedEOF, http_utils.ErrorCategoryConnectionReset, http_utils.ErrorCategoryConnectionBrokenPipe:
+		return true, false
+
+	case http_utils.ErrorCategoryConnectionRefused, http_utils.ErrorCategoryNetworkUnreachable, http_utils.ErrorCategoryHostUnreachable, http_utils.ErrorCategoryDNSResolution:
+		return false, false
+
+	case http_utils.ErrorCategoryTLSError, http_utils.ErrorCategoryCertificateError, http_utils.ErrorCategoryProtocolError, http_utils.ErrorCategoryMalformedResponse:
+		return false, false
+
+	case http_utils.ErrorCategoryURLControlCharacter, http_utils.ErrorCategoryURLInvalid:
+		return false, false
+
+	case http_utils.ErrorCategoryServerError:
+		return true, false
+
+	default:
+		return false, false
+	}
+}
+
+// Error handling constants
+const (
+	DefaultMaxRetries = 2
+	RetryDelayBase    = 10 * time.Second
+)

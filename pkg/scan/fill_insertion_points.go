@@ -171,6 +171,10 @@ func createMultipartForm(history *db.History, builder InsertionPointBuilder, b *
 }
 
 func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionPointBuilder) (*http.Request, error) {
+	return createRequestFromInsertionPointsInternal(history, builders, false)
+}
+
+func createRequestFromInsertionPointsInternal(history *db.History, builders []InsertionPointBuilder, alreadyRetried bool) (*http.Request, error) {
 	var urlStr string
 	headers := make(http.Header)
 	var requestBody io.Reader
@@ -242,6 +246,23 @@ func CreateRequestFromInsertionPoints(history *db.History, builders []InsertionP
 
 	req, err := http.NewRequest(history.Method, urlStr, requestBody)
 	if err != nil {
+		if !alreadyRetried && strings.Contains(err.Error(), "invalid control character in URL") {
+			// Retry with URL encoding for parameter insertion points only
+			encodedBuilders := make([]InsertionPointBuilder, len(builders))
+			copy(encodedBuilders, builders)
+
+			hasParameterPayloads := false
+			for i, builder := range encodedBuilders {
+				if builder.Point.Type == InsertionPointTypeParameter {
+					encodedBuilders[i].Payload = url.QueryEscape(builder.Payload)
+					hasParameterPayloads = true
+				}
+			}
+
+			if hasParameterPayloads {
+				return createRequestFromInsertionPointsInternal(history, encodedBuilders, true)
+			}
+		}
 		return nil, err
 	}
 

@@ -178,27 +178,15 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 				request.Header.Set(key, value)
 			}
 
-			response, err := http_utils.SendRequestWithTimeout(client, request, 30*time.Second)
-			if err != nil {
-				log.Warn().Err(err).Msg("failed to send request")
-				result.Error = fmt.Errorf("failed to send request: %w", err)
-				return result, nil
-			}
-			defer response.Body.Close()
+			executionResult := http_utils.ExecuteRequestWithTimeout(request, 30*time.Second, input.HistoryCreationOptions)
 
-			responseData, _, err := http_utils.ReadFullResponse(response, false)
-			if err != nil {
-				log.Warn().Err(err).Msg("error reading response")
-				result.Error = fmt.Errorf("error reading response: %w", err)
+			if executionResult.Err != nil {
+				log.Warn().Err(executionResult.Err).Msg("failed to send request")
+				result.Error = fmt.Errorf("failed to send request: %w", executionResult.Err)
 				return result, nil
 			}
 
-			history, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, input.HistoryCreationOptions)
-			if err != nil {
-				log.Warn().Err(err).Msg("error creating history")
-				result.Error = fmt.Errorf("error creating history: %w", err)
-				return result, nil
-			}
+			history := executionResult.History
 			result.History = history
 
 			if input.SiteBehavior != nil && input.SiteBehavior.IsNotFound(history) {

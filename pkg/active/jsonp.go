@@ -76,30 +76,24 @@ func JSONPCallbackScan(history *db.History, options ActiveModuleOptions) {
 			q.Add(callbackParam, testCallback)
 			request.URL.RawQuery = q.Encode()
 
-			response, err := client.Do(request)
-			if err != nil {
-				auditLog.Error().Err(err).Msg("Error during request")
-				return
-			}
-
-			responseData, _, err := http_utils.ReadFullResponse(response, false)
-			if err != nil {
-				auditLog.Error().Err(err).Msg("Error reading response")
-				return
-			}
-
-			newHistory, err := http_utils.CreateHistoryFromHttpResponse(response, responseData, http_utils.HistoryCreationOptions{
-				Source:              db.SourceScanner,
-				WorkspaceID:         options.WorkspaceID,
-				TaskID:              options.TaskID,
-				CreateNewBodyStream: false,
+			executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
+				Client:        client,
+				CreateHistory: true,
+				HistoryCreationOptions: http_utils.HistoryCreationOptions{
+					Source:              db.SourceScanner,
+					WorkspaceID:         options.WorkspaceID,
+					TaskID:              options.TaskID,
+					CreateNewBodyStream: false,
+				},
 			})
-			if err != nil {
-				auditLog.Error().Err(err).Msg("Error creating history from response")
+
+			if executionResult.Err != nil {
+				auditLog.Error().Err(executionResult.Err).Msg("Error during request")
 				return
 			}
 
-			bodyStr := string(responseData.Body)
+			newHistory := executionResult.History
+			bodyStr := string(executionResult.ResponseData.Body)
 			if isJsonpResponse(bodyStr) {
 				isControllable := strings.Contains(bodyStr, testCallback+"(")
 

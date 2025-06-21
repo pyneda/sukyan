@@ -136,22 +136,24 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 	}
 
 	request.Header.Set(item.header, item.payload.GetValue())
-	response, err := client.Do(request)
 
-	if err != nil {
-		auditLog.Error().Err(err).Msg("Error during request")
-		return
-	}
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, http_utils.HistoryCreationOptions{
-		Source:              db.SourceScanner,
-		WorkspaceID:         uint(a.WorkspaceID),
-		TaskID:              uint(a.TaskID),
-		CreateNewBodyStream: true,
+	executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
+		Client:        client,
+		CreateHistory: true,
+		HistoryCreationOptions: http_utils.HistoryCreationOptions{
+			Source:              db.SourceScanner,
+			WorkspaceID:         uint(a.WorkspaceID),
+			TaskID:              uint(a.TaskID),
+			CreateNewBodyStream: true,
+		},
 	})
-	if err != nil {
-		auditLog.Error().Err(err).Msg("Error reading response body data")
+
+	if executionResult.Err != nil {
+		auditLog.Error().Err(executionResult.Err).Msg("Error during request")
 		return
 	}
+
+	history := executionResult.History
 	isInResponse, _ := item.payload.MatchAgainstString(string(history.RawResponse))
 
 	if isInResponse {

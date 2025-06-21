@@ -189,16 +189,17 @@ func TestIsNotFound(t *testing.T) {
 				req, err := http.NewRequest(http.MethodGet, server.server.URL+tc.path, nil)
 				assert.NoError(t, err)
 
-				resp, err := SendRequest(client, req)
-				assert.NoError(t, err)
-
-				respData, _, err := ReadFullResponse(resp, false)
-				assert.NoError(t, err)
-
-				history, err := CreateHistoryFromHttpResponse(resp, respData, HistoryCreationOptions{
-					Source:      db.SourceScanner,
-					WorkspaceID: workspaceID,
+				executionResult := ExecuteRequest(req, RequestExecutionOptions{
+					Client:        client,
+					CreateHistory: true,
+					HistoryCreationOptions: HistoryCreationOptions{
+						Source:      db.SourceScanner,
+						WorkspaceID: workspaceID,
+					},
 				})
+				assert.NoError(t, executionResult.Err)
+
+				history := executionResult.History
 				assert.NoError(t, err)
 
 				result := behavior.IsNotFound(history)

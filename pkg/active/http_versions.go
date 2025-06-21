@@ -48,15 +48,21 @@ func sendRequest(client *http.Client, history *db.History, options ActiveModuleO
 	if err != nil {
 		return nil, err
 	}
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	new, err := http_utils.ReadHttpResponseAndCreateHistory(response, http_utils.HistoryCreationOptions{
-		Source:              db.SourceScanner,
-		WorkspaceID:         options.WorkspaceID,
-		TaskID:              options.TaskID,
-		CreateNewBodyStream: false,
+
+	executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
+		Client:        client,
+		CreateHistory: true,
+		HistoryCreationOptions: http_utils.HistoryCreationOptions{
+			Source:              db.SourceScanner,
+			WorkspaceID:         options.WorkspaceID,
+			TaskID:              options.TaskID,
+			CreateNewBodyStream: false,
+		},
 	})
-	return new, nil
+
+	if executionResult.Err != nil {
+		return nil, executionResult.Err
+	}
+
+	return executionResult.History, nil
 }

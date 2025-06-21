@@ -46,23 +46,23 @@ func (a *SNIAudit) Run() {
 		return
 	}
 
-	response, err := client.Do(request)
+	executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
+		Client:        client,
+		CreateHistory: true,
+		HistoryCreationOptions: http_utils.HistoryCreationOptions{
+			Source:              db.SourceScanner,
+			WorkspaceID:         a.WorkspaceID,
+			TaskID:              a.TaskID,
+			CreateNewBodyStream: false,
+		},
+	})
 
-	if err != nil {
-		auditLog.Error().Err(err).Msg("Error during request")
+	if executionResult.Err != nil {
+		auditLog.Error().Err(executionResult.Err).Msg("Error during request")
 		return
 	}
-	options := http_utils.HistoryCreationOptions{
-		Source:              db.SourceScanner,
-		WorkspaceID:         a.WorkspaceID,
-		TaskID:              a.TaskID,
-		CreateNewBodyStream: false,
-	}
 
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, options)
-	if err != nil {
-		auditLog.Error().Err(err).Msg("Error reading response")
-	}
+	history := executionResult.History
 	issueTemplate := db.GetIssueTemplateByCode(db.SniInjectionCode)
 	oobTest := db.OOBTest{
 		Code:              db.SniInjectionCode,

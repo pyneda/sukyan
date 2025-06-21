@@ -85,18 +85,15 @@ func CheckSiteBehavior(options SiteBehaviourCheckOptions) (*SiteBehavior, error)
 	}
 	baseReq.Header.Set("Connection", "keep-alive")
 
-	baseResp, err := SendRequest(client, baseReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get base response: %w", err)
+	executionResult := ExecuteRequest(baseReq, RequestExecutionOptions{
+		Client:                 client,
+		CreateHistory:          true,
+		HistoryCreationOptions: options.HistoryCreationOptions,
+	})
+	if executionResult.Err != nil {
+		return nil, fmt.Errorf("failed to get base response: %w", executionResult.Err)
 	}
-	baseData, _, err := ReadFullResponse(baseResp, false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read base response: %w", err)
-	}
-	behavior.BaseURLSample, err = CreateHistoryFromHttpResponse(baseResp, baseData, options.HistoryCreationOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create base history: %w", err)
-	}
+	behavior.BaseURLSample = executionResult.History
 
 	var mu sync.Mutex
 	p := pool.NewWithResults[struct {
@@ -133,23 +130,17 @@ func CheckSiteBehavior(options SiteBehaviourCheckOptions) (*SiteBehavior, error)
 			}
 			req.Header.Set("Connection", "keep-alive")
 
-			resp, err := SendRequest(client, req)
-			if err != nil {
-				result.Error = err
+			executionResult := ExecuteRequest(req, RequestExecutionOptions{
+				Client:                 client,
+				CreateHistory:          true,
+				HistoryCreationOptions: options.HistoryCreationOptions,
+			})
+			if executionResult.Err != nil {
+				result.Error = executionResult.Err
 				return result, nil
 			}
 
-			respData, _, err := ReadFullResponse(resp, false)
-			if err != nil {
-				result.Error = err
-				return result, nil
-			}
-
-			history, err := CreateHistoryFromHttpResponse(resp, respData, options.HistoryCreationOptions)
-			if err != nil {
-				result.Error = err
-				return result, nil
-			}
+			history := executionResult.History
 
 			result.History = history
 			mu.Lock()

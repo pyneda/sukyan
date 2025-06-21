@@ -226,22 +226,23 @@ func generateBypassURLs(history *db.History) ([]string, error) {
 }
 
 func sendRequestAndCheckBypass(client *http.Client, request *http.Request, original *db.History, options ActiveModuleOptions, auditLog zerolog.Logger) {
-	response, err := client.Do(request)
-	if err != nil {
-		auditLog.Error().Err(err).Msg("Error during request")
+	executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
+		Client:        client,
+		CreateHistory: true,
+		HistoryCreationOptions: http_utils.HistoryCreationOptions{
+			Source:              db.SourceScanner,
+			WorkspaceID:         options.WorkspaceID,
+			TaskID:              options.TaskID,
+			CreateNewBodyStream: false,
+		},
+	})
+
+	if executionResult.Err != nil {
+		auditLog.Error().Err(executionResult.Err).Msg("Error during request")
 		return
 	}
 
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, http_utils.HistoryCreationOptions{
-		Source:              db.SourceScanner,
-		WorkspaceID:         options.WorkspaceID,
-		TaskID:              options.TaskID,
-		CreateNewBodyStream: false,
-	})
-	if err != nil {
-		auditLog.Error().Err(err).Msg("Error creating history from response")
-		return
-	}
+	history := executionResult.History
 	if history.StatusCode != 400 && history.StatusCode != 401 && history.StatusCode != 403 && history.StatusCode != 404 {
 		bypassHeaders := http_utils.HeadersToString(request.Header)
 

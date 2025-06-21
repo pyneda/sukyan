@@ -106,16 +106,18 @@ func insertionPointCheck(item *db.History, insertionPoint *InsertionPoint, paylo
 		log.Error().Err(err).Msg("Failed to create request from insertion points")
 		return nil, responseFingerprint{}, err
 	}
-	response, err := httpClient.Do(req)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to send request")
-		return nil, responseFingerprint{}, err
+
+	executionResult := http_utils.ExecuteRequest(req, http_utils.RequestExecutionOptions{
+		Client:                 httpClient,
+		CreateHistory:          true,
+		HistoryCreationOptions: options.HistoryCreateOptions,
+	})
+	if executionResult.Err != nil {
+		log.Error().Err(executionResult.Err).Msg("Failed to send request")
+		return nil, responseFingerprint{}, executionResult.Err
 	}
 
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, options.HistoryCreateOptions)
-	if err != nil {
-		return nil, responseFingerprint{}, err
-	}
+	history := executionResult.History
 	historyBody, _ := history.ResponseBody()
 	fg := responseFingerprint{
 		statusCode:     history.StatusCode,

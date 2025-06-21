@@ -69,26 +69,27 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 				auditLog.Error().Err(err).Msg("Failed to create request from insertion points")
 				continue
 			}
-			response, err := client.Do(req)
-			if err != nil {
-				auditLog.Error().Err(err).Msg("Failed to send request")
-				continue
-			}
-			new, err := http_utils.ReadHttpResponseAndCreateHistory(response, http_utils.HistoryCreationOptions{
-				Source:              db.SourceScanner,
-				WorkspaceID:         options.WorkspaceID,
-				TaskID:              options.TaskID,
-				TaskJobID:           options.TaskJobID,
-				CreateNewBodyStream: true,
-			})
 
-			if err != nil {
-				auditLog.Error().Err(err).Msg("Failed to create history from response")
+			executionResult := http_utils.ExecuteRequest(req, http_utils.RequestExecutionOptions{
+				Client:        client,
+				CreateHistory: true,
+				HistoryCreationOptions: http_utils.HistoryCreationOptions{
+					Source:              db.SourceScanner,
+					WorkspaceID:         options.WorkspaceID,
+					TaskID:              options.TaskID,
+					TaskJobID:           options.TaskJobID,
+					CreateNewBodyStream: true,
+				},
+			})
+			if executionResult.Err != nil {
+				auditLog.Error().Err(executionResult.Err).Msg("Failed to send request")
 				continue
 			}
+
+			new := executionResult.History
 
 			if new.StatusCode >= 300 && new.StatusCode < 400 {
-				newLocation := response.Header.Get("Location")
+				newLocation := executionResult.Response.Header.Get("Location")
 				if newLocation != "" && newLocation == payload || strings.Contains(newLocation, openRedirecTestDomain) {
 					auditLog.Info().Str("insertionPoint", insertionPoint.String()).Str("payload", payload).Msg("Open redirect found")
 

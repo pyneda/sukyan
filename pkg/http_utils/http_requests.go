@@ -2,11 +2,9 @@ package http_utils
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
@@ -67,13 +65,4 @@ func SendRequest(client *http.Client, req *http.Request) (*http.Response, error)
 	resp.Request.Body = bodyCopy
 
 	return resp, err
-}
-
-func SendRequestWithTimeout(client *http.Client, req *http.Request, timeout time.Duration) (*http.Response, error) {
-	// Note: Not using client.Timeout as also applies after the request is sent
-	ctx, cancel := context.WithTimeout(req.Context(), timeout)
-	defer cancel()
-	req = req.WithContext(ctx)
-
-	return SendRequest(client, req)
 }

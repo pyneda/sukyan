@@ -188,20 +188,23 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 
 	request.Header.Set(item.header, item.payload.GetValue())
 
-	response, err := client.Do(request)
+	executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
+		Client:        client,
+		CreateHistory: true,
+		HistoryCreationOptions: http_utils.HistoryCreationOptions{
+			Source:              db.SourceScanner,
+			WorkspaceID:         a.WorkspaceID,
+			TaskID:              a.TaskID,
+			CreateNewBodyStream: false,
+		},
+	})
 
-	if err != nil {
-		auditLog.Error().Err(err).Msg("Error during request")
+	if executionResult.Err != nil {
+		auditLog.Error().Err(executionResult.Err).Msg("Error during request")
 		return
 	}
-	options := http_utils.HistoryCreationOptions{
-		Source:              db.SourceScanner,
-		WorkspaceID:         a.WorkspaceID,
-		TaskID:              a.TaskID,
-		CreateNewBodyStream: false,
-	}
 
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, options)
+	history := executionResult.History
 	isInResponse, err := item.payload.MatchAgainstString(string(history.RawResponse))
 
 	// This might be un-needed
@@ -215,7 +218,7 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 			Cwe:           20,
 			Payload:       item.payload.GetValue(),
 			URL:           a.URL,
-			StatusCode:    response.StatusCode,
+			StatusCode:    history.StatusCode,
 			HTTPMethod:    "GET",
 			Request:       history.RawRequest,
 			Response:      []byte(history.RawResponse), // body,

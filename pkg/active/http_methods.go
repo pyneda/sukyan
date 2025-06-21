@@ -95,25 +95,24 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 		return
 	}
 	request.Method = item.method
-	response, err := client.Do(request)
 
-	if err != nil {
-		auditLog.Error().Err(err).Msg("Error during request")
+	executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
+		Client:        client,
+		CreateHistory: true,
+		HistoryCreationOptions: http_utils.HistoryCreationOptions{
+			Source:              db.SourceScanner,
+			WorkspaceID:         a.WorkspaceID,
+			TaskID:              a.TaskID,
+			CreateNewBodyStream: false,
+		},
+	})
+
+	if executionResult.Err != nil {
+		auditLog.Error().Err(executionResult.Err).Msg("Error during request")
 		return
 	}
 
-	options := http_utils.HistoryCreationOptions{
-		Source:              db.SourceScanner,
-		WorkspaceID:         a.WorkspaceID,
-		TaskID:              a.TaskID,
-		CreateNewBodyStream: false,
-	}
-
-	history, err := http_utils.ReadHttpResponseAndCreateHistory(response, options)
-	if err != nil {
-		auditLog.Error().Err(err).Msg("Error creating the history")
-		return
-	}
+	history := executionResult.History
 	if history.StatusCode != 405 && history.StatusCode != 404 {
 		// Should improve the issue template and probably all all the instances in the same issue
 		issue := db.FillIssueFromHistoryAndTemplate(

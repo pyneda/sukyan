@@ -1,14 +1,33 @@
 package http_utils
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"net/http"
+	"net/http/httputil"
 	"strings"
 	"time"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 )
+
+// drainBody reads all of b to memory and then returns two equivalent
+// ReadClosers yielding the same bytes.
+func drainBody(b io.ReadCloser) (r1, r2 io.ReadCloser, err error) {
+	if b == nil || b == http.NoBody {
+		return http.NoBody, http.NoBody, nil
+	}
+	var buf bytes.Buffer
+	if _, err = buf.ReadFrom(b); err != nil {
+		return nil, b, err
+	}
+	if err = b.Close(); err != nil {
+		return nil, b, err
+	}
+	return io.NopCloser(&buf), io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+}
 
 // RequestExecutionResult contains the complete result of an HTTP request execution
 type RequestExecutionResult struct {
@@ -32,36 +51,44 @@ type RequestExecutionOptions struct {
 func ExecuteRequest(req *http.Request, options RequestExecutionOptions) RequestExecutionResult {
 	startTime := time.Now()
 
-	// Use defaults if not provided
 	client := options.Client
 	if client == nil {
 		client = CreateHttpClient()
 	}
 
 	timeout := options.Timeout
-	// if timeout == 0 {
-	// 	timeout = 2 * time.Minute
-	// }
-
-	// Set up context with timeout
-	ctx, cancel := context.WithTimeout(req.Context(), timeout)
-	defer cancel()
-	req = req.WithContext(ctx)
+	if timeout > 0 {
+		ctx, cancel := context.WithTimeout(req.Context(), timeout)
+		defer cancel()
+		req = req.WithContext(ctx)
+	}
 
 	result := RequestExecutionResult{
 		Duration: 0,
 		TimedOut: false,
 	}
 
-	// Send the request
-	response, err := SendRequest(client, req)
+	// Handle request body preservation if needed
+	var requestBodyCopy io.ReadCloser
+	if req.Body != nil {
+		bodyBytes, err := io.ReadAll(req.Body)
+		if err != nil {
+			result.Err = err
+			result.Duration = time.Since(startTime)
+			return result
+		}
+		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		requestBodyCopy = io.NopCloser(bytes.NewBuffer(bodyBytes))
+	}
+
+	// Execute request
+	response, err := client.Do(req)
 	result.Duration = time.Since(startTime)
 	result.Err = err
 
 	if err != nil {
-		result.TimedOut = isTimeoutError(err)
+		result.TimedOut = IsTimeoutError(err)
 
-		// For timeout errors, create timeout history if requested
 		if options.CreateHistory && result.TimedOut {
 			timeoutHistory, historyErr := CreateTimeoutHistory(req, result.Duration, err, options.HistoryCreationOptions)
 			if historyErr != nil {
@@ -73,17 +100,48 @@ func ExecuteRequest(req *http.Request, options RequestExecutionOptions) RequestE
 		return result
 	}
 
-	// Read response data completely before doing anything else
-	responseData, newBody, err := ReadFullResponse(response, options.HistoryCreationOptions.CreateNewBodyStream)
+	// Restore request body in response for dumping
+	if requestBodyCopy != nil {
+		response.Request.Body = requestBodyCopy
+	}
+
+	// Drain response body once to get two identical copies
+	responseBody1, responseBody2, err := drainBody(response.Body)
 	if err != nil {
 		result.Err = err
-		log.Error().Err(err).Msg("Error reading response body")
 		return result
 	}
 
-	// Replace response body if requested
+	// Use first copy for dumping
+	response.Body = responseBody1
+	responseDump, err := httputil.DumpResponse(response, true)
+	if err != nil {
+		result.Err = err
+		return result
+	}
+
+	// Use second copy for body data
+	bodyBytes, err := io.ReadAll(responseBody2)
+	if err != nil {
+		result.Err = err
+		return result
+	}
+	responseBody2.Close()
+
+	// Create response data
+	responseData := FullResponseData{
+		Body:      bodyBytes,
+		BodySize:  len(bodyBytes),
+		Raw:       responseDump,
+		RawString: string(responseDump),
+		RawSize:   len(responseDump),
+	}
+
+	// Set response body for caller if needed
 	if options.HistoryCreationOptions.CreateNewBodyStream {
-		response.Body = newBody
+		response.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	} else {
+		response.Body = http.NoBody
 	}
 
 	result.Response = response
@@ -119,13 +177,8 @@ func ExecuteRequestWithTimeout(req *http.Request, timeout time.Duration, history
 	})
 }
 
-// IsTimeoutError checks if an error is due to timeout (exported version)
+// IsTimeoutError checks if an error is due to timeout
 func IsTimeoutError(err error) bool {
-	return isTimeoutError(err)
-}
-
-// isTimeoutError checks if an error is due to timeout
-func isTimeoutError(err error) bool {
 	if err == nil {
 		return false
 	}
@@ -134,23 +187,4 @@ func isTimeoutError(err error) bool {
 		strings.Contains(errorStr, "deadline exceeded") ||
 		strings.Contains(errorStr, "context deadline exceeded") ||
 		strings.Contains(errorStr, "operation timed out")
-}
-
-// CalculateTimeoutForPayload calculates an appropriate timeout for a time-based payload
-func CalculateTimeoutForPayload(expectedSleepDuration time.Duration) time.Duration {
-	if expectedSleepDuration > 0 {
-		// For time-based payloads, add buffer to expected sleep duration
-		timeout := time.Duration(float64(expectedSleepDuration) * 2.0)
-
-		// Set reasonable bounds: minimum 30s, maximum 5 minutes
-		if timeout < 30*time.Second {
-			timeout = 30 * time.Second
-		}
-		if timeout > 5*time.Minute {
-			timeout = 5 * time.Minute
-		}
-		return timeout
-	}
-
-	return 2 * time.Minute
 }

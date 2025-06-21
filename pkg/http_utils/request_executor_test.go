@@ -9,10 +9,26 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pyneda/sukyan/db"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestExecuteRequest(t *testing.T) {
+	// Create test workspaces
+	workspace1, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
+		Code:        "test-executor-1",
+		Title:       "Test Executor 1",
+		Description: "Test workspace for executor tests",
+	})
+	assert.NoError(t, err)
+
+	workspace2, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
+		Code:        "test-executor-2",
+		Title:       "Test Executor 2",
+		Description: "Test workspace for executor tests",
+	})
+	assert.NoError(t, err)
+
 	// Create a test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/timeout") {
@@ -28,10 +44,13 @@ func TestExecuteRequest(t *testing.T) {
 		req, err := http.NewRequest("GET", server.URL+"/test", nil)
 		assert.NoError(t, err)
 
-		result := ExecuteRequestSimple(req, HistoryCreationOptions{
-			Source:      "test",
-			WorkspaceID: 1,
-			TaskID:      1,
+		result := ExecuteRequest(req, RequestExecutionOptions{
+			CreateHistory: true,
+			HistoryCreationOptions: HistoryCreationOptions{
+				Source:      "test",
+				WorkspaceID: workspace1.ID,
+				TaskID:      1,
+			},
 		})
 
 		assert.NoError(t, result.Err)
@@ -49,7 +68,7 @@ func TestExecuteRequest(t *testing.T) {
 
 		result := ExecuteRequestWithTimeout(req, 500*time.Millisecond, HistoryCreationOptions{
 			Source:      "test",
-			WorkspaceID: 1,
+			WorkspaceID: workspace1.ID,
 			TaskID:      1,
 		})
 
@@ -74,7 +93,7 @@ func TestExecuteRequest(t *testing.T) {
 			CreateHistory: true,
 			HistoryCreationOptions: HistoryCreationOptions{
 				Source:              "custom_test",
-				WorkspaceID:         2,
+				WorkspaceID:         workspace2.ID,
 				TaskID:              3,
 				CreateNewBodyStream: true,
 			},
@@ -86,7 +105,7 @@ func TestExecuteRequest(t *testing.T) {
 		assert.NotNil(t, result.History)
 		assert.Equal(t, "POST", result.History.Method)
 		assert.Equal(t, "custom_test", result.History.Source)
-		assert.Equal(t, uint(2), *result.History.WorkspaceID)
+		assert.Equal(t, workspace2.ID, *result.History.WorkspaceID)
 		assert.Equal(t, uint(3), *result.History.TaskID)
 	})
 
@@ -137,42 +156,6 @@ func TestIsTimeoutError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := IsTimeoutError(tt.err)
 			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestCalculateTimeoutForPayload(t *testing.T) {
-	tests := []struct {
-		name                  string
-		expectedSleepDuration time.Duration
-		expectedTimeout       time.Duration
-	}{
-		{
-			name:                  "no sleep duration",
-			expectedSleepDuration: 0,
-			expectedTimeout:       2 * time.Minute,
-		},
-		{
-			name:                  "short sleep duration",
-			expectedSleepDuration: 5 * time.Second,
-			expectedTimeout:       30 * time.Second, // minimum threshold
-		},
-		{
-			name:                  "medium sleep duration",
-			expectedSleepDuration: 45 * time.Second,
-			expectedTimeout:       90 * time.Second, // 2x the sleep duration
-		},
-		{
-			name:                  "long sleep duration",
-			expectedSleepDuration: 10 * time.Minute,
-			expectedTimeout:       5 * time.Minute, // maximum threshold
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := CalculateTimeoutForPayload(tt.expectedSleepDuration)
-			assert.Equal(t, tt.expectedTimeout, result)
 		})
 	}
 }

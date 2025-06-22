@@ -135,6 +135,9 @@ var (
 	VersionControlFileDetectedCode       IssueCode = "version_control_file_detected"
 	VulnerableJavascriptDependencyCode   IssueCode = "vulnerable_javascript_dependency"
 	WafDetectedCode                      IssueCode = "waf_detected"
+	WeakAuthCredentialsCode              IssueCode = "weak_auth_credentials"
+	WeakBasicAuthCredentialsCode         IssueCode = "weak_basic_auth_credentials"
+	WeakDigestAuthCredentialsCode        IssueCode = "weak_digest_auth_credentials"
 	WebassemblyDetectedCode              IssueCode = "webassembly_detected"
 	WebserverControlFileExposedCode      IssueCode = "webserver_control_file_exposed"
 	WebsocketDetectedCode                IssueCode = "websocket_detected"
@@ -1054,7 +1057,7 @@ var issueTemplates = []IssueTemplate{
 		Description: "The application uses JSON Web Tokens (JWTs) for authentication, but the signing secret is weak or easily guessable. This vulnerability can allow attackers to perform brute force or dictionary attacks to discover the signing secret. If successful, attackers can generate or alter JWTs, leading to potential unauthorized access to the application's resources.",
 		Remediation: "Use a strong, randomly generated signing secret with high entropy for JWTs. Avoid using short, simple, or common phrases as secrets. Opt for secure algorithms like HS256, RS256, or ES256 and ensure tokens have a short expiration time. Rotate signing secrets regularly and store them securely using environment variables or a secret management service.",
 		Cwe:         347,
-		Severity:    "High",
+		Severity:    "Critical",
 		References: []string{
 			"https://jwt.io/introduction",
 			"https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_Cheat_Sheet_for_Java.html",
@@ -1744,6 +1747,49 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://www.cloudflare.com/learning/ddos/glossary/web-application-firewall-waf/",
 			"https://owasp.org/www-community/Web_Application_Firewall",
+		},
+	},
+	{
+		Code:        WeakAuthCredentialsCode,
+		Title:       "Weak Authentication Credentials",
+		Description: "The application uses authentication mechanisms with weak, easily guessable credentials. Through brute force attack, the authentication credentials were successfully compromised, allowing unauthorized access to protected resources. Weak credentials pose a significant security risk regardless of the authentication method used, as they can be easily discovered by attackers using dictionary attacks or brute force techniques.",
+		Remediation: "Implement strong password policies requiring complex passwords with minimum length, uppercase/lowercase letters, numbers, and special characters. Use multi-factor authentication (MFA) where possible. Implement account lockout mechanisms after failed login attempts and rate limiting to prevent brute force attacks. Consider implementing additional security measures like CAPTCHA after multiple failed attempts. Monitor authentication logs for suspicious activity and failed login attempts. Regularly audit user accounts for weak passwords and enforce password changes.",
+		Cwe:         521,
+		Severity:    "Critical",
+		References: []string{
+			"https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/02-Testing_for_Default_Credentials",
+			"https://owasp.org/www-community/attacks/Brute_force_attack",
+			"https://cwe.mitre.org/data/definitions/521.html",
+		},
+	},
+	{
+		Code:        WeakBasicAuthCredentialsCode,
+		Title:       "Weak Basic Authentication Credentials",
+		Description: "The application uses HTTP Basic Authentication with weak, easily guessable credentials. Through brute force attack, the authentication credentials were successfully compromised, allowing unauthorized access to protected resources. Basic Authentication transmits credentials in a base64-encoded format, making it particularly vulnerable when weak passwords are used.",
+		Remediation: "Implement strong password policies requiring complex passwords with minimum length, uppercase/lowercase letters, numbers, and special characters. Use multi-factor authentication (MFA) where possible. Implement account lockout mechanisms after failed login attempts and rate limiting to prevent brute force attacks. Consider replacing Basic Authentication with more secure methods like OAuth 2.0, JWT, or API keys. Monitor authentication logs for suspicious activity and failed login attempts.",
+		Cwe:         521,
+		Severity:    "Critical",
+		References: []string{
+			"https://tools.ietf.org/html/rfc7617",
+			"https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/02-Testing_for_Default_Credentials",
+			"https://owasp.org/www-community/attacks/Brute_force_attack",
+		},
+	},
+	{
+		Code:        WeakDigestAuthCredentialsCode,
+		Title:       "Weak Digest Authentication Credentials",
+		Description: "The application uses HTTP Digest Authentication with weak, easily guessable credentials. Through brute force attack, the authentication credentials were successfully compromised, allowing unauthorized access to protected resources. While Digest Authentication is more secure than Basic Authentication as it uses cryptographic hashing, weak passwords still make it vulnerable to dictionary and brute force attacks.",
+		Remediation: "Implement strong password policies requiring complex passwords with minimum length, uppercase/lowercase letters, numbers, and special characters. Use multi-factor authentication (MFA) where possible. Implement account lockout mechanisms after failed login attempts and rate limiting to prevent brute force attacks. Ensure proper nonce management to prevent replay attacks. Consider replacing Digest Authentication with more modern secure methods like OAuth 2.0, JWT, or certificate-based authentication. Monitor authentication logs for suspicious activity and failed login attempts.",
+		Cwe:         521,
+		Severity:    "Critical",
+		References: []string{
+			"https://tools.ietf.org/html/rfc2617",
+			"https://tools.ietf.org/html/rfc7616",
+			"https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/02-Testing_for_Default_Credentials",
+			"https://owasp.org/www-community/attacks/Brute_force_attack",
 		},
 	},
 	{

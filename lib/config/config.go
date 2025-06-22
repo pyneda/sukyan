@@ -132,6 +132,29 @@ func SetDefaultConfig() {
 	viper.SetDefault("wordlists.directory", "/etc/sukyan/wordlists")
 	viper.SetDefault("wordlists.extensions", []string{".txt", ".lst", ".wordlist", ".list", "wordlists"})
 
+	// Authentication bruteforce configuration
+	// Main mode: "embedded" (built-in wordlists), "filesystem" (custom files), "mixed" (both)
+	viper.SetDefault("auth.bruteforce.enabled", true)
+	viper.SetDefault("auth.bruteforce.mode", "embedded")
+
+	// Credential format: "separate" (username + password lists), "pairs" (username:password format)
+	viper.SetDefault("auth.bruteforce.format", "pairs")
+
+	// Embedded wordlist sizes: "xs" (fast), "default" (balanced), "lg" (comprehensive)
+	viper.SetDefault("auth.bruteforce.size", "default")
+
+	// Custom wordlist files (used when mode is "filesystem" or "mixed")
+	viper.SetDefault("auth.bruteforce.custom.usernames", "") // Path to custom usernames file
+	viper.SetDefault("auth.bruteforce.custom.passwords", "") // Path to custom passwords file
+	viper.SetDefault("auth.bruteforce.custom.pairs", "")     // Path to custom pairs file
+
+	// Performance settings
+	viper.SetDefault("auth.bruteforce.concurrency", 10)              // Parallel requests
+	viper.SetDefault("auth.bruteforce.max_attempts", 1000)           // Maximum combinations to try
+	viper.SetDefault("auth.bruteforce.stop_on_success", true)        // Stop when credentials found
+	viper.SetDefault("auth.bruteforce.request_timeout", "30s")       // Request timeout
+	viper.SetDefault("auth.bruteforce.delay_between_requests", "0s") // Delay between requests
+
 	viper.SetDefault("server.cert.file", "server.crt")
 	viper.SetDefault("server.key.file", "server.key")
 	viper.SetDefault("server.caCert.file", "ca.crt")

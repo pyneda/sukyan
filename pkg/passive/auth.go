@@ -4,7 +4,9 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/tokens"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 func AuthenticationScan(item *db.History) {
@@ -73,14 +75,23 @@ func handleBasicAuth(item *db.History, authHeader string) {
 		item.TaskID,
 		&defaultTaskJobID,
 	)
+
+	if viper.GetBool("auth.bruteforce.enabled") {
+		go func() {
+			_, err := tokens.BruteforceAuthAndCreateIssue(item, authHeader, tokens.AuthTypeBasic)
+			if err != nil {
+				log.Debug().Err(err).Uint("history_id", item.ID).Msg("Failed to bruteforce basic auth")
+			}
+		}()
+	}
 }
 
 // handleDigestAuth processes Digest Authentication headers
 func handleDigestAuth(item *db.History, authHeader string) {
-	realm := extractDigestParam(authHeader, "realm")
-	nonce := extractDigestParam(authHeader, "nonce")
-	qop := extractDigestParam(authHeader, "qop")
-	algorithm := extractDigestParam(authHeader, "algorithm")
+	realm := tokens.ExtractDigestParam(authHeader, "realm")
+	nonce := tokens.ExtractDigestParam(authHeader, "nonce")
+	qop := tokens.ExtractDigestParam(authHeader, "qop")
+	algorithm := tokens.ExtractDigestParam(authHeader, "algorithm")
 
 	var details string
 	var severity string
@@ -135,6 +146,15 @@ func handleDigestAuth(item *db.History, authHeader string) {
 		item.TaskID,
 		&defaultTaskJobID,
 	)
+
+	if viper.GetBool("auth.bruteforce.enabled") {
+		go func() {
+			_, err := tokens.BruteforceAuthAndCreateIssue(item, authHeader, tokens.AuthTypeDigest)
+			if err != nil {
+				log.Debug().Err(err).Uint("history_id", item.ID).Msg("Failed to bruteforce digest auth")
+			}
+		}()
+	}
 }
 
 // handleBearerAuth processes Bearer (OAuth2) Authentication headers
@@ -379,61 +399,12 @@ func extractRealm(authHeader string) string {
 	return value[:endIndex]
 }
 
-func extractDigestParam(authHeader string, param string) string {
-	// Extract parameter value from header like: Digest realm="test", nonce="123", qop="auth"
-	paramPrefix := param + "="
-	paramPrefixIndex := strings.Index(strings.ToLower(authHeader), strings.ToLower(paramPrefix))
-
-	// Try with spaces around equals
-	if paramPrefixIndex == -1 {
-		paramPrefix = param + " ="
-		paramPrefixIndex = strings.Index(strings.ToLower(authHeader), strings.ToLower(paramPrefix))
-	}
-
-	// Try with space after equals
-	if paramPrefixIndex == -1 {
-		paramPrefix = param + "= "
-		paramPrefixIndex = strings.Index(strings.ToLower(authHeader), strings.ToLower(paramPrefix))
-	}
-
-	// Try with spaces on both sides
-	if paramPrefixIndex == -1 {
-		paramPrefix = param + " = "
-		paramPrefixIndex = strings.Index(strings.ToLower(authHeader), strings.ToLower(paramPrefix))
-	}
-
-	if paramPrefixIndex == -1 {
-		return ""
-	}
-
-	valueStart := paramPrefixIndex + len(paramPrefix)
-	value := authHeader[valueStart:]
-	value = strings.TrimSpace(value)
-
-	// Handle quoted values
-	if strings.HasPrefix(value, `"`) || strings.HasPrefix(value, `'`) {
-		quote := value[0:1]
-		endQuoteIndex := strings.Index(value[1:], quote)
-		if endQuoteIndex != -1 {
-			return value[1 : endQuoteIndex+1]
-		}
-	}
-
-	// Handle unquoted values (find next comma or end)
-	endIndex := strings.Index(value, ",")
-	if endIndex == -1 {
-		return value
-	}
-
-	return strings.TrimSpace(value[:endIndex])
-}
-
 // Extract parameter from OAuth auth header
 func extractOAuthParam(authHeader string, param string) string {
-	return extractDigestParam(authHeader, param)
+	return tokens.ExtractDigestParam(authHeader, param)
 }
 
 // Extract parameter from Mutual auth header
 func extractMutualParam(authHeader string, param string) string {
-	return extractDigestParam(authHeader, param)
+	return tokens.ExtractDigestParam(authHeader, param)
 }

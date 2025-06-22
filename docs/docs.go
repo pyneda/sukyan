@@ -2780,11 +2780,11 @@ const docTemplate = `{
                 "replay_messages": {
                     "type": "boolean"
                 },
-                "task": {
+                "task_id": {
                     "type": "integer",
                     "minimum": 0
                 },
-                "workspace": {
+                "workspace_id": {
                     "type": "integer",
                     "minimum": 0
                 }
@@ -3038,6 +3038,9 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "max_request_size": {
+                    "type": "integer"
+                },
                 "min_confidence": {
                     "type": "integer"
                 },
@@ -3181,6 +3184,9 @@ const docTemplate = `{
         "db.History": {
             "type": "object",
             "properties": {
+                "clean_url": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -3672,6 +3678,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "interaction_id": {
+                    "type": "string"
+                },
+                "note": {
                     "type": "string"
                 },
                 "payload": {
@@ -4366,6 +4375,10 @@ const docTemplate = `{
                     "minimum": 0
                 },
                 "max_pages_to_crawl": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max_retries": {
                     "type": "integer",
                     "minimum": 0
                 },

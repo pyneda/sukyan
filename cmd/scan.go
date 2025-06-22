@@ -36,6 +36,7 @@ var clientSideChecks bool
 var passiveChecks bool
 var discoveryChecks bool
 var websocketChecks bool
+var maxRetries int
 
 var validate = validator.New()
 
@@ -116,6 +117,7 @@ var scanCmd = &cobra.Command{
 				Discovery:  discoveryChecks,
 				WebSocket:  websocketChecks,
 			},
+			MaxRetries: maxRetries,
 		}
 		if err := validate.Struct(options); err != nil {
 			log.Error().Err(err).Msg("Validation failed")
@@ -131,7 +133,10 @@ var scanCmd = &cobra.Command{
 		}
 		interactionsManager.Start()
 		engine := engine.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
-		task, _ := engine.FullScan(options, true)
+		task, err := engine.FullScan(options, true)
+		if err != nil {
+			log.Error().Err(err).Msg("There was an error during the scan")
+		}
 		log.Info().Msg("Scan completed")
 		stats, err := db.Connection().GetTaskStatsFromID(uint(task.ID))
 		if err != nil {
@@ -168,4 +173,5 @@ func init() {
 	scanCmd.Flags().BoolVar(&passiveChecks, "passive", true, "Enable passive audits")
 	scanCmd.Flags().BoolVar(&discoveryChecks, "discovery", true, "Enable content discovery audits")
 	scanCmd.Flags().BoolVar(&websocketChecks, "websocket", true, "Enable WebSocket audits")
+	scanCmd.Flags().IntVar(&maxRetries, "max-retries", 3, "Maximum number of retries for failed requests (default: 3)")
 }

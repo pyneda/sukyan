@@ -74,6 +74,7 @@ type HistoryItemScanOptions struct {
 	Fingerprints       []lib.Fingerprint `json:"fingerprints" validate:"omitempty,dive"`
 	ExperimentalAudits bool              `json:"experimental_audits"`
 	AuditCategories    AuditCategories   `json:"audit_categories" validate:"required"`
+	MaxRetries         int               `json:"max_retries" validate:"min=0"`
 }
 
 func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bool {
@@ -103,6 +104,7 @@ type FullScanOptions struct {
 	ExperimentalAudits bool                     `json:"experimental_audits"`
 	AuditCategories    AuditCategories          `json:"audit_categories" validate:"required"`
 	WebSocketOptions   FullScanWebSocketOptions `json:"websocket_options" validate:"omitempty"`
+	MaxRetries         int                      `json:"max_retries" validate:"min=0"`
 }
 
 type FullScanWebSocketOptions struct {

@@ -170,6 +170,7 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 				WebSocket:  true,
 				Discovery:  false,
 			},
+			MaxRetries: 3,
 		}
 		e.ScheduleHistoryItemScan(&item, engine.ScanJobTypeActive, options)
 	}
@@ -226,6 +227,7 @@ func FullScanHandler(c *fiber.Ctx) error {
 		input.AuditCategories.Passive = true
 		input.AuditCategories.Discovery = true
 		input.AuditCategories.WebSocket = true
+		input.MaxRetries = 3
 	}
 
 	if input.Title == "" {

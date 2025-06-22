@@ -1,4 +1,4 @@
-package cmd
+package create
 
 import (
 	"fmt"
@@ -46,7 +46,7 @@ var createUserCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(createUserCmd)
+	CreateCmd.AddCommand(createUserCmd)
 
 	// Here you will define your flags and configuration settings.
 	createUserCmd.Flags().StringP("email", "e", "", "Email for the new user (required)")

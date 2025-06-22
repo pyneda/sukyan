@@ -18,6 +18,7 @@ var (
 	reportOutput   string
 	minConfidence  int
 	maxRequestSize int
+	taskID         uint
 )
 
 // reportCmd represents the report command

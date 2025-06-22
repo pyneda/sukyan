@@ -1,4 +1,4 @@
-package cmd
+package get
 
 import (
 	"fmt"
@@ -68,7 +68,7 @@ var historyCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(historyCmd)
+	GetCmd.AddCommand(historyCmd)
 
 	historyCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	historyCmd.Flags().StringVarP(&filterQuery, "query", "q", "", "Filter by query")

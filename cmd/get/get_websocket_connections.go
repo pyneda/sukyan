@@ -1,4 +1,4 @@
-package cmd
+package get
 
 import (
 	"fmt"
@@ -67,7 +67,7 @@ var getWebSocketConnectionsCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(getWebSocketConnectionsCmd)
+	GetCmd.AddCommand(getWebSocketConnectionsCmd)
 	getWebSocketConnectionsCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	getWebSocketConnectionsCmd.Flags().UintVar(&taskID, "task", 0, "Task ID")
 	getWebSocketConnectionsCmd.Flags().StringSliceVarP(&filterHistorySources, "source", "S", []string{}, "Filter by source. Can be added multiple times.")

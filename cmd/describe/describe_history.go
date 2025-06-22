@@ -1,7 +1,8 @@
-package cmd
+package describe
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/pyneda/sukyan/db"
@@ -10,37 +11,36 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// var describeIssueID int
-
-// describeIssueCmd represents the issue command
-var describeIssueCmd = &cobra.Command{
-	Use:        "issue [id]",
-	Aliases:    []string{"i"},
-	Short:      "Get details of a detected issue",
-	Long:       `List issue details.`,
+// historyCmd represents the history command
+var describeHistoryCmd = &cobra.Command{
+	Use:        "history [id]",
+	Aliases:    []string{"h", "hist"},
+	Short:      "Get details of a history record",
+	Long:       `Get details of a history record.`,
 	Args:       cobra.ExactArgs(1),
 	ArgAliases: []string{"id"},
 	Run: func(cmd *cobra.Command, args []string) {
-		describeIssueID, err := strconv.Atoi(args[0])
+		describeHistoryID, err := strconv.Atoi(args[0])
 		if err != nil {
 			fmt.Println("Invalid ID provided")
-			return
+			os.Exit(0)
 		}
-		if describeIssueID == 0 {
+		if describeHistoryID == 0 {
 			fmt.Println("An ID needs to be provided")
-			return
+			os.Exit(0)
 		}
-		issue, err := db.Connection().GetIssue(describeIssueID, true)
+		history, err := db.Connection().GetHistory(uint(describeHistoryID))
 		if err != nil {
 			fmt.Println("Could not find a issue with the provided ID")
-			return
+			os.Exit(0)
 		}
+		// db.PrintHistory(history)
 		formatType, err := lib.ParseFormatType(format)
 		if err != nil {
 			fmt.Println("Error parsing format type")
-			return
+			os.Exit(0)
 		}
-		formattedOutput, err := lib.FormatSingleOutput(issue, formatType)
+		formattedOutput, err := lib.FormatSingleOutput(history, formatType)
 		if err != nil {
 			fmt.Println("Error formatting output")
 			return
@@ -51,7 +51,6 @@ var describeIssueCmd = &cobra.Command{
 }
 
 func init() {
-	describeCmd.AddCommand(describeIssueCmd)
+	DescribeCmd.AddCommand(describeHistoryCmd)
 
-	// describeIssueCmd.Flags().IntVarP(&describeIssueID, "id", "i", 0, "Issue ID")
 }

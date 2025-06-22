@@ -1,4 +1,4 @@
-package cmd
+package create
 
 import (
 	"fmt"
@@ -85,7 +85,7 @@ var createBrowserActionsCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(createBrowserActionsCmd)
+	CreateCmd.AddCommand(createBrowserActionsCmd)
 
 	createBrowserActionsCmd.Flags().StringVarP(&newBrowserActionsTitle, "title", "t", "", "Browser actions title")
 	createBrowserActionsCmd.Flags().StringVarP(&newBrowserActionsFile, "file", "f", "", "Load browser actions from YAML file")

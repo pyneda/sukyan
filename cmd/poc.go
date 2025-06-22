@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	pocType    string
-	outputFile string
+	pocType                     string
+	outputFile                  string
+	filterWebSocketConnectionID uint
 )
 
 var availablePocTypes = map[string]bool{

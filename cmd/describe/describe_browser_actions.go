@@ -1,4 +1,4 @@
-package cmd
+package describe
 
 import (
 	"fmt"
@@ -11,27 +11,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// describeWorkspaceCmd represents the workspace command
-var describeWorkspaceCmd = &cobra.Command{
-	Use:        "workspace [id]",
-	Aliases:    []string{"w"},
-	Short:      "Get details of a workspace",
-	Long:       `List workspace details.`,
+var describeBrowserActionsCmd = &cobra.Command{
+	Use:        "browser-actions [id]",
+	Aliases:    []string{"browser-action", "ba"},
+	Short:      "Get details of browser actions",
+	Long:       `Get details of stored browser actions.`,
 	Args:       cobra.ExactArgs(1),
 	ArgAliases: []string{"id"},
 	Run: func(cmd *cobra.Command, args []string) {
-		describeWorkspaceID, err := strconv.Atoi(args[0])
+		describeBrowserActionsID, err := strconv.Atoi(args[0])
 		if err != nil {
 			fmt.Println("Invalid ID provided")
 			os.Exit(0)
 		}
-		if describeWorkspaceID == 0 {
+		if describeBrowserActionsID == 0 {
 			fmt.Println("An ID needs to be provided")
 			os.Exit(0)
 		}
-		workspace, err := db.Connection().GetWorkspaceByID(uint(describeWorkspaceID))
+		browserActions, err := db.Connection().GetStoredBrowserActionsByID(uint(describeBrowserActionsID))
 		if err != nil {
-			fmt.Println("Could not find a workspace with the provided ID")
+			fmt.Println("Could not find browser actions with the provided ID")
 			os.Exit(0)
 		}
 		formatType, err := lib.ParseFormatType(format)
@@ -39,7 +38,7 @@ var describeWorkspaceCmd = &cobra.Command{
 			fmt.Println("Error parsing format type")
 			os.Exit(0)
 		}
-		formattedOutput, err := lib.FormatSingleOutput(workspace, formatType)
+		formattedOutput, err := lib.FormatSingleOutput(browserActions, formatType)
 		if err != nil {
 			fmt.Println("Error formatting output")
 			return
@@ -50,5 +49,5 @@ var describeWorkspaceCmd = &cobra.Command{
 }
 
 func init() {
-	describeCmd.AddCommand(describeWorkspaceCmd)
+	DescribeCmd.AddCommand(describeBrowserActionsCmd)
 }

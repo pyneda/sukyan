@@ -1,4 +1,4 @@
-package cmd
+package delete
 
 import (
 	"bufio"
@@ -61,7 +61,7 @@ var (
 )
 
 func init() {
-	deleteCmd.AddCommand(deleteHistoryCmd)
+	DeleteCmd.AddCommand(deleteHistoryCmd)
 	deleteHistoryCmd.Flags().IntSliceVarP(&deleteHistoryFilterStatusCodes, "status-codes", "s", nil, "Status codes for filtering")
 	deleteHistoryCmd.Flags().StringSliceVarP(&deleteHistoryFilterMethods, "methods", "m", nil, "HTTP methods for filtering")
 	deleteHistoryCmd.Flags().StringSliceVarP(&deleteHistoryFilterResponseContentTypes, "response-content-types", "r", nil, "Response content types for filtering")

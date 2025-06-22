@@ -1,4 +1,4 @@
-package cmd
+package get
 
 import (
 	"fmt"
@@ -52,6 +52,6 @@ var listWebSocketMessagesCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(listWebSocketMessagesCmd)
+	GetCmd.AddCommand(listWebSocketMessagesCmd)
 	listWebSocketMessagesCmd.Flags().UintVarP(&filterWebSocketConnectionID, "connection-id", "c", 0, "Filter messages by WebSocket connection ID")
 }

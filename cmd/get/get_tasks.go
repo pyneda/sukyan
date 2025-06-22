@@ -1,4 +1,4 @@
-package cmd
+package get
 
 import (
 	"fmt"
@@ -12,6 +12,7 @@ import (
 var (
 	statusFilter        string
 	playgroundSessionID uint
+	workspaceID         uint
 )
 
 // getTasksCmd represents the get tasks command
@@ -59,7 +60,7 @@ var getTasksCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(getTasksCmd)
+	GetCmd.AddCommand(getTasksCmd)
 	getTasksCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	getTasksCmd.Flags().StringVar(&statusFilter, "status", "", "Comma-separated list of statuses to filter")
 	getTasksCmd.Flags().UintVar(&playgroundSessionID, "playground-session", 0, "Playground session ID to filter by")

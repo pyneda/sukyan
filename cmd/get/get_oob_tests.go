@@ -1,4 +1,4 @@
-package cmd
+package get
 
 import (
 	"fmt"
@@ -67,7 +67,7 @@ var getOOBTestsCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(getOOBTestsCmd)
+	GetCmd.AddCommand(getOOBTestsCmd)
 	getOOBTestsCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	getOOBTestsCmd.Flags().UintVarP(&filterTaskID, "task", "t", 0, "Task ID")
 	getOOBTestsCmd.Flags().UintVarP(&filterTaskJobID, "task-job", "j", 0, "Task Job ID")

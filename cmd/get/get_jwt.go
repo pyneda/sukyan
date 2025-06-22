@@ -1,4 +1,4 @@
-package cmd
+package get
 
 import (
 	"fmt"
@@ -74,7 +74,7 @@ var getJwtCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(getJwtCmd)
+	GetCmd.AddCommand(getJwtCmd)
 	getJwtCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Filter JWTs by workspace ID")
 	getJwtCmd.Flags().StringVar(&filterAlgorithm, "algorithm", "", "Filter JWTs by algorithm")
 	getJwtCmd.Flags().StringVar(&filterIssuer, "issuer", "", "Filter JWTs by issuer")

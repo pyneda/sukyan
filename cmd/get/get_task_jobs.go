@@ -1,4 +1,4 @@
-package cmd
+package get
 
 import (
 	"fmt"
@@ -64,7 +64,7 @@ var getTaskJobsCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(getTaskJobsCmd)
+	GetCmd.AddCommand(getTaskJobsCmd)
 	getTaskJobsCmd.Flags().StringSliceVar(&taskJobStatusFilter, "status", []string{}, "Filter by status (scheduled, running, finished, failed). Can be specified multiple times.")
 	getTaskJobsCmd.Flags().StringSliceVar(&taskJobTitleFilter, "title", []string{}, "Filter by title. Can be specified multiple times.")
 	getTaskJobsCmd.Flags().IntSliceVar(&taskJobStatusCodesFilter, "status-codes", []int{}, "Filter by HTTP status codes. Can be specified multiple times.")

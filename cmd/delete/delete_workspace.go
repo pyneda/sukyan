@@ -1,4 +1,4 @@
-package cmd
+package delete
 
 import (
 	"bufio"
@@ -60,5 +60,5 @@ var deleteWorkspaceCmd = &cobra.Command{
 }
 
 func init() {
-	deleteCmd.AddCommand(deleteWorkspaceCmd)
+	DeleteCmd.AddCommand(deleteWorkspaceCmd)
 }

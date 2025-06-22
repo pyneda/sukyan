@@ -1,4 +1,4 @@
-package cmd
+package describe
 
 import (
 	"fmt"
@@ -50,5 +50,5 @@ var describeTaskCmd = &cobra.Command{
 }
 
 func init() {
-	describeCmd.AddCommand(describeTaskCmd)
+	DescribeCmd.AddCommand(describeTaskCmd)
 }

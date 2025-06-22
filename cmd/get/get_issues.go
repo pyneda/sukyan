@@ -1,4 +1,4 @@
-package cmd
+package get
 
 import (
 	"bytes"
@@ -121,7 +121,7 @@ func formatStringSlice(data []string, format lib.FormatType) (string, error) {
 }
 
 func init() {
-	getCmd.AddCommand(getIssuesCmd)
+	GetCmd.AddCommand(getIssuesCmd)
 
 	getIssuesCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	// getIssuesCmd.MarkFlagRequired("workspace")

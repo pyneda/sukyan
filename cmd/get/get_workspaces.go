@@ -1,4 +1,4 @@
-package cmd
+package get
 
 import (
 	"fmt"
@@ -48,6 +48,6 @@ var getWorkspacesCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(getWorkspacesCmd)
+	GetCmd.AddCommand(getWorkspacesCmd)
 	getWorkspacesCmd.PersistentFlags().StringVarP(&query, "query", "q", "", "Search query")
 }

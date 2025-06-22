@@ -1,4 +1,4 @@
-package cmd
+package create
 
 import (
 	"fmt"
@@ -50,7 +50,7 @@ var createWorkspaceCmd = &cobra.Command{
 }
 
 func init() {
-	createCmd.AddCommand(createWorkspaceCmd)
+	CreateCmd.AddCommand(createWorkspaceCmd)
 
 	createWorkspaceCmd.Flags().StringVarP(&newWorkspaceTitle, "title", "t", "", "Workspace title")
 	createWorkspaceCmd.Flags().StringVarP(&newWorkspaceCode, "code", "c", "", "Workspace code")

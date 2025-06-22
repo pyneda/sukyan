@@ -1,4 +1,4 @@
-package cmd
+package get
 
 import (
 	"fmt"
@@ -55,7 +55,7 @@ var getBrowserActionsCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(getBrowserActionsCmd)
+	GetCmd.AddCommand(getBrowserActionsCmd)
 	getBrowserActionsCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	getBrowserActionsCmd.Flags().StringVar(&scopeFilter, "scope", "S", "Scope filter (global or workspace)")
 	getBrowserActionsCmd.PersistentFlags().StringVarP(&query, "query", "q", "", "Search query")

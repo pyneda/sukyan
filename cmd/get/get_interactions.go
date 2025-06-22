@@ -1,4 +1,4 @@
-package cmd
+package get
 
 import (
 	"fmt"
@@ -57,7 +57,7 @@ var getInteractionsCmd = &cobra.Command{
 }
 
 func init() {
-	getCmd.AddCommand(getInteractionsCmd)
+	GetCmd.AddCommand(getInteractionsCmd)
 	getInteractionsCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	getInteractionsCmd.Flags().StringSliceVarP(&qTypes, "qtype", "t", []string{}, "Filter by qtype. Can be added multiple times.")
 	getInteractionsCmd.Flags().StringSliceVar(&protocols, "protocol", []string{}, "Filter by protocol. Can be added multiple times.")

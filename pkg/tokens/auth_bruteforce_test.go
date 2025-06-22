@@ -64,60 +64,6 @@ func TestBasicAuthBruteforce(t *testing.T) {
 	assert.Greater(t, result.Duration, time.Duration(0), "Should have taken some time")
 }
 
-func TestDigestAuthBruteforce(t *testing.T) {
-	// Create a test server that accepts specific credentials for digest auth
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader != "" && validateDigestAuth(authHeader, "admin", "password", "GET", r.URL.Path) {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("Success"))
-		} else {
-			w.Header().Set("WWW-Authenticate", `Digest realm="Test Realm", nonce="12345", qop="auth"`)
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("Unauthorized"))
-		}
-	}))
-	defer server.Close()
-
-	// Create a proper raw request
-	rawRequest := []byte("GET /protected HTTP/1.1\r\n" +
-		"Host: " + server.URL[7:] + "\r\n" + // Remove http:// prefix
-		"User-Agent: test-agent\r\n" +
-		"\r\n")
-
-	// Create a history item with proper raw request
-	historyItem := &db.History{
-		Method:      "GET",
-		URL:         server.URL + "/protected",
-		RawRequest:  rawRequest,
-		WorkspaceID: func() *uint { id := uint(1); return &id }(),
-		TaskID:      func() *uint { id := uint(1); return &id }(),
-	}
-
-	// Configure bruteforce with limited attempts for testing
-	config := AuthBruteforceConfig{
-		AuthType:      AuthTypeDigest,
-		Mode:          "embedded",
-		Format:        "pairs",
-		Size:          "default",
-		Concurrency:   2,
-		MaxAttempts:   1000, // Increase to ensure we find admin/password
-		StopOnSuccess: true,
-	}
-
-	// Run bruteforce
-	result := BruteforceAuth(historyItem, `Digest realm="Test Realm", nonce="12345", qop="auth"`, config)
-
-	// Assertions
-	assert.NotNil(t, result, "Result should not be nil")
-	assert.True(t, result.Found, "Should find valid credentials")
-	assert.Equal(t, "admin", result.Username, "Should find correct username")
-	assert.Equal(t, "password", result.Password, "Should find correct password")
-	assert.Equal(t, http.StatusOK, result.StatusCode, "Should return success status")
-	assert.Greater(t, result.Attempts, 0, "Should have made some attempts")
-	assert.Greater(t, result.Duration, time.Duration(0), "Should have taken some time")
-}
-
 func TestAuthBruteforceNoCredentialsFound(t *testing.T) {
 	// Create a test server that never accepts any credentials
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

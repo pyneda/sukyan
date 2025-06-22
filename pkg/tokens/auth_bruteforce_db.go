@@ -48,7 +48,7 @@ func BruteforceAuthAndCreateIssue(historyItem *db.History, authHeader string, au
 			issueCode,
 			details,
 			90,
-			db.High.String(),
+			"",
 			historyItem.WorkspaceID,
 			historyItem.TaskID,
 			&noTaskJob,

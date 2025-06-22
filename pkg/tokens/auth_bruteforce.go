@@ -85,6 +85,15 @@ type AuthBruteforceResult struct {
 	mu         sync.Mutex
 }
 
+type DigestState struct {
+	currentNonce  string
+	nonceCount    int
+	lastRefresh   time.Time
+	staleCount    int
+	challengeReqs int
+	mu            sync.Mutex
+}
+
 type AuthBruteforceConfig struct {
 	AuthType         AuthType
 	Mode             string // "embedded", "filesystem", "mixed"
@@ -101,6 +110,20 @@ type AuthBruteforceConfig struct {
 }
 
 func BruteforceAuth(historyItem *db.History, authHeader string, config AuthBruteforceConfig) *AuthBruteforceResult {
+	taskLog := log.With().
+		Str("auth_type", string(config.AuthType)).
+		Str("method", historyItem.Method).
+		Str("url", historyItem.URL).
+		Str("mode", config.Mode).
+		Str("format", config.Format).
+		Str("size", config.Size).
+		Int("concurrency", config.Concurrency).
+		Int("max_attempts", config.MaxAttempts).
+		Bool("stop_on_success", config.StopOnSuccess).
+		Logger()
+
+	taskLog.Info().Msg("Starting authentication brute force")
+
 	result := &AuthBruteforceResult{
 		AuthType: config.AuthType,
 		Duration: 0,
@@ -111,46 +134,61 @@ func BruteforceAuth(historyItem *db.History, authHeader string, config AuthBrute
 	startTime := time.Now()
 	defer func() {
 		result.Duration = time.Since(startTime)
+		if result.Found {
+			taskLog.Info().
+				Bool("found", result.Found).
+				Str("username", result.Username).
+				Str("password", result.Password).
+				Int("status_code", result.StatusCode).
+				Int("attempts", result.Attempts).
+				Float64("duration_seconds", result.Duration.Seconds()).
+				Msg("Authentication brute force completed successfully")
+		} else {
+			taskLog.Info().
+				Bool("found", result.Found).
+				Int("attempts", result.Attempts).
+				Float64("duration_seconds", result.Duration.Seconds()).
+				Msg("Authentication brute force completed - no valid credentials found")
+		}
 	}()
 
-	// Load wordlists based on configuration
 	var usernames, passwords []string
 	var err error
 
 	if config.Format == "pairs" {
-		// Load username:password pairs and split them
 		usernames, passwords, err = loadUserPasswordPairs(config)
 		if err != nil {
 			result.Error = fmt.Errorf("failed to load user-password pairs: %w", err)
+			taskLog.Error().Err(err).Msg("Failed to load user-password pairs")
 			return result
 		}
 	} else {
-		// Load separate username and password wordlists
 		usernames, err = loadUsernameWordlist(config)
 		if err != nil {
 			result.Error = fmt.Errorf("failed to load usernames: %w", err)
+			taskLog.Error().Err(err).Msg("Failed to load usernames")
 			return result
 		}
 
 		passwords, err = loadPasswordWordlist(config)
 		if err != nil {
 			result.Error = fmt.Errorf("failed to load passwords: %w", err)
+			taskLog.Error().Err(err).Msg("Failed to load passwords")
 			return result
 		}
 	}
 
 	if len(usernames) == 0 || len(passwords) == 0 {
 		result.Error = fmt.Errorf("empty wordlists")
+		taskLog.Error().Msg("Empty wordlists provided")
 		return result
 	}
 
-	log.Info().
-		Str("auth_type", string(config.AuthType)).
+	taskLog.Info().
 		Int("usernames", len(usernames)).
 		Int("passwords", len(passwords)).
 		Int("total_combinations", len(usernames)*len(passwords)).
-		Str("url", historyItem.URL).
-		Msg("Starting authentication brute force")
+		Msg("Wordlists loaded successfully")
 
 	totalCombinations := len(usernames) * len(passwords)
 	if config.MaxAttempts > 0 && config.MaxAttempts < totalCombinations {
@@ -170,6 +208,19 @@ func BruteforceAuth(historyItem *db.History, authHeader string, config AuthBrute
 	historyOptions := http_utils.HistoryCreationOptions{
 		WorkspaceID: *historyItem.WorkspaceID,
 		TaskID:      *historyItem.TaskID,
+	}
+
+	var digestState *DigestState
+	if config.AuthType == AuthTypeDigest {
+		nonce := extractNonce(authHeader)
+		digestState = &DigestState{
+			currentNonce: nonce,
+			nonceCount:   0,
+			lastRefresh:  time.Now(),
+		}
+		taskLog.Debug().
+			Str("initial_nonce", nonce).
+			Msg("Initialized digest authentication state")
 	}
 
 	attemptCount := 0
@@ -195,13 +246,22 @@ func BruteforceAuth(historyItem *db.History, authHeader string, config AuthBrute
 					}
 					result.mu.Unlock()
 
-					success, statusCode, history, err := attemptAuth(historyItem, authHeader, username, password, config.AuthType, historyOptions)
+					var success bool
+					var statusCode int
+					var history *db.History
+					var err error
+
+					if config.AuthType == AuthTypeDigest {
+						success, statusCode, history, err = attemptDigestAuth(historyItem, username, password, digestState, historyOptions)
+					} else {
+						success, statusCode, history, err = attemptAuth(historyItem, authHeader, username, password, config.AuthType, historyOptions)
+					}
 
 					result.mu.Lock()
 					result.Attempts++
 
 					if success {
-						log.Info().
+						taskLog.Info().
 							Str("username", username).
 							Str("password", password).
 							Int("status_code", statusCode).
@@ -217,7 +277,7 @@ func BruteforceAuth(historyItem *db.History, authHeader string, config AuthBrute
 					}
 
 					if err != nil {
-						log.Debug().Err(err).
+						taskLog.Debug().Err(err).
 							Str("username", username).
 							Str("password", password).
 							Msg("Auth attempt error")
@@ -225,7 +285,7 @@ func BruteforceAuth(historyItem *db.History, authHeader string, config AuthBrute
 
 					if result.Attempts%progressInterval == 0 {
 						progress := (result.Attempts * 100) / totalCombinations
-						log.Info().
+						taskLog.Info().
 							Int("progress", progress).
 							Int("attempts", result.Attempts).
 							Int("total", totalCombinations).
@@ -247,20 +307,6 @@ func BruteforceAuth(historyItem *db.History, authHeader string, config AuthBrute
 	}
 
 	p.Wait()
-
-	if result.Found {
-		log.Info().
-			Str("username", result.Username).
-			Str("password", result.Password).
-			Str("auth_type", string(config.AuthType)).
-			Float64("duration_seconds", result.Duration.Seconds()).
-			Msg("Brute force completed successfully!")
-	} else {
-		log.Info().
-			Int("attempts", result.Attempts).
-			Float64("duration_seconds", result.Duration.Seconds()).
-			Msg("Brute force completed, no valid credentials found")
-	}
 
 	return result
 }
@@ -301,6 +347,10 @@ func attemptAuth(historyItem *db.History, authHeader, username, password string,
 }
 
 func createDigestAuth(username, password, authHeader, method, uri string) (string, error) {
+	return createDigestAuthWithCounter(username, password, authHeader, method, uri, 1)
+}
+
+func createDigestAuthWithCounter(username, password, authHeader, method, uri string, nonceCount int) (string, error) {
 	params := ParseDigestParams(authHeader)
 
 	realm, ok := params["realm"]
@@ -314,14 +364,14 @@ func createDigestAuth(username, password, authHeader, method, uri string) (strin
 	}
 
 	cnonce := generateCnonce()
-	nc := "00000001"
+	nc := fmt.Sprintf("%08x", nonceCount)
 
 	ha1 := md5Hash(username + ":" + realm + ":" + password)
 	ha2 := md5Hash(method + ":" + uri)
 
 	qop := params["qop"]
 	var response string
-	if qop == "auth" || qop == "auth-int" {
+	if isQopAuth(authHeader) {
 		response = md5Hash(ha1 + ":" + nonce + ":" + nc + ":" + cnonce + ":" + qop + ":" + ha2)
 	} else {
 		response = md5Hash(ha1 + ":" + nonce + ":" + ha2)
@@ -675,4 +725,118 @@ func CreateAuthBruteforceConfigWithUserPasswordPairs(authType AuthType) AuthBrut
 	config := CreateDefaultAuthBruteforceConfig(authType)
 	config.Format = "pairs"
 	return config
+}
+
+func isStaleNonce(authHeader string) bool {
+	params := ParseDigestParams(authHeader)
+	stale, exists := params["stale"]
+	return exists && strings.ToLower(stale) == "true"
+}
+
+func isQopAuth(authHeader string) bool {
+	params := ParseDigestParams(authHeader)
+	qop, exists := params["qop"]
+	return exists && (qop == "auth" || qop == "auth-int")
+}
+
+func extractNonce(authHeader string) string {
+	params := ParseDigestParams(authHeader)
+	return params["nonce"]
+}
+
+func requestFreshChallenge(historyItem *db.History, historyOptions http_utils.HistoryCreationOptions) (string, error) {
+	req, err := http_utils.BuildRequestFromHistoryItem(historyItem)
+	if err != nil {
+		return "", fmt.Errorf("failed to build request for challenge: %w", err)
+	}
+
+	req.Header.Del("Authorization")
+
+	executionResult := http_utils.ExecuteRequest(req, http_utils.RequestExecutionOptions{
+		CreateHistory:          false,
+		HistoryCreationOptions: historyOptions,
+	})
+
+	if executionResult.Err != nil {
+		return "", executionResult.Err
+	}
+
+	if executionResult.Response.StatusCode == 401 {
+		if wwwAuth := executionResult.Response.Header.Get("WWW-Authenticate"); wwwAuth != "" {
+			return wwwAuth, nil
+		}
+	}
+
+	return "", fmt.Errorf("no authentication challenge received")
+}
+
+// attemptDigestAuth handles digest authentication with proper nonce management
+func attemptDigestAuth(historyItem *db.History, username, password string, digestState *DigestState, historyOptions http_utils.HistoryCreationOptions) (bool, int, *db.History, error) {
+	digestState.mu.Lock()
+
+	// Refresh challenge if needed
+	if digestState.needsRefresh() {
+		digestState.mu.Unlock()
+		newChallenge, err := requestFreshChallenge(historyItem, historyOptions)
+		if err != nil {
+			return false, 0, nil, fmt.Errorf("failed to refresh challenge: %w", err)
+		}
+
+		digestState.mu.Lock()
+		digestState.currentNonce = extractNonce(newChallenge)
+		digestState.nonceCount = 0
+		digestState.lastRefresh = time.Now()
+		digestState.challengeReqs++
+	}
+
+	digestState.nonceCount++
+	currentNC := digestState.nonceCount
+	currentNonce := digestState.currentNonce
+	digestState.mu.Unlock()
+
+	req, err := http_utils.BuildRequestFromHistoryItem(historyItem)
+	if err != nil {
+		return false, 0, nil, fmt.Errorf("failed to build request from history: %w", err)
+	}
+
+	authHeader := fmt.Sprintf(`Digest realm="", nonce="%s", qop="auth"`, currentNonce)
+	digestAuth, err := createDigestAuthWithCounter(username, password, authHeader, req.Method, req.URL.Path, currentNC)
+	if err != nil {
+		return false, 0, nil, fmt.Errorf("failed to create digest auth: %w", err)
+	}
+
+	req.Header.Set("Authorization", digestAuth)
+
+	executionResult := http_utils.ExecuteRequest(req, http_utils.RequestExecutionOptions{
+		CreateHistory:          true,
+		HistoryCreationOptions: historyOptions,
+	})
+
+	if executionResult.Err != nil {
+		return false, 0, nil, executionResult.Err
+	}
+
+	statusCode := executionResult.Response.StatusCode
+
+	// Handle stale nonce
+	if statusCode == 401 {
+		if wwwAuth := executionResult.Response.Header.Get("WWW-Authenticate"); wwwAuth != "" && isStaleNonce(wwwAuth) {
+			digestState.mu.Lock()
+			digestState.staleCount++
+			digestState.mu.Unlock()
+		}
+	}
+
+	success := statusCode >= 200 && statusCode < 400
+	return success, statusCode, executionResult.History, nil
+}
+
+// needsRefresh determines if digest state needs a fresh challenge
+func (ds *DigestState) needsRefresh() bool {
+	const refreshInterval = 2 * time.Minute
+	const maxAttemptsPerNonce = 100
+
+	return time.Since(ds.lastRefresh) > refreshInterval ||
+		ds.nonceCount >= maxAttemptsPerNonce ||
+		ds.staleCount >= 3
 }

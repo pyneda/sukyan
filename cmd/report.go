@@ -131,5 +131,5 @@ func init() {
 	reportCmd.Flags().StringVarP(&reportFormat, "format", "f", "html", "Report Format (html or json)")
 	reportCmd.Flags().StringVarP(&reportOutput, "output", "o", "", "Output file path")
 	reportCmd.Flags().IntVarP(&minConfidence, "min-confidence", "c", 0, "Minimum issue confidence level to include in the report")
-	reportCmd.Flags().IntVar(&maxRequestSize, "max-request-size", 500*1024, "Maximum size (in bytes) for request/response content when using html report format. 0 means no limit")
+	reportCmd.Flags().IntVar(&maxRequestSize, "max-request-size", 200*1024, "Maximum size (in bytes) for request/response content when using html report format. 0 means no limit")
 }

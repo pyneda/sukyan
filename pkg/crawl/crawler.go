@@ -472,7 +472,7 @@ func (c *Crawler) getAndClickElements(selector string, page *rod.Page) (err erro
 					// Since the forms have been submitted previously, in theory, if the same form appears again, it should be skipped
 					// NOTE: Listening for DOM changes might be a better approach
 					c.handleForms(page)
-					c.handleClickableElements(page)
+					// c.handleClickableElements(page)
 					return err
 				}
 			}

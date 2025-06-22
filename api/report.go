@@ -14,6 +14,7 @@ import (
 // ReportRequest represents the structure of the JSON payload for generating a report.
 type ReportRequest struct {
 	WorkspaceID    uint                `json:"workspace_id" validate:"required"`
+	TaskID         uint                `json:"task_id" validate:"required"`
 	Title          string              `json:"title" validate:"required"`
 	Format         report.ReportFormat `json:"format" validate:"required,oneof=html json"`
 	MinConfidence  int                 `json:"min_confidence" validate:"omitempty"`
@@ -63,6 +64,7 @@ func ReportHandler(c *fiber.Ctx) error {
 	issues, _, err := db.Connection().ListIssues(db.IssueFilter{
 		WorkspaceID:   input.WorkspaceID,
 		MinConfidence: input.MinConfidence,
+		TaskID:        input.TaskID,
 	})
 
 	if err != nil {
@@ -78,6 +80,7 @@ func ReportHandler(c *fiber.Ctx) error {
 		Title:          input.Title,
 		Format:         input.Format,
 		MaxRequestSize: input.MaxRequestSize,
+		TaskID:         input.TaskID,
 	}
 
 	// Create a buffer to temporarily hold the generated report

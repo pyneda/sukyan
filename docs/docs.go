@@ -1896,6 +1896,51 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/scan/passive/websocket": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Receives a list of WebSocket connection IDs and schedules them for passive scanning",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scan"
+                ],
+                "summary": "Submit WebSocket connections for passive scanning",
+                "parameters": [
+                    {
+                        "description": "List of WebSocket connection IDs",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.PassiveWebSocketScanInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/sitemap": {
             "get": {
                 "security": [
@@ -2937,6 +2982,20 @@ const docTemplate = `{
                 }
             }
         },
+        "api.PassiveWebSocketScanInput": {
+            "type": "object",
+            "required": [
+                "connections"
+            ],
+            "properties": {
+                "connections": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "api.PlaygroundFuzzInput": {
             "type": "object",
             "required": [
@@ -3023,6 +3082,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "format",
+                "task_id",
                 "title",
                 "workspace_id"
             ],
@@ -3042,6 +3102,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "min_confidence": {
+                    "type": "integer"
+                },
+                "task_id": {
                     "type": "integer"
                 },
                 "title": {
@@ -3536,6 +3599,12 @@ const docTemplate = `{
                 "updated_at": {
                     "type": "string"
                 },
+                "websocket_connections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.WebSocketConnection"
+                    }
+                },
                 "workspace_id": {
                     "type": "integer"
                 }
@@ -4002,6 +4071,12 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "json_web_tokens": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.JsonWebToken"
+                    }
                 },
                 "messages": {
                     "type": "array",

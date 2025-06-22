@@ -275,6 +275,15 @@ definitions:
     required:
     - items
     type: object
+  api.PassiveWebSocketScanInput:
+    properties:
+      connections:
+        items:
+          type: integer
+        type: array
+    required:
+    - connections
+    type: object
   api.PlaygroundFuzzInput:
     properties:
       insertion_points:
@@ -343,12 +352,15 @@ definitions:
         type: integer
       min_confidence:
         type: integer
+      task_id:
+        type: integer
       title:
         type: string
       workspace_id:
         type: integer
     required:
     - format
+    - task_id
     - title
     - workspace_id
     type: object
@@ -678,6 +690,10 @@ definitions:
         type: string
       updated_at:
         type: string
+      websocket_connections:
+        items:
+          $ref: '#/definitions/db.WebSocketConnection'
+        type: array
       workspace_id:
         type: integer
     type: object
@@ -1012,6 +1028,10 @@ definitions:
         type: string
       id:
         type: integer
+      json_web_tokens:
+        items:
+          $ref: '#/definitions/db.JsonWebToken'
+        type: array
       messages:
         items:
           $ref: '#/definitions/db.WebSocketMessage'
@@ -2590,6 +2610,35 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Submit items for passive scanning
+      tags:
+      - Scan
+  /api/v1/scan/passive/websocket:
+    post:
+      consumes:
+      - application/json
+      description: Receives a list of WebSocket connection IDs and schedules them
+        for passive scanning
+      parameters:
+      - description: List of WebSocket connection IDs
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.PassiveWebSocketScanInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ActionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Submit WebSocket connections for passive scanning
       tags:
       - Scan
   /api/v1/sitemap:

@@ -28,6 +28,7 @@ type WebSocketConnection struct {
 	Source           string             `json:"source"`
 	UpgradeRequestID *uint              `json:"upgrade_request_id" gorm:"index"`
 	UpgradeRequest   History            `json:"-" gorm:"foreignKey:UpgradeRequestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	JsonWebTokens    []JsonWebToken     `json:"json_web_tokens" gorm:"many2many:json_web_token_websocket_connections;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 func (c WebSocketConnection) TaskTitle() string {

@@ -3,11 +3,12 @@ package scan
 import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/rs/zerolog/log"
 )
 
-func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options WebSocketScanOptions, deduplicationManager *WebSocketDeduplicationManager) {
+func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options WebSocketScanOptions, deduplicationManager *http_utils.WebSocketDeduplicationManager) {
 	log.Info().Uint("connection", item.ID).Msg("Active scanning websocket connection")
 	scopedInsertionPoints := []string{}
 	for _, t := range WebSocketInsertionPointTypes() {

@@ -1,0 +1,15 @@
+code: session_token_in_websocket
+title: Session Token In WebSocket Message
+description:
+  The application includes session tokens or authentication data in WebSocket
+  messages, which may be logged or intercepted. While WebSocket connections
+  can be secure, sensitive authentication data should be handled carefully.
+remediation:
+  Consider using connection-level authentication (via headers during handshake)
+  rather than sending tokens in message payloads. If tokens must be sent in
+  messages, ensure proper encryption and avoid logging sensitive data.
+cwe: 200
+severity: Info
+references: 
+  - https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#websockets
+  - https://tools.ietf.org/html/rfc6455#section-10

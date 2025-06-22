@@ -1,4 +1,4 @@
-package scan
+package http_utils
 
 import (
 	"bytes"

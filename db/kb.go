@@ -165,17 +165,6 @@ func CreateIssueFromWebSocketMessage(message *WebSocketMessage, code IssueCode, 
 		TaskJobID:             taskJobID,
 	}
 
-	upgradeRequest, err := Connection().GetHistoryByID(*upgradeRequestID)
-	if err != nil {
-		log.Error().Err(err).Uint("upgrade_request_id", *upgradeRequestID).Msg("Error retrieving upgrade request while creating issue")
-	} else {
-		issue.URL = upgradeRequest.URL
-		issue.Request = upgradeRequest.RawRequest
-		issue.Response = upgradeRequest.RawResponse
-		issue.StatusCode = upgradeRequest.StatusCode
-		issue.HTTPMethod = upgradeRequest.Method
-	}
-
 	// Get connection details
 	if connectionID != nil && *connectionID > 0 {
 		connection, err := Connection().GetWebSocketConnection(*connectionID)
@@ -191,6 +180,19 @@ func CreateIssueFromWebSocketMessage(message *WebSocketMessage, code IssueCode, 
 		}
 	}
 
+	if upgradeRequestID != nil && *upgradeRequestID > 0 {
+		upgradeRequest, err := Connection().GetHistoryByID(*upgradeRequestID)
+		if err != nil {
+			log.Error().Err(err).Uint("upgrade_request_id", *upgradeRequestID).Msg("Error retrieving upgrade request while creating issue")
+		} else {
+			// issue.URL = upgradeRequest.URL
+			issue.Request = upgradeRequest.RawRequest
+			issue.Response = upgradeRequest.RawResponse
+			issue.StatusCode = upgradeRequest.StatusCode
+			issue.HTTPMethod = upgradeRequest.Method
+		}
+	}
+
 	// Override severity if specified
 	if severityOverride != "" {
 		issue.Severity = NewSeverity(severityOverride)
@@ -198,12 +200,12 @@ func CreateIssueFromWebSocketMessage(message *WebSocketMessage, code IssueCode, 
 		issue.Severity = template.Severity
 	}
 
-	// Save the issue to the database
-	err = Connection().db.Create(&issue).Error
+	createdIssue, err := Connection().CreateIssue(issue)
 	if err != nil {
 		log.Error().Err(err).Interface("issue", issue).Msg("Error creating issue from WebSocket message")
 		return Issue{}, fmt.Errorf("error creating issue: %w", err)
 	}
+	issue = createdIssue
 
 	log.Info().
 		Uint("id", issue.ID).

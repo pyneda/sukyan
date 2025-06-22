@@ -357,3 +357,70 @@ func ActiveWebSocketScanHandler(c *fiber.Ctx) error {
 		Message: "Active WebSocket connections scan scheduled",
 	})
 }
+
+type PassiveWebSocketScanInput struct {
+	Connections []uint `json:"connections" validate:"required,dive,min=0"`
+}
+
+// PassiveWebSocketScanHandler godoc
+// @Summary Submit WebSocket connections for passive scanning
+// @Description Receives a list of WebSocket connection IDs and schedules them for passive scanning
+// @Tags Scan
+// @Accept  json
+// @Produce  json
+// @Param input body PassiveWebSocketScanInput true "List of WebSocket connection IDs"
+// @Success 200 {object} ActionResponse
+// @Failure 400 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/scan/passive/websocket [post]
+func PassiveWebSocketScanHandler(c *fiber.Ctx) error {
+	input := new(PassiveWebSocketScanInput)
+
+	if err := c.BodyParser(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error: "Cannot parse JSON",
+		})
+	}
+
+	if err := validate.Struct(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Validation failed",
+			Message: err.Error(),
+		})
+	}
+
+	connections := make([]db.WebSocketConnection, 0, len(input.Connections))
+	for _, connID := range input.Connections {
+		connection, err := db.Connection().GetWebSocketConnection(connID)
+		if err != nil {
+			log.Error().Err(err).Uint("connection_id", connID).Msg("Failed to get WebSocket connection")
+			continue
+		}
+		connections = append(connections, *connection)
+	}
+
+	if len(connections) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Cannot get WebSocket connections with provided IDs",
+			Message: "None of the provided connection IDs are valid",
+		})
+	}
+
+	generators := c.Locals("generators").([]*generation.PayloadGenerator)
+	interactionsManager := c.Locals("interactionsManager").(*integrations.InteractionsManager)
+	e := engine.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)
+
+	for _, connection := range connections {
+		var workspaceID uint
+		if connection.WorkspaceID != nil {
+			workspaceID = *connection.WorkspaceID
+		}
+		e.ScheduleWebSocketPassiveScan(&connection, scan.WebSocketScanOptions{
+			WorkspaceID: workspaceID,
+		})
+	}
+
+	return c.JSON(ActionResponse{
+		Message: "WebSocket passive scan scheduled",
+	})
+}

@@ -299,8 +299,6 @@ func (d *DatabaseConnection) ListUniqueIssueCodes(filter IssueFilter) ([]string,
 
 // CreateIssue saves an issue to the database
 func (d *DatabaseConnection) CreateIssue(issue Issue) (Issue, error) {
-	// result := d.db.Create(&issue)
-
 	if issue.TaskID != nil && *issue.TaskID == 0 {
 		issue.TaskID = nil
 	}
@@ -308,7 +306,30 @@ func (d *DatabaseConnection) CreateIssue(issue Issue) (Issue, error) {
 		issue.TaskJobID = nil
 	}
 
-	result := d.db.FirstOrCreate(&issue, issue)
+	var existingIssue Issue
+	query := d.db.Where("code = ? AND title = ? AND details = ? AND url = ? AND status_code = ? AND http_method = ? AND payload = ? AND confidence = ? AND severity = ? AND workspace_id = ? AND task_id = ? AND task_job_id = ? AND websocket_connection_id = ?",
+		issue.Code,
+		issue.Title,
+		issue.Details,
+		issue.URL,
+		issue.StatusCode,
+		issue.HTTPMethod,
+		issue.Payload,
+		issue.Confidence,
+		issue.Severity,
+		issue.WorkspaceID,
+		issue.TaskID,
+		issue.TaskJobID,
+		issue.WebsocketConnectionID,
+	)
+
+	result := query.First(&existingIssue)
+
+	if result.Error == nil {
+		return existingIssue, nil
+	}
+
+	result = d.db.Create(&issue)
 	if result.Error != nil {
 		log.Error().Err(result.Error).Interface("issue", issue).Msg("Failed to create web issue")
 	}

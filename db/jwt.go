@@ -14,22 +14,23 @@ import (
 
 type JsonWebToken struct {
 	BaseModel
-	Token                  string         `gorm:"type:text" json:"token"`
-	Header                 datatypes.JSON `gorm:"type:json" json:"header" swaggerignore:"true"`
-	Payload                datatypes.JSON `gorm:"type:json" json:"payload" swaggerignore:"true"`
-	Signature              string         `gorm:"type:text" json:"signature"`
-	Algorithm              string         `gorm:"type:text" json:"algorithm"`
-	Issuer                 string         `gorm:"type:text" json:"issuer"`
-	Subject                string         `gorm:"type:text" json:"subject"`
-	Audience               string         `gorm:"type:text" json:"audience"`
-	Expiration             time.Time      `gorm:"type:timestamp" json:"expiration"`
-	IssuedAt               time.Time      `gorm:"type:timestamp" json:"issued_at"`
-	Histories              []History      `gorm:"many2many:json_web_token_histories;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"histories"`
-	Workspace              Workspace      `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID            *uint          `json:"workspace_id"`
-	TestedEmbeddedWordlist bool           `json:"tested_embedded_wordlist"`
-	Cracked                bool           `json:"cracked"`
-	Secret                 string         `json:"secret"`
+	Token                  string                `gorm:"type:text" json:"token"`
+	Header                 datatypes.JSON        `gorm:"type:json" json:"header" swaggerignore:"true"`
+	Payload                datatypes.JSON        `gorm:"type:json" json:"payload" swaggerignore:"true"`
+	Signature              string                `gorm:"type:text" json:"signature"`
+	Algorithm              string                `gorm:"type:text" json:"algorithm"`
+	Issuer                 string                `gorm:"type:text" json:"issuer"`
+	Subject                string                `gorm:"type:text" json:"subject"`
+	Audience               string                `gorm:"type:text" json:"audience"`
+	Expiration             time.Time             `gorm:"type:timestamp" json:"expiration"`
+	IssuedAt               time.Time             `gorm:"type:timestamp" json:"issued_at"`
+	Histories              []History             `gorm:"many2many:json_web_token_histories;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"histories"`
+	Workspace              Workspace             `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	WorkspaceID            *uint                 `json:"workspace_id"`
+	TestedEmbeddedWordlist bool                  `json:"tested_embedded_wordlist"`
+	Cracked                bool                  `json:"cracked"`
+	Secret                 string                `json:"secret"`
+	WebSocketConnections   []WebSocketConnection `gorm:"many2many:json_web_token_websocket_connections;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"websocket_connections"`
 }
 
 func (j JsonWebToken) TableHeaders() []string {
@@ -143,6 +144,67 @@ func (d *DatabaseConnection) GetOrCreateJWTFromTokenAndHistory(jwtToken string, 
 	d.db.First(&history, historyID)
 	if history != nil {
 		d.db.Model(&history).Association("JsonWebTokens").Append(jwtInstance)
+	}
+
+	return jwtInstance, nil
+}
+
+// GetOrCreateJWTFromTokenAndWebSocketMessage checks if JWT with the same signature already exists in the DB
+// If it doesn't, create a new record. If it does, fetch that record.
+func (d *DatabaseConnection) GetOrCreateJWTFromTokenAndWebSocketMessage(jwtToken string, messageID uint) (*JsonWebToken, error) {
+	jwtInstance, err := FillJwtFromToken(jwtToken)
+	if err != nil {
+		log.Error().Err(err).Str("token", jwtToken).Msg("Failed to fill JWT from token")
+		return nil, err
+	}
+
+	d.db.FirstOrCreate(&jwtInstance, JsonWebToken{Signature: jwtInstance.Signature})
+	log.Info().Interface("jwt", jwtInstance).Uint("message_id", messageID).Msg("JWT found in WebSocket message")
+
+	message := &WebSocketMessage{}
+	if err := d.db.First(&message, messageID).Error; err != nil {
+		log.Error().Err(err).Uint("message_id", messageID).Msg("Failed to find WebSocket message")
+		return jwtInstance, nil
+	}
+
+	// Get the WebSocket connection and establish the relationship
+	connection := &WebSocketConnection{}
+	if err := d.db.First(&connection, message.ConnectionID).Error; err == nil {
+		if connection.WorkspaceID != nil {
+			jwtInstance.WorkspaceID = connection.WorkspaceID
+			d.db.Save(&jwtInstance)
+		}
+
+		d.db.Model(&connection).Association("JsonWebTokens").Append(jwtInstance)
+		log.Info().Uint("connection_id", connection.ID).Uint("jwt_id", jwtInstance.ID).Msg("Associated JWT with WebSocket connection")
+	}
+
+	return jwtInstance, nil
+}
+
+// GetOrCreateJWTFromTokenAndWebSocketConnection checks if JWT with the same signature already exists in the DB
+func (d *DatabaseConnection) GetOrCreateJWTFromTokenAndWebSocketConnection(jwtToken string, connectionID uint) (*JsonWebToken, error) {
+	jwtInstance, err := FillJwtFromToken(jwtToken)
+	if err != nil {
+		log.Error().Err(err).Str("token", jwtToken).Msg("Failed to fill JWT from token")
+		return nil, err
+	}
+
+	d.db.FirstOrCreate(&jwtInstance, JsonWebToken{Signature: jwtInstance.Signature})
+	log.Info().Interface("jwt", jwtInstance).Uint("connection_id", connectionID).Msg("JWT found in WebSocket connection headers")
+
+	// Get the WebSocket connection and establish the relationship
+	connection := &WebSocketConnection{}
+	if err := d.db.First(&connection, connectionID).Error; err == nil {
+		if connection.WorkspaceID != nil {
+			jwtInstance.WorkspaceID = connection.WorkspaceID
+			d.db.Save(&jwtInstance)
+		}
+
+		d.db.Model(&connection).Association("JsonWebTokens").Append(jwtInstance)
+		log.Info().Uint("connection_id", connection.ID).Uint("jwt_id", jwtInstance.ID).Msg("Associated JWT with WebSocket connection")
+	} else {
+		log.Error().Err(err).Uint("connection_id", connectionID).Msg("Failed to find WebSocket connection")
 	}
 
 	return jwtInstance, nil

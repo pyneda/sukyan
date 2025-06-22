@@ -114,6 +114,7 @@ var (
 	ServerInfoDetectedCode               IssueCode = "server_info_detected"
 	ServerSidePrototypePollutionCode     IssueCode = "server_side_prototype_pollution"
 	SessionTokenInUrlCode                IssueCode = "session_token_in_url"
+	SessionTokenInWebsocketCode          IssueCode = "session_token_in_websocket"
 	SilverlightDetectedCode              IssueCode = "silverlight_detected"
 	SniInjectionCode                     IssueCode = "sni_injection"
 	SocketioDetectedCode                 IssueCode = "socketio_detected"
@@ -1495,6 +1496,18 @@ var issueTemplates = []IssueTemplate{
 		Severity:    "Medium",
 		References: []string{
 			"https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html",
+		},
+	},
+	{
+		Code:        SessionTokenInWebsocketCode,
+		Title:       "Session Token In WebSocket Message",
+		Description: "The application includes session tokens or authentication data in WebSocket messages, which may be logged or intercepted. While WebSocket connections can be secure, sensitive authentication data should be handled carefully.",
+		Remediation: "Consider using connection-level authentication (via headers during handshake) rather than sending tokens in message payloads. If tokens must be sent in messages, ensure proper encryption and avoid logging sensitive data.",
+		Cwe:         200,
+		Severity:    "Info",
+		References: []string{
+			"https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#websockets",
+			"https://tools.ietf.org/html/rfc6455#section-10",
 		},
 	},
 	{

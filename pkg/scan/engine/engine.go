@@ -38,33 +38,36 @@ const (
 )
 
 type ScanEngine struct {
-	MaxConcurrentPassiveScans int
-	MaxConcurrentActiveScans  int
-	InteractionsManager       *integrations.InteractionsManager
-	payloadGenerators         []*generation.PayloadGenerator
-	passiveScanPool           *pool.Pool
-	activeScanPool            *pool.Pool
-	wg                        conc.WaitGroup
-	ctx                       context.Context
-	cancel                    context.CancelFunc
-	isPaused                  bool
-	wsDeduplicationManagers   map[uint]*scan.WebSocketDeduplicationManager
-	wsDeduplicationMu         sync.RWMutex
+	MaxConcurrentPassiveScans      int
+	MaxConcurrentActiveScans       int
+	InteractionsManager            *integrations.InteractionsManager
+	payloadGenerators              []*generation.PayloadGenerator
+	passiveScanPool                *pool.Pool
+	activeScanPool                 *pool.Pool
+	wg                             conc.WaitGroup
+	ctx                            context.Context
+	cancel                         context.CancelFunc
+	isPaused                       bool
+	wsDeduplicationManagers        map[uint]*http_utils.WebSocketDeduplicationManager
+	wsDeduplicationMu              sync.RWMutex
+	wsPassiveDeduplicationManagers map[uint]*http_utils.WebSocketDeduplicationManager
+	wsPassiveDeduplicationMu       sync.RWMutex
 }
 
 func NewScanEngine(payloadGenerators []*generation.PayloadGenerator, maxConcurrentPassiveScans, maxConcurrentActiveScans int, interactionsManager *integrations.InteractionsManager) *ScanEngine {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &ScanEngine{
-		MaxConcurrentPassiveScans: maxConcurrentPassiveScans,
-		MaxConcurrentActiveScans:  maxConcurrentActiveScans,
-		InteractionsManager:       interactionsManager,
-		payloadGenerators:         payloadGenerators,
-		passiveScanPool:           pool.New().WithMaxGoroutines(maxConcurrentPassiveScans),
-		activeScanPool:            pool.New().WithMaxGoroutines(maxConcurrentActiveScans),
-		ctx:                       ctx,
-		cancel:                    cancel,
-		wsDeduplicationManagers:   make(map[uint]*scan.WebSocketDeduplicationManager),
+		MaxConcurrentPassiveScans:      maxConcurrentPassiveScans,
+		MaxConcurrentActiveScans:       maxConcurrentActiveScans,
+		InteractionsManager:            interactionsManager,
+		payloadGenerators:              payloadGenerators,
+		passiveScanPool:                pool.New().WithMaxGoroutines(maxConcurrentPassiveScans),
+		activeScanPool:                 pool.New().WithMaxGoroutines(maxConcurrentActiveScans),
+		ctx:                            ctx,
+		cancel:                         cancel,
+		wsDeduplicationManagers:        make(map[uint]*http_utils.WebSocketDeduplicationManager),
+		wsPassiveDeduplicationManagers: make(map[uint]*http_utils.WebSocketDeduplicationManager),
 	}
 }
 
@@ -98,7 +101,7 @@ func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJ
 }
 
 // Get or create deduplication manager for a task
-func (s *ScanEngine) getOrCreateWSDeduplicationManager(taskID uint, mode options.ScanMode) *scan.WebSocketDeduplicationManager {
+func (s *ScanEngine) getOrCreateWSDeduplicationManager(taskID uint, mode options.ScanMode) *http_utils.WebSocketDeduplicationManager {
 	s.wsDeduplicationMu.Lock()
 	defer s.wsDeduplicationMu.Unlock()
 
@@ -106,7 +109,7 @@ func (s *ScanEngine) getOrCreateWSDeduplicationManager(taskID uint, mode options
 		return manager
 	}
 
-	manager := scan.NewWebSocketDeduplicationManager(mode)
+	manager := http_utils.NewWebSocketDeduplicationManager(mode)
 	s.wsDeduplicationManagers[taskID] = manager
 	return manager
 }
@@ -130,9 +133,70 @@ func (s *ScanEngine) getWSDeduplicationStats(taskID uint) map[string]interface{}
 	return nil
 }
 
+// Get or create passive deduplication manager for a workspace
+func (s *ScanEngine) getOrCreateWSPassiveDeduplicationManager(workspaceID uint) *http_utils.WebSocketDeduplicationManager {
+	s.wsPassiveDeduplicationMu.Lock()
+	defer s.wsPassiveDeduplicationMu.Unlock()
+
+	if manager, exists := s.wsPassiveDeduplicationManagers[workspaceID]; exists {
+		return manager
+	}
+	// Use ScanModeFast for passive scanning by default to avoid too many duplicates
+	manager := http_utils.NewWebSocketDeduplicationManager(options.ScanModeFast)
+	s.wsPassiveDeduplicationManagers[workspaceID] = manager
+	return manager
+}
+
+// Clean up passive deduplication manager for a workspace
+func (s *ScanEngine) cleanupWSPassiveDeduplicationManager(workspaceID uint) {
+	s.wsPassiveDeduplicationMu.Lock()
+	defer s.wsPassiveDeduplicationMu.Unlock()
+
+	delete(s.wsPassiveDeduplicationManagers, workspaceID)
+}
+
+// Get passive deduplication statistics for a workspace
+func (s *ScanEngine) getWSPassiveDeduplicationStats(workspaceID uint) map[string]interface{} {
+	s.wsPassiveDeduplicationMu.RLock()
+	defer s.wsPassiveDeduplicationMu.RUnlock()
+
+	if manager, exists := s.wsPassiveDeduplicationManagers[workspaceID]; exists {
+		return manager.GetStatistics()
+	}
+	return nil
+}
+
 func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 	s.passiveScanPool.Go(func() {
 		passive.ScanHistoryItem(item)
+	})
+}
+
+func (s *ScanEngine) ScheduleWebSocketPassiveScan(item *db.WebSocketConnection, options scan.WebSocketScanOptions) {
+	s.passiveScanPool.Go(func() {
+		workspaceID := options.WorkspaceID
+		if item.WorkspaceID != nil {
+			workspaceID = *item.WorkspaceID
+		}
+		deduplicationManager := s.getOrCreateWSPassiveDeduplicationManager(workspaceID)
+
+		result := passive.ScanWebSocketConnectionWithDeduplication(item, deduplicationManager)
+		if result != nil && len(result.Issues) > 0 {
+			log.Info().
+				Uint("connection_id", result.ConnectionID).
+				Int("message_count", result.MessageCount).
+				Int("issues_found", len(result.Issues)).
+				Msg("WebSocket passive scan completed with issues")
+		} else if result != nil {
+			log.Info().
+				Uint("connection_id", result.ConnectionID).
+				Int("message_count", result.MessageCount).
+				Msg("WebSocket passive scan completed with no issues")
+		} else {
+			log.Warn().
+				Uint("connection_id", item.ID).
+				Msg("WebSocket passive scan returned nil result")
+		}
 	})
 }
 
@@ -282,6 +346,8 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 	count := int64(len(inScopeWebsocketConnections))
 	if originalCount > count {
 		scanLog.Warn().Int64("original_count", originalCount).Int64("count", count).Msg("Some WebSocket connections discovered during crawl are out of scope, skipping scan for them")
+	} else {
+		scanLog.Info().Int64("count", count).Msg("WebSocket connections discovered during crawl, scheduling scan")
 	}
 
 	if count > 0 {
@@ -304,6 +370,12 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 				}
 
 				scanLog.Info().Int64("count", count).Msg("Starting WebSocket connections scan")
+
+				scanLog.Info().Int64("count", count).Msg("Starting WebSocket passive scans")
+				for _, connection := range inScopeWebsocketConnections {
+					s.ScheduleWebSocketPassiveScan(&connection, websocketScanOptions)
+				}
+				scanLog.Info().Int64("count", count).Msg("WebSocket passive scans scheduled")
 
 				s.EvaluateWebSocketConnections(inScopeWebsocketConnections, websocketScanOptions)
 				scanLog.Info().Int64("count", count).Msg("WebSocket connections scan finished")

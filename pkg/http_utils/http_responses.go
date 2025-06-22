@@ -185,11 +185,20 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 
 // CreateTimeoutHistory creates a history record for requests that timed out
 func CreateTimeoutHistory(req *http.Request, duration time.Duration, timeoutErr error, options HistoryCreationOptions) (*db.History, error) {
+	var urlString string
+	if req != nil && req.URL != nil {
+		urlString = req.URL.String()
+	}
+	method := "UNKNOWN"
+	if req != nil {
+		method = req.Method
+	}
+
 	logger := log.With().
 		Str("source", options.Source).
 		Uint("workspace", options.WorkspaceID).
-		Str("url", req.URL.String()).
-		Str("method", req.Method).
+		Str("url", urlString).
+		Str("method", method).
 		Dur("duration", duration).
 		Logger()
 

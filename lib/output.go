@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
@@ -115,7 +115,7 @@ func FormatOutputToFile[T Formattable](data []T, format FormatType, filepath str
 		return err
 	}
 
-	return ioutil.WriteFile(filepath, []byte(formattedData), 0644)
+	return os.WriteFile(filepath, []byte(formattedData), 0644)
 }
 
 // ParseFormatType converts a string format to a FormatType.

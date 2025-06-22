@@ -225,5 +225,4 @@ func determineFileType(ext string) SitemapNodeType {
 	default:
 		return SitemapNodeTypeFile
 	}
-	return SitemapNodeTypeFile
 }

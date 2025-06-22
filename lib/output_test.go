@@ -2,7 +2,6 @@ package lib
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -82,7 +81,7 @@ func TestFormatOutputToFile(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	content, err := ioutil.ReadFile(filepath)
+	content, err := os.ReadFile(filepath)
 	if err != nil {
 		t.Fatalf("could not read test file: %v", err)
 	}

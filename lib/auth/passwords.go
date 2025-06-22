@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 
+	"unicode"
+
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/bcrypt"
-	"unicode"
 )
 
 // NormalizePassword func for a returning the users input as a byte slice.

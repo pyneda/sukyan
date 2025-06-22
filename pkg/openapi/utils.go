@@ -488,9 +488,10 @@ func unmarshalSpec(input OpenapiParseInput) (newDoc *openapi3.T, err error) {
 	var doc3 openapi3.T
 
 	bodyBytes := input.BodyBytes
-	if input.Format == "js" {
+	switch input.Format {
+	case "js":
 		bodyBytes = ExtractSpecFromJS(bodyBytes)
-	} else if input.Format == "yaml" || input.Format == "yml" {
+	case "yaml", "yml":
 		err = yaml.Unmarshal(bodyBytes, &doc)
 		if err != nil {
 			log.Error().Err(err).Msg("Error unmarshalling YAML.")

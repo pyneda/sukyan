@@ -46,7 +46,7 @@ func PrintIssue(issue Issue) {
 		sb.WriteString(lib.Colorize("CURL Command: ", lib.Blue) + issue.CURLCommand + "\n")
 	}
 
-	if issue.References != nil && len(issue.References) > 0 {
+	if len(issue.References) > 0 {
 		sb.WriteString(lib.Colorize("References: ", lib.Blue))
 		for _, ref := range issue.References {
 			sb.WriteString("\n- " + ref)

@@ -8,12 +8,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"github.com/spf13/viper"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"os"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 func EnsureCertificatesExist(certPath, keyPath, caCertPath, caKeyPath string) (*tls.Config, *tls.Config, error) {
@@ -43,7 +43,7 @@ func EnsureCertificatesExist(certPath, keyPath, caCertPath, caKeyPath string) (*
 			return nil, nil, err
 		}
 
-		caCert, err := ioutil.ReadFile(caCertPath)
+		caCert, err := os.ReadFile(caCertPath)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -97,16 +97,23 @@ func GenerateCertificates(certPath, keyPath, caCertPath, caKeyPath, organization
 
 	// pem encode
 	caPEM := new(bytes.Buffer)
-	pem.Encode(caPEM, &pem.Block{
+	err = pem.Encode(caPEM, &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: caBytes,
 	})
+	if err != nil {
+		return nil, nil, err
+	}
 
 	caPrivKeyPEM := new(bytes.Buffer)
-	pem.Encode(caPrivKeyPEM, &pem.Block{
+	err = pem.Encode(caPrivKeyPEM, &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(caPrivKey),
 	})
+
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// set up our server certificate
 	cert := &x509.Certificate{
@@ -149,22 +156,22 @@ func GenerateCertificates(certPath, keyPath, caCertPath, caKeyPath, organization
 		Bytes: x509.MarshalPKCS1PrivateKey(certPrivKey),
 	})
 
-	err = ioutil.WriteFile(certPath, certPEM.Bytes(), 0600)
+	err = os.WriteFile(certPath, certPEM.Bytes(), 0600)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = ioutil.WriteFile(keyPath, certPrivKeyPEM.Bytes(), 0600)
+	err = os.WriteFile(keyPath, certPrivKeyPEM.Bytes(), 0600)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = ioutil.WriteFile(caCertPath, caPEM.Bytes(), 0600)
+	err = os.WriteFile(caCertPath, caPEM.Bytes(), 0600)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = ioutil.WriteFile(caKeyPath, caPrivKeyPEM.Bytes(), 0600)
+	err = os.WriteFile(caKeyPath, caPrivKeyPEM.Bytes(), 0600)
 	if err != nil {
 		return nil, nil, err
 	}

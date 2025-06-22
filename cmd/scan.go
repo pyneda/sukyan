@@ -8,7 +8,6 @@ import (
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/pyneda/sukyan/pkg/scan/engine"
-	"github.com/pyneda/sukyan/pkg/scan/options"
 	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 
 	"os"
@@ -110,7 +109,7 @@ var scanCmd = &cobra.Command{
 			InsertionPoints:    insertionPoints,
 			Mode:               scan_options.GetScanMode(scanMode),
 			ExperimentalAudits: experimentalAudits,
-			AuditCategories: options.AuditCategories{
+			AuditCategories: scan_options.AuditCategories{
 				ServerSide: serverSideChecks,
 				ClientSide: clientSideChecks,
 				Passive:    passiveChecks,

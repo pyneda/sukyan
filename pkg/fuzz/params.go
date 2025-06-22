@@ -1,11 +1,12 @@
 package fuzz
 
 import (
+	"net/http"
+	"sync"
+
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
-	"net/http"
-	"sync"
 
 	"github.com/rs/zerolog/log"
 )
@@ -37,6 +38,9 @@ func (f *ParameterFuzzer) checkConfig() {
 func (f *ParameterFuzzer) GetExpectedResponses() (expectedResponses ExpectedResponses) {
 	// Get base response
 	base, err := http.Get(f.Config.URL)
+	if err != nil {
+		log.Error().Err(err).Str("url", f.Config.URL).Msg("Error making GET request to gather base response")
+	}
 	baseExpectedResponse := ExpectedResponse{
 		Response: *base,
 		Err:      err,
@@ -59,6 +63,12 @@ func (f *ParameterFuzzer) GetExpectedResponses() (expectedResponses ExpectedResp
 			Response: *notFound,
 			Err:      err,
 		}
+		if err != nil {
+			log.Error().Err(err).Str("url", notFoundURL).Msg("Error making GET request to gather 404 response")
+		} else {
+			log.Debug().Int("status", notFound.StatusCode).Str("url", notFoundURL).Msg("Gathered 404 response")
+		}
+
 		baseBody, baseSize, err := http_utils.ReadResponseBodyData(base)
 		baseExpectedResponse.Body = string(baseBody)
 		baseExpectedResponse.BodySize = baseSize

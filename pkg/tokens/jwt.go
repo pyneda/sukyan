@@ -115,7 +115,10 @@ func CrackJWT(token, wordlist string, concurrency int, useEmbedded bool) *CrackR
 		})
 	}
 
-	p.Wait()
+	err = p.Wait()
+	if err != nil {
+		log.Error().Err(err).Msg("Error occurred while waiting for jwt crack goroutines to finish")
+	}
 
 	result.Duration = time.Since(startTime)
 

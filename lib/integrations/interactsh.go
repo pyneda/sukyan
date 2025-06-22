@@ -1,13 +1,14 @@
 package integrations
 
 import (
+	"os"
+	"strings"
+	"time"
+
 	"github.com/projectdiscovery/interactsh/pkg/client"
 	"github.com/projectdiscovery/interactsh/pkg/server"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-	"os"
-	"strings"
-	"time"
 )
 
 type InteractionDomain struct {
@@ -35,7 +36,10 @@ func (i *InteractionsManager) Start() {
 	}
 	i.client.StartPolling(i.PollingInterval, func(interaction *server.Interaction) {
 		if i.GetAsnInfo {
-			i.client.TryGetAsnInfo(interaction)
+			err := i.client.TryGetAsnInfo(interaction)
+			if err != nil {
+				log.Error().Err(err).Str("interaction_id", interaction.FullId).Msg("Error getting ASN info for interaction")
+			}
 		}
 		i.OnInteractionCallback(interaction)
 	})
@@ -58,6 +62,12 @@ func (i *InteractionsManager) GetURL() InteractionDomain {
 }
 
 func (i *InteractionsManager) Stop() {
-	i.client.StopPolling()
-	i.client.Close()
+	err := i.client.StopPolling()
+	if err != nil {
+		log.Error().Err(err).Msg("Error stopping interactsh client polling")
+	}
+	err = i.client.Close()
+	if err != nil {
+		log.Error().Err(err).Msg("Error closing interactsh client")
+	}
 }

@@ -40,7 +40,7 @@ func DismissPagePopups(page *rod.Page) error {
 			text = strings.ToLower(text)
 			for _, dismissText := range dismissTexts {
 				if strings.Contains(text, dismissText) {
-					page.Activate()
+					// page.Activate()
 					element.Click(proto.InputMouseButtonLeft, 1)
 					time.Sleep(1 * time.Second)
 					break
@@ -57,8 +57,6 @@ func DismissPagePopups(page *rod.Page) error {
 	for _, sel := range additionalSelectors {
 		element, err := page.Element(sel)
 		if err == nil {
-			page.Activate()
-
 			element.Click(proto.InputMouseButtonLeft, 1)
 			time.Sleep(1 * time.Second)
 		}

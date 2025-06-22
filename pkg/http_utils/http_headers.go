@@ -3,6 +3,7 @@ package http_utils
 import (
 	"fmt"
 	"net/http"
+	"net/textproto"
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
@@ -113,7 +114,7 @@ func ClassifyHTTPResponseHeader(headerKey string) string {
 	}
 
 	// Normalize the header key to capitalize each word, similar to the canonical MIME header key format
-	canonicalHeaderKey := strings.Title(headerKey)
+	canonicalHeaderKey := textproto.CanonicalMIMEHeaderKey(headerKey)
 
 	for category, headers := range headerCategories {
 		if headers[canonicalHeaderKey] {

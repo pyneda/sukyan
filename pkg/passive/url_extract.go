@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 	"mvdan.cc/xurls/v2"
 )
@@ -59,9 +60,10 @@ func ExtractURLsFromHeaders(headers map[string][]string, extractedFromURL string
 					log.Error().Err(err).Str("part", "headers").Str("url", rawURL).Msg("Could not analyze URL")
 					continue
 				}
-				if urlType == "web" {
+				switch urlType {
+				case "web":
 					webURLs = append(webURLs, absoluteURL)
-				} else if urlType == "non-web" {
+				case "non-web":
 					nonWebURLs = append(nonWebURLs, absoluteURL)
 				}
 			}
@@ -89,9 +91,10 @@ func ExtractAndAnalyzeURLS(response string, extractedFromURL string) ExtractedUR
 			log.Error().Err(err).Str("part", "response").Str("url", rawURL).Msg("Could not analyze URL")
 			continue
 		}
-		if urlType == "web" {
+		switch urlType {
+		case "web":
 			webURLs = append(webURLs, absoluteURL)
-		} else if urlType == "non-web" {
+		case "non-web":
 			nonWebURLs = append(nonWebURLs, absoluteURL)
 		}
 	}
@@ -145,7 +148,7 @@ func mergeURLs(arr1, arr2 []string) []string {
 }
 
 func analyzeURL(rawURL string, base *url.URL) (string, string, error) {
-	if isRelative(rawURL) {
+	if lib.IsRelativeURL(rawURL) {
 		absoluteURL, err := resolveRelative(rawURL, base)
 		if err != nil {
 			return "", "", err
@@ -166,26 +169,6 @@ func analyzeURL(rawURL string, base *url.URL) (string, string, error) {
 	} else {
 		return "", "", fmt.Errorf("could not determine URL type")
 	}
-}
-
-func resolveURL(baseURL, relativeURL string) (string, error) {
-	base, err := url.Parse(baseURL)
-	if err != nil {
-		return "", err
-	}
-
-	rel, err := url.Parse(relativeURL)
-	if err != nil {
-		return "", err
-	}
-
-	resolvedURL := base.ResolveReference(rel)
-	return resolvedURL.String(), nil
-}
-
-// Function to check if URL is relative
-func isRelative(url string) bool {
-	return strings.HasPrefix(url, "./") || strings.HasPrefix(url, "../") || (!strings.HasPrefix(url, "/") && !strings.Contains(url, "://") && !strings.HasPrefix(url, "mailto:"))
 }
 
 // Function to resolve relative URLs
@@ -220,25 +203,4 @@ func resolveRelative(rawURL string, base *url.URL) (string, error) {
 		}
 		return base.Scheme + "://" + base.Host + dir + rawURL, nil
 	}
-}
-
-// Function to get directory path from a URL
-func getDirectoryPath(extractedFromURL string) (string, error) {
-	dir, _ := path.Split(extractedFromURL)
-	if strings.HasSuffix(extractedFromURL, "/") {
-		dir = extractedFromURL
-	} else if path.Ext(extractedFromURL) != "" {
-		dir, _ = path.Split(extractedFromURL)
-	} else if strings.Contains(path.Base(extractedFromURL), ".") {
-		dir, _ = path.Split(extractedFromURL)
-	} else {
-		dir = extractedFromURL
-	}
-	dir = strings.TrimSuffix(dir, "/")
-	return dir, nil
-}
-
-// Function to check if URL is absolute
-func isAbsolute(url string) bool {
-	return strings.Contains(url, "://")
 }

@@ -38,9 +38,7 @@ func ZeroConsoleAndFileLog() zerolog.Logger {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	sysType := runtime.GOOS
 
-	var logFile *os.File
-	var err error
-	logFile, err = os.OpenFile(filename, os.O_WRONLY|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile(filename, os.O_WRONLY|os.O_APPEND, 0666)
 
 	if !LocalFileExists(filename) {
 		logFile, err = os.Create(filename)
@@ -58,9 +56,12 @@ func ZeroConsoleAndFileLog() zerolog.Logger {
 	var writers []io.Writer
 
 	if viper.GetString("logging.console.format") == "pretty" {
-		var consoleLog zerolog.ConsoleWriter = zerolog.ConsoleWriter{Out: os.Stdout, NoColor: false, TimeFormat: LogTimeFormat}
+		var consoleLog zerolog.ConsoleWriter
 		if sysType == "windows" {
 			consoleLog = zerolog.ConsoleWriter{Out: colorable.NewColorableStdout(), TimeFormat: LogTimeFormat}
+		} else {
+			consoleLog = zerolog.ConsoleWriter{Out: os.Stdout, NoColor: false, TimeFormat: LogTimeFormat}
+
 		}
 		writers = append(writers, consoleLog)
 	} else {

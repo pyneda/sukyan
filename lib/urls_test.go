@@ -480,3 +480,45 @@ func TestNormalizeURLPath(t *testing.T) {
 		})
 	}
 }
+
+func TestIsRelativeURL(t *testing.T) {
+	relativeURLs := []string{
+		"./script.js",
+		"../styles/main.css",
+		"../../images/logo.png",
+		"index.html",
+		"about/",
+		"../",
+		"../..",
+	}
+
+	for _, url := range relativeURLs {
+		if !IsRelativeURL(url) {
+			t.Errorf("Expected '%s' to be a relative URL, but it is not", url)
+		}
+	}
+
+	absoluteURLs := []string{
+		"/home",
+		"http://example.com",
+		"https://example.com",
+	}
+
+	for _, url := range absoluteURLs {
+		if IsRelativeURL(url) {
+			t.Errorf("Expected '%s' to be an absolute URL, but it is considered as relative", url)
+		}
+	}
+
+	nonWebURLs := []string{
+		"ftp://example.com",
+		"mailto:user@example.com",
+		"file:///path/to/file",
+	}
+
+	for _, url := range nonWebURLs {
+		if IsRelativeURL(url) {
+			t.Errorf("Expected '%s' to be a non-web URL, but it is considered as relative", url)
+		}
+	}
+}

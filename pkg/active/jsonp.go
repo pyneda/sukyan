@@ -26,15 +26,15 @@ var jsonpCallbackParameters = []string{
 }
 
 func getCallbacksForMode(mode scan_options.ScanMode, hasJsonParam bool) []string {
-	switch {
-	case mode == scan_options.ScanModeFuzz:
+	switch mode {
+	case scan_options.ScanModeFuzz:
 		return jsonpCallbackParameters
-	case mode == scan_options.ScanModeSmart:
+	case scan_options.ScanModeSmart:
 		if hasJsonParam {
 			return jsonpCallbackParameters
 		}
 		return jsonpCallbackParameters[:5]
-	case mode == scan_options.ScanModeFast:
+	case scan_options.ScanModeFast:
 		if hasJsonParam {
 			return jsonpCallbackParameters
 		}

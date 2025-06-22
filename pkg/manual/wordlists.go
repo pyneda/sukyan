@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -44,7 +43,7 @@ func NewFilesystemWordlistStorage() *FilesystemWordlistStorage {
 }
 
 func (s *FilesystemWordlistStorage) GetWordlists() ([]Wordlist, error) {
-	files, err := ioutil.ReadDir(s.basePath)
+	files, err := os.ReadDir(s.basePath)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +60,11 @@ func (s *FilesystemWordlistStorage) GetWordlists() ([]Wordlist, error) {
 			continue
 		}
 
-		sizeBytes := file.Size()
+		fileInfo, err := file.Info()
+		if err != nil {
+			continue
+		}
+		sizeBytes := fileInfo.Size()
 		hashData := fmt.Sprintf("%s%d", file.Name(), sizeBytes)
 		hash := sha256.Sum256([]byte(hashData))
 		hashStr := hex.EncodeToString(hash[:])

@@ -1,10 +1,11 @@
 package http_utils
 
 import (
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -100,7 +101,7 @@ func (h *HostRateLimiter) ProcessQueue(client RequestExecutor) {
 					continue
 				}
 
-				responseTime := time.Now().Sub(sentTime).Seconds()
+				responseTime := time.Since(sentTime).Seconds()
 				h.RecordResponseTime(responseTime)
 
 				// Send back the response along with metadata

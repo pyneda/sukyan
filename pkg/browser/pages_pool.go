@@ -2,7 +2,6 @@ package browser
 
 import (
 	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -14,7 +13,6 @@ type PagePoolManagerConfig struct {
 }
 
 type PagePoolManager struct {
-	launcher             *launcher.Launcher
 	browser              *rod.Browser
 	pool                 rod.Pool[rod.Page]
 	config               PagePoolManagerConfig

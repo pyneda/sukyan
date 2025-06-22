@@ -3,14 +3,17 @@ package lib
 import (
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewActionLogger(t *testing.T) {
 	logger := NewActionLogger()
 	if logger == nil {
 		t.Error("NewActionLogger() returned nil")
+		return
 	}
-	if len(logger.entries) != 0 {
+	if len(logger.GetLogs()) != 0 {
 		t.Error("New logger should have no entries")
 	}
 }
@@ -53,7 +56,8 @@ func TestLog(t *testing.T) {
 
 func TestGetLogs(t *testing.T) {
 	logger := NewActionLogger()
-	logger.Log(INFO, "Test message")
+	err := logger.Log(INFO, "Test message")
+	assert.NoError(t, err)
 
 	logs := logger.GetLogs()
 	if len(logs) != 1 {
@@ -66,7 +70,8 @@ func TestGetLogs(t *testing.T) {
 
 func TestClearLogs(t *testing.T) {
 	logger := NewActionLogger()
-	logger.Log(INFO, "Test message")
+	err := logger.Log(INFO, "Test message")
+	assert.NoError(t, err)
 	logger.ClearLogs()
 
 	logs := logger.GetLogs()

@@ -2,17 +2,19 @@ package proxy
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
-	"net/http"
 
 	"crypto/tls"
 	"crypto/x509"
+
 	"github.com/elazarl/goproxy"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-	"io/ioutil"
 )
 
 // Proxy represents configuration for a proxy
@@ -51,12 +53,12 @@ func (p *Proxy) SetCA() error {
 	}
 
 	// Load CA certificate and key
-	caCert, err := ioutil.ReadFile(caCertPath)
+	caCert, err := os.ReadFile(caCertPath)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to read CA certificate")
 	}
 
-	caKey, err := ioutil.ReadFile(caKeyPath)
+	caKey, err := os.ReadFile(caKeyPath)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to read CA key")
 	}
@@ -79,7 +81,7 @@ func (p *Proxy) Run() {
 		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 			if r.URL.Path == "/ca" {
 				caCertPath := viper.GetString("server.caCert.file")
-				caCert, err := ioutil.ReadFile(caCertPath)
+				caCert, err := os.ReadFile(caCertPath)
 				if err != nil {
 					log.Error().Err(err).Msg("Could not read CA certificate")
 					return nil, goproxy.NewResponse(r, "application/octet-stream", http.StatusInternalServerError, "Internal Server Error")

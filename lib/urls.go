@@ -14,7 +14,7 @@ import (
 func GetParametersToTest(path string, params []string, testAllParams bool) (parametersToTest []string) {
 	parametersToTest = append(parametersToTest, params...)
 
-	if testAllParams == false && len(params) > 0 {
+	if !testAllParams && len(params) > 0 {
 		return parametersToTest
 	}
 	parsedURL, err := url.ParseRequestURI(path)
@@ -27,7 +27,7 @@ func GetParametersToTest(path string, params []string, testAllParams bool) (para
 	}
 	for key := range query {
 
-		if Contains(params, key) == true {
+		if Contains(params, key) {
 			continue
 		} else if testAllParams || len(params) == 0 {
 			// If provided by params[], we ignore as already added
@@ -246,4 +246,29 @@ func JoinURLPath(baseURL, urlPath string) string {
 	}
 	u.Path = path.Join(u.Path, urlPath)
 	return u.String()
+}
+
+func ResolveURL(baseURL, relativeURL string) (string, error) {
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+
+	rel, err := url.Parse(relativeURL)
+	if err != nil {
+		return "", err
+	}
+
+	resolvedURL := base.ResolveReference(rel)
+	return resolvedURL.String(), nil
+}
+
+// IsRelativeURL Function to check if URL is relative
+func IsRelativeURL(url string) bool {
+	return strings.HasPrefix(url, "./") || strings.HasPrefix(url, "../") || (!strings.HasPrefix(url, "/") && !strings.Contains(url, "://") && !strings.HasPrefix(url, "mailto:"))
+}
+
+// IsAbsoluteURL Function to check if URL is absolute
+func IsAbsoluteURL(url string) bool {
+	return strings.Contains(url, "://")
 }

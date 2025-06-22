@@ -9,10 +9,3 @@ func compilePatterns(patterns ...string) []*regexp.Regexp {
 	}
 	return reSlice
 }
-
-func pluralS(count int) string {
-	if count != 1 {
-		return "s"
-	}
-	return ""
-}

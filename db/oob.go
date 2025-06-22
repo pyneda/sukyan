@@ -225,7 +225,12 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 			issue.Confidence = 80
 			issue.Details = details
 		}
-		d.CreateIssue(*issue)
+		createdIssue, err := d.CreateIssue(*issue)
+		if err != nil {
+			log.Error().Err(err).Str("issue_code", string(oobTest.Code)).Str("issue_title", issue.Title).Msg("Failed to create issue from OOB test")
+		} else {
+			log.Info().Uint("issue_id", createdIssue.ID).Str("issue_code", string(oobTest.Code)).Str("issue_title", issue.Title).Msg("Created issue from OOB test")
+		}
 	}
 	return oobTest, result.Error
 }
@@ -256,7 +261,7 @@ func (d *DatabaseConnection) ListInteractions(filter InteractionsFilter) (items 
 	if filter.WorkspaceID > 0 {
 		filterQuery["workspace_id"] = filter.WorkspaceID
 	}
-	if filterQuery != nil && len(filterQuery) > 0 {
+	if len(filterQuery) > 0 {
 		err = d.db.Scopes(Paginate(&filter.Pagination)).Where(filterQuery).Order("created_at desc").Find(&items).Error
 		d.db.Model(&OOBInteraction{}).Where(filterQuery).Count(&count)
 

@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-	"time"
 	"unicode"
 )
 
@@ -104,7 +103,7 @@ func StringsSliceToText(items []string) string {
 // program if it receives an interrupt from the OS. We then handle this by calling
 // our clean up procedure and exiting the program.
 func SetupCloseHandler() {
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
@@ -115,7 +114,6 @@ func SetupCloseHandler() {
 
 // GenerateRandInt generates a random integer between min and max
 func GenerateRandInt(min, max int) int {
-	rand.Seed(time.Now().UnixNano())
 	return rand.Intn(max-min+1) + min
 }
 

@@ -156,15 +156,15 @@ func (s *ScanEngine) cleanupWSPassiveDeduplicationManager(workspaceID uint) {
 }
 
 // Get passive deduplication statistics for a workspace
-func (s *ScanEngine) getWSPassiveDeduplicationStats(workspaceID uint) map[string]interface{} {
-	s.wsPassiveDeduplicationMu.RLock()
-	defer s.wsPassiveDeduplicationMu.RUnlock()
+// func (s *ScanEngine) getWSPassiveDeduplicationStats(workspaceID uint) map[string]interface{} {
+// 	s.wsPassiveDeduplicationMu.RLock()
+// 	defer s.wsPassiveDeduplicationMu.RUnlock()
 
-	if manager, exists := s.wsPassiveDeduplicationManagers[workspaceID]; exists {
-		return manager.GetStatistics()
-	}
-	return nil
-}
+// 	if manager, exists := s.wsPassiveDeduplicationManagers[workspaceID]; exists {
+// 		return manager.GetStatistics()
+// 	}
+// 	return nil
+// }
 
 func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 	s.passiveScanPool.Go(func() {
@@ -452,6 +452,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 			scanLog.Info().Interface("websocket_dedup_stats", stats).Msg("WebSocket deduplication statistics")
 		}
 		s.cleanupWSDeduplicationManager(task.ID)
+		s.cleanupWSPassiveDeduplicationManager(task.WorkspaceID)
 
 	} else {
 		go func() {
@@ -465,6 +466,8 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 				scanLog.Info().Interface("websocket_dedup_stats", stats).Msg("WebSocket deduplication statistics")
 			}
 			s.cleanupWSDeduplicationManager(task.ID)
+			s.cleanupWSPassiveDeduplicationManager(task.WorkspaceID)
+
 		}()
 	}
 

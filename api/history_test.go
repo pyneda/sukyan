@@ -136,11 +136,13 @@ func TestFindHistoryPost(t *testing.T) {
 
 			if tt.expectedError != "" {
 				var errorResp map[string]interface{}
-				json.NewDecoder(resp.Body).Decode(&errorResp)
+				err := json.NewDecoder(resp.Body).Decode(&errorResp)
+				assert.Nil(t, err)
 				assert.Equal(t, tt.expectedError, errorResp["error"])
 			} else {
 				var successResp map[string]interface{}
-				json.NewDecoder(resp.Body).Decode(&successResp)
+				err := json.NewDecoder(resp.Body).Decode(&successResp)
+				assert.Nil(t, err)
 				assert.Contains(t, successResp, "data")
 				assert.Contains(t, successResp, "count")
 			}

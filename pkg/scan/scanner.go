@@ -639,14 +639,15 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 		}
 		return false, "", 0, "", nil
 	case *generation.ResponseCheckDetectionMethod:
-		if m.Check == generation.DatabaseErrorCondition {
+		switch m.Check {
+		case generation.DatabaseErrorCondition:
 			result := passive.SearchDatabaseErrors(result.ResponseData.RawString)
 			if result != nil {
 				log.Info().Interface("database_error", result).Msg("Matched DatabaseErrorCondition")
 				description := fmt.Sprintf("Database error was returned in response:\n - Database: %s\n - Error: %s", result.DatabaseName, result.MatchStr)
 				return true, description, m.Confidence, m.IssueOverride, nil
 			}
-		} else if m.Check == generation.XPathErrorCondition {
+		case generation.XPathErrorCondition:
 			result := passive.SearchXPathErrors(result.ResponseData.RawString)
 			if result != "" {
 				log.Info().Str("xpath_error", result).Msg("Matched XPathErrorCondition")

@@ -88,13 +88,14 @@ func (s SwaggerRequest) SetParametersFromSchema(param *openapi3.ParameterRef, lo
 					}
 				}
 			} else if schema.Value.Enum != nil {
-				if location == "path" {
+				switch location {
+				case "path":
 					value := schema.Value.Enum[rand.Intn(len(schema.Value.Enum))]
 					s.URL.Path = strings.ReplaceAll(s.URL.Path, "{"+param.Value.Name+"}", fmt.Sprint(value))
-				} else if location == "query" {
+				case "query":
 					value := schema.Value.Enum[rand.Intn(len(schema.Value.Enum))]
 					s.Query.Add(param.Value.Name, fmt.Sprint(value))
-				} else if location == "body" {
+				case "body":
 					value := schema.Value.Enum[rand.Intn(len(schema.Value.Enum))]
 					s.Body[param.Value.Name] = value
 				}

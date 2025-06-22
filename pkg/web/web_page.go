@@ -1,12 +1,12 @@
 package web
 
 import (
-	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/web/cookies"
 	"net/url"
 
+	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/web/cookies"
+
 	"github.com/go-rod/rod/lib/proto"
-	"github.com/rs/zerolog/log"
 )
 
 type WebPage struct {
@@ -19,9 +19,6 @@ type WebPage struct {
 	MimeType        string
 	Body            string
 	Anchors         []string
-	Forms           []Form
-	Buttons         []Button
-	Iframes         []Iframe
 	Cookies         []cookies.Cookie
 	Issues          []db.Issue
 	SecurityState   string
@@ -37,11 +34,6 @@ type WebPage struct {
 	// usesUnsafeJsSources    bool
 	// hasFileUpload          bool
 	// outputsConsoleMessages bool
-}
-
-// LogPageData logs web page data
-func (wp *WebPage) LogPageData() {
-	log.Info().Int("status_code", wp.StatusCode).Int("forms_count", len(wp.Forms)).Int("anchors_count", len(wp.Anchors)).Str("url", wp.URL).Str("response_url", wp.ResponseURL).Str("mime-type", wp.MimeType).Str("security_state", wp.SecurityState).Msg("Page details")
 }
 
 // HasParameters checks if a web page has parameters

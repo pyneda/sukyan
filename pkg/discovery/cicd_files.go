@@ -48,13 +48,14 @@ func IsCICDBuildFileValidationFunc(history *db.History) (bool, string, int) {
 		details := fmt.Sprintf("Exposed CI/CD or infrastructure configuration file detected: %s\n", history.URL)
 		confidence := 30
 
-		if history.ResponseContentType == "text/yaml" {
+		switch history.ResponseContentType {
+		case "text/yaml":
 			confidence += 50
 			details += "- Content-Type indicates configuration format\n"
-		} else if history.ResponseContentType == "application/json" {
+		case "application/json":
 			confidence += 30
 			details += "- Content-Type indicates configuration format\n"
-		} else if history.ResponseContentType == "text/plain" {
+		case "text/plain":
 			confidence += 20
 			details += "- Content-Type indicates configuration format\n"
 		}

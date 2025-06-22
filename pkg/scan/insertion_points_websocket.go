@@ -478,9 +478,10 @@ func modifyJSONObject(obj map[string]interface{}, point InsertionPoint, payload 
 						newValue = intVal
 					}
 				case bool:
-					if payload == "true" {
+					switch payload {
+					case "true":
 						newValue = true
-					} else if payload == "false" {
+					case "false":
 						newValue = false
 					}
 				}
@@ -639,9 +640,10 @@ func modifyJSONArray(arr []interface{}, point InsertionPoint, payload string) ([
 							newValue = intVal
 						}
 					case bool:
-						if payload == "true" {
+						switch payload {
+						case "true":
 							newValue = true
-						} else if payload == "false" {
+						case "false":
 							newValue = false
 						}
 					}

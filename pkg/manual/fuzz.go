@@ -2,6 +2,7 @@ package manual
 
 import (
 	"bytes"
+	"io"
 	"time"
 
 	"github.com/projectdiscovery/rawhttp"
@@ -10,7 +11,6 @@ import (
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/sourcegraph/conc/pool"
 
-	"io/ioutil"
 	"net/http"
 	"net/url"
 
@@ -177,7 +177,7 @@ func Fuzz(input RequestFuzzOptions, taskID uint) (int, error) {
 				Method: parsedRequest.Method,
 				URL:    reqUrl,
 				Header: parsedRequest.Headers,
-				Body:   ioutil.NopCloser(bytes.NewReader([]byte(parsedRequest.Body))),
+				Body:   io.NopCloser(bytes.NewReader([]byte(parsedRequest.Body))),
 			}
 
 			history, err := http_utils.ReadHttpResponseAndCreateHistory(response, historyOptions)

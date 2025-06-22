@@ -101,7 +101,7 @@ type MessageBuilder struct {
 // shouldLaunch checks if the generator should be launched according to the launch conditions
 func (s *WebSocketScanner) shouldLaunch(conn *db.WebSocketConnection, generator *generation.PayloadGenerator, insertionPoint InsertionPoint, options WebSocketScanOptions) bool {
 
-	if generator.Launch.Conditions == nil || len(generator.Launch.Conditions) == 0 {
+	if len(generator.Launch.Conditions) == 0 {
 		return true
 	}
 
@@ -1055,7 +1055,10 @@ func (s *WebSocketScanner) sendPayloadAndMeasureTiming(result WebSocketScannerRe
 	}
 
 	// Wait for first response or timeout
-	client.SetReadDeadline(time.Now().Add(10 * time.Second))
+	err = client.SetReadDeadline(time.Now().Add(10 * time.Second))
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to set read deadline for WebSocket client")
+	}
 	_, _, err = client.ReadMessage()
 	responseTime := time.Now()
 	duration := responseTime.Sub(startTime)

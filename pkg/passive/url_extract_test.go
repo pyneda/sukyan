@@ -2,7 +2,6 @@ package passive
 
 import (
 	"net/url"
-	"reflect"
 	"sort"
 	"testing"
 )
@@ -452,48 +451,6 @@ func compareSlices(got, want []string) bool {
 	return true
 }
 
-func TestIsRelativeURL(t *testing.T) {
-	relativeURLs := []string{
-		"./script.js",
-		"../styles/main.css",
-		"../../images/logo.png",
-		"index.html",
-		"about/",
-		"../",
-		"../..",
-	}
-
-	for _, url := range relativeURLs {
-		if !isRelative(url) {
-			t.Errorf("Expected '%s' to be a relative URL, but it is not", url)
-		}
-	}
-
-	absoluteURLs := []string{
-		"/home",
-		"http://example.com",
-		"https://example.com",
-	}
-
-	for _, url := range absoluteURLs {
-		if isRelative(url) {
-			t.Errorf("Expected '%s' to be an absolute URL, but it is considered as relative", url)
-		}
-	}
-
-	nonWebURLs := []string{
-		"ftp://example.com",
-		"mailto:user@example.com",
-		"file:///path/to/file",
-	}
-
-	for _, url := range nonWebURLs {
-		if isRelative(url) {
-			t.Errorf("Expected '%s' to be a non-web URL, but it is considered as relative", url)
-		}
-	}
-}
-
 func TestResolveRelative(t *testing.T) {
 	base, _ := url.Parse("http://example.com/sub/path")
 
@@ -534,7 +491,7 @@ func TestResolveRelative(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			got, err := resolveRelative(tc.rawURL, tc.base)
 
-			if !reflect.DeepEqual(err, tc.err) {
+			if err != tc.err {
 				t.Fatalf("Expected error to be %v, but got %v", tc.err, err)
 			}
 

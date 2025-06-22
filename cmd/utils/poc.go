@@ -1,4 +1,4 @@
-package cmd
+package utils
 
 import (
 	"bytes"
@@ -101,7 +101,7 @@ var pocCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(pocCmd)
+	UtilsCmd.AddCommand(pocCmd)
 
 	pocCmd.Flags().UintVarP(&filterWebSocketConnectionID, "connection-id", "c", 0, "WebSocket connection ID")
 	pocCmd.Flags().StringVarP(&pocType, "type", "t", "", fmt.Sprintf("Type (available: %v)", getAvailablePocTypes()))

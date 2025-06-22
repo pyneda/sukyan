@@ -6,6 +6,7 @@ import (
 	"github.com/pyneda/sukyan/cmd/describe"
 	"github.com/pyneda/sukyan/cmd/get"
 	"github.com/pyneda/sukyan/cmd/stats"
+	"github.com/pyneda/sukyan/cmd/utils"
 )
 
 func init() {
@@ -14,4 +15,6 @@ func init() {
 	rootCmd.AddCommand(stats.StatsCmd)
 	rootCmd.AddCommand(delete.DeleteCmd)
 	rootCmd.AddCommand(create.CreateCmd)
+	rootCmd.AddCommand(utils.UtilsCmd)
+
 }

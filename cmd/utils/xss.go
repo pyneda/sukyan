@@ -1,4 +1,4 @@
-package cmd
+package utils
 
 import (
 	//_ "embed"
@@ -16,6 +16,7 @@ var wordlist string
 var targets []string
 var testParams []string
 var urlEncode bool
+var urlFile string
 
 // xssCmd represents the xss command
 var xssCmd = &cobra.Command{
@@ -65,7 +66,7 @@ var xssCmd = &cobra.Command{
 }
 
 func init() {
-	utilsCmd.AddCommand(xssCmd)
+	UtilsCmd.AddCommand(xssCmd)
 	xssCmd.Flags().BoolP("screenshot", "s", false, "Screenshot when an XSS is validated")
 	xssCmd.Flags().BoolVarP(&urlEncode, "encode", "e", false, "URL encode the whole path (including the payload)")
 	xssCmd.Flags().StringVar(&wordlist, "wordlist", "default.txt", "XSS payloads wordlist")

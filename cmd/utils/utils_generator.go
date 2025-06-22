@@ -1,4 +1,4 @@
-package cmd
+package utils
 
 import (
 	"fmt"
@@ -36,5 +36,5 @@ var generatorCmd = &cobra.Command{
 }
 
 func init() {
-	utilsCmd.AddCommand(generatorCmd)
+	UtilsCmd.AddCommand(generatorCmd)
 }

@@ -1,4 +1,4 @@
-package cmd
+package utils
 
 import (
 	"fmt"
@@ -24,5 +24,5 @@ var getDatabaseSizeCmd = &cobra.Command{
 }
 
 func init() {
-	utilsCmd.AddCommand(getDatabaseSizeCmd)
+	UtilsCmd.AddCommand(getDatabaseSizeCmd)
 }

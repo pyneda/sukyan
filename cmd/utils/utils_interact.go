@@ -1,4 +1,4 @@
-package cmd
+package utils
 
 import (
 	"fmt"
@@ -41,5 +41,5 @@ var interactCmd = &cobra.Command{
 }
 
 func init() {
-	utilsCmd.AddCommand(interactCmd)
+	UtilsCmd.AddCommand(interactCmd)
 }

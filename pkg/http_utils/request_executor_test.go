@@ -81,6 +81,11 @@ func TestExecuteRequest(t *testing.T) {
 	})
 
 	t.Run("request with custom options", func(t *testing.T) {
+		// Create a task for the test
+		task, err := db.Connection().NewTask(workspace2.ID, nil, "Test Task", "running", db.TaskTypeScan)
+		assert.NoError(t, err)
+		assert.NotNil(t, task)
+
 		req, err := http.NewRequest("POST", server.URL+"/test", bytes.NewReader([]byte("test body")))
 		assert.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
@@ -94,7 +99,7 @@ func TestExecuteRequest(t *testing.T) {
 			HistoryCreationOptions: HistoryCreationOptions{
 				Source:              "custom_test",
 				WorkspaceID:         workspace2.ID,
-				TaskID:              3,
+				TaskID:              task.ID,
 				CreateNewBodyStream: true,
 			},
 		})
@@ -106,7 +111,7 @@ func TestExecuteRequest(t *testing.T) {
 		assert.Equal(t, "POST", result.History.Method)
 		assert.Equal(t, "custom_test", result.History.Source)
 		assert.Equal(t, workspace2.ID, *result.History.WorkspaceID)
-		assert.Equal(t, uint(3), *result.History.TaskID)
+		assert.Equal(t, task.ID, *result.History.TaskID)
 	})
 
 	t.Run("request without creating history", func(t *testing.T) {

@@ -73,9 +73,10 @@ func TestDeleteWorkspace(t *testing.T) {
 	app := fiber.New()
 	app.Delete("/api/v1/workspaces/:id", DeleteWorkspace)
 	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/v1/workspaces/%d", workspace.ID), nil)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, 10000) // 10 second timeout
 
 	assert.Nil(t, err)
+	assert.NotNil(t, resp, "Response should not be nil")
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 

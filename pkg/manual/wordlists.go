@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/pyneda/sukyan/lib"
 	"github.com/spf13/viper"
 )
@@ -43,6 +45,11 @@ func NewFilesystemWordlistStorage() *FilesystemWordlistStorage {
 }
 
 func (s *FilesystemWordlistStorage) GetWordlists() ([]Wordlist, error) {
+	if _, err := os.Stat(s.basePath); os.IsNotExist(err) {
+		log.Warn().Str("path", s.basePath).Msg("Wordlist directory does not exist")
+		return []Wordlist{}, nil
+	}
+
 	files, err := os.ReadDir(s.basePath)
 	if err != nil {
 		return nil, err

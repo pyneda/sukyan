@@ -17,51 +17,54 @@ function processSrcset(srcset) {
         .filter(Boolean);
 }
 function getFormUrls() {
-    var formUrls = [];
-    var forms = document.querySelectorAll('form');
-    
-    for (var form of forms) {
-        var action = form.action || window.location.href;
-        var params = new URLSearchParams();
-        
-        for (var input of form.querySelectorAll('input, select, textarea')) {
-            var name = input.name;
-            var value = '';
-            
-            if (!name) continue;
-            
-            if (input.type === 'checkbox' || input.type === 'radio') {
-                if (input.checked) {
-                    value = input.value || 'on';
-                } else if (input.defaultChecked) {
-                    value = input.value || 'on';
-                } else {
-                    continue;
-                }
-            } else if (input.type === 'submit' || input.type === 'button') {
-                continue;
-            } else if (input.tagName === 'SELECT') {
-                var selected = input.querySelector('option[selected]') || input.options[0];
-                value = selected ? selected.value : '';
-            } else {
-                value = input.value || input.defaultValue || input.placeholder || '';
-            }
-            
-            params.append(name, value);
-        }
-        
-        var baseUrl = absolutePath(action);
-        var queryString = params.toString();
-        
-        if (queryString) {
-            var separator = baseUrl.includes('?') ? '&' : '?';
-            formUrls.push(baseUrl + separator + queryString);
-        } else {
-            formUrls.push(baseUrl);
-        }
-    }
-    
-    return formUrls;
+   var formUrls = [];
+   var forms = document.querySelectorAll('form');
+   
+   for (var form of forms) {
+       var action = form.action || window.location.href;
+       var params = new URLSearchParams();
+       
+       for (var input of form.querySelectorAll('input, select, textarea')) {
+           var name = input.name;
+           var value = '';
+           
+           if (!name) continue;
+           
+           if (input.type === 'checkbox' || input.type === 'radio') {
+               if (input.checked) {
+                   value = input.value || 'on';
+               } else if (input.defaultChecked) {
+                   value = input.value || 'on';
+               } else {
+                   continue;
+               }
+           } else if (input.type === 'submit' || input.type === 'button') {
+               continue;
+           } else if (input.tagName === 'SELECT') {
+               var selected = input.querySelector('option[selected]') || input.options[0];
+               value = selected ? selected.value : '';
+           } else {
+               value = input.value || input.defaultValue || input.placeholder || '';
+           }
+           
+           params.append(name, value);
+       }
+       
+       var baseUrl = absolutePath(action);
+       var existingUrl = new URL(baseUrl);
+       var existingParams = new URLSearchParams(existingUrl.search);
+       
+       for (var [key, value] of params) {
+           existingParams.set(key, value);
+       }
+       
+       var finalUrl = existingUrl.origin + existingUrl.pathname + 
+           (existingParams.toString() ? '?' + existingParams.toString() : '');
+       
+       formUrls.push(finalUrl);
+   }
+   
+   return formUrls;
 }
 function getLinks() {
     var array = [];

@@ -570,7 +570,7 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 					if http_utils.IsTimeoutError(err) {
 						// NOTE: If original times out, it might indicate network issues, so we continue but note it
 						sb.WriteString(fmt.Sprintf("Attempt %d: Original request timed out after %s (timeout: %s)\n", i, originalResult.duration, revalidationTimeout))
-						finalConfidence -= confidenceDecrement / 2
+						finalConfidence -= confidenceDecrement
 					} else {
 						sb.WriteString(fmt.Sprintf("Attempt %d: Error making request for original history item: %s\n", i, err.Error()))
 					}

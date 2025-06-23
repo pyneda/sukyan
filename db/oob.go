@@ -103,7 +103,7 @@ func (d *DatabaseConnection) CreateOOBTest(item OOBTest) (OOBTest, error) {
 type OOBInteraction struct {
 	BaseModel
 	OOBTestID *uint   `json:"oob_test_id"`
-	OOBTest   OOBTest `gorm:"foreignKey:OOBTestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
+	OOBTest   OOBTest `gorm:"foreignKey:OOBTestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"oob_test"`
 
 	Protocol      string    `json:"protocol"`
 	FullID        string    `json:"full_id"`
@@ -236,11 +236,12 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 }
 
 type InteractionsFilter struct {
-	QTypes      []string
-	Protocols   []string
-	FullIDs     []string
-	Pagination  Pagination
-	WorkspaceID uint
+	QTypes          []string
+	Protocols       []string
+	FullIDs         []string
+	RemoteAddresses []string
+	Pagination      Pagination
+	WorkspaceID     uint
 }
 
 // ListInteractions Lists interactions
@@ -248,7 +249,7 @@ func (d *DatabaseConnection) ListInteractions(filter InteractionsFilter) (items 
 	filterQuery := make(map[string]interface{})
 
 	if len(filter.QTypes) > 0 {
-		filterQuery["qtype"] = filter.QTypes
+		filterQuery["q_type"] = filter.QTypes
 	}
 	if len(filter.Protocols) > 0 {
 		filterQuery["protocol"] = filter.Protocols
@@ -256,6 +257,10 @@ func (d *DatabaseConnection) ListInteractions(filter InteractionsFilter) (items 
 
 	if len(filter.FullIDs) > 0 {
 		filterQuery["full_id"] = filter.FullIDs
+	}
+
+	if len(filter.RemoteAddresses) > 0 {
+		filterQuery["remote_address"] = filter.RemoteAddresses
 	}
 
 	if filter.WorkspaceID > 0 {
@@ -272,6 +277,9 @@ func (d *DatabaseConnection) ListInteractions(filter InteractionsFilter) (items 
 
 	log.Debug().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Msg("Getting interaction items")
 
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to list interactions")
+	}
 	return items, count, err
 }
 

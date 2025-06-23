@@ -844,7 +844,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Get interactions with optional pagination and protocols filter",
+                "description": "Get interactions with optional pagination and filtering options",
                 "produces": [
                     "application/json"
                 ],
@@ -878,6 +878,24 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Comma-separated list of protocols to filter by",
                         "name": "protocols",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of query types to filter by",
+                        "name": "qtypes",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of full IDs to filter by",
+                        "name": "full_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of remote addresses to filter by",
+                        "name": "remote_addresses",
                         "in": "query"
                     }
                 ],
@@ -3690,11 +3708,11 @@ const docTemplate = `{
                 "issue_id": {
                     "type": "integer"
                 },
+                "oob_test": {
+                    "$ref": "#/definitions/db.OOBTest"
+                },
                 "oob_test_id": {
                     "type": "integer"
-                },
-                "oobtest": {
-                    "$ref": "#/definitions/db.OOBTest"
                 },
                 "protocol": {
                     "type": "string"

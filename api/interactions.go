@@ -14,13 +14,16 @@ import (
 
 // FindInteractions gets interactions with pagination and filtering options
 // @Summary Get interactions
-// @Description Get interactions with optional pagination and protocols filter
+// @Description Get interactions with optional pagination and filtering options
 // @Tags Interactions
 // @Produce json
 // @Param workspace query int true "Workspace ID"
 // @Param page_size query integer false "Size of each page" default(50)
 // @Param page query integer false "Page number" default(1)
 // @Param protocols query string false "Comma-separated list of protocols to filter by"
+// @Param qtypes query string false "Comma-separated list of query types to filter by"
+// @Param full_ids query string false "Comma-separated list of full IDs to filter by"
+// @Param remote_addresses query string false "Comma-separated list of remote addresses to filter by"
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/interactions [get]
@@ -28,7 +31,12 @@ func FindInteractions(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")
 	unparsedProtocols := c.Query("protocols")
-	var protocols []string
+	unparsedQTypes := c.Query("qtypes")
+	unparsedFullIDs := c.Query("full_ids")
+	unparsedRemoteAddresses := c.Query("remote_addresses")
+
+	var protocols, qtypes, fullIDs, remoteAddresses []string
+
 	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -36,6 +44,7 @@ func FindInteractions(c *fiber.Ctx) error {
 			"message": "The provided workspace ID does not seem valid",
 		})
 	}
+
 	pageSize, err := strconv.Atoi(unparsedPageSize)
 	if err != nil {
 		log.Error().Err(err).Msg("Error parsing page size parameter query")
@@ -49,15 +58,30 @@ func FindInteractions(c *fiber.Ctx) error {
 	}
 
 	if unparsedProtocols != "" {
-		protocols = append(protocols, strings.Split(unparsedProtocols, ",")...)
+		protocols = strings.Split(unparsedProtocols, ",")
+	}
+
+	if unparsedQTypes != "" {
+		qtypes = strings.Split(unparsedQTypes, ",")
+	}
+
+	if unparsedFullIDs != "" {
+		fullIDs = strings.Split(unparsedFullIDs, ",")
+	}
+
+	if unparsedRemoteAddresses != "" {
+		remoteAddresses = strings.Split(unparsedRemoteAddresses, ",")
 	}
 
 	issues, count, err := db.Connection().ListInteractions(db.InteractionsFilter{
 		Pagination: db.Pagination{
 			Page: page, PageSize: pageSize,
 		},
-		Protocols:   protocols,
-		WorkspaceID: workspaceID,
+		Protocols:       protocols,
+		QTypes:          qtypes,
+		FullIDs:         fullIDs,
+		RemoteAddresses: remoteAddresses,
+		WorkspaceID:     workspaceID,
 	})
 
 	if err != nil {

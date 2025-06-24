@@ -211,6 +211,7 @@ func (d *DatabaseConnection) GetOrCreateJWTFromTokenAndWebSocketConnection(jwtTo
 }
 
 type JwtFilters struct {
+	Token       string `json:"token" validate:"omitempty"`
 	Algorithm   string `json:"algorithm" validate:"omitempty,oneof=HS256 HS384 HS512 RS256 RS384 RS512 ES256 ES384 ES512"`
 	Issuer      string `json:"issuer"`
 	Subject     string `json:"subject"`
@@ -235,6 +236,10 @@ func (d *DatabaseConnection) ListJsonWebTokens(filters JwtFilters) ([]*JsonWebTo
 	}
 	if filters.Audience != "" {
 		query = query.Where("audience = ?", filters.Audience)
+	}
+
+	if filters.Token != "" {
+		query = query.Where("token LIKE ?", fmt.Sprintf("%%%s%%", filters.Token))
 	}
 
 	if filters.WorkspaceID != 0 {

@@ -10,8 +10,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// @Success 200 {array} db.JsonWebToken
-
 // JwtListHandler handles the API request for listing JWTs with filtering and sorting
 // @Summary List JWTs with filtering and sorting
 // @Description Retrieves a list of JWTs with optional filtering and sorting options
@@ -21,6 +19,7 @@ import (
 // @Param input body db.JwtFilters true "Filtering and sorting options"
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
+// @Success 200 {array} db.JsonWebToken
 // @Security ApiKeyAuth
 // @Router /api/v1/tokens/jwts [post]
 func JwtListHandler(c *fiber.Ctx) error {

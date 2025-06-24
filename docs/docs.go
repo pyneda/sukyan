@@ -2309,6 +2309,15 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/db.JsonWebToken"
+                            }
+                        }
+                    },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
@@ -3675,6 +3684,9 @@ const docTemplate = `{
                     ]
                 },
                 "subject": {
+                    "type": "string"
+                },
+                "token": {
                     "type": "string"
                 },
                 "workspace_id": {

@@ -2301,6 +2301,15 @@
                     }
                 ],
                 "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/db.JsonWebToken"
+                            }
+                        }
+                    },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
@@ -3667,6 +3676,9 @@
                     ]
                 },
                 "subject": {
+                    "type": "string"
+                },
+                "token": {
                     "type": "string"
                 },
                 "workspace_id": {

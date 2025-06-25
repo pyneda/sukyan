@@ -3,6 +3,7 @@ package db
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/pyneda/sukyan/lib"
 
@@ -174,6 +175,8 @@ type HistoryFilter struct {
 	TaskID               uint       `json:"task_id" validate:"omitempty,numeric"`
 	IDs                  []uint     `json:"ids" validate:"omitempty,dive,numeric"`
 	PlaygroundSessionID  uint       `json:"playground_session_id" validate:"omitempty,numeric"`
+	CreatedAfter         *time.Time `json:"created_after,omitempty"`
+	CreatedBefore        *time.Time `json:"created_before,omitempty"`
 }
 
 // ListHistory Lists history
@@ -211,6 +214,13 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 	}
 	if filter.PlaygroundSessionID > 0 {
 		query = query.Where("playground_session_id = ?", filter.PlaygroundSessionID)
+	}
+
+	if filter.CreatedAfter != nil {
+		query = query.Where("created_at >= ?", *filter.CreatedAfter)
+	}
+	if filter.CreatedBefore != nil {
+		query = query.Where("created_at <= ?", *filter.CreatedBefore)
 	}
 
 	if err := query.Count(&count).Error; err != nil {

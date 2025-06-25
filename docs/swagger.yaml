@@ -508,6 +508,10 @@ definitions:
     type: object
   db.HistoryFilter:
     properties:
+      created_after:
+        type: string
+      created_before:
+        type: string
       ids:
         items:
           type: integer
@@ -636,6 +640,8 @@ definitions:
     properties:
       confidence:
         type: integer
+      false_positive:
+        type: boolean
       id:
         type: integer
       url:

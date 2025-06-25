@@ -3,6 +3,7 @@ package db
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -422,6 +423,59 @@ func TestListHistory(t *testing.T) {
 		assert.Nil(t, err)
 		for i := 1; i < len(items); i++ {
 			assert.True(t, items[i-1].URL <= items[i].URL)
+		}
+	})
+
+	t.Run("Date Range Filter", func(t *testing.T) {
+		testTime := time.Now().Add(-1 * time.Hour)
+		beforeTime := testTime.Add(-30 * time.Minute)
+		afterTime := testTime.Add(30 * time.Minute)
+
+		filter := HistoryFilter{
+			CreatedAfter: &beforeTime,
+			WorkspaceID:  workspaceID,
+			Pagination: Pagination{
+				Page:     1,
+				PageSize: 100,
+			},
+		}
+		items, count, err := Connection().ListHistory(filter)
+		assert.Nil(t, err)
+		assert.True(t, count > 0)
+		for _, item := range items {
+			assert.True(t, item.CreatedAt.After(beforeTime) || item.CreatedAt.Equal(beforeTime))
+		}
+
+		filter = HistoryFilter{
+			CreatedBefore: &afterTime,
+			WorkspaceID:   workspaceID,
+			Pagination: Pagination{
+				Page:     1,
+				PageSize: 100,
+			},
+		}
+		items, count, err = Connection().ListHistory(filter)
+		assert.Nil(t, err)
+		assert.True(t, count > 0)
+		for _, item := range items {
+			assert.True(t, item.CreatedAt.Before(afterTime) || item.CreatedAt.Equal(afterTime))
+		}
+
+		filter = HistoryFilter{
+			CreatedAfter:  &beforeTime,
+			CreatedBefore: &afterTime,
+			WorkspaceID:   workspaceID,
+			Pagination: Pagination{
+				Page:     1,
+				PageSize: 100,
+			},
+		}
+		items, count, err = Connection().ListHistory(filter)
+		assert.Nil(t, err)
+		assert.True(t, count > 0)
+		for _, item := range items {
+			assert.True(t, (item.CreatedAt.After(beforeTime) || item.CreatedAt.Equal(beforeTime)) &&
+				(item.CreatedAt.Before(afterTime) || item.CreatedAt.Equal(afterTime)))
 		}
 	})
 

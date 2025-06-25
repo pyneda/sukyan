@@ -114,9 +114,10 @@ type GroupedIssue struct {
 }
 
 type IssueItem struct {
-	ID         uint   `json:"id"`
-	URL        string `json:"url"`
-	Confidence int    `json:"confidence"`
+	ID            uint   `json:"id"`
+	URL           string `json:"url"`
+	Confidence    int    `json:"confidence"`
+	FalsePositive bool   `json:"false_positive"`
 }
 
 // AddInteraction adds an interaction to an issue in the database.
@@ -182,7 +183,7 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 
 func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) ([]*GroupedIssue, error) {
 	var issues []Issue
-	query := d.db.Model(&Issue{}).Select("id, url, confidence, title, code, severity")
+	query := d.db.Model(&Issue{}).Select("id, url, confidence, title, code, severity, false_positive")
 
 	// Apply filters
 	if len(filter.Codes) > 0 {
@@ -223,9 +224,10 @@ func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) ([]*GroupedIs
 		}
 
 		item := &IssueItem{
-			ID:         issue.ID,
-			URL:        issue.URL,
-			Confidence: issue.Confidence,
+			ID:            issue.ID,
+			URL:           issue.URL,
+			Confidence:    issue.Confidence,
+			FalsePositive: issue.FalsePositive,
 		}
 		grouped.Items = append(grouped.Items, item)
 		grouped.Count = len(grouped.Items) // Update the count

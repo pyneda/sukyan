@@ -3360,6 +3360,12 @@ const docTemplate = `{
         "db.HistoryFilter": {
             "type": "object",
             "properties": {
+                "created_after": {
+                    "type": "string"
+                },
+                "created_before": {
+                    "type": "string"
+                },
                 "ids": {
                     "type": "array",
                     "items": {
@@ -3543,6 +3549,9 @@ const docTemplate = `{
             "properties": {
                 "confidence": {
                     "type": "integer"
+                },
+                "false_positive": {
+                    "type": "boolean"
                 },
                 "id": {
                     "type": "integer"

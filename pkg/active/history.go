@@ -87,6 +87,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		// }
 		// taskLog.Info().Int("reflected_input_issues", len(reflectedIssues)).Msg("Input returned in response issues detected, proceeding to client side audits")
 		if options.AuditCategories.ClientSide {
+
 			alert := AlertAudit{
 				WorkspaceID:                options.WorkspaceID,
 				TaskID:                     options.TaskID,
@@ -101,6 +102,14 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			cstiPayloads := payloads.GetCSTIPayloads()
 			alert.RunWithPayloads(item, xssInsertionPoints, cstiPayloads, db.CstiCode)
 			taskLog.Info().Msg("Completed client side audits")
+			cspp := ClientSidePrototypePollutionAudit{
+				HistoryItem: item,
+				WorkspaceID: options.WorkspaceID,
+				TaskID:      options.TaskID,
+				TaskJobID:   options.TaskJobID,
+			}
+			cspp.Run()
+			taskLog.Info().Msg("Completed client side prototype pollution audit")
 
 		}
 
@@ -159,13 +168,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	}
 
 	if options.ExperimentalAudits {
-		cspp := ClientSidePrototypePollutionAudit{
-			HistoryItem: item,
-			WorkspaceID: options.WorkspaceID,
-			TaskID:      options.TaskID,
-			TaskJobID:   options.TaskJobID,
-		}
-		cspp.Run()
+
 		methods := HTTPMethodsAudit{
 			HistoryItem: item,
 			Concurrency: 5,

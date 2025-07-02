@@ -37,7 +37,11 @@ func ListenForPostMessages(page *rod.Page) error {
 // GetPostMessages returns all post messages that have been sent to the page.
 // NOTE: This function will only return messages that have been sent after ListenForPostMessages has been called.
 func GetPostMessages(page *rod.Page) ([]PostMessage, error) {
-	resultStr := page.MustEval(`JSON.stringify(window.postMessageData)`).String()
+	evalResult, err := page.Eval(`JSON.stringify(window.postMessageData)`)
+	if err != nil {
+		return nil, err
+	}
+	resultStr := evalResult.Value.String()
 	var postMessages []PostMessage
 	if err := json.Unmarshal([]byte(resultStr), &postMessages); err != nil {
 		return nil, err

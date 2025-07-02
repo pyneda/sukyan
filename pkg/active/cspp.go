@@ -1,6 +1,7 @@
 package active
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -47,21 +48,30 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 		"constructor.prototype.sukyan=reserved",
 		"__proto__%5Bsukyan%5D=reserved",
 	}
-	timeout := 30 * time.Second
-	b, err := browser.NewBrowserWithTimeout(timeout)
-	if err != nil {
-		log.Warn().Err(err).Uint("history", a.HistoryItem.ID).Msg("Canceling client-side prototype pollution tests due to an error launching a new browser")
-		return
-	}
-	defer b.Close()
+	browserPool := browser.GetScannerBrowserPoolManager()
+	b := browserPool.NewBrowser()
+	defer browserPool.ReleaseBrowser(b)
 
 	hijackResultsChannel := make(chan browser.HijackResult)
-	browser.Hijack(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, a.WorkspaceID, a.TaskID)
+	hijackContext, hijackCancel := context.WithCancel(context.Background())
+	defer hijackCancel()
+
+	hijackRouter := browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, hijackContext, a.WorkspaceID, a.TaskID)
+	defer hijackRouter.Stop()
 	page := b.MustIncognito().MustPage("")
 	web.IgnoreCertificateErrors(page)
+
 	go func() {
-		for hijackResult := range hijackResultsChannel {
-			a.requests.Store(hijackResult.History.URL, hijackResult.History)
+		for {
+			select {
+			case hijackResult, ok := <-hijackResultsChannel:
+				if !ok {
+					return
+				}
+				a.requests.Store(hijackResult.History.URL, hijackResult.History)
+			case <-hijackContext.Done():
+				return
+			}
 		}
 	}()
 
@@ -79,12 +89,17 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 			taskLog.Warn().Err(err).Msg("Error waiting for page complete load")
 			// continue
 		}
-		res := page.MustEval(`() => {
+		evalResult, err := page.Eval(`() => {
 			function getWindowValue() {
 				return window.sukyan;
 			}
 			return getWindowValue();
-		}`).Str()
+		}`)
+		if err != nil {
+			taskLog.Warn().Err(err).Msg("Error evaluating JavaScript")
+			continue
+		}
+		res := evalResult.Value.Str()
 		var sb strings.Builder
 		if res == "reserved" {
 			taskLog.Debug().Msg("Client side prototype pollution detected, trying to find a known gadget")
@@ -95,7 +110,12 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 		severity := ""
 		history := a.GetHistory(url)
 		log.Info().Str("url", history.URL).Int("status_code", history.StatusCode).Str("method", history.Method).Msg("History for prototype pollution item")
-		fingerprint := page.MustEval(clientSidePrototypePollutionFingerprints).Str()
+		fingerprintResult, err := page.Eval(clientSidePrototypePollutionFingerprints)
+		if err != nil {
+			taskLog.Warn().Err(err).Msg("Error evaluating fingerprint JavaScript - browser connection may have been lost")
+			return
+		}
+		fingerprint := fingerprintResult.Value.Str()
 		if fingerprint == "default" {
 			taskLog.Debug().Msg("Could not find a known gadget but prototype pollution detected")
 			sb.WriteString("No known gadgets have been found, but you might be able to build your own.")

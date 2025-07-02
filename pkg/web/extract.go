@@ -10,8 +10,11 @@ import (
 // GetPageAnchors find anchors on the given page
 func GetPageAnchors(p *rod.Page) (anchors []string, err error) {
 	anchors = []string{}
-	resp := p.MustEval(GetLinks)
-	for _, link := range resp.Arr() {
+	evalResult, err := p.Eval(GetLinks)
+	if err != nil {
+		return nil, err
+	}
+	for _, link := range evalResult.Value.Arr() {
 		anchors = append(anchors, link.String())
 	}
 	// log.Info().Strs("anchors", anchors).Int("count", len(anchors)).Msg("Page anchors gathered")

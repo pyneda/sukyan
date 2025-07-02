@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/browser"
 	"github.com/pyneda/sukyan/pkg/web"
@@ -52,13 +53,26 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 	b := browserPool.NewBrowser()
 	defer browserPool.ReleaseBrowser(b)
 
+	overallTimeout := time.Duration(viper.GetInt("navigation.timeout")) * time.Second * 4
+	overallCtx, overallCancel := context.WithTimeout(context.Background(), overallTimeout)
+	defer overallCancel()
+
 	hijackResultsChannel := make(chan browser.HijackResult)
-	hijackContext, hijackCancel := context.WithCancel(context.Background())
+	hijackContext, hijackCancel := context.WithCancel(overallCtx)
 	defer hijackCancel()
 
 	hijackRouter := browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, hijackContext, a.WorkspaceID, a.TaskID)
 	defer hijackRouter.Stop()
-	page := b.MustIncognito().MustPage("")
+	incognito, err := b.Incognito()
+	if err != nil {
+		log.Warn().Err(err).Uint("history", a.HistoryItem.ID).Msg("Failed to create incognito browser context")
+		return
+	}
+	page, err := incognito.Page(proto.TargetCreateTarget{URL: ""})
+	if err != nil {
+		log.Warn().Err(err).Uint("history", a.HistoryItem.ID).Msg("Failed to create browser page")
+		return
+	}
 	web.IgnoreCertificateErrors(page)
 
 	go func() {
@@ -76,6 +90,14 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 	}()
 
 	for _, payload := range payloads {
+		// Check if overall timeout has been reached
+		select {
+		case <-overallCtx.Done():
+			log.Warn().Str("audit", "client-side-prototype-pollution").Msg("Overall timeout reached, stopping prototype pollution tests")
+			return
+		default:
+		}
+
 		url := string(a.HistoryItem.URL) + string(quote) + string(payload)
 		taskLog := log.With().Str("url", url).Str("audit", "client-side-prototype-pollution").Logger()
 		navigationTimeout := time.Duration(viper.GetInt("navigation.timeout"))
@@ -89,7 +111,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 			taskLog.Warn().Err(err).Msg("Error waiting for page complete load")
 			// continue
 		}
-		evalResult, err := page.Eval(`() => {
+		evalResult, err := page.Timeout(navigationTimeout * time.Second).Eval(`() => {
 			function getWindowValue() {
 				return window.sukyan;
 			}
@@ -110,7 +132,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 		severity := ""
 		history := a.GetHistory(url)
 		log.Info().Str("url", history.URL).Int("status_code", history.StatusCode).Str("method", history.Method).Msg("History for prototype pollution item")
-		fingerprintResult, err := page.Eval(clientSidePrototypePollutionFingerprints)
+		fingerprintResult, err := page.Timeout(navigationTimeout * time.Second).Eval(clientSidePrototypePollutionFingerprints)
 		if err != nil {
 			taskLog.Warn().Err(err).Msg("Error evaluating fingerprint JavaScript - browser connection may have been lost")
 			return

@@ -18,6 +18,10 @@ func TestReportHandler(t *testing.T) {
 	// Initialize Fiber app
 	workspace, _ := db.Connection().CreateDefaultWorkspace()
 
+	// Create a task
+	task, err := db.Connection().NewTask(workspace.ID, nil, "Test Task", "completed", db.TaskTypeScan)
+	assert.Nil(t, err)
+
 	app := fiber.New()
 	app.Post("/report", ReportHandler)
 
@@ -28,12 +32,14 @@ func TestReportHandler(t *testing.T) {
 			Title:       "Test Issue 1",
 			Description: "Description 1",
 			WorkspaceID: &workspace.ID,
+			TaskID:      &task.ID,
 		},
 		{
 			Code:        "ISSUE2",
 			Title:       "Test Issue 2",
 			Description: "Description 2",
 			WorkspaceID: &workspace.ID,
+			TaskID:      &task.ID,
 		},
 	}
 
@@ -45,6 +51,7 @@ func TestReportHandler(t *testing.T) {
 	// Valid Request Payload for HTML
 	validHTMLPayload := ReportRequest{
 		WorkspaceID: workspace.ID,
+		TaskID:      task.ID,
 		Title:       "Test HTML Report",
 		Format:      report.ReportFormatHTML,
 	}
@@ -71,6 +78,7 @@ func TestReportHandler(t *testing.T) {
 	// Valid Request Payload for JSON
 	validJSONPayload := ReportRequest{
 		WorkspaceID: workspace.ID,
+		TaskID:      task.ID,
 		Title:       "Test JSON Report",
 		Format:      report.ReportFormatJSON,
 	}

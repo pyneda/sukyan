@@ -81,7 +81,7 @@ func TestScanWebSocketMessage(t *testing.T) {
 			name:               "JWT token in payload",
 			payloadData:        `{"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"}`,
 			expectedIssueCount: 3,
-			expectedIssueCodes: []db.IssueCode{db.JwtDetectedCode, db.JwtWeakSigningSecretCode, db.SessionTokenInUrlCode},
+			expectedIssueCodes: []db.IssueCode{db.JwtDetectedCode, db.JwtWeakSigningSecretCode, db.SessionTokenInWebsocketCode},
 			description:        "Should detect JWT token in message",
 		},
 		{
@@ -130,7 +130,7 @@ func TestScanWebSocketMessage(t *testing.T) {
 			name:               "Session token in payload",
 			payloadData:        `{"session_token": "abc123def456ghi789jkl012"}`,
 			expectedIssueCount: 1,
-			expectedIssueCodes: []db.IssueCode{db.SessionTokenInUrlCode},
+			expectedIssueCodes: []db.IssueCode{db.SessionTokenInWebsocketCode},
 			description:        "Should detect session token",
 		},
 		{
@@ -142,7 +142,7 @@ func TestScanWebSocketMessage(t *testing.T) {
 				db.PrivateIpsCode,
 				db.JwtDetectedCode,
 				db.JwtWeakSigningSecretCode,
-				db.SessionTokenInUrlCode,
+				db.SessionTokenInWebsocketCode,
 			},
 			description: "Should detect multiple different issues in single message",
 		},

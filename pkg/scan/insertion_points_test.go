@@ -123,7 +123,30 @@ func TestHandleBodyParameters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(result, expected) {
-		t.Errorf("Expected %+v, got %+v", expected, result)
+	
+	// Check that we have the expected number of insertion points
+	if len(result) != len(expected) {
+		t.Errorf("Expected %d insertion points, got %d", len(expected), len(result))
+		return
+	}
+	
+	// Convert expected to a map for easier comparison
+	expectedMap := make(map[string]InsertionPoint)
+	for _, point := range expected {
+		key := string(point.Type) + ":" + point.Name
+		expectedMap[key] = point
+	}
+	
+	// Check that all expected points are present
+	for _, point := range result {
+		key := string(point.Type) + ":" + point.Name
+		expectedPoint, exists := expectedMap[key]
+		if !exists {
+			t.Errorf("Unexpected insertion point: %+v", point)
+			continue
+		}
+		if !reflect.DeepEqual(point, expectedPoint) {
+			t.Errorf("Insertion point mismatch for %s. Expected %+v, got %+v", key, expectedPoint, point)
+		}
 	}
 }

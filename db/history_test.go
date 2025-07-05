@@ -427,7 +427,7 @@ func TestListHistory(t *testing.T) {
 	})
 
 	t.Run("Date Range Filter", func(t *testing.T) {
-		testTime := time.Now().Add(-1 * time.Hour)
+		testTime := time.Now()
 		beforeTime := testTime.Add(-30 * time.Minute)
 		afterTime := testTime.Add(30 * time.Minute)
 

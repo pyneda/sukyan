@@ -140,6 +140,12 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 			log.Debug().Str("url", ctx.Request.URL().String()).Msg("Skipping processing of hijacked response")
 		} else {
 			go func() {
+				defer func() {
+					// recover from potential panics (such as sending on closed channel)
+					if recover() != nil {
+						log.Warn().Msg("Recovered from panic in a hijack goroutine, possibly due to closed channel")
+					}
+				}()
 				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack", workspaceID, taskID, 0)
 				linksFound := passive.ExtractedURLS{}
 				if ctx.Request.Type() != "Image" && ctx.Request.Type() != "Font" && ctx.Request.Type() != "Media" {

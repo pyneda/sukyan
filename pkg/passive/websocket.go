@@ -351,6 +351,9 @@ func attemptToCrackJwtFromWebSocketIfRequired(message *db.WebSocketMessage, conn
 			log.Err(err).Uint("token_id", jwt.ID).Str("token", jwt.Token).Msg("Failed to crack JWT from WebSocket")
 		} else if crackResult.Found {
 			log.Info().Uint("token_id", jwt.ID).Str("token", jwt.Token).Str("secret", crackResult.Secret).Msg("JWT cracked from WebSocket")
+			if crackResult.Issue != nil {
+				return []db.Issue{*crackResult.Issue}
+			}
 		} else {
 			log.Info().Uint("token_id", jwt.ID).Str("token", jwt.Token).Msg("JWT secret could not be found in WebSocket message")
 		}

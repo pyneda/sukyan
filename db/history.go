@@ -3,6 +3,7 @@ package db
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pyneda/sukyan/lib"
@@ -276,7 +277,24 @@ func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
 	enhanceHistoryItem(record)
 	result := d.db.Create(&record)
 	if result.Error != nil {
-		log.Error().Err(result.Error).Str("url", record.URL).Str("method", record.Method).Str("source", record.Source).Msg("Failed to create web history record")
+		if strings.Contains(result.Error.Error(), "invalid byte sequence for encoding \"UTF8\"") {
+			log.Warn().Str("url", record.URL).Str("method", record.Method).Str("source", record.Source).Msg("UTF-8 encoding error detected, sanitizing and retrying")
+			
+			record.URL = lib.SanitizeUTF8(record.URL)
+			record.Note = lib.SanitizeUTF8(record.Note)
+			record.RequestContentType = lib.SanitizeUTF8(record.RequestContentType)
+			record.ResponseContentType = lib.SanitizeUTF8(record.ResponseContentType)
+			record.CleanURL = lib.SanitizeUTF8(record.CleanURL)
+			
+			result = d.db.Create(&record)
+			if result.Error != nil {
+				log.Error().Err(result.Error).Str("url", record.URL).Str("method", record.Method).Str("source", record.Source).Msg("Failed to create web history record after UTF-8 sanitization")
+			} else {
+				log.Info().Str("url", record.URL).Str("method", record.Method).Str("source", record.Source).Msg("Successfully created web history record after UTF-8 sanitization")
+			}
+		} else {
+			log.Error().Err(result.Error).Str("url", record.URL).Str("method", record.Method).Str("source", record.Source).Msg("Failed to create web history record")
+		}
 	}
 	return record, result.Error
 }

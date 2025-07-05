@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"unicode/utf8"
 )
 
 // Helper function to base64 decode a string
@@ -33,4 +34,12 @@ func DecodeBase36(s string) (int64, error) {
 		result = result*36 + int64(position)
 	}
 	return result, nil
+}
+
+// SanitizeUTF8 removes or replaces invalid UTF-8 byte sequences in a string
+func SanitizeUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	return string([]rune(s))
 }

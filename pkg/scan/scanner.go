@@ -307,9 +307,14 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 
 					task.retryCount++
 					time.Sleep(time.Duration(task.retryCount) * RetryDelayBase) // Progressive delay
-					pendingTasks <- task
-					// Don't call wg.Done() here - the original wg.Add(1) should only be balanced once when the task truly completes
-					continue
+					select {
+					case pendingTasks <- task:
+						continue
+					default:
+						taskLog.Warn().Msg("Retry channel full, skipping retry")
+						wg.Done()
+						continue
+					}
 				}
 
 				if !shouldEvaluate {

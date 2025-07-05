@@ -42,3 +42,56 @@ func TestDecodeBase36(t *testing.T) {
 		}
 	}
 }
+
+func TestSanitizeUTF8(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Valid UTF-8 string",
+			input:    "Hello, 世界",
+			expected: "Hello, 世界",
+		},
+		{
+			name:     "ASCII only",
+			input:    "Hello World",
+			expected: "Hello World",
+		},
+		{
+			name:     "Empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "Invalid UTF-8 with 0x80 byte",
+			input:    "Hello\x80World",
+			expected: "Hello\uFFFDWorld",
+		},
+		{
+			name:     "Invalid UTF-8 with incomplete sequence",
+			input:    "Hello\xC0\x80World",
+			expected: "Hello\uFFFD\uFFFDWorld",
+		},
+		{
+			name:     "Multiple invalid sequences",
+			input:    "Test\x80\xFF\xFEString",
+			expected: "Test\uFFFD\uFFFD\uFFFDString",
+		},
+		{
+			name:     "Mixed valid and invalid UTF-8",
+			input:    "Hello\x80世界\xFFTest",
+			expected: "Hello\uFFFD世界\uFFFDTest",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := SanitizeUTF8(test.input)
+			if result != test.expected {
+				t.Errorf("Expected %q, got %q", test.expected, result)
+			}
+		})
+	}
+}

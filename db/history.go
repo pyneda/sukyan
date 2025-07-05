@@ -277,7 +277,7 @@ func (d *DatabaseConnection) CreateHistory(record *History) (*History, error) {
 	enhanceHistoryItem(record)
 	result := d.db.Create(&record)
 	if result.Error != nil {
-		if strings.Contains(result.Error.Error(), "invalid byte sequence for encoding \"UTF8\"") {
+		if strings.Contains(result.Error.Error(), "invalid byte sequence for encoding \"UTF8\"") || strings.Contains(result.Error.Error(), "SQLSTATE 22021") {
 			log.Warn().Str("url", record.URL).Str("method", record.Method).Str("source", record.Source).Msg("UTF-8 encoding error detected, sanitizing and retrying")
 			
 			record.URL = lib.SanitizeUTF8(record.URL)

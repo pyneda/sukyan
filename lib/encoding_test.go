@@ -84,6 +84,21 @@ func TestSanitizeUTF8(t *testing.T) {
 			input:    "Hello\x80世界\xFFTest",
 			expected: "Hello\uFFFD世界\uFFFDTest",
 		},
+		{
+			name:     "String with null bytes",
+			input:    "Hello\x00World\x00Test",
+			expected: "HelloWorldTest",
+		},
+		{
+			name:     "String with only null bytes",
+			input:    "\x00\x00\x00",
+			expected: "",
+		},
+		{
+			name:     "Mixed null bytes and invalid UTF-8",
+			input:    "Test\x00\x80\x00String",
+			expected: "Test\uFFFDString",
+		},
 	}
 
 	for _, test := range tests {

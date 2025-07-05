@@ -36,10 +36,18 @@ func DecodeBase36(s string) (int64, error) {
 	return result, nil
 }
 
-// SanitizeUTF8 removes or replaces invalid UTF-8 byte sequences in a string
+// SanitizeUTF8 removes or replaces invalid UTF-8 byte sequences and null bytes in a string
 func SanitizeUTF8(s string) string {
-	if utf8.ValidString(s) {
+	hasNullBytes := strings.Contains(s, "\x00")
+	isValidUTF8 := utf8.ValidString(s)
+	
+	if isValidUTF8 && !hasNullBytes {
 		return s
 	}
-	return string([]rune(s))
+	
+	sanitized := string([]rune(s))
+	if hasNullBytes {
+		sanitized = strings.ReplaceAll(sanitized, "\x00", "")
+	}
+	return sanitized
 }

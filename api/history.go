@@ -328,3 +328,42 @@ func GetRootNodes(c *fiber.Ctx) error {
 	// return the response
 	return c.Status(fiber.StatusOK).JSON(nodes)
 }
+
+// GetHistoryDetail fetches the details of a specific History item by its ID
+// @Summary Get history detail
+// @Description Fetch the detail of a History item by its ID
+// @Tags History
+// @Produce json
+// @Param id path int true "History ID"
+// @Success 200 {object} db.History
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse "History not found"
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/history/{id} [get]
+func GetHistoryDetail(c *fiber.Ctx) error {
+	historyID, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Invalid history ID",
+			Message: "The provided history ID does not seem valid",
+		})
+	}
+
+	history, err := db.Connection().GetHistoryByID(uint(historyID))
+	if err != nil {
+		if err.Error() == "record not found" {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+				Error:   "History not found",
+				Message: "The requested history item does not exist",
+			})
+		}
+		log.Error().Err(err).Int("history_id", historyID).Msg("Failed to get history detail")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:   "Internal server error",
+			Message: DefaultInternalServerErrorMessage,
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(history)
+}

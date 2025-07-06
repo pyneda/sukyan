@@ -821,6 +821,86 @@ definitions:
       workspace_id:
         type: integer
     type: object
+  db.OOBTestsFilter:
+    properties:
+      codes:
+        items:
+          type: string
+        type: array
+      created_after:
+        type: string
+      created_before:
+        type: string
+      has_interactions:
+        type: boolean
+      history_ids:
+        items:
+          type: integer
+        type: array
+      insertion_points:
+        items:
+          type: string
+        type: array
+      interaction_domains:
+        items:
+          type: string
+        type: array
+      interaction_full_ids:
+        items:
+          type: string
+        type: array
+      pagination:
+        $ref: '#/definitions/db.Pagination'
+      payloads:
+        items:
+          type: string
+        type: array
+      query:
+        maxLength: 500
+        type: string
+      sort_by:
+        enum:
+        - id
+        - created_at
+        - updated_at
+        - test_name
+        - target
+        type: string
+      sort_order:
+        enum:
+        - asc
+        - desc
+        type: string
+      targets:
+        items:
+          type: string
+        type: array
+      task_id:
+        minimum: 1
+        type: integer
+      task_ids:
+        items:
+          type: integer
+        type: array
+      task_job_id:
+        minimum: 1
+        type: integer
+      task_job_ids:
+        items:
+          type: integer
+        type: array
+      test_names:
+        items:
+          type: string
+        type: array
+      updated_after:
+        type: string
+      updated_before:
+        type: string
+      workspace_id:
+        minimum: 1
+        type: integer
+    type: object
   db.Pagination:
     properties:
       page:
@@ -1771,6 +1851,39 @@ paths:
       summary: Get history (POST)
       tags:
       - History
+  /api/v1/history/{id}:
+    get:
+      description: Fetch the detail of a History item by its ID
+      parameters:
+      - description: History ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.History'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: History not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get history detail
+      tags:
+      - History
   /api/v1/history/{id}/children:
     get:
       consumes:
@@ -2174,6 +2287,72 @@ paths:
       summary: List all issues grouped
       tags:
       - Issues
+  /api/v1/oob-tests:
+    post:
+      consumes:
+      - application/json
+      description: Get OOB tests with optional pagination and filtering
+      parameters:
+      - description: OOB test filter options
+        in: body
+        name: filters
+        required: true
+        schema:
+          $ref: '#/definitions/db.OOBTestsFilter'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get OOB tests
+      tags:
+      - OOB Tests
+  /api/v1/oob-tests/{id}:
+    get:
+      description: Fetch the detail of an OOB Test by its ID
+      parameters:
+      - description: OOB Test ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.OOBTest'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: OOB Test not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get OOB test detail
+      tags:
+      - OOB Tests
   /api/v1/playground/collections:
     get:
       consumes:

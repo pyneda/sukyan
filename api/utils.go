@@ -221,3 +221,19 @@ func parseUint(input string) (uint, error) {
 	}
 	return uint(val), nil
 }
+
+func parseCommaSeparatedStrings(input string) []string {
+	if input == "" {
+		return []string{}
+	}
+	parts := strings.Split(input, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}
+

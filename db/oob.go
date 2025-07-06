@@ -284,22 +284,39 @@ func (d *DatabaseConnection) ListInteractions(filter InteractionsFilter) (items 
 }
 
 type OOBTestsFilter struct {
-	TestNames          []string
-	Targets            []string
-	InteractionDomains []string
-	InteractionFullIDs []string
-	Payloads           []string
-	InsertionPoints    []string
-	Codes              []string
-	Pagination         Pagination
-	WorkspaceID        uint
-	TaskID             uint
-	TaskJobID          uint
+	Query              string     `json:"query" validate:"omitempty,max=500"`
+	TestNames          []string   `json:"test_names" validate:"omitempty,dive,max=200"`
+	Targets            []string   `json:"targets" validate:"omitempty,dive,max=2000"`
+	InteractionDomains []string   `json:"interaction_domains" validate:"omitempty,dive,max=253"`
+	InteractionFullIDs []string   `json:"interaction_full_ids" validate:"omitempty,dive,max=500"`
+	Payloads           []string   `json:"payloads" validate:"omitempty,dive,max=5000"`
+	InsertionPoints    []string   `json:"insertion_points" validate:"omitempty,dive,max=100"`
+	Codes              []string   `json:"codes" validate:"omitempty,dive,max=50"`
+	HistoryIDs         []uint     `json:"history_ids" validate:"omitempty,dive,min=1"`
+	TaskIDs            []uint     `json:"task_ids" validate:"omitempty,dive,min=1"`
+	TaskJobIDs         []uint     `json:"task_job_ids" validate:"omitempty,dive,min=1"`
+	HasInteractions    *bool      `json:"has_interactions" validate:"omitempty"`
+	CreatedAfter       *time.Time `json:"created_after" validate:"omitempty"`
+	CreatedBefore      *time.Time `json:"created_before" validate:"omitempty"`
+	UpdatedAfter       *time.Time `json:"updated_after" validate:"omitempty"`
+	UpdatedBefore      *time.Time `json:"updated_before" validate:"omitempty"`
+	SortBy             string     `json:"sort_by" validate:"omitempty,oneof=id created_at updated_at test_name target"`
+	SortOrder          string     `json:"sort_order" validate:"omitempty,oneof=asc desc"`
+	Pagination         Pagination `json:"pagination"`
+	WorkspaceID        uint       `json:"workspace_id" validate:"omitempty,min=1"`
+	TaskID             uint       `json:"task_id" validate:"omitempty,min=1"`
+	TaskJobID          uint       `json:"task_job_id" validate:"omitempty,min=1"`
 }
 
 // ListOOBTests Lists OOB tests
 func (d *DatabaseConnection) ListOOBTests(filter OOBTestsFilter) (items []*OOBTest, count int64, err error) {
 	query := d.db.Model(&OOBTest{})
+
+	if filter.Query != "" {
+		searchQuery := "%" + filter.Query + "%"
+		query = query.Where("test_name ILIKE ? OR target ILIKE ? OR payload ILIKE ? OR insertion_point ILIKE ? OR interaction_domain ILIKE ? OR note ILIKE ?", 
+			searchQuery, searchQuery, searchQuery, searchQuery, searchQuery, searchQuery)
+	}
 
 	if len(filter.TestNames) > 0 {
 		query = query.Where("test_name IN ?", filter.TestNames)
@@ -322,6 +339,36 @@ func (d *DatabaseConnection) ListOOBTests(filter OOBTestsFilter) (items []*OOBTe
 	if len(filter.Codes) > 0 {
 		query = query.Where("code IN ?", filter.Codes)
 	}
+	if len(filter.HistoryIDs) > 0 {
+		query = query.Where("history_id IN ?", filter.HistoryIDs)
+	}
+	if len(filter.TaskIDs) > 0 {
+		query = query.Where("task_id IN ?", filter.TaskIDs)
+	}
+	if len(filter.TaskJobIDs) > 0 {
+		query = query.Where("task_job_id IN ?", filter.TaskJobIDs)
+	}
+
+	if filter.HasInteractions != nil {
+		if *filter.HasInteractions {
+			query = query.Where("EXISTS (SELECT 1 FROM oob_interactions WHERE oob_interactions.oob_test_id = oob_tests.id)")
+		} else {
+			query = query.Where("NOT EXISTS (SELECT 1 FROM oob_interactions WHERE oob_interactions.oob_test_id = oob_tests.id)")
+		}
+	}
+
+	if filter.CreatedAfter != nil {
+		query = query.Where("created_at >= ?", *filter.CreatedAfter)
+	}
+	if filter.CreatedBefore != nil {
+		query = query.Where("created_at <= ?", *filter.CreatedBefore)
+	}
+	if filter.UpdatedAfter != nil {
+		query = query.Where("updated_at >= ?", *filter.UpdatedAfter)
+	}
+	if filter.UpdatedBefore != nil {
+		query = query.Where("updated_at <= ?", *filter.UpdatedBefore)
+	}
 
 	if filter.WorkspaceID > 0 {
 		query = query.Where("workspace_id = ?", filter.WorkspaceID)
@@ -342,7 +389,15 @@ func (d *DatabaseConnection) ListOOBTests(filter OOBTestsFilter) (items []*OOBTe
 		query = query.Scopes(Paginate(&filter.Pagination))
 	}
 
-	query = query.Order("created_at desc")
+	sortBy := "created_at"
+	if filter.SortBy != "" {
+		sortBy = filter.SortBy
+	}
+	sortOrder := "desc"
+	if filter.SortOrder != "" {
+		sortOrder = filter.SortOrder
+	}
+	query = query.Order(fmt.Sprintf("%s %s", sortBy, sortOrder))
 
 	if err := query.Find(&items).Error; err != nil {
 		log.Error().Err(err).Msg("Failed to list OOB tests")

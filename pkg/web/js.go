@@ -22,6 +22,8 @@ function getFormUrls() {
    
    for (var form of forms) {
        var action = form.action || window.location.href;
+       var method = (form.method || 'GET').toUpperCase();
+       var hasPasswordField = false;
        var params = new URLSearchParams();
        
        for (var input of form.querySelectorAll('input, select, textarea')) {
@@ -29,6 +31,10 @@ function getFormUrls() {
            var value = '';
            
            if (!name) continue;
+           
+           if (input.type === 'password') {
+               hasPasswordField = true;
+           }
            
            if (input.type === 'checkbox' || input.type === 'radio') {
                if (input.checked) {
@@ -48,6 +54,10 @@ function getFormUrls() {
            }
            
            params.append(name, value);
+       }
+       
+       if (hasPasswordField && method !== 'GET') {
+           continue;
        }
        
        var baseUrl = absolutePath(action);

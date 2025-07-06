@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -16,15 +17,139 @@ import (
 	"github.com/ysmood/gson"
 )
 
-// ConvertToNetworkHeaders converts map[string][]string to NetworkHeaders
+// ConvertToNetworkHeaders converts map[string][]string to NetworkHeaders, excluding cookies
 func ConvertToNetworkHeaders(headersMap map[string][]string) proto.NetworkHeaders {
 	networkHeaders := make(proto.NetworkHeaders)
 	for key, values := range headersMap {
-		// Join multiple header values into a single string separated by commas
+		if strings.ToLower(key) == "cookie" {
+			continue
+		}
 		combinedValues := strings.Join(values, ", ")
 		networkHeaders[key] = gson.New(combinedValues)
 	}
 	return networkHeaders
+}
+
+// ConvertToNetworkHeadersAndCookies separates cookies from headers and returns both
+func ConvertToNetworkHeadersAndCookies(headersMap map[string][]string) (proto.NetworkHeaders, []*proto.NetworkCookieParam) {
+	networkHeaders := make(proto.NetworkHeaders)
+	var cookies []*proto.NetworkCookieParam
+	
+	for key, values := range headersMap {
+		if strings.ToLower(key) == "cookie" {
+			for _, cookieHeader := range values {
+				parsedCookies := parseCookieHeader(cookieHeader)
+				cookies = append(cookies, parsedCookies...)
+			}
+		} else {
+			combinedValues := strings.Join(values, ", ")
+			networkHeaders[key] = gson.New(combinedValues)
+		}
+	}
+	
+	return networkHeaders, cookies
+}
+
+// ConvertToNetworkHeadersAndCookiesWithDomain separates cookies from headers and returns both with domain set
+func ConvertToNetworkHeadersAndCookiesWithDomain(headersMap map[string][]string, domain string) (proto.NetworkHeaders, []*proto.NetworkCookieParam) {
+	networkHeaders := make(proto.NetworkHeaders)
+	var cookies []*proto.NetworkCookieParam
+	
+	for key, values := range headersMap {
+		if strings.ToLower(key) == "cookie" {
+			for _, cookieHeader := range values {
+				parsedCookies := parseCookieHeaderWithDomain(cookieHeader, domain)
+				cookies = append(cookies, parsedCookies...)
+			}
+		} else {
+			combinedValues := strings.Join(values, ", ")
+			networkHeaders[key] = gson.New(combinedValues)
+		}
+	}
+	
+	return networkHeaders, cookies
+}
+
+// parseCookieHeader parses a Cookie header string into NetworkCookieParam objects
+func parseCookieHeader(cookieHeader string) []*proto.NetworkCookieParam {
+	return parseCookieHeaderWithDomain(cookieHeader, "")
+}
+
+// parseCookieHeaderWithDomain parses a Cookie header string into NetworkCookieParam objects with domain
+func parseCookieHeaderWithDomain(cookieHeader string, domain string) []*proto.NetworkCookieParam {
+	var cookies []*proto.NetworkCookieParam
+	
+	cookiePairs := strings.Split(cookieHeader, ";")
+	for _, pair := range cookiePairs {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		
+		name := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		
+		if name == "" {
+			continue
+		}
+		
+		cookie := &proto.NetworkCookieParam{
+			Name:  name,
+			Value: value,
+		}
+		
+		if domain != "" {
+			cookie.Domain = domain
+		}
+		
+		cookies = append(cookies, cookie)
+	}
+	
+	return cookies
+}
+
+// SetPageHeadersAndCookies sets headers and cookies on a page from a headers map
+func SetPageHeadersAndCookies(page *rod.Page, headersMap map[string][]string, targetURL string) error {
+	if headersMap == nil {
+		return nil
+	}
+
+	var headers proto.NetworkHeaders
+	var cookies []*proto.NetworkCookieParam
+	
+	if targetURL != "" {
+		if parsedURL, err := url.Parse(targetURL); err == nil {
+			headers, cookies = ConvertToNetworkHeadersAndCookiesWithDomain(headersMap, parsedURL.Host)
+		} else {
+			headers, cookies = ConvertToNetworkHeadersAndCookies(headersMap)
+		}
+	} else {
+		headers, cookies = ConvertToNetworkHeadersAndCookies(headersMap)
+	}
+
+	if len(cookies) > 0 {
+		err := page.SetCookies(cookies)
+		if err != nil {
+			log.Error().Err(err).Msg("Error setting cookies")
+			return err
+		}
+	}
+
+	if len(headers) > 0 {
+		page.EnableDomain(&proto.NetworkEnable{})
+		err := proto.NetworkSetExtraHTTPHeaders{Headers: headers}.Call(page)
+		if err != nil {
+			log.Error().Err(err).Interface("headers", headers).Msg("Error setting extra HTTP headers")
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ReplayRequestInBrowser takes a rod.Page and an http.Request, it loads the URL of the input request in the browser,

@@ -231,21 +231,20 @@ func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
 	return false
 }
 
-func (c *Crawler) getBrowserPage() *rod.Page {
+func (c *Crawler) getBrowserPage(targetURL string) *rod.Page {
 	page := c.browser.NewPage()
 	setupTimeout := time.Duration(viper.GetInt("crawl.page_setup_timeout"))
 	page = page.Timeout(setupTimeout * time.Second)
 
 	web.IgnoreCertificateErrors(page)
-	// Set extra headers if provided
+	// Set extra headers and cookies if provided
 	if c.Options.ExtraHeaders != nil {
-		extraHeaders := browser.ConvertToNetworkHeaders(c.Options.ExtraHeaders)
-		page.EnableDomain(&proto.NetworkEnable{})
-		err := proto.NetworkSetExtraHTTPHeaders{Headers: extraHeaders}.Call(page)
+		err := browser.SetPageHeadersAndCookies(page, c.Options.ExtraHeaders, targetURL)
 		if err != nil {
-			log.Error().Err(err).Interface("headers", extraHeaders).Msg("Error setting extra HTTP headers")
+			log.Error().Err(err).Msg("Error setting page headers and cookies")
 		}
 	}
+
 	// Enabling audits, security, etc
 	if !page.LoadState(&proto.AuditsEnable{}) {
 		auditEnableError := proto.AuditsEnable{}.Call(page)
@@ -301,7 +300,7 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 
 	url := item.url
 
-	page := c.getBrowserPage()
+	page := c.getBrowserPage(url)
 	defer c.browser.ReleasePage(page)
 	ctx, cancel := context.WithCancel(context.Background())
 	eventStream := web.ListenForPageEvents(ctx, item.url, page, c.workspaceID, c.taskID, db.SourceCrawler)
@@ -462,6 +461,12 @@ func (c *Crawler) getAndClickElements(selector string, page *rod.Page) (err erro
 			}
 			_, clicked := c.clickedElements.Load(xpath)
 			if !clicked {
+				text, err := btn.Text()
+				if err == nil && strings.Contains(strings.ToLower(text), "logout") {
+					log.Debug().Uint("workspace", c.workspaceID).Str("xpath", xpath).Str("text", text).Msg("Skipping logout element")
+					continue
+				}
+				
 				err = btn.Click(proto.InputMouseButtonLeft, 1)
 				if err != nil {
 					log.Error().Err(err).Str("xpath", xpath).Str("selector", selector).Msg("Error clicking element")

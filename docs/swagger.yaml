@@ -2092,6 +2092,10 @@ paths:
         in: query
         name: remote_addresses
         type: string
+      - description: Comma-separated list of OOB test IDs to filter by
+        in: query
+        name: oob_test_ids
+        type: string
       produces:
       - application/json
       responses:

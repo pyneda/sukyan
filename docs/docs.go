@@ -949,6 +949,12 @@ const docTemplate = `{
                         "description": "Comma-separated list of remote addresses to filter by",
                         "name": "remote_addresses",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of OOB test IDs to filter by",
+                        "name": "oob_test_ids",
+                        "in": "query"
                     }
                 ],
                 "responses": {

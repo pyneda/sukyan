@@ -24,6 +24,7 @@ import (
 // @Param qtypes query string false "Comma-separated list of query types to filter by"
 // @Param full_ids query string false "Comma-separated list of full IDs to filter by"
 // @Param remote_addresses query string false "Comma-separated list of remote addresses to filter by"
+// @Param oob_test_ids query string false "Comma-separated list of OOB test IDs to filter by"
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/interactions [get]
@@ -34,8 +35,10 @@ func FindInteractions(c *fiber.Ctx) error {
 	unparsedQTypes := c.Query("qtypes")
 	unparsedFullIDs := c.Query("full_ids")
 	unparsedRemoteAddresses := c.Query("remote_addresses")
+	unparsedOOBTestIDs := c.Query("oob_test_ids")
 
 	var protocols, qtypes, fullIDs, remoteAddresses []string
+	var oobTestIDs []uint
 
 	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
@@ -73,6 +76,14 @@ func FindInteractions(c *fiber.Ctx) error {
 		remoteAddresses = strings.Split(unparsedRemoteAddresses, ",")
 	}
 
+	if unparsedOOBTestIDs != "" {
+		oobTestIDs, err = stringToUintSlice(unparsedOOBTestIDs, []uint{}, false)
+		if err != nil {
+			log.Error().Err(err).Str("unparsed", unparsedOOBTestIDs).Msg("Error parsing OOB test IDs parameter")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid OOB test IDs parameter"})
+		}
+	}
+
 	issues, count, err := db.Connection().ListInteractions(db.InteractionsFilter{
 		Pagination: db.Pagination{
 			Page: page, PageSize: pageSize,
@@ -81,6 +92,7 @@ func FindInteractions(c *fiber.Ctx) error {
 		QTypes:          qtypes,
 		FullIDs:         fullIDs,
 		RemoteAddresses: remoteAddresses,
+		OOBTestIDs:      oobTestIDs,
 		WorkspaceID:     workspaceID,
 	})
 

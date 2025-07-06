@@ -236,12 +236,13 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 }
 
 type InteractionsFilter struct {
-	QTypes          []string
-	Protocols       []string
-	FullIDs         []string
-	RemoteAddresses []string
-	Pagination      Pagination
-	WorkspaceID     uint
+	QTypes          []string   `json:"qtypes" validate:"omitempty,dive,max=50"`
+	Protocols       []string   `json:"protocols" validate:"omitempty,dive,max=50"`
+	FullIDs         []string   `json:"full_ids" validate:"omitempty,dive,max=500"`
+	RemoteAddresses []string   `json:"remote_addresses" validate:"omitempty,dive,max=50"`
+	OOBTestIDs      []uint     `json:"oob_test_ids" validate:"omitempty,dive,min=1"`
+	Pagination      Pagination `json:"pagination"`
+	WorkspaceID     uint       `json:"workspace_id" validate:"omitempty,min=1"`
 }
 
 // ListInteractions Lists interactions
@@ -261,6 +262,10 @@ func (d *DatabaseConnection) ListInteractions(filter InteractionsFilter) (items 
 
 	if len(filter.RemoteAddresses) > 0 {
 		filterQuery["remote_address"] = filter.RemoteAddresses
+	}
+
+	if len(filter.OOBTestIDs) > 0 {
+		filterQuery["oob_test_id"] = filter.OOBTestIDs
 	}
 
 	if filter.WorkspaceID > 0 {
@@ -314,8 +319,8 @@ func (d *DatabaseConnection) ListOOBTests(filter OOBTestsFilter) (items []*OOBTe
 
 	if filter.Query != "" {
 		searchQuery := "%" + filter.Query + "%"
-		query = query.Where("test_name ILIKE ? OR target ILIKE ? OR payload ILIKE ? OR insertion_point ILIKE ? OR interaction_domain ILIKE ? OR note ILIKE ?", 
-			searchQuery, searchQuery, searchQuery, searchQuery, searchQuery, searchQuery)
+		query = query.Where("test_name ILIKE ? OR target ILIKE ? OR payload ILIKE ? OR insertion_point ILIKE ? OR interaction_domain ILIKE ? OR note ILIKE ? OR code ILIKE ?",
+			searchQuery, searchQuery, searchQuery, searchQuery, searchQuery, searchQuery, searchQuery)
 	}
 
 	if len(filter.TestNames) > 0 {

@@ -1,0 +1,28 @@
+code: xss_blind
+title: Blind XSS
+description:
+  The application appears to be vulnerable to Blind Cross-Site Scripting (XSS) attacks.
+  This vulnerability occurs when user-supplied input is stored and later executed in a
+  different context than where it was originally submitted, often in administrative
+  interfaces or areas not immediately visible to the attacker. Unlike reflected XSS,
+  blind XSS payloads execute asynchronously and are typically detected through
+  out-of-band techniques such as DNS lookups, HTTP requests, or JavaScript callbacks.
+  This type of XSS can be particularly dangerous as it may execute in privileged
+  contexts such as admin panels, allowing attackers to perform actions with elevated
+  privileges or steal sensitive information from high-privilege users.
+remediation:
+  To mitigate this vulnerability, implement comprehensive input validation and output
+  encoding for all user-supplied data, regardless of where it will be displayed.
+  Ensure proper sanitization occurs both on input and output. Implement Content
+  Security Policy (CSP) headers that restrict script execution and external resource
+  loading. Use context-aware output encoding based on where the data will be displayed
+  (HTML, JavaScript, CSS, etc.). Regularly audit and test all user input fields,
+  including those that may be displayed in administrative interfaces or log files.
+  Consider implementing monitoring for unusual outbound network requests that could
+  indicate XSS payload execution.
+cwe: 79
+severity: High
+references:
+  - https://owasp.org/www-community/attacks/xss/
+  - https://defcon.org/images/defcon-20/dc-20-presentations/Baldwin/DEFCON-20-Adam-Baldwin-Blind-XSS.pdf
+  - https://github.com/trufflesecurity/xsshunter

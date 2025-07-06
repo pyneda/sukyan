@@ -40,11 +40,11 @@ func DecodeBase36(s string) (int64, error) {
 func SanitizeUTF8(s string) string {
 	hasNullBytes := strings.Contains(s, "\x00")
 	isValidUTF8 := utf8.ValidString(s)
-	
+
 	if isValidUTF8 && !hasNullBytes {
 		return s
 	}
-	
+
 	sanitized := string([]rune(s))
 	if hasNullBytes {
 		sanitized = strings.ReplaceAll(sanitized, "\x00", "")

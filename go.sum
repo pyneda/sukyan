@@ -134,8 +134,8 @@ github.com/gofiber/contrib/fiberzerolog v0.2.2 h1:tvHBW5k+udW02LU1eNneh65znGwhsK
 github.com/gofiber/contrib/fiberzerolog v0.2.2/go.mod h1:CSpu4UUPGWAA/jIIuHXIhJt3W1cRxprxupXndAYuvpU=
 github.com/gofiber/contrib/jwt v1.0.7 h1:LZuCnjEq8AjiDTUjBQSd2zg3H5uDWjHxSXjo7nj9iAc=
 github.com/gofiber/contrib/jwt v1.0.7/go.mod h1:fA1apg9zQlUhax+Foc0BHATCDzBsemga1Yr9X0KSvrQ=
-github.com/gofiber/fiber/v2 v2.52.8 h1:xl4jJQ0BV5EJTA2aWiKw/VddRpHrKeZLF0QPUxqn0x4=
-github.com/gofiber/fiber/v2 v2.52.8/go.mod h1:YEcBbO/FB+5M1IZNBP9FO3J9281zgPAreiI1oqg8nDw=
+github.com/gofiber/fiber/v2 v2.52.9 h1:YjKl5DOiyP3j0mO61u3NTmK7or8GzzWzCFzkboyP5cw=
+github.com/gofiber/fiber/v2 v2.52.9/go.mod h1:YEcBbO/FB+5M1IZNBP9FO3J9281zgPAreiI1oqg8nDw=
 github.com/gofiber/swagger v1.1.1 h1:FZVhVQQ9s1ZKLHL/O0loLh49bYB5l1HEAgxDlcTtkRA=
 github.com/gofiber/swagger v1.1.1/go.mod h1:vtvY/sQAMc/lGTUCg0lqmBL7Ht9O7uzChpbvJeJQINw=
 github.com/golang-jwt/jwt/v5 v5.2.2 h1:Rl4B7itRWVtYIHFrSNd7vhTiz9UpLdi6gZhZ3wEeDy8=

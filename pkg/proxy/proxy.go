@@ -1,9 +1,13 @@
 package proxy
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -15,6 +19,7 @@ import (
 	"github.com/elazarl/goproxy"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
+	"gorm.io/datatypes"
 )
 
 // Proxy represents configuration for a proxy
@@ -24,7 +29,12 @@ type Proxy struct {
 	Verbose               bool
 	LogOutOfScopeRequests bool
 	WorkspaceID           uint
-	//Scope or workspace
+	wsConnections         sync.Map
+}
+
+type WebSocketConnectionInfo struct {
+	Connection *db.WebSocketConnection
+	Created    time.Time
 }
 
 func setCA(caCert, caKey []byte) error {
@@ -98,6 +108,17 @@ func (p *Proxy) Run() {
 	proxy.OnRequest().DoFunc(
 		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 			log.Info().Msg("Proxy sending request")
+			
+			if headerContains(r.Header, "Connection", "Upgrade") && headerContains(r.Header, "Upgrade", "websocket") {
+				if connInfo, exists := p.wsConnections.Load(r.URL.String()); exists {
+					if wsConnInfo, ok := connInfo.(*WebSocketConnectionInfo); ok {
+						interceptor := NewWebSocketInterceptor(wsConnInfo.Connection, p.WorkspaceID)
+						ctx.UserData = interceptor
+						log.Info().Str("url", r.URL.String()).Msg("WebSocket interceptor set for connection")
+					}
+				}
+			}
+			
 			return r, nil
 		})
 	proxy.OnResponse().DoFunc(
@@ -106,18 +127,69 @@ func (p *Proxy) Run() {
 				return nil
 			}
 			log.Info().Str("url", resp.Request.URL.String()).Msg("Proxy received response")
+			isWebSocketUpgrade := resp.StatusCode == http.StatusSwitchingProtocols && 
+				headerContains(resp.Header, "Connection", "Upgrade") &&
+				headerContains(resp.Header, "Upgrade", "websocket")
+
 			options := http_utils.HistoryCreationOptions{
 				Source:              db.SourceProxy,
 				WorkspaceID:         p.WorkspaceID,
 				TaskID:              0,
 				CreateNewBodyStream: true,
+				IsWebSocketUpgrade:  isWebSocketUpgrade,
 			}
 
-			http_utils.ReadHttpResponseAndCreateHistory(ctx.Resp, options)
+			history, err := http_utils.ReadHttpResponseAndCreateHistory(ctx.Resp, options)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to create history record")
+			} else if isWebSocketUpgrade {
+				go p.createWebSocketConnection(resp, history)
+			}
 			return resp
 		},
 	)
 	if err := http.ListenAndServe(listenAddress, proxy); err != nil {
 		log.Fatal().Err(err).Msg("Proxy startup failed")
 	}
+}
+
+func headerContains(header http.Header, name string, value string) bool {
+	for _, v := range header[name] {
+		for _, s := range strings.Split(v, ",") {
+			if strings.EqualFold(value, strings.TrimSpace(s)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (p *Proxy) createWebSocketConnection(resp *http.Response, history *db.History) {
+	requestHeaders, _ := json.Marshal(resp.Request.Header)
+	responseHeaders, _ := json.Marshal(resp.Header)
+
+	connection := &db.WebSocketConnection{
+		URL:              resp.Request.URL.String(),
+		RequestHeaders:   datatypes.JSON(requestHeaders),
+		ResponseHeaders:  datatypes.JSON(responseHeaders),
+		StatusCode:       resp.StatusCode,
+		StatusText:       resp.Status,
+		WorkspaceID:      &p.WorkspaceID,
+		Source:           db.SourceProxy,
+		UpgradeRequestID: &history.ID,
+	}
+
+	err := db.Connection().CreateWebSocketConnection(connection)
+	if err != nil {
+		log.Error().Uint("workspace", p.WorkspaceID).Err(err).Str("url", connection.URL).Msg("Failed to create WebSocket connection")
+		return
+	}
+	
+	connInfo := &WebSocketConnectionInfo{
+		Connection: connection,
+		Created:    time.Now(),
+	}
+	p.wsConnections.Store(resp.Request.URL.String(), connInfo)
+	
+	log.Info().Uint("workspace", p.WorkspaceID).Str("url", connection.URL).Uint("id", connection.ID).Msg("Created WebSocket connection")
 }

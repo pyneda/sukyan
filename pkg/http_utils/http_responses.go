@@ -52,6 +52,27 @@ func ReadFullResponse(response *http.Response, createNewBodyStream bool) (FullRe
 	if response.Body == nil {
 		return FullResponseData{}, nil, errors.New("response.Body is nil")
 	}
+
+	// For 101 Switching Protocols (WebSocket upgrade), do not attempt to read or close the body
+	// as as it needs to remain open for WebSocket traffic
+	// We also need to preserve the original body because goproxy expects it to be an io.ReadWriter.
+	if response.StatusCode == http.StatusSwitchingProtocols {
+		// Dump response headers only (without body)
+		responseDump, err := httputil.DumpResponse(response, false)
+		if err != nil {
+			log.Error().Err(err).Msg("Error dumping response headers")
+			return FullResponseData{}, nil, err
+		}
+		return FullResponseData{
+			Body:      []byte{},
+			BodySize:  0,
+			Raw:       responseDump,
+			RawString: string(responseDump),
+			RawSize:   len(responseDump),
+		}, nil, nil
+	}
+
+	// For non-WebSocket responses, we can safely close the body after reading
 	defer response.Body.Close()
 
 	responseDump, err := httputil.DumpResponse(response, true)
@@ -101,7 +122,7 @@ func ReadHttpResponseAndCreateHistory(response *http.Response, options HistoryCr
 		return nil, err
 	}
 
-	if options.CreateNewBodyStream {
+	if options.CreateNewBodyStream && newBody != nil {
 		response.Body = newBody
 	}
 

@@ -64,6 +64,7 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID uint, source s
 			PayloadData:  e.Response.PayloadData,
 			Timestamp:    time.Now(),
 			Direction:    db.MessageSent,
+			IsBinary:     e.Response.Opcode == 2,
 		}
 		err := db.Connection().CreateWebSocketMessage(message)
 		if err != nil {
@@ -82,6 +83,7 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID uint, source s
 			PayloadData:  e.Response.PayloadData,
 			Timestamp:    time.Now(),
 			Direction:    db.MessageReceived,
+			IsBinary:     e.Response.Opcode == 2,
 		}
 		err := db.Connection().CreateWebSocketMessage(message)
 		if err != nil {

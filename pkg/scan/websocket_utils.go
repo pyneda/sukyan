@@ -47,6 +47,7 @@ func replayPreviousMessages(client *websocket.Conn, newConnectionID uint, messag
 			PayloadData:  msg.PayloadData,
 			Timestamp:    time.Now(),
 			Direction:    db.MessageSent,
+			IsBinary:     msg.IsBinary,
 		}
 
 		err = db.Connection().CreateWebSocketMessage(&replayedMsg)

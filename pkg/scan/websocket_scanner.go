@@ -607,6 +607,7 @@ func (s *WebSocketScanner) readWebSocketMessages(ctx context.Context, client *we
 			PayloadData:  string(message),
 			Timestamp:    time.Now(),
 			Direction:    db.MessageReceived,
+			IsBinary:     messageType == websocket.BinaryMessage,
 		}
 
 		select {

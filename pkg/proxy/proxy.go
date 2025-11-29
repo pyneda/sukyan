@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -86,7 +87,8 @@ func (p *Proxy) Run() {
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Verbose = p.Verbose
 
-	proxy.OnRequest().HandleConnect(goproxy.AlwaysMitm)
+	// Use AlwaysAutoMitm to auto-detect TLS vs plain HTTP for CONNECT requests
+	proxy.OnRequest().HandleConnect(goproxy.AlwaysAutoMitm)
 	proxy.OnRequest(goproxy.DstHostIs("sukyan")).DoFunc(
 		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 			if r.URL.Path == "/ca" {
@@ -108,17 +110,29 @@ func (p *Proxy) Run() {
 	proxy.OnRequest().DoFunc(
 		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 			log.Info().Msg("Proxy sending request")
-			
-			if headerContains(r.Header, "Connection", "Upgrade") && headerContains(r.Header, "Upgrade", "websocket") {
-				if connInfo, exists := p.wsConnections.Load(r.URL.String()); exists {
-					if wsConnInfo, ok := connInfo.(*WebSocketConnectionInfo); ok {
-						interceptor := NewWebSocketInterceptor(wsConnInfo.Connection, p.WorkspaceID)
-						ctx.UserData = interceptor
-						log.Info().Str("url", r.URL.String()).Msg("WebSocket interceptor set for connection")
+			// Strip permessage-deflate to force uncompressed WebSocket frames
+			// This avoids the need for complex stateful decompression in the proxy
+			if headerContains(r.Header, "Connection", "Upgrade") &&
+				headerContains(r.Header, "Upgrade", "websocket") {
+				extensions := r.Header.Get("Sec-WebSocket-Extensions")
+				if strings.Contains(strings.ToLower(extensions), "permessage-deflate") {
+					// Simple approach: remove the header entirely if it only contains permessage-deflate
+					// or just remove the string. For now, removing the header is safest as it's usually the only extension.
+					// A more robust approach would be to split by comma and filter.
+					var newExtensions []string
+					for _, ext := range strings.Split(extensions, ",") {
+						if !strings.Contains(strings.ToLower(ext), "permessage-deflate") {
+							newExtensions = append(newExtensions, strings.TrimSpace(ext))
+						}
 					}
+					if len(newExtensions) == 0 {
+						r.Header.Del("Sec-WebSocket-Extensions")
+					} else {
+						r.Header.Set("Sec-WebSocket-Extensions", strings.Join(newExtensions, ", "))
+					}
+					log.Info().Str("original_extensions", extensions).Msg("Stripped permessage-deflate from WebSocket extensions")
 				}
 			}
-			
 			return r, nil
 		})
 	proxy.OnResponse().DoFunc(
@@ -126,10 +140,39 @@ func (p *Proxy) Run() {
 			if resp == nil {
 				return nil
 			}
-			log.Info().Str("url", resp.Request.URL.String()).Msg("Proxy received response")
-			isWebSocketUpgrade := resp.StatusCode == http.StatusSwitchingProtocols && 
+			log.Info().Str("url", resp.Request.URL.String()).Int("status", resp.StatusCode).Msg("Proxy received response")
+
+			// Strip permessage-deflate from response as well to ensure client consistency
+			extensions := resp.Header.Get("Sec-WebSocket-Extensions")
+			if strings.Contains(strings.ToLower(extensions), "permessage-deflate") {
+				var newExtensions []string
+				for _, ext := range strings.Split(extensions, ",") {
+					if !strings.Contains(strings.ToLower(ext), "permessage-deflate") {
+						newExtensions = append(newExtensions, strings.TrimSpace(ext))
+					}
+				}
+				if len(newExtensions) == 0 {
+					resp.Header.Del("Sec-WebSocket-Extensions")
+				} else {
+					resp.Header.Set("Sec-WebSocket-Extensions", strings.Join(newExtensions, ", "))
+				}
+				log.Info().Str("original_extensions", extensions).Msg("Stripped permessage-deflate from WebSocket response extensions")
+			}
+
+			isWebSocketUpgrade := resp.StatusCode == http.StatusSwitchingProtocols &&
 				headerContains(resp.Header, "Connection", "Upgrade") &&
 				headerContains(resp.Header, "Upgrade", "websocket")
+
+			// Log WebSocket upgrade detection details
+			if headerContains(resp.Request.Header, "Upgrade", "websocket") {
+				log.Info().
+					Int("status", resp.StatusCode).
+					Bool("is_upgrade", isWebSocketUpgrade).
+					Str("connection_header", resp.Header.Get("Connection")).
+					Str("upgrade_header", resp.Header.Get("Upgrade")).
+					Str("url", resp.Request.URL.String()).
+					Msg("WebSocket upgrade request detected")
+			}
 
 			options := http_utils.HistoryCreationOptions{
 				Source:              db.SourceProxy,
@@ -143,7 +186,43 @@ func (p *Proxy) Run() {
 			if err != nil {
 				log.Error().Err(err).Msg("Failed to create history record")
 			} else if isWebSocketUpgrade {
-				go p.createWebSocketConnection(resp, history)
+				// Create the WebSocket connection and set up the interceptor before proxyWebsocket runs
+				connection := p.createWebSocketConnection(resp, history)
+				if connection != nil {
+					// Check if permessage-deflate compression is negotiated
+					// The header value may include parameters like "permessage-deflate; client_no_context_takeover"
+					wsExtensions := resp.Header.Get("Sec-WebSocket-Extensions")
+					compressionEnabled := strings.Contains(strings.ToLower(wsExtensions), "permessage-deflate")
+					log.Debug().
+						Str("extensions", wsExtensions).
+						Bool("compression_enabled", compressionEnabled).
+						Msg("WebSocket extensions detected")
+					interceptor := NewWebSocketInterceptor(connection, p.WorkspaceID, compressionEnabled)
+					ctx.UserData = interceptor
+					// Set the WebSocket close handler to clean up the interceptor when done
+					ctx.WebSocketCloseHandler = func(_ *goproxy.ProxyCtx) {
+						log.Debug().Uint("connection_id", connection.ID).Msg("WebSocket connection closed, cleaning up interceptor")
+						interceptor.Close()
+					}
+					// Set the WebSocket copy handler to intercept all WebSocket traffic
+					ctx.WebSocketCopyHandler = func(dst io.Writer, src io.Reader, direction goproxy.WebSocketDirection, _ *goproxy.ProxyCtx) (int64, error) {
+						log.Debug().Int("direction", int(direction)).Msg("WebSocketCopyHandler called")
+						var msgDirection db.MessageDirection
+						if direction == goproxy.WebSocketClientToServer {
+							msgDirection = db.MessageSent
+						} else {
+							msgDirection = db.MessageReceived
+						}
+						// Call the InterceptedCopy method of the interceptor
+						written, err := interceptor.InterceptedCopy(dst, src, msgDirection)
+						if err != nil {
+							log.Error().Err(err).Int("direction", int(direction)).Msg("Error during WebSocket InterceptedCopy")
+						}
+						log.Debug().Int64("bytes_copied", written).Int("direction", int(direction)).Msg("WebSocketCopyHandler finished copying")
+						return written, err
+					}
+					log.Info().Str("url", resp.Request.URL.String()).Uint("id", connection.ID).Bool("compression", compressionEnabled).Msg("WebSocket interceptor set for connection")
+				}
 			}
 			return resp
 		},
@@ -164,7 +243,7 @@ func headerContains(header http.Header, name string, value string) bool {
 	return false
 }
 
-func (p *Proxy) createWebSocketConnection(resp *http.Response, history *db.History) {
+func (p *Proxy) createWebSocketConnection(resp *http.Response, history *db.History) *db.WebSocketConnection {
 	requestHeaders, _ := json.Marshal(resp.Request.Header)
 	responseHeaders, _ := json.Marshal(resp.Header)
 
@@ -182,14 +261,15 @@ func (p *Proxy) createWebSocketConnection(resp *http.Response, history *db.Histo
 	err := db.Connection().CreateWebSocketConnection(connection)
 	if err != nil {
 		log.Error().Uint("workspace", p.WorkspaceID).Err(err).Str("url", connection.URL).Msg("Failed to create WebSocket connection")
-		return
+		return nil
 	}
-	
+
 	connInfo := &WebSocketConnectionInfo{
 		Connection: connection,
 		Created:    time.Now(),
 	}
 	p.wsConnections.Store(resp.Request.URL.String(), connInfo)
-	
+
 	log.Info().Uint("workspace", p.WorkspaceID).Str("url", connection.URL).Uint("id", connection.ID).Msg("Created WebSocket connection")
+	return connection
 }

@@ -90,6 +90,7 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 // @Param page_size query integer false "Size of each page" default(50)
 // @Param page query integer false "Page number" default(1)
 // @Param connection_id query string false "Filter messages by WebSocket connection ID"
+// @Param is_binary query boolean false "Filter by binary messages (true) or text messages (false)"
 // @Success 200 {array} db.WebSocketMessage
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
@@ -98,6 +99,7 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")
 	unparsedConnectionID := c.Query("connection_id")
+	unparsedIsBinary := c.Query("is_binary")
 
 	pageSize, err := strconv.Atoi(unparsedPageSize)
 	if err != nil {
@@ -121,12 +123,23 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 		connectionID = uint(unparsedUint)
 	}
 
+	var isBinary *bool
+	if unparsedIsBinary != "" {
+		parsed, err := strconv.ParseBool(unparsedIsBinary)
+		if err != nil {
+			log.Error().Err(err).Msg("Error parsing is_binary query parameter")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid is_binary parameter, must be true or false"})
+		}
+		isBinary = &parsed
+	}
+
 	messages, count, err := db.Connection().ListWebSocketMessages(db.WebSocketMessageFilter{
 		Pagination: db.Pagination{
 			Page:     page,
 			PageSize: pageSize,
 		},
 		ConnectionID: connectionID,
+		IsBinary:     isBinary,
 	})
 
 	if err != nil {

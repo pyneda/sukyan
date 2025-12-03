@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -14,6 +15,17 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 )
+
+// TestMain ensures the browser is downloaded before running any tests.
+// This prevents test timeouts caused by browser download during test execution.
+func TestMain(m *testing.M) {
+	// Pre-download browser if not already present by launching and closing it
+	l := launcher.New().Headless(true).Set("no-sandbox", "true")
+	u := l.MustLaunch()
+	browser := rod.New().ControlURL(u).MustConnect()
+	browser.MustClose()
+	os.Exit(m.Run())
+}
 
 func setupRodBrowser(t *testing.T, headless bool) *rod.Browser {
 	t.Helper()

@@ -174,12 +174,13 @@ type WebSocketMessage struct {
 	Opcode       float64          `json:"opcode"`
 	Mask         bool             `gorm:"index" json:"mask"`
 	PayloadData  string           `json:"payload_data"`
+	IsBinary     bool             `gorm:"index" json:"is_binary"` // true if payload is binary (base64 encoded)
 	Timestamp    time.Time        `json:"timestamp"`              // timestamp for when the message was sent/received
 	Direction    MessageDirection `gorm:"index" json:"direction"` // direction of the message
 }
 
 func (m WebSocketMessage) TableHeaders() []string {
-	return []string{"ID", "ConnectionID", "Opcode", "Mask", "PayloadData", "Timestamp", "Direction"}
+	return []string{"ID", "ConnectionID", "Opcode", "Mask", "IsBinary", "PayloadData", "Timestamp", "Direction"}
 }
 
 func (m WebSocketMessage) TableRow() []string {
@@ -188,6 +189,7 @@ func (m WebSocketMessage) TableRow() []string {
 		fmt.Sprintf("%d", m.ConnectionID),
 		fmt.Sprintf("%f", m.Opcode),
 		fmt.Sprintf("%t", m.Mask),
+		fmt.Sprintf("%t", m.IsBinary),
 		m.PayloadData,
 		m.Timestamp.Format(time.RFC3339),
 		string(m.Direction),
@@ -195,7 +197,7 @@ func (m WebSocketMessage) TableRow() []string {
 }
 
 func (m WebSocketMessage) String() string {
-	return fmt.Sprintf("ID: %d, ConnectionID: %d, Opcode: %f, Mask: %t, PayloadData: %s, Timestamp: %s, Direction: %s", m.ID, m.ConnectionID, m.Opcode, m.Mask, m.PayloadData, m.Timestamp.Format(time.RFC3339), m.Direction)
+	return fmt.Sprintf("ID: %d, ConnectionID: %d, Opcode: %f, Mask: %t, IsBinary: %t, PayloadData: %s, Timestamp: %s, Direction: %s", m.ID, m.ConnectionID, m.Opcode, m.Mask, m.IsBinary, m.PayloadData, m.Timestamp.Format(time.RFC3339), m.Direction)
 }
 
 func (m WebSocketMessage) Pretty() string {
@@ -293,6 +295,7 @@ func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnection
 type WebSocketMessageFilter struct {
 	Pagination
 	ConnectionID uint
+	IsBinary     *bool // Pointer to allow distinguishing between false and not-set
 }
 
 func (d *DatabaseConnection) ListWebSocketMessages(filter WebSocketMessageFilter) ([]WebSocketMessage, int64, error) {
@@ -300,6 +303,10 @@ func (d *DatabaseConnection) ListWebSocketMessages(filter WebSocketMessageFilter
 
 	if filter.ConnectionID != 0 {
 		query = query.Where("connection_id = ?", filter.ConnectionID)
+	}
+
+	if filter.IsBinary != nil {
+		query = query.Where("is_binary = ?", *filter.IsBinary)
 	}
 
 	var messages []WebSocketMessage

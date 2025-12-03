@@ -73,6 +73,8 @@ func SetDefaultConfig() {
 
 	viper.SetDefault("scan.oob.enabled", true)
 	viper.SetDefault("scan.oob.poll_interval", 10)
+	viper.SetDefault("scan.oob.keep_alive_interval", 60)
+	viper.SetDefault("scan.oob.session_file", "interactsh.session")
 	viper.SetDefault("scan.oob.wait_after_scan", 30)
 	viper.SetDefault("scan.oob.asn_info", false)
 	viper.SetDefault("scan.oob.server_urls", "oast.pro,oast.live,oast.site,oast.online,oast.fun,oast.me")

@@ -42,10 +42,19 @@ func StartAPI() {
 		os.Exit(1)
 	}
 	oobPollingInterval := time.Duration(viper.GetInt("scan.oob.poll_interval"))
+	oobKeepAliveInterval := time.Duration(viper.GetInt("scan.oob.keep_alive_interval"))
+	oobSessionFile := viper.GetString("scan.oob.session_file")
 	interactionsManager := &integrations.InteractionsManager{
 		GetAsnInfo:            false,
 		PollingInterval:       oobPollingInterval * time.Second,
+		KeepAliveInterval:     oobKeepAliveInterval * time.Second,
+		SessionFile:           oobSessionFile,
 		OnInteractionCallback: scan.SaveInteractionCallback,
+	}
+	// Set up auto-recovery on eviction
+	interactionsManager.OnEvictionCallback = func() {
+		apiLogger.Warn().Msg("Interactsh correlation ID evicted, restarting client")
+		interactionsManager.Restart()
 	}
 	interactionsManager.Start()
 

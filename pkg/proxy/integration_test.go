@@ -163,7 +163,6 @@ func TestWebSocketUpgradeAndMessageStorageIntegration(t *testing.T) {
 	assert.True(t, isWebSocketUpgrade)
 
 	history := &db.History{
-		BaseModel:          db.BaseModel{ID: 999},
 		URL:                req.URL.String(),
 		Method:             req.Method,
 		StatusCode:         resp.StatusCode,
@@ -171,6 +170,9 @@ func TestWebSocketUpgradeAndMessageStorageIntegration(t *testing.T) {
 		Source:             db.SourceProxy,
 		IsWebSocketUpgrade: true,
 	}
+
+	history, err = db.Connection().CreateHistory(history)
+	require.NoError(t, err)
 
 	proxy.createWebSocketConnection(resp, history)
 

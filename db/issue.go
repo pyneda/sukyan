@@ -216,6 +216,14 @@ func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) ([]*GroupedIs
 		query = query.Where("scan_id = ?", filter.ScanID)
 	}
 
+	if filter.ScanJobID != 0 {
+		query = query.Where("scan_job_id = ?", filter.ScanJobID)
+	}
+
+	if filter.MinConfidence > 0 {
+		query = query.Where("confidence >= ?", filter.MinConfidence)
+	}
+
 	// Execute the query
 	err := query.Find(&issues).Error
 	if err != nil {

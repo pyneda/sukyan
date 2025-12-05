@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -30,6 +31,7 @@ type TemplateScannerResult struct {
 }
 
 type TemplateScanner struct {
+	Ctx                 context.Context
 	Concurrency         int
 	InteractionsManager *integrations.InteractionsManager
 	AvoidRepeatedIssues bool
@@ -142,6 +144,19 @@ type FuzzItemOptions struct {
 
 // Run starts the fuzzing job
 func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generation.PayloadGenerator, insertionPoints []InsertionPoint, options options.HistoryItemScanOptions) map[string][]TemplateScannerResult {
+	// Get context, defaulting to background if not set
+	ctx := f.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		log.Info().Str("item", history.URL).Msg("Template scanner cancelled before starting")
+		return make(map[string][]TemplateScannerResult)
+	default:
+	}
 
 	var wg sync.WaitGroup
 	f.checkConfig()
@@ -151,10 +166,19 @@ func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generati
 
 	// Schedule workers
 	for i := 0; i < f.Concurrency; i++ {
-		go f.worker(&wg, pendingTasks)
+		go f.workerWithContext(ctx, &wg, pendingTasks)
 	}
 
 	for _, insertionPoint := range insertionPoints {
+		// Check context before each insertion point
+		select {
+		case <-ctx.Done():
+			log.Info().Str("item", history.URL).Msg("Template scanner cancelled during insertion point iteration")
+			wg.Wait()
+			return f.collectResults(history)
+		default:
+		}
+
 		log.Debug().Str("item", history.URL).Str("method", history.Method).Str("point", insertionPoint.String()).Int("ID", int(history.ID)).Msg("Scanning insertion point")
 		for _, generator := range payloadGenerators {
 			if f.shouldLaunch(history, generator, insertionPoint, options) {
@@ -180,6 +204,11 @@ func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generati
 	}
 	log.Debug().Msg("Waiting for all the template scanner tasks to finish")
 	wg.Wait()
+	return f.collectResults(history)
+}
+
+// collectResults gathers all results from the results sync.Map
+func (f *TemplateScanner) collectResults(history *db.History) map[string][]TemplateScannerResult {
 	totalIssues := 0
 	resultsMap := make(map[string][]TemplateScannerResult)
 	f.results.Range(func(key, value interface{}) bool {
@@ -195,13 +224,20 @@ func (f *TemplateScanner) Run(history *db.History, payloadGenerators []*generati
 		return true
 	})
 	log.Info().Int("total_issues", totalIssues).Str("item", history.URL).Str("method", history.Method).Int("ID", int(history.ID)).Msg("Finished running template scanner against history item")
-
 	return resultsMap
 }
 
-// worker makes the request and processes the result
-func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateScannerTask) {
+// workerWithContext makes the request and processes the result with context support
+func (f *TemplateScanner) workerWithContext(ctx context.Context, wg *sync.WaitGroup, pendingTasks chan TemplateScannerTask) {
 	for task := range pendingTasks {
+		// Check context before processing each task
+		select {
+		case <-ctx.Done():
+			wg.Done()
+			continue
+		default:
+		}
+
 		taskLog := log.With().Str("method", task.history.Method).Str("param", task.insertionPoint.Name).Str("payload", task.payload.Value).Str("url", task.history.URL).Logger()
 		taskLog.Debug().Interface("task", task).Msg("New template scanner task received by parameter worker")
 		if f.AvoidRepeatedIssues {

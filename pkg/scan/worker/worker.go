@@ -13,6 +13,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	// JobCancellationPollInterval is how often to check if a running job was cancelled
+	JobCancellationPollInterval = 3 * time.Second
+)
+
 // Worker runs in a goroutine, polling for and executing jobs.
 type Worker struct {
 	id               string
@@ -128,20 +133,20 @@ func (w *Worker) executeJob(job *db.ScanJob) {
 
 	log.Debug().Msg("Executing job")
 
-	// Get scan control for checkpoint operations
-	ctrl := w.registry.Get(job.ScanID)
-	if ctrl == nil {
-		// Scan control not found, this shouldn't happen normally
-		// Create a temporary one that's immediately cancelled
-		log.Warn().Msg("Scan control not found, scan may have been removed")
-		_ = w.queue.Fail(w.ctx, job.ID, "scan_not_found", "Scan control not found")
-		return
-	}
+	// Get or create scan control for checkpoint operations
+	// In distributed mode, the control may not exist locally yet
+	ctrl := w.registry.GetOrCreate(job.ScanID)
 
 	// Check if scan is cancelled before starting
 	if ctrl.IsCancelled() {
 		log.Debug().Msg("Scan is cancelled, skipping job")
 		_ = w.queue.Cancel(w.ctx, job.ID)
+		return
+	}
+
+	// Check if this specific job was cancelled before starting
+	if w.isJobCancelled(job.ID) {
+		log.Debug().Msg("Job is cancelled, skipping")
 		return
 	}
 
@@ -173,6 +178,24 @@ func (w *Worker) executeJob(job *db.ScanJob) {
 		}
 	}()
 
+	// Watch for individual job cancellation (polls DB)
+	go func() {
+		ticker := time.NewTicker(JobCancellationPollInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-jobCtx.Done():
+				return
+			case <-ticker.C:
+				if w.isJobCancelled(job.ID) {
+					log.Debug().Msg("Job cancelled via DB poll, cancelling context")
+					jobCancel()
+					return
+				}
+			}
+		}
+	}()
+
 	startTime := time.Now()
 
 	// Execute the job
@@ -180,8 +203,8 @@ func (w *Worker) executeJob(job *db.ScanJob) {
 
 	duration := time.Since(startTime)
 
-	// Check if we were cancelled during execution
-	if ctrl.IsCancelled() || jobCtx.Err() != nil {
+	// Check if we were cancelled during execution (scan-level or job-level)
+	if ctrl.IsCancelled() || jobCtx.Err() != nil || w.isJobCancelled(job.ID) {
 		log.Debug().Dur("duration", duration).Msg("Job cancelled during execution")
 		_ = w.queue.Cancel(w.ctx, job.ID)
 		return
@@ -201,4 +224,14 @@ func (w *Worker) executeJob(job *db.ScanJob) {
 			Msg("Job completed")
 		_ = w.queue.Complete(w.ctx, job.ID, queue.JobResult{})
 	}
+}
+
+// isJobCancelled checks if a specific job has been cancelled in the database
+func (w *Worker) isJobCancelled(jobID uint) bool {
+	job, err := db.Connection().GetScanJobByID(jobID)
+	if err != nil {
+		log.Warn().Err(err).Uint("job_id", jobID).Msg("Failed to check job cancellation status")
+		return false
+	}
+	return job.Status == db.ScanJobStatusCancelled
 }

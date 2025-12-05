@@ -1,0 +1,23 @@
+code: csv_injection
+title: CSV Injection (Formula Injection)
+description:
+  The application is vulnerable to CSV Injection, also known as Formula Injection.
+  This occurs when user-controlled data is included in CSV or spreadsheet exports
+  without proper sanitization. When the exported file is opened in spreadsheet
+  applications like Microsoft Excel or Google Sheets, malicious formulas (starting
+  with =, +, -, @, or tab/carriage return followed by these characters) can be
+  executed. This can lead to data exfiltration via external requests, local file
+  access, or in some cases remote code execution through DDE (Dynamic Data Exchange).
+remediation:
+  Sanitize all user input before including it in CSV exports. Prefix cell values
+  that start with formula-triggering characters (=, +, -, @) with a single quote
+  or tab character to prevent formula interpretation. Consider using libraries
+  that handle CSV escaping properly. Implement Content-Security-Policy headers
+  for downloaded files where supported. Educate users about the risks of enabling
+  macros or external content in downloaded spreadsheets.
+cwe: 1236
+severity: Medium
+references:
+  - https://owasp.org/www-community/attacks/CSV_Injection
+  - https://book.hacktricks.xyz/pentesting-web/formula-csv-doc-latex-ghostscript-injection
+  - https://cwe.mitre.org/data/definitions/1236.html

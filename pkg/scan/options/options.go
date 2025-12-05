@@ -1,6 +1,10 @@
 package options
 
-import "github.com/pyneda/sukyan/lib"
+import (
+	"context"
+
+	"github.com/pyneda/sukyan/lib"
+)
 
 type ScanMode string
 
@@ -65,6 +69,7 @@ type AuditCategories struct {
 }
 
 type HistoryItemScanOptions struct {
+	Ctx                context.Context   `json:"-"` // Context for cancellation propagation
 	WorkspaceID        uint              `json:"workspace_id" validate:"required,min=0"`
 	TaskID             uint              `json:"task_id" validate:"required,min=0"`
 	TaskJobID          uint              `json:"task_job_id" validate:"required,min=0"`

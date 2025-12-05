@@ -48,7 +48,8 @@ func (r *Registry) Get(scanID uint) *ScanControl {
 	return r.controls[scanID]
 }
 
-// GetOrCreate returns existing ScanControl or creates a new one in running state
+// GetOrCreate returns existing ScanControl or creates a new one.
+// When creating a new control, it checks the database for the scan's actual status.
 func (r *Registry) GetOrCreate(scanID uint) *ScanControl {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -57,9 +58,25 @@ func (r *Registry) GetOrCreate(scanID uint) *ScanControl {
 		return ctrl
 	}
 
-	ctrl := New(scanID)
+	// Check database for scan status to create control with correct state
+	var state State = StateRunning
+	if r.dbConn != nil {
+		scan, err := r.dbConn.GetScanByID(scanID)
+		if err == nil {
+			switch scan.Status {
+			case db.ScanStatusPaused:
+				state = StatePaused
+			case db.ScanStatusCancelled, db.ScanStatusCompleted, db.ScanStatusFailed:
+				state = StateCancelled
+			default:
+				state = StateRunning
+			}
+		}
+	}
+
+	ctrl := NewWithState(scanID, state)
 	r.controls[scanID] = ctrl
-	log.Debug().Uint("scan_id", scanID).Msg("Created new scan control")
+	log.Debug().Uint("scan_id", scanID).Str("state", state.String()).Msg("Created new scan control from DB state")
 	return ctrl
 }
 

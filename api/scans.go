@@ -14,6 +14,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/scan/manager"
 	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 // CreateScanInput represents the input for creating a new scan
@@ -596,6 +597,84 @@ func parseScanJobIDParam(c *fiber.Ctx) (uint, error) {
 	return uint(id64), nil
 }
 
+// CancelScanJobHandler cancels a specific scan job
+// @Summary Cancel scan job
+// @Description Cancels a specific scan job. If the job is running, it will be stopped.
+// @Tags Scans
+// @Accept json
+// @Produce json
+// @Param id path int true "Scan ID"
+// @Param job_id path int true "Job ID"
+// @Success 200 {object} ScanJobResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/scans/{id}/jobs/{job_id}/cancel [post]
+func CancelScanJobHandler(c *fiber.Ctx) error {
+	scanID, err := parseScanIDParam(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Invalid scan ID",
+			Message: err.Error(),
+		})
+	}
+
+	jobIDStr := c.Params("job_id")
+	jobID64, err := strconv.ParseUint(jobIDStr, 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Invalid job ID",
+			Message: err.Error(),
+		})
+	}
+	jobID := uint(jobID64)
+
+	// Get the job and verify it belongs to the scan
+	job, err := db.Connection().GetScanJobByID(jobID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+			Error:   "Scan job not found",
+			Message: err.Error(),
+		})
+	}
+
+	if job.ScanID != scanID {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Job does not belong to scan",
+			Message: "The specified job does not belong to the specified scan",
+		})
+	}
+
+	// Check if job can be cancelled
+	if job.Status == db.ScanJobStatusCompleted || job.Status == db.ScanJobStatusCancelled {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Job cannot be cancelled",
+			Message: "Job is already " + string(job.Status),
+		})
+	}
+
+	// Cancel the job
+	if err := db.Connection().SetScanJobStatus(jobID, db.ScanJobStatusCancelled); err != nil {
+		log.Error().Err(err).Uint("job_id", jobID).Msg("Failed to cancel job")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:   "Failed to cancel job",
+			Message: err.Error(),
+		})
+	}
+
+	// Fetch updated job
+	job, _ = db.Connection().GetScanJobByID(jobID)
+	stats, _ := db.Connection().GetScanJobStatsForJob(jobID)
+
+	log.Info().Uint("job_id", jobID).Uint("scan_id", scanID).Msg("Scan job cancelled")
+
+	return c.JSON(ScanJobResponseFromDBScanJob(job, ScanJobStats{
+		Requests: stats.Requests,
+		Issues:   stats.Issues,
+		OOBTests: stats.OOBTests,
+	}))
+}
+
 // GetScanJobsHandler lists jobs for a scan
 // @Summary Get scan jobs
 // @Description Lists all jobs for a scan with optional filtering
@@ -870,6 +949,7 @@ func parseScanIDParam(c *fiber.Ctx) (uint, error) {
 // This should be called during server startup after the database is ready.
 func InitScanManager(interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator) error {
 	cfg := manager.DefaultConfig()
+	cfg.WorkerCount = viper.GetInt("scan.workers")
 	sm := manager.New(cfg, db.Connection(), interactionsManager, payloadGenerators)
 
 	if err := sm.Start(); err != nil {

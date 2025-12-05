@@ -1,6 +1,7 @@
 package active
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -17,6 +18,7 @@ import (
 
 // Log4ShellInjectionAudit configuration
 type Log4ShellInjectionAudit struct {
+	Ctx                 context.Context
 	URL                 string
 	Concurrency         int
 	HeuristicRecords    []fuzz.HeuristicRecord
@@ -132,6 +134,20 @@ func (a *Log4ShellInjectionAudit) GetHeadersToTest() (headers []string) {
 
 // Run starts the audit
 func (a *Log4ShellInjectionAudit) Run() {
+	// Get context, defaulting to background if not provided
+	ctx := a.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		log.Info().Str("url", a.URL).Msg("Log4Shell audit cancelled before starting")
+		return
+	default:
+	}
+
 	auditItemsChannel := make(chan log4ShellAuditItem)
 	pendingChannel := make(chan int)
 	var wg sync.WaitGroup
@@ -139,7 +155,7 @@ func (a *Log4ShellInjectionAudit) Run() {
 	// Schedule workers
 	for i := 0; i < a.Concurrency; i++ {
 		wg.Add(1)
-		go a.worker(auditItemsChannel, pendingChannel, &wg)
+		go a.workerWithContext(ctx, auditItemsChannel, pendingChannel, &wg)
 	}
 	// Schedule goroutine to monitor pending tasks
 	go a.monitor(auditItemsChannel, pendingChannel)
@@ -147,6 +163,15 @@ func (a *Log4ShellInjectionAudit) Run() {
 
 	// Add tests to the channel
 	for _, header := range a.GetHeadersToTest() {
+		// Check context before scheduling each item
+		select {
+		case <-ctx.Done():
+			log.Info().Str("url", a.URL).Msg("Log4Shell audit cancelled during scheduling")
+			close(auditItemsChannel)
+			return
+		default:
+		}
+
 		payload := payloads.GenerateLog4ShellPayload(a.InteractionsManager)
 		pendingChannel <- 1
 		auditItemsChannel <- log4ShellAuditItem{
@@ -166,6 +191,21 @@ func (a *Log4ShellInjectionAudit) worker(auditItems chan log4ShellAuditItem, pen
 	wg.Done()
 }
 
+func (a *Log4ShellInjectionAudit) workerWithContext(ctx context.Context, auditItems chan log4ShellAuditItem, pendingChannel chan int, wg *sync.WaitGroup) {
+	for auditItem := range auditItems {
+		// Check context before processing each item
+		select {
+		case <-ctx.Done():
+			pendingChannel <- -1
+			continue
+		default:
+		}
+		a.testItemWithContext(ctx, auditItem)
+		pendingChannel <- -1
+	}
+	wg.Done()
+}
+
 func (a *Log4ShellInjectionAudit) monitor(auditItems chan log4ShellAuditItem, pendingChannel chan int) {
 	count := 0
 	log.Debug().Str("url", a.URL).Msg("Log4Shell audit monitor started")
@@ -180,9 +220,13 @@ func (a *Log4ShellInjectionAudit) monitor(auditItems chan log4ShellAuditItem, pe
 }
 
 func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
+	a.testItemWithContext(context.Background(), item)
+}
+
+func (a *Log4ShellInjectionAudit) testItemWithContext(ctx context.Context, item log4ShellAuditItem) {
 	client := http_utils.CreateHttpClient()
 	auditLog := log.With().Str("audit", "log4shell").Interface("auditItem", item).Str("url", a.URL).Logger()
-	request, err := http.NewRequest("GET", a.URL, nil)
+	request, err := http.NewRequestWithContext(ctx, "GET", a.URL, nil)
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error creating the request")
 		return

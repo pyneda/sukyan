@@ -35,12 +35,18 @@ type Config struct {
 	WorkerCount int
 	// WorkerIDPrefix is the prefix for worker IDs.
 	WorkerIDPrefix string
+	// NodeID is the unique identifier for this worker node. If empty, auto-generated.
+	NodeID string
+	// Version is the application version for tracking.
+	Version string
 	// PollInterval is how often workers poll for jobs.
 	PollInterval time.Duration
 	// RefreshInterval is how often to refresh control state from DB.
 	RefreshInterval time.Duration
 	// StaleJobThreshold is how long before a claimed job is considered stale.
 	StaleJobThreshold time.Duration
+	// HeartbeatInterval is how often to update the worker node heartbeat.
+	HeartbeatInterval time.Duration
 }
 
 // DefaultConfig returns the default configuration.
@@ -48,9 +54,12 @@ func DefaultConfig() Config {
 	return Config{
 		WorkerCount:       5,
 		WorkerIDPrefix:    "worker",
+		NodeID:            "", // Auto-generated if empty
+		Version:           "",
 		PollInterval:      100 * time.Millisecond,
-		RefreshInterval:   5 * time.Second,
+		RefreshInterval:   3 * time.Second,
 		StaleJobThreshold: 2 * time.Minute,
+		HeartbeatInterval: 30 * time.Second,
 	}
 }
 
@@ -159,11 +168,14 @@ func (sm *ScanManager) Start() error {
 
 		// Create and start worker pool
 		sm.workerPool = worker.NewPool(worker.PoolConfig{
-			WorkerCount:      sm.config.WorkerCount,
-			WorkerIDPrefix:   sm.config.WorkerIDPrefix,
-			Queue:            sm.queue,
-			Registry:         sm.registry,
-			ExecutorRegistry: sm.executorRegistry,
+			WorkerCount:       sm.config.WorkerCount,
+			WorkerIDPrefix:    sm.config.WorkerIDPrefix,
+			NodeID:            sm.config.NodeID,
+			Queue:             sm.queue,
+			Registry:          sm.registry,
+			ExecutorRegistry:  sm.executorRegistry,
+			HeartbeatInterval: sm.config.HeartbeatInterval,
+			Version:           sm.config.Version,
 		})
 		sm.workerPool.Start()
 
@@ -220,7 +232,16 @@ func (sm *ScanManager) recover() error {
 		return fmt.Errorf("failed to recover control registry: %w", err)
 	}
 
-	// Reset stale claimed jobs
+	// Reset jobs from stale workers (workers that haven't sent heartbeat)
+	// This is more intelligent than pure time-based reset
+	workerResetCount, err := sm.dbConn.ResetJobsFromStaleWorkers(sm.config.StaleJobThreshold)
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to reset jobs from stale workers")
+	} else if workerResetCount > 0 {
+		log.Info().Int64("count", workerResetCount).Msg("Reset jobs from stale workers during recovery")
+	}
+
+	// Also reset any remaining stale claimed jobs (fallback for edge cases)
 	count, err := sm.queue.ResetAllStaleJobs(sm.ctx, sm.config.StaleJobThreshold)
 	if err != nil {
 		return fmt.Errorf("failed to reset stale jobs: %w", err)
@@ -385,8 +406,16 @@ func (sm *ScanManager) ScheduleHistoryItemScan(scanID uint, workspaceID uint, it
 	for _, item := range items {
 		// Extract target host
 		targetHost := ""
+		hasQueryParams := false
 		if u, err := url.Parse(item.URL); err == nil {
 			targetHost = u.Host
+			hasQueryParams = u.RawQuery != ""
+		}
+
+		// Calculate priority: higher for non-GET requests or requests with query parameters
+		priority := 0
+		if item.Method != "GET" || hasQueryParams {
+			priority = 2
 		}
 
 		// Build payload for the executor
@@ -407,7 +436,7 @@ func (sm *ScanManager) ScheduleHistoryItemScan(scanID uint, workspaceID uint, it
 			WorkspaceID: workspaceID,
 			Status:      db.ScanJobStatusPending,
 			JobType:     db.ScanJobTypeActiveScan,
-			Priority:    0, // Could be calculated based on item characteristics
+			Priority:    priority,
 			TargetHost:  targetHost,
 			URL:         item.URL,
 			Method:      item.Method,
@@ -629,6 +658,14 @@ func (sm *ScanManager) WorkerCount() int {
 		return 0
 	}
 	return sm.workerPool.WorkerCount()
+}
+
+// NodeID returns the unique identifier for this worker pool node.
+func (sm *ScanManager) NodeID() string {
+	if sm.workerPool == nil {
+		return ""
+	}
+	return sm.workerPool.NodeID()
 }
 
 // GetControlRegistry returns the control registry.

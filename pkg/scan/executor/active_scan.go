@@ -80,6 +80,7 @@ func (e *ActiveScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl 
 
 	// Build scan options
 	options := scan_options.HistoryItemScanOptions{
+		Ctx:                ctx,
 		WorkspaceID:        job.WorkspaceID,
 		TaskID:             0, // New scan system doesn't use tasks
 		TaskJobID:          0,

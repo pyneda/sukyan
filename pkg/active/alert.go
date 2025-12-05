@@ -25,6 +25,7 @@ import (
 )
 
 type AlertAudit struct {
+	Ctx                        context.Context
 	requests                   sync.Map
 	WorkspaceID                uint
 	TaskID                     uint
@@ -100,6 +101,20 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 func (x *AlertAudit) RunWithPayloads(history *db.History, insertionPoints []scan.InsertionPoint, payloads []payloads.PayloadInterface, issueCode db.IssueCode) {
 	taskLog := log.With().Uint("history", history.ID).Str("method", history.Method).Str("url", history.URL).Str("audit", string(issueCode)).Logger()
 
+	// Get context, defaulting to background if not provided
+	ctx := x.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		taskLog.Info().Msg("Alert audit cancelled before starting")
+		return
+	default:
+	}
+
 	p := pool.New().WithMaxGoroutines(3)
 	browserPool := browser.GetScannerBrowserPoolManager()
 
@@ -109,7 +124,22 @@ func (x *AlertAudit) RunWithPayloads(history *db.History, insertionPoints []scan
 	}
 
 	for _, payload := range payloads {
+		// Check context before each payload
+		select {
+		case <-ctx.Done():
+			taskLog.Info().Msg("Alert audit cancelled during payload iteration")
+			p.Wait()
+			return
+		default:
+		}
+
 		p.Go(func() {
+			// Check context before testing payload
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 			value := payload.GetValue()
 			x.testPayload(browserPool, history, insertionPoints, value, issueCode)
 			taskLog.Debug().Str("payload", value).Msg("Finished testing payload")
@@ -151,6 +181,20 @@ func (x *AlertAudit) testPayload(browserPool *browser.BrowserPoolManager, histor
 func (x *AlertAudit) Run(history *db.History, insertionPoints []scan.InsertionPoint, wordlistPath string, issueCode db.IssueCode) {
 	taskLog := log.With().Uint("history", history.ID).Str("method", history.Method).Str("url", history.URL).Str("audit", string(issueCode)).Logger()
 
+	// Get context, defaulting to background if not provided
+	ctx := x.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		taskLog.Info().Msg("Alert audit cancelled before starting")
+		return
+	default:
+	}
+
 	p := pool.New().WithMaxGoroutines(3)
 	browserPool := browser.GetScannerBrowserPoolManager()
 
@@ -170,8 +214,23 @@ func (x *AlertAudit) Run(history *db.History, insertionPoints []scan.InsertionPo
 	taskLog.Info().Msg("Starting XSS tests")
 
 	for scanner.Scan() {
+		// Check context before each payload
+		select {
+		case <-ctx.Done():
+			taskLog.Info().Msg("Alert audit cancelled during scan")
+			p.Wait()
+			return
+		default:
+		}
+
 		payload := scanner.Text()
 		p.Go(func() {
+			// Check context before testing payload
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 			x.testPayload(browserPool, history, insertionPoints, payload, issueCode)
 			taskLog.Debug().Str("payload", payload).Msg("Finished testing payload")
 		})

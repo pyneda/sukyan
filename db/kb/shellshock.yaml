@@ -1,0 +1,25 @@
+code: shellshock
+title: Shellshock (CVE-2014-6271) Vulnerability
+description:
+  The application appears to be vulnerable to Shellshock (CVE-2014-6271), a critical
+  vulnerability in GNU Bash that allows remote code execution. The vulnerability
+  exists in how Bash processes trailing strings after function definitions in
+  environment variables. When user-controllable input (such as HTTP headers like
+  User-Agent, Referer, or Cookie) is passed to a CGI script or other server-side
+  component that invokes Bash, an attacker can inject and execute arbitrary commands.
+  This vulnerability affects Bash versions through 4.3 and was disclosed in September 2014.
+remediation:
+  Update GNU Bash to a patched version (4.3 patch 25 or later, or apply
+  vendor-specific patches). Identify all systems running vulnerable Bash versions
+  using vulnerability scanners. Review CGI scripts and other components that may
+  invoke shell commands with user-controlled input. Consider using alternative
+  shells or avoiding shell invocation where possible. Implement Web Application
+  Firewalls (WAF) with rules to detect Shellshock payloads as a defense-in-depth
+  measure.
+cwe: 78
+severity: Critical
+references:
+  - https://nvd.nist.gov/vuln/detail/CVE-2014-6271
+  - https://www.exploit-db.com/exploits/34765
+  - https://book.hacktricks.xyz/network-services-pentesting/pentesting-web/cgi
+  - https://owasp.org/www-pdf-archive/Shellshock_-_Tudor_Enache.pdf

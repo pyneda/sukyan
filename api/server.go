@@ -140,6 +140,8 @@ func StartAPI() {
 	api.Get("/playground/wordlists", JWTProtected(), ListAvailableWordlists)
 	api.Get("/stats/workspace", JWTProtected(), WorkspaceStats)
 	api.Get("/stats/system", JWTProtected(), SystemStats)
+	api.Get("/stats/workers", JWTProtected(), ListWorkerNodes)
+	api.Post("/stats/workers/cleanup", JWTProtected(), CleanupStaleWorkers)
 	api.Post("/browser-actions", JWTProtected(), CreateStoredBrowserActions)
 	api.Get("/browser-actions", JWTProtected(), ListStoredBrowserActions)
 	api.Get("/browser-actions/:id", JWTProtected(), GetStoredBrowserActions)
@@ -182,6 +184,7 @@ func StartAPI() {
 	scans_app.Post("/:id/resume", JWTProtected(), ResumeScanHandler)
 	scans_app.Get("/:id/jobs", JWTProtected(), GetScanJobsHandler)
 	scans_app.Get("/:id/jobs/:job_id", JWTProtected(), GetScanJobHandler)
+	scans_app.Post("/:id/jobs/:job_id/cancel", JWTProtected(), CancelScanJobHandler)
 	scans_app.Get("/:id/stats", JWTProtected(), GetScanStatsHandler)
 	scans_app.Post("/:id/schedule-items", JWTProtected(), ScheduleHistoryItemScansHandler)
 

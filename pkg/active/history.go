@@ -1,6 +1,8 @@
 package active
 
 import (
+	"context"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/http_utils"
@@ -18,7 +20,22 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	taskLog := log.With().Uint("workspace", options.WorkspaceID).Str("mode", options.Mode.String()).Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
 	taskLog.Info().Msg("Starting to scan history item")
 
+	// Get context from options, defaulting to background context if not provided
+	ctx := options.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		taskLog.Info().Msg("Scan cancelled before starting")
+		return
+	default:
+	}
+
 	activeOptions := ActiveModuleOptions{
+		Ctx:         ctx,
 		Concurrency: historyItemModulesConcurrency,
 		WorkspaceID: options.WorkspaceID,
 		TaskID:      options.TaskID,
@@ -38,6 +55,14 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	}
 	if item.StatusCode == 401 || item.StatusCode == 403 {
 		ForbiddenBypassScan(item, activeOptions)
+	}
+
+	// Check context after bypass scan
+	select {
+	case <-ctx.Done():
+		taskLog.Info().Msg("Scan cancelled after bypass scan")
+		return
+	default:
 	}
 
 	insertionPoints, err := scan.GetAndAnalyzeInsertionPoints(item, options.InsertionPoints, scan.InsertionPointAnalysisOptions{HistoryCreateOptions: historyCreateOptions})
@@ -75,7 +100,16 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		}
 
 		if options.AuditCategories.ServerSide {
+			// Check context before server-side audits
+			select {
+			case <-ctx.Done():
+				taskLog.Info().Msg("Scan cancelled before server-side audits")
+				return
+			default:
+			}
+
 			scanner := scan.TemplateScanner{
+				Ctx:                 ctx,
 				Concurrency:         historyItemModulesConcurrency,
 				InteractionsManager: interactionsManager,
 				AvoidRepeatedIssues: viper.GetBool("scan.avoid_repeated_issues"),
@@ -83,6 +117,14 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 				Mode:                options.Mode,
 			}
 			scanner.Run(item, payloadGenerators, insertionPointsToAudit, options)
+		}
+
+		// Check context before client-side audits
+		select {
+		case <-ctx.Done():
+			taskLog.Info().Msg("Scan cancelled before client-side audits")
+			return
+		default:
 		}
 
 		// reflectedIssues := issues[db.ReflectedInputCode.String()]
@@ -93,6 +135,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		if options.AuditCategories.ClientSide {
 
 			alert := AlertAudit{
+				Ctx:                        ctx,
 				WorkspaceID:                options.WorkspaceID,
 				TaskID:                     options.TaskID,
 				TaskJobID:                  options.TaskJobID,
@@ -109,6 +152,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			alert.RunWithPayloads(item, xssInsertionPoints, cstiPayloads, db.CstiCode)
 			taskLog.Info().Msg("Completed client side audits")
 			cspp := ClientSidePrototypePollutionAudit{
+				Ctx:         ctx,
 				HistoryItem: item,
 				WorkspaceID: options.WorkspaceID,
 				TaskID:      options.TaskID,
@@ -141,6 +185,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 
 	if options.AuditCategories.ServerSide && (options.Mode == scan_options.ScanModeFuzz || scan.PlatformJava.MatchesAnyFingerprint(options.Fingerprints)) {
 		log4shell := Log4ShellInjectionAudit{
+			Ctx:                 ctx,
 			URL:                 item.URL,
 			Concurrency:         historyItemModulesConcurrency,
 			InteractionsManager: interactionsManager,
@@ -155,6 +200,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 
 	if options.AuditCategories.ServerSide {
 		hostHeader := HostHeaderInjectionAudit{
+			Ctx:         ctx,
 			URL:         item.URL,
 			Concurrency: historyItemModulesConcurrency,
 			WorkspaceID: options.WorkspaceID,
@@ -168,6 +214,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		// but also not only once per target. Should find a way to run them only in some cases
 		// but ensuring they are checked against X different history items per target.
 		sni := SNIAudit{
+			Ctx:                 ctx,
 			HistoryItem:         item,
 			InteractionsManager: interactionsManager,
 			WorkspaceID:         options.WorkspaceID,
@@ -184,6 +231,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	if options.ExperimentalAudits {
 
 		methods := HTTPMethodsAudit{
+			Ctx:         ctx,
 			HistoryItem: item,
 			Concurrency: 5,
 			WorkspaceID: options.WorkspaceID,

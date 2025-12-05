@@ -18,10 +18,16 @@ type DashboardStats struct {
 	RefreshInterval     int       `json:"refresh_interval"`
 	ManagerRunning      bool      `json:"manager_running"`
 	OrchestratorRunning bool      `json:"orchestrator_running"`
-	WorkerCount         int       `json:"worker_count"`
+	WorkerCount         int       `json:"worker_count"`       // Workers in this process (deprecated, use local_worker_count)
+	LocalWorkerCount    int       `json:"local_worker_count"` // Workers in this process
+	TotalWorkerCount    int       `json:"total_worker_count"` // Workers across all nodes
+	NodeID              string    `json:"node_id"`
 
 	// Orchestrator config
 	OrchestratorConfig *OrchestratorConfigInfo `json:"orchestrator_config,omitempty"`
+
+	// Worker nodes
+	WorkerNodes *WorkerNodesInfo `json:"worker_nodes,omitempty"`
 
 	// Active scans
 	ActiveScans []ScanInfo `json:"active_scans"`
@@ -37,6 +43,33 @@ type DashboardStats struct {
 
 	// System stats
 	SystemStats *db.SystemStats `json:"system_stats,omitempty"`
+}
+
+// WorkerNodesInfo holds information about distributed worker nodes
+type WorkerNodesInfo struct {
+	TotalNodes     int              `json:"total_nodes"`
+	RunningNodes   int              `json:"running_nodes"`
+	StoppedNodes   int              `json:"stopped_nodes"`
+	TotalClaimed   int64            `json:"total_claimed"`
+	TotalCompleted int64            `json:"total_completed"`
+	TotalFailed    int64            `json:"total_failed"`
+	Nodes          []WorkerNodeInfo `json:"nodes"`
+}
+
+// WorkerNodeInfo holds information about a single worker node
+type WorkerNodeInfo struct {
+	ID            string           `json:"id"`
+	Hostname      string           `json:"hostname"`
+	WorkerCount   int              `json:"worker_count"`
+	Status        string           `json:"status"`
+	IsStale       bool             `json:"is_stale"`
+	StartedAt     time.Time        `json:"started_at"`
+	LastSeenAt    time.Time        `json:"last_seen_at"`
+	JobsClaimed   int              `json:"jobs_claimed"`
+	JobsCompleted int              `json:"jobs_completed"`
+	JobsFailed    int              `json:"jobs_failed"`
+	Version       string           `json:"version"`
+	RunningJobs   []RunningJobInfo `json:"running_jobs,omitempty"`
 }
 
 // OrchestratorConfigInfo holds orchestrator configuration for display
@@ -142,6 +175,8 @@ func GetDashboardStats(c *fiber.Ctx, scanManager *manager.ScanManager) error {
 	if scanManager != nil {
 		stats.ManagerRunning = scanManager.IsStarted()
 		stats.WorkerCount = scanManager.WorkerCount()
+		stats.LocalWorkerCount = scanManager.WorkerCount()
+		stats.NodeID = scanManager.NodeID()
 
 		// Orchestrator status
 		orch := scanManager.GetOrchestrator()
@@ -155,6 +190,18 @@ func GetDashboardStats(c *fiber.Ctx, scanManager *manager.ScanManager) error {
 				EnableDiscovery:   cfg.EnableDiscovery,
 				EnableNuclei:      cfg.EnableNuclei,
 				EnableWebSocket:   cfg.EnableWebSocket,
+			}
+		}
+	}
+
+	// Get worker nodes info
+	stats.WorkerNodes = getWorkerNodesInfo()
+
+	// Calculate total workers across all active nodes
+	if stats.WorkerNodes != nil {
+		for _, node := range stats.WorkerNodes.Nodes {
+			if node.Status == "running" && !node.IsStale {
+				stats.TotalWorkerCount += node.WorkerCount
 			}
 		}
 	}
@@ -370,6 +417,96 @@ func getRecentFailedJobs(scanID uint) []FailedJobInfo {
 	return result
 }
 
+// getWorkerNodesInfo retrieves information about all registered worker nodes
+func getWorkerNodesInfo() *WorkerNodesInfo {
+	heartbeatThreshold := 2 * time.Minute
+
+	// Get all worker nodes
+	nodes, err := db.Connection().GetAllWorkerNodes()
+	if err != nil {
+		return nil
+	}
+
+	// Get aggregate stats
+	dbStats, err := db.Connection().GetWorkerNodeStats()
+	if err != nil {
+		return nil
+	}
+
+	info := &WorkerNodesInfo{
+		TotalNodes:     dbStats.TotalNodes,
+		RunningNodes:   dbStats.RunningNodes,
+		StoppedNodes:   dbStats.StoppedNodes,
+		TotalClaimed:   dbStats.TotalClaimed,
+		TotalCompleted: dbStats.TotalCompleted,
+		TotalFailed:    dbStats.TotalFailed,
+		Nodes:          make([]WorkerNodeInfo, 0, len(nodes)),
+	}
+
+	for _, node := range nodes {
+		isStale := node.Status == db.WorkerNodeStatusRunning && time.Since(node.LastSeenAt) > heartbeatThreshold
+		nodeInfo := WorkerNodeInfo{
+			ID:            node.ID,
+			Hostname:      node.Hostname,
+			WorkerCount:   node.WorkerCount,
+			Status:        string(node.Status),
+			IsStale:       isStale,
+			StartedAt:     node.StartedAt,
+			LastSeenAt:    node.LastSeenAt,
+			JobsClaimed:   node.JobsClaimed,
+			JobsCompleted: node.JobsCompleted,
+			JobsFailed:    node.JobsFailed,
+			Version:       node.Version,
+		}
+
+		// Get running jobs for this worker node
+		if node.Status == db.WorkerNodeStatusRunning && !isStale {
+			nodeInfo.RunningJobs = getRunningJobsForWorker(node.ID)
+		}
+
+		info.Nodes = append(info.Nodes, nodeInfo)
+	}
+
+	return info
+}
+
+// getRunningJobsForWorker retrieves currently running jobs for a specific worker
+func getRunningJobsForWorker(workerID string) []RunningJobInfo {
+	var jobs []db.ScanJob
+	// Match worker_id pattern (worker IDs are prefixed with node ID)
+	err := db.Connection().DB().
+		Where("worker_id LIKE ? AND status IN ?", workerID+"%", []db.ScanJobStatus{db.ScanJobStatusClaimed, db.ScanJobStatusRunning}).
+		Order("started_at ASC").
+		Limit(10). // Limit per worker
+		Find(&jobs).Error
+
+	if err != nil {
+		return nil
+	}
+
+	result := make([]RunningJobInfo, 0, len(jobs))
+	for _, job := range jobs {
+		info := RunningJobInfo{
+			JobID:      job.ID,
+			JobType:    string(job.JobType),
+			URL:        job.URL,
+			Method:     job.Method,
+			TargetHost: job.TargetHost,
+			WorkerID:   job.WorkerID,
+			StartedAt:  job.StartedAt,
+		}
+		// Calculate elapsed time
+		if job.StartedAt != nil {
+			info.ElapsedTime = time.Since(*job.StartedAt).Round(time.Second).String()
+		} else if job.ClaimedAt != nil {
+			info.ElapsedTime = time.Since(*job.ClaimedAt).Round(time.Second).String()
+		}
+		result = append(result, info)
+	}
+
+	return result
+}
+
 func calculateGlobalQueueStats(activeScans, pausedScans []ScanInfo) *GlobalQueueStatsInfo {
 	stats := &GlobalQueueStatsInfo{}
 
@@ -456,12 +593,17 @@ func DashboardHTML(c *fiber.Ctx, scanManager *manager.ScanManager) error {
 		title = "Sukyan Scan Dashboard"
 	}
 
-	html := getDashboardTemplate(title, refreshInterval)
+	dashboardPath := viper.GetString("api.dashboard.path")
+	if dashboardPath == "" {
+		dashboardPath = "/dashboard"
+	}
+
+	html := getDashboardTemplate(title, refreshInterval, dashboardPath)
 	c.Set("Content-Type", "text/html")
 	return c.SendString(html)
 }
 
-func getDashboardTemplate(title string, refreshInterval int) string {
+func getDashboardTemplate(title string, refreshInterval int, dashboardPath string) string {
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -469,184 +611,696 @@ func getDashboardTemplate(title string, refreshInterval int) string {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>%s</title>
     <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a0a;
+            --bg-tertiary: #111111;
+            --bg-elevated: #171717;
+            --border-subtle: rgba(255,255,255,0.08);
+            --border-default: rgba(255,255,255,0.12);
+            --text-primary: #ededed;
+            --text-secondary: #a1a1a1;
+            --text-tertiary: #666666;
+            --accent-blue: #0070f3;
+            --accent-green: #00d68f;
+            --accent-yellow: #f5a623;
+            --accent-red: #ee0000;
+            --accent-purple: #8b5cf6;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+            --shadow-lg: 0 8px 30px rgba(0,0,0,0.6);
+        }
+        
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #0f1419; color: #e7e9ea; padding: 20px; min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 24px 32px;
+            min-height: 100vh;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
+        
         .header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #2f3336;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-subtle);
         }
-        h1 { font-size: 1.8rem; color: #1d9bf0; }
-        .status-indicator { display: flex; align-items: center; gap: 10px; }
+        
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
         .status-dot {
-            width: 12px; height: 12px; border-radius: 50%%; background: #71767b;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%%;
+            background: var(--text-tertiary);
+            transition: all 0.3s ease;
         }
-        .status-dot.active { background: #00ba7c; box-shadow: 0 0 10px #00ba7c; }
-        .status-dot.inactive { background: #f4212e; }
+        
+        .status-dot.active {
+            background: var(--accent-green);
+            box-shadow: 0 0 12px rgba(0,214,143,0.5);
+        }
+        
+        .status-dot.inactive {
+            background: var(--accent-red);
+            box-shadow: 0 0 12px rgba(238,0,0,0.4);
+        }
+        
         .grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px; margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
         }
+        
         .card {
-            background: #16181c; border-radius: 16px; padding: 20px; border: 1px solid #2f3336;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            border: 1px solid var(--border-subtle);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
+        
+        .card:hover {
+            border-color: var(--border-default);
+            box-shadow: var(--shadow-sm);
+        }
+        
         .card h2 {
-            font-size: 1.1rem; color: #71767b; margin-bottom: 15px;
-            text-transform: uppercase; letter-spacing: 0.5px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
+        
         .card h3 {
-            font-size: 0.95rem; color: #71767b; margin: 15px 0 10px 0;
-            border-top: 1px solid #2f3336; padding-top: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            margin: 16px 0 12px 0;
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 16px;
         }
-        .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-        .stat { text-align: center; }
-        .stat-value { font-size: 2rem; font-weight: bold; color: #1d9bf0; }
-        .stat-label { font-size: 0.85rem; color: #71767b; margin-top: 5px; }
-        .stat-value.pending { color: #ffd400; }
-        .stat-value.running { color: #1d9bf0; }
-        .stat-value.completed { color: #00ba7c; }
-        .stat-value.failed { color: #f4212e; }
-        .scan-list { display: flex; flex-direction: column; gap: 15px; }
+        
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+        
+        /* Tab styles */
+        .tabs-container {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-subtle);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        
+        .tab-header {
+            display: flex;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 4px;
+            gap: 4px;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .tab-btn.active {
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 24px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .stat {
+            text-align: center;
+            padding: 8px 0;
+        }
+        
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+            font-weight: 500;
+        }
+        
+        .stat-value.pending { color: var(--accent-yellow); }
+        .stat-value.running { color: var(--accent-blue); }
+        .stat-value.completed { color: var(--accent-green); }
+        .stat-value.failed { color: var(--accent-red); }
+        
+        .scan-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
         .scan-item {
-            background: #1e2125; border-radius: 12px; padding: 15px;
-            border-left: 4px solid #1d9bf0;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            border: 1px solid var(--border-subtle);
+            transition: all 0.2s ease;
         }
-        .scan-item.paused { border-left-color: #ffd400; }
-        .scan-item.completed { border-left-color: #00ba7c; }
-        .scan-item.expanded { padding-bottom: 5px; }
+        
+        .scan-item:hover {
+            border-color: var(--border-default);
+        }
+        
+        .scan-item.paused { border-left: 3px solid var(--accent-yellow); }
+        .scan-item.completed { border-left: 3px solid var(--accent-green); }
+        .scan-item:not(.paused):not(.completed) { border-left: 3px solid var(--accent-blue); }
+        
         .scan-header {
-            display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
         }
-        .scan-title { font-weight: bold; font-size: 1rem; cursor: pointer; }
-        .scan-title:hover { color: #1d9bf0; }
-        .scan-id { color: #71767b; font-size: 0.85rem; }
+        
+        .scan-title {
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: color 0.15s ease;
+        }
+        
+        .scan-title:hover { color: var(--accent-blue); }
+        
+        .scan-id {
+            color: var(--text-tertiary);
+            font-size: 0.8rem;
+            margin-left: 8px;
+            font-variant-numeric: tabular-nums;
+        }
+        
         .scan-phase {
-            background: #2f3336; padding: 4px 10px; border-radius: 12px;
-            font-size: 0.8rem; color: #e7e9ea;
+            background: var(--bg-elevated);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
+        
         .progress-bar {
-            background: #2f3336; border-radius: 10px; height: 8px;
-            margin: 10px 0; overflow: hidden;
+            background: var(--bg-elevated);
+            border-radius: 4px;
+            height: 4px;
+            margin: 12px 0;
+            overflow: hidden;
         }
+        
         .progress-fill {
-            background: linear-gradient(90deg, #1d9bf0, #00ba7c);
-            height: 100%%; border-radius: 10px; transition: width 0.5s ease;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-green));
+            height: 100%%;
+            border-radius: 4px;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .scan-stats { display: flex; gap: 20px; font-size: 0.85rem; color: #71767b; flex-wrap: wrap; }
-        .scan-stats span { display: flex; align-items: center; gap: 5px; }
-        .empty-state { text-align: center; padding: 40px; color: #71767b; }
-        .config-list { display: flex; flex-wrap: wrap; gap: 10px; }
-        .config-item { background: #2f3336; padding: 6px 12px; border-radius: 8px; font-size: 0.85rem; }
-        .config-item.enabled { background: #003d21; color: #00ba7c; }
-        .config-item.disabled { background: #3d0d0d; color: #f4212e; }
-        .timestamp { color: #71767b; font-size: 0.85rem; }
-        @keyframes pulse { 0%%, 100%% { opacity: 1; } 50%% { opacity: 0.5; } }
-        .loading { animation: pulse 1.5s infinite; }
+        
+        .scan-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 0.75rem;
+            color: var(--text-tertiary);
+            flex-wrap: wrap;
+        }
+        
+        .scan-stats span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-tertiary);
+            font-size: 0.875rem;
+        }
+        
+        .config-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .config-item {
+            background: var(--bg-elevated);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+        }
+        
+        .config-item.enabled {
+            background: rgba(0,214,143,0.1);
+            color: var(--accent-green);
+            border-color: rgba(0,214,143,0.2);
+        }
+        
+        .config-item.disabled {
+            background: rgba(238,0,0,0.1);
+            color: var(--accent-red);
+            border-color: rgba(238,0,0,0.2);
+        }
+        
+        .timestamp {
+            color: var(--text-tertiary);
+            font-size: 0.8rem;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        @keyframes pulse {
+            0%%, 100%% { opacity: 1; }
+            50%% { opacity: 0.4; }
+        }
+        
+        .loading { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         
         /* Job type breakdown styles */
-        .job-type-breakdown { margin-top: 15px; }
+        .job-type-breakdown { margin-top: 16px; }
+        
         .job-type-row {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 8px 12px; background: #16181c; border-radius: 8px; margin-bottom: 6px;
-            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            margin-bottom: 6px;
+            font-size: 0.8rem;
+            border: 1px solid var(--border-subtle);
         }
-        .job-type-name { 
-            font-weight: 500; min-width: 120px;
-            text-transform: capitalize;
+        
+        .job-type-name {
+            font-weight: 500;
+            min-width: 120px;
+            color: var(--text-secondary);
         }
-        .job-type-stats { display: flex; gap: 12px; }
-        .job-type-stats span { display: flex; align-items: center; gap: 4px; }
-        .job-type-stats .pending { color: #ffd400; }
-        .job-type-stats .running { color: #1d9bf0; }
-        .job-type-stats .completed { color: #00ba7c; }
-        .job-type-stats .failed { color: #f4212e; }
+        
+        .job-type-stats {
+            display: flex;
+            gap: 16px;
+        }
+        
+        .job-type-stats span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .job-type-stats .pending { color: var(--accent-yellow); }
+        .job-type-stats .running { color: var(--accent-blue); }
+        .job-type-stats .completed { color: var(--accent-green); }
+        .job-type-stats .failed { color: var(--accent-red); }
         
         /* Running jobs table */
-        .running-jobs { margin-top: 10px; }
+        .running-jobs { margin-top: 12px; }
+        
         .running-job {
-            display: grid; grid-template-columns: 60px 1fr 80px 100px;
-            padding: 8px 10px; background: #16181c; border-radius: 6px;
-            margin-bottom: 4px; font-size: 0.8rem; gap: 10px; align-items: center;
+            display: grid;
+            grid-template-columns: 60px 1fr 80px 100px;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            margin-bottom: 4px;
+            font-size: 0.75rem;
+            gap: 12px;
+            align-items: center;
+            border: 1px solid var(--border-subtle);
         }
-        .running-job .job-id { color: #71767b; }
-        .running-job .job-url { 
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-            color: #e7e9ea;
+        
+        .running-job .job-id { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+        .running-job .job-url {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--text-secondary);
         }
-        .running-job .job-type { color: #1d9bf0; text-transform: capitalize; }
-        .running-job .job-elapsed { color: #ffd400; text-align: right; }
+        .running-job .job-type { color: var(--accent-blue); font-weight: 500; }
+        .running-job .job-elapsed { color: var(--accent-yellow); text-align: right; font-variant-numeric: tabular-nums; }
         
         /* Failed jobs */
-        .failed-jobs { margin-top: 10px; }
+        .failed-jobs { margin-top: 12px; }
+        
         .failed-job {
-            padding: 8px 10px; background: #2a1515; border-radius: 6px;
-            margin-bottom: 4px; font-size: 0.8rem; border-left: 3px solid #f4212e;
+            padding: 10px 12px;
+            background: rgba(238,0,0,0.05);
+            border-radius: var(--radius-sm);
+            margin-bottom: 6px;
+            font-size: 0.75rem;
+            border: 1px solid rgba(238,0,0,0.15);
         }
+        
         .failed-job-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
-        .failed-job .job-url { color: #e7e9ea; }
-        .failed-job .job-error { color: #f4212e; font-size: 0.75rem; margin-top: 4px; }
+        .failed-job .job-url { color: var(--text-secondary); }
+        .failed-job .job-error { color: var(--accent-red); font-size: 0.7rem; margin-top: 6px; opacity: 0.9; }
         
         /* Collapsible sections */
         .collapsible-header {
-            display: flex; justify-content: space-between; align-items: center;
-            cursor: pointer; padding: 5px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 6px 0;
         }
-        .collapsible-header:hover { color: #1d9bf0; }
+        
+        .collapsible-header:hover { color: var(--accent-blue); }
         .collapsible-content { display: none; }
         .collapsible-content.show { display: block; }
-        .toggle-icon { transition: transform 0.2s; }
+        .toggle-icon { transition: transform 0.2s ease; }
         .toggle-icon.expanded { transform: rotate(90deg); }
         
         /* Global stats by type */
-        .global-type-stats { margin-top: 15px; }
+        .global-type-stats { margin-top: 16px; }
+        
         .type-stat-bar {
-            display: flex; align-items: center; margin-bottom: 8px; font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 0.8rem;
         }
-        .type-stat-bar .type-name { min-width: 100px; text-transform: capitalize; }
+        
+        .type-stat-bar .type-name {
+            min-width: 100px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
         .type-stat-bar .bar-container {
-            flex: 1; height: 20px; background: #2f3336; border-radius: 4px;
-            overflow: hidden; margin: 0 10px; display: flex;
+            flex: 1;
+            height: 6px;
+            background: var(--bg-elevated);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 0 12px;
+            display: flex;
         }
+        
         .type-stat-bar .bar-segment {
-            height: 100%%; transition: width 0.3s ease;
+            height: 100%%;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .type-stat-bar .bar-segment.completed { background: #00ba7c; }
-        .type-stat-bar .bar-segment.running { background: #1d9bf0; }
-        .type-stat-bar .bar-segment.pending { background: #ffd400; }
-        .type-stat-bar .bar-segment.failed { background: #f4212e; }
-        .type-stat-bar .type-count { min-width: 60px; text-align: right; color: #71767b; }
+        
+        .type-stat-bar .bar-segment.completed { background: var(--accent-green); }
+        .type-stat-bar .bar-segment.running { background: var(--accent-blue); }
+        .type-stat-bar .bar-segment.pending { background: var(--accent-yellow); }
+        .type-stat-bar .bar-segment.failed { background: var(--accent-red); }
+        .type-stat-bar .type-count { min-width: 50px; text-align: right; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+        
+        /* Worker nodes styles */
+        .worker-summary {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        
+        .worker-stat strong { color: var(--accent-blue); }
+        .worker-list { display: flex; flex-direction: column; gap: 10px; }
+        
+        .worker-node {
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            padding: 14px;
+            border: 1px solid var(--border-subtle);
+            transition: all 0.2s ease;
+        }
+        
+        .worker-node:hover { border-color: var(--border-default); }
+        .worker-node.stopped { opacity: 0.6; }
+        .worker-node.stale { border-color: rgba(238,0,0,0.3); }
+        .worker-node.running { border-left: 3px solid var(--accent-green); }
+        
+        .worker-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .worker-id { font-weight: 500; font-size: 0.85rem; }
+        
+        .worker-status {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        
+        .worker-status.running { background: rgba(0,214,143,0.15); color: var(--accent-green); }
+        .worker-status.stopped { background: var(--bg-elevated); color: var(--text-tertiary); }
+        .worker-status.stale { background: rgba(238,0,0,0.15); color: var(--accent-red); }
+        
+        .worker-details { display: flex; gap: 16px; font-size: 0.75rem; color: var(--text-tertiary); flex-wrap: wrap; }
+        .current-node { background: rgba(0,112,243,0.08); border-color: rgba(0,112,243,0.3); }
+        
+        /* Worker summary card (compact) */
+        .worker-stats-compact { display: flex; gap: 20px; flex-wrap: wrap; }
+        .worker-stats-compact .stat { text-align: center; flex: 1; min-width: 70px; }
+        
+        /* Full worker details in tab */
+        .worker-node-full {
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border-subtle);
+            transition: all 0.2s ease;
+        }
+        
+        .worker-node-full:hover { border-color: var(--border-default); }
+        .worker-node-full.stopped { opacity: 0.6; }
+        .worker-node-full.stale { border-color: rgba(238,0,0,0.3); }
+        .worker-node-full.running { border-left: 3px solid var(--accent-green); }
+        
+        .worker-node-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .worker-node-id { font-weight: 600; font-size: 0.95rem; letter-spacing: -0.01em; }
+        .worker-node-hostname { color: var(--text-tertiary); font-size: 0.8rem; margin-left: 10px; }
+        
+        .worker-node-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-subtle);
+        }
+        
+        .worker-node-stat { text-align: center; }
+        .worker-node-stat-value { font-size: 1.25rem; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .worker-node-stat-label { font-size: 0.7rem; color: var(--text-tertiary); margin-top: 4px; font-weight: 500; }
+        
+        .worker-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 0.8rem;
+            color: var(--text-tertiary);
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        
+        .worker-meta span { display: flex; align-items: center; gap: 6px; }
+        
+        /* Worker running jobs in full view */
+        .worker-running-jobs {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-subtle);
+        }
+        
+        .worker-running-jobs.empty { opacity: 0.6; }
+        
+        .worker-jobs-header {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+        
+        .worker-jobs-list { display: flex; flex-direction: column; gap: 8px; }
+        
+        .worker-job-item {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            border: 1px solid var(--border-subtle);
+            transition: all 0.15s ease;
+        }
+        
+        .worker-job-item:hover { border-color: var(--border-default); }
+        
+        .worker-job-main {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .worker-job-type {
+            background: rgba(0,112,243,0.15);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.65rem;
+            color: var(--accent-blue);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+        
+        .worker-job-url {
+            flex: 1;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .worker-job-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 0.7rem;
+            color: var(--text-tertiary);
+        }
+        
+        .worker-job-id { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+        
+        .worker-job-method {
+            background: var(--bg-elevated);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.65rem;
+        }
+        
+        .worker-job-elapsed { color: var(--accent-yellow); font-variant-numeric: tabular-nums; }
+        .worker-job-worker { color: var(--text-tertiary); }
+        
+        /* Section headers in tabs */
+        .section-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-subtle);
+            letter-spacing: -0.01em;
+        }
+        
+        .sub-section { margin-bottom: 32px; }
+        
+        .sub-section h3 {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--bg-elevated); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🔍 %s</h1>
+        <h1>%s</h1>
         <div class="status-indicator">
-            <span class="timestamp" id="last-update">Loading...</span>
+            <span class="timestamp" id="last-update">—</span>
             <div class="status-dot" id="manager-status" title="Scan Manager"></div>
             <div class="status-dot" id="orchestrator-status" title="Orchestrator"></div>
         </div>
     </div>
 
+    <!-- First Row: Metrics Cards -->
     <div class="grid">
         <div class="card">
             <h2>System Status</h2>
             <div class="stat-grid">
                 <div class="stat">
-                    <div class="stat-value" id="worker-count">-</div>
-                    <div class="stat-label">Workers</div>
+                    <div class="stat-value" id="worker-count">—</div>
+                    <div class="stat-label">Total Workers</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value" id="active-scans-count">-</div>
+                    <div class="stat-value" id="local-worker-count">—</div>
+                    <div class="stat-label">Local Workers</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="active-scans-count">—</div>
                     <div class="stat-label">Active Scans</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value pending" id="paused-scans-count">-</div>
+                    <div class="stat-value pending" id="paused-scans-count">—</div>
                     <div class="stat-label">Paused Scans</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value" id="db-size">-</div>
+                    <div class="stat-value" id="db-size">—</div>
                     <div class="stat-label">Database Size</div>
                 </div>
             </div>
@@ -656,19 +1310,19 @@ func getDashboardTemplate(title string, refreshInterval int) string {
             <h2>Global Queue</h2>
             <div class="stat-grid">
                 <div class="stat">
-                    <div class="stat-value pending" id="global-pending">-</div>
+                    <div class="stat-value pending" id="global-pending">—</div>
                     <div class="stat-label">Pending</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value running" id="global-running">-</div>
+                    <div class="stat-value running" id="global-running">—</div>
                     <div class="stat-label">Running</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value completed" id="global-completed">-</div>
+                    <div class="stat-value completed" id="global-completed">—</div>
                     <div class="stat-label">Completed</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-value failed" id="global-failed">-</div>
+                    <div class="stat-value failed" id="global-failed">—</div>
                     <div class="stat-label">Failed</div>
                 </div>
             </div>
@@ -676,34 +1330,78 @@ func getDashboardTemplate(title string, refreshInterval int) string {
         </div>
 
         <div class="card">
-            <h2>Orchestrator Config</h2>
+            <h2>Orchestrator</h2>
             <div class="config-list" id="orchestrator-config">
-                <div class="config-item">Loading...</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="grid">
-        <div class="card" style="grid-column: span 2;">
-            <h2>Active Scans</h2>
-            <div class="scan-list" id="active-scans">
-                <div class="empty-state loading">Loading scans...</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="grid">
-        <div class="card">
-            <h2>Paused Scans</h2>
-            <div class="scan-list" id="paused-scans">
-                <div class="empty-state">No paused scans</div>
+                <div class="config-item loading">—</div>
             </div>
         </div>
 
         <div class="card">
-            <h2>Recent Completed</h2>
-            <div class="scan-list" id="recent-scans">
-                <div class="empty-state">No recent scans</div>
+            <h2>Worker Nodes</h2>
+            <div class="worker-info">
+                <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-bottom: 12px;">
+                    Current Node: <span id="current-node-id" style="color: var(--accent-blue); font-weight: 500;">—</span>
+                </div>
+            </div>
+            <div class="worker-stats-compact" id="worker-stats-compact">
+                <div class="stat">
+                    <div class="stat-value" id="running-nodes">—</div>
+                    <div class="stat-label">Running</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="stopped-nodes">—</div>
+                    <div class="stat-label">Stopped</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value completed" id="total-jobs-completed">—</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value failed" id="total-jobs-failed">—</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab-based Content -->
+    <div class="tabs-container">
+        <div class="tab-header">
+            <button class="tab-btn" onclick="switchTab('scans')">Scans</button>
+            <button class="tab-btn active" onclick="switchTab('workers')">Workers</button>
+        </div>
+        
+        <!-- Scans Tab -->
+        <div id="tab-scans" class="tab-content">
+            <div class="sub-section">
+                <h3>Active Scans</h3>
+                <div class="scan-list" id="active-scans">
+                    <div class="empty-state loading">Loading...</div>
+                </div>
+            </div>
+            
+            <div class="grid" style="margin-bottom: 0;">
+                <div class="sub-section">
+                    <h3>Paused Scans</h3>
+                    <div class="scan-list" id="paused-scans">
+                        <div class="empty-state">No paused scans</div>
+                    </div>
+                </div>
+
+                <div class="sub-section">
+                    <h3>Recent Completed</h3>
+                    <div class="scan-list" id="recent-scans">
+                        <div class="empty-state">No recent scans</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Workers Tab -->
+        <div id="tab-workers" class="tab-content active">
+            <div class="section-header">Worker Nodes</div>
+            <div id="worker-nodes-full">
+                <div class="empty-state loading">Loading...</div>
             </div>
         </div>
     </div>
@@ -726,6 +1424,16 @@ func getDashboardTemplate(title string, refreshInterval int) string {
             if (!url || url.length <= maxLen) return url || '-';
             return url.substring(0, maxLen) + '...';
         }
+        
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`+"`"+`.tab-btn[onclick="switchTab('${tabName}')"]`+"`"+`).classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(`+"`"+`tab-${tabName}`+"`"+`).classList.add('active');
+        }
 
         function toggleScanDetails(scanId) {
             if (expandedScans.has(scanId)) {
@@ -733,7 +1441,6 @@ func getDashboardTemplate(title string, refreshInterval int) string {
             } else {
                 expandedScans.add(scanId);
             }
-            // Re-render will happen on next update, or we can force it
             const content = document.getElementById('scan-details-' + scanId);
             const icon = document.getElementById('toggle-icon-' + scanId);
             if (content) {
@@ -764,7 +1471,7 @@ func getDashboardTemplate(title string, refreshInterval int) string {
         }
         
         function renderRunningJobs(jobs) {
-            if (!jobs || jobs.length === 0) return '<div style="color: #71767b; font-size: 0.85rem; padding: 10px;">No jobs currently running</div>';
+            if (!jobs || jobs.length === 0) return '<div style="color: var(--text-tertiary); font-size: 0.85rem; padding: 10px;">No jobs currently running</div>';
             return `+"`"+`
                 <div class="running-jobs">
                     ${jobs.slice(0, 10).map(j => `+"`"+`
@@ -772,10 +1479,10 @@ func getDashboardTemplate(title string, refreshInterval int) string {
                             <span class="job-id">#${j.job_id}</span>
                             <span class="job-url" title="${j.url || ''}">${truncateUrl(j.url)}</span>
                             <span class="job-type">${formatJobType(j.job_type)}</span>
-                            <span class="job-elapsed">${j.elapsed_time || '-'}</span>
+                            <span class="job-elapsed">${j.elapsed_time || '—'}</span>
                         </div>
                     `+"`"+`).join('')}
-                    ${jobs.length > 10 ? `+"`"+`<div style="color: #71767b; font-size: 0.8rem; text-align: center; padding: 5px;">... and ${jobs.length - 10} more</div>`+"`"+` : ''}
+                    ${jobs.length > 10 ? `+"`"+`<div style="color: var(--text-tertiary); font-size: 0.8rem; text-align: center; padding: 5px;">... and ${jobs.length - 10} more</div>`+"`"+` : ''}
                 </div>
             `+"`"+`;
         }
@@ -788,7 +1495,7 @@ func getDashboardTemplate(title string, refreshInterval int) string {
                         <div class="failed-job">
                             <div class="failed-job-header">
                                 <span class="job-url" title="${j.url || ''}">${truncateUrl(j.url, 50)}</span>
-                                <span style="color: #71767b;">${formatJobType(j.job_type)}</span>
+                                <span style="color: var(--text-tertiary);">${formatJobType(j.job_type)}</span>
                             </div>
                             ${j.error_message ? `+"`"+`<div class="job-error">${j.error_type || 'Error'}: ${truncateUrl(j.error_message, 80)}</div>`+"`"+` : ''}
                         </div>
@@ -819,25 +1526,25 @@ func getDashboardTemplate(title string, refreshInterval int) string {
                         <div class="progress-fill" style="width: ${progress}%%"></div>
                     </div>
                     <div class="scan-stats">
-                        <span>📊 ${progress}%%</span>
-                        <span>⏱️ ${scan.duration || '-'}</span>
-                        <span>✅ ${scan.completed_jobs}/${scan.total_jobs} jobs</span>
-                        <span>❌ ${scan.failed_jobs} failed</span>
-                        <span>▶️ ${scan.running_jobs} running</span>
-                        <span>⏳ ${scan.pending_jobs} pending</span>
+                        <span>${progress}%%</span>
+                        <span>${scan.duration || '—'}</span>
+                        <span>${scan.completed_jobs}/${scan.total_jobs} jobs</span>
+                        <span style="color: var(--accent-red);">${scan.failed_jobs} failed</span>
+                        <span style="color: var(--accent-blue);">${scan.running_jobs} running</span>
+                        <span style="color: var(--accent-yellow);">${scan.pending_jobs} pending</span>
                     </div>
                     ${hasDetails ? `+"`"+`
                         <div id="scan-details-${scan.id}" class="collapsible-content ${isExpanded ? 'show' : ''}">
                             ${scan.job_stats_by_type?.length > 0 ? `+"`"+`
-                                <h3>📋 Jobs by Type</h3>
+                                <h3>Jobs by Type</h3>
                                 ${renderJobTypeBreakdown(scan.job_stats_by_type)}
                             `+"`"+` : ''}
                             ${scan.running_job_details?.length > 0 ? `+"`"+`
-                                <h3>▶️ Currently Running (${scan.running_job_details.length})</h3>
+                                <h3>Currently Running (${scan.running_job_details.length})</h3>
                                 ${renderRunningJobs(scan.running_job_details)}
                             `+"`"+` : ''}
                             ${scan.recent_failed_jobs?.length > 0 ? `+"`"+`
-                                <h3>❌ Recent Failures</h3>
+                                <h3>Recent Failures</h3>
                                 ${renderFailedJobs(scan.recent_failed_jobs)}
                             `+"`"+` : ''}
                         </div>
@@ -880,7 +1587,8 @@ func getDashboardTemplate(title string, refreshInterval int) string {
             document.getElementById('orchestrator-status').className = 
                 'status-dot ' + (data.orchestrator_running ? 'active' : 'inactive');
 
-            document.getElementById('worker-count').textContent = data.worker_count || 0;
+            document.getElementById('worker-count').textContent = data.total_worker_count || data.worker_count || 0;
+            document.getElementById('local-worker-count').textContent = data.local_worker_count || data.worker_count || 0;
             document.getElementById('active-scans-count').textContent = data.active_scans?.length || 0;
             document.getElementById('paused-scans-count').textContent = data.paused_scans?.length || 0;
             
@@ -935,11 +1643,149 @@ func getDashboardTemplate(title string, refreshInterval int) string {
             } else {
                 recentContainer.innerHTML = '<div class="empty-state">No recent scans</div>';
             }
+
+            // Render worker nodes
+            renderWorkerNodesCompact(data);
+            renderWorkerNodesFull(data);
+        }
+
+        function renderWorkerNodesCompact(data) {
+            if (!data.worker_nodes) return;
+            
+            const wn = data.worker_nodes;
+            document.getElementById('running-nodes').textContent = wn.running_nodes || 0;
+            document.getElementById('stopped-nodes').textContent = wn.stopped_nodes || 0;
+            document.getElementById('total-jobs-completed').textContent = formatNumber(wn.total_completed || 0);
+            document.getElementById('total-jobs-failed').textContent = formatNumber(wn.total_failed || 0);
+
+            // Update current node indicator
+            const nodeId = document.getElementById('current-node-id');
+            if (nodeId && data.node_id) {
+                nodeId.textContent = data.node_id;
+            }
+        }
+
+        function renderWorkerNodesFull(data) {
+            const container = document.getElementById('worker-nodes-full');
+            if (!container) return;
+            
+            if (!data.worker_nodes || data.worker_nodes.nodes.length === 0) {
+                container.innerHTML = '<div class="empty-state">No worker nodes registered</div>';
+                return;
+            }
+
+            const wn = data.worker_nodes;
+            let html = `+"`"+`
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px; padding: 20px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border-subtle);">
+                    <div class="stat">
+                        <div class="stat-value">${wn.total_nodes}</div>
+                        <div class="stat-label">Total Nodes</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value completed">${wn.running_nodes}</div>
+                        <div class="stat-label">Running</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" style="color: var(--text-tertiary);">${wn.stopped_nodes}</div>
+                        <div class="stat-label">Stopped</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value running">${formatNumber(wn.total_claimed)}</div>
+                        <div class="stat-label">Jobs Claimed</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value completed">${formatNumber(wn.total_completed)}</div>
+                        <div class="stat-label">Jobs Completed</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value failed">${formatNumber(wn.total_failed)}</div>
+                        <div class="stat-label">Jobs Failed</div>
+                    </div>
+                </div>
+            `+"`"+`;
+
+            for (const node of wn.nodes) {
+                const statusClass = node.is_stale ? 'stale' : node.status;
+                const statusText = node.is_stale ? 'STALE' : node.status.toUpperCase();
+                const lastSeen = new Date(node.last_seen_at).toLocaleTimeString();
+                const startedAt = new Date(node.started_at).toLocaleString();
+                const isCurrentNode = data.node_id === node.id;
+                const runningJobsCount = node.running_jobs?.length || 0;
+                
+                html += `+"`"+`
+                    <div class="worker-node-full ${statusClass} ${isCurrentNode ? 'current-node' : ''}">
+                        <div class="worker-node-header">
+                            <div>
+                                <span class="worker-node-id">${node.id}</span>
+                                ${isCurrentNode ? '<span style="color: var(--accent-blue); font-size: 0.75rem; margin-left: 8px;">(current)</span>' : ''}
+                                <span class="worker-node-hostname">${node.hostname || '-'}</span>
+                            </div>
+                            <span class="worker-status ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="worker-meta">
+                            <span>Workers: ${node.worker_count}</span>
+                            <span>Started: ${startedAt}</span>
+                            <span>Last seen: ${lastSeen}</span>
+                            ${node.version ? `+"`"+`<span>v${node.version}</span>`+"`"+` : ''}
+                        </div>
+                        <div class="worker-node-stats">
+                            <div class="worker-node-stat">
+                                <div class="worker-node-stat-value running">${runningJobsCount}</div>
+                                <div class="worker-node-stat-label">Active Jobs</div>
+                            </div>
+                            <div class="worker-node-stat">
+                                <div class="worker-node-stat-value" style="color: var(--accent-blue);">${node.jobs_claimed}</div>
+                                <div class="worker-node-stat-label">Total Claimed</div>
+                            </div>
+                            <div class="worker-node-stat">
+                                <div class="worker-node-stat-value completed">${node.jobs_completed}</div>
+                                <div class="worker-node-stat-label">Completed</div>
+                            </div>
+                            <div class="worker-node-stat">
+                                <div class="worker-node-stat-value failed">${node.jobs_failed}</div>
+                                <div class="worker-node-stat-label">Failed</div>
+                            </div>
+                            <div class="worker-node-stat">
+                                <div class="worker-node-stat-value" style="color: ${node.jobs_claimed > 0 ? 'var(--accent-green)' : 'var(--text-tertiary)'};">
+                                    ${node.jobs_claimed > 0 ? ((node.jobs_completed / node.jobs_claimed) * 100).toFixed(1) : 0}%%
+                                </div>
+                                <div class="worker-node-stat-label">Success Rate</div>
+                            </div>
+                        </div>
+                        ${runningJobsCount > 0 ? `+"`"+`
+                            <div class="worker-running-jobs">
+                                <div class="worker-jobs-header">Currently Processing (${runningJobsCount})</div>
+                                <div class="worker-jobs-list">
+                                    ${node.running_jobs.map(job => `+"`"+`
+                                        <div class="worker-job-item">
+                                            <div class="worker-job-main">
+                                                <span class="worker-job-type">${formatJobType(job.job_type)}</span>
+                                                <span class="worker-job-url" title="${job.url || ''}">${truncateUrl(job.url, 80)}</span>
+                                            </div>
+                                            <div class="worker-job-meta">
+                                                <span class="worker-job-id">#${job.job_id}</span>
+                                                ${job.method ? `+"`"+`<span class="worker-job-method">${job.method}</span>`+"`"+` : ''}
+                                                <span class="worker-job-elapsed">${job.elapsed_time || '—'}</span>
+                                                <span class="worker-job-worker" title="${job.worker_id}">${job.worker_id?.split('-').pop() || '—'}</span>
+                                            </div>
+                                        </div>
+                                    `+"`"+`).join('')}
+                                </div>
+                            </div>
+                        `+"`"+` : `+"`"+`
+                            <div class="worker-running-jobs empty">
+                                <div class="worker-jobs-header" style="color: var(--text-tertiary);">No active jobs</div>
+                            </div>
+                        `+"`"+`}
+                    </div>
+                `+"`"+`;
+            }
+            container.innerHTML = html;
         }
 
         async function fetchStats() {
             try {
-                const response = await fetch('./stats');
+                const response = await fetch('%s/stats');
                 const data = await response.json();
                 updateDashboard(data);
             } catch (error) {
@@ -952,7 +1798,7 @@ func getDashboardTemplate(title string, refreshInterval int) string {
         setInterval(fetchStats, REFRESH_INTERVAL);
     </script>
 </body>
-</html>`, title, title, refreshInterval)
+</html>`, title, title, refreshInterval, dashboardPath)
 }
 
 // GetDashboardStatsHandler is a wrapper handler that retrieves the scan manager and calls GetDashboardStats

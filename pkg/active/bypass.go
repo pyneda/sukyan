@@ -1,6 +1,7 @@
 package active
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -15,6 +16,7 @@ import (
 )
 
 type ActiveModuleOptions struct {
+	Ctx         context.Context
 	WorkspaceID uint
 	TaskID      uint
 	TaskJobID   uint
@@ -106,6 +108,16 @@ var pathBasedHeaders = []HeaderTest{
 func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 	auditLog := log.With().Str("audit", "bypass").Str("url", history.URL).Uint("workspace", options.WorkspaceID).Logger()
 
+	// Check context cancellation
+	if options.Ctx != nil {
+		select {
+		case <-options.Ctx.Done():
+			auditLog.Debug().Msg("Context cancelled, skipping bypass scan")
+			return
+		default:
+		}
+	}
+
 	if history.StatusCode != 401 && history.StatusCode != 403 {
 		auditLog.Warn().Msg("Skipping auth bypass scan because the status code is not 401 or 403")
 		return
@@ -115,16 +127,39 @@ func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 	}
 	client := http_utils.CreateHttpClient()
 
+	// Get context, defaulting to background if not provided
+	ctx := options.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Create pool with context for cancellation support
 	p := pool.New().WithMaxGoroutines(options.Concurrency)
 
 	allHeaderTypes := [][]HeaderTest{ipBasedHeaders, urlBasedHeaders, portBasedHeaders, pathBasedHeaders}
 	// header bypass checks
 	for _, headers := range allHeaderTypes {
+		// Check context before processing each header type
+		select {
+		case <-ctx.Done():
+			auditLog.Info().Msg("Bypass scan cancelled")
+			p.Wait()
+			return
+		default:
+		}
+
 		valueCombinations := flattenHeaders(headers)
 
 		for _, combination := range valueCombinations {
 			comb := combination
 			p.Go(func() {
+				// Check context before making request
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+
 				request, err := http_utils.BuildRequestFromHistoryItem(history)
 				if err != nil {
 					auditLog.Error().Err(err).Msg("Error creating the request")
@@ -133,10 +168,22 @@ func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 				for header, value := range comb {
 					request.Header.Set(header, value)
 				}
+				// Use context for HTTP request
+				request = request.WithContext(ctx)
 				sendRequestAndCheckBypass(client, request, history, options, auditLog)
 			})
 		}
 	}
+
+	// Check context before URL bypass checks
+	select {
+	case <-ctx.Done():
+		auditLog.Info().Msg("Bypass scan cancelled before URL bypass checks")
+		p.Wait()
+		return
+	default:
+	}
+
 	// url bypass checks
 	bypassURLs, err := generateBypassURLs(history)
 	if err != nil {
@@ -145,18 +192,28 @@ func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 	}
 
 	for _, bypassURL := range bypassURLs {
+		bURL := bypassURL
 		p.Go(func() {
+			// Check context before making request
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			request, err := http_utils.BuildRequestFromHistoryItem(history)
 			if err != nil {
-				auditLog.Error().Err(err).Msgf("Error creating request for bypass URL: %s", bypassURL)
+				auditLog.Error().Err(err).Msgf("Error creating request for bypass URL: %s", bURL)
 				return
 			}
-			parsed, err := url.Parse(bypassURL)
+			parsed, err := url.Parse(bURL)
 			if err != nil {
-				auditLog.Error().Err(err).Msgf("Error parsing bypass URL: %s", bypassURL)
+				auditLog.Error().Err(err).Msgf("Error parsing bypass URL: %s", bURL)
 				return
 			}
 			request.URL = parsed
+			// Use context for HTTP request
+			request = request.WithContext(ctx)
 			sendRequestAndCheckBypass(client, request, history, options, auditLog)
 		})
 	}

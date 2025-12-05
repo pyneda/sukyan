@@ -1,6 +1,7 @@
 package active
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -11,6 +12,7 @@ import (
 
 // HTTPMethodsAudit configuration
 type HTTPMethodsAudit struct {
+	Ctx         context.Context
 	HistoryItem *db.History
 	Concurrency int
 	WorkspaceID uint
@@ -40,6 +42,20 @@ func (a *HTTPMethodsAudit) GetMethodsToTest() (headers []string) {
 
 // Run starts the audit
 func (a *HTTPMethodsAudit) Run() {
+	// Get context, defaulting to background if not provided
+	ctx := a.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		log.Info().Str("url", a.HistoryItem.URL).Msg("HTTP methods audit cancelled before starting")
+		return
+	default:
+	}
+
 	auditItemsChannel := make(chan httpMethodsAudiItem)
 	pendingChannel := make(chan int)
 	var wg sync.WaitGroup
@@ -47,7 +63,7 @@ func (a *HTTPMethodsAudit) Run() {
 	// Schedule workers
 	for i := 0; i < a.Concurrency; i++ {
 		wg.Add(1)
-		go a.worker(auditItemsChannel, pendingChannel, &wg)
+		go a.workerWithContext(ctx, auditItemsChannel, pendingChannel, &wg)
 	}
 	// Schedule goroutine to monitor pending tasks
 	go a.monitor(auditItemsChannel, pendingChannel)
@@ -56,6 +72,14 @@ func (a *HTTPMethodsAudit) Run() {
 	// Add tests to the channel
 	for _, method := range a.GetMethodsToTest() {
 		if method != a.HistoryItem.Method {
+			// Check context before scheduling each item
+			select {
+			case <-ctx.Done():
+				log.Info().Str("url", a.HistoryItem.URL).Msg("HTTP methods audit cancelled during scheduling")
+				close(auditItemsChannel)
+				return
+			default:
+			}
 			pendingChannel <- 1
 			auditItemsChannel <- httpMethodsAudiItem{
 				method: method,
@@ -75,6 +99,21 @@ func (a *HTTPMethodsAudit) worker(auditItems chan httpMethodsAudiItem, pendingCh
 	wg.Done()
 }
 
+func (a *HTTPMethodsAudit) workerWithContext(ctx context.Context, auditItems chan httpMethodsAudiItem, pendingChannel chan int, wg *sync.WaitGroup) {
+	for auditItem := range auditItems {
+		// Check context before processing each item
+		select {
+		case <-ctx.Done():
+			pendingChannel <- -1
+			continue
+		default:
+		}
+		a.testItemWithContext(ctx, auditItem)
+		pendingChannel <- -1
+	}
+	wg.Done()
+}
+
 func (a *HTTPMethodsAudit) monitor(auditItems chan httpMethodsAudiItem, pendingChannel chan int) {
 	count := 0
 	log.Debug().Str("url", a.HistoryItem.URL).Msg("HTTPMethods audit monitor started")
@@ -89,6 +128,10 @@ func (a *HTTPMethodsAudit) monitor(auditItems chan httpMethodsAudiItem, pendingC
 }
 
 func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
+	a.testItemWithContext(context.Background(), item)
+}
+
+func (a *HTTPMethodsAudit) testItemWithContext(ctx context.Context, item httpMethodsAudiItem) {
 	client := http_utils.CreateHttpClient()
 	auditLog := log.With().Str("audit", "httpMethods").Interface("auditItem", item).Str("url", a.HistoryItem.URL).Uint("workspace", a.WorkspaceID).Logger()
 	request, err := http_utils.BuildRequestFromHistoryItem(a.HistoryItem)
@@ -97,6 +140,7 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 		return
 	}
 	request.Method = item.method
+	request = request.WithContext(ctx)
 
 	executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
 		Client:        client,

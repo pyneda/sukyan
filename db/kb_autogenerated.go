@@ -28,6 +28,7 @@ var (
 	CrlfInjectionCode                    IssueCode = "crlf_injection"
 	CsrfCode                             IssueCode = "csrf"
 	CstiCode                             IssueCode = "csti"
+	CsvInjectionCode                     IssueCode = "csv_injection"
 	DatabaseErrorsCode                   IssueCode = "database_errors"
 	DbConnectionStringsCode              IssueCode = "db_connection_strings"
 	DbManagementInterfaceDetectedCode    IssueCode = "db_management_interface_detected"
@@ -115,6 +116,7 @@ var (
 	ServerSidePrototypePollutionCode     IssueCode = "server_side_prototype_pollution"
 	SessionTokenInUrlCode                IssueCode = "session_token_in_url"
 	SessionTokenInWebsocketCode          IssueCode = "session_token_in_websocket"
+	ShellshockCode                       IssueCode = "shellshock"
 	SilverlightDetectedCode              IssueCode = "silverlight_detected"
 	SniInjectionCode                     IssueCode = "sni_injection"
 	SocketioDetectedCode                 IssueCode = "socketio_detected"
@@ -448,6 +450,19 @@ var issueTemplates = []IssueTemplate{
 			"https://book.hacktricks.xyz/pentesting-web/client-side-template-injection-csti",
 			"https://ryhanson.com/angular-expression-injection-walkthrough/",
 			"https://portswigger.net/research/xss-without-html-client-side-template-injection-with-angularjs",
+		},
+	},
+	{
+		Code:        CsvInjectionCode,
+		Title:       "CSV Injection (Formula Injection)",
+		Description: "The application is vulnerable to CSV Injection, also known as Formula Injection. This occurs when user-controlled data is included in CSV or spreadsheet exports without proper sanitization. When the exported file is opened in spreadsheet applications like Microsoft Excel or Google Sheets, malicious formulas (starting with =, +, -, @, or tab/carriage return followed by these characters) can be executed. This can lead to data exfiltration via external requests, local file access, or in some cases remote code execution through DDE (Dynamic Data Exchange).",
+		Remediation: "Sanitize all user input before including it in CSV exports. Prefix cell values that start with formula-triggering characters (=, +, -, @) with a single quote or tab character to prevent formula interpretation. Consider using libraries that handle CSV escaping properly. Implement Content-Security-Policy headers for downloaded files where supported. Educate users about the risks of enabling macros or external content in downloaded spreadsheets.",
+		Cwe:         1236,
+		Severity:    "Medium",
+		References: []string{
+			"https://owasp.org/www-community/attacks/CSV_Injection",
+			"https://book.hacktricks.xyz/pentesting-web/formula-csv-doc-latex-ghostscript-injection",
+			"https://cwe.mitre.org/data/definitions/1236.html",
 		},
 	},
 	{
@@ -1509,6 +1524,20 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#websockets",
 			"https://tools.ietf.org/html/rfc6455#section-10",
+		},
+	},
+	{
+		Code:        ShellshockCode,
+		Title:       "Shellshock (CVE-2014-6271) Vulnerability",
+		Description: "The application appears to be vulnerable to Shellshock (CVE-2014-6271), a critical vulnerability in GNU Bash that allows remote code execution. The vulnerability exists in how Bash processes trailing strings after function definitions in environment variables. When user-controllable input (such as HTTP headers like User-Agent, Referer, or Cookie) is passed to a CGI script or other server-side component that invokes Bash, an attacker can inject and execute arbitrary commands. This vulnerability affects Bash versions through 4.3 and was disclosed in September 2014.",
+		Remediation: "Update GNU Bash to a patched version (4.3 patch 25 or later, or apply vendor-specific patches). Identify all systems running vulnerable Bash versions using vulnerability scanners. Review CGI scripts and other components that may invoke shell commands with user-controlled input. Consider using alternative shells or avoiding shell invocation where possible. Implement Web Application Firewalls (WAF) with rules to detect Shellshock payloads as a defense-in-depth measure.",
+		Cwe:         78,
+		Severity:    "Critical",
+		References: []string{
+			"https://nvd.nist.gov/vuln/detail/CVE-2014-6271",
+			"https://www.exploit-db.com/exploits/34765",
+			"https://book.hacktricks.xyz/network-services-pentesting/pentesting-web/cgi",
+			"https://owasp.org/www-pdf-archive/Shellshock_-_Tudor_Enache.pdf",
 		},
 	},
 	{

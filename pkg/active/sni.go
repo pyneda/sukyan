@@ -1,6 +1,8 @@
 package active
 
 import (
+	"context"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/http_utils"
@@ -15,6 +17,7 @@ import (
 
 // SNIAudit configuration
 type SNIAudit struct {
+	Ctx                 context.Context
 	HistoryItem         *db.History
 	InteractionsManager *integrations.InteractionsManager
 	WorkspaceID         uint
@@ -27,6 +30,20 @@ type SNIAudit struct {
 // Run starts the audit
 func (a *SNIAudit) Run() {
 	auditLog := log.With().Str("audit", "sni-injection").Str("url", a.HistoryItem.URL).Logger()
+
+	// Get context, defaulting to background if not provided
+	ctx := a.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		auditLog.Info().Msg("SNI audit cancelled before starting")
+		return
+	default:
+	}
 
 	if !strings.HasPrefix(a.HistoryItem.URL, "https://") {
 		auditLog.Info().Msg("URL is not HTTPS, skipping audit")
@@ -47,6 +64,9 @@ func (a *SNIAudit) Run() {
 		auditLog.Error().Err(err).Msg("Error creating the request")
 		return
 	}
+
+	// Add context to request
+	request = request.WithContext(ctx)
 
 	executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
 		Client:        client,

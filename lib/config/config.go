@@ -66,6 +66,7 @@ func SetDefaultConfig() {
 	viper.SetDefault("crawl.max_pages_with_same_params", 20)
 
 	// Scan
+	viper.SetDefault("scan.workers", 10)
 	viper.SetDefault("scan.magic_words", []string{"null", "None", "Undefined", "Blank"})
 	viper.SetDefault("scan.concurrency.passive", 30)
 	viper.SetDefault("scan.concurrency.active", 30)

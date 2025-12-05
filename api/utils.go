@@ -139,6 +139,28 @@ func parseScanID(c *fiber.Ctx) (uint, error) {
 	return scanID, nil
 }
 
+func parseScanJobID(c *fiber.Ctx) (uint, error) {
+	unparsed := c.Query("scan_job_id")
+	if unparsed == "" {
+		return 0, nil
+	}
+	scanJobID64, err := strconv.ParseUint(unparsed, 10, strconv.IntSize)
+	if err != nil {
+		log.Error().Err(err).Msg("Error parsing scan_job_id parameter query")
+		return 0, err
+	}
+
+	scanJobID := uint(scanJobID64)
+	if scanJobID == 0 {
+		return 0, nil
+	}
+	scanJobExists, _ := db.Connection().ScanJobExists(scanJobID)
+	if !scanJobExists {
+		return 0, errors.New("Invalid scan job")
+	}
+	return scanJobID, nil
+}
+
 func stringToUintSlice(input string, acceptedValues []uint, silentFail bool) ([]uint, error) {
 	output := make([]uint, 0)
 

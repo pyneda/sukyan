@@ -259,6 +259,7 @@ type WebSocketConnectionFilter struct {
 	WorkspaceID uint     `json:"workspace_id" validate:"required"`
 	TaskID      uint     `json:"task_id"`
 	ScanID      uint     `json:"scan_id"`
+	ScanJobID   uint     `json:"scan_job_id"`
 	Sources     []string `json:"sources" validate:"omitempty,dive,ascii"`
 }
 
@@ -276,6 +277,9 @@ func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnection
 	}
 	if filter.ScanID > 0 {
 		query = query.Where("scan_id = ?", filter.ScanID)
+	}
+	if filter.ScanJobID > 0 {
+		query = query.Where("scan_job_id = ?", filter.ScanJobID)
 	}
 
 	var connections []WebSocketConnection

@@ -111,6 +111,7 @@ func FindHistoryPost(c *fiber.Ctx) error {
 // @Param playground_session query integer false "Playground session ID to filter by"
 // @Param task query integer false "Task ID"
 // @Param scan_id query integer false "Scan ID"
+// @Param scan_job_id query integer false "Scan Job ID"
 // @Param sort_by query string false "Field to sort by" Enums(id,created_at,updated_at,status_code,request_body_size,url,response_body_size,parameters_count,method) default("id")
 // @Param sort_order query string false "Sort order" Enums(asc, desc) default("desc")
 // @Failure 500 {object} ErrorResponse
@@ -143,6 +144,14 @@ func FindHistory(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid scan",
 			"message": "The provided scan ID does not seem valid",
+		})
+	}
+
+	scanJobID, err := parseScanJobID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid scan job",
+			"message": "The provided scan job ID does not seem valid",
 		})
 	}
 
@@ -219,6 +228,7 @@ func FindHistory(c *fiber.Ctx) error {
 		SortOrder:           c.Query("sort_order", "desc"),
 		TaskID:              taskID,
 		ScanID:              scanID,
+		ScanJobID:           scanJobID,
 		IDs:                 filterIDs,
 		PlaygroundSessionID: playgroundSession,
 	}

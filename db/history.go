@@ -176,6 +176,7 @@ type HistoryFilter struct {
 	Pagination           Pagination `json:"pagination"`
 	WorkspaceID          uint       `json:"workspace_id" validate:"omitempty,numeric"`
 	ScanID               uint       `json:"scan_id" validate:"omitempty,numeric"`
+	ScanJobID            uint       `json:"scan_job_id" validate:"omitempty,numeric"`
 	SortBy               string     `json:"sort_by" validate:"omitempty,oneof=id created_at updated_at status_code request_body_size url response_body_size parameters_count method"` // Validate to be one of the listed fields
 	SortOrder            string     `json:"sort_order" validate:"omitempty,oneof=asc desc"`                                                                                           // Validate to be either "asc" or "desc"
 	TaskID               uint       `json:"task_id" validate:"omitempty,numeric"`
@@ -217,6 +218,9 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 	}
 	if filter.ScanID > 0 {
 		query = query.Where("scan_id = ?", filter.ScanID)
+	}
+	if filter.ScanJobID > 0 {
+		query = query.Where("scan_job_id = ?", filter.ScanJobID)
 	}
 	if len(filter.IDs) > 0 {
 		query = query.Where("id IN ?", filter.IDs)

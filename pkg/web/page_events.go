@@ -57,7 +57,7 @@ func (c EventCategory) ReportEvents(history *db.History, events []PageEvent) {
 		}
 		sb.WriteString(event.Description)
 	}
-	db.CreateIssueFromHistoryAndTemplate(history, issueCode, sb.String(), 75, "", history.WorkspaceID, history.TaskID, nil)
+	db.CreateIssueFromHistoryAndTemplate(history, issueCode, sb.String(), 75, "", history.WorkspaceID, history.TaskID, nil, history.ScanID, history.ScanJobID)
 }
 
 const (
@@ -118,9 +118,9 @@ func AnalyzeGatheredEvents(history *db.History, events []PageEvent) {
 	}
 }
 
-func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, workspaceID, taskID uint, source string) <-chan PageEvent {
+func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, workspaceID, taskID, scanID, scanJobID uint, source string) <-chan PageEvent {
 	eventChan := make(chan PageEvent)
-	ListenForWebSocketEvents(page, workspaceID, taskID, source)
+	ListenForWebSocketEvents(page, workspaceID, taskID, scanID, scanJobID, source)
 	go func() {
 		defer close(eventChan)
 

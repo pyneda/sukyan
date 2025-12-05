@@ -65,7 +65,7 @@ func UnencryptedPasswordFormDetectionScan(item *db.History) {
 					if formAttrs != "" {
 						sb.WriteString(fmt.Sprintf("Form attributes: %s\n", formAttrs))
 					}
-					db.CreateIssueFromHistoryAndTemplate(item, db.PasswordInGetRequestCode, sb.String(), 90, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID)
+					db.CreateIssueFromHistoryAndTemplate(item, db.PasswordInGetRequestCode, sb.String(), 90, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID, item.ScanID, item.ScanJobID)
 				}
 			}
 		}
@@ -73,7 +73,7 @@ func UnencryptedPasswordFormDetectionScan(item *db.History) {
 	})
 
 	if numIssues > 0 {
-		db.CreateIssueFromHistoryAndTemplate(item, db.UnencryptedPasswordSubmissionCode, details.String(), confidence, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID)
+		db.CreateIssueFromHistoryAndTemplate(item, db.UnencryptedPasswordSubmissionCode, details.String(), confidence, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID, item.ScanID, item.ScanJobID)
 	}
 }
 

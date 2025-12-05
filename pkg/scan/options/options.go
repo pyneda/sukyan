@@ -68,6 +68,8 @@ type HistoryItemScanOptions struct {
 	WorkspaceID        uint              `json:"workspace_id" validate:"required,min=0"`
 	TaskID             uint              `json:"task_id" validate:"required,min=0"`
 	TaskJobID          uint              `json:"task_job_id" validate:"required,min=0"`
+	ScanID             uint              `json:"scan_id"`
+	ScanJobID          uint              `json:"scan_job_id"`
 	Mode               ScanMode          `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
 	InsertionPoints    []string          `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
 	FingerprintTags    []string          `json:"fingerprint_tags" validate:"omitempty,dive"`
@@ -105,6 +107,9 @@ type FullScanOptions struct {
 	AuditCategories    AuditCategories          `json:"audit_categories" validate:"required"`
 	WebSocketOptions   FullScanWebSocketOptions `json:"websocket_options" validate:"omitempty"`
 	MaxRetries         int                      `json:"max_retries" validate:"min=0"`
+	UseOrchestrator    bool                     `json:"use_orchestrator"`
+	MaxConcurrentJobs  *int                     `json:"max_concurrent_jobs,omitempty"`
+	MaxRPS             *int                     `json:"max_rps,omitempty"`
 }
 
 type FullScanWebSocketOptions struct {

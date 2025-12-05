@@ -58,6 +58,11 @@ func StartAPI() {
 	}
 	interactionsManager.Start()
 
+	// Initialize the scan manager (orchestrator / Scan Engine V2)
+	if err := InitScanManager(interactionsManager, generators); err != nil {
+		apiLogger.Warn().Err(err).Msg("Failed to initialize scan manager - orchestrator scans will not be available")
+	}
+
 	apiLogger.Info().Msg("Initialized everything. Starting the API...")
 
 	app := fiber.New(fiber.Config{
@@ -166,6 +171,37 @@ func StartAPI() {
 	scan_app.Post("/passive", JWTProtected(), PassiveScanHandler)
 	scan_app.Post("/active", JWTProtected(), ActiveScanHandler)
 	scan_app.Post("/active/websocket", JWTProtected(), ActiveWebSocketScanHandler)
+
+	// Scans endpoints (Scan Engine V2 / Orchestrator)
+	scans_app := api.Group("/scans")
+	scans_app.Get("", JWTProtected(), ListScansHandler)
+	scans_app.Get("/:id", JWTProtected(), GetScanHandler)
+	scans_app.Delete("/:id", JWTProtected(), DeleteScanHandler)
+	scans_app.Post("/:id/cancel", JWTProtected(), CancelScanHandler)
+	scans_app.Post("/:id/pause", JWTProtected(), PauseScanHandler)
+	scans_app.Post("/:id/resume", JWTProtected(), ResumeScanHandler)
+	scans_app.Get("/:id/jobs", JWTProtected(), GetScanJobsHandler)
+	scans_app.Get("/:id/jobs/:job_id", JWTProtected(), GetScanJobHandler)
+	scans_app.Get("/:id/stats", JWTProtected(), GetScanStatsHandler)
+	scans_app.Post("/:id/schedule-items", JWTProtected(), ScheduleHistoryItemScansHandler)
+
+	// Dashboard endpoints (separate from API, with configurable path and optional basic auth)
+	if viper.GetBool("api.dashboard.enabled") {
+		dashboardPath := viper.GetString("api.dashboard.path")
+		if dashboardPath == "" {
+			dashboardPath = "/dashboard"
+		}
+
+		// Create middleware chain for dashboard
+		var dashboardMiddleware []fiber.Handler
+		if viper.GetBool("api.dashboard.basic_auth.enabled") {
+			dashboardMiddleware = append(dashboardMiddleware, DashboardBasicAuth())
+		}
+
+		// Register dashboard routes
+		app.Get(dashboardPath, append(dashboardMiddleware, DashboardHTMLHandler)...)
+		app.Get(dashboardPath+"/stats", append(dashboardMiddleware, GetDashboardStatsHandler)...)
+	}
 
 	certPath := viper.GetString("server.cert.file")
 	keyPath := viper.GetString("server.key.file")

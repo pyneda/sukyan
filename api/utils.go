@@ -117,6 +117,28 @@ func parseTaskJobID(c *fiber.Ctx) (uint, error) {
 	return taskJobID, nil
 }
 
+func parseScanID(c *fiber.Ctx) (uint, error) {
+	unparsed := c.Query("scan_id")
+	if unparsed == "" {
+		return 0, nil
+	}
+	scanID64, err := strconv.ParseUint(unparsed, 10, strconv.IntSize)
+	if err != nil {
+		log.Error().Err(err).Msg("Error parsing scan_id parameter query")
+		return 0, err
+	}
+
+	scanID := uint(scanID64)
+	if scanID == 0 {
+		return 0, nil
+	}
+	scanExists, _ := db.Connection().ScanExists(scanID)
+	if !scanExists {
+		return 0, errors.New("Invalid scan")
+	}
+	return scanID, nil
+}
+
 func stringToUintSlice(input string, acceptedValues []uint, silentFail bool) ([]uint, error) {
 	output := make([]uint, 0)
 
@@ -236,4 +258,3 @@ func parseCommaSeparatedStrings(input string) []string {
 	}
 	return result
 }
-

@@ -57,7 +57,7 @@ func TestHijackWithContext(t *testing.T) {
 	defer cancel()
 
 	config := HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}
-	router := HijackWithContext(config, browser, server.URL, resultsChannel, ctx, workspace.ID, 0)
+	router := HijackWithContext(config, browser, server.URL, resultsChannel, ctx, workspace.ID, 0, 0, 0)
 	defer router.Stop()
 
 	wg := sync.WaitGroup{}
@@ -133,7 +133,7 @@ func TestHijack(t *testing.T) {
 	resultsChannel := make(chan HijackResult)
 
 	config := HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}
-	Hijack(config, browser, "test", resultsChannel, workspace.ID, 0)
+	Hijack(config, browser, "test", resultsChannel, workspace.ID, 0, 0, 0)
 
 	wg := sync.WaitGroup{}
 	wg.Add(4)

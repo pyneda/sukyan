@@ -23,6 +23,8 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		WorkspaceID: options.WorkspaceID,
 		TaskID:      options.TaskID,
 		TaskJobID:   options.TaskJobID,
+		ScanID:      options.ScanID,
+		ScanJobID:   options.ScanJobID,
 		ScanMode:    options.Mode,
 	}
 	historyCreateOptions := http_utils.HistoryCreationOptions{
@@ -31,6 +33,8 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		TaskID:              options.TaskID,
 		CreateNewBodyStream: true,
 		TaskJobID:           options.TaskJobID,
+		ScanID:              options.ScanID,
+		ScanJobID:           options.ScanJobID,
 	}
 	if item.StatusCode == 401 || item.StatusCode == 403 {
 		ForbiddenBypassScan(item, activeOptions)
@@ -92,6 +96,8 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 				WorkspaceID:                options.WorkspaceID,
 				TaskID:                     options.TaskID,
 				TaskJobID:                  options.TaskJobID,
+				ScanID:                     options.ScanID,
+				ScanJobID:                  options.ScanJobID,
 				SkipInitialAlertValidation: false,
 			}
 			taskLog.Info().Msg("Starting client side audits")
@@ -107,6 +113,8 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 				WorkspaceID: options.WorkspaceID,
 				TaskID:      options.TaskID,
 				TaskJobID:   options.TaskJobID,
+				ScanID:      options.ScanID,
+				ScanJobID:   options.ScanJobID,
 			}
 			cspp.Run()
 			taskLog.Info().Msg("Completed client side prototype pollution audit")
@@ -139,6 +147,8 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			WorkspaceID:         options.WorkspaceID,
 			TaskID:              options.TaskID,
 			TaskJobID:           options.TaskJobID,
+			ScanID:              options.ScanID,
+			ScanJobID:           options.ScanJobID,
 		}
 		log4shell.Run()
 	}
@@ -150,6 +160,8 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			WorkspaceID: options.WorkspaceID,
 			TaskID:      options.TaskID,
 			TaskJobID:   options.TaskJobID,
+			ScanID:      options.ScanID,
+			ScanJobID:   options.ScanJobID,
 		}
 		hostHeader.Run()
 		// NOTE: Checks below are probably not worth to run against every history item,
@@ -161,6 +173,8 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			WorkspaceID:         options.WorkspaceID,
 			TaskID:              options.TaskID,
 			TaskJobID:           options.TaskJobID,
+			ScanID:              options.ScanID,
+			ScanJobID:           options.ScanJobID,
 		}
 		sni.Run()
 
@@ -175,6 +189,8 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			WorkspaceID: options.WorkspaceID,
 			TaskID:      options.TaskID,
 			TaskJobID:   options.TaskJobID,
+			ScanID:      options.ScanID,
+			ScanJobID:   options.ScanJobID,
 		}
 		methods.Run()
 	}

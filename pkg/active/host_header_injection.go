@@ -28,6 +28,8 @@ type HostHeaderInjectionAudit struct {
 	WorkspaceID        uint
 	TaskID             uint
 	TaskJobID          uint
+	ScanID             uint
+	ScanJobID          uint
 }
 
 type hostHeaderInjectionAuditItem struct {
@@ -144,6 +146,8 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 			Source:              db.SourceScanner,
 			WorkspaceID:         uint(a.WorkspaceID),
 			TaskID:              uint(a.TaskID),
+			ScanID:              a.ScanID,
+			ScanJobID:           a.ScanJobID,
 			CreateNewBodyStream: true,
 		},
 	})
@@ -158,6 +162,6 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 
 	if isInResponse {
 		details := fmt.Sprintf("A host header injection vulnerability has been detected in %s. The audit test send the following payload `%s` in `%s` header and it has been verified is included back in the response", a.URL, item.payload.GetValue(), item.header)
-		db.CreateIssueFromHistoryAndTemplate(history, db.HostHeaderInjectionCode, details, 75, "", &a.WorkspaceID, &a.TaskID, &a.TaskJobID)
+		db.CreateIssueFromHistoryAndTemplate(history, db.HostHeaderInjectionCode, details, 75, "", &a.WorkspaceID, &a.TaskID, &a.TaskJobID, &a.ScanID, &a.ScanJobID)
 	}
 }

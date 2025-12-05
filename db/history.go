@@ -33,6 +33,10 @@ type History struct {
 	WorkspaceID         *uint             `json:"workspace_id" gorm:"index"`
 	TaskID              *uint             `json:"task_id" gorm:"index" `
 	Task                Task              `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ScanID              *uint             `json:"scan_id" gorm:"index"`
+	Scan                *Scan             `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ScanJobID           *uint             `json:"scan_job_id" gorm:"index"`
+	ScanJob             *ScanJob          `json:"-" gorm:"foreignKey:ScanJobID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	PlaygroundSessionID *uint             `json:"playground_session_id" gorm:"index" `
 	PlaygroundSession   PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	ResponseBodySize    int               `gorm:"index" json:"response_body_size"`
@@ -171,6 +175,7 @@ type HistoryFilter struct {
 	Sources              []string   `json:"sources" validate:"omitempty,dive,ascii"`
 	Pagination           Pagination `json:"pagination"`
 	WorkspaceID          uint       `json:"workspace_id" validate:"omitempty,numeric"`
+	ScanID               uint       `json:"scan_id" validate:"omitempty,numeric"`
 	SortBy               string     `json:"sort_by" validate:"omitempty,oneof=id created_at updated_at status_code request_body_size url response_body_size parameters_count method"` // Validate to be one of the listed fields
 	SortOrder            string     `json:"sort_order" validate:"omitempty,oneof=asc desc"`                                                                                           // Validate to be either "asc" or "desc"
 	TaskID               uint       `json:"task_id" validate:"omitempty,numeric"`
@@ -209,6 +214,9 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 	}
 	if filter.TaskID > 0 {
 		query = query.Where("task_id = ?", filter.TaskID)
+	}
+	if filter.ScanID > 0 {
+		query = query.Where("scan_id = ?", filter.ScanID)
 	}
 	if len(filter.IDs) > 0 {
 		query = query.Where("id IN ?", filter.IDs)

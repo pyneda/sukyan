@@ -83,6 +83,8 @@ func JSONPCallbackScan(history *db.History, options ActiveModuleOptions) {
 					Source:              db.SourceScanner,
 					WorkspaceID:         options.WorkspaceID,
 					TaskID:              options.TaskID,
+					ScanID:              options.ScanID,
+					ScanJobID:           options.ScanJobID,
 					CreateNewBodyStream: false,
 				},
 			})
@@ -202,6 +204,8 @@ func createJSONPIssue(history *db.History, details string, confidence int, optio
 		&options.WorkspaceID,
 		&options.TaskID,
 		&options.TaskJobID,
+		&options.ScanID,
+		&options.ScanJobID,
 	)
 }
 

@@ -234,6 +234,32 @@ func FullScanHandler(c *fiber.Ctx) error {
 		input.Title = "Full scan"
 	}
 
+	// Use orchestrator (Scan Engine V2) if requested
+	if input.UseOrchestrator {
+		scanManager := GetScanManager()
+		if scanManager == nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+				Error:   "Scan manager not available",
+				Message: "The orchestrator scan engine is not initialized",
+			})
+		}
+
+		scan, err := scanManager.StartFullScan(*input)
+		if err != nil {
+			log.Error().Err(err).Interface("input", input).Msg("Failed to start full scan with orchestrator")
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+				Error:   "Failed to start scan",
+				Message: err.Error(),
+			})
+		}
+
+		return c.JSON(fiber.Map{
+			"message": "Full scan scheduled with orchestrator",
+			"scan_id": scan.ID,
+		})
+	}
+
+	// Use legacy scan engine
 	generators := c.Locals("generators").([]*generation.PayloadGenerator)
 	interactionsManager := c.Locals("interactionsManager").(*integrations.InteractionsManager)
 	e := engine.NewScanEngine(generators, viper.GetInt("scan.concurrency.passive"), viper.GetInt("scan.concurrency.active"), interactionsManager)

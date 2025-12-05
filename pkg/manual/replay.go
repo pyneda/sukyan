@@ -125,7 +125,7 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 		cancel()
 	}()
 
-	eventStream := web.ListenForPageEvents(ctx, input.Request.URL, pageWithCancel, input.Session.WorkspaceID, 0, db.SourceRepeater)
+	eventStream := web.ListenForPageEvents(ctx, input.Request.URL, pageWithCancel, input.Session.WorkspaceID, 0, 0, 0, db.SourceRepeater)
 	events := []web.PageEvent{}
 	go func() {
 		for {

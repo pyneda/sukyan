@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/crawl"
-	"os"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -34,7 +35,7 @@ to quickly create a Cobra application.`,
 		headers := lib.ParseHeadersStringToMap(requestsHeadersString)
 
 		log.Info().Strs("startUrls", startUrls).Int("count", len(startUrls)).Msg("Creating and scheduling the crawler")
-		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, 0, headers)
+		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, 0, 0, 0, headers)
 		crawler.Run()
 	},
 }

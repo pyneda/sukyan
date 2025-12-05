@@ -26,6 +26,8 @@ type Log4ShellInjectionAudit struct {
 	WorkspaceID         uint
 	TaskID              uint
 	TaskJobID           uint
+	ScanID              uint
+	ScanJobID           uint
 	Mode                scan_options.ScanMode
 }
 
@@ -246,6 +248,8 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 		WorkspaceID:       &a.WorkspaceID,
 		TaskID:            &a.TaskID,
 		TaskJobID:         &a.TaskJobID,
+		ScanID:            &a.ScanID,
+		ScanJobID:         &a.ScanJobID,
 	}
 	db.Connection().CreateOOBTest(oobTest)
 }

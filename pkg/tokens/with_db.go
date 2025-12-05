@@ -47,6 +47,8 @@ func CrackJWTAndCreateIssue(history *db.History, token *db.JsonWebToken) (*JWTCr
 			history.WorkspaceID,
 			history.TaskID,
 			&noTaskJob,
+			history.ScanID,
+			history.ScanJobID,
 		)
 
 		if err != nil {
@@ -109,6 +111,8 @@ func CrackJWTAndCreateIssueFromWebSocket(message *db.WebSocketMessage, connectio
 			connection.WorkspaceID,
 			connection.TaskID,
 			&noTaskJob,
+			connection.ScanID,
+			connection.ScanJobID,
 			&connection.ID,
 			connection.UpgradeRequestID,
 		)
@@ -173,6 +177,8 @@ func CrackJWTAndCreateIssueFromWebSocketConnection(connection *db.WebSocketConne
 			connection.WorkspaceID,
 			connection.TaskID,
 			&noTaskJob,
+			connection.ScanID,
+			connection.ScanJobID,
 		)
 
 		if err != nil {

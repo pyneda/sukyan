@@ -28,10 +28,14 @@ type OOBTest struct {
 	InsertionPoint    string    `json:"insertion_point"`
 	Workspace         Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID       *uint     `json:"workspace_id"`
-	Task              Task      `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	TaskID            *uint     `json:"task_id"`
-	TaskJobID         *uint     `json:"task_job_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	TaskJob           TaskJob   `json:"-" gorm:"foreignKey:TaskJobID"`
+	Task              Task      `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	TaskID            *uint     `json:"task_id" gorm:"index"`
+	TaskJobID         *uint     `json:"task_job_id" gorm:"index"`
+	TaskJob           *TaskJob  `json:"-" gorm:"foreignKey:TaskJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	ScanID            *uint     `json:"scan_id" gorm:"index"`
+	Scan              *Scan     `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	ScanJobID         *uint     `json:"scan_job_id" gorm:"index"`
+	ScanJob           *ScanJob  `json:"-" gorm:"foreignKey:ScanJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	Note              string    `json:"note"`
 }
 
@@ -78,6 +82,25 @@ func (o OOBTest) Pretty() string {
 // CreateOOBTest saves an OOBTest to the database
 func (d *DatabaseConnection) CreateOOBTest(item OOBTest) (OOBTest, error) {
 	item.InteractionFullID = strings.ToLower(item.InteractionFullID)
+
+	// Handle foreign key constraints: set pointers to nil if they point to 0
+	// This is needed because the new scan engine (V2) uses ScanID/ScanJobID instead of TaskID/TaskJobID
+	// When TaskID or TaskJobID is 0, passing a pointer to 0 violates the foreign key constraint
+	if item.TaskID != nil && *item.TaskID == 0 {
+		item.TaskID = nil
+	}
+	if item.TaskJobID != nil && *item.TaskJobID == 0 {
+		item.TaskJobID = nil
+	}
+	if item.ScanID != nil && *item.ScanID == 0 {
+		item.ScanID = nil
+	}
+	if item.ScanJobID != nil && *item.ScanJobID == 0 {
+		item.ScanJobID = nil
+	}
+	if item.HistoryID != nil && *item.HistoryID == 0 {
+		item.HistoryID = nil
+	}
 
 	// Check if payload contains invalid UTF-8 sequences (binary data)
 	if !utf8.ValidString(item.Payload) {
@@ -204,6 +227,8 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 		issue.WorkspaceID = oobTest.WorkspaceID
 		issue.TaskID = oobTest.TaskID
 		issue.TaskJobID = oobTest.TaskJobID
+		issue.ScanID = oobTest.ScanID
+		issue.ScanJobID = oobTest.ScanJobID
 		if oobTest.HistoryItem != nil {
 			issue.Requests = append(issue.Requests, *oobTest.HistoryItem)
 		}
@@ -300,6 +325,8 @@ type OOBTestsFilter struct {
 	HistoryIDs         []uint     `json:"history_ids" validate:"omitempty,dive,min=1"`
 	TaskIDs            []uint     `json:"task_ids" validate:"omitempty,dive,min=1"`
 	TaskJobIDs         []uint     `json:"task_job_ids" validate:"omitempty,dive,min=1"`
+	ScanIDs            []uint     `json:"scan_ids" validate:"omitempty,dive,min=1"`
+	ScanJobIDs         []uint     `json:"scan_job_ids" validate:"omitempty,dive,min=1"`
 	HasInteractions    *bool      `json:"has_interactions" validate:"omitempty"`
 	CreatedAfter       *time.Time `json:"created_after" validate:"omitempty"`
 	CreatedBefore      *time.Time `json:"created_before" validate:"omitempty"`
@@ -311,6 +338,8 @@ type OOBTestsFilter struct {
 	WorkspaceID        uint       `json:"workspace_id" validate:"omitempty,min=1"`
 	TaskID             uint       `json:"task_id" validate:"omitempty,min=1"`
 	TaskJobID          uint       `json:"task_job_id" validate:"omitempty,min=1"`
+	ScanID             uint       `json:"scan_id" validate:"omitempty,min=1"`
+	ScanJobID          uint       `json:"scan_job_id" validate:"omitempty,min=1"`
 }
 
 // ListOOBTests Lists OOB tests
@@ -353,6 +382,12 @@ func (d *DatabaseConnection) ListOOBTests(filter OOBTestsFilter) (items []*OOBTe
 	if len(filter.TaskJobIDs) > 0 {
 		query = query.Where("task_job_id IN ?", filter.TaskJobIDs)
 	}
+	if len(filter.ScanIDs) > 0 {
+		query = query.Where("scan_id IN ?", filter.ScanIDs)
+	}
+	if len(filter.ScanJobIDs) > 0 {
+		query = query.Where("scan_job_id IN ?", filter.ScanJobIDs)
+	}
 
 	if filter.HasInteractions != nil {
 		if *filter.HasInteractions {
@@ -383,6 +418,12 @@ func (d *DatabaseConnection) ListOOBTests(filter OOBTestsFilter) (items []*OOBTe
 	}
 	if filter.TaskJobID > 0 {
 		query = query.Where("task_job_id = ?", filter.TaskJobID)
+	}
+	if filter.ScanID > 0 {
+		query = query.Where("scan_id = ?", filter.ScanID)
+	}
+	if filter.ScanJobID > 0 {
+		query = query.Where("scan_job_id = ?", filter.ScanJobID)
 	}
 
 	if err := query.Count(&count).Error; err != nil {

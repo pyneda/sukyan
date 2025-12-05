@@ -170,6 +170,8 @@ func DatabaseErrorScanWS(message *db.WebSocketMessage, connection *db.WebSocketC
 			connection.WorkspaceID,
 			connection.TaskID,
 			&defaultTaskJobID,
+			connection.ScanID,
+			connection.ScanJobID,
 			&connection.ID,
 			connection.UpgradeRequestID,
 		)
@@ -220,6 +222,8 @@ func LeakedApiKeysScanWS(message *db.WebSocketMessage, connection *db.WebSocketC
 			connection.WorkspaceID,
 			connection.TaskID,
 			&defaultTaskJobID,
+			connection.ScanID,
+			connection.ScanJobID,
 			&connection.ID,
 			connection.UpgradeRequestID,
 		)
@@ -268,6 +272,8 @@ func PrivateIPScanWS(message *db.WebSocketMessage, connection *db.WebSocketConne
 			connection.WorkspaceID,
 			connection.TaskID,
 			&defaultTaskJobID,
+			connection.ScanID,
+			connection.ScanJobID,
 			&connection.ID,
 			connection.UpgradeRequestID,
 		)
@@ -328,6 +334,8 @@ func JwtDetectionScanWS(message *db.WebSocketMessage, connection *db.WebSocketCo
 			connection.WorkspaceID,
 			connection.TaskID,
 			&defaultTaskJobID,
+			connection.ScanID,
+			connection.ScanJobID,
 			&connection.ID,
 			connection.UpgradeRequestID,
 		)
@@ -378,6 +386,8 @@ func attemptToCrackJwtFromWebSocketIfRequired(message *db.WebSocketMessage, conn
 			connection.WorkspaceID,
 			connection.TaskID,
 			&noTaskJob,
+			connection.ScanID,
+			connection.ScanJobID,
 			&connection.ID,
 			connection.UpgradeRequestID,
 		)
@@ -422,6 +432,8 @@ func attemptToCrackJwtFromWebSocketConnectionIfRequired(connection *db.WebSocket
 			connection.WorkspaceID,
 			connection.TaskID,
 			&noTaskJob,
+			connection.ScanID,
+			connection.ScanJobID,
 		)
 		if err != nil {
 			log.Error().Err(err).Str("token", jwt.Token).Msg("Failed to create issue for already cracked JWT from WebSocket connection")
@@ -473,6 +485,8 @@ func checkWebSocketHeadersForJwt(connection *db.WebSocketConnection, headers map
 			connection.WorkspaceID,
 			connection.TaskID,
 			&defaultTaskJobID,
+			connection.ScanID,
+			connection.ScanJobID,
 		)
 		if err != nil {
 			log.Error().Err(err).Uint("connection_id", connection.ID).Msg("Failed to create JWT detection issue from WebSocket headers")
@@ -524,6 +538,8 @@ func PrivateKeyScanWS(message *db.WebSocketMessage, connection *db.WebSocketConn
 				connection.WorkspaceID,
 				connection.TaskID,
 				&defaultTaskJobID,
+				connection.ScanID,
+				connection.ScanJobID,
 				&connection.ID,
 				connection.UpgradeRequestID,
 			)
@@ -577,6 +593,8 @@ func DBConnectionStringScanWS(message *db.WebSocketMessage, connection *db.WebSo
 				connection.WorkspaceID,
 				connection.TaskID,
 				&defaultTaskJobID,
+				connection.ScanID,
+				connection.ScanJobID,
 				&connection.ID,
 				connection.UpgradeRequestID,
 			)
@@ -612,6 +630,8 @@ func EmailAddressScanWS(message *db.WebSocketMessage, connection *db.WebSocketCo
 			connection.WorkspaceID,
 			connection.TaskID,
 			&defaultTaskJobID,
+			connection.ScanID,
+			connection.ScanJobID,
 			&connection.ID,
 			connection.UpgradeRequestID,
 		)
@@ -668,6 +688,8 @@ func StorageBucketDetectionScanWS(message *db.WebSocketMessage, connection *db.W
 			connection.WorkspaceID,
 			connection.TaskID,
 			&defaultTaskJobID,
+			connection.ScanID,
+			connection.ScanJobID,
 			&connection.ID,
 			connection.UpgradeRequestID,
 		)
@@ -719,6 +741,8 @@ func SessionTokenScanWS(message *db.WebSocketMessage, connection *db.WebSocketCo
 			connection.WorkspaceID,
 			connection.TaskID,
 			&defaultTaskJobID,
+			connection.ScanID,
+			connection.ScanJobID,
 			&connection.ID,
 			connection.UpgradeRequestID,
 		)

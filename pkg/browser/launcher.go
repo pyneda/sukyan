@@ -14,7 +14,8 @@ func GetBrowserLauncher() *launcher.Launcher {
 		Headless(viper.GetBool("crawl.headless")).
 		Set("allow-running-insecure-content").
 		Set("disable-infobars").
-		Set("disable-extensions")
+		Set("disable-extensions").
+		Set("no-sandbox")
 
 	if viper.GetString("navigation.proxy") != "" {
 		options.Proxy(viper.GetString("navigation.proxy"))

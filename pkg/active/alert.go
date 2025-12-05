@@ -29,6 +29,8 @@ type AlertAudit struct {
 	WorkspaceID                uint
 	TaskID                     uint
 	TaskJobID                  uint
+	ScanID                     uint
+	ScanJobID                  uint
 	SkipInitialAlertValidation bool
 	detectedLocations          sync.Map
 }
@@ -74,6 +76,8 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 		RawURL:              "",
 		WorkspaceID:         x.WorkspaceID,
 		TaskID:              x.TaskID,
+		ScanID:              x.ScanID,
+		ScanJobID:           x.ScanJobID,
 		PlaygroundSessionID: 0,
 		Note:                note,
 		Source:              db.SourceScanner,
@@ -122,7 +126,7 @@ func (x *AlertAudit) testPayload(browserPool *browser.BrowserPoolManager, histor
 
 	hijackResultsChannel := make(chan browser.HijackResult)
 	hijackContext, hijackCancel := context.WithCancel(context.Background())
-	browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID)
+	browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
 	defer browserPool.ReleaseBrowser(b)
 	defer hijackCancel()
 	go func() {
@@ -228,7 +232,7 @@ func (x *AlertAudit) reportIssue(history *db.History, scanRequest *http.Request,
 	if err != nil && string(body) != "" {
 		sb.WriteString("\n\nThe request body:\n```\n" + string(body) + "\n```\n")
 	}
-	db.CreateIssueFromHistoryAndTemplate(history, issueCode, sb.String(), 90, "", &x.WorkspaceID, &x.TaskID, &x.TaskJobID)
+	db.CreateIssueFromHistoryAndTemplate(history, issueCode, sb.String(), 90, "", &x.WorkspaceID, &x.TaskID, &x.TaskJobID, &x.ScanID, &x.ScanJobID)
 }
 
 func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.InsertionPoint, payload string, b *rod.Browser, issueCode db.IssueCode) error {
@@ -301,6 +305,8 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 		RawURL:              testurl,
 		WorkspaceID:         x.WorkspaceID,
 		TaskID:              x.TaskID,
+		ScanID:              x.ScanID,
+		ScanJobID:           x.ScanJobID,
 		PlaygroundSessionID: 0,
 		Note:                note,
 		Source:              db.SourceScanner,

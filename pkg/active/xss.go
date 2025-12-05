@@ -25,6 +25,8 @@ type XSSAudit struct {
 	WorkspaceID       uint
 	TaskID            uint
 	TaskJobID         uint
+	ScanID            uint
+	ScanJobID         uint
 	detectedLocations sync.Map
 }
 
@@ -73,7 +75,7 @@ func (x *XSSAudit) Run(targetUrl string, params []string, wordlistPath string, u
 			taskLog.Debug().Msg("Got scan browser from the pool")
 			hijackResultsChannel := make(chan browser.HijackResult)
 			hijackContext, hijackCancel := context.WithCancel(context.Background())
-			browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID)
+			browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
 
 			go func() {
 				for {
@@ -219,7 +221,7 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem, b *
 			} else {
 				sb.WriteString("\nThe following URL can be used to reproduce the issue: " + testurl)
 			}
-			db.CreateIssueFromHistoryAndTemplate(history, db.XssReflectedCode, sb.String(), 90, "", &x.WorkspaceID, &x.TaskID, &x.TaskJobID)
+			db.CreateIssueFromHistoryAndTemplate(history, db.XssReflectedCode, sb.String(), 90, "", &x.WorkspaceID, &x.TaskID, &x.TaskJobID, &x.ScanID, &x.ScanJobID)
 
 			// urlSlug := slug.Make(testurl)
 			// screenshot := fmt.Sprintf("%s.png", urlSlug)

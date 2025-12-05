@@ -18,6 +18,8 @@ type ActiveModuleOptions struct {
 	WorkspaceID uint
 	TaskID      uint
 	TaskJobID   uint
+	ScanID      uint
+	ScanJobID   uint
 	Concurrency int
 	ScanMode    options.ScanMode
 }
@@ -233,6 +235,8 @@ func sendRequestAndCheckBypass(client *http.Client, request *http.Request, origi
 			Source:              db.SourceScanner,
 			WorkspaceID:         options.WorkspaceID,
 			TaskID:              options.TaskID,
+			ScanID:              options.ScanID,
+			ScanJobID:           options.ScanJobID,
 			CreateNewBodyStream: false,
 		},
 	})
@@ -271,6 +275,6 @@ Response received:
 			confidence = 40
 		}
 
-		db.CreateIssueFromHistoryAndTemplate(history, db.ForbiddenBypassCode, details, confidence, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
+		db.CreateIssueFromHistoryAndTemplate(history, db.ForbiddenBypassCode, details, confidence, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID, &options.ScanID, &options.ScanJobID)
 	}
 }

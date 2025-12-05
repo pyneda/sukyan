@@ -23,6 +23,8 @@ type ClientSidePrototypePollutionAudit struct {
 	WorkspaceID uint
 	TaskID      uint
 	TaskJobID   uint
+	ScanID      uint
+	ScanJobID   uint
 }
 
 func (a *ClientSidePrototypePollutionAudit) Run() {
@@ -61,7 +63,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 	hijackContext, hijackCancel := context.WithCancel(overallCtx)
 	defer hijackCancel()
 
-	hijackRouter := browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, hijackContext, a.WorkspaceID, a.TaskID)
+	hijackRouter := browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, hijackContext, a.WorkspaceID, a.TaskID, a.ScanID, a.ScanJobID)
 	defer hijackRouter.Stop()
 	incognito, err := b.Incognito()
 	if err != nil {
@@ -156,7 +158,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 				}
 			}
 		}
-		db.CreateIssueFromHistoryAndTemplate(history, db.ClientSidePrototypePollutionCode, sb.String(), 90, severity, &a.WorkspaceID, history.TaskID, &a.TaskJobID)
+		db.CreateIssueFromHistoryAndTemplate(history, db.ClientSidePrototypePollutionCode, sb.String(), 90, severity, &a.WorkspaceID, history.TaskID, &a.TaskJobID, &a.ScanID, &a.ScanJobID)
 		// Issue detected, stop checking
 		return
 	}

@@ -24,7 +24,7 @@ func HttpVersionsScan(history *db.History, options ActiveModuleOptions) (HttpVer
 		auditLog.Info().Msg("HTTP/2 is supported")
 		results.Http2 = true
 		details := fmt.Sprintf("The server responded to an HTTP/2 request with status code %d", http2History.StatusCode)
-		db.CreateIssueFromHistoryAndTemplate(history, db.Http2DetectedCode, details, 90, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
+		db.CreateIssueFromHistoryAndTemplate(history, db.Http2DetectedCode, details, 90, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID, &options.ScanID, &options.ScanJobID)
 	} else if err != nil {
 		auditLog.Debug().Err(err).Msg("Failed to send HTTP/2 request")
 	}
@@ -35,7 +35,7 @@ func HttpVersionsScan(history *db.History, options ActiveModuleOptions) (HttpVer
 		auditLog.Info().Msg("HTTP/3 is supported")
 		results.Http3 = true
 		details := fmt.Sprintf("The server responded to an HTTP/3 request with status code %d", http3History.StatusCode)
-		db.CreateIssueFromHistoryAndTemplate(history, db.Http3DetectedCode, details, 90, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
+		db.CreateIssueFromHistoryAndTemplate(history, db.Http3DetectedCode, details, 90, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID, &options.ScanID, &options.ScanJobID)
 	} else if err != nil {
 		auditLog.Debug().Err(err).Msg("Failed to send HTTP/3 request")
 	}
@@ -56,6 +56,8 @@ func sendRequest(client *http.Client, history *db.History, options ActiveModuleO
 			Source:              db.SourceScanner,
 			WorkspaceID:         options.WorkspaceID,
 			TaskID:              options.TaskID,
+			ScanID:              options.ScanID,
+			ScanJobID:           options.ScanJobID,
 			CreateNewBodyStream: false,
 		},
 	})

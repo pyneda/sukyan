@@ -34,7 +34,7 @@ func ConvertToNetworkHeaders(headersMap map[string][]string) proto.NetworkHeader
 func ConvertToNetworkHeadersAndCookies(headersMap map[string][]string) (proto.NetworkHeaders, []*proto.NetworkCookieParam) {
 	networkHeaders := make(proto.NetworkHeaders)
 	var cookies []*proto.NetworkCookieParam
-	
+
 	for key, values := range headersMap {
 		if strings.ToLower(key) == "cookie" {
 			for _, cookieHeader := range values {
@@ -46,7 +46,7 @@ func ConvertToNetworkHeadersAndCookies(headersMap map[string][]string) (proto.Ne
 			networkHeaders[key] = gson.New(combinedValues)
 		}
 	}
-	
+
 	return networkHeaders, cookies
 }
 
@@ -54,7 +54,7 @@ func ConvertToNetworkHeadersAndCookies(headersMap map[string][]string) (proto.Ne
 func ConvertToNetworkHeadersAndCookiesWithDomain(headersMap map[string][]string, domain string) (proto.NetworkHeaders, []*proto.NetworkCookieParam) {
 	networkHeaders := make(proto.NetworkHeaders)
 	var cookies []*proto.NetworkCookieParam
-	
+
 	for key, values := range headersMap {
 		if strings.ToLower(key) == "cookie" {
 			for _, cookieHeader := range values {
@@ -66,7 +66,7 @@ func ConvertToNetworkHeadersAndCookiesWithDomain(headersMap map[string][]string,
 			networkHeaders[key] = gson.New(combinedValues)
 		}
 	}
-	
+
 	return networkHeaders, cookies
 }
 
@@ -78,38 +78,38 @@ func parseCookieHeader(cookieHeader string) []*proto.NetworkCookieParam {
 // parseCookieHeaderWithDomain parses a Cookie header string into NetworkCookieParam objects with domain
 func parseCookieHeaderWithDomain(cookieHeader string, domain string) []*proto.NetworkCookieParam {
 	var cookies []*proto.NetworkCookieParam
-	
+
 	cookiePairs := strings.Split(cookieHeader, ";")
 	for _, pair := range cookiePairs {
 		pair = strings.TrimSpace(pair)
 		if pair == "" {
 			continue
 		}
-		
+
 		parts := strings.SplitN(pair, "=", 2)
 		if len(parts) != 2 {
 			continue
 		}
-		
+
 		name := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
-		
+
 		if name == "" {
 			continue
 		}
-		
+
 		cookie := &proto.NetworkCookieParam{
 			Name:  name,
 			Value: value,
 		}
-		
+
 		if domain != "" {
 			cookie.Domain = domain
 		}
-		
+
 		cookies = append(cookies, cookie)
 	}
-	
+
 	return cookies
 }
 
@@ -121,7 +121,7 @@ func SetPageHeadersAndCookies(page *rod.Page, headersMap map[string][]string, ta
 
 	var headers proto.NetworkHeaders
 	var cookies []*proto.NetworkCookieParam
-	
+
 	if targetURL != "" {
 		if parsedURL, err := url.Parse(targetURL); err == nil {
 			headers, cookies = ConvertToNetworkHeadersAndCookiesWithDomain(headersMap, parsedURL.Host)
@@ -203,6 +203,8 @@ type ReplayAndCreateHistoryOptions struct {
 	RawURL              string
 	WorkspaceID         uint
 	TaskID              uint
+	ScanID              uint
+	ScanJobID           uint
 	PlaygroundSessionID uint
 	Note                string
 	Source              string
@@ -262,9 +264,9 @@ func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) 
 
 		// Pass the original body to preserve it in the history record
 		if len(requestBodyBytes) > 0 {
-			history = CreateHistoryFromHijackWithBody(ctx.Request, ctx.Response, opts.Source, opts.Note, opts.WorkspaceID, opts.TaskID, opts.PlaygroundSessionID, requestBodyBytes)
+			history = CreateHistoryFromHijackWithBody(ctx.Request, ctx.Response, opts.Source, opts.Note, opts.WorkspaceID, opts.TaskID, opts.ScanID, opts.ScanJobID, opts.PlaygroundSessionID, requestBodyBytes)
 		} else {
-			history = CreateHistoryFromHijack(ctx.Request, ctx.Response, opts.Source, opts.Note, opts.WorkspaceID, opts.TaskID, opts.PlaygroundSessionID)
+			history = CreateHistoryFromHijack(ctx.Request, ctx.Response, opts.Source, opts.Note, opts.WorkspaceID, opts.TaskID, opts.ScanID, opts.ScanJobID, opts.PlaygroundSessionID)
 		}
 
 	})

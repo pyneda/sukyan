@@ -25,6 +25,10 @@ type WebSocketConnection struct {
 	WorkspaceID      *uint              `json:"workspace_id"`
 	TaskID           *uint              `json:"task_id" gorm:"index" `
 	Task             Task               `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ScanID           *uint              `json:"scan_id" gorm:"index"`
+	Scan             Scan               `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	ScanJobID        *uint              `json:"scan_job_id" gorm:"index"`
+	ScanJob          ScanJob            `json:"-" gorm:"foreignKey:ScanJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	Source           string             `json:"source"`
 	UpgradeRequestID *uint              `json:"upgrade_request_id" gorm:"index"`
 	UpgradeRequest   History            `json:"-" gorm:"foreignKey:UpgradeRequestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
@@ -254,6 +258,7 @@ type WebSocketConnectionFilter struct {
 	Pagination
 	WorkspaceID uint     `json:"workspace_id" validate:"required"`
 	TaskID      uint     `json:"task_id"`
+	ScanID      uint     `json:"scan_id"`
 	Sources     []string `json:"sources" validate:"omitempty,dive,ascii"`
 }
 
@@ -268,6 +273,9 @@ func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnection
 	}
 	if filter.TaskID > 0 {
 		query = query.Where("task_id = ?", filter.TaskID)
+	}
+	if filter.ScanID > 0 {
+		query = query.Where("scan_id = ?", filter.ScanID)
 	}
 
 	var connections []WebSocketConnection

@@ -78,6 +78,8 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 					WorkspaceID:         options.WorkspaceID,
 					TaskID:              options.TaskID,
 					TaskJobID:           options.TaskJobID,
+					ScanID:              options.ScanID,
+					ScanJobID:           options.ScanJobID,
 					CreateNewBodyStream: true,
 				},
 			})
@@ -94,7 +96,7 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 					auditLog.Info().Str("insertionPoint", insertionPoint.String()).Str("payload", payload).Msg("Open redirect found")
 
 					details := fmt.Sprintf("Using the payload %s in the insertion point %s, the server redirected the request to %s.", payload, insertionPoint.String(), newLocation)
-					db.CreateIssueFromHistoryAndTemplate(new, db.OpenRedirectCode, details, 90, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
+					db.CreateIssueFromHistoryAndTemplate(new, db.OpenRedirectCode, details, 90, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID, &options.ScanID, &options.ScanJobID)
 
 					return true, nil
 

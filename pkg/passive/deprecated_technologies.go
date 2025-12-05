@@ -77,6 +77,8 @@ func JavaAppletDetectionScan(item *db.History) {
 			item.WorkspaceID,
 			item.TaskID,
 			&defaultTaskJobID,
+			item.ScanID,
+			item.ScanJobID,
 		)
 	}
 }
@@ -125,6 +127,8 @@ func FlashDetectionScan(item *db.History) {
 			item.WorkspaceID,
 			item.TaskID,
 			&defaultTaskJobID,
+			item.ScanID,
+			item.ScanJobID,
 		)
 	}
 }
@@ -167,6 +171,8 @@ func SilverlightDetectionScan(item *db.History) {
 			item.WorkspaceID,
 			item.TaskID,
 			&defaultTaskJobID,
+			item.ScanID,
+			item.ScanJobID,
 		)
 	}
 }
@@ -214,6 +220,8 @@ func ActiveXDetectionScan(item *db.History) {
 			item.WorkspaceID,
 			item.TaskID,
 			&defaultTaskJobID,
+			item.ScanID,
+			item.ScanJobID,
 		)
 	}
 }

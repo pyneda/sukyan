@@ -44,7 +44,7 @@ func GetIssueTemplateByCode(code IssueCode) *Issue {
 	return nil
 }
 
-func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID *uint) *Issue {
+func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID, scanID, scanJobID *uint) *Issue {
 	issue := GetIssueTemplateByCode(code)
 	if history != nil {
 		issue.URL = history.URL
@@ -62,14 +62,16 @@ func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details s
 	issue.WorkspaceID = workspaceID
 	issue.TaskID = taskID
 	issue.TaskJobID = taskJobID
+	issue.ScanID = scanID
+	issue.ScanJobID = scanJobID
 	if severity != "" {
 		issue.Severity = NewSeverity(severity)
 	}
 	return issue
 }
 
-func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID *uint) (Issue, error) {
-	issue := FillIssueFromHistoryAndTemplate(history, code, details, confidence, severity, workspaceID, taskID, taskJobID)
+func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID, scanID, scanJobID *uint) (Issue, error) {
+	issue := FillIssueFromHistoryAndTemplate(history, code, details, confidence, severity, workspaceID, taskID, taskJobID, scanID, scanJobID)
 	createdIssue, err := Connection().CreateIssue(*issue)
 	if err != nil {
 		log.Error().Err(err).Str("issue", issue.Title).Str("url", history.URL).Msg("Failed to create issue")
@@ -90,7 +92,7 @@ func CreateIssueFromHistoryAndTemplate(history *History, code IssueCode, details
 	return createdIssue, nil
 }
 
-func FillIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnection, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID *uint) *Issue {
+func FillIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnection, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID, scanID, scanJobID *uint) *Issue {
 	issue := GetIssueTemplateByCode(code)
 	if issue == nil {
 		return nil
@@ -108,6 +110,8 @@ func FillIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnection
 	issue.WorkspaceID = workspaceID
 	issue.TaskID = taskID
 	issue.TaskJobID = taskJobID
+	issue.ScanID = scanID
+	issue.ScanJobID = scanJobID
 	issue.WebsocketConnectionID = &connection.ID
 
 	if severity != "" {
@@ -116,9 +120,9 @@ func FillIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnection
 	return issue
 }
 
-func CreateIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnection, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID *uint) (Issue, error) {
+func CreateIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnection, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID, scanID, scanJobID *uint) (Issue, error) {
 	log.Info().Str("code", string(code)).Str("url", connection.URL).Msg("Creating issue from WebSocket connection")
-	issue := FillIssueFromWebSocketConnectionAndTemplate(connection, code, details, confidence, severity, workspaceID, taskID, taskJobID)
+	issue := FillIssueFromWebSocketConnectionAndTemplate(connection, code, details, confidence, severity, workspaceID, taskID, taskJobID, scanID, scanJobID)
 	if issue == nil {
 		err := fmt.Errorf("issue template with code %s not found", code)
 		log.Error().Err(err).Str("code", string(code)).Msg("Failed to get issue template")
@@ -146,7 +150,7 @@ func CreateIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnecti
 }
 
 // CreateIssueFromWebSocketMessage creates an issue from a WebSocket message
-func CreateIssueFromWebSocketMessage(message *WebSocketMessage, code IssueCode, details string, confidence int, severityOverride string, workspaceID, taskID, taskJobID, connectionID, upgradeRequestID *uint) (Issue, error) {
+func CreateIssueFromWebSocketMessage(message *WebSocketMessage, code IssueCode, details string, confidence int, severityOverride string, workspaceID, taskID, taskJobID, scanID, scanJobID, connectionID, upgradeRequestID *uint) (Issue, error) {
 	template := GetIssueTemplateByCode(code)
 
 	issue := Issue{
@@ -163,6 +167,8 @@ func CreateIssueFromWebSocketMessage(message *WebSocketMessage, code IssueCode, 
 		WorkspaceID:           workspaceID,
 		TaskID:                taskID,
 		TaskJobID:             taskJobID,
+		ScanID:                scanID,
+		ScanJobID:             scanJobID,
 	}
 
 	// Get connection details

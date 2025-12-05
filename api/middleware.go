@@ -1,9 +1,11 @@
 package api
 
 import (
-	jwtMiddleware "github.com/gofiber/contrib/jwt"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/basicauth"
 	"github.com/spf13/viper"
+
+	jwtMiddleware "github.com/gofiber/contrib/jwt"
 )
 
 // JWTProtected func for specify routes group with JWT authentication.
@@ -33,5 +35,21 @@ func jwtError(c *fiber.Ctx, err error) error {
 	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 		"error": true,
 		"msg":   err.Error(),
+	})
+}
+
+// DashboardBasicAuth creates a basic auth middleware for the dashboard
+func DashboardBasicAuth() fiber.Handler {
+	username := viper.GetString("api.dashboard.basic_auth.username")
+	password := viper.GetString("api.dashboard.basic_auth.password")
+
+	return basicauth.New(basicauth.Config{
+		Users: map[string]string{
+			username: password,
+		},
+		Realm: "Dashboard Access",
+		Unauthorized: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
+		},
 	})
 }

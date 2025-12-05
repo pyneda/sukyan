@@ -244,6 +244,8 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 					WorkspaceID:       &f.WorkspaceID,
 					TaskID:            &task.options.TaskID,
 					TaskJobID:         &task.options.TaskJobID,
+					ScanID:            &task.options.ScanID,
+					ScanJobID:         &task.options.ScanJobID,
 				})
 				if err != nil {
 					taskLog.Error().Str("full_id", task.payload.InteractionDomain.ID).Str("interaction_domain", task.payload.InteractionDomain.URL).Err(err).Msg("Error creating OOB Test")
@@ -260,6 +262,8 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 				Source:              db.SourceScanner,
 				WorkspaceID:         f.WorkspaceID,
 				TaskID:              task.options.TaskID,
+				ScanID:              task.options.ScanID,
+				ScanJobID:           task.options.ScanJobID,
 				CreateNewBodyStream: false,
 			})
 
@@ -361,7 +365,7 @@ func (f *TemplateScanner) worker(wg *sync.WaitGroup, pendingTasks chan TemplateS
 					fullDetails = fmt.Sprintf("The following payload was inserted in the `%s` %s: %s\n\n%s", task.insertionPoint.Name, task.insertionPoint.Type, task.payload.Value, details)
 				}
 
-				createdIssue, err := db.CreateIssueFromHistoryAndTemplate(historyForIssue, issueCode, fullDetails, confidence, "", &f.WorkspaceID, &task.options.TaskID, &task.options.TaskJobID)
+				createdIssue, err := db.CreateIssueFromHistoryAndTemplate(historyForIssue, issueCode, fullDetails, confidence, "", &f.WorkspaceID, &task.options.TaskID, &task.options.TaskJobID, &task.options.ScanID, &task.options.ScanJobID)
 				if err != nil {
 					taskLog.Error().Str("code", string(issueCode)).Interface("result", result).Err(err).Msg("Error creating issue")
 				} else if createdIssue.ID != 0 {

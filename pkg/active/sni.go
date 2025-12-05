@@ -20,6 +20,8 @@ type SNIAudit struct {
 	WorkspaceID         uint
 	TaskID              uint
 	TaskJobID           uint
+	ScanID              uint
+	ScanJobID           uint
 }
 
 // Run starts the audit
@@ -53,6 +55,8 @@ func (a *SNIAudit) Run() {
 			Source:              db.SourceScanner,
 			WorkspaceID:         a.WorkspaceID,
 			TaskID:              a.TaskID,
+			ScanID:              a.ScanID,
+			ScanJobID:           a.ScanJobID,
 			CreateNewBodyStream: false,
 		},
 	})
@@ -76,6 +80,8 @@ func (a *SNIAudit) Run() {
 		WorkspaceID:       &a.WorkspaceID,
 		TaskID:            &a.TaskID,
 		TaskJobID:         &a.TaskJobID,
+		ScanID:            &a.ScanID,
+		ScanJobID:         &a.ScanJobID,
 	}
 	db.Connection().CreateOOBTest(oobTest)
 

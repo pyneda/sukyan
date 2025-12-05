@@ -34,6 +34,8 @@ type Crawler struct {
 	pageCounter             int
 	workspaceID             uint
 	taskID                  uint
+	scanID                  uint
+	scanJobID               uint
 	clickedElements         sync.Map
 	submittedForms          sync.Map
 	processedResponseHashes sync.Map
@@ -68,7 +70,7 @@ type SubmittedForm struct {
 	xpath string
 }
 
-func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID uint, extraHeaders map[string][]string) *Crawler {
+func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string) *Crawler {
 	hijackChan := make(chan browser.HijackResult)
 	options := CrawlOptions{
 		ExtraHeaders:    extraHeaders,
@@ -83,6 +85,8 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 		hijackChan,
 		workspaceID,
 		taskID,
+		scanID,
+		scanJobID,
 	)
 	return &Crawler{
 		Options:                options,
@@ -94,6 +98,8 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 		ignoredExtensions:      viper.GetStringSlice("crawl.ignored_extensions"),
 		workspaceID:            workspaceID,
 		taskID:                 taskID,
+		scanID:                 scanID,
+		scanJobID:              scanJobID,
 		maxPagesWithSameParams: viper.GetInt("crawl.max_pages_with_same_params"),
 	}
 }
@@ -303,7 +309,7 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	page := c.getBrowserPage(url)
 	defer c.browser.ReleasePage(page)
 	ctx, cancel := context.WithCancel(context.Background())
-	eventStream := web.ListenForPageEvents(ctx, item.url, page, c.workspaceID, c.taskID, db.SourceCrawler)
+	eventStream := web.ListenForPageEvents(ctx, item.url, page, c.workspaceID, c.taskID, c.scanID, c.scanJobID, db.SourceCrawler)
 	defer cancel()
 
 	go func() {
@@ -466,7 +472,7 @@ func (c *Crawler) getAndClickElements(selector string, page *rod.Page) (err erro
 					log.Debug().Uint("workspace", c.workspaceID).Str("xpath", xpath).Str("text", text).Msg("Skipping logout element")
 					continue
 				}
-				
+
 				err = btn.Click(proto.InputMouseButtonLeft, 1)
 				if err != nil {
 					log.Error().Err(err).Str("xpath", xpath).Str("selector", selector).Msg("Error clicking element")

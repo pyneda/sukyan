@@ -16,6 +16,8 @@ type HTTPMethodsAudit struct {
 	WorkspaceID uint
 	TaskID      uint
 	TaskJobID   uint
+	ScanID      uint
+	ScanJobID   uint
 }
 
 type httpMethodsAudiItem struct {
@@ -103,6 +105,8 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 			Source:              db.SourceScanner,
 			WorkspaceID:         a.WorkspaceID,
 			TaskID:              a.TaskID,
+			ScanID:              a.ScanID,
+			ScanJobID:           a.ScanJobID,
 			CreateNewBodyStream: false,
 		},
 	})
@@ -124,6 +128,8 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 			&a.WorkspaceID,
 			&a.TaskID,
 			&a.TaskJobID,
+			&a.ScanID,
+			&a.ScanJobID,
 		)
 		issue.Title = fmt.Sprintf("%s: %s", issue.Title, history.Method)
 		db.Connection().CreateIssue(*issue)

@@ -2,17 +2,18 @@ package api
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
 
+	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
-
-	"os"
-	"strings"
-
-	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/swagger"
 	"github.com/pyneda/sukyan/db"
 	_ "github.com/pyneda/sukyan/docs"
@@ -22,8 +23,6 @@ import (
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-
-	"time"
 )
 
 // @title Sukyan API
@@ -217,11 +216,49 @@ func StartAPI() {
 
 	}
 
-	defer db.Cleanup()
+	// Set up graceful shutdown
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	listen_addres := fmt.Sprintf("%v:%v", viper.Get("api.listen.host"), viper.Get("api.listen.port"))
-	if err := app.ListenTLS(listen_addres, certPath, keyPath); err != nil {
-		apiLogger.Warn().Err(err).Msg("Error starting server")
+	// Start server in a goroutine
+	go func() {
+		listen_addres := fmt.Sprintf("%v:%v", viper.Get("api.listen.host"), viper.Get("api.listen.port"))
+		if err := app.ListenTLS(listen_addres, certPath, keyPath); err != nil {
+			apiLogger.Warn().Err(err).Msg("Error starting server")
+		}
+	}()
+
+	apiLogger.Info().
+		Str("host", viper.GetString("api.listen.host")).
+		Int("port", viper.GetInt("api.listen.port")).
+		Msg("API server started")
+
+	// Wait for shutdown signal
+	sig := <-sigCh
+	apiLogger.Info().Str("signal", sig.String()).Msg("Received shutdown signal, starting graceful shutdown...")
+
+	// Graceful shutdown sequence
+	// 1. Stop accepting new requests
+	if err := app.Shutdown(); err != nil {
+		apiLogger.Warn().Err(err).Msg("Error during server shutdown")
 	}
 
+	// 2. Stop the scan manager (this releases jobs and deregisters workers)
+	if sm := GetScanManager(); sm != nil {
+		apiLogger.Info().Msg("Stopping scan manager...")
+		sm.Stop()
+		apiLogger.Info().Msg("Scan manager stopped")
+	}
+
+	// 3. Stop interactions manager
+	if interactionsManager != nil {
+		apiLogger.Info().Msg("Stopping interactions manager...")
+		interactionsManager.Stop()
+		apiLogger.Info().Msg("Interactions manager stopped")
+	}
+
+	// 4. Cleanup database connections
+	db.Cleanup()
+
+	apiLogger.Info().Msg("Graceful shutdown completed")
 }

@@ -6,7 +6,29 @@ import (
 
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
+	"gorm.io/gorm"
 )
+
+// MaxJobAttempts is the maximum number of times a job can be retried before being marked as permanently failed.
+const MaxJobAttempts = 3
+
+// DefaultJobTimeout returns the default timeout duration for a job type.
+func DefaultJobTimeout(jobType ScanJobType) time.Duration {
+	switch jobType {
+	case ScanJobTypeCrawl:
+		return 1 * time.Hour
+	case ScanJobTypeDiscovery:
+		return 5 * time.Minute
+	case ScanJobTypeActiveScan:
+		return 30 * time.Minute
+	case ScanJobTypeNuclei:
+		return 20 * time.Minute
+	case ScanJobTypeWebSocketScan:
+		return 15 * time.Minute
+	default:
+		return 30 * time.Minute // Default fallback
+	}
+}
 
 // ScanJobStatus represents the status of a scan job
 type ScanJobStatus string
@@ -90,10 +112,11 @@ type ScanJob struct {
 	Payload []byte `json:"payload,omitempty" gorm:"type:jsonb"`
 
 	// Execution tracking
-	Attempts    int        `json:"attempts" gorm:"default:0"`
-	MaxAttempts int        `json:"max_attempts" gorm:"default:3"`
-	StartedAt   *time.Time `json:"started_at,omitempty"`
-	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	Attempts    int           `json:"attempts" gorm:"default:0"`
+	MaxAttempts int           `json:"max_attempts" gorm:"default:3"`
+	StartedAt   *time.Time    `json:"started_at,omitempty"`
+	CompletedAt *time.Time    `json:"completed_at,omitempty"`
+	MaxDuration time.Duration `json:"max_duration,omitempty" gorm:"default:1800000000000"` // Default 30 minutes in nanoseconds
 
 	// Result tracking
 	ErrorType    *string `json:"error_type,omitempty" gorm:"size:100"`
@@ -176,8 +199,27 @@ type ScanJobFilter struct {
 	SortOrder  string          `json:"sort_order" validate:"omitempty,oneof=asc desc"`
 }
 
+// DiscoveryJobExistsForURL checks if a discovery job already exists for the given scan and URL.
+// This is used for deduplication in distributed environments where multiple orchestrators may run.
+// Returns true if a non-cancelled discovery job exists for the scan+URL combination.
+func (d *DatabaseConnection) DiscoveryJobExistsForURL(scanID uint, url string) (bool, error) {
+	var count int64
+	err := d.db.Model(&ScanJob{}).
+		Where("scan_id = ? AND job_type = ? AND url = ? AND status != ?",
+			scanID, ScanJobTypeDiscovery, url, ScanJobStatusCancelled).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // CreateScanJob creates a new scan job
 func (d *DatabaseConnection) CreateScanJob(job *ScanJob) (*ScanJob, error) {
+	// Set default max_duration based on job type if not already set
+	if job.MaxDuration == 0 {
+		job.MaxDuration = DefaultJobTimeout(job.JobType)
+	}
 	result := d.db.Create(job)
 	if result.Error != nil {
 		log.Error().Err(result.Error).Interface("job", job).Msg("ScanJob creation failed")
@@ -189,6 +231,12 @@ func (d *DatabaseConnection) CreateScanJob(job *ScanJob) (*ScanJob, error) {
 func (d *DatabaseConnection) CreateScanJobs(jobs []*ScanJob) error {
 	if len(jobs) == 0 {
 		return nil
+	}
+	// Set default max_duration for each job based on job type if not already set
+	for _, job := range jobs {
+		if job.MaxDuration == 0 {
+			job.MaxDuration = DefaultJobTimeout(job.JobType)
+		}
 	}
 	result := d.db.Create(jobs)
 	if result.Error != nil {
@@ -345,7 +393,7 @@ func (d *DatabaseConnection) MarkScanJobRunning(jobID uint) error {
 	return d.db.Model(&ScanJob{}).Where("id = ?", jobID).Updates(map[string]interface{}{
 		"status":     ScanJobStatusRunning,
 		"started_at": now,
-		"attempts":   d.db.Raw("attempts + 1"),
+		"attempts":   gorm.Expr("attempts + 1"),
 	}).Error
 }
 
@@ -505,4 +553,314 @@ func (d *DatabaseConnection) GetScanJobStatsForJob(scanJobID uint) (ScanJobStats
 	}
 
 	return stats, nil
+}
+
+// ResetTimedOutJobs resets jobs that have exceeded their max_duration.
+// Jobs are reset to pending status with incremented attempts count.
+// Jobs that have exceeded MaxJobAttempts are marked as failed.
+// Returns the number of jobs reset, the number of jobs marked as failed, and affected scan IDs.
+func (d *DatabaseConnection) ResetTimedOutJobs() (reset int64, failed int64, affectedScanIDs []uint, err error) {
+	now := time.Now()
+
+	// max_duration is stored in nanoseconds (Go's time.Duration), convert to seconds for PostgreSQL
+	// PostgreSQL: started_at + (max_duration / 1000000000) * interval '1 second'
+	timeoutCondition := "started_at + make_interval(secs => max_duration / 1000000000) < ?"
+
+	// First, get the scan IDs that will be affected (for updating counts later)
+	var scanIDs []uint
+	d.db.Model(&ScanJob{}).
+		Select("DISTINCT scan_id").
+		Where("status IN ? AND started_at IS NOT NULL",
+			[]ScanJobStatus{ScanJobStatusClaimed, ScanJobStatusRunning}).
+		Where(timeoutCondition, now).
+		Pluck("scan_id", &scanIDs)
+	affectedScanIDs = scanIDs
+
+	// First, mark jobs as failed if they've exceeded max attempts
+	// These are jobs that are timed out AND have already been attempted MaxJobAttempts times
+	failedResult := d.db.Model(&ScanJob{}).
+		Where("status IN ? AND started_at IS NOT NULL AND attempts >= ?",
+			[]ScanJobStatus{ScanJobStatusClaimed, ScanJobStatusRunning},
+			MaxJobAttempts).
+		Where(timeoutCondition, now).
+		Updates(map[string]interface{}{
+			"status":        ScanJobStatusFailed,
+			"completed_at":  now,
+			"error_type":    "timeout",
+			"error_message": "Job exceeded maximum duration and retry attempts",
+			"updated_at":    now,
+		})
+
+	if failedResult.Error != nil {
+		return 0, 0, affectedScanIDs, fmt.Errorf("failed to mark timed out jobs as failed: %w", failedResult.Error)
+	}
+	failed = failedResult.RowsAffected
+
+	if failed > 0 {
+		log.Warn().
+			Int64("count", failed).
+			Msg("Marked timed out jobs as permanently failed (max attempts exceeded)")
+	}
+
+	// Then, reset jobs that have timed out but still have attempts remaining
+	resetResult := d.db.Model(&ScanJob{}).
+		Where("status IN ? AND started_at IS NOT NULL AND attempts < ?",
+			[]ScanJobStatus{ScanJobStatusClaimed, ScanJobStatusRunning},
+			MaxJobAttempts).
+		Where(timeoutCondition, now).
+		Updates(map[string]interface{}{
+			"status":     ScanJobStatusPending,
+			"worker_id":  nil,
+			"claimed_at": nil,
+			"started_at": nil,
+			"attempts":   gorm.Expr("attempts + 1"),
+			"updated_at": now,
+		})
+
+	if resetResult.Error != nil {
+		return 0, failed, affectedScanIDs, fmt.Errorf("failed to reset timed out jobs: %w", resetResult.Error)
+	}
+	reset = resetResult.RowsAffected
+
+	if reset > 0 {
+		log.Info().
+			Int64("count", reset).
+			Msg("Reset timed out jobs for retry")
+	}
+
+	return reset, failed, affectedScanIDs, nil
+}
+
+// ReleaseJobsByWorker releases all jobs claimed by a specific worker back to pending status.
+// This is called during graceful shutdown to ensure jobs are not stuck.
+// Returns the count of released jobs and affected scan IDs.
+func (d *DatabaseConnection) ReleaseJobsByWorker(workerID string) (int64, []uint, error) {
+	now := time.Now()
+
+	// Get the scan IDs that will be affected (for updating counts later)
+	var affectedScanIDs []uint
+	d.db.Model(&ScanJob{}).
+		Select("DISTINCT scan_id").
+		Where("worker_id = ? AND status IN ?",
+			workerID,
+			[]ScanJobStatus{ScanJobStatusClaimed, ScanJobStatusRunning}).
+		Pluck("scan_id", &affectedScanIDs)
+
+	result := d.db.Model(&ScanJob{}).
+		Where("worker_id = ? AND status IN ?",
+			workerID,
+			[]ScanJobStatus{ScanJobStatusClaimed, ScanJobStatusRunning}).
+		Updates(map[string]interface{}{
+			"status":     ScanJobStatusPending,
+			"worker_id":  nil,
+			"claimed_at": nil,
+			"started_at": nil,
+			"updated_at": now,
+		})
+
+	if result.Error != nil {
+		return 0, affectedScanIDs, fmt.Errorf("failed to release jobs for worker %s: %w", workerID, result.Error)
+	}
+
+	if result.RowsAffected > 0 {
+		log.Info().
+			Str("worker_id", workerID).
+			Int64("count", result.RowsAffected).
+			Msg("Released jobs during graceful shutdown")
+	}
+
+	return result.RowsAffected, affectedScanIDs, nil
+}
+
+// ReleaseJobsByWorkerNode releases all jobs claimed by workers belonging to a specific node.
+// This is called during graceful shutdown of a worker pool.
+// Returns the count of released jobs and affected scan IDs.
+func (d *DatabaseConnection) ReleaseJobsByWorkerNode(nodeID string) (int64, []uint, error) {
+	now := time.Now()
+
+	// Worker IDs are prefixed with nodeID, e.g., "node-hostname-123-0", "node-hostname-123-1"
+	// Get the scan IDs that will be affected (for updating counts later)
+	var affectedScanIDs []uint
+	d.db.Model(&ScanJob{}).
+		Select("DISTINCT scan_id").
+		Where("worker_id LIKE ? AND status IN ?",
+			nodeID+"-%",
+			[]ScanJobStatus{ScanJobStatusClaimed, ScanJobStatusRunning}).
+		Pluck("scan_id", &affectedScanIDs)
+
+	result := d.db.Model(&ScanJob{}).
+		Where("worker_id LIKE ? AND status IN ?",
+			nodeID+"-%",
+			[]ScanJobStatus{ScanJobStatusClaimed, ScanJobStatusRunning}).
+		Updates(map[string]interface{}{
+			"status":     ScanJobStatusPending,
+			"worker_id":  nil,
+			"claimed_at": nil,
+			"started_at": nil,
+			"updated_at": now,
+		})
+
+	if result.Error != nil {
+		return 0, affectedScanIDs, fmt.Errorf("failed to release jobs for worker node %s: %w", nodeID, result.Error)
+	}
+
+	if result.RowsAffected > 0 {
+		log.Info().
+			Str("node_id", nodeID).
+			Int64("count", result.RowsAffected).
+			Msg("Released jobs during worker node graceful shutdown")
+	}
+
+	return result.RowsAffected, affectedScanIDs, nil
+}
+
+// ThroughputStats holds job throughput metrics
+type ThroughputStats struct {
+	// Jobs completed in the last minute
+	LastMinute int64 `json:"last_minute"`
+	// Jobs completed in the last 5 minutes
+	Last5Minutes int64 `json:"last_5_minutes"`
+	// Jobs completed in the last hour
+	LastHour int64 `json:"last_hour"`
+	// Jobs per minute (calculated from last 5 minutes)
+	JobsPerMinute float64 `json:"jobs_per_minute"`
+	// Success rate (completed / (completed + failed)) over last hour
+	SuccessRate float64 `json:"success_rate"`
+	// Current pending queue depth
+	QueueDepth int64 `json:"queue_depth"`
+	// Jobs currently being processed
+	InFlight int64 `json:"in_flight"`
+}
+
+// GetJobThroughputStats retrieves job throughput metrics
+func (d *DatabaseConnection) GetJobThroughputStats() (*ThroughputStats, error) {
+	stats := &ThroughputStats{}
+	now := time.Now()
+
+	// Jobs completed in last minute
+	oneMinAgo := now.Add(-1 * time.Minute)
+	d.db.Model(&ScanJob{}).
+		Where("status = ? AND completed_at > ?", ScanJobStatusCompleted, oneMinAgo).
+		Count(&stats.LastMinute)
+
+	// Jobs completed in last 5 minutes
+	fiveMinAgo := now.Add(-5 * time.Minute)
+	d.db.Model(&ScanJob{}).
+		Where("status = ? AND completed_at > ?", ScanJobStatusCompleted, fiveMinAgo).
+		Count(&stats.Last5Minutes)
+
+	// Jobs completed in last hour
+	oneHourAgo := now.Add(-1 * time.Hour)
+	d.db.Model(&ScanJob{}).
+		Where("status = ? AND completed_at > ?", ScanJobStatusCompleted, oneHourAgo).
+		Count(&stats.LastHour)
+
+	// Calculate jobs per minute from last 5 minutes
+	if stats.Last5Minutes > 0 {
+		stats.JobsPerMinute = float64(stats.Last5Minutes) / 5.0
+	}
+
+	// Success rate over last hour
+	var failedLastHour int64
+	d.db.Model(&ScanJob{}).
+		Where("status = ? AND completed_at > ?", ScanJobStatusFailed, oneHourAgo).
+		Count(&failedLastHour)
+
+	totalProcessed := stats.LastHour + failedLastHour
+	if totalProcessed > 0 {
+		stats.SuccessRate = float64(stats.LastHour) / float64(totalProcessed) * 100
+	} else {
+		stats.SuccessRate = 100 // No failures if nothing processed
+	}
+
+	// Current queue depth (pending jobs)
+	d.db.Model(&ScanJob{}).
+		Where("status = ?", ScanJobStatusPending).
+		Count(&stats.QueueDepth)
+
+	// In-flight jobs (claimed + running)
+	d.db.Model(&ScanJob{}).
+		Where("status IN ?", []ScanJobStatus{ScanJobStatusClaimed, ScanJobStatusRunning}).
+		Count(&stats.InFlight)
+
+	return stats, nil
+}
+
+// JobDurationStats holds job duration metrics for a specific job type
+type JobDurationStats struct {
+	JobType     string  `json:"job_type"`
+	Count       int64   `json:"count"`
+	AvgDuration float64 `json:"avg_duration_ms"`
+	MinDuration float64 `json:"min_duration_ms"`
+	MaxDuration float64 `json:"max_duration_ms"`
+	P50Duration float64 `json:"p50_duration_ms"`
+	P95Duration float64 `json:"p95_duration_ms"`
+	P99Duration float64 `json:"p99_duration_ms"`
+}
+
+// GetJobDurationStats retrieves job duration statistics by job type
+// Uses jobs completed in the last hour for relevant metrics
+func (d *DatabaseConnection) GetJobDurationStats() ([]JobDurationStats, error) {
+	oneHourAgo := time.Now().Add(-1 * time.Hour)
+
+	// Query for basic stats (avg, min, max, count) grouped by job type
+	var basicStats []struct {
+		JobType     string
+		Count       int64
+		AvgDuration float64
+		MinDuration float64
+		MaxDuration float64
+	}
+
+	err := d.db.Model(&ScanJob{}).
+		Select(`
+			job_type,
+			COUNT(*) as count,
+			AVG(EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000) as avg_duration,
+			MIN(EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000) as min_duration,
+			MAX(EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000) as max_duration
+		`).
+		Where("status = ? AND completed_at > ? AND started_at IS NOT NULL", ScanJobStatusCompleted, oneHourAgo).
+		Group("job_type").
+		Scan(&basicStats).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]JobDurationStats, 0, len(basicStats))
+
+	for _, bs := range basicStats {
+		stats := JobDurationStats{
+			JobType:     bs.JobType,
+			Count:       bs.Count,
+			AvgDuration: bs.AvgDuration,
+			MinDuration: bs.MinDuration,
+			MaxDuration: bs.MaxDuration,
+		}
+
+		// Calculate percentiles using PostgreSQL percentile_cont
+		var percentiles struct {
+			P50 float64
+			P95 float64
+			P99 float64
+		}
+
+		d.db.Raw(`
+			SELECT 
+				COALESCE(percentile_cont(0.50) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000), 0) as p50,
+				COALESCE(percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000), 0) as p95,
+				COALESCE(percentile_cont(0.99) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000), 0) as p99
+			FROM scan_jobs
+			WHERE status = ? AND completed_at > ? AND started_at IS NOT NULL AND job_type = ?
+		`, ScanJobStatusCompleted, oneHourAgo, bs.JobType).Scan(&percentiles)
+
+		stats.P50Duration = percentiles.P50
+		stats.P95Duration = percentiles.P95
+		stats.P99Duration = percentiles.P99
+
+		result = append(result, stats)
+	}
+
+	return result, nil
 }

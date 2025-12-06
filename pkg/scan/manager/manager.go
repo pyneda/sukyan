@@ -47,19 +47,22 @@ type Config struct {
 	StaleJobThreshold time.Duration
 	// HeartbeatInterval is how often to update the worker node heartbeat.
 	HeartbeatInterval time.Duration
+	// StaleRecoveryInterval is how often to run the stale job recovery loop.
+	StaleRecoveryInterval time.Duration
 }
 
 // DefaultConfig returns the default configuration.
 func DefaultConfig() Config {
 	return Config{
-		WorkerCount:       5,
-		WorkerIDPrefix:    "worker",
-		NodeID:            "", // Auto-generated if empty
-		Version:           "",
-		PollInterval:      100 * time.Millisecond,
-		RefreshInterval:   3 * time.Second,
-		StaleJobThreshold: 2 * time.Minute,
-		HeartbeatInterval: 30 * time.Second,
+		WorkerCount:           5,
+		WorkerIDPrefix:        "worker",
+		NodeID:                "", // Auto-generated if empty
+		Version:               "",
+		PollInterval:          100 * time.Millisecond,
+		RefreshInterval:       3 * time.Second,
+		StaleJobThreshold:     2 * time.Minute,
+		HeartbeatInterval:     30 * time.Second,
+		StaleRecoveryInterval: 30 * time.Second,
 	}
 }
 
@@ -101,6 +104,9 @@ func New(cfg Config, dbConn *db.DatabaseConnection, interactionsManager *integra
 	}
 	if cfg.StaleJobThreshold == 0 {
 		cfg.StaleJobThreshold = DefaultConfig().StaleJobThreshold
+	}
+	if cfg.StaleRecoveryInterval == 0 {
+		cfg.StaleRecoveryInterval = DefaultConfig().StaleRecoveryInterval
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -187,6 +193,9 @@ func (sm *ScanManager) Start() error {
 		// Start periodic refresh
 		sm.registry.StartPeriodicRefresh(sm.config.RefreshInterval, sm.stopCh)
 
+		// Start stale job recovery loop
+		go sm.startStaleJobRecoveryLoop()
+
 		sm.mu.Lock()
 		sm.started = true
 		sm.mu.Unlock()
@@ -234,11 +243,30 @@ func (sm *ScanManager) recover() error {
 
 	// Reset jobs from stale workers (workers that haven't sent heartbeat)
 	// This is more intelligent than pure time-based reset
-	workerResetCount, err := sm.dbConn.ResetJobsFromStaleWorkers(sm.config.StaleJobThreshold)
+	workerResetCount, staleWorkerScanIDs, err := sm.dbConn.ResetJobsFromStaleWorkers(sm.config.StaleJobThreshold)
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to reset jobs from stale workers")
 	} else if workerResetCount > 0 {
 		log.Info().Int64("count", workerResetCount).Msg("Reset jobs from stale workers during recovery")
+		// Update job counts for affected scans
+		for _, scanID := range staleWorkerScanIDs {
+			sm.dbConn.UpdateScanJobCounts(scanID)
+		}
+	}
+
+	// Reset jobs that have exceeded their max_duration
+	resetCount, failedCount, affectedScanIDs, err := sm.dbConn.ResetTimedOutJobs()
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to reset timed out jobs during recovery")
+	} else if resetCount > 0 || failedCount > 0 {
+		log.Info().
+			Int64("reset", resetCount).
+			Int64("failed", failedCount).
+			Msg("Processed timed out jobs during recovery")
+		// Update job counts for affected scans
+		for _, scanID := range affectedScanIDs {
+			sm.dbConn.UpdateScanJobCounts(scanID)
+		}
 	}
 
 	// Also reset any remaining stale claimed jobs (fallback for edge cases)
@@ -251,6 +279,90 @@ func (sm *ScanManager) recover() error {
 	}
 
 	return nil
+}
+
+// StaleJobRecoveryAdvisoryLockID is the PostgreSQL advisory lock ID for the stale job recovery loop.
+// This ensures only one ScanManager instance runs the recovery loop at a time.
+const StaleJobRecoveryAdvisoryLockID = 8675309 // Arbitrary unique ID
+
+// startStaleJobRecoveryLoop runs periodically to recover jobs from stale workers and timed out jobs.
+// Uses PostgreSQL advisory locks to ensure only one instance runs the recovery loop.
+func (sm *ScanManager) startStaleJobRecoveryLoop() {
+	ticker := time.NewTicker(sm.config.StaleRecoveryInterval)
+	defer ticker.Stop()
+
+	log.Info().
+		Dur("interval", sm.config.StaleRecoveryInterval).
+		Msg("Started stale job recovery loop")
+
+	for {
+		select {
+		case <-sm.stopCh:
+			log.Debug().Msg("Stale job recovery loop stopped")
+			return
+		case <-ticker.C:
+			sm.runStaleJobRecovery()
+		}
+	}
+}
+
+// runStaleJobRecovery attempts to acquire an advisory lock and run recovery operations.
+func (sm *ScanManager) runStaleJobRecovery() {
+	// Try to acquire advisory lock (non-blocking)
+	var acquired bool
+	err := sm.dbConn.DB().Raw("SELECT pg_try_advisory_lock(?)", StaleJobRecoveryAdvisoryLockID).Scan(&acquired).Error
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to acquire advisory lock for stale job recovery")
+		return
+	}
+
+	if !acquired {
+		// Another instance is running recovery, skip this iteration
+		log.Trace().Msg("Skipping stale job recovery - another instance holds the lock")
+		return
+	}
+
+	// Ensure we release the lock when done
+	defer func() {
+		if err := sm.dbConn.DB().Exec("SELECT pg_advisory_unlock(?)", StaleJobRecoveryAdvisoryLockID).Error; err != nil {
+			log.Warn().Err(err).Msg("Failed to release advisory lock for stale job recovery")
+		}
+	}()
+
+	// 1. Cleanup stale worker nodes and reset their jobs
+	workerResetCount, staleWorkerScanIDs, err := sm.dbConn.ResetJobsFromStaleWorkers(sm.config.StaleJobThreshold)
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to reset jobs from stale workers")
+	} else if workerResetCount > 0 {
+		log.Info().Int64("count", workerResetCount).Msg("Reset jobs from stale workers during periodic recovery")
+		// Update job counts for affected scans
+		for _, scanID := range staleWorkerScanIDs {
+			sm.dbConn.UpdateScanJobCounts(scanID)
+		}
+	}
+
+	// 2. Reset jobs that have exceeded their max_duration
+	resetCount, failedCount, affectedScanIDs, err := sm.dbConn.ResetTimedOutJobs()
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to reset timed out jobs")
+	} else if resetCount > 0 || failedCount > 0 {
+		log.Info().
+			Int64("reset", resetCount).
+			Int64("failed", failedCount).
+			Msg("Processed timed out jobs during periodic recovery")
+		// Update job counts for affected scans
+		for _, scanID := range affectedScanIDs {
+			sm.dbConn.UpdateScanJobCounts(scanID)
+		}
+	}
+
+	// 3. Fallback: reset any remaining stale claimed jobs
+	count, err := sm.queue.ResetAllStaleJobs(sm.ctx, sm.config.StaleJobThreshold)
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to reset stale claimed jobs")
+	} else if count > 0 {
+		log.Info().Int64("count", count).Msg("Reset stale claimed jobs during periodic recovery")
+	}
 }
 
 // CreateScan creates and starts a new scan.
@@ -512,6 +624,17 @@ func (sm *ScanManager) scheduleWebSocketScanForConnection(scanID uint, workspace
 
 // scheduleDiscoveryForURL schedules a discovery job for a single base URL.
 func (sm *ScanManager) scheduleDiscoveryForURL(scanID uint, workspaceID uint, baseURL string, scanMode options.ScanMode) error {
+	// Check if a discovery job already exists for this scan + URL combination
+	// This prevents duplicate jobs in distributed environments where multiple orchestrators may run
+	exists, err := sm.dbConn.DiscoveryJobExistsForURL(scanID, baseURL)
+	if err != nil {
+		log.Warn().Err(err).Uint("scan_id", scanID).Str("url", baseURL).Msg("Failed to check for existing discovery job")
+		// Continue anyway - worst case we create a duplicate that will be handled
+	} else if exists {
+		log.Debug().Uint("scan_id", scanID).Str("url", baseURL).Msg("Discovery job already exists, skipping")
+		return nil
+	}
+
 	targetHost := ""
 	if u, err := url.Parse(baseURL); err == nil {
 		targetHost = u.Host

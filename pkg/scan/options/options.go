@@ -2,9 +2,53 @@ package options
 
 import (
 	"context"
+	"time"
 
 	"github.com/pyneda/sukyan/lib"
 )
+
+// JobTimeouts configures maximum durations for different job types.
+// Jobs exceeding these durations are considered stale and will be reset.
+type JobTimeouts struct {
+	Crawl       time.Duration `json:"crawl"`
+	Discovery   time.Duration `json:"discovery"`
+	ActiveScan  time.Duration `json:"active_scan"`
+	Nuclei      time.Duration `json:"nuclei"`
+	Fingerprint time.Duration `json:"fingerprint"`
+	WebSocket   time.Duration `json:"websocket"`
+}
+
+// DefaultJobTimeouts returns the default job timeouts.
+func DefaultJobTimeouts() JobTimeouts {
+	return JobTimeouts{
+		Crawl:       1 * time.Hour,
+		Discovery:   5 * time.Minute,
+		ActiveScan:  30 * time.Minute,
+		Nuclei:      20 * time.Minute,
+		Fingerprint: 5 * time.Minute,
+		WebSocket:   15 * time.Minute,
+	}
+}
+
+// GetTimeout returns the timeout for a specific job type.
+func (jt JobTimeouts) GetTimeout(jobType string) time.Duration {
+	switch jobType {
+	case "crawl":
+		return jt.Crawl
+	case "discovery":
+		return jt.Discovery
+	case "active_scan":
+		return jt.ActiveScan
+	case "nuclei":
+		return jt.Nuclei
+	case "fingerprint":
+		return jt.Fingerprint
+	case "websocket_scan":
+		return jt.WebSocket
+	default:
+		return 30 * time.Minute // Default fallback
+	}
+}
 
 type ScanMode string
 
@@ -115,6 +159,7 @@ type FullScanOptions struct {
 	UseOrchestrator    bool                     `json:"use_orchestrator"`
 	MaxConcurrentJobs  *int                     `json:"max_concurrent_jobs,omitempty"`
 	MaxRPS             *int                     `json:"max_rps,omitempty"`
+	JobTimeouts        *JobTimeouts             `json:"job_timeouts,omitempty"` // Per-scan job timeout overrides
 }
 
 type FullScanWebSocketOptions struct {

@@ -78,7 +78,7 @@ func CreatePlaygroundCollection(c *fiber.Ctx) error {
 type CreatePlaygroundSessionInput struct {
 	Name              string                   `json:"name" validate:"required"`
 	Type              db.PlaygroundSessionType `json:"type"`
-	OriginalRequestID uint                     `json:"original_request_id" validate:"omitempty,min=0"`
+	OriginalRequestID *uint                    `json:"original_request_id" validate:"omitempty,min=1"`
 	CollectionID      uint                     `json:"collection_id" validate:"required,min=0"`
 }
 
@@ -118,14 +118,33 @@ func CreatePlaygroundSession(c *fiber.Ctx) error {
 		})
 	}
 
-	// original request id should be validated - but probably is gonna be removed.
+	// Validate original_request_id if provided
+	if input.OriginalRequestID != nil {
+		history, err := db.Connection().GetHistoryByID(*input.OriginalRequestID)
+		if err != nil {
+			log.Error().Err(err).Uint("original_request_id", *input.OriginalRequestID).Msg("Failed to retrieve original request")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Invalid original_request_id",
+				"message": "The provided original_request_id does not exist",
+			})
+		}
+
+		// Verify the history record belongs to the same workspace
+		if history.WorkspaceID == nil || *history.WorkspaceID != collection.WorkspaceID {
+			log.Warn().Uint("original_request_id", *input.OriginalRequestID).Uint("collection_workspace", collection.WorkspaceID).Interface("history_workspace", history.WorkspaceID).Msg("Workspace mismatch for original request")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Invalid original_request_id",
+				"message": "The original request does not belong to the same workspace as the collection",
+			})
+		}
+	}
 
 	session := &db.PlaygroundSession{
-		Name: input.Name,
-		Type: input.Type,
-		// OriginalRequestID: &input.OriginalRequestID,
-		CollectionID: input.CollectionID,
-		WorkspaceID:  collection.WorkspaceID,
+		Name:              input.Name,
+		Type:              input.Type,
+		OriginalRequestID: input.OriginalRequestID,
+		CollectionID:      input.CollectionID,
+		WorkspaceID:       collection.WorkspaceID,
 	}
 
 	if err := db.Connection().CreatePlaygroundSession(session); err != nil {

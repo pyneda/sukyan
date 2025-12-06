@@ -179,6 +179,23 @@ func (p *Pool) Stop() {
 	// Wait for heartbeat loop to finish
 	p.wg.Wait()
 
+	// Release any jobs that were being processed by this worker pool
+	// This ensures jobs are immediately available for other workers rather than
+	// waiting for stale job detection
+	releasedCount, affectedScanIDs, err := db.Connection().ReleaseJobsByWorkerNode(p.nodeID)
+	if err != nil {
+		log.Warn().Err(err).Str("node_id", p.nodeID).Msg("Failed to release jobs during graceful shutdown")
+	} else if releasedCount > 0 {
+		log.Info().
+			Str("node_id", p.nodeID).
+			Int64("released_jobs", releasedCount).
+			Msg("Released jobs during graceful shutdown")
+		// Update job counts for affected scans
+		for _, scanID := range affectedScanIDs {
+			db.Connection().UpdateScanJobCounts(scanID)
+		}
+	}
+
 	// Deregister worker node
 	if err := db.Connection().DeregisterWorkerNode(p.nodeID); err != nil {
 		log.Warn().Err(err).Str("node_id", p.nodeID).Msg("Failed to deregister worker node")

@@ -274,13 +274,19 @@ func runWorkerCleanup(cmd *cobra.Command, args []string) {
 		Dur("threshold", heartbeatThreshold).
 		Msg("Cleaning up stale workers")
 
-	resetCount, err := db.Connection().ResetJobsFromStaleWorkers(heartbeatThreshold)
+	resetCount, affectedScanIDs, err := db.Connection().ResetJobsFromStaleWorkers(heartbeatThreshold)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("Failed to cleanup stale workers")
 	}
 
+	// Update job counts for affected scans
+	for _, scanID := range affectedScanIDs {
+		db.Connection().UpdateScanJobCounts(scanID)
+	}
+
 	logger.Info().
 		Int64("jobs_reset", resetCount).
+		Uints("affected_scan_ids", affectedScanIDs).
 		Msg("Stale workers cleaned up successfully")
 }
 

@@ -229,9 +229,21 @@ func (o *Orchestrator) transitionToNextPhase(scanEntity *db.Scan) error {
 		Str("next_phase", string(nextPhase)).
 		Msg("Transitioning scan to next phase")
 
-	// Update scan phase
-	if err := db.Connection().SetScanPhase(scanEntity.ID, db.ScanPhase(nextPhase)); err != nil {
+	// Atomically update scan phase - this is safe for distributed systems
+	// where multiple orchestrators may be running
+	transitioned, err := db.Connection().AtomicSetScanPhase(scanEntity.ID, db.ScanPhase(currentPhase), db.ScanPhase(nextPhase))
+	if err != nil {
 		return fmt.Errorf("failed to update scan phase: %w", err)
+	}
+
+	// Another orchestrator already transitioned this phase, skip
+	if !transitioned {
+		log.Debug().
+			Uint("scan_id", scanEntity.ID).
+			Str("expected_phase", string(currentPhase)).
+			Str("target_phase", string(nextPhase)).
+			Msg("Phase transition skipped - already transitioned by another process")
+		return nil
 	}
 	scanEntity.Phase = db.ScanPhase(nextPhase)
 

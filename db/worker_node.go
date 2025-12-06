@@ -236,16 +236,26 @@ func (d *DatabaseConnection) CleanupStaleWorkerNodes(heartbeatThreshold time.Dur
 
 // ResetJobsFromStaleWorkers resets claimed jobs from workers that are no longer active.
 // This is more intelligent than time-based reset as it knows which workers are dead.
-func (d *DatabaseConnection) ResetJobsFromStaleWorkers(heartbeatThreshold time.Duration) (int64, error) {
+// Returns the count of reset jobs and the affected scan IDs.
+func (d *DatabaseConnection) ResetJobsFromStaleWorkers(heartbeatThreshold time.Duration) (int64, []uint, error) {
 	// First, cleanup stale workers
 	staleIDs, err := d.CleanupStaleWorkerNodes(heartbeatThreshold)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
 	if len(staleIDs) == 0 {
-		return 0, nil
+		return 0, nil, nil
 	}
+
+	// Get the scan IDs that will be affected (for updating counts later)
+	var affectedScanIDs []uint
+	d.db.Model(&ScanJob{}).
+		Select("DISTINCT scan_id").
+		Where("status IN ? AND worker_id IN ?",
+			[]ScanJobStatus{ScanJobStatusClaimed, ScanJobStatusRunning},
+			staleIDs).
+		Pluck("scan_id", &affectedScanIDs)
 
 	// Reset jobs claimed by stale workers
 	result := d.db.Model(&ScanJob{}).
@@ -260,7 +270,7 @@ func (d *DatabaseConnection) ResetJobsFromStaleWorkers(heartbeatThreshold time.D
 		})
 
 	if result.Error != nil {
-		return 0, fmt.Errorf("failed to reset jobs from stale workers: %w", result.Error)
+		return 0, affectedScanIDs, fmt.Errorf("failed to reset jobs from stale workers: %w", result.Error)
 	}
 
 	if result.RowsAffected > 0 {
@@ -270,7 +280,7 @@ func (d *DatabaseConnection) ResetJobsFromStaleWorkers(heartbeatThreshold time.D
 			Msg("Reset jobs from stale workers")
 	}
 
-	return result.RowsAffected, nil
+	return result.RowsAffected, affectedScanIDs, nil
 }
 
 // GetWorkerNodeStats returns aggregate statistics for all workers.
@@ -278,6 +288,8 @@ type WorkerNodeStats struct {
 	TotalNodes     int   `json:"total_nodes"`
 	RunningNodes   int   `json:"running_nodes"`
 	StoppedNodes   int   `json:"stopped_nodes"`
+	TotalWorkers   int   `json:"total_workers"`
+	ActiveWorkers  int   `json:"active_workers"`
 	TotalClaimed   int64 `json:"total_claimed"`
 	TotalCompleted int64 `json:"total_completed"`
 	TotalFailed    int64 `json:"total_failed"`
@@ -295,6 +307,17 @@ func (d *DatabaseConnection) GetWorkerNodeStats() (*WorkerNodeStats, error) {
 	stats.RunningNodes = int(runningCount)
 	stats.StoppedNodes = int(stoppedCount)
 	stats.TotalNodes = stats.RunningNodes + stats.StoppedNodes
+
+	// Sum worker counts (total workers across all nodes, active workers from running nodes)
+	type workerSums struct {
+		TotalWorkers  int
+		ActiveWorkers int
+	}
+	var wSums workerSums
+	d.db.Model(&WorkerNode{}).Select("COALESCE(SUM(worker_count), 0) as total_workers").Scan(&wSums.TotalWorkers)
+	d.db.Model(&WorkerNode{}).Where("status = ?", WorkerNodeStatusRunning).Select("COALESCE(SUM(worker_count), 0) as active_workers").Scan(&wSums.ActiveWorkers)
+	stats.TotalWorkers = wSums.TotalWorkers
+	stats.ActiveWorkers = wSums.ActiveWorkers
 
 	// Sum job counts
 	type sumResult struct {

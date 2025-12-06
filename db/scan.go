@@ -399,6 +399,18 @@ func (d *DatabaseConnection) SetScanPhase(scanID uint, phase ScanPhase) error {
 	return d.db.Model(&Scan{}).Where("id = ?", scanID).Update("phase", phase).Error
 }
 
+// AtomicSetScanPhase atomically transitions a scan from expectedPhase to newPhase.
+// Returns true if the transition succeeded (phase was expectedPhase and is now newPhase).
+// Returns false if another process already transitioned the phase.
+// This is safe for distributed systems where multiple orchestrators may be running.
+func (d *DatabaseConnection) AtomicSetScanPhase(scanID uint, expectedPhase, newPhase ScanPhase) (bool, error) {
+	result := d.db.Model(&Scan{}).Where("id = ? AND phase = ?", scanID, expectedPhase).Update("phase", newPhase)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
+}
+
 // SetScanStatus updates the scan status
 func (d *DatabaseConnection) SetScanStatus(scanID uint, status ScanStatus) error {
 	updates := map[string]interface{}{

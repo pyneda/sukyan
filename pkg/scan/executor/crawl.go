@@ -81,10 +81,8 @@ func (e *CrawlExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *cont
 		return context.Canceled
 	}
 
-	// Execute the crawl
-	// NOTE: Currently Crawler.Run doesn't support checkpointing internally.
-	// The crawler handles its own concurrency and will complete before returning.
-	historyItems := crawler.Run()
+	// Execute the crawl with context for cancellation support
+	historyItems := crawler.RunWithContext(ctx)
 
 	taskLog.Info().Int("crawled_items", len(historyItems)).Msg("Crawl completed")
 

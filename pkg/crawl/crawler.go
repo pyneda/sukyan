@@ -24,6 +24,8 @@ type CrawlOptions struct {
 }
 
 type Crawler struct {
+	ctx                     context.Context
+	cancel                  context.CancelFunc
 	Options                 CrawlOptions
 	scope                   scope.Scope
 	startURLs               []string
@@ -104,46 +106,82 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 	}
 }
 
+// NewCrawlerWithContext creates a new Crawler with context for cancellation support
+func NewCrawlerWithContext(ctx context.Context, startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string) *Crawler {
+	crawler := NewCrawler(startURLs, maxPagesToCrawl, maxDepth, poolSize, excludePatterns, workspaceID, taskID, scanID, scanJobID, extraHeaders)
+	crawler.ctx, crawler.cancel = context.WithCancel(ctx)
+	return crawler
+}
+
 func (c *Crawler) Run() []*db.History {
+	return c.RunWithContext(context.Background())
+}
+
+// RunWithContext runs the crawler with context support for cancellation
+func (c *Crawler) RunWithContext(ctx context.Context) []*db.History {
+	// If crawler was created with context, use that; otherwise use provided context
+	if c.ctx == nil {
+		c.ctx, c.cancel = context.WithCancel(ctx)
+	}
+	defer c.cancel()
+
 	taskLog := log.With().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Logger()
 	taskLog.Info().Msg("Starting crawler")
 	c.CreateScopeFromProvidedUrls()
 	// Spawn a goroutine to listen to hijack results and schedule new pages for crawling
 	var inScopeHistoryItems []*db.History
+	var historyMutex sync.Mutex
 	go func() {
-		for hijackResult := range c.hijackChan {
-			taskLog.Info().Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Int("response_body_size", hijackResult.History.ResponseBodySize).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Msg("Received crawl response")
-			if hijackResult.History.Method != "GET" {
-				item := &CrawlItem{url: hijackResult.History.URL, depth: lib.CalculateURLDepth(hijackResult.History.URL), visited: true, isError: false}
-				c.pages.Store(item.url, item)
-			}
-			// Process the history item
-			if c.scope.IsInScope(hijackResult.History.URL) {
-				inScopeHistoryItems = append(inScopeHistoryItems, hijackResult.History)
-			}
-			// Check if the same response has been processed before
-
-			responseHash := hijackResult.History.ResponseHash()
-			_, processed := c.processedResponseHashes.Load(responseHash)
-			if !processed {
-				c.processedResponseHashes.Store(responseHash, true)
-				for _, url := range hijackResult.DiscoveredURLs {
-					// Checking if max pages to crawl are reached
-					c.counterLock.Lock()
-					if c.Options.MaxPagesToCrawl != 0 && c.pageCounter >= c.Options.MaxPagesToCrawl {
-						taskLog.Info().Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Not processing new crawler urls due to max pages to crawl")
+		for {
+			select {
+			case <-c.ctx.Done():
+				taskLog.Info().Msg("Crawler hijack listener stopped due to context cancellation")
+				return
+			case hijackResult, ok := <-c.hijackChan:
+				if !ok {
+					return
+				}
+				taskLog.Info().Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Int("response_body_size", hijackResult.History.ResponseBodySize).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Msg("Received crawl response")
+				if hijackResult.History.Method != "GET" {
+					item := &CrawlItem{url: hijackResult.History.URL, depth: lib.CalculateURLDepth(hijackResult.History.URL), visited: true, isError: false}
+					c.pages.Store(item.url, item)
+				}
+				// Process the history item
+				if c.scope.IsInScope(hijackResult.History.URL) {
+					historyMutex.Lock()
+					inScopeHistoryItems = append(inScopeHistoryItems, hijackResult.History)
+					historyMutex.Unlock()
+				}
+				// Check if the same response has been processed before
+				responseHash := hijackResult.History.ResponseHash()
+				_, processed := c.processedResponseHashes.Load(responseHash)
+				if !processed {
+					c.processedResponseHashes.Store(responseHash, true)
+					for _, url := range hijackResult.DiscoveredURLs {
+						// Check context before scheduling new pages
+						select {
+						case <-c.ctx.Done():
+							taskLog.Info().Msg("Crawler stopping URL scheduling due to context cancellation")
+							return
+						default:
+						}
+						// Checking if max pages to crawl are reached
+						c.counterLock.Lock()
+						if c.Options.MaxPagesToCrawl != 0 && c.pageCounter >= c.Options.MaxPagesToCrawl {
+							taskLog.Info().Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Not processing new crawler urls due to max pages to crawl")
+							c.counterLock.Unlock()
+							continue // Max pages reached, skip processing the rest of the discovered URLs
+						}
 						c.counterLock.Unlock()
-						continue // Max pages reached, skip processing the rest of the discovered URLs
-					}
-					c.counterLock.Unlock()
-					// Calculate the depth of the URL
-					depth := lib.CalculateURLDepth(url)
+						// Calculate the depth of the URL
+						depth := lib.CalculateURLDepth(url)
 
-					// If the URL is within the depth limit, schedule it for crawling
-					if c.Options.MaxDepth == 0 || depth <= c.Options.MaxDepth {
-						c.wg.Add(1)
-						go c.crawlPage(&CrawlItem{url: url, depth: depth})
-						taskLog.Debug().Str("url", url).Msg("Scheduled page to crawl from hijack result")
+						// If the URL is within the depth limit, schedule it for crawling
+						if c.Options.MaxDepth == 0 || depth <= c.Options.MaxDepth {
+							c.wg.Add(1)
+							go c.crawlPage(&CrawlItem{url: url, depth: depth})
+							taskLog.Debug().Str("url", url).Msg("Scheduled page to crawl from hijack result")
+						}
 					}
 				}
 			}
@@ -151,6 +189,17 @@ func (c *Crawler) Run() []*db.History {
 	}()
 	taskLog.Info().Interface("start_urls", c.startURLs).Msg("Crawling start urls")
 	for _, url := range c.startURLs {
+		// Check context before scheduling start URLs
+		select {
+		case <-c.ctx.Done():
+			taskLog.Info().Msg("Crawler cancelled before processing all start URLs")
+			c.wg.Wait()
+			c.browser.Close()
+			historyMutex.Lock()
+			defer historyMutex.Unlock()
+			return inScopeHistoryItems
+		default:
+		}
 		c.wg.Add(1)
 		go c.crawlPage(&CrawlItem{url: url, depth: lib.CalculateURLDepth(url)})
 		baseURL, err := lib.GetBaseURL(url)
@@ -166,6 +215,8 @@ func (c *Crawler) Run() []*db.History {
 	c.wg.Wait()
 	taskLog.Info().Msg("Finished crawling")
 	c.browser.Close()
+	historyMutex.Lock()
+	defer historyMutex.Unlock()
 	for _, item := range inScopeHistoryItems {
 		events, ok := c.eventStore.Load(item.URL)
 		if ok {
@@ -273,6 +324,17 @@ func (c *Crawler) getBrowserPage(targetURL string) *rod.Page {
 
 func (c *Crawler) crawlPage(item *CrawlItem) {
 	defer c.wg.Done()
+
+	// Check context at the start
+	if c.ctx != nil {
+		select {
+		case <-c.ctx.Done():
+			log.Debug().Uint("workspace", c.workspaceID).Str("url", item.url).Msg("Crawler page skipped due to context cancellation")
+			return
+		default:
+		}
+	}
+
 	log.Debug().Uint("workspace", c.workspaceID).Str("url", item.url).Msg("Crawling page")
 	c.concLimit <- struct{}{}
 	defer func() { <-c.concLimit }()
@@ -347,6 +409,15 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 
 	// Recursively crawl to links
 	for _, link := range urlData.DiscoveredURLs {
+		// Check context before scheduling child page
+		if c.ctx != nil {
+			select {
+			case <-c.ctx.Done():
+				log.Debug().Uint("workspace", c.workspaceID).Str("url", item.url).Msg("Crawler stopping child page scheduling due to context cancellation")
+				return
+			default:
+			}
+		}
 		if c.shouldCrawl(&CrawlItem{url: link, depth: lib.CalculateURLDepth(link)}) {
 			c.wg.Add(1)
 			go c.crawlPage(&CrawlItem{url: link, depth: lib.CalculateURLDepth(link)})

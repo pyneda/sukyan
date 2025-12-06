@@ -155,7 +155,7 @@ func TestFindOOBTests(t *testing.T) {
 	t.Run("Filter by created date", func(t *testing.T) {
 		now := time.Now()
 		yesterday := now.Add(-24 * time.Hour)
-		
+
 		filter := db.OOBTestsFilter{
 			WorkspaceID:  workspace.ID,
 			CreatedAfter: &yesterday,
@@ -193,7 +193,7 @@ func TestFindOOBTests(t *testing.T) {
 		var result map[string]interface{}
 		err := json.NewDecoder(resp.Body).Decode(&result)
 		assert.Nil(t, err)
-		
+
 		data := result["data"].([]interface{})
 		assert.LessOrEqual(t, len(data), 1)
 	})

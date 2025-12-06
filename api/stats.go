@@ -130,7 +130,7 @@ func ListWorkerNodes(c *fiber.Ctx) error {
 func CleanupStaleWorkers(c *fiber.Ctx) error {
 	heartbeatThreshold := 2 * time.Minute
 
-	resetCount, err := db.Connection().ResetJobsFromStaleWorkers(heartbeatThreshold)
+	resetCount, affectedScanIDs, err := db.Connection().ResetJobsFromStaleWorkers(heartbeatThreshold)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to cleanup stale workers")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -139,8 +139,14 @@ func CleanupStaleWorkers(c *fiber.Ctx) error {
 		})
 	}
 
+	// Update job counts for affected scans
+	for _, scanID := range affectedScanIDs {
+		db.Connection().UpdateScanJobCounts(scanID)
+	}
+
 	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"jobs_reset": resetCount,
-		"message":    "Stale workers cleaned up successfully",
+		"jobs_reset":        resetCount,
+		"affected_scan_ids": affectedScanIDs,
+		"message":           "Stale workers cleaned up successfully",
 	})
 }

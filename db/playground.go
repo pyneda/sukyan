@@ -27,10 +27,10 @@ const (
 // PlaygroundSession represents a playground session.
 type PlaygroundSession struct {
 	BaseModel
-	Name string                `json:"name"`
-	Type PlaygroundSessionType `json:"type"`
-	// OriginalRequest   History               `json:"-" gorm:"foreignKey:OriginalRequestID"`
-	OriginalRequestID *uint `json:"original_request_id"`
+	Name              string                `json:"name"`
+	Type              PlaygroundSessionType `json:"type"`
+	OriginalRequest   *History              `json:"-" gorm:"foreignKey:OriginalRequestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	OriginalRequestID *uint                 `json:"original_request_id"`
 	// Task              Task                 `json:"-" gorm:"foreignKey:TaskID"`
 	// TaskID            *uint                `json:"task_id"`
 	CollectionID uint                 `json:"collection_id"`

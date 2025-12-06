@@ -101,18 +101,18 @@ func (a *HostHeaderInjectionAudit) Run() {
 		go a.workerWithContext(ctx, auditItemsChannel, pendingChannel, &wg)
 	}
 	// Schedule goroutine to monitor pending tasks
-	go a.monitor(auditItemsChannel, pendingChannel)
+	go a.monitor(pendingChannel)
 	log.Info().Str("url", a.URL).Msg("Starting to schedule Host header injection audit items")
 
 	// Add tests to the channel
+schedulingLoop:
 	for _, header := range a.GetHeadersToTest() {
 		for _, payload := range payloads.GetHostHeaderInjectionPayloads() {
 			// Check context before scheduling each item
 			select {
 			case <-ctx.Done():
 				log.Info().Str("url", a.URL).Msg("Host header injection audit cancelled during scheduling")
-				close(auditItemsChannel)
-				return
+				break schedulingLoop
 			default:
 			}
 			pendingChannel <- 1
@@ -122,16 +122,17 @@ func (a *HostHeaderInjectionAudit) Run() {
 			}
 		}
 	}
-	wg.Wait()
-	log.Info().Str("url", a.URL).Msg("All host header injection audit items completed")
-}
 
-func (a *HostHeaderInjectionAudit) worker(auditItems chan hostHeaderInjectionAuditItem, pendingChannel chan int, wg *sync.WaitGroup) {
-	for auditItem := range auditItems {
-		a.testItem(auditItem)
-		pendingChannel <- -1
-	}
-	wg.Done()
+	// Close the audit items channel to signal no more items will be sent
+	log.Info().Str("url", a.URL).Msg("Host header audit finished scheduling, closing audit items channel")
+	close(auditItemsChannel)
+
+	// Wait for all workers to complete
+	wg.Wait()
+
+	// Close the pending channel after all workers are done
+	close(pendingChannel)
+	log.Info().Str("url", a.URL).Msg("All host header injection audit items completed")
 }
 
 func (a *HostHeaderInjectionAudit) workerWithContext(ctx context.Context, auditItems chan hostHeaderInjectionAuditItem, pendingChannel chan int, wg *sync.WaitGroup) {
@@ -149,17 +150,14 @@ func (a *HostHeaderInjectionAudit) workerWithContext(ctx context.Context, auditI
 	wg.Done()
 }
 
-func (a *HostHeaderInjectionAudit) monitor(auditItems chan hostHeaderInjectionAuditItem, pendingChannel chan int) {
+func (a *HostHeaderInjectionAudit) monitor(pendingChannel chan int) {
 	count := 0
 	log.Debug().Str("url", a.URL).Msg("Host header audit monitor started")
 	for c := range pendingChannel {
 		count += c
-		if count == 0 {
-			log.Info().Str("url", a.URL).Msg("Host header audit finished, closing communication channels")
-			close(auditItems)
-			close(pendingChannel)
-		}
+		log.Debug().Str("url", a.URL).Int("pending", count).Msg("Host header audit pending count updated")
 	}
+	log.Debug().Str("url", a.URL).Msg("Host header audit monitor finished")
 }
 
 func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {

@@ -326,11 +326,20 @@ func (d *DatabaseConnection) ListUniqueIssueCodes(filter IssueFilter) ([]string,
 
 // CreateIssue saves an issue to the database
 func (d *DatabaseConnection) CreateIssue(issue Issue) (Issue, error) {
+	// Handle foreign key constraints: set pointers to nil if they point to 0
+	// This is needed because the new scan engine (V2) uses ScanID/ScanJobID instead of TaskID/TaskJobID
+	// When these IDs are 0, passing a pointer to 0 violates the foreign key constraint
 	if issue.TaskID != nil && *issue.TaskID == 0 {
 		issue.TaskID = nil
 	}
 	if issue.TaskJobID != nil && *issue.TaskJobID == 0 {
 		issue.TaskJobID = nil
+	}
+	if issue.ScanID != nil && *issue.ScanID == 0 {
+		issue.ScanID = nil
+	}
+	if issue.ScanJobID != nil && *issue.ScanJobID == 0 {
+		issue.ScanJobID = nil
 	}
 
 	var existingIssue Issue

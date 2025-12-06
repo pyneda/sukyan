@@ -229,7 +229,7 @@ definitions:
       name:
         type: string
       original_request_id:
-        minimum: 0
+        minimum: 1
         type: integer
       type:
         $ref: '#/definitions/db.PlaygroundSessionType'
@@ -237,12 +237,116 @@ definitions:
     - collection_id
     - name
     type: object
+  api.DashboardStats:
+    properties:
+      active_scans:
+        description: Active scans
+        items:
+          $ref: '#/definitions/api.ScanInfo'
+        type: array
+      duration_stats:
+        description: Job duration statistics
+        items:
+          $ref: '#/definitions/api.JobDurationInfo'
+        type: array
+      global_queue_stats:
+        allOf:
+        - $ref: '#/definitions/api.GlobalQueueStatsInfo'
+        description: Global queue stats (aggregated across all scans)
+      local_worker_count:
+        description: Workers in this process
+        type: integer
+      manager_running:
+        type: boolean
+      node_id:
+        type: string
+      orchestrator_config:
+        allOf:
+        - $ref: '#/definitions/api.OrchestratorConfigInfo'
+        description: Orchestrator config
+      orchestrator_running:
+        type: boolean
+      paused_scans:
+        description: Paused scans
+        items:
+          $ref: '#/definitions/api.ScanInfo'
+        type: array
+      recent_scans:
+        description: Recent completed scans (last 10)
+        items:
+          $ref: '#/definitions/api.ScanInfo'
+        type: array
+      refresh_interval:
+        type: integer
+      system_stats:
+        allOf:
+        - $ref: '#/definitions/db.SystemStats'
+        description: System stats
+      throughput:
+        allOf:
+        - $ref: '#/definitions/api.ThroughputInfo'
+        description: Throughput metrics
+      timestamp:
+        description: System info
+        type: string
+      total_worker_count:
+        description: Workers across all nodes
+        type: integer
+      worker_count:
+        description: Workers in this process (deprecated, use local_worker_count)
+        type: integer
+      worker_nodes:
+        allOf:
+        - $ref: '#/definitions/api.WorkerNodesInfo'
+        description: Worker nodes
+    type: object
   api.ErrorResponse:
     properties:
       error:
         type: string
       message:
         type: string
+    type: object
+  api.FailedJobInfo:
+    properties:
+      attempts:
+        type: integer
+      error_message:
+        type: string
+      error_type:
+        type: string
+      failed_at:
+        type: string
+      job_id:
+        type: integer
+      job_type:
+        type: string
+      method:
+        type: string
+      url:
+        type: string
+    type: object
+  api.GlobalQueueStatsInfo:
+    properties:
+      stats_by_type:
+        description: Aggregated stats by job type across all scans
+        items:
+          $ref: '#/definitions/api.JobTypeStats'
+        type: array
+      total_cancelled:
+        type: integer
+      total_claimed:
+        type: integer
+      total_completed:
+        type: integer
+      total_failed:
+        type: integer
+      total_jobs:
+        type: integer
+      total_pending:
+        type: integer
+      total_running:
+        type: integer
     type: object
   api.HistorySummary:
     properties:
@@ -264,6 +368,57 @@ definitions:
       issue:
         $ref: '#/definitions/db.Issue'
       message:
+        type: string
+    type: object
+  api.JobDurationInfo:
+    properties:
+      avg_duration_ms:
+        type: number
+      count:
+        type: integer
+      job_type:
+        type: string
+      max_duration_ms:
+        type: number
+      min_duration_ms:
+        type: number
+      p50_duration_ms:
+        type: number
+      p95_duration_ms:
+        type: number
+      p99_duration_ms:
+        type: number
+    type: object
+  api.JobTypeStats:
+    properties:
+      claimed:
+        type: integer
+      completed:
+        type: integer
+      failed:
+        type: integer
+      job_type:
+        type: string
+      pending:
+        type: integer
+      running:
+        type: integer
+      total:
+        type: integer
+    type: object
+  api.OrchestratorConfigInfo:
+    properties:
+      enable_discovery:
+        type: boolean
+      enable_fingerprint:
+        type: boolean
+      enable_nuclei:
+        type: boolean
+      enable_websocket:
+        type: boolean
+      phase_timeout:
+        type: string
+      poll_interval:
         type: string
     type: object
   api.ParseOpenAPISpecInput:
@@ -376,6 +531,8 @@ definitions:
         type: integer
       min_confidence:
         type: integer
+      scan_id:
+        type: integer
       task_id:
         type: integer
       title:
@@ -384,7 +541,6 @@ definitions:
         type: integer
     required:
     - format
-    - task_id
     - title
     - workspace_id
     type: object
@@ -396,6 +552,251 @@ definitions:
         type: integer
       url:
         type: string
+    type: object
+  api.RunningJobInfo:
+    properties:
+      elapsed_time:
+        type: string
+      job_id:
+        type: integer
+      job_type:
+        type: string
+      method:
+        type: string
+      started_at:
+        type: string
+      target_host:
+        type: string
+      url:
+        type: string
+      worker_id:
+        type: string
+    type: object
+  api.ScanInfo:
+    properties:
+      completed_at:
+        type: string
+      completed_jobs:
+        type: integer
+      duration:
+        type: string
+      failed_jobs:
+        type: integer
+      id:
+        type: integer
+      job_stats_by_type:
+        description: Granular job statistics by type
+        items:
+          $ref: '#/definitions/api.JobTypeStats'
+        type: array
+      pending_jobs:
+        type: integer
+      phase:
+        type: string
+      progress_percentage:
+        type: number
+      recent_failed_jobs:
+        description: Recent failed jobs
+        items:
+          $ref: '#/definitions/api.FailedJobInfo'
+        type: array
+      running_job_details:
+        description: Currently running jobs
+        items:
+          $ref: '#/definitions/api.RunningJobInfo'
+        type: array
+      running_jobs:
+        type: integer
+      started_at:
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+      total_jobs:
+        type: integer
+    type: object
+  api.ScanJobResponse:
+    properties:
+      attempts:
+        description: Execution tracking
+        type: integer
+      checkpoint:
+        allOf:
+        - $ref: '#/definitions/db.ScanJobCheckpoint'
+        description: Checkpoint for resume
+      claimed_at:
+        type: string
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      error_message:
+        type: string
+      error_type:
+        description: Result tracking
+        type: string
+      history_id:
+        type: integer
+      http_status:
+        type: integer
+      id:
+        description: Base fields
+        type: integer
+      issues_found:
+        type: integer
+      job_type:
+        $ref: '#/definitions/db.ScanJobType'
+      max_attempts:
+        type: integer
+      method:
+        type: string
+      priority:
+        type: integer
+      scan_id:
+        description: Core fields
+        type: integer
+      started_at:
+        type: string
+      stats:
+        allOf:
+        - $ref: '#/definitions/api.ScanJobStats'
+        description: Statistics
+      status:
+        $ref: '#/definitions/db.ScanJobStatus'
+      target_host:
+        description: Target information
+        type: string
+      updated_at:
+        type: string
+      url:
+        type: string
+      websocket_connection_id:
+        type: integer
+      worker_id:
+        description: Worker tracking
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  api.ScanJobStats:
+    properties:
+      issues:
+        $ref: '#/definitions/db.IssuesStats'
+      oob_tests:
+        type: integer
+      requests:
+        type: integer
+    type: object
+  api.ScanJobsListResponse:
+    properties:
+      count:
+        type: integer
+      jobs:
+        items:
+          $ref: '#/definitions/api.ScanJobResponse'
+        type: array
+    type: object
+  api.ScanListResponse:
+    properties:
+      count:
+        type: integer
+      scans:
+        items:
+          $ref: '#/definitions/api.ScanResponse'
+        type: array
+    type: object
+  api.ScanResponse:
+    properties:
+      checkpoint:
+        allOf:
+        - $ref: '#/definitions/db.ScanCheckpoint'
+        description: Checkpoint for restart recovery
+      completed_at:
+        type: string
+      completed_jobs_count:
+        type: integer
+      consecutive_failures:
+        type: integer
+      created_at:
+        type: string
+      failed_jobs_count:
+        type: integer
+      id:
+        description: Base fields
+        type: integer
+      last_failure_at:
+        type: string
+      max_concurrent_jobs:
+        type: integer
+      max_rps:
+        description: Rate limiting and circuit breaker fields
+        type: integer
+      options:
+        $ref: '#/definitions/options.FullScanOptions'
+      paused_at:
+        type: string
+      pending_jobs_count:
+        type: integer
+      phase:
+        $ref: '#/definitions/db.ScanPhase'
+      previous_status:
+        $ref: '#/definitions/db.ScanStatus'
+      progress:
+        description: Computed fields
+        type: number
+      running_jobs_count:
+        type: integer
+      started_at:
+        description: Timing fields
+        type: string
+      stats:
+        $ref: '#/definitions/api.ScanStats'
+      status:
+        $ref: '#/definitions/db.ScanStatus'
+      throttled_until:
+        type: string
+      title:
+        type: string
+      total_jobs_count:
+        description: Job counters for progress tracking
+        type: integer
+      updated_at:
+        type: string
+      workspace_id:
+        description: Core fields
+        type: integer
+    type: object
+  api.ScanStats:
+    properties:
+      issues:
+        $ref: '#/definitions/db.IssuesStats'
+      requests:
+        $ref: '#/definitions/db.RequestsStats'
+    type: object
+  api.ScanStatsResponse:
+    properties:
+      job_stats:
+        additionalProperties:
+          type: integer
+        type: object
+    type: object
+  api.ScheduleScanHistoryItemsInput:
+    properties:
+      history_ids:
+        items:
+          type: integer
+        minItems: 1
+        type: array
+      mode:
+        description: 'Scan mode: fast, smart, fuzz'
+        enum:
+        - fast
+        - smart
+        - fuzz
+        type: string
+    required:
+    - history_ids
     type: object
   api.SignIn:
     properties:
@@ -424,6 +825,84 @@ definitions:
         type: string
       refresh:
         type: string
+    type: object
+  api.ThroughputInfo:
+    properties:
+      in_flight:
+        type: integer
+      jobs_per_minute:
+        type: number
+      last_5_minutes:
+        type: integer
+      last_hour:
+        type: integer
+      last_minute:
+        type: integer
+      queue_depth:
+        type: integer
+      success_rate:
+        type: number
+    type: object
+  api.WorkerNodeInfo:
+    properties:
+      hostname:
+        type: string
+      id:
+        type: string
+      is_stale:
+        type: boolean
+      jobs_claimed:
+        type: integer
+      jobs_completed:
+        type: integer
+      jobs_failed:
+        type: integer
+      last_seen_at:
+        type: string
+      running_jobs:
+        items:
+          $ref: '#/definitions/api.RunningJobInfo'
+        type: array
+      started_at:
+        type: string
+      status:
+        type: string
+      version:
+        type: string
+      worker_count:
+        type: integer
+    type: object
+  api.WorkerNodesInfo:
+    properties:
+      active_workers:
+        type: integer
+      nodes:
+        items:
+          $ref: '#/definitions/api.WorkerNodeInfo'
+        type: array
+      running_nodes:
+        type: integer
+      stopped_nodes:
+        type: integer
+      total_claimed:
+        type: integer
+      total_completed:
+        type: integer
+      total_failed:
+        type: integer
+      total_nodes:
+        type: integer
+      total_workers:
+        type: integer
+    type: object
+  api.WorkerNodesResponse:
+    properties:
+      nodes:
+        items:
+          $ref: '#/definitions/db.WorkerNode'
+        type: array
+      stats:
+        $ref: '#/definitions/db.WorkerNodeStats'
     type: object
   api.WorkspaceCreateInput:
     properties:
@@ -458,6 +937,21 @@ definitions:
     x-enum-varnames:
     - BrowserActionScopeGlobal
     - BrowserActionScopeWorkspace
+  db.CrawlCheckpoint:
+    properties:
+      current_depth:
+        type: integer
+      page_count:
+        type: integer
+      pending_urls:
+        items:
+          type: string
+        type: array
+      visited_urls:
+        items:
+          type: string
+        type: array
+    type: object
   db.GroupedIssue:
     properties:
       code:
@@ -517,6 +1011,10 @@ definitions:
         type: integer
       response_content_type:
         type: string
+      scan_id:
+        type: integer
+      scan_job_id:
+        type: integer
       source:
         type: string
       status_code:
@@ -558,6 +1056,10 @@ definitions:
         items:
           type: string
         type: array
+      scan_id:
+        type: integer
+      scan_job_id:
+        type: integer
       sort_by:
         description: Validate to be one of the listed fields
         enum:
@@ -641,6 +1143,10 @@ definitions:
         items:
           type: integer
         type: array
+      scan_id:
+        type: integer
+      scan_job_id:
+        type: integer
       severity:
         $ref: '#/definitions/db.severity'
       status_code:
@@ -828,10 +1334,16 @@ definitions:
         type: string
       interaction_id:
         type: string
+      issue_id:
+        type: integer
       note:
         type: string
       payload:
         type: string
+      scan_id:
+        type: integer
+      scan_job_id:
+        type: integer
       target:
         type: string
       task_id:
@@ -882,6 +1394,20 @@ definitions:
       query:
         maxLength: 500
         type: string
+      scan_id:
+        minimum: 1
+        type: integer
+      scan_ids:
+        items:
+          type: integer
+        type: array
+      scan_job_id:
+        minimum: 1
+        type: integer
+      scan_job_ids:
+        items:
+          type: integer
+        type: array
       sort_by:
         enum:
         - id
@@ -968,7 +1494,6 @@ definitions:
       name:
         type: string
       original_request_id:
-        description: OriginalRequest   History               `json:"-" gorm:"foreignKey:OriginalRequestID"`
         type: integer
       type:
         $ref: '#/definitions/db.PlaygroundSessionType'
@@ -993,6 +1518,196 @@ definitions:
         type: integer
       scanner:
         type: integer
+    type: object
+  db.Scan:
+    properties:
+      checkpoint:
+        allOf:
+        - $ref: '#/definitions/db.ScanCheckpoint'
+        description: Checkpoint for restart recovery
+      completed_at:
+        type: string
+      completed_jobs_count:
+        type: integer
+      consecutive_failures:
+        type: integer
+      created_at:
+        type: string
+      failed_jobs_count:
+        type: integer
+      id:
+        type: integer
+      last_failure_at:
+        type: string
+      max_concurrent_jobs:
+        type: integer
+      max_rps:
+        description: Rate limiting and circuit breaker fields
+        type: integer
+      options:
+        $ref: '#/definitions/options.FullScanOptions'
+      paused_at:
+        type: string
+      pending_jobs_count:
+        type: integer
+      phase:
+        $ref: '#/definitions/db.ScanPhase'
+      previous_status:
+        $ref: '#/definitions/db.ScanStatus'
+      running_jobs_count:
+        type: integer
+      started_at:
+        description: Timing fields
+        type: string
+      status:
+        $ref: '#/definitions/db.ScanStatus'
+      throttled_until:
+        type: string
+      title:
+        type: string
+      total_jobs_count:
+        description: Job counters for progress tracking
+        type: integer
+      updated_at:
+        type: string
+      workspace_id:
+        description: Core fields
+        type: integer
+    type: object
+  db.ScanCheckpoint:
+    properties:
+      completed_discovery_urls:
+        description: Base URLs that have completed discovery
+        items:
+          type: string
+        type: array
+      crawl_checkpoint:
+        $ref: '#/definitions/db.CrawlCheckpoint'
+      fingerprint_tags:
+        description: Fingerprint tags discovered during fingerprinting phase
+        items:
+          type: string
+        type: array
+      fingerprints:
+        description: Fingerprints discovered during fingerprinting phase
+        items:
+          $ref: '#/definitions/lib.Fingerprint'
+        type: array
+      nuclei_completed:
+        description: Whether nuclei phase has completed
+        type: boolean
+      phase:
+        $ref: '#/definitions/db.ScanPhase'
+      processed_history_ids:
+        description: IDs of history items that have been processed for fingerprinting
+        items:
+          type: integer
+        type: array
+      scope_domains:
+        description: Scope domains derived from start URLs
+        items:
+          type: string
+        type: array
+      site_behaviors:
+        additionalProperties:
+          $ref: '#/definitions/db.SiteBehavior'
+        description: Site behaviors for each base URL
+        type: object
+    type: object
+  db.ScanJobCheckpoint:
+    properties:
+      completed_audits:
+        description: For active_scan jobs
+        items:
+          type: string
+        type: array
+      completed_checks:
+        description: For discovery jobs
+        items:
+          type: string
+        type: array
+      current_audit:
+        type: string
+      current_insertion_point_idx:
+        type: integer
+      last_payload_index:
+        type: integer
+      messages_processed:
+        description: For websocket_scan jobs
+        type: integer
+    type: object
+  db.ScanJobStatus:
+    enum:
+    - pending
+    - claimed
+    - running
+    - completed
+    - failed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - ScanJobStatusPending
+    - ScanJobStatusClaimed
+    - ScanJobStatusRunning
+    - ScanJobStatusCompleted
+    - ScanJobStatusFailed
+    - ScanJobStatusCancelled
+  db.ScanJobType:
+    enum:
+    - active_scan
+    - websocket_scan
+    - discovery
+    - nuclei
+    - crawl
+    type: string
+    x-enum-varnames:
+    - ScanJobTypeActiveScan
+    - ScanJobTypeWebSocketScan
+    - ScanJobTypeDiscovery
+    - ScanJobTypeNuclei
+    - ScanJobTypeCrawl
+  db.ScanPhase:
+    enum:
+    - crawl
+    - fingerprint
+    - discovery
+    - nuclei
+    - active_scan
+    - websocket
+    type: string
+    x-enum-varnames:
+    - ScanPhaseCrawl
+    - ScanPhaseFingerprint
+    - ScanPhaseDiscovery
+    - ScanPhaseNuclei
+    - ScanPhaseActiveScan
+    - ScanPhaseWebSocket
+  db.ScanStatus:
+    enum:
+    - pending
+    - crawling
+    - scanning
+    - paused
+    - completed
+    - cancelled
+    - failed
+    type: string
+    x-enum-varnames:
+    - ScanStatusPending
+    - ScanStatusCrawling
+    - ScanStatusScanning
+    - ScanStatusPaused
+    - ScanStatusCompleted
+    - ScanStatusCancelled
+    - ScanStatusFailed
+  db.SiteBehavior:
+    properties:
+      common_hash:
+        type: string
+      not_found_changes:
+        type: boolean
+      not_found_returns_404:
+        type: boolean
     type: object
   db.SitemapNode:
     properties:
@@ -1148,6 +1863,10 @@ definitions:
         items:
           $ref: '#/definitions/db.WebSocketMessage'
         type: array
+      scan_id:
+        type: integer
+      scan_job_id:
+        type: integer
       source:
         type: string
       status_code:
@@ -1192,6 +1911,62 @@ definitions:
       updated_at:
         type: string
     type: object
+  db.WorkerNode:
+    properties:
+      created_at:
+        type: string
+      hostname:
+        type: string
+      id:
+        type: string
+      jobs_claimed:
+        type: integer
+      jobs_completed:
+        type: integer
+      jobs_failed:
+        type: integer
+      last_seen_at:
+        type: string
+      started_at:
+        type: string
+      status:
+        $ref: '#/definitions/db.WorkerNodeStatus'
+      updated_at:
+        type: string
+      version:
+        type: string
+      worker_count:
+        type: integer
+    type: object
+  db.WorkerNodeStats:
+    properties:
+      active_workers:
+        type: integer
+      running_nodes:
+        type: integer
+      stopped_nodes:
+        type: integer
+      total_claimed:
+        type: integer
+      total_completed:
+        type: integer
+      total_failed:
+        type: integer
+      total_nodes:
+        type: integer
+      total_workers:
+        type: integer
+    type: object
+  db.WorkerNodeStatus:
+    enum:
+    - running
+    - draining
+    - stopped
+    type: string
+    x-enum-varnames:
+    - WorkerNodeStatusRunning
+    - WorkerNodeStatusDraining
+    - WorkerNodeStatusStopped
   db.Workspace:
     properties:
       code:
@@ -1240,6 +2015,13 @@ definitions:
     - Medium
     - High
     - Critical
+  lib.Fingerprint:
+    properties:
+      name:
+        type: string
+      version:
+        type: string
+    type: object
   lib.LogEntry:
     properties:
       level:
@@ -1424,62 +2206,6 @@ definitions:
         type: boolean
     type: object
   options.FullScanOptions:
-    properties:
-      audit_categories:
-        $ref: '#/definitions/options.AuditCategories'
-      exclude_patterns:
-        items:
-          type: string
-        type: array
-      experimental_audits:
-        type: boolean
-      headers:
-        additionalProperties:
-          items:
-            type: string
-          type: array
-        type: object
-      insertion_points:
-        items:
-          type: string
-        type: array
-      max_depth:
-        minimum: 0
-        type: integer
-      max_pages_to_crawl:
-        minimum: 0
-        type: integer
-      max_retries:
-        minimum: 0
-        type: integer
-      mode:
-        allOf:
-        - $ref: '#/definitions/options.ScanMode'
-        enum:
-        - fast
-        - smart
-        - fuzz
-      pages_pool_size:
-        maximum: 100
-        minimum: 1
-        type: integer
-      start_urls:
-        items:
-          type: string
-        type: array
-      title:
-        maxLength: 255
-        minLength: 1
-        type: string
-      websocket_options:
-        $ref: '#/definitions/options.FullScanWebSocketOptions'
-      workspace_id:
-        minimum: 0
-        type: integer
-    required:
-    - audit_categories
-    - start_urls
-    - workspace_id
     type: object
   options.FullScanWebSocketOptions:
     properties:
@@ -1820,6 +2546,21 @@ paths:
       summary: Update a StoredBrowserActions
       tags:
       - Browser Actions
+  /api/v1/dashboard/stats:
+    get:
+      consumes:
+      - application/json
+      description: Returns real-time statistics for monitoring scan queue and orchestrator
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.DashboardStats'
+      summary: Get dashboard statistics
+      tags:
+      - Dashboard
   /api/v1/history:
     get:
       deprecated: true
@@ -1864,6 +2605,14 @@ paths:
       - description: Task ID
         in: query
         name: task
+        type: integer
+      - description: Scan ID
+        in: query
+        name: scan_id
+        type: integer
+      - description: Scan Job ID
+        in: query
+        name: scan_job_id
         type: integer
       - default: '"id"'
         description: Field to sort by
@@ -2055,6 +2804,14 @@ paths:
         in: query
         name: task
         type: integer
+      - description: Scan ID
+        in: query
+        name: scan_id
+        type: integer
+      - description: Scan Job ID
+        in: query
+        name: scan_job_id
+        type: integer
       - description: Comma-separated list of sources to filter by
         in: query
         name: sources
@@ -2181,6 +2938,20 @@ paths:
         in: query
         name: oob_test_ids
         type: string
+      - description: Comma-separated list of issue IDs to filter by
+        in: query
+        name: issue_ids
+        type: string
+      - description: Comma-separated list of scan IDs to filter by (filters via related
+          OOB test)
+        in: query
+        name: scan_ids
+        type: string
+      - description: Comma-separated list of scan job IDs to filter by (filters via
+          related OOB test)
+        in: query
+        name: scan_job_ids
+        type: string
       produces:
       - application/json
       responses:
@@ -2240,6 +3011,14 @@ paths:
       - description: Task Job ID
         in: query
         name: taskjob
+        type: integer
+      - description: Scan ID
+        in: query
+        name: scan_id
+        type: integer
+      - description: Scan Job ID
+        in: query
+        name: scan_job_id
         type: integer
       - description: Comma-separated list of issue codes to filter by
         in: query
@@ -2357,6 +3136,14 @@ paths:
       - description: Task Job ID
         in: query
         name: taskjob
+        type: integer
+      - description: Scan ID
+        in: query
+        name: scan_id
+        type: integer
+      - description: Scan Job ID
+        in: query
+        name: scan_job_id
         type: integer
       produces:
       - application/json
@@ -2818,6 +3605,37 @@ paths:
       summary: Generate a report
       tags:
       - Reports
+  /api/v1/scan-jobs/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a scan job by ID with its statistics
+      parameters:
+      - description: Scan Job ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ScanJobResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get scan job
+      tags:
+      - Scans
   /api/v1/scan/active:
     post:
       consumes:
@@ -2962,6 +3780,354 @@ paths:
       summary: Submit WebSocket connections for passive scanning
       tags:
       - Scan
+  /api/v1/scans:
+    get:
+      consumes:
+      - application/json
+      description: Lists all scans with optional filtering and pagination
+      parameters:
+      - description: Filter by workspace ID
+        in: query
+        name: workspace
+        type: integer
+      - description: Filter by status (comma-separated)
+        in: query
+        name: status
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ScanListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List scans
+      tags:
+      - Scans
+  /api/v1/scans/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes a scan and all its jobs
+      parameters:
+      - description: Scan ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ActionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete scan
+      tags:
+      - Scans
+    get:
+      consumes:
+      - application/json
+      description: Retrieves a scan by ID
+      parameters:
+      - description: Scan ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ScanResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get scan
+      tags:
+      - Scans
+  /api/v1/scans/{id}/cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancels a scan and all its pending jobs
+      parameters:
+      - description: Scan ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Scan'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Cancel scan
+      tags:
+      - Scans
+  /api/v1/scans/{id}/jobs:
+    get:
+      consumes:
+      - application/json
+      description: Lists all jobs for a scan with optional filtering
+      parameters:
+      - description: Scan ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Filter by status (comma-separated)
+        in: query
+        name: status
+        type: string
+      - description: Filter by job type (comma-separated)
+        in: query
+        name: job_type
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ScanJobsListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get scan jobs
+      tags:
+      - Scans
+  /api/v1/scans/{id}/jobs/{job_id}/cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancels a specific scan job. If the job is running, it will be
+        stopped.
+      parameters:
+      - description: Scan ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Job ID
+        in: path
+        name: job_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ScanJobResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Cancel scan job
+      tags:
+      - Scans
+  /api/v1/scans/{id}/pause:
+    post:
+      consumes:
+      - application/json
+      description: Pauses a running scan
+      parameters:
+      - description: Scan ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Scan'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Pause scan
+      tags:
+      - Scans
+  /api/v1/scans/{id}/resume:
+    post:
+      consumes:
+      - application/json
+      description: Resumes a paused scan
+      parameters:
+      - description: Scan ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.Scan'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Resume scan
+      tags:
+      - Scans
+  /api/v1/scans/{id}/schedule-items:
+    post:
+      consumes:
+      - application/json
+      description: Schedules active scans for the specified history items
+      parameters:
+      - description: Scan ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: History items to scan
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.ScheduleScanHistoryItemsInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ActionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Schedule history item scans
+      tags:
+      - Scans
+  /api/v1/scans/{id}/stats:
+    get:
+      consumes:
+      - application/json
+      description: Returns job statistics for a scan
+      parameters:
+      - description: Scan ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ScanStatsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get scan statistics
+      tags:
+      - Scans
   /api/v1/sitemap:
     get:
       consumes:
@@ -3012,6 +4178,52 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Retrieves system statistics such as the current database size.
+      tags:
+      - Stats
+  /api/v1/stats/workers:
+    get:
+      consumes:
+      - application/json
+      description: Returns all worker nodes that have registered with the system,
+        including their
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved worker nodes
+          schema:
+            $ref: '#/definitions/api.WorkerNodesResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Retrieves the list of registered worker nodes with their status and
+        statistics.
+      tags:
+      - Stats
+  /api/v1/stats/workers/cleanup:
+    post:
+      consumes:
+      - application/json
+      description: Identifies worker nodes that haven't sent a heartbeat within the
+        threshold,
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cleanup results
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Cleanup stale worker nodes and reset their claimed jobs.
       tags:
       - Stats
   /api/v1/stats/workspace:
@@ -3381,6 +4593,15 @@ paths:
       summary: Update a workspace
       tags:
       - Workspaces
+  /dashboard:
+    get:
+      description: Returns an HTML page with real-time dashboard
+      produces:
+      - text/html
+      responses: {}
+      summary: Get dashboard HTML page
+      tags:
+      - Dashboard
 securityDefinitions:
   ApiKeyAuth:
     in: header

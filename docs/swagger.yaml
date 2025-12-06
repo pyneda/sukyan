@@ -266,6 +266,30 @@ definitions:
       message:
         type: string
     type: object
+  api.ParseOpenAPISpecInput:
+    properties:
+      base_url:
+        type: string
+      enable_fuzzing:
+        type: boolean
+      include_optional:
+        type: boolean
+      url:
+        type: string
+    required:
+    - url
+    type: object
+  api.ParseOpenAPISpecResponse:
+    properties:
+      base_url:
+        type: string
+      count:
+        type: integer
+      endpoints:
+        items:
+          $ref: '#/definitions/openapi.Endpoint'
+        type: array
+    type: object
   api.PassiveScanInput:
     properties:
       items:
@@ -1153,6 +1177,9 @@ definitions:
         description: direction of the message
       id:
         type: integer
+      is_binary:
+        description: true if payload is binary (base64 encoded)
+        type: boolean
       mask:
         type: boolean
       opcode:
@@ -1327,6 +1354,60 @@ definitions:
       size_bytes:
         type: integer
       size_human:
+        type: string
+    type: object
+  openapi.Endpoint:
+    properties:
+      description:
+        type: string
+      method:
+        type: string
+      operation_id:
+        type: string
+      parameters:
+        items:
+          $ref: '#/definitions/openapi.ParameterMetadata'
+        type: array
+      path:
+        type: string
+      requests:
+        items:
+          $ref: '#/definitions/openapi.RequestVariation'
+        type: array
+      summary:
+        type: string
+    type: object
+  openapi.ParameterMetadata:
+    properties:
+      in:
+        description: query, header, path, cookie
+        type: string
+      name:
+        type: string
+      required:
+        type: boolean
+      schema:
+        additionalProperties: true
+        description: Simplified JSON schema details
+        type: object
+    type: object
+  openapi.RequestVariation:
+    properties:
+      body:
+        items:
+          type: integer
+        type: array
+      description:
+        type: string
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      label:
+        description: e.g., "Happy Path", "SQLi in 'id'", "Boundary 'limit'"
+        type: string
+      url:
+        description: Full URL including query params
         type: string
     type: object
   options.AuditCategories:
@@ -2039,6 +2120,10 @@ paths:
         in: query
         name: connection_id
         type: string
+      - description: Filter by binary messages (true) or text messages (false)
+        in: query
+        name: is_binary
+        type: boolean
       produces:
       - application/json
       responses:
@@ -2495,6 +2580,39 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Schedules a new task to fuzz the provided request
+      tags:
+      - Playground
+  /api/v1/playground/openapi/parse:
+    post:
+      consumes:
+      - application/json
+      description: Fetches and parses an OpenAPI specification from the provided URL,
+        returning parsed endpoint data
+      parameters:
+      - description: OpenAPI Specification URL and configuration
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.ParseOpenAPISpecInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ParseOpenAPISpecResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Parse an OpenAPI specification from a URL
       tags:
       - Playground
   /api/v1/playground/replay:

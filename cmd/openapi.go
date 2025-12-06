@@ -3,8 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 
 	"github.com/pyneda/sukyan/pkg/http_utils"
@@ -93,21 +91,5 @@ func init() {
 }
 
 func fetchOpenAPISpec(url string) ([]byte, error) {
-	client := http_utils.CreateHttpClient()
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch from URL: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("received non-200 response: %d", resp.StatusCode)
-	}
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	return bodyBytes, nil
+	return http_utils.FetchOpenAPISpec(url)
 }

@@ -234,6 +234,27 @@ func (a *Log4ShellInjectionAudit) testItemWithContext(ctx context.Context, item 
 
 	request.Header.Set(item.header, item.payload.GetValue())
 
+	interactionData := item.payload.GetInteractionData()
+	insertionPoint := fmt.Sprintf("%s header", item.header)
+	oobTest, err := db.Connection().CreateOOBTest(db.OOBTest{
+		Code:              db.Log4shellCode,
+		TestName:          "Log4Shell",
+		InteractionDomain: interactionData.InteractionDomain,
+		InteractionFullID: interactionData.InteractionFullID,
+		Target:            a.URL,
+		Payload:           item.payload.GetValue(),
+		InsertionPoint:    insertionPoint,
+		WorkspaceID:       &a.WorkspaceID,
+		TaskID:            &a.TaskID,
+		TaskJobID:         &a.TaskJobID,
+		ScanID:            &a.ScanID,
+		ScanJobID:         &a.ScanJobID,
+	})
+	if err != nil {
+		auditLog.Error().Err(err).Msg("Failed to create OOB test")
+		return
+	}
+
 	executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
 		Client:        client,
 		CreateHistory: true,
@@ -251,6 +272,11 @@ func (a *Log4ShellInjectionAudit) testItemWithContext(ctx context.Context, item 
 	}
 
 	history := executionResult.History
+
+	if history != nil && history.ID != 0 {
+		db.Connection().UpdateOOBTestHistoryID(oobTest.ID, &history.ID)
+	}
+
 	isInResponse, err := item.payload.MatchAgainstString(string(history.RawResponse))
 
 	// This might be un-needed
@@ -277,23 +303,4 @@ func (a *Log4ShellInjectionAudit) testItemWithContext(ctx context.Context, item 
 
 		log.Warn().Str("issue", issue.Title).Str("url", history.URL).Msg("New issue found")
 	}
-
-	interactionData := item.payload.GetInteractionData()
-	insertionPoint := fmt.Sprintf("%s header", item.header)
-	oobTest := db.OOBTest{
-		Code:              db.Log4shellCode,
-		TestName:          "Log4Shell",
-		InteractionDomain: interactionData.InteractionDomain,
-		InteractionFullID: interactionData.InteractionFullID,
-		Target:            a.URL,
-		Payload:           item.payload.GetValue(),
-		HistoryID:         &history.ID,
-		InsertionPoint:    insertionPoint,
-		WorkspaceID:       &a.WorkspaceID,
-		TaskID:            &a.TaskID,
-		TaskJobID:         &a.TaskJobID,
-		ScanID:            &a.ScanID,
-		ScanJobID:         &a.ScanJobID,
-	}
-	db.Connection().CreateOOBTest(oobTest)
 }

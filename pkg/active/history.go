@@ -65,6 +65,16 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	default:
 	}
 
+	// if options.AuditCategories.ServerSide && (options.Mode == scan_options.ScanModeFuzz || scan.PlatformNode.MatchesAnyFingerprint(options.Fingerprints)) {
+	if options.AuditCategories.ServerSide {
+		rscRCE := React2ShellAudit{
+			Options:             activeOptions,
+			HistoryItem:         item,
+			InteractionsManager: interactionsManager,
+		}
+		rscRCE.Run()
+	}
+
 	insertionPoints, err := scan.GetAndAnalyzeInsertionPoints(item, options.InsertionPoints, scan.InsertionPointAnalysisOptions{HistoryCreateOptions: historyCreateOptions})
 	taskLog.Debug().Interface("insertionPoints", insertionPoints).Msg("Insertion points")
 	if err != nil {
@@ -199,6 +209,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	}
 
 	if options.AuditCategories.ServerSide {
+
 		hostHeader := HostHeaderInjectionAudit{
 			Ctx:         ctx,
 			URL:         item.URL,

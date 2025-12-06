@@ -65,8 +65,27 @@ func (a *SNIAudit) Run() {
 		return
 	}
 
-	// Add context to request
 	request = request.WithContext(ctx)
+
+	issueTemplate := db.GetIssueTemplateByCode(db.SniInjectionCode)
+	oobTest, err := db.Connection().CreateOOBTest(db.OOBTest{
+		Code:              db.SniInjectionCode,
+		TestName:          issueTemplate.Title,
+		InteractionDomain: interactionData.URL,
+		InteractionFullID: interactionData.ID,
+		Target:            a.HistoryItem.URL,
+		Payload:           interactionData.URL,
+		InsertionPoint:    "sni",
+		WorkspaceID:       &a.WorkspaceID,
+		TaskID:            &a.TaskID,
+		TaskJobID:         &a.TaskJobID,
+		ScanID:            &a.ScanID,
+		ScanJobID:         &a.ScanJobID,
+	})
+	if err != nil {
+		auditLog.Error().Err(err).Msg("Failed to create OOB test")
+		return
+	}
 
 	executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
 		Client:        client,
@@ -87,23 +106,10 @@ func (a *SNIAudit) Run() {
 	}
 
 	history := executionResult.History
-	issueTemplate := db.GetIssueTemplateByCode(db.SniInjectionCode)
-	oobTest := db.OOBTest{
-		Code:              db.SniInjectionCode,
-		TestName:          issueTemplate.Title,
-		InteractionDomain: interactionData.URL,
-		InteractionFullID: interactionData.ID,
-		Target:            a.HistoryItem.URL,
-		Payload:           interactionData.URL,
-		HistoryID:         &history.ID,
-		InsertionPoint:    "sni",
-		WorkspaceID:       &a.WorkspaceID,
-		TaskID:            &a.TaskID,
-		TaskJobID:         &a.TaskJobID,
-		ScanID:            &a.ScanID,
-		ScanJobID:         &a.ScanJobID,
+
+	if history != nil && history.ID != 0 {
+		db.Connection().UpdateOOBTestHistoryID(oobTest.ID, &history.ID)
 	}
-	db.Connection().CreateOOBTest(oobTest)
 
 	log.Info().Str("url", a.HistoryItem.URL).Msg("SNI Injection audit completed")
 }

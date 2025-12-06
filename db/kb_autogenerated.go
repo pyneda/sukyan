@@ -105,6 +105,7 @@ var (
 	PrivateIpsCode                       IssueCode = "private_ips"
 	PrivateKeysCode                      IssueCode = "private_keys"
 	PythonCodeInjectionCode              IssueCode = "python_code_injection"
+	React2shellCode                      IssueCode = "react2shell"
 	ReactDevelopmentModeCode             IssueCode = "react_development_mode"
 	ReflectedInputCode                   IssueCode = "reflected_input"
 	RemoteFileInclusionCode              IssueCode = "remote_file_inclusion"
@@ -1398,6 +1399,19 @@ var issueTemplates = []IssueTemplate{
 			"https://owasp.org/www-community/attacks/Code_Injection",
 			"https://docs.python.org/3/library/functions.html#eval",
 			"https://docs.python.org/3/library/ast.html#ast.literal_eval",
+		},
+	},
+	{
+		Code:        React2shellCode,
+		Title:       "React2Shell (React Server Components Pre-Auth RCE)",
+		Description: "A pre-authentication remote code execution vulnerability exists in React Server Components versions 19.0.0 through 19.2.0. The vulnerable code unsafely deserializes payloads from HTTP requests to Server Function endpoints, allowing attackers to execute arbitrary JavaScript on the server. This affects applications using React Server Components, including Next.js with the App Router.\nAffected packages include react-server-dom-parcel, react-server-dom-turbopack, and react-server-dom-webpack.\n",
+		Remediation: "Update React to version 19.2.1 or later. Review your Next.js application to ensure you are using the latest patched versions of all React Server Components packages.\n",
+		Cwe:         502,
+		Severity:    "Critical",
+		References: []string{
+			"https://nvd.nist.gov/vuln/detail/CVE-2025-55182",
+			"https://github.com/facebook/react/security/advisories/GHSA-fv66-9v8q-g76r",
+			"https://react2shell.com/",
 		},
 	},
 	{

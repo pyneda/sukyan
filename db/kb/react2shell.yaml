@@ -1,0 +1,20 @@
+code: react2shell
+title: React Server Components Pre-Auth RCE (React2Shell)
+description: >
+  A pre-authentication remote code execution vulnerability exists in React Server
+  Components versions 19.0.0 through 19.2.0. The vulnerable code unsafely deserializes
+  payloads from HTTP requests to Server Function endpoints, allowing attackers to
+  execute arbitrary JavaScript on the server. This affects applications using React
+  Server Components, including Next.js with the App Router.
+
+  Affected packages include react-server-dom-parcel, react-server-dom-turbopack, and
+  react-server-dom-webpack.
+remediation: >
+  Update React to version 19.2.1 or later. Review your Next.js application to ensure
+  you are using the latest patched versions of all React Server Components packages.
+cwe: 502
+severity: Critical
+references:
+  - https://nvd.nist.gov/vuln/detail/CVE-2025-55182
+  - https://github.com/facebook/react/security/advisories/GHSA-fv66-9v8q-g76r
+  - https://react2shell.com/

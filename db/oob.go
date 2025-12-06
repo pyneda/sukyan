@@ -574,9 +574,52 @@ func (d *DatabaseConnection) ListOOBTests(filter OOBTestsFilter) (items []*OOBTe
 
 // UpdateOOBTestHistoryID updates an existing OOBTest with history ID
 func (d *DatabaseConnection) UpdateOOBTestHistoryID(oobTestID uint, historyID *uint) error {
-	result := d.db.Model(&OOBTest{}).Where("id = ?", oobTestID).Update("history_id", historyID)
-	if result.Error != nil {
-		log.Error().Err(result.Error).Uint("history_id", *historyID).Uint("oob_test_id", oobTestID).Msg("Failed to update OOBTest history ID")
-	}
-	return result.Error
+	return d.db.Transaction(func(tx *gorm.DB) error {
+		// Update the OOBTest
+		result := tx.Model(&OOBTest{}).Where("id = ?", oobTestID).Update("history_id", historyID)
+		if result.Error != nil {
+			log.Error().Err(result.Error).Uint("history_id", *historyID).Uint("oob_test_id", oobTestID).Msg("Failed to update OOBTest history ID")
+			return result.Error
+		}
+
+		// Check if this OOBTest is already linked to an Issue
+		var oobTest OOBTest
+		if err := tx.Select("issue_id").First(&oobTest, oobTestID).Error; err != nil {
+			return err
+		}
+
+		// If there is an issue and we have a history ID, update the issue with history data
+		if oobTest.IssueID != nil && *oobTest.IssueID > 0 && historyID != nil && *historyID > 0 {
+			var history History
+			if err := tx.First(&history, *historyID).Error; err != nil {
+				log.Error().Err(err).Uint("history_id", *historyID).Msg("Failed to fetch history for issue update")
+				return err
+			}
+
+			// Update the issue with request/response data
+			issueUpdates := map[string]interface{}{
+				"status_code": history.StatusCode,
+				"http_method": history.Method,
+				"request":     history.RawRequest,
+				"response":    history.RawResponse,
+			}
+
+			if err := tx.Model(&Issue{}).Where("id = ?", *oobTest.IssueID).Updates(issueUpdates).Error; err != nil {
+				log.Error().Err(err).Uint("issue_id", *oobTest.IssueID).Msg("Failed to update issue with history data")
+				return err
+			}
+
+			// Also append to the Requests association
+			var issue Issue
+			if err := tx.First(&issue, *oobTest.IssueID).Error; err == nil {
+				if err := tx.Model(&issue).Association("Requests").Append(&history); err != nil {
+					log.Error().Err(err).Msg("Failed to append history to issue requests")
+				}
+			}
+
+			log.Info().Uint("issue_id", *oobTest.IssueID).Uint("history_id", *historyID).Msg("Updated existing issue with late-arriving history data")
+		}
+
+		return nil
+	})
 }

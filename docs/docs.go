@@ -764,6 +764,12 @@ const docTemplate = `{
                         "description": "Filter messages by WebSocket connection ID",
                         "name": "connection_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by binary messages (true) or text messages (false)",
+                        "name": "is_binary",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1560,6 +1566,57 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/openapi/parse": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Fetches and parses an OpenAPI specification from the provided URL, returning parsed endpoint data",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Parse an OpenAPI specification from a URL",
+                "parameters": [
+                    {
+                        "description": "OpenAPI Specification URL and configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseOpenAPISpecInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseOpenAPISpecResponse"
                         }
                     },
                     "400": {
@@ -3157,6 +3214,43 @@ const docTemplate = `{
                 }
             }
         },
+        "api.ParseOpenAPISpecInput": {
+            "type": "object",
+            "required": [
+                "url"
+            ],
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "enable_fuzzing": {
+                    "type": "boolean"
+                },
+                "include_optional": {
+                    "type": "boolean"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ParseOpenAPISpecResponse": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "endpoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.Endpoint"
+                    }
+                }
+            }
+        },
         "api.PassiveScanInput": {
             "type": "object",
             "required": [
@@ -4447,6 +4541,10 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "is_binary": {
+                    "description": "true if payload is binary (base64 encoded)",
+                    "type": "boolean"
+                },
                 "mask": {
                     "type": "boolean"
                 },
@@ -4703,6 +4801,86 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "size_human": {
+                    "type": "string"
+                }
+            }
+        },
+        "openapi.Endpoint": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "operation_id": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.ParameterMetadata"
+                    }
+                },
+                "path": {
+                    "type": "string"
+                },
+                "requests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.RequestVariation"
+                    }
+                },
+                "summary": {
+                    "type": "string"
+                }
+            }
+        },
+        "openapi.ParameterMetadata": {
+            "type": "object",
+            "properties": {
+                "in": {
+                    "description": "query, header, path, cookie",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "schema": {
+                    "description": "Simplified JSON schema details",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "openapi.RequestVariation": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "label": {
+                    "description": "e.g., \"Happy Path\", \"SQLi in 'id'\", \"Boundary 'limit'\"",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "Full URL including query params",
                     "type": "string"
                 }
             }

@@ -137,6 +137,7 @@ func StartAPI() {
 	api.Get("/playground/sessions", JWTProtected(), ListPlaygroundSessions)
 	api.Post("/playground/sessions", JWTProtected(), CreatePlaygroundSession)
 	api.Get("/playground/wordlists", JWTProtected(), ListAvailableWordlists)
+	api.Post("/playground/openapi/parse", JWTProtected(), ParseOpenAPISpec)
 	api.Get("/stats/workspace", JWTProtected(), WorkspaceStats)
 	api.Get("/stats/system", JWTProtected(), SystemStats)
 	api.Get("/stats/workers", JWTProtected(), ListWorkerNodes)

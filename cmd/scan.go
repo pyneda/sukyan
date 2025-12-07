@@ -38,6 +38,13 @@ var passiveChecks bool
 var discoveryChecks bool
 var websocketChecks bool
 var maxRetries int
+var workers int
+var maxConcurrentJobs int
+var maxRPS int
+var useOrchestrator bool
+var websocketConcurrency int
+var websocketReplayMessages bool
+var websocketObservationWindow int
 
 var validate = validator.New()
 
@@ -99,6 +106,16 @@ var scanCmd = &cobra.Command{
 		headers := lib.ParseHeadersStringToMap(requestsHeadersString)
 		log.Info().Interface("headers", headers).Msg("Parsed headers")
 
+		// Prepare optional int pointers
+		var maxConcurrentJobsPtr *int
+		var maxRPSPtr *int
+		if maxConcurrentJobs > 0 {
+			maxConcurrentJobsPtr = &maxConcurrentJobs
+		}
+		if maxRPS > 0 {
+			maxRPSPtr = &maxRPS
+		}
+
 		options := scan_options.FullScanOptions{
 			Title:              scanTitle,
 			StartURLs:          startURLs,
@@ -118,7 +135,15 @@ var scanCmd = &cobra.Command{
 				Discovery:  discoveryChecks,
 				WebSocket:  websocketChecks,
 			},
-			MaxRetries: maxRetries,
+			WebSocketOptions: scan_options.FullScanWebSocketOptions{
+				Concurrency:       websocketConcurrency,
+				ReplayMessages:    websocketReplayMessages,
+				ObservationWindow: websocketObservationWindow,
+			},
+			MaxRetries:        maxRetries,
+			UseOrchestrator:   useOrchestrator,
+			MaxConcurrentJobs: maxConcurrentJobsPtr,
+			MaxRPS:            maxRPSPtr,
 		}
 		if err := validate.Struct(options); err != nil {
 			log.Error().Err(err).Msg("Validation failed")
@@ -146,9 +171,14 @@ var scanCmd = &cobra.Command{
 		interactionsManager.Start()
 
 		cfg := manager.DefaultConfig()
-		cfg.WorkerCount = viper.GetInt("scan.workers")
-		if cfg.WorkerCount < 1 {
-			cfg.WorkerCount = 5
+		// Use CLI-provided workers, fallback to config, then default to 5
+		if workers > 0 {
+			cfg.WorkerCount = workers
+		} else {
+			cfg.WorkerCount = viper.GetInt("scan.workers")
+			if cfg.WorkerCount < 1 {
+				cfg.WorkerCount = 5
+			}
 		}
 
 		scanManager := manager.New(cfg, db.Connection(), interactionsManager, generators)
@@ -267,4 +297,11 @@ func init() {
 	scanCmd.Flags().BoolVar(&discoveryChecks, "discovery", true, "Enable content discovery audits")
 	scanCmd.Flags().BoolVar(&websocketChecks, "websocket", true, "Enable WebSocket audits")
 	scanCmd.Flags().IntVar(&maxRetries, "max-retries", 3, "Maximum number of retries for failed requests (default: 3)")
+	scanCmd.Flags().IntVar(&workers, "workers", 0, "Number of concurrent workers (0 uses config setting, defaults to 5)")
+	scanCmd.Flags().IntVar(&maxConcurrentJobs, "max-concurrent-jobs", 0, "Maximum concurrent jobs across all workers (0 for unlimited)")
+	scanCmd.Flags().IntVar(&maxRPS, "max-rps", 0, "Maximum requests per second (0 for unlimited)")
+	scanCmd.Flags().BoolVar(&useOrchestrator, "use-orchestrator", false, "Use orchestrator for distributed scanning")
+	scanCmd.Flags().IntVar(&websocketConcurrency, "websocket-concurrency", 1, "WebSocket concurrency level (1-100)")
+	scanCmd.Flags().BoolVar(&websocketReplayMessages, "websocket-replay-messages", false, "Replay WebSocket messages")
+	scanCmd.Flags().IntVar(&websocketObservationWindow, "websocket-observation-window", 10, "WebSocket observation window in seconds (1-100)")
 }

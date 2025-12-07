@@ -194,18 +194,14 @@ func StartAPI() {
 	scans_app.Get("/:id/stats", JWTProtected(), GetScanStatsHandler)
 	scans_app.Post("/:id/schedule-items", JWTProtected(), ScheduleHistoryItemScansHandler)
 
-	// Dashboard endpoints (separate from API, with configurable path and optional basic auth)
+	// Dashboard endpoints (separate from API using basic auth)
 	if viper.GetBool("api.dashboard.enabled") {
 		dashboardPath := viper.GetString("api.dashboard.path")
 		if dashboardPath == "" {
 			dashboardPath = "/dashboard"
 		}
 
-		// Create middleware chain for dashboard
-		var dashboardMiddleware []fiber.Handler
-		if viper.GetBool("api.dashboard.basic_auth.enabled") {
-			dashboardMiddleware = append(dashboardMiddleware, DashboardBasicAuth())
-		}
+		dashboardMiddleware := []fiber.Handler{DashboardBasicAuth()}
 
 		// Register dashboard routes
 		app.Get(dashboardPath, append(dashboardMiddleware, DashboardHTMLHandler)...)

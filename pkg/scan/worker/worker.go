@@ -25,6 +25,7 @@ type Worker struct {
 	registry         *control.Registry
 	executorRegistry *executor.ExecutorRegistry
 	pollInterval     time.Duration
+	scanID           *uint // If set, worker only claims jobs for this scan (isolated mode)
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -38,6 +39,7 @@ type Config struct {
 	Registry         *control.Registry
 	ExecutorRegistry *executor.ExecutorRegistry
 	PollInterval     time.Duration
+	ScanID           *uint // If set, worker only claims jobs for this scan (isolated mode)
 }
 
 // New creates a new worker.
@@ -56,6 +58,7 @@ func New(cfg Config) *Worker {
 		registry:         cfg.Registry,
 		executorRegistry: cfg.ExecutorRegistry,
 		pollInterval:     cfg.PollInterval,
+		scanID:           cfg.ScanID,
 		ctx:              ctx,
 		cancel:           cancel,
 	}
@@ -74,6 +77,12 @@ func (w *Worker) Stop() {
 	w.cancel()
 	w.wg.Wait()
 	log.Info().Str("worker_id", w.id).Msg("Worker stopped")
+}
+
+// SetScanID sets the scan ID filter for isolated mode.
+// When set, the worker will only claim jobs for this specific scan.
+func (w *Worker) SetScanID(scanID uint) {
+	w.scanID = &scanID
 }
 
 // ID returns the worker's ID.
@@ -95,7 +104,15 @@ func (w *Worker) run() {
 		}
 
 		// Try to claim a job
-		job, err := w.queue.Claim(w.ctx, w.id)
+		var job *db.ScanJob
+		var err error
+		if w.scanID != nil {
+			// Isolated mode: only claim jobs for this specific scan
+			job, err = w.queue.ClaimForScan(w.ctx, w.id, *w.scanID)
+		} else {
+			// Distributed mode: claim any available job
+			job, err = w.queue.Claim(w.ctx, w.id)
+		}
 		if err != nil {
 			if w.ctx.Err() != nil {
 				return // Context cancelled

@@ -46,6 +46,34 @@ func (q *PostgresQueue) Claim(ctx context.Context, workerID string) (*db.ScanJob
 	return job, nil
 }
 
+// ClaimForScan atomically claims the next available job for a specific scan.
+// This is used for isolated scanning where workers should only process jobs for one scan.
+func (q *PostgresQueue) ClaimForScan(ctx context.Context, workerID string, scanID uint) (*db.ScanJob, error) {
+	// Check context before attempting to claim
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	job, err := q.dbConn.ClaimScanJobForScan(workerID, scanID)
+	if err != nil {
+		log.Error().Err(err).Str("worker_id", workerID).Uint("scan_id", scanID).Msg("Failed to claim job for scan")
+		return nil, err
+	}
+
+	if job != nil {
+		log.Debug().
+			Uint("job_id", job.ID).
+			Uint("scan_id", job.ScanID).
+			Str("worker_id", workerID).
+			Str("job_type", string(job.JobType)).
+			Msg("Job claimed for specific scan")
+	}
+
+	return job, nil
+}
+
 // Complete marks a job as successfully completed
 func (q *PostgresQueue) Complete(ctx context.Context, jobID uint, result JobResult) error {
 	select {

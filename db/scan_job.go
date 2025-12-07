@@ -368,6 +368,54 @@ func (d *DatabaseConnection) ClaimScanJob(workerID string) (*ScanJob, error) {
 	return &job, nil
 }
 
+// ClaimScanJobForScan atomically claims the next available job for a specific scan.
+// This is used for isolated scanning where workers should only process jobs for one scan.
+// Uses FOR UPDATE SKIP LOCKED for atomic claiming.
+func (d *DatabaseConnection) ClaimScanJobForScan(workerID string, scanID uint) (*ScanJob, error) {
+	var job ScanJob
+	now := time.Now()
+
+	// This query is similar to ClaimScanJob but filters to a specific scan_id
+	err := d.db.Raw(`
+		UPDATE scan_jobs 
+		SET status = ?, worker_id = ?, claimed_at = ?
+		WHERE id = (
+			SELECT sj.id FROM scan_jobs sj
+			JOIN scans s ON sj.scan_id = s.id
+			WHERE sj.status = ?
+			  AND sj.scan_id = ?
+			  AND s.status IN (?, ?)
+			  AND (s.throttled_until IS NULL OR s.throttled_until < ?)
+			  AND (
+				s.max_concurrent_jobs IS NULL
+				OR (SELECT COUNT(*) FROM scan_jobs 
+					WHERE scan_id = sj.scan_id AND status IN (?, ?)) < s.max_concurrent_jobs
+			  )
+			ORDER BY sj.priority DESC, sj.created_at ASC
+			LIMIT 1
+			FOR UPDATE OF sj SKIP LOCKED
+		)
+		RETURNING *
+	`,
+		ScanJobStatusClaimed, workerID, now,
+		ScanJobStatusPending,
+		scanID,
+		ScanStatusCrawling, ScanStatusScanning,
+		now,
+		ScanJobStatusClaimed, ScanJobStatusRunning,
+	).Scan(&job).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	if job.ID == 0 {
+		return nil, nil // No job available for this scan
+	}
+
+	return &job, nil
+}
+
 // SetScanJobStatus updates a job's status
 func (d *DatabaseConnection) SetScanJobStatus(jobID uint, status ScanJobStatus) error {
 	updates := map[string]interface{}{

@@ -22,6 +22,7 @@ type Pool struct {
 	queue            queue.JobQueue
 	registry         *control.Registry
 	executorRegistry *executor.ExecutorRegistry
+	scanID           *uint // If set, workers only claim jobs for this scan (isolated mode)
 
 	// Node registration
 	nodeID            string
@@ -41,6 +42,7 @@ type PoolConfig struct {
 	ExecutorRegistry  *executor.ExecutorRegistry
 	HeartbeatInterval time.Duration
 	Version           string // Application version for tracking
+	ScanID            *uint  // If set, workers only claim jobs for this scan (isolated mode)
 }
 
 // NewPool creates a new worker pool.
@@ -71,6 +73,7 @@ func NewPool(cfg PoolConfig) *Pool {
 		queue:             cfg.Queue,
 		registry:          cfg.Registry,
 		executorRegistry:  cfg.ExecutorRegistry,
+		scanID:            cfg.ScanID,
 		nodeID:            nodeID,
 		heartbeatInterval: cfg.HeartbeatInterval,
 		ctx:               ctx,
@@ -84,6 +87,7 @@ func NewPool(cfg PoolConfig) *Pool {
 			Queue:            cfg.Queue,
 			Registry:         cfg.Registry,
 			ExecutorRegistry: cfg.ExecutorRegistry,
+			ScanID:           cfg.ScanID,
 		})
 	}
 
@@ -236,4 +240,17 @@ func (p *Pool) WorkerIDs() []string {
 // NodeID returns the unique identifier for this worker pool node.
 func (p *Pool) NodeID() string {
 	return p.nodeID
+}
+
+// SetScanID sets the scan ID filter for all workers in the pool.
+// When set, workers will only claim jobs for this specific scan (isolated mode).
+// This is typically called after creating a scan to bind the workers to it.
+func (p *Pool) SetScanID(scanID uint) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.scanID = &scanID
+	for _, w := range p.workers {
+		w.SetScanID(scanID)
+	}
+	log.Info().Uint("scan_id", scanID).Int("workers", len(p.workers)).Msg("Set scan ID filter for worker pool")
 }

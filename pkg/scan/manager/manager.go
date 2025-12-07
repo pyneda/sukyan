@@ -49,6 +49,9 @@ type Config struct {
 	HeartbeatInterval time.Duration
 	// StaleRecoveryInterval is how often to run the stale job recovery loop.
 	StaleRecoveryInterval time.Duration
+	// ScanID limits workers to only process jobs for this scan (isolated mode for CLI).
+	// If nil, workers process jobs for all scans.
+	ScanID *uint
 }
 
 // DefaultConfig returns the default configuration.
@@ -182,6 +185,7 @@ func (sm *ScanManager) Start() error {
 			ExecutorRegistry:  sm.executorRegistry,
 			HeartbeatInterval: sm.config.HeartbeatInterval,
 			Version:           sm.config.Version,
+			ScanID:            sm.config.ScanID,
 		})
 		sm.workerPool.Start()
 
@@ -789,6 +793,15 @@ func (sm *ScanManager) NodeID() string {
 		return ""
 	}
 	return sm.workerPool.NodeID()
+}
+
+// SetScanIDFilter sets the scan ID filter for all workers.
+// When set, workers will only claim jobs for this specific scan (isolated mode).
+// This is typically called after creating a scan to bind the workers to it.
+func (sm *ScanManager) SetScanIDFilter(scanID uint) {
+	if sm.workerPool != nil {
+		sm.workerPool.SetScanID(scanID)
+	}
 }
 
 // GetControlRegistry returns the control registry.

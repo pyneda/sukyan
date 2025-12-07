@@ -34,6 +34,11 @@ type JobQueue interface {
 	// The job status will be set to "claimed" with the worker ID.
 	Claim(ctx context.Context, workerID string) (*db.ScanJob, error)
 
+	// ClaimForScan atomically claims and returns the next available job for a specific scan.
+	// This is used for isolated scanning where workers should only process jobs for one scan.
+	// Returns nil if no job is available for the specified scan.
+	ClaimForScan(ctx context.Context, workerID string, scanID uint) (*db.ScanJob, error)
+
 	// Complete marks a job as successfully completed.
 	Complete(ctx context.Context, jobID uint, result JobResult) error
 

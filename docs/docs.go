@@ -1672,6 +1672,108 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/playground/graphql/parse": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Executes an introspection query against the provided GraphQL endpoint and generates test requests for all queries and mutations",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Parse a GraphQL schema via introspection",
+                "parameters": [
+                    {
+                        "description": "GraphQL endpoint URL and configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseGraphQLSchemaInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseGraphQLSchemaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/graphql/parse-introspection": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Parses GraphQL schema from provided introspection JSON data (useful when introspection endpoint is not directly accessible)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Parse a GraphQL schema from raw introspection data",
+                "parameters": [
+                    {
+                        "description": "Introspection data and configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseGraphQLFromIntrospectionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseGraphQLSchemaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/playground/openapi/parse": {
             "post": {
                 "security": [
@@ -4108,6 +4210,47 @@ const docTemplate = `{
                 }
             }
         },
+        "api.GraphQLSchemaInfo": {
+            "type": "object",
+            "properties": {
+                "enum_count": {
+                    "type": "integer"
+                },
+                "enums": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/graphql.EnumDef"
+                    }
+                },
+                "input_type_count": {
+                    "type": "integer"
+                },
+                "input_types": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/graphql.InputTypeDef"
+                    }
+                },
+                "mutation_count": {
+                    "type": "integer"
+                },
+                "query_count": {
+                    "type": "integer"
+                },
+                "subscription_count": {
+                    "type": "integer"
+                },
+                "type_count": {
+                    "type": "integer"
+                },
+                "types": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/graphql.TypeDef"
+                    }
+                }
+            }
+        },
         "api.HistorySummary": {
             "type": "object",
             "properties": {
@@ -4220,6 +4363,55 @@ const docTemplate = `{
                 }
             }
         },
+        "api.ParseGraphQLFromIntrospectionInput": {
+            "type": "object"
+        },
+        "api.ParseGraphQLSchemaInput": {
+            "type": "object",
+            "required": [
+                "url"
+            ],
+            "properties": {
+                "enable_fuzzing": {
+                    "type": "boolean"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "include_optional": {
+                    "type": "boolean"
+                },
+                "max_depth": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ParseGraphQLSchemaResponse": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "endpoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.OperationEndpoint"
+                    }
+                },
+                "schema": {
+                    "$ref": "#/definitions/api.GraphQLSchemaInfo"
+                }
+            }
+        },
         "api.ParseOpenAPISpecInput": {
             "type": "object",
             "required": [
@@ -4253,6 +4445,18 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/openapi.Endpoint"
+                    }
+                },
+                "global_security": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.SecurityRequirement"
+                    }
+                },
+                "security_schemes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.SecurityScheme"
                     }
                 }
             }
@@ -6547,6 +6751,280 @@ const docTemplate = `{
                 "Critical"
             ]
         },
+        "graphql.Argument": {
+            "type": "object",
+            "properties": {
+                "default_value": {},
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/graphql.TypeRef"
+                }
+            }
+        },
+        "graphql.ArgumentMetadata": {
+            "type": "object",
+            "properties": {
+                "default_value": {},
+                "description": {
+                    "type": "string"
+                },
+                "full_type": {
+                    "description": "The full type signature (e.g., \"[String!]!\")",
+                    "type": "string"
+                },
+                "is_input_object": {
+                    "type": "boolean"
+                },
+                "is_list": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nested_fields": {
+                    "description": "For input object types",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.ArgumentMetadata"
+                    }
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "type_name": {
+                    "description": "The base type name (e.g., \"String\", \"Int\", \"UserInput\")",
+                    "type": "string"
+                }
+            }
+        },
+        "graphql.EnumDef": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "values": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.EnumValue"
+                    }
+                }
+            }
+        },
+        "graphql.EnumValue": {
+            "type": "object",
+            "properties": {
+                "deprecation_reason": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "is_deprecated": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "graphql.Field": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.Argument"
+                    }
+                },
+                "deprecation_reason": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "is_deprecated": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/graphql.TypeRef"
+                }
+            }
+        },
+        "graphql.InputField": {
+            "type": "object",
+            "properties": {
+                "default_value": {},
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/graphql.TypeRef"
+                }
+            }
+        },
+        "graphql.InputTypeDef": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.InputField"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "graphql.OperationEndpoint": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.ArgumentMetadata"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "operation_type": {
+                    "description": "query, mutation, subscription",
+                    "type": "string"
+                },
+                "requests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.RequestVariation"
+                    }
+                },
+                "return_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "graphql.RequestVariation": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "operation_name": {
+                    "type": "string"
+                },
+                "query": {
+                    "description": "The GraphQL query string",
+                    "type": "string"
+                },
+                "variables": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "graphql.TypeDef": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.Field"
+                    }
+                },
+                "interfaces": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "graphql.TypeKind": {
+            "type": "string",
+            "enum": [
+                "SCALAR",
+                "OBJECT",
+                "INTERFACE",
+                "UNION",
+                "ENUM",
+                "INPUT_OBJECT",
+                "LIST",
+                "NON_NULL"
+            ],
+            "x-enum-varnames": [
+                "TypeKindScalar",
+                "TypeKindObject",
+                "TypeKindInterface",
+                "TypeKindUnion",
+                "TypeKindEnum",
+                "TypeKindInputObject",
+                "TypeKindList",
+                "TypeKindNonNull"
+            ]
+        },
+        "graphql.TypeRef": {
+            "type": "object",
+            "properties": {
+                "is_list": {
+                    "description": "True if List at any level",
+                    "type": "boolean"
+                },
+                "kind": {
+                    "$ref": "#/definitions/graphql.TypeKind"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "of_type": {
+                    "description": "For NON_NULL and LIST wrappers",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/graphql.TypeRef"
+                        }
+                    ]
+                },
+                "required": {
+                    "description": "True if NonNull at any level",
+                    "type": "boolean"
+                }
+            }
+        },
         "lib.Fingerprint": {
             "type": "object",
             "properties": {
@@ -6759,6 +7237,13 @@ const docTemplate = `{
                         "$ref": "#/definitions/openapi.RequestVariation"
                     }
                 },
+                "security": {
+                    "description": "Security requirements for this endpoint",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.SecurityRequirement"
+                    }
+                },
                 "summary": {
                     "type": "string"
                 }
@@ -6809,6 +7294,70 @@ const docTemplate = `{
                 "url": {
                     "description": "Full URL including query params",
                     "type": "string"
+                }
+            }
+        },
+        "openapi.SecurityRequirement": {
+            "type": "object",
+            "properties": {
+                "schemes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.SecuritySchemeRef"
+                    }
+                }
+            }
+        },
+        "openapi.SecurityScheme": {
+            "type": "object",
+            "properties": {
+                "bearer_format": {
+                    "description": "Hint about token format (e.g., \"JWT\")",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "Human-readable description",
+                    "type": "string"
+                },
+                "in": {
+                    "description": "For apiKey: header, query, cookie",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Scheme identifier (e.g., \"bearerAuth\")",
+                    "type": "string"
+                },
+                "openid_connect_url": {
+                    "description": "For openIdConnect type",
+                    "type": "string"
+                },
+                "parameter_name": {
+                    "description": "Header/query/cookie name for apiKey",
+                    "type": "string"
+                },
+                "scheme": {
+                    "description": "For http type: bearer, basic, digest, etc.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "http, apiKey, oauth2, openIdConnect, mutualTLS",
+                    "type": "string"
+                }
+            }
+        },
+        "openapi.SecuritySchemeRef": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Reference to SecurityScheme.Name",
+                    "type": "string"
+                },
+                "scopes": {
+                    "description": "OAuth2 scopes if applicable",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

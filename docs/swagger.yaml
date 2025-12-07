@@ -348,6 +348,33 @@ definitions:
       total_running:
         type: integer
     type: object
+  api.GraphQLSchemaInfo:
+    properties:
+      enum_count:
+        type: integer
+      enums:
+        additionalProperties:
+          $ref: '#/definitions/graphql.EnumDef'
+        type: object
+      input_type_count:
+        type: integer
+      input_types:
+        additionalProperties:
+          $ref: '#/definitions/graphql.InputTypeDef'
+        type: object
+      mutation_count:
+        type: integer
+      query_count:
+        type: integer
+      subscription_count:
+        type: integer
+      type_count:
+        type: integer
+      types:
+        additionalProperties:
+          $ref: '#/definitions/graphql.TypeDef'
+        type: object
+    type: object
   api.HistorySummary:
     properties:
       depth:
@@ -421,6 +448,38 @@ definitions:
       poll_interval:
         type: string
     type: object
+  api.ParseGraphQLFromIntrospectionInput:
+    type: object
+  api.ParseGraphQLSchemaInput:
+    properties:
+      enable_fuzzing:
+        type: boolean
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      include_optional:
+        type: boolean
+      max_depth:
+        type: integer
+      url:
+        type: string
+    required:
+    - url
+    type: object
+  api.ParseGraphQLSchemaResponse:
+    properties:
+      base_url:
+        type: string
+      count:
+        type: integer
+      endpoints:
+        items:
+          $ref: '#/definitions/graphql.OperationEndpoint'
+        type: array
+      schema:
+        $ref: '#/definitions/api.GraphQLSchemaInfo'
+    type: object
   api.ParseOpenAPISpecInput:
     properties:
       base_url:
@@ -443,6 +502,14 @@ definitions:
       endpoints:
         items:
           $ref: '#/definitions/openapi.Endpoint'
+        type: array
+      global_security:
+        items:
+          $ref: '#/definitions/openapi.SecurityRequirement'
+        type: array
+      security_schemes:
+        items:
+          $ref: '#/definitions/openapi.SecurityScheme'
         type: array
     type: object
   api.PassiveScanInput:
@@ -2015,6 +2082,192 @@ definitions:
     - Medium
     - High
     - Critical
+  graphql.Argument:
+    properties:
+      default_value: {}
+      description:
+        type: string
+      name:
+        type: string
+      type:
+        $ref: '#/definitions/graphql.TypeRef'
+    type: object
+  graphql.ArgumentMetadata:
+    properties:
+      default_value: {}
+      description:
+        type: string
+      full_type:
+        description: The full type signature (e.g., "[String!]!")
+        type: string
+      is_input_object:
+        type: boolean
+      is_list:
+        type: boolean
+      name:
+        type: string
+      nested_fields:
+        description: For input object types
+        items:
+          $ref: '#/definitions/graphql.ArgumentMetadata'
+        type: array
+      required:
+        type: boolean
+      type_name:
+        description: The base type name (e.g., "String", "Int", "UserInput")
+        type: string
+    type: object
+  graphql.EnumDef:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      values:
+        items:
+          $ref: '#/definitions/graphql.EnumValue'
+        type: array
+    type: object
+  graphql.EnumValue:
+    properties:
+      deprecation_reason:
+        type: string
+      description:
+        type: string
+      is_deprecated:
+        type: boolean
+      name:
+        type: string
+    type: object
+  graphql.Field:
+    properties:
+      arguments:
+        items:
+          $ref: '#/definitions/graphql.Argument'
+        type: array
+      deprecation_reason:
+        type: string
+      description:
+        type: string
+      is_deprecated:
+        type: boolean
+      name:
+        type: string
+      type:
+        $ref: '#/definitions/graphql.TypeRef'
+    type: object
+  graphql.InputField:
+    properties:
+      default_value: {}
+      description:
+        type: string
+      name:
+        type: string
+      type:
+        $ref: '#/definitions/graphql.TypeRef'
+    type: object
+  graphql.InputTypeDef:
+    properties:
+      description:
+        type: string
+      fields:
+        items:
+          $ref: '#/definitions/graphql.InputField'
+        type: array
+      name:
+        type: string
+    type: object
+  graphql.OperationEndpoint:
+    properties:
+      arguments:
+        items:
+          $ref: '#/definitions/graphql.ArgumentMetadata'
+        type: array
+      description:
+        type: string
+      name:
+        type: string
+      operation_type:
+        description: query, mutation, subscription
+        type: string
+      requests:
+        items:
+          $ref: '#/definitions/graphql.RequestVariation'
+        type: array
+      return_type:
+        type: string
+    type: object
+  graphql.RequestVariation:
+    properties:
+      description:
+        type: string
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      label:
+        type: string
+      operation_name:
+        type: string
+      query:
+        description: The GraphQL query string
+        type: string
+      variables:
+        additionalProperties: true
+        type: object
+    type: object
+  graphql.TypeDef:
+    properties:
+      description:
+        type: string
+      fields:
+        items:
+          $ref: '#/definitions/graphql.Field'
+        type: array
+      interfaces:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+    type: object
+  graphql.TypeKind:
+    enum:
+    - SCALAR
+    - OBJECT
+    - INTERFACE
+    - UNION
+    - ENUM
+    - INPUT_OBJECT
+    - LIST
+    - NON_NULL
+    type: string
+    x-enum-varnames:
+    - TypeKindScalar
+    - TypeKindObject
+    - TypeKindInterface
+    - TypeKindUnion
+    - TypeKindEnum
+    - TypeKindInputObject
+    - TypeKindList
+    - TypeKindNonNull
+  graphql.TypeRef:
+    properties:
+      is_list:
+        description: True if List at any level
+        type: boolean
+      kind:
+        $ref: '#/definitions/graphql.TypeKind'
+      name:
+        type: string
+      of_type:
+        allOf:
+        - $ref: '#/definitions/graphql.TypeRef'
+        description: For NON_NULL and LIST wrappers
+      required:
+        description: True if NonNull at any level
+        type: boolean
+    type: object
   lib.Fingerprint:
     properties:
       name:
@@ -2156,6 +2409,11 @@ definitions:
         items:
           $ref: '#/definitions/openapi.RequestVariation'
         type: array
+      security:
+        description: Security requirements for this endpoint
+        items:
+          $ref: '#/definitions/openapi.SecurityRequirement'
+        type: array
       summary:
         type: string
     type: object
@@ -2191,6 +2449,51 @@ definitions:
       url:
         description: Full URL including query params
         type: string
+    type: object
+  openapi.SecurityRequirement:
+    properties:
+      schemes:
+        items:
+          $ref: '#/definitions/openapi.SecuritySchemeRef'
+        type: array
+    type: object
+  openapi.SecurityScheme:
+    properties:
+      bearer_format:
+        description: Hint about token format (e.g., "JWT")
+        type: string
+      description:
+        description: Human-readable description
+        type: string
+      in:
+        description: 'For apiKey: header, query, cookie'
+        type: string
+      name:
+        description: Scheme identifier (e.g., "bearerAuth")
+        type: string
+      openid_connect_url:
+        description: For openIdConnect type
+        type: string
+      parameter_name:
+        description: Header/query/cookie name for apiKey
+        type: string
+      scheme:
+        description: 'For http type: bearer, basic, digest, etc.'
+        type: string
+      type:
+        description: http, apiKey, oauth2, openIdConnect, mutualTLS
+        type: string
+    type: object
+  openapi.SecuritySchemeRef:
+    properties:
+      name:
+        description: Reference to SecurityScheme.Name
+        type: string
+      scopes:
+        description: OAuth2 scopes if applicable
+        items:
+          type: string
+        type: array
     type: object
   options.AuditCategories:
     properties:
@@ -3367,6 +3670,72 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Schedules a new task to fuzz the provided request
+      tags:
+      - Playground
+  /api/v1/playground/graphql/parse:
+    post:
+      consumes:
+      - application/json
+      description: Executes an introspection query against the provided GraphQL endpoint
+        and generates test requests for all queries and mutations
+      parameters:
+      - description: GraphQL endpoint URL and configuration
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.ParseGraphQLSchemaInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ParseGraphQLSchemaResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Parse a GraphQL schema via introspection
+      tags:
+      - Playground
+  /api/v1/playground/graphql/parse-introspection:
+    post:
+      consumes:
+      - application/json
+      description: Parses GraphQL schema from provided introspection JSON data (useful
+        when introspection endpoint is not directly accessible)
+      parameters:
+      - description: Introspection data and configuration
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.ParseGraphQLFromIntrospectionInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ParseGraphQLSchemaResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Parse a GraphQL schema from raw introspection data
       tags:
       - Playground
   /api/v1/playground/openapi/parse:

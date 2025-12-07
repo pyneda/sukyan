@@ -17,9 +17,11 @@ type ParseOpenAPISpecInput struct {
 
 // ParseOpenAPISpecResponse represents the response from parsing an OpenAPI specification.
 type ParseOpenAPISpecResponse struct {
-	Endpoints []openapi.Endpoint `json:"endpoints"`
-	BaseURL   string             `json:"base_url"`
-	Count     int                `json:"count"`
+	Endpoints       []openapi.Endpoint          `json:"endpoints"`
+	SecuritySchemes []openapi.SecurityScheme    `json:"security_schemes,omitempty"`
+	GlobalSecurity  []openapi.SecurityRequirement `json:"global_security,omitempty"`
+	BaseURL         string                      `json:"base_url"`
+	Count           int                         `json:"count"`
 }
 
 // ParseOpenAPISpec godoc
@@ -93,10 +95,16 @@ func ParseOpenAPISpec(c *fiber.Ctx) error {
 		})
 	}
 
+	// Extract security information
+	securitySchemes := doc.GetSecuritySchemes()
+	globalSecurity := doc.GetGlobalSecurityRequirements()
+
 	response := ParseOpenAPISpecResponse{
-		Endpoints: endpoints,
-		BaseURL:   config.BaseURL,
-		Count:     len(endpoints),
+		Endpoints:       endpoints,
+		SecuritySchemes: securitySchemes,
+		GlobalSecurity:  globalSecurity,
+		BaseURL:         config.BaseURL,
+		Count:           len(endpoints),
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response)

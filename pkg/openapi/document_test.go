@@ -99,8 +99,8 @@ func TestGetSecuritySchemes_Swagger2(t *testing.T) {
 	schemes := doc.GetSecuritySchemes()
 	fmt.Printf("Swagger 2.0 - Found %d security schemes\n", len(schemes))
 	for _, scheme := range schemes {
-		fmt.Printf("  - Name: %s, Type: %s, Scheme: %s, In: %s, Header: %s\n",
-			scheme.Name, scheme.Type, scheme.Scheme, scheme.In, scheme.Header)
+		fmt.Printf("  - Name: %s, Type: %s, Scheme: %s, In: %s, ParameterName: %s\n",
+			scheme.Name, scheme.Type, scheme.Scheme, scheme.In, scheme.ParameterName)
 	}
 
 	if len(schemes) == 0 {
@@ -117,8 +117,8 @@ func TestGetSecuritySchemes_OpenAPI3(t *testing.T) {
 	schemes := doc.GetSecuritySchemes()
 	fmt.Printf("OpenAPI 3.0 - Found %d security schemes\n", len(schemes))
 	for _, scheme := range schemes {
-		fmt.Printf("  - Name: %s, Type: %s, Scheme: %s, In: %s, Header: %s\n",
-			scheme.Name, scheme.Type, scheme.Scheme, scheme.In, scheme.Header)
+		fmt.Printf("  - Name: %s, Type: %s, Scheme: %s, In: %s, ParameterName: %s\n",
+			scheme.Name, scheme.Type, scheme.Scheme, scheme.In, scheme.ParameterName)
 	}
 
 	if len(schemes) != 2 {

@@ -1403,7 +1403,7 @@ var issueTemplates = []IssueTemplate{
 	},
 	{
 		Code:        React2shellCode,
-		Title:       "React2Shell (React Server Components Pre-Auth RCE)",
+		Title:       "React Server Components Pre-Auth RCE (React2Shell)",
 		Description: "A pre-authentication remote code execution vulnerability exists in React Server Components versions 19.0.0 through 19.2.0. The vulnerable code unsafely deserializes payloads from HTTP requests to Server Function endpoints, allowing attackers to execute arbitrary JavaScript on the server. This affects applications using React Server Components, including Next.js with the App Router.\nAffected packages include react-server-dom-parcel, react-server-dom-turbopack, and react-server-dom-webpack.\n",
 		Remediation: "Update React to version 19.2.1 or later. Review your Next.js application to ensure you are using the latest patched versions of all React Server Components packages.\n",
 		Cwe:         502,

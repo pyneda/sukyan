@@ -201,3 +201,65 @@ func toJSON(v interface{}) *bytes.Buffer {
 	}
 	return buf
 }
+
+func TestUpdatePlaygroundSession(t *testing.T) {
+	app := fiber.New()
+	app.Put("/api/v1/playground/sessions/:id", UpdatePlaygroundSession)
+
+	// Create a workspace for testing
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
+		Code:        "test-playground",
+		Title:       "test-playground",
+		Description: "test-playground",
+	})
+	assert.NoError(t, err)
+
+	t.Run("ValidUpdate", func(t *testing.T) {
+		// Create a collection
+		collection := &db.PlaygroundCollection{
+			Name:        "Test Collection",
+			WorkspaceID: workspace.ID,
+		}
+		err := db.Connection().CreatePlaygroundCollection(collection)
+		assert.NoError(t, err)
+
+		// Create a session
+		session := &db.PlaygroundSession{
+			Name:         "Original Name",
+			Type:         "manual",
+			CollectionID: collection.ID,
+			WorkspaceID:  workspace.ID,
+		}
+		err = db.Connection().CreatePlaygroundSession(session)
+		assert.NoError(t, err)
+
+		input := UpdatePlaygroundSessionInput{
+			Name: "Updated Session Name",
+		}
+
+		inputJSON, _ := json.Marshal(input)
+		url := fmt.Sprintf("/api/v1/playground/sessions/%d", session.ID)
+		req := httptest.NewRequest(http.MethodPut, url, strings.NewReader(string(inputJSON)))
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
+
+		var response db.PlaygroundSession
+		err = json.NewDecoder(resp.Body).Decode(&response)
+		assert.NoError(t, err)
+		assert.Equal(t, "Updated Session Name", response.Name)
+	})
+
+	t.Run("InvalidID", func(t *testing.T) {
+		input := UpdatePlaygroundSessionInput{Name: "New Name"}
+		inputJSON, _ := json.Marshal(input)
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/playground/sessions/999999", strings.NewReader(string(inputJSON)))
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		assert.NoError(t, err)
+		assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
+	})
+}

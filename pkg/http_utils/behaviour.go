@@ -201,6 +201,10 @@ func (b *SiteBehavior) IsNotFound(history *db.History) bool {
 		log.Debug().Msg("history is nil, returning false")
 		return false
 	}
+	if b.BaseURLSample == nil {
+		log.Debug().Msg("BaseURLSample is nil, cannot determine not found status")
+		return false
+	}
 	logger := history.Logger()
 
 	if b.NotFoundReturns404 {

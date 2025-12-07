@@ -2054,6 +2054,62 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update a playground session by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Update Playground Session by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Playground Session Input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdatePlaygroundSessionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.PlaygroundSession"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/v1/playground/wordlists": {
@@ -2082,6 +2138,108 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/manual.Wordlist"
                             }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/wsdl/parse": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Fetches and parses a WSDL specification, resolving imports and generating SOAP requests for all operations",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Parse a WSDL specification from a URL",
+                "parameters": [
+                    {
+                        "description": "WSDL URL and configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseWSDLInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseWSDLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/wsdl/parse-content": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Parses WSDL from provided XML content (useful when WSDL endpoint is not directly accessible)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Parse a WSDL specification from raw content",
+                "parameters": [
+                    {
+                        "description": "WSDL content and configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseWSDLFromBytesInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseWSDLResponse"
                         }
                     },
                     "400": {
@@ -4024,6 +4182,9 @@ const docTemplate = `{
                     "type": "integer",
                     "minimum": 0
                 },
+                "initial_raw_request": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -4458,6 +4619,80 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/openapi.SecurityScheme"
                     }
+                }
+            }
+        },
+        "api.ParseWSDLFromBytesInput": {
+            "type": "object",
+            "required": [
+                "base_url",
+                "content"
+            ],
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "include_optional": {
+                    "type": "boolean"
+                },
+                "prefer_soap_12": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "api.ParseWSDLInput": {
+            "type": "object",
+            "required": [
+                "url"
+            ],
+            "properties": {
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "include_optional": {
+                    "type": "boolean"
+                },
+                "prefer_soap_12": {
+                    "type": "boolean"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ParseWSDLResponse": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "count": {
+                    "description": "Total operation count",
+                    "type": "integer"
+                },
+                "schema": {
+                    "$ref": "#/definitions/api.WSDLSchemaInfo"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsdl.ServiceEndpoint"
+                    }
+                },
+                "target_namespace": {
+                    "type": "string"
                 }
             }
         },
@@ -5058,6 +5293,43 @@ const docTemplate = `{
                 },
                 "success_rate": {
                     "type": "number"
+                }
+            }
+        },
+        "api.UpdatePlaygroundSessionInput": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.WSDLSchemaInfo": {
+            "type": "object",
+            "properties": {
+                "binding_count": {
+                    "type": "integer"
+                },
+                "message_count": {
+                    "type": "integer"
+                },
+                "operation_count": {
+                    "type": "integer"
+                },
+                "port_count": {
+                    "type": "integer"
+                },
+                "port_type_count": {
+                    "type": "integer"
+                },
+                "service_count": {
+                    "type": "integer"
+                },
+                "type_count": {
+                    "type": "integer"
                 }
             }
         },
@@ -6011,6 +6283,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "initial_raw_request": {
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
@@ -7484,6 +7759,115 @@ const docTemplate = `{
                 "NetworkAuthChallenge",
                 "RuntimeConsoleAPICalled"
             ]
+        },
+        "wsdl.OperationEndpoint": {
+            "type": "object",
+            "properties": {
+                "input_parts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsdl.PartMetadata"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "output_parts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsdl.PartMetadata"
+                    }
+                },
+                "requests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsdl.RequestVariation"
+                    }
+                },
+                "soap_action": {
+                    "type": "string"
+                },
+                "style": {
+                    "description": "\"document\" or \"rpc\"",
+                    "type": "string"
+                }
+            }
+        },
+        "wsdl.PartMetadata": {
+            "type": "object",
+            "properties": {
+                "element_name": {
+                    "type": "string"
+                },
+                "is_complex": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nested_fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsdl.PartMetadata"
+                    }
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "type_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "wsdl.RequestVariation": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "description": "XML string",
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "wsdl.ServiceEndpoint": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "binding_style": {
+                    "type": "string"
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsdl.OperationEndpoint"
+                    }
+                },
+                "port_name": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "soap_version": {
+                    "type": "string"
+                }
+            }
         }
     },
     "securityDefinitions": {

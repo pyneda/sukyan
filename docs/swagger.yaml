@@ -226,6 +226,8 @@ definitions:
       collection_id:
         minimum: 0
         type: integer
+      initial_raw_request:
+        type: string
       name:
         type: string
       original_request_id:
@@ -511,6 +513,55 @@ definitions:
         items:
           $ref: '#/definitions/openapi.SecurityScheme'
         type: array
+    type: object
+  api.ParseWSDLFromBytesInput:
+    properties:
+      base_url:
+        type: string
+      content:
+        type: string
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      include_optional:
+        type: boolean
+      prefer_soap_12:
+        type: boolean
+    required:
+    - base_url
+    - content
+    type: object
+  api.ParseWSDLInput:
+    properties:
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      include_optional:
+        type: boolean
+      prefer_soap_12:
+        type: boolean
+      url:
+        type: string
+    required:
+    - url
+    type: object
+  api.ParseWSDLResponse:
+    properties:
+      base_url:
+        type: string
+      count:
+        description: Total operation count
+        type: integer
+      schema:
+        $ref: '#/definitions/api.WSDLSchemaInfo'
+      services:
+        items:
+          $ref: '#/definitions/wsdl.ServiceEndpoint'
+        type: array
+      target_namespace:
+        type: string
     type: object
   api.PassiveScanInput:
     properties:
@@ -909,6 +960,30 @@ definitions:
         type: integer
       success_rate:
         type: number
+    type: object
+  api.UpdatePlaygroundSessionInput:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  api.WSDLSchemaInfo:
+    properties:
+      binding_count:
+        type: integer
+      message_count:
+        type: integer
+      operation_count:
+        type: integer
+      port_count:
+        type: integer
+      port_type_count:
+        type: integer
+      service_count:
+        type: integer
+      type_count:
+        type: integer
     type: object
   api.WorkerNodeInfo:
     properties:
@@ -1558,6 +1633,8 @@ definitions:
         type: string
       id:
         type: integer
+      initial_raw_request:
+        type: string
       name:
         type: string
       original_request_id:
@@ -2591,6 +2668,78 @@ definitions:
     - SecurityCertificateError
     - NetworkAuthChallenge
     - RuntimeConsoleAPICalled
+  wsdl.OperationEndpoint:
+    properties:
+      input_parts:
+        items:
+          $ref: '#/definitions/wsdl.PartMetadata'
+        type: array
+      name:
+        type: string
+      output_parts:
+        items:
+          $ref: '#/definitions/wsdl.PartMetadata'
+        type: array
+      requests:
+        items:
+          $ref: '#/definitions/wsdl.RequestVariation'
+        type: array
+      soap_action:
+        type: string
+      style:
+        description: '"document" or "rpc"'
+        type: string
+    type: object
+  wsdl.PartMetadata:
+    properties:
+      element_name:
+        type: string
+      is_complex:
+        type: boolean
+      name:
+        type: string
+      nested_fields:
+        items:
+          $ref: '#/definitions/wsdl.PartMetadata'
+        type: array
+      required:
+        type: boolean
+      type_name:
+        type: string
+    type: object
+  wsdl.RequestVariation:
+    properties:
+      body:
+        description: XML string
+        type: string
+      description:
+        type: string
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      label:
+        type: string
+      url:
+        type: string
+    type: object
+  wsdl.ServiceEndpoint:
+    properties:
+      address:
+        type: string
+      binding_style:
+        type: string
+      operations:
+        items:
+          $ref: '#/definitions/wsdl.OperationEndpoint'
+        type: array
+      port_name:
+        type: string
+      service_name:
+        type: string
+      soap_version:
+        type: string
+    type: object
 info:
   contact: {}
   description: The Sukyan API documentation.
@@ -3919,6 +4068,42 @@ paths:
       summary: Get Playground Session by ID
       tags:
       - Playground
+    put:
+      consumes:
+      - application/json
+      description: Update a playground session by its ID
+      parameters:
+      - description: Playground Session ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update Playground Session Input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdatePlaygroundSessionInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.PlaygroundSession'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update Playground Session by ID
+      tags:
+      - Playground
   /api/v1/playground/wordlists:
     get:
       consumes:
@@ -3944,6 +4129,72 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: List available wordlists
+      tags:
+      - Playground
+  /api/v1/playground/wsdl/parse:
+    post:
+      consumes:
+      - application/json
+      description: Fetches and parses a WSDL specification, resolving imports and
+        generating SOAP requests for all operations
+      parameters:
+      - description: WSDL URL and configuration
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.ParseWSDLInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ParseWSDLResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Parse a WSDL specification from a URL
+      tags:
+      - Playground
+  /api/v1/playground/wsdl/parse-content:
+    post:
+      consumes:
+      - application/json
+      description: Parses WSDL from provided XML content (useful when WSDL endpoint
+        is not directly accessible)
+      parameters:
+      - description: WSDL content and configuration
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.ParseWSDLFromBytesInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ParseWSDLResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Parse a WSDL specification from raw content
       tags:
       - Playground
   /api/v1/report:

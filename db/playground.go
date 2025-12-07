@@ -31,6 +31,7 @@ type PlaygroundSession struct {
 	Type              PlaygroundSessionType `json:"type"`
 	OriginalRequest   *History              `json:"-" gorm:"foreignKey:OriginalRequestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	OriginalRequestID *uint                 `json:"original_request_id"`
+	InitialRawRequest string                `json:"initial_raw_request"`
 	// Task              Task                 `json:"-" gorm:"foreignKey:TaskID"`
 	// TaskID            *uint                `json:"task_id"`
 	CollectionID uint                 `json:"collection_id"`

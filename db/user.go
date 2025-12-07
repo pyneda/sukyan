@@ -23,7 +23,7 @@ func (d *DatabaseConnection) CreateUser(user *User) (*User, error) {
 func (d *DatabaseConnection) GetUserByEmail(email string) (*User, error) {
 	var user User
 	if err := d.db.Where("email = ?", email).First(&user).Error; err != nil {
-		log.Error().Err(err).Str("email", email).Msg("Unable to fetch user by email")
+		log.Debug().Err(err).Str("email", email).Msg("Unable to fetch user by email")
 		return nil, err
 	}
 	return &user, nil

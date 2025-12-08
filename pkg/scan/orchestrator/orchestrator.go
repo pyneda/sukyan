@@ -347,43 +347,90 @@ func (o *Orchestrator) startFingerprintPhase(scanEntity *db.Scan) error {
 
 	scanScope := o.getScopeForScan(scanEntity)
 
-	// Get history items discovered during crawl (filtered by scope)
-	items, err := o.getInScopeHistoryItemsForScan(scanEntity, scanScope)
+	// Get base URLs
+	baseURLs, err := o.getInScopeBaseURLsForScan(scanEntity, scanScope)
 	if err != nil {
-		return fmt.Errorf("failed to get history items: %w", err)
+		return fmt.Errorf("failed to get base URLs: %w", err)
 	}
 
-	if len(items) == 0 {
-		scanLog.Warn().Msg("No in-scope history items for fingerprint phase")
+	if len(baseURLs) == 0 {
+		scanLog.Warn().Msg("No in-scope base URLs for fingerprint phase")
 		return nil
 	}
 
-	scanLog.Info().Int("history_count", len(items)).Msg("Processing history items for fingerprinting")
+	scanLog.Info().Int("base_url_count", len(baseURLs)).Msg("Processing base URLs for fingerprinting")
 
-	// Group histories by base URL
-	historiesByBaseURL := o.separateHistoriesByBaseURL(items)
 	fingerprints := make([]lib.Fingerprint, 0)
+	const batchSize = 500 // Process 500 items at a time per base URL
 
-	// Process each base URL
-	for baseURL, histories := range historiesByBaseURL {
-		// Analyze headers
-		passive.AnalyzeHeaders(baseURL, histories)
+	// Process each base URL separately to avoid loading all history at once
+	for _, baseURL := range baseURLs {
+		scanLog.Debug().Str("base_url", baseURL).Msg("Processing base URL")
+
+		// Load history items for this base URL in batches
+		offset := 0
+		allHistoriesForBaseURL := make([]*db.History, 0)
+
+		for {
+			// Fetch a batch of history items for this base URL
+			batch, err := o.getHistoryItemsForBaseURL(scanEntity, scanScope, baseURL, offset, batchSize)
+			if err != nil {
+				scanLog.Error().Err(err).Str("base_url", baseURL).Msg("Failed to get history items for base URL")
+				break
+			}
+
+			if len(batch) == 0 {
+				break
+			}
+
+			allHistoriesForBaseURL = append(allHistoriesForBaseURL, batch...)
+			offset += batchSize
+
+			// Stop if we got fewer items than batch size (end of data)
+			if len(batch) < batchSize {
+				break
+			}
+		}
+
+		if len(allHistoriesForBaseURL) == 0 {
+			continue
+		}
+
+		// Process this base URL's histories
+		passive.AnalyzeHeaders(baseURL, allHistoriesForBaseURL)
 
 		// Fingerprint the history items
-		newFingerprints := passive.FingerprintHistoryItems(histories)
+		newFingerprints := passive.FingerprintHistoryItems(allHistoriesForBaseURL)
 		passive.ReportFingerprints(baseURL, newFingerprints, scanEntity.WorkspaceID, 0)
 		fingerprints = append(fingerprints, newFingerprints...)
+
+		const maxConcurrentRetireJS = 10
+		sem := make(chan struct{}, maxConcurrentRetireJS)
+		var wg sync.WaitGroup
+
+		for _, item := range allHistoriesForBaseURL {
+			wg.Add(1)
+			sem <- struct{}{} // Acquire semaphore
+
+			go func(historyItem *db.History) {
+				defer wg.Done()
+				defer func() { <-sem }() // Release semaphore
+
+				o.retireScanner.HistoryScan(historyItem)
+			}(item)
+		}
+
+		// Wait for all retire.js scans for this base URL to complete
+		wg.Wait()
 
 		// CDN Check
 		_, err := integrations.CDNCheck(baseURL, scanEntity.WorkspaceID, 0)
 		if err != nil {
 			scanLog.Debug().Err(err).Str("base_url", baseURL).Msg("CDN check failed")
 		}
-	}
 
-	// Run retire.js scanning on all items
-	for _, item := range items {
-		go o.retireScanner.HistoryScan(item)
+		// Clear the batch from memory before moving to next base URL
+		allHistoriesForBaseURL = nil
 	}
 
 	// Get fingerprint tags for later use
@@ -558,42 +605,6 @@ func (o *Orchestrator) startDiscoveryPhase(scanEntity *db.Scan) error {
 	return o.scheduler.ScheduleDiscovery(o.ctx, scanEntity.ID, baseURLs)
 }
 
-// getInScopeBaseURLsForScan extracts unique in-scope base URLs from scan history
-func (o *Orchestrator) getInScopeBaseURLsForScan(scanEntity *db.Scan, scanScope scope.Scope) ([]string, error) {
-	filter := db.HistoryFilter{
-		WorkspaceID: scanEntity.WorkspaceID,
-		ScanID:      scanEntity.ID,
-		Pagination: db.Pagination{
-			PageSize: 0, // No pagination - get all items
-		},
-	}
-
-	items, _, err := db.Connection().ListHistory(filter)
-	if err != nil {
-		return nil, err
-	}
-
-	// Extract unique base URLs that are in scope
-	baseURLs := make(map[string]bool)
-	for _, item := range items {
-		if item.URL != "" && scanScope.IsInScope(item.URL) {
-			baseURL, err := lib.GetBaseURL(item.URL)
-			if err != nil {
-				log.Debug().Err(err).Str("url", item.URL).Msg("Failed to get base URL")
-				continue
-			}
-			baseURLs[baseURL] = true
-		}
-	}
-
-	result := make([]string, 0, len(baseURLs))
-	for url := range baseURLs {
-		result = append(result, url)
-	}
-
-	return result, nil
-}
-
 // startNucleiPhase initiates the nuclei scanning phase
 func (o *Orchestrator) startNucleiPhase(scanEntity *db.Scan) error {
 	scanLog := log.With().Uint("scan_id", scanEntity.ID).Logger()
@@ -658,10 +669,10 @@ func (o *Orchestrator) startActiveScanPhase(scanEntity *db.Scan) error {
 
 	scanScope := o.getScopeForScan(scanEntity)
 
-	// Get in-scope history items to scan
-	items, err := o.getInScopeHistoryItemsForScan(scanEntity, scanScope)
+	// Get in-scope history metadata for deduplication and filtering
+	items, err := o.getInScopeHistoryMetadata(scanEntity, scanScope)
 	if err != nil {
-		return fmt.Errorf("failed to get history items: %w", err)
+		return fmt.Errorf("failed to get history metadata: %w", err)
 	}
 
 	if len(items) == 0 {
@@ -983,4 +994,119 @@ func (o *Orchestrator) GetSiteBehavior(scanID uint, baseURL string) *http_utils.
 		return behaviors[baseURL]
 	}
 	return nil
+}
+
+// getInScopeBaseURLsForScan extracts unique in-scope base URLs from scan history
+func (o *Orchestrator) getInScopeBaseURLsForScan(scanEntity *db.Scan, scanScope scope.Scope) ([]string, error) {
+	var urlRecords []struct {
+		URL string
+	}
+
+	err := db.Connection().DB().Model(&db.History{}).
+		Select("DISTINCT url").
+		Where("workspace_id = ? AND scan_id = ?", scanEntity.WorkspaceID, scanEntity.ID).
+		Scan(&urlRecords).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract unique base URLs that are in scope
+	baseURLs := make(map[string]bool)
+	for _, record := range urlRecords {
+		if record.URL != "" && scanScope.IsInScope(record.URL) {
+			baseURL, err := lib.GetBaseURL(record.URL)
+			if err != nil {
+				log.Debug().Err(err).Str("url", record.URL).Msg("Failed to get base URL")
+				continue
+			}
+			baseURLs[baseURL] = true
+		}
+	}
+
+	result := make([]string, 0, len(baseURLs))
+	for url := range baseURLs {
+		result = append(result, url)
+	}
+
+	return result, nil
+}
+
+// getHistoryItemsForBaseURL retrieves history items for a specific base URL with pagination
+func (o *Orchestrator) getHistoryItemsForBaseURL(scanEntity *db.Scan, scanScope scope.Scope, baseURL string, offset, limit int) ([]*db.History, error) {
+	filter := db.HistoryFilter{
+		WorkspaceID: scanEntity.WorkspaceID,
+		ScanID:      scanEntity.ID,
+		Pagination: db.Pagination{
+			Page:     offset/limit + 1,
+			PageSize: limit,
+		},
+	}
+
+	items, _, err := db.Connection().ListHistory(filter)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter by base URL and scope
+	result := make([]*db.History, 0)
+	for _, item := range items {
+		if !scanScope.IsInScope(item.URL) {
+			continue
+		}
+
+		itemBaseURL, err := lib.GetBaseURL(item.URL)
+		if err != nil {
+			continue
+		}
+
+		if itemBaseURL == baseURL {
+			result = append(result, item)
+		}
+	}
+
+	return result, nil
+}
+
+// historyMetadata holds only the metadata fields needed for deduplication
+type historyMetadata struct {
+	ID               uint
+	URL              string
+	Method           string
+	StatusCode       int
+	RequestBodySize  int
+	ResponseBodySize int
+}
+
+// getInScopeHistoryMetadata retrieves history metadata for deduplication in active scan phase
+func (o *Orchestrator) getInScopeHistoryMetadata(scanEntity *db.Scan, scanScope scope.Scope) ([]*db.History, error) {
+	var metadata []historyMetadata
+
+	err := db.Connection().DB().Model(&db.History{}).
+		Select("id, url, method, status_code, request_body_size, response_body_size").
+		Where("workspace_id = ? AND scan_id = ?", scanEntity.WorkspaceID, scanEntity.ID).
+		Scan(&metadata).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to History objects and filter by scope
+	items := make([]*db.History, 0)
+	for _, m := range metadata {
+		if scanScope.IsInScope(m.URL) {
+			items = append(items, &db.History{
+				BaseModel: db.BaseModel{
+					ID: m.ID,
+				},
+				URL:              m.URL,
+				Method:           m.Method,
+				StatusCode:       m.StatusCode,
+				RequestBodySize:  m.RequestBodySize,
+				ResponseBodySize: m.ResponseBodySize,
+			})
+		}
+	}
+
+	return items, nil
 }

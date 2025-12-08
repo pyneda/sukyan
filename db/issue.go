@@ -40,6 +40,10 @@ type Issue struct {
 	Task                  Task                 `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	TaskJobID             *uint                `json:"task_job_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	TaskJob               TaskJob              `json:"-" gorm:"foreignKey:TaskJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	ScanID                *uint                `json:"scan_id" gorm:"index"`
+	Scan                  *Scan                `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	ScanJobID             *uint                `json:"scan_job_id" gorm:"index"`
+	ScanJob               *ScanJob             `json:"-" gorm:"foreignKey:ScanJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	WebsocketConnectionID *uint                `json:"websocket_connection_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	WebSocketConnection   *WebSocketConnection `json:"-" gorm:"foreignKey:WebsocketConnectionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
@@ -141,6 +145,8 @@ type IssueFilter struct {
 	WorkspaceID   uint
 	TaskID        uint
 	TaskJobID     uint
+	ScanID        uint
+	ScanJobID     uint
 	URL           string
 	MinConfidence int
 }
@@ -166,6 +172,14 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 
 	if filter.TaskJobID != 0 {
 		query = query.Where("task_job_id = ?", filter.TaskJobID)
+	}
+
+	if filter.ScanID != 0 {
+		query = query.Where("scan_id = ?", filter.ScanID)
+	}
+
+	if filter.ScanJobID != 0 {
+		query = query.Where("scan_job_id = ?", filter.ScanJobID)
 	}
 
 	if filter.MinConfidence > 0 {
@@ -197,6 +211,17 @@ func (d *DatabaseConnection) ListIssuesGrouped(filter IssueFilter) ([]*GroupedIs
 	}
 	if filter.TaskJobID != 0 {
 		query = query.Where("task_job_id = ?", filter.TaskJobID)
+	}
+	if filter.ScanID != 0 {
+		query = query.Where("scan_id = ?", filter.ScanID)
+	}
+
+	if filter.ScanJobID != 0 {
+		query = query.Where("scan_job_id = ?", filter.ScanJobID)
+	}
+
+	if filter.MinConfidence > 0 {
+		query = query.Where("confidence >= ?", filter.MinConfidence)
 	}
 
 	// Execute the query
@@ -301,11 +326,20 @@ func (d *DatabaseConnection) ListUniqueIssueCodes(filter IssueFilter) ([]string,
 
 // CreateIssue saves an issue to the database
 func (d *DatabaseConnection) CreateIssue(issue Issue) (Issue, error) {
+	// Handle foreign key constraints: set pointers to nil if they point to 0
+	// This is needed because the new scan engine (V2) uses ScanID/ScanJobID instead of TaskID/TaskJobID
+	// When these IDs are 0, passing a pointer to 0 violates the foreign key constraint
 	if issue.TaskID != nil && *issue.TaskID == 0 {
 		issue.TaskID = nil
 	}
 	if issue.TaskJobID != nil && *issue.TaskJobID == 0 {
 		issue.TaskJobID = nil
+	}
+	if issue.ScanID != nil && *issue.ScanID == 0 {
+		issue.ScanID = nil
+	}
+	if issue.ScanJobID != nil && *issue.ScanJobID == 0 {
+		issue.ScanJobID = nil
 	}
 
 	var existingIssue Issue

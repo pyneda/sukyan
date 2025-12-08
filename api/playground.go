@@ -78,7 +78,8 @@ func CreatePlaygroundCollection(c *fiber.Ctx) error {
 type CreatePlaygroundSessionInput struct {
 	Name              string                   `json:"name" validate:"required"`
 	Type              db.PlaygroundSessionType `json:"type"`
-	OriginalRequestID uint                     `json:"original_request_id" validate:"omitempty,min=0"`
+	OriginalRequestID *uint                    `json:"original_request_id" validate:"omitempty,min=1"`
+	InitialRawRequest string                   `json:"initial_raw_request"`
 	CollectionID      uint                     `json:"collection_id" validate:"required,min=0"`
 }
 
@@ -109,7 +110,15 @@ func CreatePlaygroundSession(c *fiber.Ctx) error {
 		})
 	}
 
+	if input.OriginalRequestID != nil && input.InitialRawRequest != "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid input",
+			"message": "original_request_id and initial_raw_request are mutually exclusive",
+		})
+	}
+
 	collection, err := db.Connection().GetPlaygroundCollection(input.CollectionID)
+
 	if err != nil {
 		log.Error().Err(err).Interface("input", input).Msg("Failed to retrieve Playground Collection")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -118,14 +127,35 @@ func CreatePlaygroundSession(c *fiber.Ctx) error {
 		})
 	}
 
-	// original request id should be validated - but probably is gonna be removed.
+	// Validate original_request_id if provided
+	if input.OriginalRequestID != nil {
+		history, err := db.Connection().GetHistoryByID(*input.OriginalRequestID)
+		if err != nil {
+			log.Error().Err(err).Uint("original_request_id", *input.OriginalRequestID).Msg("Failed to retrieve original request")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Invalid original_request_id",
+				"message": "The provided original_request_id does not exist",
+			})
+		}
+
+		// Verify the history record belongs to the same workspace
+		if history.WorkspaceID == nil || *history.WorkspaceID != collection.WorkspaceID {
+			log.Warn().Uint("original_request_id", *input.OriginalRequestID).Uint("collection_workspace", collection.WorkspaceID).Interface("history_workspace", history.WorkspaceID).Msg("Workspace mismatch for original request")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Invalid original_request_id",
+				"message": "The original request does not belong to the same workspace as the collection",
+			})
+		}
+	}
 
 	session := &db.PlaygroundSession{
-		Name: input.Name,
-		Type: input.Type,
-		// OriginalRequestID: &input.OriginalRequestID,
-		CollectionID: input.CollectionID,
-		WorkspaceID:  collection.WorkspaceID,
+		Name:              input.Name,
+		Type:              input.Type,
+		OriginalRequestID: input.OriginalRequestID,
+		InitialRawRequest: input.InitialRawRequest,
+		CollectionID:      input.CollectionID,
+
+		WorkspaceID: collection.WorkspaceID,
 	}
 
 	if err := db.Connection().CreatePlaygroundSession(session); err != nil {
@@ -354,6 +384,67 @@ func GetPlaygroundSession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   "Not Found",
 			"message": "Playground session not found",
+		})
+	}
+
+	return c.JSON(session)
+}
+
+// UpdatePlaygroundSessionInput represents the input for updating a Playground Session.
+type UpdatePlaygroundSessionInput struct {
+	Name string `json:"name" validate:"required"`
+}
+
+// UpdatePlaygroundSession updates a PlaygroundSession by its ID.
+// @Summary Update Playground Session by ID
+// @Description Update a playground session by its ID
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param id path int true "Playground Session ID"
+// @Param input body UpdatePlaygroundSessionInput true "Update Playground Session Input"
+// @Success 200 {object} db.PlaygroundSession
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/sessions/{id} [put]
+func UpdatePlaygroundSession(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid ID",
+			"message": "The provided ID is not valid",
+		})
+	}
+
+	input := new(UpdatePlaygroundSessionInput)
+	if err := c.BodyParser(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Cannot parse JSON",
+		})
+	}
+
+	if err := validate.Struct(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Validation failed",
+			"message": err.Error(),
+		})
+	}
+
+	session, err := db.Connection().GetPlaygroundSessionByID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   "Not Found",
+			"message": "Playground session not found",
+		})
+	}
+
+	session.Name = input.Name
+
+	if err := db.Connection().UpdatePlaygroundSession(session.ID, session); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to update playground session",
+			"message": err.Error(),
 		})
 	}
 

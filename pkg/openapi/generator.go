@@ -13,9 +13,10 @@ import (
 func GenerateRequests(doc *Document, config GenerationConfig) ([]Endpoint, error) {
 	var endpoints []Endpoint
 
-	// Extract security schemes for auth header generation
-	securitySchemes := doc.GetSecuritySchemes()
+	// Extract security schemes for auth header generation (legacy format for internal use)
+	securitySchemes := doc.GetSecuritySchemesLegacy()
 	globalSecurity := doc.GetGlobalSecurity()
+	globalSecurityRequirements := doc.GetGlobalSecurityRequirements()
 
 	ops := doc.GetOperations()
 	for path, methods := range ops {
@@ -43,7 +44,15 @@ func GenerateRequests(doc *Document, config GenerationConfig) ([]Endpoint, error
 				})
 			}
 
-			// Determine which security schemes apply to this operation
+			// Determine security requirements for this endpoint
+			opSecurityReqs, hasOverride := doc.GetOperationSecurityRequirements(op)
+			if hasOverride {
+				endpoint.Security = opSecurityReqs
+			} else {
+				endpoint.Security = globalSecurityRequirements
+			}
+
+			// Determine which security schemes apply to this operation (legacy flat list for header generation)
 			opSecurity := globalSecurity
 			if op.Security != nil && len(*op.Security) > 0 {
 				opSecurity = nil

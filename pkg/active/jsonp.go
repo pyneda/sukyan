@@ -1,6 +1,7 @@
 package active
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -47,6 +48,20 @@ func getCallbacksForMode(mode scan_options.ScanMode, hasJsonParam bool) []string
 func JSONPCallbackScan(history *db.History, options ActiveModuleOptions) {
 	auditLog := log.With().Str("audit", "jsonp").Str("url", history.URL).Uint("workspace", options.WorkspaceID).Logger()
 
+	// Get context, defaulting to background if not provided
+	ctx := options.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		auditLog.Info().Msg("JSONP scan cancelled before starting")
+		return
+	default:
+	}
+
 	if options.Concurrency == 0 {
 		options.Concurrency = 5
 	}
@@ -63,14 +78,33 @@ func JSONPCallbackScan(history *db.History, options ActiveModuleOptions) {
 	p := pool.New().WithMaxGoroutines(options.Concurrency)
 
 	for _, param := range callbacksToTest {
+		// Check context before scheduling each test
+		select {
+		case <-ctx.Done():
+			auditLog.Info().Msg("JSONP scan cancelled during parameter iteration")
+			p.Wait()
+			return
+		default:
+		}
+
 		callbackParam := param
 		p.Go(func() {
+			// Check context before making request
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
 			testCallback := lib.GenerateRandomString(8)
 			request, err := http_utils.BuildRequestFromHistoryItem(history)
 			if err != nil {
 				auditLog.Error().Err(err).Msg("Error creating request")
 				return
 			}
+
+			// Add context to request
+			request = request.WithContext(ctx)
 
 			q := request.URL.Query()
 			q.Add(callbackParam, testCallback)
@@ -83,6 +117,8 @@ func JSONPCallbackScan(history *db.History, options ActiveModuleOptions) {
 					Source:              db.SourceScanner,
 					WorkspaceID:         options.WorkspaceID,
 					TaskID:              options.TaskID,
+					ScanID:              options.ScanID,
+					ScanJobID:           options.ScanJobID,
 					CreateNewBodyStream: false,
 				},
 			})
@@ -202,6 +238,8 @@ func createJSONPIssue(history *db.History, details string, confidence int, optio
 		&options.WorkspaceID,
 		&options.TaskID,
 		&options.TaskJobID,
+		&options.ScanID,
+		&options.ScanJobID,
 	)
 }
 

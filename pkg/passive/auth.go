@@ -74,6 +74,8 @@ func handleBasicAuth(item *db.History, authHeader string) {
 		item.WorkspaceID,
 		item.TaskID,
 		&defaultTaskJobID,
+		item.ScanID,
+		item.ScanJobID,
 	)
 
 	if viper.GetBool("auth.bruteforce.enabled") {
@@ -145,6 +147,8 @@ func handleDigestAuth(item *db.History, authHeader string) {
 		item.WorkspaceID,
 		item.TaskID,
 		&defaultTaskJobID,
+		item.ScanID,
+		item.ScanJobID,
 	)
 
 	if viper.GetBool("auth.bruteforce.enabled") {
@@ -201,6 +205,8 @@ func handleBearerAuth(item *db.History, authHeader string) {
 		item.WorkspaceID,
 		item.TaskID,
 		&defaultTaskJobID,
+		item.ScanID,
+		item.ScanJobID,
 	)
 }
 
@@ -233,6 +239,8 @@ func handleNTLMAuth(item *db.History, authHeader string) {
 		item.WorkspaceID,
 		item.TaskID,
 		&defaultTaskJobID,
+		item.ScanID,
+		item.ScanJobID,
 	)
 }
 
@@ -265,6 +273,8 @@ func handleNegotiateAuth(item *db.History, authHeader string) {
 		item.WorkspaceID,
 		item.TaskID,
 		&defaultTaskJobID,
+		item.ScanID,
+		item.ScanJobID,
 	)
 }
 
@@ -305,6 +315,8 @@ func handleMutualAuth(item *db.History, authHeader string) {
 		item.WorkspaceID,
 		item.TaskID,
 		&defaultTaskJobID,
+		item.ScanID,
+		item.ScanJobID,
 	)
 }
 
@@ -334,6 +346,8 @@ func handleUnknownAuth(item *db.History, authType string, authHeader string) {
 		item.WorkspaceID,
 		item.TaskID,
 		&defaultTaskJobID,
+		item.ScanID,
+		item.ScanJobID,
 	)
 }
 

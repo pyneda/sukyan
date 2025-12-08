@@ -19,6 +19,7 @@ var (
 	minConfidence  int
 	maxRequestSize int
 	taskID         uint
+	scanID         uint
 )
 
 // reportCmd represents the report command
@@ -27,9 +28,27 @@ var reportCmd = &cobra.Command{
 	Aliases: []string{"r"},
 	Short:   "Generates a report for a given workspace",
 	Run: func(cmd *cobra.Command, args []string) {
-		if workspaceID == 0 && taskID == 0 {
-			fmt.Println("Please either provide a workspace or a task to generate a report")
+		if workspaceID == 0 && taskID == 0 && scanID == 0 {
+			fmt.Println("Please provide a workspace, task, or scan to generate a report")
 			return
+		}
+
+		if scanID != 0 {
+			scan, err := db.Connection().GetScanByID(scanID)
+			if err != nil {
+				fmt.Printf("Error fetching scan details: %v\n", err)
+				return
+			}
+			if reportOutput == "" {
+				reportOutput = fmt.Sprintf("scan-%d-report.%s", scan.ID, reportFormat)
+			}
+			if reportTitle == "" {
+				reportTitle = fmt.Sprintf("Report for scan: %s", scan.Title)
+			}
+			// Use scan's workspace if not explicitly provided
+			if workspaceID == 0 {
+				workspaceID = scan.WorkspaceID
+			}
 		}
 
 		if taskID != 0 {
@@ -76,6 +95,7 @@ var reportCmd = &cobra.Command{
 		issues, _, err := db.Connection().ListIssues(db.IssueFilter{
 			WorkspaceID:   workspaceID,
 			TaskID:        taskID,
+			ScanID:        scanID,
 			MinConfidence: minConfidence,
 		})
 
@@ -90,6 +110,7 @@ var reportCmd = &cobra.Command{
 			Title:          reportTitle,
 			Format:         format,
 			TaskID:         taskID,
+			ScanID:         scanID,
 			MaxRequestSize: maxRequestSize,
 		}
 
@@ -127,6 +148,7 @@ func init() {
 
 	reportCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	reportCmd.Flags().UintVarP(&taskID, "task", "t", 0, "Task ID")
+	reportCmd.Flags().UintVarP(&scanID, "scan", "s", 0, "Scan ID (for orchestrator scans)")
 	reportCmd.Flags().StringVarP(&reportTitle, "title", "T", "", "Report Title")
 	reportCmd.Flags().StringVarP(&reportFormat, "format", "f", "html", "Report Format (html or json)")
 	reportCmd.Flags().StringVarP(&reportOutput, "output", "o", "", "Output file path")

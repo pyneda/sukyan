@@ -2,17 +2,18 @@ package api
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
 
+	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
-
-	"os"
-	"strings"
-
-	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/swagger"
 	"github.com/pyneda/sukyan/db"
 	_ "github.com/pyneda/sukyan/docs"
@@ -22,8 +23,6 @@ import (
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-
-	"time"
 )
 
 // @title Sukyan API
@@ -57,6 +56,11 @@ func StartAPI() {
 		interactionsManager.Restart()
 	}
 	interactionsManager.Start()
+
+	// Initialize the scan manager (orchestrator / Scan Engine V2)
+	if err := InitScanManager(interactionsManager, generators); err != nil {
+		apiLogger.Warn().Err(err).Msg("Failed to initialize scan manager - orchestrator scans will not be available")
+	}
 
 	apiLogger.Info().Msg("Initialized everything. Starting the API...")
 
@@ -132,9 +136,18 @@ func StartAPI() {
 	api.Get("/playground/sessions/:id", JWTProtected(), GetPlaygroundSession)
 	api.Get("/playground/sessions", JWTProtected(), ListPlaygroundSessions)
 	api.Post("/playground/sessions", JWTProtected(), CreatePlaygroundSession)
+	api.Put("/playground/sessions/:id", JWTProtected(), UpdatePlaygroundSession)
 	api.Get("/playground/wordlists", JWTProtected(), ListAvailableWordlists)
+
+	api.Post("/playground/openapi/parse", JWTProtected(), ParseOpenAPISpec)
+	api.Post("/playground/graphql/parse", JWTProtected(), ParseGraphQLSchema)
+	api.Post("/playground/graphql/parse-introspection", JWTProtected(), ParseGraphQLFromIntrospection)
+	api.Post("/playground/wsdl/parse", JWTProtected(), ParseWSDL)
+	api.Post("/playground/wsdl/parse-content", JWTProtected(), ParseWSDLFromBytes)
 	api.Get("/stats/workspace", JWTProtected(), WorkspaceStats)
 	api.Get("/stats/system", JWTProtected(), SystemStats)
+	api.Get("/stats/workers", JWTProtected(), ListWorkerNodes)
+	api.Post("/stats/workers/cleanup", JWTProtected(), CleanupStaleWorkers)
 	api.Post("/browser-actions", JWTProtected(), CreateStoredBrowserActions)
 	api.Get("/browser-actions", JWTProtected(), ListStoredBrowserActions)
 	api.Get("/browser-actions/:id", JWTProtected(), GetStoredBrowserActions)
@@ -167,6 +180,34 @@ func StartAPI() {
 	scan_app.Post("/active", JWTProtected(), ActiveScanHandler)
 	scan_app.Post("/active/websocket", JWTProtected(), ActiveWebSocketScanHandler)
 
+	// Scans endpoints (Scan Engine V2 / Orchestrator)
+	scans_app := api.Group("/scans")
+	scans_app.Get("", JWTProtected(), ListScansHandler)
+	scans_app.Get("/:id", JWTProtected(), GetScanHandler)
+	scans_app.Delete("/:id", JWTProtected(), DeleteScanHandler)
+	scans_app.Post("/:id/cancel", JWTProtected(), CancelScanHandler)
+	scans_app.Post("/:id/pause", JWTProtected(), PauseScanHandler)
+	scans_app.Post("/:id/resume", JWTProtected(), ResumeScanHandler)
+	scans_app.Get("/:id/jobs", JWTProtected(), GetScanJobsHandler)
+	scans_app.Get("/:id/jobs/:job_id", JWTProtected(), GetScanJobHandler)
+	scans_app.Post("/:id/jobs/:job_id/cancel", JWTProtected(), CancelScanJobHandler)
+	scans_app.Get("/:id/stats", JWTProtected(), GetScanStatsHandler)
+	scans_app.Post("/:id/schedule-items", JWTProtected(), ScheduleHistoryItemScansHandler)
+
+	// Dashboard endpoints (separate from API using basic auth)
+	if viper.GetBool("api.dashboard.enabled") {
+		dashboardPath := viper.GetString("api.dashboard.path")
+		if dashboardPath == "" {
+			dashboardPath = "/dashboard"
+		}
+
+		dashboardMiddleware := []fiber.Handler{DashboardBasicAuth()}
+
+		// Register dashboard routes
+		app.Get(dashboardPath, append(dashboardMiddleware, DashboardHTMLHandler)...)
+		app.Get(dashboardPath+"/stats", append(dashboardMiddleware, GetDashboardStatsHandler)...)
+	}
+
 	certPath := viper.GetString("server.cert.file")
 	keyPath := viper.GetString("server.key.file")
 	caCertPath := viper.GetString("server.caCert.file")
@@ -178,11 +219,49 @@ func StartAPI() {
 
 	}
 
-	defer db.Cleanup()
+	// Set up graceful shutdown
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	listen_addres := fmt.Sprintf("%v:%v", viper.Get("api.listen.host"), viper.Get("api.listen.port"))
-	if err := app.ListenTLS(listen_addres, certPath, keyPath); err != nil {
-		apiLogger.Warn().Err(err).Msg("Error starting server")
+	// Start server in a goroutine
+	go func() {
+		listen_addres := fmt.Sprintf("%v:%v", viper.Get("api.listen.host"), viper.Get("api.listen.port"))
+		if err := app.ListenTLS(listen_addres, certPath, keyPath); err != nil {
+			apiLogger.Warn().Err(err).Msg("Error starting server")
+		}
+	}()
+
+	apiLogger.Info().
+		Str("host", viper.GetString("api.listen.host")).
+		Int("port", viper.GetInt("api.listen.port")).
+		Msg("API server started")
+
+	// Wait for shutdown signal
+	sig := <-sigCh
+	apiLogger.Info().Str("signal", sig.String()).Msg("Received shutdown signal, starting graceful shutdown...")
+
+	// Graceful shutdown sequence
+	// 1. Stop accepting new requests
+	if err := app.Shutdown(); err != nil {
+		apiLogger.Warn().Err(err).Msg("Error during server shutdown")
 	}
 
+	// 2. Stop the scan manager (this releases jobs and deregisters workers)
+	if sm := GetScanManager(); sm != nil {
+		apiLogger.Info().Msg("Stopping scan manager...")
+		sm.Stop()
+		apiLogger.Info().Msg("Scan manager stopped")
+	}
+
+	// 3. Stop interactions manager
+	if interactionsManager != nil {
+		apiLogger.Info().Msg("Stopping interactions manager...")
+		interactionsManager.Stop()
+		apiLogger.Info().Msg("Interactions manager stopped")
+	}
+
+	// 4. Cleanup database connections
+	db.Cleanup()
+
+	apiLogger.Info().Msg("Graceful shutdown completed")
 }

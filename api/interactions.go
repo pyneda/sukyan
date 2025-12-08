@@ -25,6 +25,9 @@ import (
 // @Param full_ids query string false "Comma-separated list of full IDs to filter by"
 // @Param remote_addresses query string false "Comma-separated list of remote addresses to filter by"
 // @Param oob_test_ids query string false "Comma-separated list of OOB test IDs to filter by"
+// @Param issue_ids query string false "Comma-separated list of issue IDs to filter by"
+// @Param scan_ids query string false "Comma-separated list of scan IDs to filter by (filters via related OOB test)"
+// @Param scan_job_ids query string false "Comma-separated list of scan job IDs to filter by (filters via related OOB test)"
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/interactions [get]
@@ -36,9 +39,12 @@ func FindInteractions(c *fiber.Ctx) error {
 	unparsedFullIDs := c.Query("full_ids")
 	unparsedRemoteAddresses := c.Query("remote_addresses")
 	unparsedOOBTestIDs := c.Query("oob_test_ids")
+	unparsedIssueIDs := c.Query("issue_ids")
+	unparsedScanIDs := c.Query("scan_ids")
+	unparsedScanJobIDs := c.Query("scan_job_ids")
 
 	var protocols, qtypes, fullIDs, remoteAddresses []string
-	var oobTestIDs []uint
+	var oobTestIDs, issueIDs, scanIDs, scanJobIDs []uint
 
 	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
@@ -84,6 +90,30 @@ func FindInteractions(c *fiber.Ctx) error {
 		}
 	}
 
+	if unparsedIssueIDs != "" {
+		issueIDs, err = stringToUintSlice(unparsedIssueIDs, []uint{}, false)
+		if err != nil {
+			log.Error().Err(err).Str("unparsed", unparsedIssueIDs).Msg("Error parsing issue IDs parameter")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid issue IDs parameter"})
+		}
+	}
+
+	if unparsedScanIDs != "" {
+		scanIDs, err = stringToUintSlice(unparsedScanIDs, []uint{}, false)
+		if err != nil {
+			log.Error().Err(err).Str("unparsed", unparsedScanIDs).Msg("Error parsing scan IDs parameter")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid scan IDs parameter"})
+		}
+	}
+
+	if unparsedScanJobIDs != "" {
+		scanJobIDs, err = stringToUintSlice(unparsedScanJobIDs, []uint{}, false)
+		if err != nil {
+			log.Error().Err(err).Str("unparsed", unparsedScanJobIDs).Msg("Error parsing scan job IDs parameter")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid scan job IDs parameter"})
+		}
+	}
+
 	issues, count, err := db.Connection().ListInteractions(db.InteractionsFilter{
 		Pagination: db.Pagination{
 			Page: page, PageSize: pageSize,
@@ -93,6 +123,9 @@ func FindInteractions(c *fiber.Ctx) error {
 		FullIDs:         fullIDs,
 		RemoteAddresses: remoteAddresses,
 		OOBTestIDs:      oobTestIDs,
+		IssueIDs:        issueIDs,
+		ScanIDs:         scanIDs,
+		ScanJobIDs:      scanJobIDs,
 		WorkspaceID:     workspaceID,
 	})
 

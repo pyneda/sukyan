@@ -105,6 +105,8 @@ type HistoryCreationOptions struct {
 	Source              string
 	WorkspaceID         uint
 	TaskID              uint
+	ScanID              uint
+	ScanJobID           uint
 	CreateNewBodyStream bool
 	PlaygroundSessionID uint
 	TaskJobID           uint
@@ -181,6 +183,16 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		playgroundSessionID = &options.PlaygroundSessionID
 	}
 
+	var scanID *uint
+	if options.ScanID > 0 {
+		scanID = &options.ScanID
+	}
+
+	var scanJobID *uint
+	if options.ScanJobID > 0 {
+		scanJobID = &options.ScanJobID
+	}
+
 	record := db.History{
 		URL:                 response.Request.URL.String(),
 		Depth:               lib.CalculateURLDepth(response.Request.URL.String()),
@@ -196,6 +208,8 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		RawResponse:         responseData.Raw,
 		WorkspaceID:         &options.WorkspaceID,
 		TaskID:              &options.TaskID,
+		ScanID:              scanID,
+		ScanJobID:           scanJobID,
 		// TaskJobID:           &options.TaskJobID,
 		PlaygroundSessionID: playgroundSessionID,
 		Proto:               response.Proto,

@@ -1,6 +1,54 @@
 package options
 
-import "github.com/pyneda/sukyan/lib"
+import (
+	"context"
+	"time"
+
+	"github.com/pyneda/sukyan/lib"
+)
+
+// JobTimeouts configures maximum durations for different job types.
+// Jobs exceeding these durations are considered stale and will be reset.
+type JobTimeouts struct {
+	Crawl       time.Duration `json:"crawl"`
+	Discovery   time.Duration `json:"discovery"`
+	ActiveScan  time.Duration `json:"active_scan"`
+	Nuclei      time.Duration `json:"nuclei"`
+	Fingerprint time.Duration `json:"fingerprint"`
+	WebSocket   time.Duration `json:"websocket"`
+}
+
+// DefaultJobTimeouts returns the default job timeouts.
+func DefaultJobTimeouts() JobTimeouts {
+	return JobTimeouts{
+		Crawl:       1 * time.Hour,
+		Discovery:   5 * time.Minute,
+		ActiveScan:  30 * time.Minute,
+		Nuclei:      20 * time.Minute,
+		Fingerprint: 5 * time.Minute,
+		WebSocket:   15 * time.Minute,
+	}
+}
+
+// GetTimeout returns the timeout for a specific job type.
+func (jt JobTimeouts) GetTimeout(jobType string) time.Duration {
+	switch jobType {
+	case "crawl":
+		return jt.Crawl
+	case "discovery":
+		return jt.Discovery
+	case "active_scan":
+		return jt.ActiveScan
+	case "nuclei":
+		return jt.Nuclei
+	case "fingerprint":
+		return jt.Fingerprint
+	case "websocket_scan":
+		return jt.WebSocket
+	default:
+		return 30 * time.Minute // Default fallback
+	}
+}
 
 type ScanMode string
 
@@ -65,9 +113,12 @@ type AuditCategories struct {
 }
 
 type HistoryItemScanOptions struct {
+	Ctx                context.Context   `json:"-"` // Context for cancellation propagation
 	WorkspaceID        uint              `json:"workspace_id" validate:"required,min=0"`
 	TaskID             uint              `json:"task_id" validate:"required,min=0"`
 	TaskJobID          uint              `json:"task_job_id" validate:"required,min=0"`
+	ScanID             uint              `json:"scan_id"`
+	ScanJobID          uint              `json:"scan_job_id"`
 	Mode               ScanMode          `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
 	InsertionPoints    []string          `json:"insertion_points" validate:"omitempty,dive,oneof=parameters urlpath body headers cookies json xml"`
 	FingerprintTags    []string          `json:"fingerprint_tags" validate:"omitempty,dive"`
@@ -105,6 +156,10 @@ type FullScanOptions struct {
 	AuditCategories    AuditCategories          `json:"audit_categories" validate:"required"`
 	WebSocketOptions   FullScanWebSocketOptions `json:"websocket_options" validate:"omitempty"`
 	MaxRetries         int                      `json:"max_retries" validate:"min=0"`
+	UseOrchestrator    bool                     `json:"use_orchestrator"`
+	MaxConcurrentJobs  *int                     `json:"max_concurrent_jobs,omitempty"`
+	MaxRPS             *int                     `json:"max_rps,omitempty"`
+	JobTimeouts        *JobTimeouts             `json:"job_timeouts,omitempty"` // Per-scan job timeout overrides
 }
 
 type FullScanWebSocketOptions struct {

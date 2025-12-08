@@ -1,6 +1,7 @@
 package active
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -17,6 +18,21 @@ const openRedirecTestDomain = "sukyan.com"
 
 func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertionPoints []scan.InsertionPoint) (bool, error) {
 	auditLog := log.With().Str("audit", "open-redirect").Str("url", history.URL).Uint("workspace", options.WorkspaceID).Logger()
+
+	// Get context, defaulting to background if not provided
+	ctx := options.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		auditLog.Info().Msg("Open redirect scan cancelled before starting")
+		return false, ctx.Err()
+	default:
+	}
+
 	payloads := []string{
 		"https://" + openRedirecTestDomain,
 		"//" + openRedirecTestDomain,
@@ -57,6 +73,14 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 	}
 	for _, insertionPoint := range scanInsertionPoints {
 		for _, payload := range payloads {
+			// Check context before each test
+			select {
+			case <-ctx.Done():
+				auditLog.Info().Msg("Open redirect scan cancelled during testing")
+				return false, ctx.Err()
+			default:
+			}
+
 			auditLog.Info().Str("insertionPoint", insertionPoint.Value).Str("payload", payload).Msg("Testing insertion point for open redirect")
 			builders := []scan.InsertionPointBuilder{
 				{
@@ -70,6 +94,9 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 				continue
 			}
 
+			// Add context to request
+			req = req.WithContext(ctx)
+
 			executionResult := http_utils.ExecuteRequest(req, http_utils.RequestExecutionOptions{
 				Client:        client,
 				CreateHistory: true,
@@ -78,6 +105,8 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 					WorkspaceID:         options.WorkspaceID,
 					TaskID:              options.TaskID,
 					TaskJobID:           options.TaskJobID,
+					ScanID:              options.ScanID,
+					ScanJobID:           options.ScanJobID,
 					CreateNewBodyStream: true,
 				},
 			})
@@ -94,7 +123,7 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 					auditLog.Info().Str("insertionPoint", insertionPoint.String()).Str("payload", payload).Msg("Open redirect found")
 
 					details := fmt.Sprintf("Using the payload %s in the insertion point %s, the server redirected the request to %s.", payload, insertionPoint.String(), newLocation)
-					db.CreateIssueFromHistoryAndTemplate(new, db.OpenRedirectCode, details, 90, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID)
+					db.CreateIssueFromHistoryAndTemplate(new, db.OpenRedirectCode, details, 90, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID, &options.ScanID, &options.ScanJobID)
 
 					return true, nil
 

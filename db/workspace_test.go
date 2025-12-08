@@ -126,7 +126,7 @@ func TestDeleteWorkspace(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, history)
 
-	issue, err := CreateIssueFromHistoryAndTemplate(history, SqlInjectionCode, "details", 100, "High", &workspace.ID, nil, nil)
+	issue, err := CreateIssueFromHistoryAndTemplate(history, SqlInjectionCode, "details", 100, "High", &workspace.ID, nil, nil, nil, nil)
 	assert.Nil(t, err)
 	assert.NotNil(t, issue)
 	issueID := issue.ID

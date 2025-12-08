@@ -11,7 +11,7 @@ import (
 	"gorm.io/datatypes"
 )
 
-func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID uint, source string) {
+func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID, scanID, scanJobID uint, source string) {
 	wsConnections := make(map[proto.NetworkRequestID]*db.WebSocketConnection)
 
 	go page.EachEvent(func(e *proto.NetworkWebSocketCreated) {
@@ -20,8 +20,18 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID uint, source s
 			URL:            e.URL,
 			RequestHeaders: datatypes.JSON(headers),
 			WorkspaceID:    &workspaceID,
-			TaskID:         &taskID,
 			Source:         source,
+		}
+		// Only set TaskID if it's not 0 (to avoid FK constraint violation)
+		if taskID != 0 {
+			connection.TaskID = &taskID
+		}
+		// Set ScanID and ScanJobID for the new orchestrator system
+		if scanID != 0 {
+			connection.ScanID = &scanID
+		}
+		if scanJobID != 0 {
+			connection.ScanJobID = &scanJobID
 		}
 		err := db.Connection().CreateWebSocketConnection(connection)
 		if err != nil {

@@ -17,7 +17,7 @@ func apacheStrutsDevModeScan(item *db.History) {
 	matchAgainst := string(item.RawResponse)
 	if strings.Contains(matchAgainst, strutsDevMode) {
 		details := fmt.Sprintf("Apache Struts Dev Mode Detected in response for %s", item.URL)
-		db.CreateIssueFromHistoryAndTemplate(item, db.ApacheStrutsDevModeCode, details, 90, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID)
+		db.CreateIssueFromHistoryAndTemplate(item, db.ApacheStrutsDevModeCode, details, 90, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID, item.ScanID, item.ScanJobID)
 	}
 }
 
@@ -26,6 +26,6 @@ func djangoDebugPageExceptionScan(item *db.History) {
 	matchAgainst := string(item.RawResponse)
 	if strings.Contains(matchAgainst, djangoDebugException) {
 		details := fmt.Sprintf("Django Debug Page Exception Detected in response for %s", item.URL)
-		db.CreateIssueFromHistoryAndTemplate(item, db.DjangoDebugExceptionCode, details, 90, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID)
+		db.CreateIssueFromHistoryAndTemplate(item, db.DjangoDebugExceptionCode, details, 90, "", item.WorkspaceID, item.TaskID, &defaultTaskJobID, item.ScanID, item.ScanJobID)
 	}
 }

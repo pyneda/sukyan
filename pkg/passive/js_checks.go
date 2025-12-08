@@ -68,7 +68,7 @@ func passiveJavascriptSecretsScan(item *db.History) {
 	body, _ := item.ResponseBody()
 	secrets := findSecretsInJavascript(body)
 	for _, secret := range secrets {
-		db.CreateIssueFromHistoryAndTemplate(item, db.SecretsInJsCode, secret.Details, 90, secret.Severity, item.WorkspaceID, item.TaskID, &defaultTaskJobID)
+		db.CreateIssueFromHistoryAndTemplate(item, db.SecretsInJsCode, secret.Details, 90, secret.Severity, item.WorkspaceID, item.TaskID, &defaultTaskJobID, item.ScanID, item.ScanJobID)
 	}
 }
 

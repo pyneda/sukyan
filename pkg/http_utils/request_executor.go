@@ -70,6 +70,7 @@ func ExecuteRequest(req *http.Request, options RequestExecutionOptions) RequestE
 
 	// Handle request body preservation if needed
 	var requestBodyCopy io.ReadCloser
+	var savedBodyBytes []byte
 	if req.Body != nil {
 		bodyBytes, err := io.ReadAll(req.Body)
 		if err != nil {
@@ -77,6 +78,7 @@ func ExecuteRequest(req *http.Request, options RequestExecutionOptions) RequestE
 			result.Duration = time.Since(startTime)
 			return result
 		}
+		savedBodyBytes = bodyBytes
 		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		requestBodyCopy = io.NopCloser(bytes.NewBuffer(bodyBytes))
 	}
@@ -90,6 +92,11 @@ func ExecuteRequest(req *http.Request, options RequestExecutionOptions) RequestE
 		result.TimedOut = IsTimeoutError(err)
 
 		if options.CreateHistory && result.TimedOut {
+			// Restore the body since client.Do consumed it
+			if savedBodyBytes != nil {
+				req.Body = io.NopCloser(bytes.NewBuffer(savedBodyBytes))
+				req.ContentLength = int64(len(savedBodyBytes))
+			}
 			timeoutHistory, historyErr := CreateTimeoutHistory(req, result.Duration, err, options.HistoryCreationOptions)
 			if historyErr != nil {
 				log.Error().Err(historyErr).Msg("Error creating timeout history record")

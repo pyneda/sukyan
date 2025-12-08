@@ -26,14 +26,14 @@ func LaunchUserBrowser(workspaceID uint, initialURL string, taskID uint) {
 	}
 	hijackResultsChannel := make(chan browser.HijackResult)
 
-	browser.Hijack(hc, b, db.SourceBrowser, hijackResultsChannel, workspaceID, taskID)
+	browser.Hijack(hc, b, db.SourceBrowser, hijackResultsChannel, workspaceID, taskID, 0, 0)
 	var page *rod.Page
 	if initialURL != "" {
 		page = b.MustPage(initialURL)
 	} else {
 		page = b.MustPage("")
 	}
-	web.ListenForWebSocketEvents(page, workspaceID, taskID, db.SourceBrowser)
+	web.ListenForWebSocketEvents(page, workspaceID, taskID, 0, 0, db.SourceBrowser)
 	log.Info().Interface("url", page).Msg("Browser loaded")
 	lib.SetupCloseHandler()
 	for {

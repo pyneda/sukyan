@@ -67,6 +67,8 @@ func ReactDevelopmentModeScan(item *db.History) {
 			item.WorkspaceID,
 			item.TaskID,
 			&defaultTaskJobID,
+			item.ScanID,
+			item.ScanJobID,
 		)
 	}
 }

@@ -63,7 +63,11 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -88,7 +92,11 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -107,7 +115,11 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -126,7 +138,11 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -146,7 +162,11 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -155,7 +175,7 @@ func TestFindOOBTests(t *testing.T) {
 	t.Run("Filter by created date", func(t *testing.T) {
 		now := time.Now()
 		yesterday := now.Add(-24 * time.Hour)
-		
+
 		filter := db.OOBTestsFilter{
 			WorkspaceID:  workspace.ID,
 			CreatedAfter: &yesterday,
@@ -168,7 +188,11 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -186,14 +210,18 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		var result map[string]interface{}
 		err := json.NewDecoder(resp.Body).Decode(&result)
 		assert.Nil(t, err)
-		
+
 		data := result["data"].([]interface{})
 		assert.LessOrEqual(t, len(data), 1)
 	})
@@ -212,7 +240,11 @@ func TestFindOOBTestsValidation(t *testing.T) {
 	t.Run("Invalid JSON body", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader([]byte("invalid json")))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
@@ -235,7 +267,11 @@ func TestFindOOBTestsValidation(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
@@ -258,7 +294,11 @@ func TestFindOOBTestsValidation(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
@@ -286,7 +326,11 @@ func TestFindOOBTestsDefaults(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -320,7 +364,11 @@ func TestGetOOBTestDetail(t *testing.T) {
 	// Test successful retrieval
 	t.Run("Get existing OOB test", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/oob-tests/"+strconv.Itoa(int(createdTest.ID)), nil)
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -336,7 +384,11 @@ func TestGetOOBTestDetail(t *testing.T) {
 	t.Run("Get non-existent OOB test", func(t *testing.T) {
 		// Use a very high ID that's unlikely to exist
 		req := httptest.NewRequest("GET", "/oob-tests/999999999", nil)
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 
@@ -349,7 +401,11 @@ func TestGetOOBTestDetail(t *testing.T) {
 	// Test invalid ID format
 	t.Run("Invalid ID format", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/oob-tests/invalid", nil)
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
@@ -430,7 +486,11 @@ func TestFindOOBTestsWithInteractions(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -450,7 +510,11 @@ func TestFindOOBTestsWithInteractions(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, _ := app.Test(req)
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})

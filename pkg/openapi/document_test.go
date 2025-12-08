@@ -6,13 +6,13 @@ import (
 	"testing"
 )
 
-const swagger2Spec = `{
-  "swagger": "2.0",
+const openapi3SpecWithApiKey = `{
+  "openapi": "3.0.0",
   "info": {
     "title": "Test API",
     "version": "1.0"
   },
-  "basePath": "/api/v1",
+  "servers": [{"url": "/api/v1"}],
   "paths": {
     "/issues": {
       "get": {
@@ -38,11 +38,13 @@ const swagger2Spec = `{
       }
     }
   },
-  "securityDefinitions": {
-    "ApiKeyAuth": {
-      "type": "apiKey",
-      "name": "Authorization",
-      "in": "header"
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "name": "Authorization",
+        "in": "header"
+      }
     }
   }
 }`
@@ -84,9 +86,9 @@ const openapi3Spec = `{
 }`
 
 func TestGetSecuritySchemes_Swagger2(t *testing.T) {
-	doc, err := Parse([]byte(swagger2Spec))
+	doc, err := Parse([]byte(openapi3SpecWithApiKey))
 	if err != nil {
-		t.Fatalf("Failed to parse swagger 2.0 spec: %v", err)
+		t.Fatalf("Failed to parse OpenAPI 3.0 spec: %v", err)
 	}
 
 	// Debug: check what's in the spec
@@ -99,8 +101,8 @@ func TestGetSecuritySchemes_Swagger2(t *testing.T) {
 	schemes := doc.GetSecuritySchemes()
 	fmt.Printf("Swagger 2.0 - Found %d security schemes\n", len(schemes))
 	for _, scheme := range schemes {
-		fmt.Printf("  - Name: %s, Type: %s, Scheme: %s, In: %s, Header: %s\n",
-			scheme.Name, scheme.Type, scheme.Scheme, scheme.In, scheme.Header)
+		fmt.Printf("  - Name: %s, Type: %s, Scheme: %s, In: %s, ParameterName: %s\n",
+			scheme.Name, scheme.Type, scheme.Scheme, scheme.In, scheme.ParameterName)
 	}
 
 	if len(schemes) == 0 {
@@ -117,8 +119,8 @@ func TestGetSecuritySchemes_OpenAPI3(t *testing.T) {
 	schemes := doc.GetSecuritySchemes()
 	fmt.Printf("OpenAPI 3.0 - Found %d security schemes\n", len(schemes))
 	for _, scheme := range schemes {
-		fmt.Printf("  - Name: %s, Type: %s, Scheme: %s, In: %s, Header: %s\n",
-			scheme.Name, scheme.Type, scheme.Scheme, scheme.In, scheme.Header)
+		fmt.Printf("  - Name: %s, Type: %s, Scheme: %s, In: %s, ParameterName: %s\n",
+			scheme.Name, scheme.Type, scheme.Scheme, scheme.In, scheme.ParameterName)
 	}
 
 	if len(schemes) != 2 {
@@ -127,9 +129,9 @@ func TestGetSecuritySchemes_OpenAPI3(t *testing.T) {
 }
 
 func TestGenerateRequests_WithAuth(t *testing.T) {
-	doc, err := Parse([]byte(swagger2Spec))
+	doc, err := Parse([]byte(openapi3SpecWithApiKey))
 	if err != nil {
-		t.Fatalf("Failed to parse swagger 2.0 spec: %v", err)
+		t.Fatalf("Failed to parse OpenAPI 3.0 spec: %v", err)
 	}
 
 	config := GenerationConfig{

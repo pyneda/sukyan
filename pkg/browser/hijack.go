@@ -29,7 +29,7 @@ type HijackResult struct {
 	DiscoveredURLs []string
 }
 
-func HijackWithContext(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, ctx context.Context, workspaceID, taskID uint) *rod.HijackRouter {
+func HijackWithContext(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, ctx context.Context, workspaceID, taskID, scanID, scanJobID uint) *rod.HijackRouter {
 	router := browser.HijackRequests()
 	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
 	router.MustAdd("*", func(hj *rod.Hijack) {
@@ -80,7 +80,7 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 					}
 				}()
 				// Additional check for context cancellation
-				history := CreateHistoryFromHijack(hj.Request, hj.Response, source, "Create history from hijack", workspaceID, taskID, 0)
+				history := CreateHistoryFromHijack(hj.Request, hj.Response, source, "Create history from hijack", workspaceID, taskID, scanID, scanJobID, 0)
 				linksFound := passive.ExtractedURLS{}
 				if hj.Request.Type() != "Image" && hj.Request.Type() != "Font" && hj.Request.Type() != "Media" {
 					linksFound = passive.ExtractURLsFromHistoryItem(history)
@@ -105,7 +105,7 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 
 }
 
-func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, workspaceID, taskID uint) {
+func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, workspaceID, taskID, scanID, scanJobID uint) {
 	router := browser.HijackRequests()
 	ignoreKeywords := []string{"google", "twitter", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
 	httpClient := http_utils.CreateHttpClient()
@@ -146,7 +146,7 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 						log.Warn().Msg("Recovered from panic in a hijack goroutine, possibly due to closed channel")
 					}
 				}()
-				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack", workspaceID, taskID, 0)
+				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack", workspaceID, taskID, scanID, scanJobID, 0)
 				linksFound := passive.ExtractedURLS{}
 				if ctx.Request.Type() != "Image" && ctx.Request.Type() != "Font" && ctx.Request.Type() != "Media" {
 					linksFound = passive.ExtractURLsFromHistoryItem(history)
@@ -239,7 +239,7 @@ func DumpHijackResponse(res *rod.HijackResponse) (rawResponse string, body strin
 }
 
 // CreateHistoryFromHijack saves a history request from hijack request/response items.
-func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string, workspaceID, taskID, playgroundSessionID uint) *db.History {
+func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string, workspaceID, taskID, scanID, scanJobID, playgroundSessionID uint) *db.History {
 	rawRequest, reqBody := DumpHijackRequest(request)
 	rawResponse, _ := DumpHijackResponse(response)
 	historyUrl := request.URL().String()
@@ -261,6 +261,12 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		PlaygroundSessionID: &playgroundSessionID,
 		Proto:               request.Req().Proto,
 	}
+	if scanID > 0 {
+		history.ScanID = &scanID
+	}
+	if scanJobID > 0 {
+		history.ScanJobID = &scanJobID
+	}
 	createdHistory, _ := db.Connection().CreateHistory(&history)
 	// log.Debug().Interface("history", history).Msg("New history record created")
 
@@ -268,7 +274,7 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 }
 
 // CreateHistoryFromHijackWithBody saves a history request from hijack request/response items with optional original body
-func CreateHistoryFromHijackWithBody(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string, workspaceID, taskID, playgroundSessionID uint, originalBody ...[]byte) *db.History {
+func CreateHistoryFromHijackWithBody(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string, workspaceID, taskID, scanID, scanJobID, playgroundSessionID uint, originalBody ...[]byte) *db.History {
 	rawRequest, reqBody := DumpHijackRequest(request, originalBody...)
 	rawResponse, _ := DumpHijackResponse(response)
 	historyUrl := request.URL().String()
@@ -289,6 +295,12 @@ func CreateHistoryFromHijackWithBody(request *rod.HijackRequest, response *rod.H
 		TaskID:              &taskID,
 		PlaygroundSessionID: &playgroundSessionID,
 		Proto:               request.Req().Proto,
+	}
+	if scanID > 0 {
+		history.ScanID = &scanID
+	}
+	if scanJobID > 0 {
+		history.ScanJobID = &scanJobID
 	}
 	createdHistory, _ := db.Connection().CreateHistory(&history)
 

@@ -2,13 +2,39 @@ package openapi
 
 // Endpoint represents a single API endpoint (Method + Path) and its generated requests
 type Endpoint struct {
-	Method      string              `json:"method"`
-	Path        string              `json:"path"`
-	OperationID string              `json:"operation_id,omitempty"`
-	Summary     string              `json:"summary,omitempty"`
-	Description string              `json:"description,omitempty"`
-	Parameters  []ParameterMetadata `json:"parameters,omitempty"`
-	Requests    []RequestVariation  `json:"requests"`
+	Method      string                `json:"method"`
+	Path        string                `json:"path"`
+	OperationID string                `json:"operation_id,omitempty"`
+	Summary     string                `json:"summary,omitempty"`
+	Description string                `json:"description,omitempty"`
+	Parameters  []ParameterMetadata   `json:"parameters,omitempty"`
+	Security    []SecurityRequirement `json:"security,omitempty"` // Security requirements for this endpoint
+	Requests    []RequestVariation    `json:"requests"`
+}
+
+// SecurityRequirement represents one valid authentication option.
+// All schemes in the Schemes slice must be used together (AND relationship).
+// Multiple SecurityRequirements in an array represent alternatives (OR relationship).
+type SecurityRequirement struct {
+	Schemes []SecuritySchemeRef `json:"schemes"`
+}
+
+// SecuritySchemeRef references a security scheme with its scopes
+type SecuritySchemeRef struct {
+	Name   string   `json:"name"`             // Reference to SecurityScheme.Name
+	Scopes []string `json:"scopes,omitempty"` // OAuth2 scopes if applicable
+}
+
+// SecurityScheme defines an authentication method available in the API
+type SecurityScheme struct {
+	Name             string `json:"name"`                         // Scheme identifier (e.g., "bearerAuth")
+	Type             string `json:"type"`                         // http, apiKey, oauth2, openIdConnect, mutualTLS
+	Scheme           string `json:"scheme,omitempty"`             // For http type: bearer, basic, digest, etc.
+	In               string `json:"in,omitempty"`                 // For apiKey: header, query, cookie
+	ParameterName    string `json:"parameter_name,omitempty"`     // Header/query/cookie name for apiKey
+	BearerFormat     string `json:"bearer_format,omitempty"`      // Hint about token format (e.g., "JWT")
+	Description      string `json:"description,omitempty"`        // Human-readable description
+	OpenIDConnectURL string `json:"openid_connect_url,omitempty"` // For openIdConnect type
 }
 
 // ParameterMetadata describes a parameter for the endpoint

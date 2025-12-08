@@ -52,6 +52,8 @@ func BruteforceAuthAndCreateIssue(historyItem *db.History, authHeader string, au
 			historyItem.WorkspaceID,
 			historyItem.TaskID,
 			&noTaskJob,
+			historyItem.ScanID,
+			historyItem.ScanJobID,
 		)
 
 		if err != nil {

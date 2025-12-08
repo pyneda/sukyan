@@ -1,6 +1,7 @@
 package active
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -20,6 +21,7 @@ import (
 
 // HostHeaderInjectionAudit configuration
 type HostHeaderInjectionAudit struct {
+	Ctx                context.Context
 	URL                string
 	Concurrency        int
 	HeuristicRecords   []fuzz.HeuristicRecord
@@ -28,6 +30,8 @@ type HostHeaderInjectionAudit struct {
 	WorkspaceID        uint
 	TaskID             uint
 	TaskJobID          uint
+	ScanID             uint
+	ScanJobID          uint
 }
 
 type hostHeaderInjectionAuditItem struct {
@@ -73,6 +77,20 @@ func (a *HostHeaderInjectionAudit) GetHeadersToTest() (headers []string) {
 
 // Run starts the audit
 func (a *HostHeaderInjectionAudit) Run() {
+	// Get context, defaulting to background if not provided
+	ctx := a.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		log.Info().Str("url", a.URL).Msg("Host header injection audit cancelled before starting")
+		return
+	default:
+	}
+
 	auditItemsChannel := make(chan hostHeaderInjectionAuditItem)
 	pendingChannel := make(chan int)
 	var wg sync.WaitGroup
@@ -80,15 +98,23 @@ func (a *HostHeaderInjectionAudit) Run() {
 	// Schedule workers
 	for i := 0; i < a.Concurrency; i++ {
 		wg.Add(1)
-		go a.worker(auditItemsChannel, pendingChannel, &wg)
+		go a.workerWithContext(ctx, auditItemsChannel, pendingChannel, &wg)
 	}
 	// Schedule goroutine to monitor pending tasks
-	go a.monitor(auditItemsChannel, pendingChannel)
+	go a.monitor(pendingChannel)
 	log.Info().Str("url", a.URL).Msg("Starting to schedule Host header injection audit items")
 
 	// Add tests to the channel
+schedulingLoop:
 	for _, header := range a.GetHeadersToTest() {
 		for _, payload := range payloads.GetHostHeaderInjectionPayloads() {
+			// Check context before scheduling each item
+			select {
+			case <-ctx.Done():
+				log.Info().Str("url", a.URL).Msg("Host header injection audit cancelled during scheduling")
+				break schedulingLoop
+			default:
+			}
 			pendingChannel <- 1
 			auditItemsChannel <- hostHeaderInjectionAuditItem{
 				payload: payload,
@@ -96,32 +122,49 @@ func (a *HostHeaderInjectionAudit) Run() {
 			}
 		}
 	}
+
+	// Close the audit items channel to signal no more items will be sent
+	log.Info().Str("url", a.URL).Msg("Host header audit finished scheduling, closing audit items channel")
+	close(auditItemsChannel)
+
+	// Wait for all workers to complete
 	wg.Wait()
+
+	// Close the pending channel after all workers are done
+	close(pendingChannel)
 	log.Info().Str("url", a.URL).Msg("All host header injection audit items completed")
 }
 
-func (a *HostHeaderInjectionAudit) worker(auditItems chan hostHeaderInjectionAuditItem, pendingChannel chan int, wg *sync.WaitGroup) {
+func (a *HostHeaderInjectionAudit) workerWithContext(ctx context.Context, auditItems chan hostHeaderInjectionAuditItem, pendingChannel chan int, wg *sync.WaitGroup) {
 	for auditItem := range auditItems {
-		a.testItem(auditItem)
+		// Check context before processing each item
+		select {
+		case <-ctx.Done():
+			pendingChannel <- -1
+			continue
+		default:
+		}
+		a.testItemWithContext(ctx, auditItem)
 		pendingChannel <- -1
 	}
 	wg.Done()
 }
 
-func (a *HostHeaderInjectionAudit) monitor(auditItems chan hostHeaderInjectionAuditItem, pendingChannel chan int) {
+func (a *HostHeaderInjectionAudit) monitor(pendingChannel chan int) {
 	count := 0
 	log.Debug().Str("url", a.URL).Msg("Host header audit monitor started")
 	for c := range pendingChannel {
 		count += c
-		if count == 0 {
-			log.Info().Str("url", a.URL).Msg("Host header audit finished, closing communication channels")
-			close(auditItems)
-			close(pendingChannel)
-		}
+		log.Debug().Str("url", a.URL).Int("pending", count).Msg("Host header audit pending count updated")
 	}
+	log.Debug().Str("url", a.URL).Msg("Host header audit monitor finished")
 }
 
 func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
+	a.testItemWithContext(context.Background(), item)
+}
+
+func (a *HostHeaderInjectionAudit) testItemWithContext(ctx context.Context, item hostHeaderInjectionAuditItem) {
 	// Just basic implementation, by now just check if the payload appended in the host header appears in the response, still should:
 	// - Check if response differs when the header appears or not
 	// - Use the data gathered in previous steps to compare with the current implementation results
@@ -129,7 +172,7 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 	// - Could also probably send all headers at once
 	client := http_utils.CreateHttpClient()
 	auditLog := log.With().Str("audit", "host-header-injection").Interface("auditItem", item).Str("url", a.URL).Logger()
-	request, err := http.NewRequest("GET", a.URL, nil)
+	request, err := http.NewRequestWithContext(ctx, "GET", a.URL, nil)
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error creating request")
 		return
@@ -144,6 +187,8 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 			Source:              db.SourceScanner,
 			WorkspaceID:         uint(a.WorkspaceID),
 			TaskID:              uint(a.TaskID),
+			ScanID:              a.ScanID,
+			ScanJobID:           a.ScanJobID,
 			CreateNewBodyStream: true,
 		},
 	})
@@ -158,6 +203,6 @@ func (a *HostHeaderInjectionAudit) testItem(item hostHeaderInjectionAuditItem) {
 
 	if isInResponse {
 		details := fmt.Sprintf("A host header injection vulnerability has been detected in %s. The audit test send the following payload `%s` in `%s` header and it has been verified is included back in the response", a.URL, item.payload.GetValue(), item.header)
-		db.CreateIssueFromHistoryAndTemplate(history, db.HostHeaderInjectionCode, details, 75, "", &a.WorkspaceID, &a.TaskID, &a.TaskJobID)
+		db.CreateIssueFromHistoryAndTemplate(history, db.HostHeaderInjectionCode, details, 75, "", &a.WorkspaceID, &a.TaskID, &a.TaskJobID, &a.ScanID, &a.ScanJobID)
 	}
 }

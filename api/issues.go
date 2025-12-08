@@ -21,6 +21,8 @@ import (
 // @Param workspace query int true "Workspace ID"
 // @Param task query int false "Task ID"
 // @Param taskjob query int false "Task Job ID"
+// @Param scan_id query int false "Scan ID"
+// @Param scan_job_id query int false "Scan Job ID"
 // @Param codes query string false "Comma-separated list of issue codes to filter by"
 // @Success 200 {array} db.Issue
 // @Failure 500 {object} ErrorResponse
@@ -51,6 +53,22 @@ func FindIssues(c *fiber.Ctx) error {
 		})
 	}
 
+	scanID, err := parseScanID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid scan",
+			"message": "The provided scan ID does not seem valid",
+		})
+	}
+
+	scanJobID, err := parseScanJobID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid scan job",
+			"message": "The provided scan job ID does not seem valid",
+		})
+	}
+
 	unparsedIssueCodes := c.Query("codes")
 	var issueCodes []string
 	if unparsedIssueCodes != "" {
@@ -62,6 +80,8 @@ func FindIssues(c *fiber.Ctx) error {
 		WorkspaceID: workspaceID,
 		TaskID:      taskID,
 		TaskJobID:   taskJobID,
+		ScanID:      scanID,
+		ScanJobID:   scanJobID,
 		Codes:       issueCodes,
 	})
 	if err != nil {
@@ -80,6 +100,8 @@ func FindIssues(c *fiber.Ctx) error {
 // @Param workspace query int true "Workspace ID"
 // @Param task query int false "Task ID"
 // @Param taskjob query int false "Task Job ID"
+// @Param scan_id query int false "Scan ID"
+// @Param scan_job_id query int false "Scan Job ID"
 // @Success 200 {array} db.GroupedIssue
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
@@ -109,10 +131,28 @@ func FindIssuesGrouped(c *fiber.Ctx) error {
 		})
 	}
 
+	scanID, err := parseScanID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid scan",
+			"message": "The provided scan ID does not seem valid",
+		})
+	}
+
+	scanJobID, err := parseScanJobID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid scan job",
+			"message": "The provided scan job ID does not seem valid",
+		})
+	}
+
 	issues, err := db.Connection().ListIssuesGrouped(db.IssueFilter{
 		WorkspaceID: workspaceID,
 		TaskID:      taskID,
 		TaskJobID:   taskJobID,
+		ScanID:      scanID,
+		ScanJobID:   scanJobID,
 	})
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get issues grouped")

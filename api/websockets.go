@@ -20,6 +20,8 @@ import (
 // @Param page query integer false "Page number" default(1)
 // @Param workspace query int true "Workspace ID"
 // @Param task query int false "Task ID"
+// @Param scan_id query int false "Scan ID"
+// @Param scan_job_id query int false "Scan Job ID"
 // @Param sources query string false "Comma-separated list of sources to filter by"
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
@@ -58,6 +60,22 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 		})
 	}
 
+	scanID, err := parseScanID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid scan",
+			"message": "The provided scan ID does not seem valid",
+		})
+	}
+
+	scanJobID, err := parseScanJobID(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid scan job",
+			"message": "The provided scan job ID does not seem valid",
+		})
+	}
+
 	if unparsedSources != "" {
 		for _, source := range strings.Split(unparsedSources, ",") {
 			if db.IsValidSource(source) {
@@ -74,6 +92,8 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 		},
 		WorkspaceID: workspaceID,
 		TaskID:      taskID,
+		ScanID:      scanID,
+		ScanJobID:   scanJobID,
 		Sources:     sources,
 	})
 

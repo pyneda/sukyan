@@ -205,9 +205,12 @@ func BruteforceAuth(historyItem *db.History, authHeader string, config AuthBrute
 
 	p := pool.New().WithMaxGoroutines(config.Concurrency).WithContext(ctx)
 
-	historyOptions := http_utils.HistoryCreationOptions{
-		WorkspaceID: *historyItem.WorkspaceID,
-		TaskID:      *historyItem.TaskID,
+	historyOptions := http_utils.HistoryCreationOptions{}
+	if historyItem.WorkspaceID != nil {
+		historyOptions.WorkspaceID = *historyItem.WorkspaceID
+	}
+	if historyItem.TaskID != nil {
+		historyOptions.TaskID = *historyItem.TaskID
 	}
 
 	var digestState *DigestState

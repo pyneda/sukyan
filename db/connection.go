@@ -60,10 +60,7 @@ func initDb() *DatabaseConnection {
 		return connection
 	}
 
-	// Set up viper to read from the environment
-	viper.AutomaticEnv()
-
-	dsn := viper.GetString("POSTGRES_DSN")
+	dsn := os.Getenv("POSTGRES_DSN")
 	if dsn == "" {
 		log.Error().Msg("POSTGRES_DSN environment variable not set")
 		os.Exit(1)
@@ -90,36 +87,8 @@ func initDb() *DatabaseConnection {
 		os.Exit(1)
 	}
 
-	// Create PostgreSQL enum and extensions
-	sql := `DO $$ BEGIN
-		CREATE TYPE severity AS ENUM ('Unknown', 'Info', 'Low', 'Medium', 'High', 'Critical');
-	EXCEPTION
-		WHEN duplicate_object THEN null;
-	END $$;`
-	db.Exec(sql)
+	// Create PostgreSQL extensions that migrations may depend on
 	db.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`)
-
-	// Migrate models
-	if err := db.AutoMigrate(
-		&Workspace{},
-		&History{},
-		&Issue{},
-		&OOBTest{},
-		&OOBInteraction{},
-		&Task{},
-		&TaskJob{},
-		&WebSocketConnection{},
-		&WebSocketMessage{},
-		&JsonWebToken{},
-		&WorkspaceCookie{},
-		&StoredBrowserActions{},
-		&User{},
-		&RefreshToken{},
-		&PlaygroundCollection{},
-		&PlaygroundSession{}); err != nil {
-		log.Error().Err(err).Msg("Failed to migrate tables")
-		os.Exit(1)
-	}
 
 	sqlDB, err := db.DB()
 	if err != nil {

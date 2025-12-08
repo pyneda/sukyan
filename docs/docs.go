@@ -407,6 +407,29 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/dashboard/stats": {
+            "get": {
+                "description": "Returns real-time statistics for monitoring scan queue and orchestrator",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Get dashboard statistics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.DashboardStats"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/history": {
             "get": {
                 "security": [
@@ -479,6 +502,18 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Task ID",
                         "name": "task",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "scan_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Scan Job ID",
+                        "name": "scan_job_id",
                         "in": "query"
                     },
                     {
@@ -667,6 +702,18 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "scan_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Scan Job ID",
+                        "name": "scan_job_id",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "Comma-separated list of sources to filter by",
                         "name": "sources",
@@ -763,6 +810,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Filter messages by WebSocket connection ID",
                         "name": "connection_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by binary messages (true) or text messages (false)",
+                        "name": "is_binary",
                         "in": "query"
                     }
                 ],
@@ -955,6 +1008,24 @@ const docTemplate = `{
                         "description": "Comma-separated list of OOB test IDs to filter by",
                         "name": "oob_test_ids",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of issue IDs to filter by",
+                        "name": "issue_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of scan IDs to filter by (filters via related OOB test)",
+                        "name": "scan_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of scan job IDs to filter by (filters via related OOB test)",
+                        "name": "scan_job_ids",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1052,6 +1123,18 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "scan_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Scan Job ID",
+                        "name": "scan_job_id",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "Comma-separated list of issue codes to filter by",
                         "name": "codes",
@@ -1113,6 +1196,18 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Task Job ID",
                         "name": "taskjob",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "scan_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Scan Job ID",
+                        "name": "scan_job_id",
                         "in": "query"
                     }
                 ],
@@ -1577,6 +1672,159 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/playground/graphql/parse": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Executes an introspection query against the provided GraphQL endpoint and generates test requests for all queries and mutations",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Parse a GraphQL schema via introspection",
+                "parameters": [
+                    {
+                        "description": "GraphQL endpoint URL and configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseGraphQLSchemaInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseGraphQLSchemaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/graphql/parse-introspection": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Parses GraphQL schema from provided introspection JSON data (useful when introspection endpoint is not directly accessible)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Parse a GraphQL schema from raw introspection data",
+                "parameters": [
+                    {
+                        "description": "Introspection data and configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseGraphQLFromIntrospectionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseGraphQLSchemaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/openapi/parse": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Fetches and parses an OpenAPI specification from the provided URL, returning parsed endpoint data",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Parse an OpenAPI specification from a URL",
+                "parameters": [
+                    {
+                        "description": "OpenAPI Specification URL and configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseOpenAPISpecInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseOpenAPISpecResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/playground/replay": {
             "post": {
                 "security": [
@@ -1806,6 +2054,62 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update a playground session by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Update Playground Session by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Playground Session Input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdatePlaygroundSessionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.PlaygroundSession"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/v1/playground/wordlists": {
@@ -1834,6 +2138,108 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/manual.Wordlist"
                             }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/wsdl/parse": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Fetches and parses a WSDL specification, resolving imports and generating SOAP requests for all operations",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Parse a WSDL specification from a URL",
+                "parameters": [
+                    {
+                        "description": "WSDL URL and configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseWSDLInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseWSDLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/wsdl/parse-content": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Parses WSDL from provided XML content (useful when WSDL endpoint is not directly accessible)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Parse a WSDL specification from raw content",
+                "parameters": [
+                    {
+                        "description": "WSDL content and configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseWSDLFromBytesInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseWSDLResponse"
                         }
                     },
                     "400": {
@@ -1889,6 +2295,55 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scan-jobs/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves a scan job by ID with its statistics",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "Get scan job",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Scan Job ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ScanJobResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -2121,6 +2576,557 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/scans": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lists all scans with optional filtering and pagination",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "List scans",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search by scan title",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by workspace ID",
+                        "name": "workspace",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status (comma-separated)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ScanListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scans/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves a scan by ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "Get scan",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ScanResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Deletes a scan and all its jobs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "Delete scan",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scans/{id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Cancels a scan and all its pending jobs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "Cancel scan",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.Scan"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scans/{id}/jobs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Lists all jobs for a scan with optional filtering",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "Get scan jobs",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status (comma-separated)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by job type (comma-separated)",
+                        "name": "job_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ScanJobsListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scans/{id}/jobs/{job_id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Cancels a specific scan job. If the job is running, it will be stopped.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "Cancel scan job",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Job ID",
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ScanJobResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scans/{id}/pause": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Pauses a running scan",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "Pause scan",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.Scan"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scans/{id}/resume": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Resumes a paused scan",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "Resume scan",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.Scan"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scans/{id}/schedule-items": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Schedules active scans for the specified history items",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "Schedule history item scans",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "History items to scan",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ScheduleScanHistoryItemsInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scans/{id}/stats": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns job statistics for a scan",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "Get scan statistics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ScanStatsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/sitemap": {
             "get": {
                 "security": [
@@ -2194,6 +3200,75 @@ const docTemplate = `{
                         "description": "Successfully retrieved system stats",
                         "schema": {
                             "$ref": "#/definitions/db.SystemStats"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/stats/workers": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns all worker nodes that have registered with the system, including their",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Stats"
+                ],
+                "summary": "Retrieves the list of registered worker nodes with their status and statistics.",
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved worker nodes",
+                        "schema": {
+                            "$ref": "#/definitions/api.WorkerNodesResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/stats/workers/cleanup": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Identifies worker nodes that haven't sent a heartbeat within the threshold,",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Stats"
+                ],
+                "summary": "Cleanup stale worker nodes and reset their claimed jobs.",
+                "responses": {
+                    "200": {
+                        "description": "Cleanup results",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
@@ -2767,6 +3842,19 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/dashboard": {
+            "get": {
+                "description": "Returns an HTML page with real-time dashboard",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "Get dashboard HTML page",
+                "responses": {}
+            }
         }
     },
     "definitions": {
@@ -3100,15 +4188,119 @@ const docTemplate = `{
                     "type": "integer",
                     "minimum": 0
                 },
+                "initial_raw_request": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
                 "original_request_id": {
                     "type": "integer",
-                    "minimum": 0
+                    "minimum": 1
                 },
                 "type": {
                     "$ref": "#/definitions/db.PlaygroundSessionType"
+                }
+            }
+        },
+        "api.DashboardStats": {
+            "type": "object",
+            "properties": {
+                "active_scans": {
+                    "description": "Active scans",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.ScanInfo"
+                    }
+                },
+                "duration_stats": {
+                    "description": "Job duration statistics",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.JobDurationInfo"
+                    }
+                },
+                "global_queue_stats": {
+                    "description": "Global queue stats (aggregated across all scans)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/api.GlobalQueueStatsInfo"
+                        }
+                    ]
+                },
+                "local_worker_count": {
+                    "description": "Workers in this process",
+                    "type": "integer"
+                },
+                "manager_running": {
+                    "type": "boolean"
+                },
+                "node_id": {
+                    "type": "string"
+                },
+                "orchestrator_config": {
+                    "description": "Orchestrator config",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/api.OrchestratorConfigInfo"
+                        }
+                    ]
+                },
+                "orchestrator_running": {
+                    "type": "boolean"
+                },
+                "paused_scans": {
+                    "description": "Paused scans",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.ScanInfo"
+                    }
+                },
+                "recent_scans": {
+                    "description": "Recent completed scans (last 10)",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.ScanInfo"
+                    }
+                },
+                "refresh_interval": {
+                    "type": "integer"
+                },
+                "system_stats": {
+                    "description": "System stats",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.SystemStats"
+                        }
+                    ]
+                },
+                "throughput": {
+                    "description": "Throughput metrics",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/api.ThroughputInfo"
+                        }
+                    ]
+                },
+                "timestamp": {
+                    "description": "System info",
+                    "type": "string"
+                },
+                "total_worker_count": {
+                    "description": "Workers across all nodes",
+                    "type": "integer"
+                },
+                "worker_count": {
+                    "description": "Workers in this process (deprecated, use local_worker_count)",
+                    "type": "integer"
+                },
+                "worker_nodes": {
+                    "description": "Worker nodes",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/api.WorkerNodesInfo"
+                        }
+                    ]
                 }
             }
         },
@@ -3120,6 +4312,109 @@ const docTemplate = `{
                 },
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "api.FailedJobInfo": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "type": "integer"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "error_type": {
+                    "type": "string"
+                },
+                "failed_at": {
+                    "type": "string"
+                },
+                "job_id": {
+                    "type": "integer"
+                },
+                "job_type": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.GlobalQueueStatsInfo": {
+            "type": "object",
+            "properties": {
+                "stats_by_type": {
+                    "description": "Aggregated stats by job type across all scans",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.JobTypeStats"
+                    }
+                },
+                "total_cancelled": {
+                    "type": "integer"
+                },
+                "total_claimed": {
+                    "type": "integer"
+                },
+                "total_completed": {
+                    "type": "integer"
+                },
+                "total_failed": {
+                    "type": "integer"
+                },
+                "total_jobs": {
+                    "type": "integer"
+                },
+                "total_pending": {
+                    "type": "integer"
+                },
+                "total_running": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.GraphQLSchemaInfo": {
+            "type": "object",
+            "properties": {
+                "enum_count": {
+                    "type": "integer"
+                },
+                "enums": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/graphql.EnumDef"
+                    }
+                },
+                "input_type_count": {
+                    "type": "integer"
+                },
+                "input_types": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/graphql.InputTypeDef"
+                    }
+                },
+                "mutation_count": {
+                    "type": "integer"
+                },
+                "query_count": {
+                    "type": "integer"
+                },
+                "subscription_count": {
+                    "type": "integer"
+                },
+                "type_count": {
+                    "type": "integer"
+                },
+                "types": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/graphql.TypeDef"
+                    }
                 }
             }
         },
@@ -3153,6 +4448,256 @@ const docTemplate = `{
                     "$ref": "#/definitions/db.Issue"
                 },
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.JobDurationInfo": {
+            "type": "object",
+            "properties": {
+                "avg_duration_ms": {
+                    "type": "number"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "job_type": {
+                    "type": "string"
+                },
+                "max_duration_ms": {
+                    "type": "number"
+                },
+                "min_duration_ms": {
+                    "type": "number"
+                },
+                "p50_duration_ms": {
+                    "type": "number"
+                },
+                "p95_duration_ms": {
+                    "type": "number"
+                },
+                "p99_duration_ms": {
+                    "type": "number"
+                }
+            }
+        },
+        "api.JobTypeStats": {
+            "type": "object",
+            "properties": {
+                "claimed": {
+                    "type": "integer"
+                },
+                "completed": {
+                    "type": "integer"
+                },
+                "failed": {
+                    "type": "integer"
+                },
+                "job_type": {
+                    "type": "string"
+                },
+                "pending": {
+                    "type": "integer"
+                },
+                "running": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.OrchestratorConfigInfo": {
+            "type": "object",
+            "properties": {
+                "enable_discovery": {
+                    "type": "boolean"
+                },
+                "enable_fingerprint": {
+                    "type": "boolean"
+                },
+                "enable_nuclei": {
+                    "type": "boolean"
+                },
+                "enable_websocket": {
+                    "type": "boolean"
+                },
+                "phase_timeout": {
+                    "type": "string"
+                },
+                "poll_interval": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ParseGraphQLFromIntrospectionInput": {
+            "type": "object"
+        },
+        "api.ParseGraphQLSchemaInput": {
+            "type": "object",
+            "required": [
+                "url"
+            ],
+            "properties": {
+                "enable_fuzzing": {
+                    "type": "boolean"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "include_optional": {
+                    "type": "boolean"
+                },
+                "max_depth": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ParseGraphQLSchemaResponse": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "endpoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.OperationEndpoint"
+                    }
+                },
+                "schema": {
+                    "$ref": "#/definitions/api.GraphQLSchemaInfo"
+                }
+            }
+        },
+        "api.ParseOpenAPISpecInput": {
+            "type": "object",
+            "required": [
+                "url"
+            ],
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "enable_fuzzing": {
+                    "type": "boolean"
+                },
+                "include_optional": {
+                    "type": "boolean"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ParseOpenAPISpecResponse": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "endpoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.Endpoint"
+                    }
+                },
+                "global_security": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.SecurityRequirement"
+                    }
+                },
+                "security_schemes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.SecurityScheme"
+                    }
+                }
+            }
+        },
+        "api.ParseWSDLFromBytesInput": {
+            "type": "object",
+            "required": [
+                "base_url",
+                "content"
+            ],
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "include_optional": {
+                    "type": "boolean"
+                },
+                "prefer_soap_12": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "api.ParseWSDLInput": {
+            "type": "object",
+            "required": [
+                "url"
+            ],
+            "properties": {
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "include_optional": {
+                    "type": "boolean"
+                },
+                "prefer_soap_12": {
+                    "type": "boolean"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ParseWSDLResponse": {
+            "type": "object",
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "count": {
+                    "description": "Total operation count",
+                    "type": "integer"
+                },
+                "schema": {
+                    "$ref": "#/definitions/api.WSDLSchemaInfo"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsdl.ServiceEndpoint"
+                    }
+                },
+                "target_namespace": {
                     "type": "string"
                 }
             }
@@ -3271,7 +4816,6 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "format",
-                "task_id",
                 "title",
                 "workspace_id"
             ],
@@ -3291,6 +4835,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "min_confidence": {
+                    "type": "integer"
+                },
+                "scan_id": {
                     "type": "integer"
                 },
                 "task_id": {
@@ -3315,6 +4862,375 @@ const docTemplate = `{
                 },
                 "url": {
                     "type": "string"
+                }
+            }
+        },
+        "api.RunningJobInfo": {
+            "type": "object",
+            "properties": {
+                "elapsed_time": {
+                    "type": "string"
+                },
+                "job_id": {
+                    "type": "integer"
+                },
+                "job_type": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "target_host": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "worker_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ScanInfo": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "completed_jobs": {
+                    "type": "integer"
+                },
+                "duration": {
+                    "type": "string"
+                },
+                "failed_jobs": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "job_stats_by_type": {
+                    "description": "Granular job statistics by type",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.JobTypeStats"
+                    }
+                },
+                "pending_jobs": {
+                    "type": "integer"
+                },
+                "phase": {
+                    "type": "string"
+                },
+                "progress_percentage": {
+                    "type": "number"
+                },
+                "recent_failed_jobs": {
+                    "description": "Recent failed jobs",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.FailedJobInfo"
+                    }
+                },
+                "running_job_details": {
+                    "description": "Currently running jobs",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.RunningJobInfo"
+                    }
+                },
+                "running_jobs": {
+                    "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "total_jobs": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.ScanJobResponse": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "description": "Execution tracking",
+                    "type": "integer"
+                },
+                "checkpoint": {
+                    "description": "Checkpoint for resume",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.ScanJobCheckpoint"
+                        }
+                    ]
+                },
+                "claimed_at": {
+                    "type": "string"
+                },
+                "completed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "error_type": {
+                    "description": "Result tracking",
+                    "type": "string"
+                },
+                "history_id": {
+                    "type": "integer"
+                },
+                "http_status": {
+                    "type": "integer"
+                },
+                "id": {
+                    "description": "Base fields",
+                    "type": "integer"
+                },
+                "issues_found": {
+                    "type": "integer"
+                },
+                "job_type": {
+                    "$ref": "#/definitions/db.ScanJobType"
+                },
+                "max_attempts": {
+                    "type": "integer"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "scan_id": {
+                    "description": "Core fields",
+                    "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "stats": {
+                    "description": "Statistics",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/api.ScanJobStats"
+                        }
+                    ]
+                },
+                "status": {
+                    "$ref": "#/definitions/db.ScanJobStatus"
+                },
+                "target_host": {
+                    "description": "Target information",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "websocket_connection_id": {
+                    "type": "integer"
+                },
+                "worker_id": {
+                    "description": "Worker tracking",
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.ScanJobStats": {
+            "type": "object",
+            "properties": {
+                "issues": {
+                    "$ref": "#/definitions/db.IssuesStats"
+                },
+                "oob_tests": {
+                    "type": "integer"
+                },
+                "requests": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.ScanJobsListResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.ScanJobResponse"
+                    }
+                }
+            }
+        },
+        "api.ScanListResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "scans": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.ScanResponse"
+                    }
+                }
+            }
+        },
+        "api.ScanResponse": {
+            "type": "object",
+            "properties": {
+                "checkpoint": {
+                    "description": "Checkpoint for restart recovery",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.ScanCheckpoint"
+                        }
+                    ]
+                },
+                "completed_at": {
+                    "type": "string"
+                },
+                "completed_jobs_count": {
+                    "type": "integer"
+                },
+                "consecutive_failures": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "failed_jobs_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "description": "Base fields",
+                    "type": "integer"
+                },
+                "last_failure_at": {
+                    "type": "string"
+                },
+                "max_concurrent_jobs": {
+                    "type": "integer"
+                },
+                "max_rps": {
+                    "description": "Rate limiting and circuit breaker fields",
+                    "type": "integer"
+                },
+                "options": {
+                    "$ref": "#/definitions/options.FullScanOptions"
+                },
+                "paused_at": {
+                    "type": "string"
+                },
+                "pending_jobs_count": {
+                    "type": "integer"
+                },
+                "phase": {
+                    "$ref": "#/definitions/db.ScanPhase"
+                },
+                "previous_status": {
+                    "$ref": "#/definitions/db.ScanStatus"
+                },
+                "progress": {
+                    "description": "Computed fields",
+                    "type": "number"
+                },
+                "running_jobs_count": {
+                    "type": "integer"
+                },
+                "started_at": {
+                    "description": "Timing fields",
+                    "type": "string"
+                },
+                "stats": {
+                    "$ref": "#/definitions/api.ScanStats"
+                },
+                "status": {
+                    "$ref": "#/definitions/db.ScanStatus"
+                },
+                "throttled_until": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "total_jobs_count": {
+                    "description": "Job counters for progress tracking",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "description": "Core fields",
+                    "type": "integer"
+                }
+            }
+        },
+        "api.ScanStats": {
+            "type": "object",
+            "properties": {
+                "issues": {
+                    "$ref": "#/definitions/db.IssuesStats"
+                },
+                "requests": {
+                    "$ref": "#/definitions/db.RequestsStats"
+                }
+            }
+        },
+        "api.ScanStatsResponse": {
+            "type": "object",
+            "properties": {
+                "job_stats": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "api.ScheduleScanHistoryItemsInput": {
+            "type": "object",
+            "required": [
+                "history_ids"
+            ],
+            "properties": {
+                "history_ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "mode": {
+                    "description": "Scan mode: fast, smart, fuzz",
+                    "type": "string",
+                    "enum": [
+                        "fast",
+                        "smart",
+                        "fuzz"
+                    ]
                 }
             }
         },
@@ -3357,6 +5273,162 @@ const docTemplate = `{
                 },
                 "refresh": {
                     "type": "string"
+                }
+            }
+        },
+        "api.ThroughputInfo": {
+            "type": "object",
+            "properties": {
+                "in_flight": {
+                    "type": "integer"
+                },
+                "jobs_per_minute": {
+                    "type": "number"
+                },
+                "last_5_minutes": {
+                    "type": "integer"
+                },
+                "last_hour": {
+                    "type": "integer"
+                },
+                "last_minute": {
+                    "type": "integer"
+                },
+                "queue_depth": {
+                    "type": "integer"
+                },
+                "success_rate": {
+                    "type": "number"
+                }
+            }
+        },
+        "api.UpdatePlaygroundSessionInput": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.WSDLSchemaInfo": {
+            "type": "object",
+            "properties": {
+                "binding_count": {
+                    "type": "integer"
+                },
+                "message_count": {
+                    "type": "integer"
+                },
+                "operation_count": {
+                    "type": "integer"
+                },
+                "port_count": {
+                    "type": "integer"
+                },
+                "port_type_count": {
+                    "type": "integer"
+                },
+                "service_count": {
+                    "type": "integer"
+                },
+                "type_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.WorkerNodeInfo": {
+            "type": "object",
+            "properties": {
+                "hostname": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_stale": {
+                    "type": "boolean"
+                },
+                "jobs_claimed": {
+                    "type": "integer"
+                },
+                "jobs_completed": {
+                    "type": "integer"
+                },
+                "jobs_failed": {
+                    "type": "integer"
+                },
+                "last_seen_at": {
+                    "type": "string"
+                },
+                "running_jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.RunningJobInfo"
+                    }
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "worker_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.WorkerNodesInfo": {
+            "type": "object",
+            "properties": {
+                "active_workers": {
+                    "type": "integer"
+                },
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.WorkerNodeInfo"
+                    }
+                },
+                "running_nodes": {
+                    "type": "integer"
+                },
+                "stopped_nodes": {
+                    "type": "integer"
+                },
+                "total_claimed": {
+                    "type": "integer"
+                },
+                "total_completed": {
+                    "type": "integer"
+                },
+                "total_failed": {
+                    "type": "integer"
+                },
+                "total_nodes": {
+                    "type": "integer"
+                },
+                "total_workers": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.WorkerNodesResponse": {
+            "type": "object",
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.WorkerNode"
+                    }
+                },
+                "stats": {
+                    "$ref": "#/definitions/db.WorkerNodeStats"
                 }
             }
         },
@@ -3409,6 +5481,29 @@ const docTemplate = `{
                 "BrowserActionScopeGlobal",
                 "BrowserActionScopeWorkspace"
             ]
+        },
+        "db.CrawlCheckpoint": {
+            "type": "object",
+            "properties": {
+                "current_depth": {
+                    "type": "integer"
+                },
+                "page_count": {
+                    "type": "integer"
+                },
+                "pending_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "visited_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
         },
         "db.GroupedIssue": {
             "type": "object",
@@ -3499,6 +5594,12 @@ const docTemplate = `{
                 "response_content_type": {
                     "type": "string"
                 },
+                "scan_id": {
+                    "type": "integer"
+                },
+                "scan_job_id": {
+                    "type": "integer"
+                },
                 "source": {
                     "type": "string"
                 },
@@ -3560,6 +5661,12 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "scan_id": {
+                    "type": "integer"
+                },
+                "scan_job_id": {
+                    "type": "integer"
                 },
                 "sort_by": {
                     "description": "Validate to be one of the listed fields",
@@ -3676,6 +5783,12 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "scan_id": {
+                    "type": "integer"
+                },
+                "scan_job_id": {
+                    "type": "integer"
                 },
                 "severity": {
                     "$ref": "#/definitions/db.severity"
@@ -3950,11 +6063,20 @@ const docTemplate = `{
                 "interaction_id": {
                     "type": "string"
                 },
+                "issue_id": {
+                    "type": "integer"
+                },
                 "note": {
                     "type": "string"
                 },
                 "payload": {
                     "type": "string"
+                },
+                "scan_id": {
+                    "type": "integer"
+                },
+                "scan_job_id": {
+                    "type": "integer"
                 },
                 "target": {
                     "type": "string"
@@ -4030,6 +6152,26 @@ const docTemplate = `{
                 "query": {
                     "type": "string",
                     "maxLength": 500
+                },
+                "scan_id": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "scan_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "scan_job_id": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "scan_job_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "sort_by": {
                     "type": "string",
@@ -4148,11 +6290,13 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "initial_raw_request": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
                 "original_request_id": {
-                    "description": "OriginalRequest   History               ` + "`" + `json:\"-\" gorm:\"foreignKey:OriginalRequestID\"` + "`" + `",
                     "type": "integer"
                 },
                 "type": {
@@ -4188,6 +6332,272 @@ const docTemplate = `{
                 },
                 "scanner": {
                     "type": "integer"
+                }
+            }
+        },
+        "db.Scan": {
+            "type": "object",
+            "properties": {
+                "checkpoint": {
+                    "description": "Checkpoint for restart recovery",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.ScanCheckpoint"
+                        }
+                    ]
+                },
+                "completed_at": {
+                    "type": "string"
+                },
+                "completed_jobs_count": {
+                    "type": "integer"
+                },
+                "consecutive_failures": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "failed_jobs_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "isolated": {
+                    "description": "Isolation flag - when true, only workers with matching scan ID filter can claim jobs\nThis is used for CLI scans to prevent API workers from claiming their jobs",
+                    "type": "boolean"
+                },
+                "last_failure_at": {
+                    "type": "string"
+                },
+                "max_concurrent_jobs": {
+                    "type": "integer"
+                },
+                "max_rps": {
+                    "description": "Rate limiting and circuit breaker fields",
+                    "type": "integer"
+                },
+                "options": {
+                    "$ref": "#/definitions/options.FullScanOptions"
+                },
+                "paused_at": {
+                    "type": "string"
+                },
+                "pending_jobs_count": {
+                    "type": "integer"
+                },
+                "phase": {
+                    "$ref": "#/definitions/db.ScanPhase"
+                },
+                "previous_status": {
+                    "$ref": "#/definitions/db.ScanStatus"
+                },
+                "running_jobs_count": {
+                    "type": "integer"
+                },
+                "started_at": {
+                    "description": "Timing fields",
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/db.ScanStatus"
+                },
+                "throttled_until": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "total_jobs_count": {
+                    "description": "Job counters for progress tracking",
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "description": "Core fields",
+                    "type": "integer"
+                }
+            }
+        },
+        "db.ScanCheckpoint": {
+            "type": "object",
+            "properties": {
+                "completed_discovery_urls": {
+                    "description": "Base URLs that have completed discovery",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "crawl_checkpoint": {
+                    "$ref": "#/definitions/db.CrawlCheckpoint"
+                },
+                "fingerprint_tags": {
+                    "description": "Fingerprint tags discovered during fingerprinting phase",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "fingerprints": {
+                    "description": "Fingerprints discovered during fingerprinting phase",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/lib.Fingerprint"
+                    }
+                },
+                "nuclei_completed": {
+                    "description": "Whether nuclei phase has completed",
+                    "type": "boolean"
+                },
+                "phase": {
+                    "$ref": "#/definitions/db.ScanPhase"
+                },
+                "processed_history_ids": {
+                    "description": "IDs of history items that have been processed for fingerprinting",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "scope_domains": {
+                    "description": "Scope domains derived from start URLs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "site_behaviors": {
+                    "description": "Site behaviors for each base URL",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/db.SiteBehavior"
+                    }
+                }
+            }
+        },
+        "db.ScanJobCheckpoint": {
+            "type": "object",
+            "properties": {
+                "completed_audits": {
+                    "description": "For active_scan jobs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "completed_checks": {
+                    "description": "For discovery jobs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "current_audit": {
+                    "type": "string"
+                },
+                "current_insertion_point_idx": {
+                    "type": "integer"
+                },
+                "last_payload_index": {
+                    "type": "integer"
+                },
+                "messages_processed": {
+                    "description": "For websocket_scan jobs",
+                    "type": "integer"
+                }
+            }
+        },
+        "db.ScanJobStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "claimed",
+                "running",
+                "completed",
+                "failed",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "ScanJobStatusPending",
+                "ScanJobStatusClaimed",
+                "ScanJobStatusRunning",
+                "ScanJobStatusCompleted",
+                "ScanJobStatusFailed",
+                "ScanJobStatusCancelled"
+            ]
+        },
+        "db.ScanJobType": {
+            "type": "string",
+            "enum": [
+                "active_scan",
+                "websocket_scan",
+                "discovery",
+                "nuclei",
+                "crawl"
+            ],
+            "x-enum-varnames": [
+                "ScanJobTypeActiveScan",
+                "ScanJobTypeWebSocketScan",
+                "ScanJobTypeDiscovery",
+                "ScanJobTypeNuclei",
+                "ScanJobTypeCrawl"
+            ]
+        },
+        "db.ScanPhase": {
+            "type": "string",
+            "enum": [
+                "crawl",
+                "fingerprint",
+                "discovery",
+                "nuclei",
+                "active_scan",
+                "websocket"
+            ],
+            "x-enum-varnames": [
+                "ScanPhaseCrawl",
+                "ScanPhaseFingerprint",
+                "ScanPhaseDiscovery",
+                "ScanPhaseNuclei",
+                "ScanPhaseActiveScan",
+                "ScanPhaseWebSocket"
+            ]
+        },
+        "db.ScanStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "crawling",
+                "scanning",
+                "paused",
+                "completed",
+                "cancelled",
+                "failed"
+            ],
+            "x-enum-varnames": [
+                "ScanStatusPending",
+                "ScanStatusCrawling",
+                "ScanStatusScanning",
+                "ScanStatusPaused",
+                "ScanStatusCompleted",
+                "ScanStatusCancelled",
+                "ScanStatusFailed"
+            ]
+        },
+        "db.SiteBehavior": {
+            "type": "object",
+            "properties": {
+                "common_hash": {
+                    "type": "string"
+                },
+                "not_found_changes": {
+                    "type": "boolean"
+                },
+                "not_found_returns_404": {
+                    "type": "boolean"
                 }
             }
         },
@@ -4401,6 +6811,12 @@ const docTemplate = `{
                         "$ref": "#/definitions/db.WebSocketMessage"
                     }
                 },
+                "scan_id": {
+                    "type": "integer"
+                },
+                "scan_job_id": {
+                    "type": "integer"
+                },
                 "source": {
                     "type": "string"
                 },
@@ -4447,6 +6863,10 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "is_binary": {
+                    "description": "true if payload is binary (base64 encoded)",
+                    "type": "boolean"
+                },
                 "mask": {
                     "type": "boolean"
                 },
@@ -4464,6 +6884,89 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "db.WorkerNode": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "hostname": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "jobs_claimed": {
+                    "type": "integer"
+                },
+                "jobs_completed": {
+                    "type": "integer"
+                },
+                "jobs_failed": {
+                    "type": "integer"
+                },
+                "last_seen_at": {
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/db.WorkerNodeStatus"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "worker_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "db.WorkerNodeStats": {
+            "type": "object",
+            "properties": {
+                "active_workers": {
+                    "type": "integer"
+                },
+                "running_nodes": {
+                    "type": "integer"
+                },
+                "stopped_nodes": {
+                    "type": "integer"
+                },
+                "total_claimed": {
+                    "type": "integer"
+                },
+                "total_completed": {
+                    "type": "integer"
+                },
+                "total_failed": {
+                    "type": "integer"
+                },
+                "total_nodes": {
+                    "type": "integer"
+                },
+                "total_workers": {
+                    "type": "integer"
+                }
+            }
+        },
+        "db.WorkerNodeStatus": {
+            "type": "string",
+            "enum": [
+                "running",
+                "draining",
+                "stopped"
+            ],
+            "x-enum-varnames": [
+                "WorkerNodeStatusRunning",
+                "WorkerNodeStatusDraining",
+                "WorkerNodeStatusStopped"
+            ]
         },
         "db.Workspace": {
             "type": "object",
@@ -4532,6 +7035,291 @@ const docTemplate = `{
                 "High",
                 "Critical"
             ]
+        },
+        "graphql.Argument": {
+            "type": "object",
+            "properties": {
+                "default_value": {},
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/graphql.TypeRef"
+                }
+            }
+        },
+        "graphql.ArgumentMetadata": {
+            "type": "object",
+            "properties": {
+                "default_value": {},
+                "description": {
+                    "type": "string"
+                },
+                "full_type": {
+                    "description": "The full type signature (e.g., \"[String!]!\")",
+                    "type": "string"
+                },
+                "is_input_object": {
+                    "type": "boolean"
+                },
+                "is_list": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nested_fields": {
+                    "description": "For input object types",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.ArgumentMetadata"
+                    }
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "type_name": {
+                    "description": "The base type name (e.g., \"String\", \"Int\", \"UserInput\")",
+                    "type": "string"
+                }
+            }
+        },
+        "graphql.EnumDef": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "values": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.EnumValue"
+                    }
+                }
+            }
+        },
+        "graphql.EnumValue": {
+            "type": "object",
+            "properties": {
+                "deprecation_reason": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "is_deprecated": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "graphql.Field": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.Argument"
+                    }
+                },
+                "deprecation_reason": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "is_deprecated": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/graphql.TypeRef"
+                }
+            }
+        },
+        "graphql.InputField": {
+            "type": "object",
+            "properties": {
+                "default_value": {},
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/graphql.TypeRef"
+                }
+            }
+        },
+        "graphql.InputTypeDef": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.InputField"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "graphql.OperationEndpoint": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.ArgumentMetadata"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "operation_type": {
+                    "description": "query, mutation, subscription",
+                    "type": "string"
+                },
+                "requests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.RequestVariation"
+                    }
+                },
+                "return_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "graphql.RequestVariation": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "operation_name": {
+                    "type": "string"
+                },
+                "query": {
+                    "description": "The GraphQL query string",
+                    "type": "string"
+                },
+                "variables": {
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "graphql.TypeDef": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/graphql.Field"
+                    }
+                },
+                "interfaces": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "graphql.TypeKind": {
+            "type": "string",
+            "enum": [
+                "SCALAR",
+                "OBJECT",
+                "INTERFACE",
+                "UNION",
+                "ENUM",
+                "INPUT_OBJECT",
+                "LIST",
+                "NON_NULL"
+            ],
+            "x-enum-varnames": [
+                "TypeKindScalar",
+                "TypeKindObject",
+                "TypeKindInterface",
+                "TypeKindUnion",
+                "TypeKindEnum",
+                "TypeKindInputObject",
+                "TypeKindList",
+                "TypeKindNonNull"
+            ]
+        },
+        "graphql.TypeRef": {
+            "type": "object",
+            "properties": {
+                "is_list": {
+                    "description": "True if List at any level",
+                    "type": "boolean"
+                },
+                "kind": {
+                    "$ref": "#/definitions/graphql.TypeKind"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "of_type": {
+                    "description": "For NON_NULL and LIST wrappers",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/graphql.TypeRef"
+                        }
+                    ]
+                },
+                "required": {
+                    "description": "True if NonNull at any level",
+                    "type": "boolean"
+                }
+            }
+        },
+        "lib.Fingerprint": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
         },
         "lib.LogEntry": {
             "type": "object",
@@ -4707,6 +7495,157 @@ const docTemplate = `{
                 }
             }
         },
+        "openapi.Endpoint": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "operation_id": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.ParameterMetadata"
+                    }
+                },
+                "path": {
+                    "type": "string"
+                },
+                "requests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.RequestVariation"
+                    }
+                },
+                "security": {
+                    "description": "Security requirements for this endpoint",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.SecurityRequirement"
+                    }
+                },
+                "summary": {
+                    "type": "string"
+                }
+            }
+        },
+        "openapi.ParameterMetadata": {
+            "type": "object",
+            "properties": {
+                "in": {
+                    "description": "query, header, path, cookie",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "schema": {
+                    "description": "Simplified JSON schema details",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "openapi.RequestVariation": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "label": {
+                    "description": "e.g., \"Happy Path\", \"SQLi in 'id'\", \"Boundary 'limit'\"",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "Full URL including query params",
+                    "type": "string"
+                }
+            }
+        },
+        "openapi.SecurityRequirement": {
+            "type": "object",
+            "properties": {
+                "schemes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/openapi.SecuritySchemeRef"
+                    }
+                }
+            }
+        },
+        "openapi.SecurityScheme": {
+            "type": "object",
+            "properties": {
+                "bearer_format": {
+                    "description": "Hint about token format (e.g., \"JWT\")",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "Human-readable description",
+                    "type": "string"
+                },
+                "in": {
+                    "description": "For apiKey: header, query, cookie",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Scheme identifier (e.g., \"bearerAuth\")",
+                    "type": "string"
+                },
+                "openid_connect_url": {
+                    "description": "For openIdConnect type",
+                    "type": "string"
+                },
+                "parameter_name": {
+                    "description": "Header/query/cookie name for apiKey",
+                    "type": "string"
+                },
+                "scheme": {
+                    "description": "For http type: bearer, basic, digest, etc.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "http, apiKey, oauth2, openIdConnect, mutualTLS",
+                    "type": "string"
+                }
+            }
+        },
+        "openapi.SecuritySchemeRef": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Reference to SecurityScheme.Name",
+                    "type": "string"
+                },
+                "scopes": {
+                    "description": "OAuth2 scopes if applicable",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "options.AuditCategories": {
             "type": "object",
             "properties": {
@@ -4728,88 +7667,7 @@ const docTemplate = `{
             }
         },
         "options.FullScanOptions": {
-            "type": "object",
-            "required": [
-                "audit_categories",
-                "start_urls",
-                "workspace_id"
-            ],
-            "properties": {
-                "audit_categories": {
-                    "$ref": "#/definitions/options.AuditCategories"
-                },
-                "exclude_patterns": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "experimental_audits": {
-                    "type": "boolean"
-                },
-                "headers": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "insertion_points": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "max_depth": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "max_pages_to_crawl": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "max_retries": {
-                    "type": "integer",
-                    "minimum": 0
-                },
-                "mode": {
-                    "enum": [
-                        "fast",
-                        "smart",
-                        "fuzz"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/options.ScanMode"
-                        }
-                    ]
-                },
-                "pages_pool_size": {
-                    "type": "integer",
-                    "maximum": 100,
-                    "minimum": 1
-                },
-                "start_urls": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "title": {
-                    "type": "string",
-                    "maxLength": 255,
-                    "minLength": 1
-                },
-                "websocket_options": {
-                    "$ref": "#/definitions/options.FullScanWebSocketOptions"
-                },
-                "workspace_id": {
-                    "type": "integer",
-                    "minimum": 0
-                }
-            }
+            "type": "object"
         },
         "options.FullScanWebSocketOptions": {
             "type": "object",
@@ -4911,6 +7769,115 @@ const docTemplate = `{
                 "NetworkAuthChallenge",
                 "RuntimeConsoleAPICalled"
             ]
+        },
+        "wsdl.OperationEndpoint": {
+            "type": "object",
+            "properties": {
+                "input_parts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsdl.PartMetadata"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "output_parts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsdl.PartMetadata"
+                    }
+                },
+                "requests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsdl.RequestVariation"
+                    }
+                },
+                "soap_action": {
+                    "type": "string"
+                },
+                "style": {
+                    "description": "\"document\" or \"rpc\"",
+                    "type": "string"
+                }
+            }
+        },
+        "wsdl.PartMetadata": {
+            "type": "object",
+            "properties": {
+                "element_name": {
+                    "type": "string"
+                },
+                "is_complex": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nested_fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsdl.PartMetadata"
+                    }
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "type_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "wsdl.RequestVariation": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "description": "XML string",
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "label": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "wsdl.ServiceEndpoint": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "binding_style": {
+                    "type": "string"
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsdl.OperationEndpoint"
+                    }
+                },
+                "port_name": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "soap_version": {
+                    "type": "string"
+                }
+            }
         }
     },
     "securityDefinitions": {

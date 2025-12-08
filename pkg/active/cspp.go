@@ -18,19 +18,42 @@ import (
 // This is a port of: https://github.com/kleiton0x00/ppmap
 
 type ClientSidePrototypePollutionAudit struct {
+	Ctx         context.Context
 	HistoryItem *db.History
 	requests    sync.Map
 	WorkspaceID uint
 	TaskID      uint
 	TaskJobID   uint
+	ScanID      uint
+	ScanJobID   uint
 }
 
 func (a *ClientSidePrototypePollutionAudit) Run() {
+	// Get context, defaulting to background if not provided
+	ctx := a.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		log.Info().Uint("history", a.HistoryItem.ID).Msg("CSPP audit cancelled before starting")
+		return
+	default:
+	}
+
 	if strings.Contains(a.HistoryItem.URL, "?") {
-		a.evaluate("&")
+		a.evaluateWithContext(ctx, "&")
 	} else {
-		a.evaluate("?")
-		a.evaluate("#")
+		a.evaluateWithContext(ctx, "?")
+		// Check context before second evaluation
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		a.evaluateWithContext(ctx, "#")
 	}
 }
 
@@ -43,6 +66,10 @@ func (a *ClientSidePrototypePollutionAudit) GetHistory(url string) *db.History {
 }
 
 func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
+	a.evaluateWithContext(context.Background(), quote)
+}
+
+func (a *ClientSidePrototypePollutionAudit) evaluateWithContext(parentCtx context.Context, quote string) {
 	payloads := [4]string{
 		"constructor%5Bprototype%5D%5Bsukyan%5D=reserved",
 		"__proto__.sukyan=reserved",
@@ -54,14 +81,14 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 	defer browserPool.ReleaseBrowser(b)
 
 	overallTimeout := time.Duration(viper.GetInt("navigation.timeout")) * time.Second * 4
-	overallCtx, overallCancel := context.WithTimeout(context.Background(), overallTimeout)
+	overallCtx, overallCancel := context.WithTimeout(parentCtx, overallTimeout)
 	defer overallCancel()
 
 	hijackResultsChannel := make(chan browser.HijackResult)
 	hijackContext, hijackCancel := context.WithCancel(overallCtx)
 	defer hijackCancel()
 
-	hijackRouter := browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, hijackContext, a.WorkspaceID, a.TaskID)
+	hijackRouter := browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, hijackContext, a.WorkspaceID, a.TaskID, a.ScanID, a.ScanJobID)
 	defer hijackRouter.Stop()
 	incognito, err := b.Incognito()
 	if err != nil {
@@ -90,8 +117,11 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 	}()
 
 	for _, payload := range payloads {
-		// Check if overall timeout has been reached
+		// Check if parent context or overall timeout has been reached
 		select {
+		case <-parentCtx.Done():
+			log.Info().Str("audit", "client-side-prototype-pollution").Msg("CSPP audit cancelled")
+			return
 		case <-overallCtx.Done():
 			log.Warn().Str("audit", "client-side-prototype-pollution").Msg("Overall timeout reached, stopping prototype pollution tests")
 			return
@@ -156,7 +186,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluate(quote string) {
 				}
 			}
 		}
-		db.CreateIssueFromHistoryAndTemplate(history, db.ClientSidePrototypePollutionCode, sb.String(), 90, severity, &a.WorkspaceID, history.TaskID, &a.TaskJobID)
+		db.CreateIssueFromHistoryAndTemplate(history, db.ClientSidePrototypePollutionCode, sb.String(), 90, severity, &a.WorkspaceID, history.TaskID, &a.TaskJobID, &a.ScanID, &a.ScanJobID)
 		// Issue detected, stop checking
 		return
 	}

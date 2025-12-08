@@ -29,6 +29,7 @@ type ReportOptions struct {
 	Title          string
 	Format         ReportFormat
 	TaskID         uint
+	ScanID         uint
 	MaxRequestSize int // Maximum size for requests in bytes (0 = no limit)
 }
 

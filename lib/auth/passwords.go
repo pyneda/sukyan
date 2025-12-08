@@ -17,16 +17,19 @@ func NormalizePassword(p string) []byte {
 
 // GeneratePassword func for a making hash & salt with user password.
 func GeneratePassword(p string) string {
+	return GeneratePasswordWithCost(p, bcrypt.DefaultCost)
+}
+
+// GeneratePasswordWithCost func for making hash & salt with user password and custom bcrypt cost.
+func GeneratePasswordWithCost(p string, cost int) string {
 	// Normalize password from string to []byte.
 	bytePwd := NormalizePassword(p)
 
-	// MinCost is just an integer constant provided by the bcrypt package
-	// along with DefaultCost & MaxCost. The cost can be any value
-	// you want provided it isn't lower than the MinCost (4).
-	hash, err := bcrypt.GenerateFromPassword(bytePwd, bcrypt.MinCost)
+	// The cost can be any value provided it's between bcrypt.MinCost (4) and bcrypt.MaxCost (31).
+	hash, err := bcrypt.GenerateFromPassword(bytePwd, cost)
 	if err != nil {
 		log.Error().Err(err).Msg("Error generating password hash")
-		return err.Error()
+		return ""
 	}
 
 	// GenerateFromPassword returns a byte slice so we need to

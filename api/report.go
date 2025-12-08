@@ -14,7 +14,8 @@ import (
 // ReportRequest represents the structure of the JSON payload for generating a report.
 type ReportRequest struct {
 	WorkspaceID    uint                `json:"workspace_id" validate:"required"`
-	TaskID         uint                `json:"task_id" validate:"required"`
+	TaskID         uint                `json:"task_id"`
+	ScanID         uint                `json:"scan_id"`
 	Title          string              `json:"title" validate:"required"`
 	Format         report.ReportFormat `json:"format" validate:"required,oneof=html json"`
 	MinConfidence  int                 `json:"min_confidence" validate:"omitempty"`
@@ -65,6 +66,7 @@ func ReportHandler(c *fiber.Ctx) error {
 		WorkspaceID:   input.WorkspaceID,
 		MinConfidence: input.MinConfidence,
 		TaskID:        input.TaskID,
+		ScanID:        input.ScanID,
 	})
 
 	if err != nil {
@@ -81,6 +83,7 @@ func ReportHandler(c *fiber.Ctx) error {
 		Format:         input.Format,
 		MaxRequestSize: input.MaxRequestSize,
 		TaskID:         input.TaskID,
+		ScanID:         input.ScanID,
 	}
 
 	// Create a buffer to temporarily hold the generated report

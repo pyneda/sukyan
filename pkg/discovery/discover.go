@@ -277,6 +277,8 @@ func DiscoverAndCreateIssue(input DiscoverAndCreateIssueInput) (DiscoverAndCreat
 				&input.HistoryCreationOptions.WorkspaceID,
 				&input.HistoryCreationOptions.TaskID,
 				&input.HistoryCreationOptions.TaskJobID,
+				&input.HistoryCreationOptions.ScanID,
+				&input.HistoryCreationOptions.ScanJobID,
 			)
 			if err != nil {
 				output.Errors = append(output.Errors, fmt.Errorf("failed to create issue: %w", err))

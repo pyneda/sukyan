@@ -75,6 +75,8 @@ type WebSocketScanOptions struct {
 	WorkspaceID       uint
 	TaskID            uint
 	TaskJobID         uint
+	ScanID            uint
+	ScanJobID         uint
 	Mode              options.ScanMode
 	FingerprintTags   []string
 	ReplayMessages    bool          // Whether to replay previous messages to establish context
@@ -424,6 +426,8 @@ func (s *WebSocketScanner) executeWebSocketTest(ctx context.Context, result *Web
 		WorkspaceID:         uint(task.options.WorkspaceID),
 		TaskID:              uint(task.options.TaskID),
 		TaskJobID:           uint(task.options.TaskJobID),
+		ScanID:              uint(task.options.ScanID),
+		ScanJobID:           uint(task.options.ScanJobID),
 		CreateNewBodyStream: true,
 		IsWebSocketUpgrade:  true,
 	})
@@ -646,6 +650,8 @@ func (s *WebSocketScanner) setupWebSocketConnection(task WebSocketScannerTask, u
 		StatusText:       upgradeResponse.Status,
 		WorkspaceID:      &task.options.WorkspaceID,
 		TaskID:           &task.options.TaskID,
+		ScanID:           &task.options.ScanID,
+		ScanJobID:        &task.options.ScanJobID,
 		Source:           db.SourceScanner,
 		UpgradeRequestID: &upgradeHistory.ID,
 	}
@@ -672,6 +678,8 @@ func (s *WebSocketScanner) createOOBTest(task WebSocketScannerTask, upgradeHisto
 		WorkspaceID:       &task.options.WorkspaceID,
 		TaskID:            &task.options.TaskID,
 		TaskJobID:         &task.options.TaskJobID,
+		ScanID:            &task.options.ScanID,
+		ScanJobID:         &task.options.ScanJobID,
 		HistoryID:         &upgradeHistory.ID,
 	}
 	db.Connection().CreateOOBTest(oobTest)
@@ -704,6 +712,8 @@ func (s *WebSocketScanner) handleVulnerability(result *WebSocketScannerResult, t
 		&task.options.WorkspaceID,
 		&task.options.TaskID,
 		&task.options.TaskJobID,
+		&task.options.ScanID,
+		&task.options.ScanJobID,
 		&newConnection.ID,
 		&upgradeHistory.ID,
 	)
@@ -890,6 +900,8 @@ func (s *WebSocketScanner) collectWebSocketBaseline(originalConnection *db.WebSo
 			StatusText:       originalConnection.StatusText,
 			WorkspaceID:      originalConnection.WorkspaceID,
 			TaskID:           originalConnection.TaskID,
+			ScanID:           originalConnection.ScanID,
+			ScanJobID:        originalConnection.ScanJobID,
 			Source:           db.SourceScanner,
 			UpgradeRequestID: originalConnection.UpgradeRequestID,
 		}
@@ -998,6 +1010,8 @@ func (s *WebSocketScanner) sendPayloadAndMeasureTiming(result WebSocketScannerRe
 		StatusText:       result.OriginalConnection.StatusText,
 		WorkspaceID:      result.OriginalConnection.WorkspaceID,
 		TaskID:           result.OriginalConnection.TaskID,
+		ScanID:           result.OriginalConnection.ScanID,
+		ScanJobID:        result.OriginalConnection.ScanJobID,
 		Source:           db.SourceScanner,
 		UpgradeRequestID: result.OriginalConnection.UpgradeRequestID,
 	}

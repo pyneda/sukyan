@@ -2596,6 +2596,12 @@ const docTemplate = `{
                 "summary": "List scans",
                 "parameters": [
                     {
+                        "type": "string",
+                        "description": "Search by scan title",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Filter by workspace ID",
                         "name": "workspace",
@@ -6357,6 +6363,10 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "isolated": {
+                    "description": "Isolation flag - when true, only workers with matching scan ID filter can claim jobs\nThis is used for CLI scans to prevent API workers from claiming their jobs",
+                    "type": "boolean"
                 },
                 "last_failure_at": {
                     "type": "string"

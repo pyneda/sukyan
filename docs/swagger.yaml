@@ -1681,6 +1681,11 @@ definitions:
         type: integer
       id:
         type: integer
+      isolated:
+        description: |-
+          Isolation flag - when true, only workers with matching scan ID filter can claim jobs
+          This is used for CLI scans to prevent API workers from claiming their jobs
+        type: boolean
       last_failure_at:
         type: string
       max_concurrent_jobs:
@@ -4406,6 +4411,10 @@ paths:
       - application/json
       description: Lists all scans with optional filtering and pagination
       parameters:
+      - description: Search by scan title
+        in: query
+        name: query
+        type: string
       - description: Filter by workspace ID
         in: query
         name: workspace

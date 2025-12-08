@@ -243,6 +243,7 @@ func GetScanManager() *manager.ScanManager {
 // @Tags Scans
 // @Accept json
 // @Produce json
+// @Param query query string false "Search by scan title"
 // @Param workspace query int false "Filter by workspace ID"
 // @Param status query string false "Filter by status (comma-separated)"
 // @Param page query int false "Page number"
@@ -260,6 +261,11 @@ func ListScansHandler(c *fiber.Ctx) error {
 		},
 		SortBy:    "id",
 		SortOrder: "desc",
+	}
+
+	// Parse query parameter for searching scan titles
+	if query := c.Query("query"); query != "" {
+		filter.Query = query
 	}
 
 	// Parse workspace ID

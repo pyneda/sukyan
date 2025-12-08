@@ -39,7 +39,7 @@ jobs:
       - name: Build
         run: go build -v ./...
       - name: Run database migrations
-        run: ./sukyan migrate apply
+        run: go run . migrate apply
       - name: Test with the Go CLI
         run: go test -v ./...
       - name: TruffleHog

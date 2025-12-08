@@ -370,8 +370,9 @@ func (sm *ScanManager) runStaleJobRecovery() {
 }
 
 // CreateScanRecord creates a scan in the database without requiring a running manager.
+// If isolated is true, the scan's jobs can only be claimed by workers with matching scan ID filter.
 // This is used by CLI to create the scan before starting the manager for isolation.
-func CreateScanRecord(dbConn *db.DatabaseConnection, opts options.FullScanOptions) (*db.Scan, error) {
+func CreateScanRecord(dbConn *db.DatabaseConnection, opts options.FullScanOptions, isolated bool) (*db.Scan, error) {
 	now := time.Now()
 	scan := &db.Scan{
 		WorkspaceID:       opts.WorkspaceID,
@@ -381,6 +382,7 @@ func CreateScanRecord(dbConn *db.DatabaseConnection, opts options.FullScanOption
 		StartedAt:         &now,
 		MaxConcurrentJobs: opts.MaxConcurrentJobs,
 		MaxRPS:            opts.MaxRPS,
+		Isolated:          isolated,
 	}
 
 	scan, err := dbConn.CreateScan(scan)
@@ -392,12 +394,14 @@ func CreateScanRecord(dbConn *db.DatabaseConnection, opts options.FullScanOption
 		Uint("scan_id", scan.ID).
 		Str("title", scan.Title).
 		Uint("workspace_id", scan.WorkspaceID).
+		Bool("isolated", isolated).
 		Msg("Created new scan record")
 
 	return scan, nil
 }
 
 // CreateScan creates a new scan and registers it with the control registry.
+// Scans created through the manager are not isolated (can be processed by any worker).
 // Requires the manager to be started.
 func (sm *ScanManager) CreateScan(opts options.FullScanOptions) (*db.Scan, error) {
 	sm.mu.RLock()
@@ -407,7 +411,7 @@ func (sm *ScanManager) CreateScan(opts options.FullScanOptions) (*db.Scan, error
 	}
 	sm.mu.RUnlock()
 
-	scan, err := CreateScanRecord(sm.dbConn, opts)
+	scan, err := CreateScanRecord(sm.dbConn, opts, false)
 	if err != nil {
 		return nil, err
 	}

@@ -173,7 +173,8 @@ var scanCmd = &cobra.Command{
 		// Create scan record FIRST (before starting manager) for proper isolation.
 		// This ensures workers are configured with the scan ID filter from the start,
 		// preventing race conditions where other workers could claim our jobs.
-		scanEntity, err := manager.CreateScanRecord(db.Connection(), options)
+		// The isolated=true flag ensures API workers won't claim jobs from this scan.
+		scanEntity, err := manager.CreateScanRecord(db.Connection(), options, true)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to create scan")
 			interactionsManager.Stop()

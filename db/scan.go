@@ -104,6 +104,10 @@ type Scan struct {
 	// Checkpoint for restart recovery
 	Checkpoint *ScanCheckpoint `json:"checkpoint,omitempty" gorm:"serializer:json"`
 
+	// Isolation flag - when true, only workers with matching scan ID filter can claim jobs
+	// This is used for CLI scans to prevent API workers from claiming their jobs
+	Isolated bool `json:"isolated" gorm:"default:false;index"`
+
 	// Relationships
 	Jobs      []ScanJob `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	Histories []History `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`

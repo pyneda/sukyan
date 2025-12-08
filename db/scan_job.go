@@ -319,8 +319,9 @@ func (d *DatabaseConnection) ListScanJobs(filter ScanJobFilter) (items []*ScanJo
 	return items, count, err
 }
 
-// ClaimScanJob atomically claims the next available job for a worker
-// Uses FOR UPDATE SKIP LOCKED for atomic claiming
+// ClaimScanJob atomically claims the next available job for a worker.
+// This is used for distributed workers that can process jobs from any non-isolated scan.
+// Uses FOR UPDATE SKIP LOCKED for atomic claiming.
 func (d *DatabaseConnection) ClaimScanJob(workerID string) (*ScanJob, error) {
 	var job ScanJob
 	now := time.Now()
@@ -328,20 +329,22 @@ func (d *DatabaseConnection) ClaimScanJob(workerID string) (*ScanJob, error) {
 	// This query:
 	// 1. Joins with scans to check scan status
 	// 2. Only claims jobs from active (not paused/cancelled) scans
-	// 3. Respects per-scan concurrency limits
-	// 4. Uses FOR UPDATE SKIP LOCKED for atomic claiming
+	// 3. Excludes isolated scans (those are reserved for specific workers)
+	// 4. Respects per-scan concurrency limits
+	// 5. Uses FOR UPDATE SKIP LOCKED for atomic claiming
 	err := d.db.Raw(`
-		UPDATE scan_jobs 
+		UPDATE scan_jobs
 		SET status = ?, worker_id = ?, claimed_at = ?
 		WHERE id = (
 			SELECT sj.id FROM scan_jobs sj
 			JOIN scans s ON sj.scan_id = s.id
 			WHERE sj.status = ?
 			  AND s.status IN (?, ?)
+			  AND s.isolated = false
 			  AND (s.throttled_until IS NULL OR s.throttled_until < ?)
 			  AND (
 				s.max_concurrent_jobs IS NULL
-				OR (SELECT COUNT(*) FROM scan_jobs 
+				OR (SELECT COUNT(*) FROM scan_jobs
 					WHERE scan_id = sj.scan_id AND status IN (?, ?)) < s.max_concurrent_jobs
 			  )
 			ORDER BY sj.priority DESC, sj.created_at ASC

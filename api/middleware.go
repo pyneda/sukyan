@@ -49,6 +49,7 @@ func DashboardBasicAuth() fiber.Handler {
 		},
 		Realm: "Dashboard Access",
 		Unauthorized: func(c *fiber.Ctx) error {
+			c.Set("WWW-Authenticate", "Basic realm=\"Dashboard Access\"")
 			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
 		},
 	})

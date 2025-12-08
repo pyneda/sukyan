@@ -245,7 +245,7 @@ func (d *DatabaseConnection) ListScans(filter ScanFilter) (items []*Scan, count 
 
 	if filter.Query != "" {
 		likeQuery := "%" + filter.Query + "%"
-		query = query.Where("title LIKE ?", likeQuery)
+		query = query.Where("title ILIKE ?", likeQuery)
 	}
 
 	if len(filter.Statuses) > 0 {

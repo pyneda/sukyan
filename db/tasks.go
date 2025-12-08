@@ -26,7 +26,7 @@ type Task struct {
 	Status              string                  `gorm:"index" json:"status"`
 	StartedAt           time.Time               `json:"started_at"`
 	FinishedAt          time.Time               `json:"finished_at"`
-	Workspace           Workspace               `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Workspace           Workspace               `json:"-" gorm:"foreignKey:WorkspaceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID         uint                    `json:"workspace_id" gorm:"index" `
 	Histories           []History               `gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 	Issues              []Issue                 `gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`

@@ -21,7 +21,7 @@ jobs:
         ports:
           - 5432:5432
     env:
-      POSTGRES_DSN: postgres://sukyan:sukyantest1234@localhost:5432/sukyantestdb
+      POSTGRES_DSN: postgres://sukyan:sukyantest1234@localhost:5432/sukyantestdb?sslmode=disable
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,11 +30,16 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "1.21"
+          go-version: "1.25"
+      - name: Install Atlas CLI
+        run: |
+          curl -sSf https://atlasgo.sh | sh
       - name: Install dependencies
         run: go get .
       - name: Build
         run: go build -v ./...
+      - name: Run database migrations
+        run: ./sukyan migrate apply
       - name: Test with the Go CLI
         run: go test -v ./...
       - name: TruffleHog

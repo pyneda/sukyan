@@ -21,6 +21,7 @@ func TestParseOpenAPISpec_ValidInput(t *testing.T) {
 	mockSpec := `{
 		"openapi": "3.0.0",
 		"info": {"title": "Test API", "version": "1.0.0"},
+		"servers": [{"url": "https://api.example.com"}],
 		"paths": {
 			"/test": {
 				"get": {

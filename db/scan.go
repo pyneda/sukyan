@@ -75,7 +75,7 @@ type Scan struct {
 
 	// Core fields
 	WorkspaceID    uint                    `json:"workspace_id" gorm:"index;not null"`
-	Workspace      Workspace               `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	Workspace      Workspace               `json:"-" gorm:"foreignKey:WorkspaceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Title          string                  `json:"title" gorm:"size:255"`
 	Status         ScanStatus              `json:"status" gorm:"index;size:50;not null;default:'pending'"`
 	Phase          ScanPhase               `json:"phase" gorm:"size:50"`

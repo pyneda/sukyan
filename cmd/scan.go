@@ -170,6 +170,17 @@ var scanCmd = &cobra.Command{
 		}
 		interactionsManager.Start()
 
+		// Create scan record FIRST (before starting manager) for proper isolation.
+		// This ensures workers are configured with the scan ID filter from the start,
+		// preventing race conditions where other workers could claim our jobs.
+		scanEntity, err := manager.CreateScanRecord(db.Connection(), options)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to create scan")
+			interactionsManager.Stop()
+			os.Exit(1)
+		}
+		log.Info().Uint("scan_id", scanEntity.ID).Msg("Created scan for isolated mode")
+
 		cfg := manager.DefaultConfig()
 		// Use CLI-provided workers, fallback to config, then default to 5
 		if workers > 0 {
@@ -181,23 +192,22 @@ var scanCmd = &cobra.Command{
 			}
 		}
 
+		// Configure manager with scan ID filter from the start
+		cfg.ScanID = &scanEntity.ID
+
 		scanManager := manager.New(cfg, db.Connection(), interactionsManager, generators)
 		if err := scanManager.Start(); err != nil {
 			log.Error().Err(err).Msg("Failed to start scan manager")
 			os.Exit(1)
 		}
 
-		// Create and start the scan
-		scanEntity, err := scanManager.StartFullScan(options)
-		if err != nil {
+		// Start the scan through orchestrator (workers already have filter configured)
+		if err := scanManager.StartScan(scanEntity.ID); err != nil {
 			log.Error().Err(err).Msg("Failed to start scan")
 			scanManager.Stop()
 			interactionsManager.Stop()
 			os.Exit(1)
 		}
-
-		// Set scan ID filter so workers only process jobs for this scan (isolated mode)
-		scanManager.SetScanIDFilter(scanEntity.ID)
 		log.Info().Uint("scan_id", scanEntity.ID).Msg("Scan started in isolated mode")
 
 		// Setup signal handler for graceful shutdown

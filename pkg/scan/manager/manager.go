@@ -369,16 +369,9 @@ func (sm *ScanManager) runStaleJobRecovery() {
 	}
 }
 
-// CreateScan creates and starts a new scan.
-func (sm *ScanManager) CreateScan(opts options.FullScanOptions) (*db.Scan, error) {
-	sm.mu.RLock()
-	if !sm.started {
-		sm.mu.RUnlock()
-		return nil, fmt.Errorf("scan manager not started")
-	}
-	sm.mu.RUnlock()
-
-	// Create scan in database
+// CreateScanRecord creates a scan in the database without requiring a running manager.
+// This is used by CLI to create the scan before starting the manager for isolation.
+func CreateScanRecord(dbConn *db.DatabaseConnection, opts options.FullScanOptions) (*db.Scan, error) {
 	now := time.Now()
 	scan := &db.Scan{
 		WorkspaceID:       opts.WorkspaceID,
@@ -390,19 +383,37 @@ func (sm *ScanManager) CreateScan(opts options.FullScanOptions) (*db.Scan, error
 		MaxRPS:            opts.MaxRPS,
 	}
 
-	scan, err := sm.dbConn.CreateScan(scan)
+	scan, err := dbConn.CreateScan(scan)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create scan: %w", err)
 	}
-
-	// Register scan control
-	sm.registry.Register(scan.ID, control.StateRunning)
 
 	log.Info().
 		Uint("scan_id", scan.ID).
 		Str("title", scan.Title).
 		Uint("workspace_id", scan.WorkspaceID).
-		Msg("Created new scan")
+		Msg("Created new scan record")
+
+	return scan, nil
+}
+
+// CreateScan creates a new scan and registers it with the control registry.
+// Requires the manager to be started.
+func (sm *ScanManager) CreateScan(opts options.FullScanOptions) (*db.Scan, error) {
+	sm.mu.RLock()
+	if !sm.started {
+		sm.mu.RUnlock()
+		return nil, fmt.Errorf("scan manager not started")
+	}
+	sm.mu.RUnlock()
+
+	scan, err := CreateScanRecord(sm.dbConn, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Register scan control
+	sm.registry.Register(scan.ID, control.StateRunning)
 
 	return scan, nil
 }
@@ -435,6 +446,30 @@ func (sm *ScanManager) StartFullScan(opts options.FullScanOptions) (*db.Scan, er
 		Msg("Started full scan through orchestrator")
 
 	return scan, nil
+}
+
+// StartScan starts an existing scan through the orchestrator.
+// Use this when the scan was created separately (e.g., for CLI isolation where
+// the scan must be created before the manager starts to configure worker filters).
+func (sm *ScanManager) StartScan(scanID uint) error {
+	sm.mu.RLock()
+	if !sm.started {
+		sm.mu.RUnlock()
+		return fmt.Errorf("scan manager not started")
+	}
+	sm.mu.RUnlock()
+
+	// Register scan control for pause/resume/cancel support
+	sm.registry.Register(scanID, control.StateRunning)
+
+	// Start the scan through the orchestrator
+	if err := sm.orchestrator.StartScan(scanID); err != nil {
+		sm.dbConn.SetScanStatus(scanID, db.ScanStatusFailed)
+		return fmt.Errorf("failed to start scan through orchestrator: %w", err)
+	}
+
+	log.Info().Uint("scan_id", scanID).Msg("Started existing scan through orchestrator")
+	return nil
 }
 
 // PauseScan pauses a running scan.

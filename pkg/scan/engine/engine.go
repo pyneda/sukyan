@@ -240,7 +240,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 	scope.CreateScopeItemsFromUrls(options.StartURLs, "www")
 
 	scanLog := log.With().Uint("task", task.ID).Str("title", options.Title).Uint("workspace", options.WorkspaceID).Logger()
-	crawler := crawl.NewCrawler(options.StartURLs, options.MaxPagesToCrawl, options.MaxDepth, options.PagesPoolSize, options.ExcludePatterns, options.WorkspaceID, task.ID, 0, 0, options.Headers)
+	crawler := crawl.NewCrawler(options.StartURLs, options.MaxPagesToCrawl, options.MaxDepth, options.PagesPoolSize, options.ExcludePatterns, options.WorkspaceID, task.ID, 0, 0, options.Headers, options.CaptureBrowserEvents)
 	historyItems := crawler.Run()
 	if len(historyItems) == 0 {
 		db.Connection().SetTaskStatus(task.ID, db.TaskStatusFinished)

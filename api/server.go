@@ -154,6 +154,11 @@ func StartAPI() {
 	api.Put("/browser-actions/:id", JWTProtected(), UpdateStoredBrowserActions)
 	api.Delete("/browser-actions/:id", JWTProtected(), DeleteStoredBrowserActions)
 
+	// Browser events endpoints
+	api.Get("/browser-events", JWTProtected(), FindBrowserEvents)
+	api.Get("/browser-events/stats", JWTProtected(), GetBrowserEventStats)
+	api.Get("/browser-events/:id", JWTProtected(), GetBrowserEventByID)
+
 	// Auth related endpoints
 	auth_app := api.Group("/auth")
 	auth_app.Use(limiter.New(limiter.Config{

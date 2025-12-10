@@ -15,6 +15,7 @@ var startUrls []string
 var depth int
 var maxPagesToCrawl int
 var pagesPoolSize int
+var crawlCaptureBrowserEvents bool
 
 // crawlCmd represents the crawl command
 var crawlCmd = &cobra.Command{
@@ -35,7 +36,7 @@ to quickly create a Cobra application.`,
 		headers := lib.ParseHeadersStringToMap(requestsHeadersString)
 
 		log.Info().Strs("startUrls", startUrls).Int("count", len(startUrls)).Msg("Creating and scheduling the crawler")
-		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, 0, 0, 0, headers)
+		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, 0, 0, 0, headers, crawlCaptureBrowserEvents)
 		crawler.Run()
 	},
 }
@@ -48,4 +49,5 @@ func init() {
 	crawlCmd.Flags().IntVar(&depth, "depth", 0, "Max crawl depth")
 	crawlCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	crawlCmd.Flags().StringVarP(&requestsHeadersString, "headers", "H", "", "Headers to use in requests")
+	crawlCmd.Flags().BoolVar(&crawlCaptureBrowserEvents, "capture-browser-events", false, "Capture and store browser events (console, storage, security, etc.) during crawling")
 }

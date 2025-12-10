@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -487,4 +488,114 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 	}()
 
 	return eventChan
+}
+
+// BrowserEventStorageConfig configures optional storage of browser events to the database
+type BrowserEventStorageConfig struct {
+	Enabled     bool
+	WorkspaceID uint
+	ScanID      *uint
+	ScanJobID   *uint
+	TaskID      *uint
+	HistoryID   *uint
+	Source      string
+}
+
+// pageEventTypeToBrowserEventType maps PageEventType to db.BrowserEventType
+var pageEventTypeToBrowserEventType = map[PageEventType]db.BrowserEventType{
+	RuntimeConsoleAPICalled:          db.BrowserEventConsole,
+	JavaScriptDialogOpening:          db.BrowserEventDialog,
+	DOMStorageDomStorageItemAdded:    db.BrowserEventDOMStorage,
+	DOMStorageDomStorageItemRemoved:  db.BrowserEventDOMStorage,
+	DOMStorageDomStorageItemsCleared: db.BrowserEventDOMStorage,
+	DOMStorageDomStorageItemUpdated:  db.BrowserEventDOMStorage,
+	StorageIndexedDBContentUpdated:   db.BrowserEventIndexedDB,
+	StorageIndexedDBListUpdated:      db.BrowserEventIndexedDB,
+	StorageCacheStorageListUpdated:   db.BrowserEventCacheStorage,
+	SecuritySecurityStateChanged:     db.BrowserEventSecurity,
+	SecurityCertificateError:         db.BrowserEventCertificate,
+	SecurityHandleCertificateError:   db.BrowserEventCertificate,
+	AuditsIssueAdded:                 db.BrowserEventAudit,
+	BackgroundServiceEventReceived:   db.BrowserEventBackgroundService,
+	DatabaseAddDatabase:              db.BrowserEventDatabase,
+	NetworkAuthChallenge:             db.BrowserEventNetworkAuth,
+}
+
+// pageEventTypeToBrowserEventCategory maps PageEventType to db.BrowserEventCategory
+var pageEventTypeToBrowserEventCategory = map[PageEventType]db.BrowserEventCategory{
+	RuntimeConsoleAPICalled:          db.BrowserEventCategoryRuntime,
+	JavaScriptDialogOpening:          db.BrowserEventCategoryRuntime,
+	DOMStorageDomStorageItemAdded:    db.BrowserEventCategoryStorage,
+	DOMStorageDomStorageItemRemoved:  db.BrowserEventCategoryStorage,
+	DOMStorageDomStorageItemsCleared: db.BrowserEventCategoryStorage,
+	DOMStorageDomStorageItemUpdated:  db.BrowserEventCategoryStorage,
+	StorageIndexedDBContentUpdated:   db.BrowserEventCategoryStorage,
+	StorageIndexedDBListUpdated:      db.BrowserEventCategoryStorage,
+	StorageCacheStorageListUpdated:   db.BrowserEventCategoryStorage,
+	SecuritySecurityStateChanged:     db.BrowserEventCategorySecurity,
+	SecurityCertificateError:         db.BrowserEventCategorySecurity,
+	SecurityHandleCertificateError:   db.BrowserEventCategorySecurity,
+	AuditsIssueAdded:                 db.BrowserEventCategoryAudit,
+	BackgroundServiceEventReceived:   db.BrowserEventCategoryRuntime,
+	DatabaseAddDatabase:              db.BrowserEventCategoryStorage,
+	NetworkAuthChallenge:             db.BrowserEventCategoryNetwork,
+}
+
+// ConvertPageEventToBrowserEvent converts a PageEvent to a db.BrowserEvent
+func ConvertPageEventToBrowserEvent(event PageEvent, config BrowserEventStorageConfig) *db.BrowserEvent {
+	eventType, ok := pageEventTypeToBrowserEventType[event.Type]
+	if !ok {
+		log.Warn().Str("page_event_type", string(event.Type)).Msg("Unknown page event type, skipping conversion")
+		return nil
+	}
+
+	category, ok := pageEventTypeToBrowserEventCategory[event.Type]
+	if !ok {
+		category = db.BrowserEventCategoryRuntime // default
+	}
+
+	// Convert event.Data to JSON bytes
+	dataBytes, err := json.Marshal(event.Data)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to marshal event data to JSON")
+		dataBytes = []byte("{}")
+	}
+
+	browserEvent := &db.BrowserEvent{
+		EventType:   eventType,
+		Category:    category,
+		URL:         event.URL,
+		Description: event.Description,
+		Data:        dataBytes,
+		WorkspaceID: config.WorkspaceID,
+		ScanID:      config.ScanID,
+		ScanJobID:   config.ScanJobID,
+		TaskID:      config.TaskID,
+		HistoryID:   config.HistoryID,
+		Source:      config.Source,
+	}
+
+	return browserEvent
+}
+
+// SavePageEventToDB saves a PageEvent to the database as a BrowserEvent.
+// This function saves synchronously and logs any errors.
+func SavePageEventToDB(event PageEvent, config BrowserEventStorageConfig) {
+	if !config.Enabled {
+		log.Debug().Str("event_type", string(event.Type)).Msg("Browser event storage disabled, skipping save")
+		return
+	}
+
+	log.Debug().Str("event_type", string(event.Type)).Uint("workspace_id", config.WorkspaceID).Msg("Saving browser event to database")
+
+	browserEvent := ConvertPageEventToBrowserEvent(event, config)
+	if browserEvent == nil {
+		return
+	}
+
+	if err := db.Connection().SaveBrowserEvent(browserEvent); err != nil {
+		log.Error().Err(err).Str("event_type", string(event.Type)).Msg("Failed to save browser event to database")
+	} else {
+		log.Debug().Str("event_type", string(event.Type)).Str("url", event.URL).Msg("Successfully saved browser event to database")
+	}
 }

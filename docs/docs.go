@@ -407,6 +407,226 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/browser-events": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get browser events with optional pagination and filtering",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "BrowserEvents"
+                ],
+                "summary": "Get browser events",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Size of each page",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "scan_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Scan Job ID",
+                        "name": "scan_job_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "History ID",
+                        "name": "history_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Task ID",
+                        "name": "task",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of event types (console,dialog,dom_storage,security,certificate,audit,indexeddb,cache_storage,background_service,database,network_auth)",
+                        "name": "event_types",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of categories (runtime,storage,security,network,audit)",
+                        "name": "categories",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by URL (partial match)",
+                        "name": "url",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Comma-separated list of sources to filter by",
+                        "name": "sources",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "last_seen_at",
+                        "description": "Sort by field (id,created_at,event_type,category,occurrence_count,last_seen_at,first_seen_at)",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "desc",
+                        "description": "Sort order (asc,desc)",
+                        "name": "sort_order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.BrowserEventListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/browser-events/stats": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get browser event statistics for a scan grouped by event type and category",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "BrowserEvents"
+                ],
+                "summary": "Get browser event statistics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Scan ID",
+                        "name": "scan_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.BrowserEventStatsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/browser-events/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get details of a specific browser event by its UUID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "BrowserEvents"
+                ],
+                "summary": "Get browser event by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Browser event UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.BrowserEventResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/dashboard/stats": {
             "get": {
                 "description": "Returns real-time statistics for monitoring scan queue and orchestrator",
@@ -4147,6 +4367,100 @@ const docTemplate = `{
                 }
             }
         },
+        "api.BrowserEventListResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.BrowserEventResponse"
+                    }
+                }
+            }
+        },
+        "api.BrowserEventResponse": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string"
+                },
+                "content_hash": {
+                    "description": "Aggregation fields",
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "data": {},
+                "description": {
+                    "type": "string"
+                },
+                "event_type": {
+                    "type": "string"
+                },
+                "first_seen_at": {
+                    "type": "string"
+                },
+                "history_id": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_seen_at": {
+                    "type": "string"
+                },
+                "occurrence_count": {
+                    "type": "integer"
+                },
+                "scan_id": {
+                    "type": "integer"
+                },
+                "scan_job_id": {
+                    "type": "integer"
+                },
+                "source": {
+                    "description": "Source tracking",
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "description": "Context relationships",
+                    "type": "integer"
+                }
+            }
+        },
+        "api.BrowserEventStatsResponse": {
+            "type": "object",
+            "properties": {
+                "by_category": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "by_event_type": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "total_count": {
+                    "type": "integer"
+                }
+            }
+        },
         "api.BrowserReplayActionsInput": {
             "type": "object",
             "properties": {
@@ -6338,6 +6652,10 @@ const docTemplate = `{
         "db.Scan": {
             "type": "object",
             "properties": {
+                "capture_browser_events": {
+                    "description": "Browser event capture - when true, browser events are captured and stored during scanning",
+                    "type": "boolean"
+                },
                 "checkpoint": {
                     "description": "Checkpoint for restart recovery",
                     "allOf": [

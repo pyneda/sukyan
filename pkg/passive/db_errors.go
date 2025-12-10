@@ -28,6 +28,8 @@ var DBMS_ERRORS = map[string][]*regexp.Regexp{
 		`SQLSTATE\[\d+\]: Syntax error or access violation`,
 		`MemSQL does not support this type of query`,
 		`is not supported by MemSQL`,
+		`You have an error in your SQL syntax`,
+		`You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near`,
 		`unsupported nested scalar subselect`),
 	"PostgreSQL": compilePatterns(
 		`Warning.*\Wpg_.*`,

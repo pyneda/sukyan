@@ -375,14 +375,15 @@ func (sm *ScanManager) runStaleJobRecovery() {
 func CreateScanRecord(dbConn *db.DatabaseConnection, opts options.FullScanOptions, isolated bool) (*db.Scan, error) {
 	now := time.Now()
 	scan := &db.Scan{
-		WorkspaceID:       opts.WorkspaceID,
-		Title:             opts.Title,
-		Status:            db.ScanStatusPending,
-		Options:           opts,
-		StartedAt:         &now,
-		MaxConcurrentJobs: opts.MaxConcurrentJobs,
-		MaxRPS:            opts.MaxRPS,
-		Isolated:          isolated,
+		WorkspaceID:          opts.WorkspaceID,
+		Title:                opts.Title,
+		Status:               db.ScanStatusPending,
+		Options:              opts,
+		StartedAt:            &now,
+		MaxConcurrentJobs:    opts.MaxConcurrentJobs,
+		MaxRPS:               opts.MaxRPS,
+		Isolated:             isolated,
+		CaptureBrowserEvents: opts.CaptureBrowserEvents,
 	}
 
 	scan, err := dbConn.CreateScan(scan)

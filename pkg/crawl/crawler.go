@@ -48,6 +48,7 @@ type Crawler struct {
 	normalizedURLCounts     sync.Map
 	eventStore              sync.Map
 	maxPagesWithSameParams  int
+	captureBrowserEvents    bool
 }
 
 type CrawlItem struct {
@@ -72,7 +73,7 @@ type SubmittedForm struct {
 	xpath string
 }
 
-func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string) *Crawler {
+func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool) *Crawler {
 	hijackChan := make(chan browser.HijackResult)
 	options := CrawlOptions{
 		ExtraHeaders:    extraHeaders,
@@ -103,12 +104,13 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 		scanID:                 scanID,
 		scanJobID:              scanJobID,
 		maxPagesWithSameParams: viper.GetInt("crawl.max_pages_with_same_params"),
+		captureBrowserEvents:   captureBrowserEvents,
 	}
 }
 
 // NewCrawlerWithContext creates a new Crawler with context for cancellation support
-func NewCrawlerWithContext(ctx context.Context, startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string) *Crawler {
-	crawler := NewCrawler(startURLs, maxPagesToCrawl, maxDepth, poolSize, excludePatterns, workspaceID, taskID, scanID, scanJobID, extraHeaders)
+func NewCrawlerWithContext(ctx context.Context, startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool) *Crawler {
+	crawler := NewCrawler(startURLs, maxPagesToCrawl, maxDepth, poolSize, excludePatterns, workspaceID, taskID, scanID, scanJobID, extraHeaders, captureBrowserEvents)
 	crawler.ctx, crawler.cancel = context.WithCancel(ctx)
 	return crawler
 }
@@ -371,8 +373,25 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	page := c.getBrowserPage(url)
 	defer c.browser.ReleasePage(page)
 	ctx, cancel := context.WithCancel(context.Background())
-	eventStream := web.ListenForPageEvents(ctx, item.url, page, c.workspaceID, c.taskID, c.scanID, c.scanJobID, db.SourceCrawler)
 	defer cancel()
+
+	// Build storage config for browser events (used when captureBrowserEvents is enabled)
+	storageConfig := web.BrowserEventStorageConfig{
+		Enabled:     c.captureBrowserEvents,
+		WorkspaceID: c.workspaceID,
+		Source:      db.SourceCrawler,
+	}
+	if c.scanID > 0 {
+		storageConfig.ScanID = &c.scanID
+	}
+	if c.scanJobID > 0 {
+		storageConfig.ScanJobID = &c.scanJobID
+	}
+	if c.taskID > 0 {
+		storageConfig.TaskID = &c.taskID
+	}
+
+	eventStream := web.ListenForPageEvents(ctx, item.url, page, c.workspaceID, c.taskID, c.scanID, c.scanJobID, db.SourceCrawler)
 
 	go func() {
 		for {
@@ -382,10 +401,18 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 					return // exit if channel is closed
 				}
 				log.Info().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Str("url", item.url).Interface("event", event).Msg("Received page event")
-				val, _ := c.eventStore.LoadOrStore(event.URL, &[]web.PageEvent{})
-				events := val.(*[]web.PageEvent)
-				*events = append(*events, event)
-				c.eventStore.Store(event.URL, events)
+
+				// Save to database synchronously if browser events capture is enabled
+				web.SavePageEventToDB(event, storageConfig)
+
+				// Store in memory for later analysis (issue creation) only if not saving to DB
+				// When events are stored in DB, they can be seen in better ways (pagination, filtering, etc)
+				if !c.captureBrowserEvents {
+					val, _ := c.eventStore.LoadOrStore(event.URL, &[]web.PageEvent{})
+					events := val.(*[]web.PageEvent)
+					*events = append(*events, event)
+					c.eventStore.Store(event.URL, events)
+				}
 			case <-ctx.Done():
 				return
 			}

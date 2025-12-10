@@ -108,6 +108,9 @@ type Scan struct {
 	// This is used for CLI scans to prevent API workers from claiming their jobs
 	Isolated bool `json:"isolated" gorm:"default:false;index"`
 
+	// Browser event capture - when true, browser events are captured and stored during scanning
+	CaptureBrowserEvents bool `json:"capture_browser_events" gorm:"default:false"`
+
 	// Relationships
 	Jobs      []ScanJob `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	Histories []History `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`

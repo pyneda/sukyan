@@ -61,6 +61,15 @@ func (e *CrawlExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *cont
 		jobData.PoolSize = 5
 	}
 
+	// Fetch scan to get CaptureBrowserEvents setting
+	captureBrowserEvents := false
+	scan, err := db.Connection().GetScanByID(job.ScanID)
+	if err != nil {
+		taskLog.Warn().Err(err).Msg("Failed to get scan for browser events setting, defaulting to disabled")
+	} else {
+		captureBrowserEvents = scan.CaptureBrowserEvents
+	}
+
 	// Create and run crawler with scanID and scanJobID for history association
 	crawler := crawl.NewCrawler(
 		jobData.StartURLs,
@@ -73,6 +82,7 @@ func (e *CrawlExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *cont
 		job.ScanID, // scanID - used to associate history items with the scan
 		job.ID,     // scanJobID - used to associate history items with this specific job
 		jobData.ExtraHeaders,
+		captureBrowserEvents,
 	)
 
 	// Checkpoint: check before heavy operation

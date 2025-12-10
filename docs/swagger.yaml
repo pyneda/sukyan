@@ -201,6 +201,69 @@ definitions:
     - scope
     - title
     type: object
+  api.BrowserEventListResponse:
+    properties:
+      count:
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/api.BrowserEventResponse'
+        type: array
+    type: object
+  api.BrowserEventResponse:
+    properties:
+      category:
+        type: string
+      content_hash:
+        description: Aggregation fields
+        type: string
+      created_at:
+        type: string
+      data: {}
+      description:
+        type: string
+      event_type:
+        type: string
+      first_seen_at:
+        type: string
+      history_id:
+        type: integer
+      id:
+        type: string
+      last_seen_at:
+        type: string
+      occurrence_count:
+        type: integer
+      scan_id:
+        type: integer
+      scan_job_id:
+        type: integer
+      source:
+        description: Source tracking
+        type: string
+      task_id:
+        type: integer
+      updated_at:
+        type: string
+      url:
+        type: string
+      workspace_id:
+        description: Context relationships
+        type: integer
+    type: object
+  api.BrowserEventStatsResponse:
+    properties:
+      by_category:
+        additionalProperties:
+          type: integer
+        type: object
+      by_event_type:
+        additionalProperties:
+          type: integer
+        type: object
+      total_count:
+        type: integer
+    type: object
   api.BrowserReplayActionsInput:
     properties:
       post_request_action_id:
@@ -1665,6 +1728,10 @@ definitions:
     type: object
   db.Scan:
     properties:
+      capture_browser_events:
+        description: Browser event capture - when true, browser events are captured
+          and stored during scanning
+        type: boolean
       checkpoint:
         allOf:
         - $ref: '#/definitions/db.ScanCheckpoint'
@@ -3003,6 +3070,150 @@ paths:
       summary: Update a StoredBrowserActions
       tags:
       - Browser Actions
+  /api/v1/browser-events:
+    get:
+      description: Get browser events with optional pagination and filtering
+      parameters:
+      - default: 50
+        description: Size of each page
+        in: query
+        name: page_size
+        type: integer
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Workspace ID
+        in: query
+        name: workspace
+        required: true
+        type: integer
+      - description: Scan ID
+        in: query
+        name: scan_id
+        type: integer
+      - description: Scan Job ID
+        in: query
+        name: scan_job_id
+        type: integer
+      - description: History ID
+        in: query
+        name: history_id
+        type: integer
+      - description: Task ID
+        in: query
+        name: task
+        type: integer
+      - description: Comma-separated list of event types (console,dialog,dom_storage,security,certificate,audit,indexeddb,cache_storage,background_service,database,network_auth)
+        in: query
+        name: event_types
+        type: string
+      - description: Comma-separated list of categories (runtime,storage,security,network,audit)
+        in: query
+        name: categories
+        type: string
+      - description: Filter by URL (partial match)
+        in: query
+        name: url
+        type: string
+      - description: Comma-separated list of sources to filter by
+        in: query
+        name: sources
+        type: string
+      - default: last_seen_at
+        description: Sort by field (id,created_at,event_type,category,occurrence_count,last_seen_at,first_seen_at)
+        in: query
+        name: sort_by
+        type: string
+      - default: desc
+        description: Sort order (asc,desc)
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.BrowserEventListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get browser events
+      tags:
+      - BrowserEvents
+  /api/v1/browser-events/{id}:
+    get:
+      description: Get details of a specific browser event by its UUID
+      parameters:
+      - description: Browser event UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.BrowserEventResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get browser event by ID
+      tags:
+      - BrowserEvents
+  /api/v1/browser-events/stats:
+    get:
+      description: Get browser event statistics for a scan grouped by event type and
+        category
+      parameters:
+      - description: Scan ID
+        in: query
+        name: scan_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.BrowserEventStatsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get browser event statistics
+      tags:
+      - BrowserEvents
   /api/v1/dashboard/stats:
     get:
       consumes:

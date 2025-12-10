@@ -45,6 +45,7 @@ var useOrchestrator bool
 var websocketConcurrency int
 var websocketReplayMessages bool
 var websocketObservationWindow int
+var captureBrowserEvents bool
 
 var validate = validator.New()
 
@@ -140,10 +141,11 @@ var scanCmd = &cobra.Command{
 				ReplayMessages:    websocketReplayMessages,
 				ObservationWindow: websocketObservationWindow,
 			},
-			MaxRetries:        maxRetries,
-			UseOrchestrator:   useOrchestrator,
-			MaxConcurrentJobs: maxConcurrentJobsPtr,
-			MaxRPS:            maxRPSPtr,
+			MaxRetries:           maxRetries,
+			UseOrchestrator:      useOrchestrator,
+			MaxConcurrentJobs:    maxConcurrentJobsPtr,
+			MaxRPS:               maxRPSPtr,
+			CaptureBrowserEvents: captureBrowserEvents,
 		}
 		if err := validate.Struct(options); err != nil {
 			log.Error().Err(err).Msg("Validation failed")
@@ -315,4 +317,5 @@ func init() {
 	scanCmd.Flags().IntVar(&websocketConcurrency, "websocket-concurrency", 1, "WebSocket concurrency level (1-100)")
 	scanCmd.Flags().BoolVar(&websocketReplayMessages, "websocket-replay-messages", false, "Replay WebSocket messages")
 	scanCmd.Flags().IntVar(&websocketObservationWindow, "websocket-observation-window", 10, "WebSocket observation window in seconds (1-100)")
+	scanCmd.Flags().BoolVar(&captureBrowserEvents, "capture-browser-events", false, "Capture and store browser events (console, storage, security, etc.) during scanning")
 }

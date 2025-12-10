@@ -76,15 +76,33 @@ func (i Issue) TableRow() []string {
 }
 
 func (i Issue) String() string {
+	workspaceID := "<nil>"
+	if i.WorkspaceID != nil {
+		workspaceID = fmt.Sprintf("%d", *i.WorkspaceID)
+	}
+	scanID := "<nil>"
+	if i.ScanID != nil {
+		scanID = fmt.Sprintf("%d", *i.ScanID)
+	}
+
 	return fmt.Sprintf(
-		"ID: %d\nCode: %s\nTitle: %s\nCWE: %d\nURL: %s\nStatus Code: %d\nHTTP Method: %s\nPayload: %s\nFalse Positive: %t\nConfidence: %d\nReferences: %v\nSeverity: %s\nCURL Command: %s\nNote: %s\nWorkspace ID: %v\nTask ID: %v\nDescription: %s\nDetails: %s\nRemediation: %s\nRequest: %s\nResponse: %s",
-		i.ID, i.Code, i.Title, i.Cwe, i.URL, i.StatusCode, i.HTTPMethod, i.Payload, i.FalsePositive, i.Confidence, i.References, i.Severity, i.CURLCommand, i.Note, *i.WorkspaceID, *i.TaskID, i.Description, i.Details, i.Remediation, string(i.Request), string(i.Response),
+		"ID: %d\nCode: %s\nTitle: %s\nCWE: %d\nURL: %s\nStatus Code: %d\nHTTP Method: %s\nPayload: %s\nFalse Positive: %t\nConfidence: %d\nReferences: %v\nSeverity: %s\nCURL Command: %s\nNote: %s\nWorkspace ID: %s\nScan ID: %s\nDescription: %s\nDetails: %s\nRemediation: %s\nRequest: %s\nResponse: %s",
+		i.ID, i.Code, i.Title, i.Cwe, i.URL, i.StatusCode, i.HTTPMethod, i.Payload, i.FalsePositive, i.Confidence, i.References, i.Severity, i.CURLCommand, i.Note, workspaceID, scanID, i.Description, i.Details, i.Remediation, string(i.Request), string(i.Response),
 	)
 }
 
 func (i Issue) Pretty() string {
+	workspaceID := "<nil>"
+	if i.WorkspaceID != nil {
+		workspaceID = fmt.Sprintf("%d", *i.WorkspaceID)
+	}
+	scanID := "<nil>"
+	if i.ScanID != nil {
+		scanID = fmt.Sprintf("%d", *i.ScanID)
+	}
+
 	return fmt.Sprintf(
-		"%sID:%s %d\n%sCode:%s %s\n%sTitle:%s %s\n%sCWE:%s %d\n%sURL:%s %s\n%sStatus Code:%s %d\n%sHTTP Method:%s %s\n%sPayload:%s %s\n%sFalse Positive:%s %t\n%sConfidence:%s %d\n%sReferences:%s %v\n%sSeverity:%s %s\n%sCURL Command:%s %s\n%sNote:%s %s\n%sWorkspace ID:%s %v\n%sTask ID:%s %v\n\n%sDescription:%s %s\n\n%sDetails:%s %s\n\n%sRemediation:%s %s\n\n%sRequest:%s %s\n\n%sResponse:%s %s\n",
+		"%sID:%s %d\n%sCode:%s %s\n%sTitle:%s %s\n%sCWE:%s %d\n%sURL:%s %s\n%sStatus Code:%s %d\n%sHTTP Method:%s %s\n%sPayload:%s %s\n%sFalse Positive:%s %t\n%sConfidence:%s %d\n%sReferences:%s %v\n%sSeverity:%s %s\n%sCURL Command:%s %s\n%sNote:%s %s\n%sWorkspace ID:%s %s\n%sScan ID:%s %s\n\n%sDescription:%s %s\n\n%sDetails:%s %s\n\n%sRemediation:%s %s\n\n%sRequest:%s %s\n\n%sResponse:%s %s\n",
 		lib.Blue, lib.ResetColor, i.ID,
 		lib.Blue, lib.ResetColor, i.Code,
 		lib.Blue, lib.ResetColor, i.Title,
@@ -99,8 +117,8 @@ func (i Issue) Pretty() string {
 		lib.Blue, lib.ResetColor, i.Severity,
 		lib.Blue, lib.ResetColor, i.CURLCommand,
 		lib.Blue, lib.ResetColor, i.Note,
-		lib.Blue, lib.ResetColor, *i.WorkspaceID,
-		lib.Blue, lib.ResetColor, *i.TaskID,
+		lib.Blue, lib.ResetColor, workspaceID,
+		lib.Blue, lib.ResetColor, scanID,
 		lib.Blue, lib.ResetColor, i.Description,
 		lib.Blue, lib.ResetColor, i.Details,
 		lib.Blue, lib.ResetColor, i.Remediation,

@@ -270,7 +270,7 @@ func (d *DatabaseConnection) ListScanJobs(filter ScanJobFilter) (items []*ScanJo
 
 	if filter.Query != "" {
 		likeQuery := "%" + filter.Query + "%"
-		query = query.Where("url LIKE ?", likeQuery)
+		query = query.Where("url ILIKE ? OR error_message ILIKE ?", likeQuery, likeQuery)
 	}
 
 	if filter.ScanID > 0 {

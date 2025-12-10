@@ -3041,6 +3041,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "Search by URL or error message",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Filter by status (comma-separated)",
                         "name": "status",
                         "in": "query"
@@ -4074,6 +4080,150 @@ const docTemplate = `{
                 ],
                 "summary": "Get dashboard HTML page",
                 "responses": {}
+            }
+        },
+        "/scan": {
+            "post": {
+                "description": "add dalfox scan",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "scan",
+                "parameters": [
+                    {
+                        "description": "json data",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/server.Req"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.Res"
+                        }
+                    }
+                }
+            }
+        },
+        "/scan/{scanid}": {
+            "get": {
+                "description": "get scan info",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "scan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "scan id",
+                        "name": "scanid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/server.Res"
+                        }
+                    }
+                }
+            }
+        },
+        "/scan/{sid}": {
+            "delete": {
+                "description": "Deletes a scan by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "scans"
+                ],
+                "summary": "Delete a specific scan",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Scan ID",
+                        "name": "sid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Scan deleted successfully",
+                        "schema": {
+                            "$ref": "#/definitions/server.Res"
+                        }
+                    },
+                    "404": {
+                        "description": "Scan ID not found",
+                        "schema": {
+                            "$ref": "#/definitions/server.Res"
+                        }
+                    }
+                }
+            }
+        },
+        "/scans": {
+            "get": {
+                "description": "show scan list",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "scan",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/scans/all": {
+            "delete": {
+                "description": "Deletes all recorded scan data",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "scans"
+                ],
+                "summary": "Delete all scans",
+                "responses": {
+                    "200": {
+                        "description": "All scans deleted",
+                        "schema": {
+                            "$ref": "#/definitions/server.Res"
+                        }
+                    }
+                }
             }
         }
     },
@@ -7813,6 +7963,105 @@ const docTemplate = `{
                 }
             }
         },
+        "model.ParamResult": {
+            "type": "object",
+            "properties": {
+                "chars": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "code": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "reflected": {
+                    "type": "boolean"
+                },
+                "reflectedCode": {
+                    "type": "string"
+                },
+                "reflectedPoint": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.PoC": {
+            "type": "object",
+            "properties": {
+                "cwe": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "string"
+                },
+                "evidence": {
+                    "type": "string"
+                },
+                "inject_type": {
+                    "type": "string"
+                },
+                "message_id": {
+                    "type": "integer"
+                },
+                "message_str": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "param": {
+                    "type": "string"
+                },
+                "payload": {
+                    "type": "string"
+                },
+                "poc_type": {
+                    "type": "string"
+                },
+                "raw_request": {
+                    "type": "string"
+                },
+                "raw_response": {
+                    "type": "string"
+                },
+                "severity": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.Scan": {
+            "type": "object",
+            "properties": {
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.PoC"
+                    }
+                },
+                "scanID": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "openapi.Endpoint": {
             "type": "object",
             "properties": {
@@ -8028,6 +8277,26 @@ const docTemplate = `{
                 "ReportFormatHTML",
                 "ReportFormatJSON"
             ]
+        },
+        "server.Req": {
+            "type": "object"
+        },
+        "server.Res": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.PoC"
+                    }
+                },
+                "msg": {
+                    "type": "string"
+                }
+            }
         },
         "web.PageEvent": {
             "type": "object",

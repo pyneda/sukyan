@@ -688,6 +688,7 @@ func CancelScanJobHandler(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param id path int true "Scan ID"
+// @Param query query string false "Search by URL or error message"
 // @Param status query string false "Filter by status (comma-separated)"
 // @Param job_type query string false "Filter by job type (comma-separated)"
 // @Param page query int false "Page number"
@@ -723,6 +724,11 @@ func GetScanJobsHandler(c *fiber.Ctx) error {
 		},
 		SortBy:    "id",
 		SortOrder: "desc",
+	}
+
+	// Parse query parameter for searching URL and error message
+	if query := c.Query("query"); query != "" {
+		filter.Query = query
 	}
 
 	// Parse status filter

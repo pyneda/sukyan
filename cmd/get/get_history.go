@@ -17,6 +17,8 @@ var filterPageSize int
 var filterPage int
 var filterHistorySources []string
 var filterQuery string
+var filterScanID uint
+var filterHistoryTaskJobID uint
 
 // historyCmd represents the history command
 var historyCmd = &cobra.Command{
@@ -40,6 +42,8 @@ var historyCmd = &cobra.Command{
 			ResponseContentTypes: filterContentTypes,
 			Methods:              filterMethods,
 			WorkspaceID:          uint(workspaceID),
+			ScanID:               filterScanID,
+			TaskID:               filterTaskID,
 			Sources:              filterHistorySources,
 			Query:                filterQuery,
 			Pagination: db.Pagination{
@@ -71,10 +75,12 @@ func init() {
 	GetCmd.AddCommand(historyCmd)
 
 	historyCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
+	historyCmd.Flags().UintVar(&filterScanID, "scan", 0, "Scan ID")
+	historyCmd.Flags().UintVarP(&filterTaskID, "task", "t", 0, "Task ID")
 	historyCmd.Flags().StringVarP(&filterQuery, "query", "q", "", "Filter by query")
 	historyCmd.Flags().StringSliceVarP(&filterHistorySources, "source", "S", []string{}, "Filter by source. Can be added multiple times.")
 	historyCmd.Flags().IntSliceVarP(&filterStatusCodes, "status", "s", []int{}, "Filter by status code. Can be added multiple times.")
-	historyCmd.Flags().StringSliceVarP(&filterContentTypes, "content-type", "t", []string{}, "Filter by content types. Can be added multiple times.")
+	historyCmd.Flags().StringSliceVarP(&filterContentTypes, "content-type", "c", []string{}, "Filter by content types. Can be added multiple times.")
 	historyCmd.Flags().StringSliceVarP(&filterMethods, "method", "m", []string{}, "Filter by HTTP method. Can be added multiple times.")
 	historyCmd.Flags().IntVarP(&filterPage, "page", "p", 1, "Page to get data from")
 	historyCmd.Flags().IntVar(&filterPageSize, "page-size", 50, "Page size")

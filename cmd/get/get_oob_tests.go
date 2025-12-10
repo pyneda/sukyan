@@ -17,6 +17,7 @@ var (
 	oobPayloads           []string
 	oobInsertionPoints    []string
 	oobCodes              []string
+	oobScanID             uint
 )
 
 // getOOBTestsCmd represents the command for getting OOB tests
@@ -35,6 +36,7 @@ var getOOBTestsCmd = &cobra.Command{
 			Codes:              oobCodes,
 			Pagination:         db.Pagination{PageSize: pageSize, Page: page},
 			WorkspaceID:        workspaceID,
+			ScanID:             oobScanID,
 			TaskID:             filterTaskID,
 			TaskJobID:          filterTaskJobID,
 		}
@@ -69,6 +71,7 @@ var getOOBTestsCmd = &cobra.Command{
 func init() {
 	GetCmd.AddCommand(getOOBTestsCmd)
 	getOOBTestsCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
+	getOOBTestsCmd.Flags().UintVar(&oobScanID, "scan", 0, "Scan ID")
 	getOOBTestsCmd.Flags().UintVarP(&filterTaskID, "task", "t", 0, "Task ID")
 	getOOBTestsCmd.Flags().UintVarP(&filterTaskJobID, "task-job", "j", 0, "Task Job ID")
 	getOOBTestsCmd.Flags().StringSliceVar(&oobTestNames, "test-name", []string{}, "Filter by test name. Can be added multiple times.")

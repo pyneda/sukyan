@@ -18,6 +18,7 @@ import (
 var filterIssueCodes []string
 var filterTaskID uint
 var filterTaskJobID uint
+var filterIssueScanID uint
 var filterMinConfidence int
 
 // getIssuesCmd represents the results command
@@ -29,6 +30,7 @@ var getIssuesCmd = &cobra.Command{
 		issues, _, err := db.Connection().ListIssues(db.IssueFilter{
 			Codes:         filterIssueCodes,
 			WorkspaceID:   uint(workspaceID),
+			ScanID:        filterIssueScanID,
 			TaskID:        uint(filterTaskID),
 			TaskJobID:     uint(filterTaskJobID),
 			MinConfidence: filterMinConfidence,
@@ -59,6 +61,7 @@ var listIssueCodesCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		issueTypes, err := db.Connection().ListUniqueIssueCodes(db.IssueFilter{
 			WorkspaceID:   uint(workspaceID),
+			ScanID:        filterIssueScanID,
 			TaskID:        uint(filterTaskID),
 			TaskJobID:     uint(filterTaskJobID),
 			MinConfidence: filterMinConfidence,
@@ -124,7 +127,7 @@ func init() {
 	GetCmd.AddCommand(getIssuesCmd)
 
 	getIssuesCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
-	// getIssuesCmd.MarkFlagRequired("workspace")
+	getIssuesCmd.Flags().UintVar(&filterIssueScanID, "scan", 0, "Scan ID")
 	getIssuesCmd.Flags().UintVarP(&filterTaskID, "task", "t", 0, "Task ID")
 	getIssuesCmd.Flags().UintVarP(&filterTaskJobID, "task-job", "j", 0, "Task Job ID")
 	getIssuesCmd.Flags().StringSliceVarP(&filterIssueCodes, "code", "c", []string{}, "Filter by issue code. Can be added multiple times.")
@@ -134,6 +137,7 @@ func init() {
 	getIssuesCmd.AddCommand(listIssueCodesCmd)
 
 	listIssueCodesCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
+	listIssueCodesCmd.Flags().UintVar(&filterIssueScanID, "scan", 0, "Scan ID")
 	listIssueCodesCmd.Flags().UintVarP(&filterTaskID, "task", "t", 0, "Task ID")
 	listIssueCodesCmd.Flags().UintVarP(&filterTaskJobID, "task-job", "j", 0, "Task Job ID")
 	listIssueCodesCmd.Flags().IntVarP(&filterMinConfidence, "min-confidence", "m", 0, "Minimum confidence level (0-100)")

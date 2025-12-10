@@ -10,7 +10,9 @@ import (
 )
 
 var (
-	taskID uint
+	wsTaskID  uint
+	wsScanID  uint
+	wsTaskJobID uint
 )
 
 // getWebSocketConnectionsCmd represents the get WebSocket connections command
@@ -36,7 +38,8 @@ var getWebSocketConnectionsCmd = &cobra.Command{
 				Page:     page,
 			},
 			WorkspaceID: workspaceID,
-			TaskID:      taskID,
+			TaskID:      wsTaskID,
+			ScanID:      wsScanID,
 			Sources:     filterHistorySources,
 		}
 
@@ -69,7 +72,8 @@ var getWebSocketConnectionsCmd = &cobra.Command{
 func init() {
 	GetCmd.AddCommand(getWebSocketConnectionsCmd)
 	getWebSocketConnectionsCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
-	getWebSocketConnectionsCmd.Flags().UintVar(&taskID, "task", 0, "Task ID")
+	getWebSocketConnectionsCmd.Flags().UintVar(&wsScanID, "scan", 0, "Scan ID")
+	getWebSocketConnectionsCmd.Flags().UintVarP(&wsTaskID, "task", "t", 0, "Task ID")
 	getWebSocketConnectionsCmd.Flags().StringSliceVarP(&filterHistorySources, "source", "S", []string{}, "Filter by source. Can be added multiple times.")
 	getWebSocketConnectionsCmd.PersistentFlags().StringVarP(&query, "query", "q", "", "Search query")
 }

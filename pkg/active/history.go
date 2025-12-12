@@ -75,8 +75,14 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		rscRCE.Run()
 	}
 
-	insertionPoints, err := scan.GetAndAnalyzeInsertionPoints(item, options.InsertionPoints, scan.InsertionPointAnalysisOptions{HistoryCreateOptions: historyCreateOptions})
-	taskLog.Debug().Interface("insertionPoints", insertionPoints).Msg("Insertion points")
+	// Use comprehensive reflection analysis for context-aware XSS scanning
+	insertionPointOptions := scan.InsertionPointAnalysisOptions{
+		HistoryCreateOptions:      historyCreateOptions,
+		ReflectionAnalysis:        options.AuditCategories.ClientSide, // Enable reflection analysis for client-side checks
+		TestCharacterEfficiencies: options.AuditCategories.ClientSide, // Test encoding when client-side checks enabled
+	}
+	insertionPoints, err := scan.GetAndAnalyzeInsertionPoints(item, options.InsertionPoints, insertionPointOptions)
+	taskLog.Debug().Interface("insertionPoints", scan.LogSummarySlice(insertionPoints)).Msg("Insertion points")
 	if err != nil {
 		taskLog.Error().Err(err).Msg("Could not get insertion points")
 	}
@@ -155,8 +161,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			}
 			taskLog.Info().Msg("Starting client side audits")
 
-			xssPayloads := payloads.GetXSSPayloads()
-			alert.RunWithPayloads(item, xssInsertionPoints, xssPayloads, db.XssReflectedCode)
+			alert.RunWithContextAwarePayloads(item, xssInsertionPoints, db.XssReflectedCode)
 
 			cstiPayloads := payloads.GetCSTIPayloads()
 			alert.RunWithPayloads(item, xssInsertionPoints, cstiPayloads, db.CstiCode)

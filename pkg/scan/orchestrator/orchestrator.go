@@ -401,7 +401,7 @@ func (o *Orchestrator) startFingerprintPhase(scanEntity *db.Scan) error {
 
 		// Fingerprint the history items
 		newFingerprints := passive.FingerprintHistoryItems(allHistoriesForBaseURL)
-		passive.ReportFingerprints(baseURL, newFingerprints, scanEntity.WorkspaceID, 0)
+		passive.ReportFingerprints(baseURL, newFingerprints, scanEntity.WorkspaceID, 0, &scanEntity.ID)
 		fingerprints = append(fingerprints, newFingerprints...)
 
 		const maxConcurrentRetireJS = 10

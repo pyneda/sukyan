@@ -57,7 +57,7 @@ func GetUniqueNucleiTags(fingerprints []lib.Fingerprint) []string {
 	return uniqueTags
 }
 
-func ReportFingerprints(baseURL string, fingerprints []lib.Fingerprint, workspaceID, taskID uint) {
+func ReportFingerprints(baseURL string, fingerprints []lib.Fingerprint, workspaceID, taskID uint, scanID *uint) {
 	if len(fingerprints) == 0 {
 		log.Info().Msg("No fingerprints found")
 		return
@@ -70,6 +70,7 @@ func ReportFingerprints(baseURL string, fingerprints []lib.Fingerprint, workspac
 	issue.WorkspaceID = &workspaceID
 	issue.URL = baseURL
 	issue.TaskID = &taskID
+	issue.ScanID = scanID
 
 	created, err := db.Connection().CreateIssue(*issue)
 	if err != nil {

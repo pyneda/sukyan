@@ -211,6 +211,10 @@ type ReplayAndCreateHistoryOptions struct {
 }
 
 func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) (history *db.History, err error) {
+	// Check if the page context is already cancelled before starting
+	if opts.Page.GetContext().Err() != nil {
+		return nil, opts.Page.GetContext().Err()
+	}
 
 	router := opts.Page.HijackRequests()
 	defer router.Stop()
@@ -219,7 +223,7 @@ func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) 
 		opts.Note = "Create history from replay in browser"
 	}
 
-	router.MustAdd("*", func(ctx *rod.Hijack) {
+	err = router.Add("*", "", func(ctx *rod.Hijack) {
 		// https://github.com/go-rod/rod/blob/4c4ccbecdd8110a434de73de08bdbb72e8c47cb0/examples_test.go#L473-L477
 		if requestHandled {
 			defer router.Stop()
@@ -270,6 +274,10 @@ func ReplayRequestInBrowserAndCreateHistory(opts ReplayAndCreateHistoryOptions) 
 		}
 
 	})
+	if err != nil {
+		log.Debug().Err(err).Msg("Failed to add hijack handler (context may be cancelled)")
+		return nil, err
+	}
 
 	go router.Run()
 

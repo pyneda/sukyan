@@ -3,6 +3,7 @@ package active
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -37,6 +38,15 @@ type AlertAudit struct {
 }
 
 func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.BrowserPoolManager) bool {
+	// Check parent context before acquiring browser
+	if x.Ctx != nil {
+		select {
+		case <-x.Ctx.Done():
+			return false
+		default:
+		}
+	}
+
 	b := browserPool.NewBrowser()
 	page := b.MustPage("")
 	defer browserPool.ReleaseBrowser(b)
@@ -50,13 +60,15 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 
 	taskLog.Debug().Msg("Browser page gathered")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	// Use parent context with timeout, so cancellation propagates
+	parentCtx := x.Ctx
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(parentCtx, 30*time.Second)
 	pageWithCancel := page.Context(ctx)
 	defer pageWithCancel.Close()
-	go func() {
-		time.Sleep(30 * time.Second)
-		cancel()
-	}()
+	defer cancel()
 	go pageWithCancel.EachEvent(
 		func(e *proto.PageJavascriptDialogOpening) (stop bool) {
 			hasAlert = true
@@ -150,12 +162,186 @@ func (x *AlertAudit) RunWithPayloads(history *db.History, insertionPoints []scan
 	taskLog.Info().Msg("Completed tests")
 }
 
-func (x *AlertAudit) testPayload(browserPool *browser.BrowserPoolManager, history *db.History, insertionPoints []scan.InsertionPoint, payload string, issueCode db.IssueCode) {
+// RunWithContextAwarePayloads runs the audit using context-aware payload selection
+// based on reflection analysis. It selects payloads appropriate for each insertion point's
+// reflection context (HTML, script, attribute, etc.) and character encoding behavior.
+func (x *AlertAudit) RunWithContextAwarePayloads(history *db.History, insertionPoints []scan.InsertionPoint, issueCode db.IssueCode) {
+	taskLog := log.With().Uint("history", history.ID).Str("method", history.Method).Str("url", history.URL).Str("audit", string(issueCode)).Logger()
+
+	// Get context, defaulting to background if not provided
+	ctx := x.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Check context before starting
+	select {
+	case <-ctx.Done():
+		taskLog.Info().Msg("Alert audit cancelled before starting")
+		return
+	default:
+	}
+
+	p := pool.New().WithMaxGoroutines(3)
+	browserPool := browser.GetScannerBrowserPoolManager()
+
+	if !x.SkipInitialAlertValidation && x.requestHasAlert(history, browserPool) {
+		taskLog.Warn().Msg("Skipping XSS tests as the original request triggers an alert dialog")
+		return
+	}
+
+	var csp *http_utils.CSPPolicy
+	if headers, err := history.GetResponseHeadersAsMap(); err == nil {
+		csp = http_utils.ParseCSPFromHeaders(http.Header(headers))
+		if csp != nil {
+			taskLog.Debug().Bool("reportOnly", csp.ReportOnly).Msg("CSP policy detected")
+		}
+	}
+
+	for _, insertionPoint := range insertionPoints {
+		select {
+		case <-ctx.Done():
+			taskLog.Info().Msg("Alert audit cancelled during insertion point iteration")
+			p.Wait()
+			return
+		default:
+		}
+
+		var contextPayloads []payloads.PayloadInterface
+		if insertionPoint.Behaviour.ReflectionAnalysis != nil {
+			cspResult := payloads.GetCSPAwarePayloadsWithDetails(insertionPoint.Behaviour.ReflectionAnalysis, csp)
+			contextPayloads = cspResult.Payloads
+
+			logEvent := taskLog.Info().
+				Str("insertionPoint", insertionPoint.Name).
+				Int("payloadCount", cspResult.FilteredCount).
+				Bool("hasHTMLContext", insertionPoint.Behaviour.ReflectionAnalysis.HasHTMLContext).
+				Bool("hasScriptContext", insertionPoint.Behaviour.ReflectionAnalysis.HasScriptContext).
+				Bool("hasAttributeContext", insertionPoint.Behaviour.ReflectionAnalysis.HasAttributeContext).
+				Bool("hasCSP", csp != nil)
+
+			if csp != nil && cspResult.OriginalCount != cspResult.FilteredCount {
+				logEvent = logEvent.
+					Int("originalPayloads", cspResult.OriginalCount).
+					Int("inlineScriptBlocked", cspResult.InlineScriptBlocked).
+					Int("dataURIBlocked", cspResult.DataURIBlocked).
+					Bool("cspBlocksInline", cspResult.BlocksInline).
+					Bool("cspAllowsData", cspResult.AllowsData)
+			}
+			logEvent.Msg("Using context-aware payloads")
+		} else {
+			contextPayloads = payloads.GetXSSPayloads()
+			taskLog.Debug().Str("insertionPoint", insertionPoint.Name).Msg("No reflection analysis, using all XSS payloads")
+		}
+
+		// Test each payload for this insertion point
+		for _, payload := range contextPayloads {
+			select {
+			case <-ctx.Done():
+				taskLog.Info().Msg("Alert audit cancelled during payload iteration")
+				p.Wait()
+				return
+			default:
+			}
+
+			ip := insertionPoint // Capture for closure
+			pl := payload        // Capture for closure
+
+			p.Go(func() {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+				value := pl.GetValue()
+				x.testPayloadForSingleInsertionPoint(browserPool, history, ip, value, issueCode)
+			})
+		}
+	}
+
+	p.Wait()
+	taskLog.Info().Msg("Completed context-aware XSS tests")
+}
+
+// testPayloadForSingleInsertionPoint tests a payload against a single insertion point
+func (x *AlertAudit) testPayloadForSingleInsertionPoint(browserPool *browser.BrowserPoolManager, history *db.History, insertionPoint scan.InsertionPoint, payload string, issueCode db.IssueCode) {
+	// Check parent context before doing work
+	if x.Ctx != nil {
+		select {
+		case <-x.Ctx.Done():
+			return
+		default:
+		}
+	}
+
+	if x.isDetectedLocation(history.URL, insertionPoint) {
+		log.Debug().Str("url", history.URL).Interface("insertionPoint", insertionPoint.LogSummary()).Str("check", issueCode.String()).Msg("Skipping testing for alert in already detected location")
+		return
+	}
+
 	b := browserPool.NewBrowser()
 	log.Debug().Msg("Got scan browser from the pool")
 
 	hijackResultsChannel := make(chan browser.HijackResult)
-	hijackContext, hijackCancel := context.WithCancel(context.Background())
+	// Use parent context for hijacking so it stops when scan is cancelled
+	parentCtx := x.Ctx
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
+	hijackContext, hijackCancel := context.WithCancel(parentCtx)
+	browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
+	defer browserPool.ReleaseBrowser(b)
+	defer hijackCancel()
+
+	go func() {
+		for {
+			select {
+			case hijackResult, ok := <-hijackResultsChannel:
+				if !ok {
+					return
+				}
+				x.requests.Store(hijackResult.History.URL, hijackResult.History)
+			case <-hijackContext.Done():
+				return
+			}
+		}
+	}()
+
+	builders := []scan.InsertionPointBuilder{
+		{
+			Point:   insertionPoint,
+			Payload: payload,
+		},
+	}
+	request, err := scan.CreateRequestFromInsertionPoints(history, builders)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to create request from insertion points")
+		return
+	}
+	x.testRequest(request, insertionPoint, payload, b, issueCode)
+	log.Debug().Str("payload", payload).Str("insertionPoint", insertionPoint.Name).Msg("Finished testing payload")
+}
+
+func (x *AlertAudit) testPayload(browserPool *browser.BrowserPoolManager, history *db.History, insertionPoints []scan.InsertionPoint, payload string, issueCode db.IssueCode) {
+	// Check parent context before doing work
+	if x.Ctx != nil {
+		select {
+		case <-x.Ctx.Done():
+			return
+		default:
+		}
+	}
+
+	b := browserPool.NewBrowser()
+	log.Debug().Msg("Got scan browser from the pool")
+
+	hijackResultsChannel := make(chan browser.HijackResult)
+	// Use parent context for hijacking so it stops when scan is cancelled
+	parentCtx := x.Ctx
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
+	hijackContext, hijackCancel := context.WithCancel(parentCtx)
 	browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
 	defer browserPool.ReleaseBrowser(b)
 	defer hijackCancel()
@@ -247,8 +433,8 @@ func (x *AlertAudit) Run(history *db.History, insertionPoints []scan.InsertionPo
 
 func (x *AlertAudit) testPayloadInInsertionPoint(history *db.History, insertionPoints []scan.InsertionPoint, payload string, b *rod.Browser, issueCode db.IssueCode) {
 	for _, insertionPoint := range insertionPoints {
-		if x.isDetecteLocation(history.URL, insertionPoint) {
-			log.Debug().Str("url", history.URL).Interface("insertionPoint", insertionPoint).Str("check", issueCode.String()).Msg("Skipping testing for alert in already detected location")
+		if x.isDetectedLocation(history.URL, insertionPoint) {
+			log.Debug().Str("url", history.URL).Interface("insertionPoint", insertionPoint.LogSummary()).Str("check", issueCode.String()).Msg("Skipping testing for alert in already detected location")
 			continue
 		}
 		builders := []scan.InsertionPointBuilder{
@@ -268,10 +454,13 @@ func (x *AlertAudit) testPayloadInInsertionPoint(history *db.History, insertionP
 }
 
 func (x *AlertAudit) reportIssue(history *db.History, scanRequest *http.Request, e proto.PageJavascriptDialogOpening, insertionPoint scan.InsertionPoint, payload string, issueCode db.IssueCode) {
+	if !x.markDetectedIfNew(history.URL, insertionPoint) {
+		log.Debug().Str("url", history.URL).Interface("insertionPoint", insertionPoint.LogSummary()).Msg("Skipping duplicate XSS report")
+		return
+	}
 
-	log.Warn().Str("url", history.URL).Interface("insertionPoint", insertionPoint).Str("payload", payload).Str("audit", string(issueCode)).Msg("Reflected XSS detected")
+	log.Warn().Str("url", history.URL).Interface("insertionPoint", insertionPoint.LogSummary()).Str("payload", payload).Str("audit", string(issueCode)).Msg("Reflected XSS detected")
 	testurl := scanRequest.URL.String()
-	x.storeDetectedLocation(e.URL, insertionPoint)
 	var sb strings.Builder
 
 	sb.WriteString("A " + issueCode.Name() + " has been detected affecting the `" + insertionPoint.Name + "` " + string(insertionPoint.Type) + ". The POC submitted a " + history.Method + " request to the URL below and verified that an alert dialog of type " + string(e.Type) + " has been triggered.\n\n")
@@ -288,10 +477,67 @@ func (x *AlertAudit) reportIssue(history *db.History, scanRequest *http.Request,
 	}
 
 	body, err := history.RequestBody()
-	if err != nil && string(body) != "" {
+	if err == nil && len(body) > 0 {
 		sb.WriteString("\n\nThe request body:\n```\n" + string(body) + "\n```\n")
 	}
 	db.CreateIssueFromHistoryAndTemplate(history, issueCode, sb.String(), 90, "", &x.WorkspaceID, &x.TaskID, &x.TaskJobID, &x.ScanID, &x.ScanJobID)
+
+	x.saveBrowserDialogEvent(history, e, insertionPoint, payload, issueCode)
+}
+
+func (x *AlertAudit) saveBrowserDialogEvent(history *db.History, e proto.PageJavascriptDialogOpening, insertionPoint scan.InsertionPoint, payload string, issueCode db.IssueCode) {
+	eventData := map[string]interface{}{
+		"dialog_type":         string(e.Type),
+		"message":             e.Message,
+		"default_prompt":      e.DefaultPrompt,
+		"has_browser_handler": e.HasBrowserHandler,
+		"insertion_point":     insertionPoint.Name,
+		"insertion_type":      string(insertionPoint.Type),
+		"payload":             payload,
+		"issue_code":          string(issueCode),
+	}
+
+	dataJSON, err := json.Marshal(eventData)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to marshal dialog event data")
+		return
+	}
+
+	var historyID *uint
+	if history != nil && history.ID > 0 {
+		historyID = &history.ID
+	}
+
+	var scanID *uint
+	if x.ScanID > 0 {
+		scanID = &x.ScanID
+	}
+	var scanJobID *uint
+	if x.ScanJobID > 0 {
+		scanJobID = &x.ScanJobID
+	}
+	var taskID *uint
+	if x.TaskID > 0 {
+		taskID = &x.TaskID
+	}
+
+	browserEvent := &db.BrowserEvent{
+		EventType:   db.BrowserEventDialog,
+		Category:    db.BrowserEventCategoryRuntime,
+		URL:         e.URL,
+		Description: fmt.Sprintf("JavaScript %s dialog triggered", e.Type),
+		Data:        dataJSON,
+		WorkspaceID: x.WorkspaceID,
+		ScanID:      scanID,
+		ScanJobID:   scanJobID,
+		HistoryID:   historyID,
+		TaskID:      taskID,
+		Source:      "xss_audit",
+	}
+
+	if err := db.Connection().SaveBrowserEvent(browserEvent); err != nil {
+		log.Error().Err(err).Msg("Failed to save browser dialog event")
+	}
 }
 
 func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.InsertionPoint, payload string, b *rod.Browser, issueCode db.IssueCode) error {
@@ -309,7 +555,7 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 		testurl = scanRequest.URL.String()
 	}
 
-	taskLog := log.With().Str("method", scanRequest.Method).Str("url", testurl).Interface("insertionPoint", insertionPoint).Str("payload", payload).Str("audit", string(issueCode)).Logger()
+	taskLog := log.With().Str("method", scanRequest.Method).Str("url", testurl).Interface("insertionPoint", insertionPoint.LogSummary()).Str("payload", payload).Str("audit", string(issueCode)).Logger()
 
 	taskLog.Debug().Msg("Getting a browser page")
 	page := b.MustPage("")
@@ -319,13 +565,15 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 
 	alertOpenEventChan := make(chan *proto.PageJavascriptDialogOpening, 1)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	// Create context with 60s timeout, using parent context so cancellation propagates
+	parentCtx := x.Ctx
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(parentCtx, 60*time.Second)
 	pageWithCancel := page.Context(ctx)
 	defer pageWithCancel.Close()
-	go func() {
-		time.Sleep(60 * time.Second)
-		cancel()
-	}()
+	defer cancel()
 	taskLog.Debug().Str("url", testurl).Msg("Navigating to the page")
 
 	go func() {
@@ -403,6 +651,16 @@ func (x *AlertAudit) testRequest(scanRequest *http.Request, insertionPoint scan.
 	}
 
 	done := make(chan struct{})
+	// Close done channel when context is cancelled to stop event triggering
+	go func() {
+		select {
+		case <-ctx.Done():
+			close(done)
+		case <-done:
+			// Already closed by someone else
+		}
+	}()
+
 	eventTypes := browser.EventTypesForAlertPayload(payload)
 	if eventTypes.HasEventTypesToCheck() {
 		taskLog.Info().Str("url", testurl).Msg("No alert triggered, trying to trigger with mouse events")
@@ -440,21 +698,22 @@ func (x *AlertAudit) GetHistory(id string) *db.History {
 	return &db.History{}
 }
 
-func (x *AlertAudit) storeDetectedLocation(url string, insertionPoint scan.InsertionPoint) {
+func (x *AlertAudit) buildDeduplicationKey(url string, insertionPoint scan.InsertionPoint) string {
 	normalizedUrl, err := lib.NormalizeURL(url)
 	if err != nil {
-		return
+		normalizedUrl = url
 	}
-	key := normalizedUrl + ":" + insertionPoint.String()
-	x.detectedLocations.Store(key, true)
+	return normalizedUrl + ":" + insertionPoint.String()
 }
 
-func (x *AlertAudit) isDetecteLocation(url string, insertionPoint scan.InsertionPoint) bool {
-	normalizedUrl, err := lib.NormalizeURL(url)
-	if err != nil {
-		return false
-	}
-	key := normalizedUrl + ":" + insertionPoint.String()
+func (x *AlertAudit) markDetectedIfNew(url string, insertionPoint scan.InsertionPoint) bool {
+	key := x.buildDeduplicationKey(url, insertionPoint)
+	_, alreadyExists := x.detectedLocations.LoadOrStore(key, true)
+	return !alreadyExists
+}
+
+func (x *AlertAudit) isDetectedLocation(url string, insertionPoint scan.InsertionPoint) bool {
+	key := x.buildDeduplicationKey(url, insertionPoint)
 	_, ok := x.detectedLocations.Load(key)
 	return ok
 }

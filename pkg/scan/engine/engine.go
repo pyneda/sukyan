@@ -256,7 +256,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 	for baseURL, histories := range historiesByBaseURL {
 		passive.AnalyzeHeaders(baseURL, histories)
 		newFingerprints := passive.FingerprintHistoryItems(histories)
-		passive.ReportFingerprints(baseURL, newFingerprints, options.WorkspaceID, task.ID)
+		passive.ReportFingerprints(baseURL, newFingerprints, options.WorkspaceID, task.ID, nil)
 		fingerprints = append(fingerprints, newFingerprints...)
 		integrations.CDNCheck(baseURL, options.WorkspaceID, task.ID)
 	}

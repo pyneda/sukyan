@@ -12,6 +12,7 @@ import (
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/scan/reflection"
 	"github.com/rs/zerolog/log"
 )
 
@@ -271,12 +272,70 @@ func (i *InsertionPoint) String() string {
 	return fmt.Sprintf("%s: %s", i.Type, i.Name)
 }
 
+// LogSummary returns a concise map suitable for structured logging
+func (i *InsertionPoint) LogSummary() map[string]interface{} {
+	summary := map[string]interface{}{
+		"type":      string(i.Type),
+		"name":      i.Name,
+		"value":     i.Value,
+		"valueType": string(i.ValueType),
+	}
+
+	// Add behaviour flags only if they're true (non-default)
+	if i.Behaviour.IsReflected {
+		summary["isReflected"] = true
+	}
+	if i.Behaviour.IsDynamic {
+		summary["isDynamic"] = true
+	}
+
+	// Add reflection context summary if available
+	if i.Behaviour.ReflectionAnalysis != nil {
+		ra := i.Behaviour.ReflectionAnalysis
+		contexts := []string{}
+		if ra.HasHTMLContext {
+			contexts = append(contexts, "html")
+		}
+		if ra.HasScriptContext {
+			contexts = append(contexts, "script")
+		}
+		if ra.HasAttributeContext {
+			contexts = append(contexts, "attribute")
+		}
+		if ra.HasCSSContext {
+			contexts = append(contexts, "css")
+		}
+		if ra.HasCommentContext {
+			contexts = append(contexts, "comment")
+		}
+		if len(contexts) > 0 {
+			summary["contexts"] = contexts
+		}
+	}
+
+	return summary
+}
+
+// LogSummarySlice returns a concise slice of maps suitable for structured logging
+// of multiple insertion points
+func LogSummarySlice(points []InsertionPoint) []map[string]interface{} {
+	summaries := make([]map[string]interface{}, len(points))
+	for i := range points {
+		summaries[i] = points[i].LogSummary()
+	}
+	return summaries
+}
+
 type InsertionPointBehaviour struct {
 	// AcceptedDataTypes []lib.DataType
 	IsReflected        bool
 	ReflectionContexts []string
 	IsDynamic          bool
 	// Transformations   []Transformation
+
+	// ReflectionAnalysis contains comprehensive reflection analysis results
+	// including context detection, character efficiencies, and exploitability flags
+	ReflectionAnalysis *reflection.ReflectionAnalysis
 }
 
 type Transformation struct {

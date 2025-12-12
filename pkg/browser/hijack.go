@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -29,9 +31,38 @@ type HijackResult struct {
 	DiscoveredURLs []string
 }
 
+type RedirectTracker struct {
+	mu            sync.Mutex
+	urlCounts     map[string]int
+	lastReset     time.Time
+	resetInterval time.Duration
+}
+
+func NewRedirectTracker() *RedirectTracker {
+	return &RedirectTracker{
+		urlCounts:     make(map[string]int),
+		lastReset:     time.Now(),
+		resetInterval: 5 * time.Second,
+	}
+}
+
+func (rt *RedirectTracker) IsRedirectLoop(url string) bool {
+	rt.mu.Lock()
+	defer rt.mu.Unlock()
+
+	if time.Since(rt.lastReset) > rt.resetInterval {
+		rt.urlCounts = make(map[string]int)
+		rt.lastReset = time.Now()
+	}
+
+	rt.urlCounts[url]++
+	return rt.urlCounts[url] > 3
+}
+
 func HijackWithContext(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, ctx context.Context, workspaceID, taskID, scanID, scanJobID uint) *rod.HijackRouter {
 	router := browser.HijackRequests()
 	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
+	redirectTracker := NewRedirectTracker()
 	router.MustAdd("*", func(hj *rod.Hijack) {
 
 		if hj == nil || hj.Request == nil || hj.Request.URL() == nil {
@@ -43,14 +74,16 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 		select {
 		case <-ctx.Done():
 			router.Stop()
-			return // Stop processing if context is cancelled
+			return
 		default:
-			// Continue as usual
 		}
+
+		url := hj.Request.URL().String()
+		isRedirectLoop := redirectTracker.IsRedirectLoop(url)
 
 		if scheme := hj.Request.URL().Scheme; scheme != "http" && scheme != "https" {
 			log.Debug().
-				Str("url", hj.Request.URL().String()).
+				Str("url", url).
 				Str("scheme", scheme).
 				Msg("HijackWithContext skipping non-HTTP protocol")
 			hj.ContinueRequest(&proto.FetchContinueRequest{})
@@ -69,8 +102,14 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 				mustSkip = true
 			}
 		}
+
+		if isRedirectLoop {
+			mustSkip = true
+			log.Warn().Str("url", url).Msg("Redirect loop detected, skipping hijack processing")
+		}
+
 		if mustSkip {
-			log.Debug().Str("url", hj.Request.URL().String()).Msg("Skipping processing of hijacked response")
+			log.Debug().Str("url", url).Msg("Skipping processing of hijacked response")
 		} else {
 			go func() {
 				defer func() {
@@ -109,15 +148,20 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 	router := browser.HijackRequests()
 	ignoreKeywords := []string{"google", "twitter", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
 	httpClient := http_utils.CreateHttpClient()
+	redirectTracker := NewRedirectTracker()
 	router.MustAdd("*", func(ctx *rod.Hijack) {
 		if ctx == nil || ctx.Request == nil || ctx.Request.URL() == nil {
 			log.Error().Msg("Invalid hijack object, request, or URL")
 			ctx.ContinueRequest(&proto.FetchContinueRequest{})
 			return
 		}
+
+		url := ctx.Request.URL().String()
+		isRedirectLoop := redirectTracker.IsRedirectLoop(url)
+
 		if scheme := ctx.Request.URL().Scheme; scheme != "http" && scheme != "https" {
 			log.Debug().
-				Str("url", ctx.Request.URL().String()).
+				Str("url", url).
 				Str("scheme", scheme).
 				Msg("Hijack skipping non-HTTP protocol")
 			ctx.ContinueRequest(&proto.FetchContinueRequest{})
@@ -127,7 +171,7 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 		mustSkip := false
 
 		if err != nil {
-			log.Error().Err(err).Str("url", ctx.Request.URL().String()).Msg("Error loading hijacked response in Hijack function")
+			log.Error().Err(err).Str("url", url).Msg("Error loading hijacked response in Hijack function")
 			mustSkip = true
 		}
 
@@ -136,8 +180,14 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 				mustSkip = true
 			}
 		}
+
+		if isRedirectLoop {
+			mustSkip = true
+			log.Warn().Str("url", url).Msg("Redirect loop detected, skipping hijack processing")
+		}
+
 		if mustSkip {
-			log.Debug().Str("url", ctx.Request.URL().String()).Msg("Skipping processing of hijacked response")
+			log.Debug().Str("url", url).Msg("Skipping processing of hijacked response")
 		} else {
 			go func() {
 				defer func() {

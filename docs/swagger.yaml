@@ -514,6 +514,24 @@ definitions:
         type: string
     type: object
   api.ParseGraphQLFromIntrospectionInput:
+    properties:
+      base_url:
+        type: string
+      enable_fuzzing:
+        type: boolean
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      include_optional:
+        type: boolean
+      introspection_data:
+        type: object
+      max_depth:
+        type: integer
+    required:
+    - base_url
+    - introspection_data
     type: object
   api.ParseGraphQLSchemaInput:
     properties:
@@ -2668,6 +2686,75 @@ definitions:
         type: boolean
     type: object
   options.FullScanOptions:
+    properties:
+      audit_categories:
+        $ref: '#/definitions/options.AuditCategories'
+      capture_browser_events:
+        description: Enable browser event capture and storage
+        type: boolean
+      exclude_patterns:
+        items:
+          type: string
+        type: array
+      experimental_audits:
+        type: boolean
+      headers:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      insertion_points:
+        items:
+          type: string
+        type: array
+      job_timeouts:
+        allOf:
+        - $ref: '#/definitions/options.JobTimeouts'
+        description: Per-scan job timeout overrides
+      max_concurrent_jobs:
+        type: integer
+      max_depth:
+        minimum: 0
+        type: integer
+      max_pages_to_crawl:
+        minimum: 0
+        type: integer
+      max_retries:
+        minimum: 0
+        type: integer
+      max_rps:
+        type: integer
+      mode:
+        allOf:
+        - $ref: '#/definitions/options.ScanMode'
+        enum:
+        - fast
+        - smart
+        - fuzz
+      pages_pool_size:
+        maximum: 100
+        minimum: 1
+        type: integer
+      start_urls:
+        items:
+          type: string
+        type: array
+      title:
+        maxLength: 255
+        minLength: 1
+        type: string
+      use_orchestrator:
+        type: boolean
+      websocket_options:
+        $ref: '#/definitions/options.FullScanWebSocketOptions'
+      workspace_id:
+        minimum: 0
+        type: integer
+    required:
+    - audit_categories
+    - start_urls
+    - workspace_id
     type: object
   options.FullScanWebSocketOptions:
     properties:
@@ -2681,6 +2768,27 @@ definitions:
         type: integer
       replay_messages:
         type: boolean
+    type: object
+  options.JobTimeouts:
+    properties:
+      active_scan:
+        example: 1800000000000
+        type: integer
+      crawl:
+        example: 3600000000000
+        type: integer
+      discovery:
+        example: 300000000000
+        type: integer
+      fingerprint:
+        example: 300000000000
+        type: integer
+      nuclei:
+        example: 1200000000000
+        type: integer
+      websocket:
+        example: 900000000000
+        type: integer
     type: object
   options.ScanMode:
     enum:

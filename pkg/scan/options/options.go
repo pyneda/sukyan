@@ -10,12 +10,12 @@ import (
 // JobTimeouts configures maximum durations for different job types.
 // Jobs exceeding these durations are considered stale and will be reset.
 type JobTimeouts struct {
-	Crawl       time.Duration `json:"crawl"`
-	Discovery   time.Duration `json:"discovery"`
-	ActiveScan  time.Duration `json:"active_scan"`
-	Nuclei      time.Duration `json:"nuclei"`
-	Fingerprint time.Duration `json:"fingerprint"`
-	WebSocket   time.Duration `json:"websocket"`
+	Crawl       time.Duration `json:"crawl" swaggertype:"integer" example:"3600000000000"`
+	Discovery   time.Duration `json:"discovery" swaggertype:"integer" example:"300000000000"`
+	ActiveScan  time.Duration `json:"active_scan" swaggertype:"integer" example:"1800000000000"`
+	Nuclei      time.Duration `json:"nuclei" swaggertype:"integer" example:"1200000000000"`
+	Fingerprint time.Duration `json:"fingerprint" swaggertype:"integer" example:"300000000000"`
+	WebSocket   time.Duration `json:"websocket" swaggertype:"integer" example:"900000000000"`
 }
 
 // DefaultJobTimeouts returns the default job timeouts.

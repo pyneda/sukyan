@@ -40,7 +40,7 @@ type GraphQLSchemaInfo struct {
 
 // ParseGraphQLFromIntrospectionInput represents input for parsing from raw introspection JSON
 type ParseGraphQLFromIntrospectionInput struct {
-	IntrospectionData json.RawMessage   `json:"introspection_data" validate:"required"`
+	IntrospectionData json.RawMessage   `json:"introspection_data" validate:"required" swaggertype:"object"`
 	BaseURL           string            `json:"base_url" validate:"required,url"`
 	Headers           map[string]string `json:"headers,omitempty"`
 	IncludeOptional   bool              `json:"include_optional"`

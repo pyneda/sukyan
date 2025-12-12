@@ -4899,7 +4899,34 @@
             }
         },
         "api.ParseGraphQLFromIntrospectionInput": {
-            "type": "object"
+            "type": "object",
+            "required": [
+                "base_url",
+                "introspection_data"
+            ],
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "enable_fuzzing": {
+                    "type": "boolean"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "include_optional": {
+                    "type": "boolean"
+                },
+                "introspection_data": {
+                    "type": "object"
+                },
+                "max_depth": {
+                    "type": "integer"
+                }
+            }
         },
         "api.ParseGraphQLSchemaInput": {
             "type": "object",
@@ -8053,7 +8080,109 @@
             }
         },
         "options.FullScanOptions": {
-            "type": "object"
+            "type": "object",
+            "required": [
+                "audit_categories",
+                "start_urls",
+                "workspace_id"
+            ],
+            "properties": {
+                "audit_categories": {
+                    "$ref": "#/definitions/options.AuditCategories"
+                },
+                "capture_browser_events": {
+                    "description": "Enable browser event capture and storage",
+                    "type": "boolean"
+                },
+                "exclude_patterns": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "experimental_audits": {
+                    "type": "boolean"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "insertion_points": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "job_timeouts": {
+                    "description": "Per-scan job timeout overrides",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/options.JobTimeouts"
+                        }
+                    ]
+                },
+                "max_concurrent_jobs": {
+                    "type": "integer"
+                },
+                "max_depth": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max_pages_to_crawl": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max_retries": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max_rps": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "enum": [
+                        "fast",
+                        "smart",
+                        "fuzz"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/options.ScanMode"
+                        }
+                    ]
+                },
+                "pages_pool_size": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 1
+                },
+                "start_urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                },
+                "use_orchestrator": {
+                    "type": "boolean"
+                },
+                "websocket_options": {
+                    "$ref": "#/definitions/options.FullScanWebSocketOptions"
+                },
+                "workspace_id": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
         },
         "options.FullScanWebSocketOptions": {
             "type": "object",
@@ -8070,6 +8199,35 @@
                 },
                 "replay_messages": {
                     "type": "boolean"
+                }
+            }
+        },
+        "options.JobTimeouts": {
+            "type": "object",
+            "properties": {
+                "active_scan": {
+                    "type": "integer",
+                    "example": 1800000000000
+                },
+                "crawl": {
+                    "type": "integer",
+                    "example": 3600000000000
+                },
+                "discovery": {
+                    "type": "integer",
+                    "example": 300000000000
+                },
+                "fingerprint": {
+                    "type": "integer",
+                    "example": 300000000000
+                },
+                "nuclei": {
+                    "type": "integer",
+                    "example": 1200000000000
+                },
+                "websocket": {
+                    "type": "integer",
+                    "example": 900000000000
                 }
             }
         },

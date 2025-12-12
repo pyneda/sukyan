@@ -1031,6 +1031,16 @@ definitions:
     required:
     - name
     type: object
+  api.UpdateScanInput:
+    properties:
+      max_concurrent_jobs:
+        minimum: 1
+        type: integer
+      title:
+        maxLength: 255
+        minLength: 1
+        type: string
+    type: object
   api.WSDLSchemaInfo:
     properties:
       binding_count:
@@ -4721,6 +4731,42 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Get scan
+      tags:
+      - Scans
+    patch:
+      consumes:
+      - application/json
+      description: Updates scan title and/or max concurrent jobs
+      parameters:
+      - description: Scan ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Update scan input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateScanInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ScanResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update scan
       tags:
       - Scans
   /api/v1/scans/{id}/cancel:

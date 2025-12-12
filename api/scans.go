@@ -37,6 +37,12 @@ type CreateScanInput struct {
 	UseOrchestrator bool `json:"use_orchestrator"`
 }
 
+// UpdateScanInput represents the input for updating a scan
+type UpdateScanInput struct {
+	Title             *string `json:"title" validate:"omitempty,min=1,max=255"`
+	MaxConcurrentJobs *int    `json:"max_concurrent_jobs" validate:"omitempty,min=1"`
+}
+
 // ScanStats contains statistics for a scan
 type ScanStats struct {
 	Requests db.RequestsStats `json:"requests"`
@@ -368,6 +374,89 @@ func GetScanHandler(c *fiber.Ctx) error {
 
 	stats, _ := db.Connection().GetScanStats(scanID)
 	return c.JSON(ScanResponseFromDBScan(scan, ScanStats{
+		Requests: stats.Requests,
+		Issues:   stats.Issues,
+	}))
+}
+
+// UpdateScanHandler updates scan settings (title and max concurrent jobs)
+// @Summary Update scan
+// @Description Updates scan title and/or max concurrent jobs
+// @Tags Scans
+// @Accept json
+// @Produce json
+// @Param id path int true "Scan ID"
+// @Param input body UpdateScanInput true "Update scan input"
+// @Success 200 {object} ScanResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/scans/{id} [patch]
+func UpdateScanHandler(c *fiber.Ctx) error {
+	scanID, err := parseScanIDParam(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Invalid scan ID",
+			Message: err.Error(),
+		})
+	}
+
+	// Parse and validate input
+	validate := validator.New()
+	input := new(UpdateScanInput)
+
+	if err := c.BodyParser(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Invalid request body",
+			Message: err.Error(),
+		})
+	}
+
+	if err := validate.Struct(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Validation failed",
+			Message: err.Error(),
+		})
+	}
+
+	// Fetch the scan
+	scan, err := db.Connection().GetScanByID(scanID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{
+			Error:   "Scan not found",
+			Message: err.Error(),
+		})
+	}
+
+	// Check if scan is in a terminal state - updates not allowed
+	if scan.Status == db.ScanStatusCompleted || scan.Status == db.ScanStatusCancelled || scan.Status == db.ScanStatusFailed {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Cannot update scan",
+			Message: fmt.Sprintf("Scan is in %s state and cannot be updated", scan.Status),
+		})
+	}
+
+	// Update fields if provided
+	if input.Title != nil {
+		scan.Title = *input.Title
+	}
+	if input.MaxConcurrentJobs != nil {
+		scan.MaxConcurrentJobs = input.MaxConcurrentJobs
+	}
+
+	// Save changes to database
+	updatedScan, err := db.Connection().UpdateScan(scan)
+	if err != nil {
+		log.Error().Err(err).Uint("scan_id", scanID).Msg("Failed to update scan")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:   "Failed to update scan",
+			Message: err.Error(),
+		})
+	}
+
+	// Return updated scan with stats
+	stats, _ := db.Connection().GetScanStats(scanID)
+	return c.JSON(ScanResponseFromDBScan(updatedScan, ScanStats{
 		Requests: stats.Requests,
 		Issues:   stats.Issues,
 	}))

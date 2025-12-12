@@ -189,6 +189,7 @@ func StartAPI() {
 	scans_app := api.Group("/scans")
 	scans_app.Get("", JWTProtected(), ListScansHandler)
 	scans_app.Get("/:id", JWTProtected(), GetScanHandler)
+	scans_app.Patch("/:id", JWTProtected(), UpdateScanHandler)
 	scans_app.Delete("/:id", JWTProtected(), DeleteScanHandler)
 	scans_app.Post("/:id/cancel", JWTProtected(), CancelScanHandler)
 	scans_app.Post("/:id/pause", JWTProtected(), PauseScanHandler)

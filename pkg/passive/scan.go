@@ -59,6 +59,7 @@ func ScanHistoryItem(item *db.History) {
 	if strings.Contains(item.ResponseContentType, "text/html") {
 		DirectoryListingScan(item)
 		UnencryptedPasswordFormDetectionScan(item)
+		PassiveHTMLJavascriptSecretsScan(item)
 	} else if strings.Contains(item.ResponseContentType, "javascript") || strings.Contains(item.ResponseContentType, "ecmascript") {
 		PassiveJavascriptSecretsScan(item)
 		ReactDevelopmentModeScan(item)

@@ -2,18 +2,41 @@ package passive
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/BishopFox/jsluice"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/web"
+	"github.com/rs/zerolog/log"
 )
 
 func PassiveJavascriptSecretsScan(item *db.History) {
-	// NOTE: By now we only support javascript, but should also be able to extract scripts from HTML and analyze them.
 	body, _ := item.ResponseBody()
 	secrets := findSecretsInJavascript(body)
 	for _, secret := range secrets {
 		db.CreateIssueFromHistoryAndTemplate(item, db.SecretsInJsCode, secret.Details, 90, secret.Severity, item.WorkspaceID, item.TaskID, &defaultTaskJobID, item.ScanID, item.ScanJobID)
+	}
+}
+
+func PassiveHTMLJavascriptSecretsScan(item *db.History) {
+	body, err := item.ResponseBody()
+	if err != nil {
+		log.Debug().Err(err).Uint("history_id", item.ID).Msg("Failed to get response body for HTML JS secrets scan")
+		return
+	}
+
+	scripts := web.ExtractJavascriptFromHTML(body)
+	if len(scripts) == 0 {
+		return
+	}
+
+	for _, script := range scripts {
+		secrets := findSecretsInJavascript([]byte(script.Code))
+		for _, secret := range secrets {
+			details := fmt.Sprintf("Source: %s\n\n%s", script.Source, secret.Details)
+			db.CreateIssueFromHistoryAndTemplate(item, db.SecretsInJsCode, details, 90, secret.Severity, item.WorkspaceID, item.TaskID, &defaultTaskJobID, item.ScanID, item.ScanJobID)
+		}
 	}
 }
 

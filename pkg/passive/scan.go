@@ -57,17 +57,11 @@ func ScanHistoryItemHeaders(item *db.History) {
 
 func ScanHistoryItem(item *db.History) {
 	if strings.Contains(item.ResponseContentType, "text/html") {
-		if viper.GetBool("passive.checks.js.enabled") {
-			PassiveJavascriptScan(item)
-		}
 		DirectoryListingScan(item)
 		UnencryptedPasswordFormDetectionScan(item)
 	} else if strings.Contains(item.ResponseContentType, "javascript") || strings.Contains(item.ResponseContentType, "ecmascript") {
-		if viper.GetBool("passive.checks.js.enabled") {
-			passiveJavascriptSecretsScan(item)
-			ReactDevelopmentModeScan(item)
-			PassiveJavascriptScan(item)
-		}
+		PassiveJavascriptSecretsScan(item)
+		ReactDevelopmentModeScan(item)
 	}
 	StorageBucketDetectionScan(item)
 	DatabaseErrorScan(item)

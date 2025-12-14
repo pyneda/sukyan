@@ -198,6 +198,20 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		}
 	}
 
+	if options.AuditCategories.ClientSide {
+		if http_utils.IsHTMLContentType(item.ResponseContentType) || http_utils.IsJavaScriptContentType(item.ResponseContentType) {
+			taskLog.Info().Msg("Starting DOM XSS audit")
+			domXSS := DOMXSSAudit{
+				Options:     activeOptions,
+				HistoryItem: item,
+			}
+			domXSS.Run()
+			taskLog.Info().Msg("Completed DOM XSS audit")
+		} else {
+			taskLog.Debug().Str("content_type", item.ResponseContentType).Msg("Skipping DOM XSS audit - not applicable for content type")
+		}
+	}
+
 	if options.AuditCategories.ServerSide && (options.Mode == scan_options.ScanModeFuzz || scan.PlatformJava.MatchesAnyFingerprint(options.Fingerprints)) {
 		log4shell := Log4ShellInjectionAudit{
 			Ctx:                 ctx,

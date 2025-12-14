@@ -536,3 +536,16 @@ func GetMimeTypes() (mimeTypes []MimeType) {
 	mimeTypes = append(mimeTypes, GetAudioMimeTypes()...)
 	return mimeTypes
 }
+
+// IsHTMLContentType checks if the content type indicates an HTML response.
+// This is useful for determining if DOM XSS scanning is applicable.
+func IsHTMLContentType(contentType string) bool {
+	ct := strings.ToLower(contentType)
+	return strings.Contains(ct, "text/html") || strings.Contains(ct, "application/xhtml")
+}
+
+// IsJavaScriptContentType checks if the content type indicates JavaScript.
+func IsJavaScriptContentType(contentType string) bool {
+	ct := strings.ToLower(contentType)
+	return strings.Contains(ct, "javascript") || strings.Contains(ct, "ecmascript")
+}

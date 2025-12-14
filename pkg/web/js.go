@@ -1,5 +1,34 @@
 package web
 
+import "strings"
+
+// EscapeJSString escapes a string for safe use in JavaScript string literals.
+// It handles backslashes, quotes, common whitespace, JS line terminators (U+2028, U+2029),
+// null bytes, backticks, and template literal interpolation.
+func EscapeJSString(s string) string {
+	// Escape backslash first (must be first to avoid double-escaping)
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	// Escape quotes
+	s = strings.ReplaceAll(s, `'`, `\'`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	// Escape common whitespace
+	s = strings.ReplaceAll(s, "\n", `\n`)
+	s = strings.ReplaceAll(s, "\r", `\r`)
+	s = strings.ReplaceAll(s, "\t", `\t`)
+	// Escape JavaScript line terminators that are NOT escaped by Go's string escaping
+	// U+2028 (Line Separator) and U+2029 (Paragraph Separator) are valid JS line terminators
+	// that will break string literals if not escaped
+	s = strings.ReplaceAll(s, "\u2028", `\u2028`)
+	s = strings.ReplaceAll(s, "\u2029", `\u2029`)
+	// Escape null bytes which can cause issues
+	s = strings.ReplaceAll(s, "\x00", `\x00`)
+	// Escape backticks for template literal contexts
+	s = strings.ReplaceAll(s, "`", "\\`")
+	// Escape ${} to prevent template literal interpolation
+	s = strings.ReplaceAll(s, "${", `\${`)
+	return s
+}
+
 const GetLinks = `() => {
 function absolutePath(href) {
     try {

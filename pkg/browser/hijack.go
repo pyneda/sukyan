@@ -104,8 +104,9 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 		}
 
 		if isRedirectLoop {
-			mustSkip = true
-			log.Warn().Str("url", url).Msg("Redirect loop detected, skipping hijack processing")
+			log.Warn().Str("url", url).Msg("Redirect loop detected, failing request")
+			hj.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
+			return
 		}
 
 		if mustSkip {
@@ -182,8 +183,9 @@ func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsCha
 		}
 
 		if isRedirectLoop {
-			mustSkip = true
-			log.Warn().Str("url", url).Msg("Redirect loop detected, skipping hijack processing")
+			log.Warn().Str("url", url).Msg("Redirect loop detected, failing request")
+			ctx.Response.Fail(proto.NetworkErrorReasonBlockedByClient)
+			return
 		}
 
 		if mustSkip {

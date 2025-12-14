@@ -82,12 +82,27 @@ func SetDefaultConfig() {
 
 	viper.SetDefault("scan.avoid_repeated_issues", true)
 
+	// DOM XSS scanning
+	viper.SetDefault("scan.dom_xss.skip_if_no_patterns", true)
+	viper.SetDefault("scan.dom_xss.source_timeout", 30)
+	viper.SetDefault("scan.dom_xss.total_timeout", 120)
+	viper.SetDefault("scan.dom_xss.detection_timeout", 2)                      // Base timeout in seconds for alert detection
+	viper.SetDefault("scan.dom_xss.adaptive_timeout", true)                    // Increase timeout for heavy JS pages
+	viper.SetDefault("scan.dom_xss.test_postmessage", true)                    // Test postMessage as a source
+	viper.SetDefault("scan.dom_xss.test_referrer", true)                       // Test document.referrer as a source
+	viper.SetDefault("scan.dom_xss.discover_storage_keys", true)               // Dynamically discover storage keys
+	viper.SetDefault("scan.dom_xss.discover_query_params", true)               // Dynamically discover query parameters
+	viper.SetDefault("scan.dom_xss.trigger_events", true)                      // Trigger mouse/keyboard events for interactive payloads
+	viper.SetDefault("scan.dom_xss.csp_aware", true)                           // Filter payloads based on CSP policy
+	viper.SetDefault("scan.dom_xss.use_crawl_events", true)                    // Use crawl-phase browser events for optimization
+	viper.SetDefault("scan.dom_xss.skip_storage_without_crawl_evidence", true) // Skip storage sources in fast/smart if no crawl evidence
+	viper.SetDefault("scan.dom_xss.prioritize_crawl_keys", true)               // Prioritize storage keys from crawl CDP events
+
 	// Generators
 	viper.SetDefault("generators.directory", "/etc/sukyan/generators")
 
 	// Passive
 	viper.SetDefault("passive.checks.headers.enabled", true)
-	viper.SetDefault("passive.checks.js.enabled", true)
 	viper.SetDefault("passive.checks.missconfigurations.enabled", true)
 	viper.SetDefault("passive.checks.exceptions.enabled", true)
 

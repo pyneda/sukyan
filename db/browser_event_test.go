@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 
 func TestBrowserEventCreateAndFetch(t *testing.T) {
 	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
-		Code:        "test-browser-events",
+		Code:        fmt.Sprintf("test-browser-events-%d", time.Now().UnixNano()),
 		Title:       "Test Browser Events Workspace",
 		Description: "Temporary workspace for browser events tests",
 	})
@@ -56,7 +57,7 @@ func TestBrowserEventCreateAndFetch(t *testing.T) {
 
 func TestBrowserEventAggregation(t *testing.T) {
 	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
-		Code:        "test-browser-events-aggregation",
+		Code:        fmt.Sprintf("test-browser-events-aggregation-%d", time.Now().UnixNano()),
 		Title:       "Test Browser Events Aggregation Workspace",
 		Description: "Temporary workspace for browser events aggregation tests",
 	})
@@ -112,7 +113,7 @@ func TestBrowserEventAggregation(t *testing.T) {
 
 func TestBrowserEventDifferentContentHash(t *testing.T) {
 	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
-		Code:        "test-browser-events-different-hash",
+		Code:        fmt.Sprintf("test-browser-events-different-hash-%d", time.Now().UnixNano()),
 		Title:       "Test Browser Events Different Hash Workspace",
 		Description: "Temporary workspace for browser events different hash tests",
 	})
@@ -167,7 +168,7 @@ func TestBrowserEventDifferentContentHash(t *testing.T) {
 
 func TestListBrowserEvents(t *testing.T) {
 	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
-		Code:        "test-browser-events-list",
+		Code:        fmt.Sprintf("test-browser-events-list-%d", time.Now().UnixNano()),
 		Title:       "Test Browser Events List Workspace",
 		Description: "Temporary workspace for browser events list tests",
 	})
@@ -255,7 +256,7 @@ func TestListBrowserEvents(t *testing.T) {
 
 func TestBrowserEventStats(t *testing.T) {
 	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
-		Code:        "test-browser-events-stats",
+		Code:        fmt.Sprintf("test-browser-events-stats-%d", time.Now().UnixNano()),
 		Title:       "Test Browser Events Stats Workspace",
 		Description: "Temporary workspace for browser events stats tests",
 	})
@@ -305,7 +306,7 @@ func TestBrowserEventStats(t *testing.T) {
 
 func TestDeleteBrowserEventsByScanID(t *testing.T) {
 	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
-		Code:        "test-browser-events-delete",
+		Code:        fmt.Sprintf("test-browser-events-delete-%d", time.Now().UnixNano()),
 		Title:       "Test Browser Events Delete Workspace",
 		Description: "Temporary workspace for browser events delete tests",
 	})

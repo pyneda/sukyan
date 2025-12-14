@@ -1,0 +1,27 @@
+code: dom_xss
+title: DOM-Based Cross-Site Scripting (XSS)
+description:
+  The application is vulnerable to DOM-based Cross-Site Scripting (XSS). This type of XSS
+  occurs entirely on the client side when JavaScript code reads data from an attacker-controllable
+  source (such as the URL fragment, query parameters, localStorage, or document.referrer) and
+  passes it to a dangerous sink function (such as innerHTML, eval, or document.write) without
+  proper sanitization. Unlike reflected XSS, the malicious payload never reaches the server,
+  making it harder to detect with traditional security measures. An attacker can exploit this
+  vulnerability to execute arbitrary JavaScript in the victim's browser, potentially leading
+  to session hijacking, data theft, or malicious actions performed on behalf of the user.
+remediation:
+  To mitigate DOM-based XSS vulnerabilities, avoid using dangerous sink functions like innerHTML,
+  document.write(), and eval() when handling user-controllable data. Instead, use safer alternatives
+  such as textContent for setting text content, or DOM manipulation methods like createElement and
+  appendChild for adding elements. If you must use dangerous sinks, sanitize all input from sources
+  like location.hash, location.search, document.referrer, localStorage, and window.name using a
+  trusted library such as DOMPurify. Implement a strict Content Security Policy (CSP) to limit
+  the impact of XSS attacks. Use the URL API for parsing URLs instead of string manipulation.
+  Regularly audit client-side JavaScript code for potential source-to-sink data flows.
+cwe: 79
+severity: High
+references:
+  - https://owasp.org/www-community/attacks/DOM_Based_XSS
+  - https://portswigger.net/web-security/cross-site-scripting/dom-based
+  - https://cheatsheetseries.owasp.org/cheatsheets/DOM_based_XSS_Prevention_Cheat_Sheet.html
+  - https://developer.mozilla.org/en-US/docs/Glossary/DOM

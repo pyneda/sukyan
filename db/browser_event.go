@@ -131,8 +131,11 @@ func (d *DatabaseConnection) SaveBrowserEvent(event *BrowserEvent) error {
 	var existingEvent BrowserEvent
 	err := query.First(&existingEvent).Error
 
+	log.Debug().Str("content_hash", event.ContentHash).Uint("workspace_id", event.WorkspaceID).Err(err).Msg("Query result for existing browser event")
+
 	if err == nil {
 		// Event exists, update occurrence count and last_seen_at
+		log.Debug().Str("content_hash", event.ContentHash).Uint("workspace_id", event.WorkspaceID).Msg("Browser event aggregating with existing event")
 		return d.db.Model(&existingEvent).Updates(map[string]interface{}{
 			"occurrence_count": existingEvent.OccurrenceCount + 1,
 			"last_seen_at":     now,
@@ -140,13 +143,21 @@ func (d *DatabaseConnection) SaveBrowserEvent(event *BrowserEvent) error {
 	}
 
 	// Event doesn't exist, create new one
+	// Ensure ID is generated if not already set
+	if event.ID == uuid.Nil {
+		event.ID = uuid.New()
+	}
+
 	event.FirstSeenAt = now
 	event.LastSeenAt = now
 	if event.OccurrenceCount == 0 {
 		event.OccurrenceCount = 1
 	}
 
-	return d.db.Create(event).Error
+	log.Debug().Str("id", event.ID.String()).Str("content_hash", event.ContentHash).Int("occurrence_count", event.OccurrenceCount).Msg("Creating new browser event")
+	result := d.db.Create(event)
+	log.Debug().Str("id", event.ID.String()).Str("content_hash", event.ContentHash).Int("occurrence_count", event.OccurrenceCount).Err(result.Error).Msg("Browser event created")
+	return result.Error
 }
 
 // SaveBrowserEvents saves multiple browser events with aggregation logic
@@ -330,6 +341,161 @@ func (d *DatabaseConnection) GetBrowserEventCategoryStats(scanID uint) (map[Brow
 	}
 
 	return stats, nil
+}
+
+// ScanStorageEventSummary provides aggregate info about storage usage across a scan
+type ScanStorageEventSummary struct {
+	ScanID                  uint
+	HasLocalStorageEvents   bool
+	HasSessionStorageEvents bool
+	LocalStorageKeys        []string
+	SessionStorageKeys      []string
+	TotalStorageEvents      int64
+}
+
+// HasStorageEventsForScan returns true if any storage events were captured during crawl
+func (d *DatabaseConnection) HasStorageEventsForScan(scanID uint) (bool, error) {
+	var count int64
+	err := d.db.Model(&BrowserEvent{}).
+		Where("scan_id = ?", scanID).
+		Where("event_type = ?", BrowserEventDOMStorage).
+		Where("source = ?", SourceCrawler).
+		Limit(1).
+		Count(&count).Error
+
+	if err != nil {
+		log.Error().Err(err).Uint("scan_id", scanID).Msg("Failed to check for storage events")
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+// GetStorageKeysFromCrawlEvents returns deduplicated storage keys observed during crawl
+func (d *DatabaseConnection) GetStorageKeysFromCrawlEvents(scanID uint, storageType string) ([]string, error) {
+	isLocalStorage := storageType == "localStorage"
+
+	var events []BrowserEvent
+	err := d.db.Model(&BrowserEvent{}).
+		Where("scan_id = ?", scanID).
+		Where("event_type = ?", BrowserEventDOMStorage).
+		Where("source = ?", SourceCrawler).
+		Find(&events).Error
+
+	if err != nil {
+		log.Error().Err(err).Uint("scan_id", scanID).Str("storage_type", storageType).Msg("Failed to get storage keys from crawl events")
+		return nil, err
+	}
+
+	// Extract unique keys from event data
+	keySet := make(map[string]bool)
+	for _, event := range events {
+		var data map[string]interface{}
+		if err := json.Unmarshal(event.Data, &data); err != nil {
+			continue
+		}
+
+		// Check if this event is for the requested storage type
+		eventIsLocal, ok := data["isLocalStorage"].(bool)
+		if !ok {
+			continue
+		}
+		if eventIsLocal != isLocalStorage {
+			continue
+		}
+
+		// Extract the key
+		if key, ok := data["key"].(string); ok && key != "" {
+			keySet[key] = true
+		}
+	}
+
+	keys := make([]string, 0, len(keySet))
+	for key := range keySet {
+		keys = append(keys, key)
+	}
+
+	log.Debug().
+		Uint("scan_id", scanID).
+		Str("storage_type", storageType).
+		Int("keys_found", len(keys)).
+		Strs("keys", keys).
+		Msg("Retrieved storage keys from crawl events")
+
+	return keys, nil
+}
+
+// GetScanStorageEventSummary retrieves storage event summary for a scan
+func (d *DatabaseConnection) GetScanStorageEventSummary(scanID uint) (*ScanStorageEventSummary, error) {
+	summary := &ScanStorageEventSummary{
+		ScanID:             scanID,
+		LocalStorageKeys:   []string{},
+		SessionStorageKeys: []string{},
+	}
+
+	// Get all storage events for this scan from the crawl phase
+	var events []BrowserEvent
+	err := d.db.Model(&BrowserEvent{}).
+		Where("scan_id = ?", scanID).
+		Where("event_type = ?", BrowserEventDOMStorage).
+		Where("source = ?", SourceCrawler).
+		Find(&events).Error
+
+	if err != nil {
+		log.Error().Err(err).Uint("scan_id", scanID).Msg("Failed to get storage event summary")
+		return nil, err
+	}
+
+	summary.TotalStorageEvents = int64(len(events))
+
+	// Process events to extract keys and determine storage types
+	localKeySet := make(map[string]bool)
+	sessionKeySet := make(map[string]bool)
+
+	for _, event := range events {
+		var data map[string]interface{}
+		if err := json.Unmarshal(event.Data, &data); err != nil {
+			continue
+		}
+
+		isLocal, ok := data["isLocalStorage"].(bool)
+		if !ok {
+			continue
+		}
+
+		key, _ := data["key"].(string)
+
+		if isLocal {
+			summary.HasLocalStorageEvents = true
+			if key != "" {
+				localKeySet[key] = true
+			}
+		} else {
+			summary.HasSessionStorageEvents = true
+			if key != "" {
+				sessionKeySet[key] = true
+			}
+		}
+	}
+
+	// Convert sets to slices
+	for key := range localKeySet {
+		summary.LocalStorageKeys = append(summary.LocalStorageKeys, key)
+	}
+	for key := range sessionKeySet {
+		summary.SessionStorageKeys = append(summary.SessionStorageKeys, key)
+	}
+
+	log.Debug().
+		Uint("scan_id", scanID).
+		Bool("has_local", summary.HasLocalStorageEvents).
+		Bool("has_session", summary.HasSessionStorageEvents).
+		Int("local_keys", len(summary.LocalStorageKeys)).
+		Int("session_keys", len(summary.SessionStorageKeys)).
+		Int64("total_events", summary.TotalStorageEvents).
+		Msg("Generated storage event summary for scan")
+
+	return summary, nil
 }
 
 // Formattable interface implementation for BrowserEvent

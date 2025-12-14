@@ -44,6 +44,11 @@ func GetIssueTemplateByCode(code IssueCode) *Issue {
 	return nil
 }
 
+// GetAllIssueTemplates returns all issue templates from the knowledge base
+func GetAllIssueTemplates() []IssueTemplate {
+	return issueTemplates
+}
+
 func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details string, confidence int, severity string, workspaceID, taskID, taskJobID, scanID, scanJobID *uint) *Issue {
 	issue := GetIssueTemplateByCode(code)
 	if history != nil {

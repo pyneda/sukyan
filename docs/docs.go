@@ -1569,6 +1569,34 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/kb/issues": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns all defined issue types with their code, title, description, remediation, CWE, severity, and references.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Knowledge Base"
+                ],
+                "summary": "List all issue templates from the knowledge base",
+                "responses": {
+                    "200": {
+                        "description": "List of issue templates",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/db.IssueTemplate"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/oob-tests": {
             "post": {
                 "security": [
@@ -6249,6 +6277,35 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.IssueTemplate": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "cwe": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "references": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "remediation": {
+                    "type": "string"
+                },
+                "severity": {
+                    "type": "string"
+                },
+                "title": {
                     "type": "string"
                 }
             }

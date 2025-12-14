@@ -159,6 +159,9 @@ func StartAPI() {
 	api.Get("/browser-events/stats", JWTProtected(), GetBrowserEventStats)
 	api.Get("/browser-events/:id", JWTProtected(), GetBrowserEventByID)
 
+	// Knowledge base endpoints
+	api.Get("/kb/issues", JWTProtected(), ListIssueTemplates)
+
 	// Auth related endpoints
 	auth_app := api.Group("/auth")
 	auth_app.Use(limiter.New(limiter.Config{

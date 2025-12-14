@@ -1410,6 +1410,25 @@ definitions:
       url:
         type: string
     type: object
+  db.IssueTemplate:
+    properties:
+      code:
+        type: string
+      cwe:
+        type: integer
+      description:
+        type: string
+      references:
+        items:
+          type: string
+        type: array
+      remediation:
+        type: string
+      severity:
+        type: string
+      title:
+        type: string
+    type: object
   db.IssuesStats:
     properties:
       critical:
@@ -3949,6 +3968,24 @@ paths:
       summary: List all issues grouped
       tags:
       - Issues
+  /api/v1/kb/issues:
+    get:
+      description: Returns all defined issue types with their code, title, description,
+        remediation, CWE, severity, and references.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of issue templates
+          schema:
+            items:
+              $ref: '#/definitions/db.IssueTemplate'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: List all issue templates from the knowledge base
+      tags:
+      - Knowledge Base
   /api/v1/oob-tests:
     post:
       consumes:

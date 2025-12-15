@@ -514,12 +514,205 @@ func TestExtractVersionFromMatch(t *testing.T) {
 			content:  "lib-1.2.3+build.456.js",
 			expected: "1.2.3+build.456",
 		},
+		{
+			name:     "Min suffix stripped from version",
+			pattern:  "lib-(§§version§§)(\\.min)?\\.js",
+			content:  "lib-1.2.3.min.js",
+			expected: "1.2.3",
+		},
+		{
+			name:     "Dash min suffix stripped from version",
+			pattern:  "lib-(§§version§§)(-min)?\\.js",
+			content:  "lib-1.2.3-min.js",
+			expected: "1.2.3",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := extractVersionFromMatch(tt.pattern, tt.content)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestExtractVersionFromFilename(t *testing.T) {
+	tests := []struct {
+		name     string
+		pattern  string
+		path     string
+		expected string
+	}{
+		{
+			name:     "Simple filename",
+			pattern:  "jquery-(§§version§§)(\\.min)?\\.js",
+			path:     "jquery-1.8.1.js",
+			expected: "1.8.1",
+		},
+		{
+			name:     "Linux path",
+			pattern:  "jquery-(§§version§§)(\\.min)?\\.js",
+			path:     "/usr/file/jquery-1.8.1.js",
+			expected: "1.8.1",
+		},
+		{
+			name:     "Windows path",
+			pattern:  "jquery-(§§version§§)(\\.min)?\\.js",
+			path:     "\\usr\\file\\jquery-1.8.1.js",
+			expected: "1.8.1",
+		},
+		{
+			name:     "URL path",
+			pattern:  "jquery-(§§version§§)(\\.min)?\\.js",
+			path:     "https://example.com/js/jquery-1.12.4.min.js",
+			expected: "1.12.4",
+		},
+		{
+			name:     "No match - different library",
+			pattern:  "jquery-(§§version§§)(\\.min)?\\.js",
+			path:     "/usr/file/bootstrap-3.3.7.js",
+			expected: "",
+		},
+		{
+			name:     "Min suffix stripped",
+			pattern:  "jquery-(§§version§§)(\\.min)?\\.js",
+			path:     "https://ajax.googleapis.com/lib/jquery-3.5.0.min.js",
+			expected: "3.5.0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractVersionFromFilename(tt.pattern, tt.path)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestExtractVersionFromReplace(t *testing.T) {
+	tests := []struct {
+		name     string
+		pattern  string
+		content  string
+		expected string
+	}{
+		{
+			name:     "Simple replacement",
+			pattern:  "/version\\s*=\\s*['\"]([0-9.]+)['\"]/version=$1/",
+			content:  "version = '1.2.3'",
+			expected: "version=1.2.3",
+		},
+		{
+			name:     "No match",
+			pattern:  "/version\\s*=\\s*['\"]([0-9.]+)['\"]/version=$1/",
+			content:  "no version here",
+			expected: "",
+		},
+		{
+			name:     "Invalid pattern format",
+			pattern:  "not a valid pattern",
+			content:  "some content",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractVersionFromReplace(tt.pattern, tt.content)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNormalizeContent(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Windows line endings",
+			input:    "line1\r\nline2\r\nline3",
+			expected: "line1\nline2\nline3",
+		},
+		{
+			name:     "Old Mac line endings",
+			input:    "line1\rline2\rline3",
+			expected: "line1\nline2\nline3",
+		},
+		{
+			name:     "Unix line endings unchanged",
+			input:    "line1\nline2\nline3",
+			expected: "line1\nline2\nline3",
+		},
+		{
+			name:     "Mixed line endings",
+			input:    "line1\r\nline2\rline3\nline4",
+			expected: "line1\nline2\nline3\nline4",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeContent([]byte(tt.input))
+			assert.Equal(t, tt.expected, string(result))
+		})
+	}
+}
+
+func TestExcludesSupport(t *testing.T) {
+	tests := []struct {
+		name     string
+		version  string
+		vuln     Vulnerability
+		expected bool
+	}{
+		{
+			name:    "Version in excludes list",
+			version: "1.12.4-aem",
+			vuln: Vulnerability{
+				AtOrAbove: "1.0.0",
+				Below:     "3.0.0",
+				Excludes:  []string{"1.12.4-aem"},
+			},
+			expected: false,
+		},
+		{
+			name:    "Similar version not in excludes",
+			version: "1.12.4",
+			vuln: Vulnerability{
+				AtOrAbove: "1.0.0",
+				Below:     "3.0.0",
+				Excludes:  []string{"1.12.4-aem"},
+			},
+			expected: true,
+		},
+		{
+			name:    "Multiple excludes - version matches one",
+			version: "2.0.0-patched",
+			vuln: Vulnerability{
+				AtOrAbove: "1.0.0",
+				Below:     "3.0.0",
+				Excludes:  []string{"1.12.4-aem", "2.0.0-patched", "2.5.0-security"},
+			},
+			expected: false,
+		},
+		{
+			name:    "Empty excludes list",
+			version: "1.5.0",
+			vuln: Vulnerability{
+				AtOrAbove: "1.0.0",
+				Below:     "2.0.0",
+				Excludes:  []string{},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isVersionVulnerable(tt.version, tt.vuln)
+			assert.Equal(t, tt.expected, result, "Test case: %s", tt.name)
 		})
 	}
 }

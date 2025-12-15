@@ -31,14 +31,17 @@ type RetireJsEntry struct {
 }
 
 type Extractors struct {
-	Filename    []string          `json:"filename"`
-	Filecontent []string          `json:"filecontent"`
-	Hashes      map[string]string `json:"hashes"`
+	Filename           []string          `json:"filename"`
+	Filecontent        []string          `json:"filecontent"`
+	FilecontentReplace []string          `json:"filecontentreplace"`
+	Uri                []string          `json:"uri"`
+	Hashes             map[string]string `json:"hashes"`
 }
 
 type Vulnerability struct {
 	AtOrAbove   string      `json:"atOrAbove"`
 	Below       string      `json:"below"`
+	Excludes    []string    `json:"excludes"`
 	Severity    string      `json:"severity"`
 	Cwe         []string    `json:"cwe"`
 	Identifiers Identifiers `json:"identifiers"`
@@ -68,6 +71,9 @@ type RetireScanner struct {
 
 var fixRepeats = regexp.MustCompile(`\{0,([0-9]{4,})\}`)
 var fixRepeats2 = regexp.MustCompile(`\{1,([0-9]{4,})\}`)
+var pathSplitter = regexp.MustCompile(`[/\\]`)
+var minSuffixPattern = regexp.MustCompile(`[.-]min$`)
+var replacePatternRegex = regexp.MustCompile(`^/(.*[^\\])/([^/]+)/$`)
 
 func fixPattern(pattern string) string {
 	pattern = strings.ReplaceAll(pattern, "§§version§§", `[0-9]+(?:\.[0-9]+)*(?:[-_][a-zA-Z0-9.]+)*(?:\+[a-zA-Z0-9.-]+)?`)
@@ -92,10 +98,49 @@ func extractVersionFromMatch(pattern, content string) string {
 
 	matches := regex.FindStringSubmatch(content)
 	if len(matches) > 1 {
-		return matches[1] // Return the first capture group (the version)
+		return minSuffixPattern.ReplaceAllString(matches[1], "")
 	}
 
 	return ""
+}
+
+func extractVersionFromFilename(pattern, path string) string {
+	segments := pathSplitter.Split(path, -1)
+	if len(segments) == 0 {
+		return ""
+	}
+	filename := segments[len(segments)-1]
+	anchoredPattern := "^" + pattern + "$"
+	return extractVersionFromMatch(anchoredPattern, filename)
+}
+
+func extractVersionFromReplace(pattern, content string) string {
+	matches := replacePatternRegex.FindStringSubmatch(pattern)
+	if len(matches) != 3 {
+		return ""
+	}
+	searchPattern := matches[1]
+	replacement := matches[2]
+
+	regex, err := regexp.Compile(searchPattern)
+	if err != nil {
+		log.Debug().Err(err).Str("pattern", searchPattern).Msg("Failed to compile replacement regex")
+		return ""
+	}
+
+	found := regex.FindString(content)
+	if found == "" {
+		return ""
+	}
+
+	version := regex.ReplaceAllString(found, replacement)
+	return minSuffixPattern.ReplaceAllString(version, "")
+}
+
+func normalizeContent(content []byte) []byte {
+	s := strings.ReplaceAll(string(content), "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	return []byte(s)
 }
 
 func isValidVulnerability(vuln Vulnerability) bool {
@@ -127,13 +172,18 @@ func isVersionVulnerable(version string, vuln Vulnerability) bool {
 		return false
 	}
 
+	for _, excluded := range vuln.Excludes {
+		if version == excluded {
+			return false
+		}
+	}
+
 	v, err := semver.NewVersion(version)
 	if err != nil {
 		log.Debug().Str("version", version).Err(err).Msg("Failed to parse version")
 		return false
 	}
 
-	// Check if version is below the fixed version
 	if vuln.Below != "" {
 		belowVersion, err := semver.NewVersion(vuln.Below)
 		if err != nil {
@@ -145,7 +195,6 @@ func isVersionVulnerable(version string, vuln Vulnerability) bool {
 		}
 	}
 
-	// Check if version is at or above the vulnerable range start
 	if vuln.AtOrAbove != "" {
 		atOrAboveVersion, err := semver.NewVersion(vuln.AtOrAbove)
 		if err != nil {
@@ -159,56 +208,108 @@ func isVersionVulnerable(version string, vuln Vulnerability) bool {
 	return true
 }
 
+type detection struct {
+	library string
+	version string
+}
+
 func (r *RetireScanner) HistoryScan(history *db.History) {
-	var results = make(map[string][]Vulnerability)
+	body, err := history.ResponseBody()
+	if err != nil {
+		log.Error().Err(err).Str("url", history.URL).Msg("Failed to read response body")
+		return
+	}
+
+	normalizedBody := normalizeContent(body)
+	normalizedContent := string(normalizedBody)
+
+	h := sha1.New()
+	h.Write(normalizedBody)
+	contentHash := fmt.Sprintf("%x", h.Sum(nil))
+
+	detections := make(map[detection]bool)
+	results := make(map[string]map[string][]Vulnerability)
 
 	for library, entry := range r.repo {
-		// Check filename patterns for version extraction
 		for _, pattern := range entry.Extractors.Filename {
+			version := extractVersionFromFilename(pattern, history.URL)
+			if version != "" {
+				key := detection{library: library, version: version}
+				if !detections[key] {
+					detections[key] = true
+					log.Debug().Str("url", history.URL).Str("pattern", pattern).Str("version", version).Str("type", "filename").Msg("Extracted version from retirejs pattern")
+					r.checkVulnerabilities(library, version, entry.Vulnerabilities, results)
+				}
+			}
+		}
+
+		for _, pattern := range entry.Extractors.Uri {
 			version := extractVersionFromMatch(pattern, history.URL)
 			if version != "" {
-				log.Debug().Str("url", history.URL).Str("pattern", pattern).Str("version", version).Str("type", "filename").Msg("Extracted version from retirejs pattern")
-				for _, vulnerability := range entry.Vulnerabilities {
-					if isVersionVulnerable(version, vulnerability) {
-						results[library] = append(results[library], vulnerability)
-					}
+				key := detection{library: library, version: version}
+				if !detections[key] {
+					detections[key] = true
+					log.Debug().Str("url", history.URL).Str("pattern", pattern).Str("version", version).Str("type", "uri").Msg("Extracted version from retirejs pattern")
+					r.checkVulnerabilities(library, version, entry.Vulnerabilities, results)
 				}
 			}
 		}
 
-		// Check filecontent patterns for version extraction
 		for _, pattern := range entry.Extractors.Filecontent {
-			version := extractVersionFromMatch(pattern, string(history.RawResponse))
+			version := extractVersionFromMatch(pattern, normalizedContent)
 			if version != "" {
-				log.Debug().Str("url", history.URL).Str("pattern", pattern).Str("version", version).Str("type", "filecontent").Msg("Extracted version from retirejs pattern")
-				for _, vulnerability := range entry.Vulnerabilities {
-					if isVersionVulnerable(version, vulnerability) {
-						results[library] = append(results[library], vulnerability)
-					}
+				key := detection{library: library, version: version}
+				if !detections[key] {
+					detections[key] = true
+					log.Debug().Str("url", history.URL).Str("pattern", pattern).Str("version", version).Str("type", "filecontent").Msg("Extracted version from retirejs pattern")
+					r.checkVulnerabilities(library, version, entry.Vulnerabilities, results)
 				}
 			}
 		}
 
-		// Check hash-based detection
-		h := sha1.New()
-		body, err := history.ResponseBody()
-		if err != nil {
-			log.Error().Err(err).Str("url", history.URL).Msg("Failed to read response body")
-			continue
-		}
-		h.Write(body)
-		hash := fmt.Sprintf("%x", h.Sum(nil))
-		if version, exists := entry.Extractors.Hashes[hash]; exists {
-			for _, vulnerability := range entry.Vulnerabilities {
-				if isVersionVulnerable(version, vulnerability) {
-					results[library] = append(results[library], vulnerability)
-					log.Debug().Str("url", history.URL).Str("hash", hash).Str("version", version).Str("type", "hash").Msg("Matched retirejs pattern")
+		for _, pattern := range entry.Extractors.FilecontentReplace {
+			version := extractVersionFromReplace(pattern, normalizedContent)
+			if version != "" {
+				key := detection{library: library, version: version}
+				if !detections[key] {
+					detections[key] = true
+					log.Debug().Str("url", history.URL).Str("pattern", pattern).Str("version", version).Str("type", "filecontentreplace").Msg("Extracted version from retirejs pattern")
+					r.checkVulnerabilities(library, version, entry.Vulnerabilities, results)
 				}
+			}
+		}
+
+		if version, exists := entry.Extractors.Hashes[contentHash]; exists {
+			key := detection{library: library, version: version}
+			if !detections[key] {
+				detections[key] = true
+				log.Debug().Str("url", history.URL).Str("hash", contentHash).Str("version", version).Str("type", "hash").Msg("Matched retirejs hash")
+				r.checkVulnerabilities(library, version, entry.Vulnerabilities, results)
 			}
 		}
 	}
-	for library, vulnerabilities := range results {
-		if len(vulnerabilities) > 0 {
+
+	r.reportFindings(history, results)
+}
+
+func (r *RetireScanner) checkVulnerabilities(library, version string, vulnerabilities []Vulnerability, results map[string]map[string][]Vulnerability) {
+	for _, vuln := range vulnerabilities {
+		if isVersionVulnerable(version, vuln) {
+			if results[library] == nil {
+				results[library] = make(map[string][]Vulnerability)
+			}
+			results[library][version] = append(results[library][version], vuln)
+		}
+	}
+}
+
+func (r *RetireScanner) reportFindings(history *db.History, results map[string]map[string][]Vulnerability) {
+	for library, versionMap := range results {
+		for version, vulnerabilities := range versionMap {
+			if len(vulnerabilities) == 0 {
+				continue
+			}
+
 			var detailsBuilder strings.Builder
 			references := make([]string, 0)
 			name := "vulnerabilities"
@@ -216,46 +317,7 @@ func (r *RetireScanner) HistoryScan(history *db.History) {
 				name = "vulnerability"
 			}
 
-			// Try to get version info from the first vulnerability entry for display
-			var detectedVersion string
-			for libName, entry := range r.repo {
-				if libName == library {
-					// Try to extract version from filename patterns
-					for _, pattern := range entry.Extractors.Filename {
-						if version := extractVersionFromMatch(pattern, history.URL); version != "" {
-							detectedVersion = version
-							break
-						}
-					}
-					// Try to extract version from filecontent patterns if not found in filename
-					if detectedVersion == "" {
-						for _, pattern := range entry.Extractors.Filecontent {
-							if version := extractVersionFromMatch(pattern, string(history.RawResponse)); version != "" {
-								detectedVersion = version
-								break
-							}
-						}
-					}
-					// Try to get version from hash if still not found
-					if detectedVersion == "" {
-						h := sha1.New()
-						if body, err := history.ResponseBody(); err == nil {
-							h.Write(body)
-							hash := fmt.Sprintf("%x", h.Sum(nil))
-							if version, exists := entry.Extractors.Hashes[hash]; exists {
-								detectedVersion = version
-							}
-						}
-					}
-					break
-				}
-			}
-
-			if detectedVersion != "" {
-				detailsBuilder.WriteString(fmt.Sprintf("The detected version %s of %s is affected by %d %s:\n\n", detectedVersion, library, len(vulnerabilities), name))
-			} else {
-				detailsBuilder.WriteString(fmt.Sprintf("The detected version of %s is affected by %d %s:\n\n", library, len(vulnerabilities), name))
-			}
+			detailsBuilder.WriteString(fmt.Sprintf("The detected version %s of %s is affected by %d %s:\n\n", version, library, len(vulnerabilities), name))
 
 			for _, vulnerability := range vulnerabilities {
 				detailsBuilder.WriteString(vulnerability.Identifiers.Summary + "\n")
@@ -287,5 +349,4 @@ func (r *RetireScanner) HistoryScan(history *db.History) {
 			db.Connection().CreateIssue(*issue)
 		}
 	}
-
 }

@@ -199,7 +199,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	}
 
 	if options.AuditCategories.ClientSide {
-		if http_utils.IsHTMLContentType(item.ResponseContentType) || http_utils.IsJavaScriptContentType(item.ResponseContentType) {
+		if http_utils.IsHTMLContentType(item.ResponseContentType) || options.Mode == scan_options.ScanModeFuzz {
 			taskLog.Info().Msg("Starting DOM XSS audit")
 			domXSS := DOMXSSAudit{
 				Options:     activeOptions,

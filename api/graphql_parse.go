@@ -27,14 +27,14 @@ type ParseGraphQLSchemaResponse struct {
 
 // GraphQLSchemaInfo contains summarized schema information for the response
 type GraphQLSchemaInfo struct {
-	QueryCount        int                          `json:"query_count"`
-	MutationCount     int                          `json:"mutation_count"`
-	SubscriptionCount int                          `json:"subscription_count"`
-	TypeCount         int                          `json:"type_count"`
-	EnumCount         int                          `json:"enum_count"`
-	InputTypeCount    int                          `json:"input_type_count"`
-	Types             map[string]graphql.TypeDef   `json:"types,omitempty"`
-	Enums             map[string]graphql.EnumDef   `json:"enums,omitempty"`
+	QueryCount        int                             `json:"query_count"`
+	MutationCount     int                             `json:"mutation_count"`
+	SubscriptionCount int                             `json:"subscription_count"`
+	TypeCount         int                             `json:"type_count"`
+	EnumCount         int                             `json:"enum_count"`
+	InputTypeCount    int                             `json:"input_type_count"`
+	Types             map[string]graphql.TypeDef      `json:"types,omitempty"`
+	Enums             map[string]graphql.EnumDef      `json:"enums,omitempty"`
 	InputTypes        map[string]graphql.InputTypeDef `json:"input_types,omitempty"`
 }
 

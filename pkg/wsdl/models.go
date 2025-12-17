@@ -43,20 +43,20 @@ type Port struct {
 // Binding represents the concrete protocol binding for a port type
 type Binding struct {
 	Name        string             `json:"name"`
-	Type        string             `json:"type"`                  // QName reference to portType
-	Style       string             `json:"style,omitempty"`       // "document" or "rpc"
-	Transport   string             `json:"transport,omitempty"`   // e.g., "http://schemas.xmlsoap.org/soap/http"
+	Type        string             `json:"type"`                   // QName reference to portType
+	Style       string             `json:"style,omitempty"`        // "document" or "rpc"
+	Transport   string             `json:"transport,omitempty"`    // e.g., "http://schemas.xmlsoap.org/soap/http"
 	SOAPVersion string             `json:"soap_version,omitempty"` // "1.1" or "1.2"
 	Operations  []BindingOperation `json:"operations"`
 }
 
 // BindingOperation defines operation-level binding details
 type BindingOperation struct {
-	Name       string        `json:"name"`
-	SOAPAction string        `json:"soap_action,omitempty"`
-	Style      string        `json:"style,omitempty"` // Overrides binding-level style
-	Input      *BindingIO    `json:"input,omitempty"`
-	Output     *BindingIO    `json:"output,omitempty"`
+	Name       string         `json:"name"`
+	SOAPAction string         `json:"soap_action,omitempty"`
+	Style      string         `json:"style,omitempty"` // Overrides binding-level style
+	Input      *BindingIO     `json:"input,omitempty"`
+	Output     *BindingIO     `json:"output,omitempty"`
 	Faults     []BindingFault `json:"faults,omitempty"`
 }
 

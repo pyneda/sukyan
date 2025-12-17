@@ -1,0 +1,23 @@
+code: http_request_smuggling_cl_te
+title: HTTP Request Smuggling (CL.TE)
+description:
+  The application is vulnerable to HTTP request smuggling via Content-Length and
+  Transfer-Encoding header manipulation. In this CL.TE variant, the front-end server
+  uses the Content-Length header while the back-end server uses the Transfer-Encoding
+  header. An attacker can exploit this desynchronization to smuggle malicious requests,
+  potentially bypassing security controls, poisoning caches, or hijacking other users'
+  requests.
+remediation:
+  Configure all servers in the chain to use the same method for determining request
+  boundaries. Disable chunked transfer encoding if not required. Use HTTP/2 end-to-end
+  where possible. Implement strict request validation and normalize requests before
+  processing. Consider using a web application firewall (WAF) with request smuggling
+  detection capabilities. Ensure front-end and back-end servers are patched and
+  configured consistently.
+cwe: 444
+severity: High
+references:
+  - https://portswigger.net/web-security/request-smuggling
+  - https://portswigger.net/research/http-desync-attacks-request-smuggling-reborn
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/15-Testing_for_HTTP_Incoming_Requests
+  - https://cwe.mitre.org/data/definitions/444.html

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -32,6 +33,11 @@ type ActiveScanJobData struct {
 type ActiveScanExecutor struct {
 	interactionsManager *integrations.InteractionsManager
 	payloadGenerators   []*generation.PayloadGenerator
+
+	// auditSamplers holds per-scan AuditSampler instances for sample-based testing of expensive audits.
+	// This ensures consistent sampling across all jobs within the same scan.
+	auditSamplersMu sync.RWMutex
+	auditSamplers   map[uint]*scan_options.AuditSampler
 }
 
 // NewActiveScanExecutor creates a new active scan executor
@@ -42,6 +48,18 @@ func NewActiveScanExecutor(
 	return &ActiveScanExecutor{
 		interactionsManager: interactionsManager,
 		payloadGenerators:   payloadGenerators,
+		auditSamplers:       make(map[uint]*scan_options.AuditSampler),
+	}
+}
+
+// CleanupScan removes the AuditSampler for a completed scan to free memory.
+func (e *ActiveScanExecutor) CleanupScan(scanID uint) {
+	e.auditSamplersMu.Lock()
+	defer e.auditSamplersMu.Unlock()
+
+	if _, exists := e.auditSamplers[scanID]; exists {
+		delete(e.auditSamplers, scanID)
+		log.Debug().Uint("scan_id", scanID).Msg("Cleaned up AuditSampler for scan")
 	}
 }
 

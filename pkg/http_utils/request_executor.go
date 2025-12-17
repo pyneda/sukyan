@@ -3,6 +3,7 @@ package http_utils
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -194,4 +195,19 @@ func IsTimeoutError(err error) bool {
 		strings.Contains(errorStr, "deadline exceeded") ||
 		strings.Contains(errorStr, "context deadline exceeded") ||
 		strings.Contains(errorStr, "operation timed out")
+}
+
+// ParseStatusCodeFromRawResponse extracts the HTTP status code from a raw HTTP response.
+func ParseStatusCodeFromRawResponse(response []byte) int {
+	lines := bytes.SplitN(response, []byte("\r\n"), 2)
+	if len(lines) == 0 {
+		return 0
+	}
+	statusLine := string(lines[0])
+	var statusCode int
+	_, err := fmt.Sscanf(statusLine, "HTTP/%s %d", new(string), &statusCode)
+	if err != nil {
+		return 0
+	}
+	return statusCode
 }

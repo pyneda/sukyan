@@ -55,12 +55,12 @@ type XSDComplexType struct {
 
 // XSDSequence represents xsd:sequence compositor (ordered elements)
 type XSDSequence struct {
-	MinOccurs string       `json:"min_occurs,omitempty"`
-	MaxOccurs string       `json:"max_occurs,omitempty"`
-	Elements  []XSDElement `json:"elements,omitempty"`
-	Choices   []XSDChoice  `json:"choices,omitempty"`
+	MinOccurs string        `json:"min_occurs,omitempty"`
+	MaxOccurs string        `json:"max_occurs,omitempty"`
+	Elements  []XSDElement  `json:"elements,omitempty"`
+	Choices   []XSDChoice   `json:"choices,omitempty"`
 	Sequences []XSDSequence `json:"sequences,omitempty"`
-	Any       []XSDAny     `json:"any,omitempty"`
+	Any       []XSDAny      `json:"any,omitempty"`
 }
 
 // XSDAll represents xsd:all compositor (unordered elements, each at most once)
@@ -114,25 +114,25 @@ type XSDExtension struct {
 
 // XSDRestriction represents xsd:restriction for both simple and complex types
 type XSDRestriction struct {
-	Base            string              `json:"base"` // QName of base type
-	Enumeration     []string            `json:"enumeration,omitempty"`
-	MinLength       *int                `json:"min_length,omitempty"`
-	MaxLength       *int                `json:"max_length,omitempty"`
-	Length          *int                `json:"length,omitempty"`
-	Pattern         string              `json:"pattern,omitempty"`
-	WhiteSpace      string              `json:"white_space,omitempty"` // preserve, replace, collapse
-	MinInclusive    string              `json:"min_inclusive,omitempty"`
-	MaxInclusive    string              `json:"max_inclusive,omitempty"`
-	MinExclusive    string              `json:"min_exclusive,omitempty"`
-	MaxExclusive    string              `json:"max_exclusive,omitempty"`
-	TotalDigits     *int                `json:"total_digits,omitempty"`
-	FractionDigits  *int                `json:"fraction_digits,omitempty"`
-	Sequence        *XSDSequence        `json:"sequence,omitempty"` // For complex content restriction
-	All             *XSDAll             `json:"all,omitempty"`
-	Choice          *XSDChoice          `json:"choice,omitempty"`
-	Attributes      []XSDAttribute      `json:"attributes,omitempty"`
-	AttributeGroup  []XSDAttributeGroup `json:"attribute_groups,omitempty"`
-	AnyAttribute    *XSDAnyAttribute    `json:"any_attribute,omitempty"`
+	Base           string              `json:"base"` // QName of base type
+	Enumeration    []string            `json:"enumeration,omitempty"`
+	MinLength      *int                `json:"min_length,omitempty"`
+	MaxLength      *int                `json:"max_length,omitempty"`
+	Length         *int                `json:"length,omitempty"`
+	Pattern        string              `json:"pattern,omitempty"`
+	WhiteSpace     string              `json:"white_space,omitempty"` // preserve, replace, collapse
+	MinInclusive   string              `json:"min_inclusive,omitempty"`
+	MaxInclusive   string              `json:"max_inclusive,omitempty"`
+	MinExclusive   string              `json:"min_exclusive,omitempty"`
+	MaxExclusive   string              `json:"max_exclusive,omitempty"`
+	TotalDigits    *int                `json:"total_digits,omitempty"`
+	FractionDigits *int                `json:"fraction_digits,omitempty"`
+	Sequence       *XSDSequence        `json:"sequence,omitempty"` // For complex content restriction
+	All            *XSDAll             `json:"all,omitempty"`
+	Choice         *XSDChoice          `json:"choice,omitempty"`
+	Attributes     []XSDAttribute      `json:"attributes,omitempty"`
+	AttributeGroup []XSDAttributeGroup `json:"attribute_groups,omitempty"`
+	AnyAttribute   *XSDAnyAttribute    `json:"any_attribute,omitempty"`
 }
 
 // XSDSimpleType represents a simple type definition
@@ -145,7 +145,7 @@ type XSDSimpleType struct {
 
 // XSDList represents xsd:list (space-separated list of values)
 type XSDList struct {
-	ItemType   string         `json:"item_type,omitempty"` // QName reference
+	ItemType   string         `json:"item_type,omitempty"`   // QName reference
 	SimpleType *XSDSimpleType `json:"simple_type,omitempty"` // Inline item type
 }
 
@@ -158,12 +158,12 @@ type XSDUnion struct {
 // XSDAttribute represents an attribute declaration
 type XSDAttribute struct {
 	Name       string         `json:"name,omitempty"`
-	Ref        string         `json:"ref,omitempty"` // QName reference to global attribute
+	Ref        string         `json:"ref,omitempty"`  // QName reference to global attribute
 	Type       string         `json:"type,omitempty"` // QName reference to type
-	Use        string         `json:"use,omitempty"` // "required", "optional", "prohibited"
+	Use        string         `json:"use,omitempty"`  // "required", "optional", "prohibited"
 	Default    string         `json:"default,omitempty"`
 	Fixed      string         `json:"fixed,omitempty"`
-	Form       string         `json:"form,omitempty"` // "qualified" or "unqualified"
+	Form       string         `json:"form,omitempty"`        // "qualified" or "unqualified"
 	SimpleType *XSDSimpleType `json:"simple_type,omitempty"` // Inline simple type
 }
 
@@ -199,52 +199,52 @@ const (
 
 // XSD built-in type names
 const (
-	XSDString            = "string"
-	XSDBoolean           = "boolean"
-	XSDDecimal           = "decimal"
-	XSDFloat             = "float"
-	XSDDouble            = "double"
-	XSDDuration          = "duration"
-	XSDDateTime          = "dateTime"
-	XSDTime              = "time"
-	XSDDate              = "date"
-	XSDGYearMonth        = "gYearMonth"
-	XSDGYear             = "gYear"
-	XSDGMonthDay         = "gMonthDay"
-	XSDGDay              = "gDay"
-	XSDGMonth            = "gMonth"
-	XSDHexBinary         = "hexBinary"
-	XSDBase64Binary      = "base64Binary"
-	XSDAnyURI            = "anyURI"
-	XSDQName             = "QName"
-	XSDNOTATION          = "NOTATION"
-	XSDNormalizedString  = "normalizedString"
-	XSDToken             = "token"
-	XSDLanguage          = "language"
-	XSDNMTOKEN           = "NMTOKEN"
-	XSDNMTOKENS          = "NMTOKENS"
-	XSDName              = "Name"
-	XSDNCName            = "NCName"
-	XSDID                = "ID"
-	XSDIDREF             = "IDREF"
-	XSDIDREFS            = "IDREFS"
-	XSDENTITY            = "ENTITY"
-	XSDENTITIES          = "ENTITIES"
-	XSDInteger           = "integer"
+	XSDString             = "string"
+	XSDBoolean            = "boolean"
+	XSDDecimal            = "decimal"
+	XSDFloat              = "float"
+	XSDDouble             = "double"
+	XSDDuration           = "duration"
+	XSDDateTime           = "dateTime"
+	XSDTime               = "time"
+	XSDDate               = "date"
+	XSDGYearMonth         = "gYearMonth"
+	XSDGYear              = "gYear"
+	XSDGMonthDay          = "gMonthDay"
+	XSDGDay               = "gDay"
+	XSDGMonth             = "gMonth"
+	XSDHexBinary          = "hexBinary"
+	XSDBase64Binary       = "base64Binary"
+	XSDAnyURI             = "anyURI"
+	XSDQName              = "QName"
+	XSDNOTATION           = "NOTATION"
+	XSDNormalizedString   = "normalizedString"
+	XSDToken              = "token"
+	XSDLanguage           = "language"
+	XSDNMTOKEN            = "NMTOKEN"
+	XSDNMTOKENS           = "NMTOKENS"
+	XSDName               = "Name"
+	XSDNCName             = "NCName"
+	XSDID                 = "ID"
+	XSDIDREF              = "IDREF"
+	XSDIDREFS             = "IDREFS"
+	XSDENTITY             = "ENTITY"
+	XSDENTITIES           = "ENTITIES"
+	XSDInteger            = "integer"
 	XSDNonPositiveInteger = "nonPositiveInteger"
-	XSDNegativeInteger   = "negativeInteger"
-	XSDLong              = "long"
-	XSDInt               = "int"
-	XSDShort             = "short"
-	XSDByte              = "byte"
+	XSDNegativeInteger    = "negativeInteger"
+	XSDLong               = "long"
+	XSDInt                = "int"
+	XSDShort              = "short"
+	XSDByte               = "byte"
 	XSDNonNegativeInteger = "nonNegativeInteger"
-	XSDUnsignedLong      = "unsignedLong"
-	XSDUnsignedInt       = "unsignedInt"
-	XSDUnsignedShort     = "unsignedShort"
-	XSDUnsignedByte      = "unsignedByte"
-	XSDPositiveInteger   = "positiveInteger"
-	XSDAnyType           = "anyType"
-	XSDAnySimpleType     = "anySimpleType"
+	XSDUnsignedLong       = "unsignedLong"
+	XSDUnsignedInt        = "unsignedInt"
+	XSDUnsignedShort      = "unsignedShort"
+	XSDUnsignedByte       = "unsignedByte"
+	XSDPositiveInteger    = "positiveInteger"
+	XSDAnyType            = "anyType"
+	XSDAnySimpleType      = "anySimpleType"
 )
 
 // IsXSDBuiltinType checks if a type name is a built-in XSD type

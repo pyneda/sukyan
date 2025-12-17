@@ -7,16 +7,16 @@ import "encoding/xml"
 
 // rawDefinitions is the root WSDL element
 type rawDefinitions struct {
-	XMLName         xml.Name           `xml:"definitions"`
-	TargetNamespace string             `xml:"targetNamespace,attr"`
-	Name            string             `xml:"name,attr"`
-	Types           *rawTypes          `xml:"types"`
-	Messages        []rawMessage       `xml:"message"`
-	PortTypes       []rawPortType      `xml:"portType"`
-	Bindings        []rawBinding       `xml:"binding"`
-	Services        []rawService       `xml:"service"`
-	Imports         []rawWSDLImport    `xml:"import"`
-	Documentation   *rawDocumentation  `xml:"documentation"`
+	XMLName         xml.Name          `xml:"definitions"`
+	TargetNamespace string            `xml:"targetNamespace,attr"`
+	Name            string            `xml:"name,attr"`
+	Types           *rawTypes         `xml:"types"`
+	Messages        []rawMessage      `xml:"message"`
+	PortTypes       []rawPortType     `xml:"portType"`
+	Bindings        []rawBinding      `xml:"binding"`
+	Services        []rawService      `xml:"service"`
+	Imports         []rawWSDLImport   `xml:"import"`
+	Documentation   *rawDocumentation `xml:"documentation"`
 }
 
 // rawWSDLImport represents wsdl:import
@@ -88,12 +88,12 @@ type rawSOAPBinding struct {
 
 // rawBindingOperation represents wsdl:operation in binding
 type rawBindingOperation struct {
-	Name            string              `xml:"name,attr"`
-	SOAPOperation   *rawSOAPOperation   `xml:"http://schemas.xmlsoap.org/wsdl/soap/ operation"`
-	SOAP12Operation *rawSOAPOperation   `xml:"http://schemas.xmlsoap.org/wsdl/soap12/ operation"`
-	Input           *rawBindingIO       `xml:"input"`
-	Output          *rawBindingIO       `xml:"output"`
-	Faults          []rawBindingFault   `xml:"fault"`
+	Name            string            `xml:"name,attr"`
+	SOAPOperation   *rawSOAPOperation `xml:"http://schemas.xmlsoap.org/wsdl/soap/ operation"`
+	SOAP12Operation *rawSOAPOperation `xml:"http://schemas.xmlsoap.org/wsdl/soap12/ operation"`
+	Input           *rawBindingIO     `xml:"input"`
+	Output          *rawBindingIO     `xml:"output"`
+	Faults          []rawBindingFault `xml:"fault"`
 }
 
 // rawSOAPOperation represents soap:operation
@@ -128,7 +128,7 @@ type rawSOAPHeader struct {
 
 // rawBindingFault represents fault in binding operation
 type rawBindingFault struct {
-	Name     string       `xml:"name,attr"`
+	Name      string        `xml:"name,attr"`
 	SOAPFault *rawSOAPFault `xml:"http://schemas.xmlsoap.org/wsdl/soap/ fault"`
 }
 
@@ -230,11 +230,11 @@ type rawAll struct {
 
 // rawChoice represents xsd:choice
 type rawChoice struct {
-	MinOccurs string       `xml:"minOccurs,attr"`
-	MaxOccurs string       `xml:"maxOccurs,attr"`
-	Elements  []rawElement `xml:"element"`
+	MinOccurs string        `xml:"minOccurs,attr"`
+	MaxOccurs string        `xml:"maxOccurs,attr"`
+	Elements  []rawElement  `xml:"element"`
 	Sequences []rawSequence `xml:"sequence"`
-	Any       []rawAny     `xml:"any"`
+	Any       []rawAny      `xml:"any"`
 }
 
 // rawAny represents xsd:any

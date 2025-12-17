@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net/url"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -175,6 +176,49 @@ func GetLastPathSegment(rawurl string) (string, error) {
 	return "", nil
 }
 
+// URLComponents contains the parsed components of a URL.
+type URLComponents struct {
+	Host   string
+	Port   int
+	Path   string
+	UseTLS bool
+}
+
+// ParseURLComponents extracts host, port, path, and TLS info from a URL in a single parse.
+func ParseURLComponents(u string) (URLComponents, error) {
+	parsedURL, err := url.Parse(u)
+	if err != nil {
+		return URLComponents{}, err
+	}
+
+	components := URLComponents{
+		Host:   parsedURL.Hostname(),
+		UseTLS: parsedURL.Scheme == "https",
+	}
+
+	// Determine port
+	if parsedURL.Port() != "" {
+		port, err := strconv.Atoi(parsedURL.Port())
+		if err != nil {
+			return URLComponents{}, err
+		}
+		components.Port = port
+	} else if components.UseTLS {
+		components.Port = 443
+	} else {
+		components.Port = 80
+	}
+
+	// Determine path
+	if parsedURL.Path == "" {
+		components.Path = "/"
+	} else {
+		components.Path = parsedURL.Path
+	}
+
+	return components, nil
+}
+
 // GetHostFromURL extracts the host from the given URL.
 func GetHostFromURL(u string) (string, error) {
 	parsedURL, err := url.Parse(u)
@@ -182,6 +226,44 @@ func GetHostFromURL(u string) (string, error) {
 		return "", err
 	}
 	return parsedURL.Hostname(), nil
+}
+
+// GetPortFromURL extracts the port from the given URL.
+// Returns the explicit port if specified, or the default port based on scheme (443 for https, 80 for http).
+func GetPortFromURL(u string) (int, error) {
+	parsedURL, err := url.Parse(u)
+	if err != nil {
+		return 0, err
+	}
+	if parsedURL.Port() != "" {
+		port, err := strconv.Atoi(parsedURL.Port())
+		if err != nil {
+			return 0, err
+		}
+		return port, nil
+	}
+	if parsedURL.Scheme == "https" {
+		return 443, nil
+	}
+	return 80, nil
+}
+
+// GetPathFromURL extracts the path from the given URL.
+// Returns "/" if no path is specified.
+func GetPathFromURL(u string) (string, error) {
+	parsedURL, err := url.Parse(u)
+	if err != nil {
+		return "", err
+	}
+	if parsedURL.Path == "" {
+		return "/", nil
+	}
+	return parsedURL.Path, nil
+}
+
+// IsTLS returns true if the URL uses HTTPS scheme.
+func IsTLS(u string) bool {
+	return strings.HasPrefix(strings.ToLower(u), "https://")
 }
 
 // NormalizeURLParams normalizes the URL parameters by appending an "X" to each value.

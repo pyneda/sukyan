@@ -16,9 +16,9 @@ func Parse(content []byte) (*Document, error) {
 		return nil, fmt.Errorf("failed to load openapi spec: %w", err)
 	}
 
-	if err := doc.Validate(loader.Context); err != nil {
-		return nil, fmt.Errorf("failed to validate openapi spec: %w", err)
-	}
+	// if err := doc.Validate(loader.Context); err != nil {
+	// 	return nil, fmt.Errorf("failed to validate openapi spec: %w", err)
+	// }
 
 	return &Document{spec: doc}, nil
 }

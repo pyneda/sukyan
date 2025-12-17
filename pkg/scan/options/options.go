@@ -126,6 +126,7 @@ type HistoryItemScanOptions struct {
 	ExperimentalAudits bool              `json:"experimental_audits"`
 	AuditCategories    AuditCategories   `json:"audit_categories" validate:"required"`
 	MaxRetries         int               `json:"max_retries" validate:"min=0"`
+	AuditSampler       *AuditSampler     `json:"-"` // Sampler for expensive audits (optional)
 }
 
 func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bool {
@@ -159,8 +160,8 @@ type FullScanOptions struct {
 	UseOrchestrator      bool                     `json:"use_orchestrator"`
 	MaxConcurrentJobs    *int                     `json:"max_concurrent_jobs,omitempty"`
 	MaxRPS               *int                     `json:"max_rps,omitempty"`
-	JobTimeouts          *JobTimeouts             `json:"job_timeouts,omitempty"`    // Per-scan job timeout overrides
-	CaptureBrowserEvents bool                     `json:"capture_browser_events"`    // Enable browser event capture and storage
+	JobTimeouts          *JobTimeouts             `json:"job_timeouts,omitempty"` // Per-scan job timeout overrides
+	CaptureBrowserEvents bool                     `json:"capture_browser_events"` // Enable browser event capture and storage
 }
 
 type FullScanWebSocketOptions struct {

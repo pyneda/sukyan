@@ -240,22 +240,60 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			ScanJobID:   options.ScanJobID,
 		}
 		hostHeader.Run()
-		// NOTE: Checks below are probably not worth to run against every history item,
-		// but also not only once per target. Should find a way to run them only in some cases
-		// but ensuring they are checked against X different history items per target.
-		sni := SNIAudit{
-			Ctx:                 ctx,
-			HistoryItem:         item,
-			InteractionsManager: interactionsManager,
-			WorkspaceID:         options.WorkspaceID,
-			TaskID:              options.TaskID,
-			TaskJobID:           options.TaskJobID,
-			ScanID:              options.ScanID,
-			ScanJobID:           options.ScanJobID,
-		}
-		sni.Run()
 
-		HttpVersionsScan(item, activeOptions)
+		// Audits below use sample-based testing when AuditSampler is provided.
+		// This ensures audits run on a subset of history items per host rather than every item.
+		// In Fuzz mode, sampling is bypassed to ensure comprehensive coverage.
+
+		shouldRunSNI := options.Mode == scan_options.ScanModeFuzz ||
+			options.AuditSampler == nil ||
+			options.AuditSampler.ShouldRun(scan_options.AuditTypeSNI, item.URL)
+
+		if shouldRunSNI {
+			sni := SNIAudit{
+				Ctx:                 ctx,
+				HistoryItem:         item,
+				InteractionsManager: interactionsManager,
+				WorkspaceID:         options.WorkspaceID,
+				TaskID:              options.TaskID,
+				TaskJobID:           options.TaskJobID,
+				ScanID:              options.ScanID,
+				ScanJobID:           options.ScanJobID,
+			}
+			sni.Run()
+		} else {
+			taskLog.Debug().Msg("Skipping SNI audit - sampled out")
+		}
+
+		shouldRunHTTPVersions := options.Mode == scan_options.ScanModeFuzz ||
+			options.AuditSampler == nil ||
+			options.AuditSampler.ShouldRun(scan_options.AuditTypeHTTPVersions, item.URL)
+
+		if shouldRunHTTPVersions {
+			HttpVersionsScan(item, activeOptions)
+		} else {
+			taskLog.Debug().Msg("Skipping HTTP versions audit - sampled out")
+		}
+
+		// Request smuggling: only run when reverse proxy likely present OR in Fuzz mode
+		hasProxyIndicators := scan.PlatformReverseProxy.MatchesAnyFingerprint(options.Fingerprints) ||
+			http_utils.HasReverseProxyIndicatorsFromHistory(item)
+
+		shouldRunSmuggling := options.Mode == scan_options.ScanModeFuzz ||
+			(hasProxyIndicators && (options.AuditSampler == nil ||
+				options.AuditSampler.ShouldRun(scan_options.AuditTypeRequestSmuggling, item.URL)))
+
+		if shouldRunSmuggling {
+			requestSmuggling := RequestSmugglingAudit{
+				Options:     activeOptions,
+				HistoryItem: item,
+			}
+			requestSmuggling.Run()
+		} else if !hasProxyIndicators {
+			taskLog.Debug().Msg("Skipping request smuggling audit - no reverse proxy indicators")
+		} else {
+			taskLog.Debug().Msg("Skipping request smuggling audit - sampled out")
+		}
 	}
 
 	if options.ExperimentalAudits {

@@ -1,0 +1,23 @@
+code: http_request_smuggling_h2
+title: HTTP Request Smuggling (HTTP/2 Downgrade)
+description:
+  The application is vulnerable to HTTP request smuggling via HTTP/2 to HTTP/1.1
+  downgrade attacks. When an HTTP/2 front-end communicates with an HTTP/1.1 back-end,
+  discrepancies in how request boundaries are determined can be exploited. Variants
+  include H2.CL (HTTP/2 with Content-Length manipulation) and H2.TE (HTTP/2 with
+  Transfer-Encoding that should be stripped per RFC 7540). An attacker can exploit
+  these vulnerabilities to smuggle malicious requests, bypass security controls,
+  or hijack other users' requests.
+remediation:
+  Ensure HTTP/2 front-ends properly strip or reject forbidden headers like
+  Transfer-Encoding when downgrading to HTTP/1.1. Validate Content-Length headers
+  match actual body length in HTTP/2 requests. Use HTTP/2 end-to-end where possible
+  to avoid downgrade scenarios. Configure strict request validation at all tiers.
+  Consider using a web application firewall (WAF) with HTTP/2 smuggling detection.
+cwe: 444
+severity: High
+references:
+  - https://portswigger.net/web-security/request-smuggling/advanced
+  - https://portswigger.net/research/http2
+  - https://datatracker.ietf.org/doc/html/rfc7540#section-8.1.2.2
+  - https://cwe.mitre.org/data/definitions/444.html

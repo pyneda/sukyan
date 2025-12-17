@@ -85,6 +85,12 @@ func GenerateRandomLowercaseString(length int) string {
 	return strings.ToLower(result)
 }
 
+// GenerateRandomUppercaseString returns a random uppercase string of the defined length
+func GenerateRandomUppercaseString(length int) string {
+	result := GenerateRandomString(length)
+	return strings.ToUpper(result)
+}
+
 func LocalFileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil || os.IsExist(err)
@@ -204,4 +210,13 @@ func SlicesIntersect(slice1, slice2 []string) bool {
 	}
 
 	return false
+}
+
+// PtrIfNonZero returns a pointer to v if v is non-zero, otherwise returns nil.
+// Useful for optional foreign key fields in database models.
+func PtrIfNonZero(v uint) *uint {
+	if v == 0 {
+		return nil
+	}
+	return &v
 }

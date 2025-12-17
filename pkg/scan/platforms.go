@@ -10,14 +10,15 @@ import (
 type Platform string
 
 const (
-	PlatformJava   Platform = "java"
-	PlatformPhp    Platform = "php"
-	PlatformNode   Platform = "node"
-	PlatformPython Platform = "python"
-	PlatformRuby   Platform = "ruby"
-	PlatformGo     Platform = "go"
-	PlatformAsp    Platform = "asp"
-	PlatformPerl   Platform = "perl"
+	PlatformJava         Platform = "java"
+	PlatformPhp          Platform = "php"
+	PlatformNode         Platform = "node"
+	PlatformPython       Platform = "python"
+	PlatformRuby         Platform = "ruby"
+	PlatformGo           Platform = "go"
+	PlatformAsp          Platform = "asp"
+	PlatformPerl         Platform = "perl"
+	PlatformReverseProxy Platform = "reverse_proxy"
 )
 
 func ParsePlatform(platform string) Platform {
@@ -80,6 +81,8 @@ func SoftwareList(platform Platform) []string {
 		return AspNetSoftwareList()
 	case PlatformPerl:
 		return PerlSoftwareList()
+	case PlatformReverseProxy:
+		return ReverseProxySoftwareList()
 	default:
 		return []string{}
 	}
@@ -495,5 +498,63 @@ func NodeSoftwareList() []string {
 		"eDokan",
 		"enduro.js",
 		"total.js",
+	}
+}
+
+// ReverseProxySoftwareList returns software names for reverse proxies, CDNs, load balancers,
+// and caching systems. Names match wappalyzergo fingerprints exactly (case-sensitive).
+// Used to determine when to run expensive audits like HTTP request smuggling.
+func ReverseProxySoftwareList() []string {
+	return []string{
+		// Reverse Proxies
+		"Nginx",
+		"Envoy",
+		"Kong",
+		"F5 BigIP",
+		"IBM DataPower",
+		"EZproxy",
+
+		// CDN
+		"Cloudflare",
+		"Fastly",
+		"Akamai",
+		"Amazon CloudFront",
+		"Azure CDN",
+		"Google Cloud CDN",
+		"Imperva",
+		"Incapsula",
+		"Sucuri",
+		"KeyCDN",
+		"MaxCDN",
+		"StackPath",
+		"Bunny",
+		"CDN77",
+		"CacheFly",
+		"Edgio",
+		"EdgeCast",
+		"Netlify",
+		"QUIC.cloud",
+
+		// Caching
+		"Varnish",
+		"Oracle Web Cache",
+
+		// Cloud Load Balancers
+		"Amazon ALB",
+		"Amazon ELB",
+		"Azure Front Door",
+		"Azure Edge Network",
+
+		// API Gateways
+		"Apigee",
+		"Apache APISIX",
+
+		// Web servers commonly used as reverse proxies
+		"Apache Traffic Server",
+		"OpenResty",
+		"Tengine",
+		"Caddy",
+		"LiteSpeed",
+		"H2O",
 	}
 }

@@ -52,6 +52,7 @@ type ScanEngine struct {
 	wsDeduplicationMu              sync.RWMutex
 	wsPassiveDeduplicationManagers map[uint]*http_utils.WebSocketDeduplicationManager
 	wsPassiveDeduplicationMu       sync.RWMutex
+	auditSampler                   *scan_options.AuditSampler
 }
 
 func NewScanEngine(payloadGenerators []*generation.PayloadGenerator, maxConcurrentPassiveScans, maxConcurrentActiveScans int, interactionsManager *integrations.InteractionsManager) *ScanEngine {
@@ -68,6 +69,7 @@ func NewScanEngine(payloadGenerators []*generation.PayloadGenerator, maxConcurre
 		cancel:                         cancel,
 		wsDeduplicationManagers:        make(map[uint]*http_utils.WebSocketDeduplicationManager),
 		wsPassiveDeduplicationManagers: make(map[uint]*http_utils.WebSocketDeduplicationManager),
+		auditSampler:                   scan_options.NewAuditSampler(scan_options.DefaultAuditSamplingConfig()),
 	}
 }
 
@@ -210,6 +212,7 @@ func (s *ScanEngine) scheduleActiveScan(item *db.History, options scan_options.H
 
 		s.wg.Go(func() {
 			options.TaskJobID = taskJob.ID
+			options.AuditSampler = s.auditSampler // Use engine's shared AuditSampler
 			taskJob.Status = db.TaskJobRunning
 			db.Connection().UpdateTaskJob(taskJob)
 

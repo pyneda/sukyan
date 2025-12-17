@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	wsTaskID  uint
-	wsScanID  uint
+	wsTaskID    uint
+	wsScanID    uint
 	wsTaskJobID uint
 )
 

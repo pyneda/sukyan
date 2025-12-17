@@ -164,3 +164,26 @@ func normalizeHeaderCase(headers map[string][]string) map[string][]string {
 	}
 	return result
 }
+
+// ParseRequestLine extracts the HTTP method, path, and protocol from a raw HTTP request line.
+// Returns "UNKNOWN" for method, "/" for path, and empty string for protocol if parsing fails.
+func ParseRequestLine(rawRequest []byte) (method, path, protocol string) {
+	// Find the first line (request line)
+	idx := bytes.Index(rawRequest, []byte("\r\n"))
+	if idx == -1 {
+		idx = bytes.Index(rawRequest, []byte("\n"))
+	}
+	if idx == -1 {
+		return "UNKNOWN", "/", ""
+	}
+
+	line := strings.TrimSpace(string(rawRequest[:idx]))
+	parts := strings.Fields(line)
+	if len(parts) >= 3 {
+		return parts[0], parts[1], parts[2]
+	}
+	if len(parts) == 2 {
+		return parts[0], parts[1], ""
+	}
+	return "UNKNOWN", "/", ""
+}

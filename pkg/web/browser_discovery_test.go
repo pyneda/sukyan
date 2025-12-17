@@ -106,9 +106,9 @@ func TestQueryParamHookScriptPreservesOriginalBehavior(t *testing.T) {
 
 	// Verify each hook stores and calls the original method
 	hooks := []struct {
-		name      string
-		origVar   string
-		callOrig  string
+		name     string
+		origVar  string
+		callOrig string
 	}{
 		{"get", "origGet", "origGet.call"},
 		{"getAll", "origGetAll", "origGetAll.call"},

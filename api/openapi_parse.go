@@ -17,11 +17,11 @@ type ParseOpenAPISpecInput struct {
 
 // ParseOpenAPISpecResponse represents the response from parsing an OpenAPI specification.
 type ParseOpenAPISpecResponse struct {
-	Endpoints       []openapi.Endpoint          `json:"endpoints"`
-	SecuritySchemes []openapi.SecurityScheme    `json:"security_schemes,omitempty"`
+	Endpoints       []openapi.Endpoint            `json:"endpoints"`
+	SecuritySchemes []openapi.SecurityScheme      `json:"security_schemes,omitempty"`
 	GlobalSecurity  []openapi.SecurityRequirement `json:"global_security,omitempty"`
-	BaseURL         string                      `json:"base_url"`
-	Count           int                         `json:"count"`
+	BaseURL         string                        `json:"base_url"`
+	Count           int                           `json:"count"`
 }
 
 // ParseOpenAPISpec godoc

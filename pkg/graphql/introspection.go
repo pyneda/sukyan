@@ -124,10 +124,10 @@ type IntrospectionData struct {
 
 // IntrospectionSchema represents the introspected schema
 type IntrospectionSchema struct {
-	QueryType        *TypeName           `json:"queryType"`
-	MutationType     *TypeName           `json:"mutationType"`
-	SubscriptionType *TypeName           `json:"subscriptionType"`
-	Types            []IntrospectionType `json:"types"`
+	QueryType        *TypeName                `json:"queryType"`
+	MutationType     *TypeName                `json:"mutationType"`
+	SubscriptionType *TypeName                `json:"subscriptionType"`
+	Types            []IntrospectionType      `json:"types"`
 	Directives       []IntrospectionDirective `json:"directives"`
 }
 
@@ -138,14 +138,14 @@ type TypeName struct {
 
 // IntrospectionType represents a type from introspection
 type IntrospectionType struct {
-	Kind          string                   `json:"kind"`
-	Name          string                   `json:"name"`
-	Description   string                   `json:"description"`
-	Fields        []IntrospectionField     `json:"fields"`
+	Kind          string                    `json:"kind"`
+	Name          string                    `json:"name"`
+	Description   string                    `json:"description"`
+	Fields        []IntrospectionField      `json:"fields"`
 	InputFields   []IntrospectionInputValue `json:"inputFields"`
-	Interfaces    []IntrospectionTypeRef   `json:"interfaces"`
-	EnumValues    []IntrospectionEnumValue `json:"enumValues"`
-	PossibleTypes []IntrospectionTypeRef   `json:"possibleTypes"`
+	Interfaces    []IntrospectionTypeRef    `json:"interfaces"`
+	EnumValues    []IntrospectionEnumValue  `json:"enumValues"`
+	PossibleTypes []IntrospectionTypeRef    `json:"possibleTypes"`
 }
 
 // IntrospectionField represents a field from introspection

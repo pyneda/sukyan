@@ -311,8 +311,8 @@ func TestFindDOMXSSSinks(t *testing.T) {
 			shouldContain: []string{".onclick =", ".onerror =", ".onload ="},
 		},
 		{
-			name: "React dangerouslySetInnerHTML",
-			input: `<div dangerouslySetInnerHTML={{ __html: content }} />`,
+			name:          "React dangerouslySetInnerHTML",
+			input:         `<div dangerouslySetInnerHTML={{ __html: content }} />`,
 			expectedCount: 2, // dangerouslySetInnerHTML and __html:
 			shouldContain: []string{"dangerouslySetInnerHTML", "__html:"},
 		},
@@ -333,14 +333,14 @@ func TestFindDOMXSSSinks(t *testing.T) {
 			shouldContain: []string{"bypassSecurityTrust"},
 		},
 		{
-			name: "Angular innerHTML binding",
-			input: `<div [innerHTML]="content"></div>`,
+			name:          "Angular innerHTML binding",
+			input:         `<div [innerHTML]="content"></div>`,
 			expectedCount: 1,
 			shouldContain: []string{"[innerHTML]="},
 		},
 		{
-			name: "AngularJS ng-bind-html",
-			input: `<div ng-bind-html="trustedHtml"></div>`,
+			name:          "AngularJS ng-bind-html",
+			input:         `<div ng-bind-html="trustedHtml"></div>`,
 			expectedCount: 1,
 			shouldContain: []string{"ng-bind-html"},
 		},
@@ -450,10 +450,10 @@ func TestFindDOMXSSSinks(t *testing.T) {
 
 func TestHasDOMXSSIndicators(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          string
-		expectSources  bool
-		expectSinks    bool
+		name          string
+		input         string
+		expectSources bool
+		expectSinks   bool
 	}{
 		{
 			name: "vulnerable code - source to sink",
@@ -546,34 +546,34 @@ func TestHasDOMXSSIndicators(t *testing.T) {
 
 func TestAdvancedHasSourcesOrSinks(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          string
-		expectSources  bool
-		expectSinks    bool
+		name          string
+		input         string
+		expectSources bool
+		expectSinks   bool
 	}{
 		{
-			name:           "text too short",
-			input:          "short",
-			expectSources:  false,
-			expectSinks:    false,
+			name:          "text too short",
+			input:         "short",
+			expectSources: false,
+			expectSinks:   false,
 		},
 		{
-			name:           "obfuscated location access",
-			input:          `window["location"]["hash"]`,
-			expectSources:  true,
-			expectSinks:    false,
+			name:          "obfuscated location access",
+			input:         `window["location"]["hash"]`,
+			expectSources: true,
+			expectSinks:   false,
 		},
 		{
-			name:           "obfuscated eval",
-			input:          `window["eval"](userInput)`,
-			expectSources:  true, // window["eval"] matches source pattern too
-			expectSinks:    true,
+			name:          "obfuscated eval",
+			input:         `window["eval"](userInput)`,
+			expectSources: true, // window["eval"] matches source pattern too
+			expectSinks:   true,
 		},
 		{
-			name:           "indirect eval",
-			input:          `var result = (1, eval)(userProvidedCode)`, // Pattern matches [01], needs to be > 20 chars
-			expectSources:  false,
-			expectSinks:    true,
+			name:          "indirect eval",
+			input:         `var result = (1, eval)(userProvidedCode)`, // Pattern matches [01], needs to be > 20 chars
+			expectSources: false,
+			expectSinks:   true,
 		},
 	}
 

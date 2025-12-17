@@ -1,0 +1,22 @@
+code: http_request_smuggling_cl0
+title: HTTP Request Smuggling (CL.0)
+description:
+  The application is vulnerable to HTTP request smuggling via Content-Length
+  zero edge case handling. In this CL.0 variant, the back-end server ignores or
+  mishandles the Content-Length header, treating request body data as the start
+  of a new request. This can occur when servers have different behaviors for
+  handling requests where Content-Length does not match actual body length.
+  An attacker can exploit this to smuggle malicious requests, bypass security
+  controls, or hijack other users' requests.
+remediation:
+  Configure all servers in the chain to strictly validate Content-Length headers.
+  Reject requests where Content-Length does not match actual body length. Ensure
+  connection reuse policies are consistent across all servers. Use HTTP/2 end-to-end
+  where possible. Consider using a web application firewall (WAF) with request
+  smuggling detection capabilities.
+cwe: 444
+severity: High
+references:
+  - https://portswigger.net/web-security/request-smuggling/browser/cl-0
+  - https://portswigger.net/research/http-desync-attacks-request-smuggling-reborn
+  - https://cwe.mitre.org/data/definitions/444.html

@@ -155,4 +155,3 @@ func ContainsMarker(text, marker string) bool {
 func ContainsTaintMarker(text string) bool {
 	return strings.Contains(text, TaintMarkerPrefix)
 }
-

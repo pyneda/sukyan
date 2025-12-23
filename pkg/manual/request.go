@@ -67,20 +67,6 @@ func (o *RequestOptions) toRawHTTPPipelineOptions(host string) rawhttp.PipelineO
 	return pipeOptions
 }
 
-func validateRawRequestInsertionPoints(raw string, insertionPoints []FuzzerInsertionPoint) error {
-	for _, point := range insertionPoints {
-		if point.Start < 0 || point.End > len(raw) || point.Start > point.End {
-			return fmt.Errorf("invalid range for insertion point (start: %d, end: %d)", point.Start, point.End)
-		}
-
-		if raw[point.Start:point.End] != point.OriginalValue {
-			return fmt.Errorf("mismatched original value for insertion point (start: %d, end: %d). Expected '%s', found '%s'",
-				point.Start, point.End, point.OriginalValue, raw[point.Start:point.End])
-		}
-	}
-	return nil
-}
-
 // ParseRawRequest parses a raw HTTP request and returns a Request struct
 func ParseRawRequest(raw string, targetURL string) (*Request, error) {
 	lines := strings.Split(raw, "\n")

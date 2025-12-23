@@ -457,47 +457,6 @@ func (o *Orchestrator) startFingerprintPhase(scanEntity *db.Scan) error {
 	return nil
 }
 
-// getInScopeHistoryItemsForScan retrieves in-scope history items for a scan
-func (o *Orchestrator) getInScopeHistoryItemsForScan(scanEntity *db.Scan, scanScope scope.Scope) ([]*db.History, error) {
-	filter := db.HistoryFilter{
-		WorkspaceID: scanEntity.WorkspaceID,
-		ScanID:      scanEntity.ID,
-		Pagination: db.Pagination{
-			PageSize: 0, // No pagination - get all items
-		},
-	}
-
-	items, _, err := db.Connection().ListHistory(filter)
-	if err != nil {
-		return nil, err
-	}
-
-	// Filter by scope
-	inScopeItems := make([]*db.History, 0)
-	for _, item := range items {
-		if scanScope.IsInScope(item.URL) {
-			inScopeItems = append(inScopeItems, item)
-		}
-	}
-
-	return inScopeItems, nil
-}
-
-// separateHistoriesByBaseURL groups history items by their base URL
-func (o *Orchestrator) separateHistoriesByBaseURL(items []*db.History) map[string][]*db.History {
-	result := make(map[string][]*db.History)
-
-	for _, item := range items {
-		baseURL, err := lib.GetBaseURL(item.URL)
-		if err != nil {
-			continue
-		}
-		result[baseURL] = append(result[baseURL], item)
-	}
-
-	return result
-}
-
 // uniqueHistoryIdentifiers is used as a key for deduplicating history items
 type uniqueHistoryIdentifiers struct {
 	URL              string
@@ -880,52 +839,6 @@ func (o *Orchestrator) getTargetURLs(scanEntity *db.Scan) []string {
 		return scanEntity.Options.StartURLs
 	}
 	return nil
-}
-
-// getHistoryItemsForScan retrieves history item IDs for a scan (backward compatibility)
-func (o *Orchestrator) getHistoryItemsForScan(scanEntity *db.Scan) ([]uint, error) {
-	scanScope := o.getScopeForScan(scanEntity)
-	items, err := o.getInScopeHistoryItemsForScan(scanEntity, scanScope)
-	if err != nil {
-		return nil, err
-	}
-
-	ids := make([]uint, len(items))
-	for i, item := range items {
-		ids[i] = item.ID
-	}
-
-	return ids, nil
-}
-
-// getBaseURLsForScan extracts unique base URLs from scan history (backward compatibility)
-func (o *Orchestrator) getBaseURLsForScan(scanEntity *db.Scan) ([]string, error) {
-	scanScope := o.getScopeForScan(scanEntity)
-	return o.getInScopeBaseURLsForScan(scanEntity, scanScope)
-}
-
-// getWebSocketHistoryForScan retrieves websocket connection IDs for a scan (backward compatibility)
-func (o *Orchestrator) getWebSocketHistoryForScan(scanEntity *db.Scan) ([]uint, error) {
-	scanScope := o.getScopeForScan(scanEntity)
-
-	// Get websocket connections for this scan
-	connections, _, err := db.Connection().ListWebSocketConnections(db.WebSocketConnectionFilter{
-		WorkspaceID: scanEntity.WorkspaceID,
-		ScanID:      scanEntity.ID,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Filter by scope
-	ids := make([]uint, 0)
-	for _, conn := range connections {
-		if scanScope.IsInScope(conn.URL) {
-			ids = append(ids, conn.ID)
-		}
-	}
-
-	return ids, nil
 }
 
 // updateScanStats calculates and updates final scan statistics

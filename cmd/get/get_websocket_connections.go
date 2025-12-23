@@ -10,9 +10,8 @@ import (
 )
 
 var (
-	wsTaskID    uint
-	wsScanID    uint
-	wsTaskJobID uint
+	wsTaskID uint
+	wsScanID uint
 )
 
 // getWebSocketConnectionsCmd represents the get WebSocket connections command

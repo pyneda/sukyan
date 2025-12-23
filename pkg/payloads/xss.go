@@ -403,22 +403,6 @@ func filterByEfficiencies(payloads []XSSPayload, analysis *reflection.Reflection
 	return filtered
 }
 
-// deduplicateAndConvert removes duplicate payloads and converts to PayloadInterface
-// Deprecated: Use DeduplicatePayloads followed by convertToInterface instead
-func deduplicateAndConvert(payloads []XSSPayload) []PayloadInterface {
-	seen := make(map[string]bool)
-	var result []PayloadInterface
-
-	for _, p := range payloads {
-		if !seen[p.Value] {
-			seen[p.Value] = true
-			result = append(result, p)
-		}
-	}
-
-	return result
-}
-
 // convertToInterface converts XSSPayload slice to PayloadInterface slice
 func convertToInterface(payloads []XSSPayload) []PayloadInterface {
 	result := make([]PayloadInterface, len(payloads))

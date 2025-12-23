@@ -353,7 +353,7 @@ func TestScanForCSWSH_MessageExchange(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, 100, result.Confidence)
+	assert.Equal(t, 95, result.Confidence)
 }
 
 func TestBuildOriginsToTest(t *testing.T) {

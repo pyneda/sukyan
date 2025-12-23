@@ -151,7 +151,7 @@ func GetBaseURL(urlStr string) (string, error) {
 // ExtractOrigin extracts the origin from a URL, converting ws/wss schemes to http/https.
 func ExtractOrigin(rawURL string) string {
 	u, err := url.Parse(rawURL)
-	if err != nil {
+	if err != nil || u.Scheme == "" || u.Host == "" {
 		return ""
 	}
 	scheme := u.Scheme

@@ -127,63 +127,63 @@ func ClassifyHTTPResponseHeader(headerKey string) string {
 // reverseProxyHeaders contains headers that indicate the presence of a reverse proxy, CDN, or load balancer.
 // These are used to determine when to run expensive audits like HTTP request smuggling.
 var reverseProxyHeaders = []string{
-	"Via",                             // RFC 7230 - proxy chain
-	"X-Cache",                         // CDN/proxy caching
-	"X-Cache-Hits",                    // Varnish/CDN
-	"X-Served-By",                     // CDN node identifier
-	"X-Backend-Server",                // Backend identification
-	"Cf-Ray",                          // Cloudflare
-	"Cf-Cache-Status",                 // Cloudflare caching
-	"X-Amz-Cf-Id",                     // CloudFront
-	"X-Amz-Cf-Pop",                    // CloudFront POP
-	"X-Azure-Ref",                     // Azure CDN
-	"X-Msedge-Ref",                    // Azure Edge
-	"X-Varnish",                       // Varnish cache
-	"X-Proxy-Cache",                   // Generic proxy cache
-	"X-Akamai-Transformed",            // Akamai
-	"Akamai-Cache-Status",             // Akamai caching
-	"X-Akamai-Request-Id",             // Akamai request ID
-	"Fastly-Debug-Digest",             // Fastly
-	"X-Fastly-Request-Id",             // Fastly request ID
-	"X-Timer",                         // Fastly timing
-	"X-Kong-Upstream-Latency",         // Kong API Gateway
-	"X-Kong-Proxy-Latency",            // Kong API Gateway
-	"X-Envoy-Upstream-Service-Time",   // Envoy proxy
-	"X-Envoy-Attempt-Count",           // Envoy proxy
-	"X-Cdn-Provider",                  // Generic CDN indicator
-	"X-Edge-Location",                 // Generic edge/CDN
-	"X-Sucuri-Id",                     // Sucuri WAF/CDN
-	"X-Iinfo",                         // Incapsula/Imperva
-	"X-Cdn",                           // Generic CDN
-	"X-Proxy",                         // Generic proxy
-	"X-Forwarded-Server",              // Forwarding proxy
-	"X-Cache-Status",                  // Generic cache status
-	"X-Vercel-Cache",                  // Vercel CDN
-	"X-Vercel-Id",                     // Vercel
-	"X-Nf-Request-Id",                 // Netlify
-	"X-Served-By",                     // Generic CDN node
-	"Fly-Request-Id",                  // Fly.io
-	"X-Request-Id",                    // Common in proxied setups (less specific)
-	"Cf-Connecting-Ip",                // Cloudflare (indicates CF is in path)
-	"True-Client-Ip",                  // Akamai/CDN
-	"X-Real-Ip",                       // nginx proxy
-	"X-Original-Forwarded-For",        // Proxy chain
-	"X-Forwarded-Host",                // Proxy forwarding
-	"X-Forwarded-Proto",               // Proxy forwarding
-	"X-Litespeed-Cache",               // LiteSpeed cache
-	"X-Litespeed-Cache-Control",       // LiteSpeed cache
-	"X-Qc-Pop",                        // QUIC.cloud
-	"Quic-Status",                     // QUIC.cloud
-	"X-Middleton-Response",            // Fastly
-	"Surrogate-Key",                   // Fastly/Varnish surrogate keys
-	"Surrogate-Control",               // CDN surrogate control
-	"X-Iplb-Instance",                 // OVH Load Balancer
-	"X-Iplb-Request-Id",               // OVH Load Balancer
-	"X-Hw",                            // Huawei CDN
-	"X-Swift-Savetime",                // OpenStack Swift (object storage behind proxy)
-	"X-Trans-Id",                      // OpenStack Swift
-	"X-Openstack-Request-Id",          // OpenStack
-	"Alt-Svc",                         // Often indicates CDN/proxy with HTTP/3 support
+	"Via",                           // RFC 7230 - proxy chain
+	"X-Cache",                       // CDN/proxy caching
+	"X-Cache-Hits",                  // Varnish/CDN
+	"X-Served-By",                   // CDN node identifier
+	"X-Backend-Server",              // Backend identification
+	"Cf-Ray",                        // Cloudflare
+	"Cf-Cache-Status",               // Cloudflare caching
+	"X-Amz-Cf-Id",                   // CloudFront
+	"X-Amz-Cf-Pop",                  // CloudFront POP
+	"X-Azure-Ref",                   // Azure CDN
+	"X-Msedge-Ref",                  // Azure Edge
+	"X-Varnish",                     // Varnish cache
+	"X-Proxy-Cache",                 // Generic proxy cache
+	"X-Akamai-Transformed",          // Akamai
+	"Akamai-Cache-Status",           // Akamai caching
+	"X-Akamai-Request-Id",           // Akamai request ID
+	"Fastly-Debug-Digest",           // Fastly
+	"X-Fastly-Request-Id",           // Fastly request ID
+	"X-Timer",                       // Fastly timing
+	"X-Kong-Upstream-Latency",       // Kong API Gateway
+	"X-Kong-Proxy-Latency",          // Kong API Gateway
+	"X-Envoy-Upstream-Service-Time", // Envoy proxy
+	"X-Envoy-Attempt-Count",         // Envoy proxy
+	"X-Cdn-Provider",                // Generic CDN indicator
+	"X-Edge-Location",               // Generic edge/CDN
+	"X-Sucuri-Id",                   // Sucuri WAF/CDN
+	"X-Iinfo",                       // Incapsula/Imperva
+	"X-Cdn",                         // Generic CDN
+	"X-Proxy",                       // Generic proxy
+	"X-Forwarded-Server",            // Forwarding proxy
+	"X-Cache-Status",                // Generic cache status
+	"X-Vercel-Cache",                // Vercel CDN
+	"X-Vercel-Id",                   // Vercel
+	"X-Nf-Request-Id",               // Netlify
+	"X-Served-By",                   // Generic CDN node
+	"Fly-Request-Id",                // Fly.io
+	"X-Request-Id",                  // Common in proxied setups (less specific)
+	"Cf-Connecting-Ip",              // Cloudflare (indicates CF is in path)
+	"True-Client-Ip",                // Akamai/CDN
+	"X-Real-Ip",                     // nginx proxy
+	"X-Original-Forwarded-For",      // Proxy chain
+	"X-Forwarded-Host",              // Proxy forwarding
+	"X-Forwarded-Proto",             // Proxy forwarding
+	"X-Litespeed-Cache",             // LiteSpeed cache
+	"X-Litespeed-Cache-Control",     // LiteSpeed cache
+	"X-Qc-Pop",                      // QUIC.cloud
+	"Quic-Status",                   // QUIC.cloud
+	"X-Middleton-Response",          // Fastly
+	"Surrogate-Key",                 // Fastly/Varnish surrogate keys
+	"Surrogate-Control",             // CDN surrogate control
+	"X-Iplb-Instance",               // OVH Load Balancer
+	"X-Iplb-Request-Id",             // OVH Load Balancer
+	"X-Hw",                          // Huawei CDN
+	"X-Swift-Savetime",              // OpenStack Swift (object storage behind proxy)
+	"X-Trans-Id",                    // OpenStack Swift
+	"X-Openstack-Request-Id",        // OpenStack
+	"Alt-Svc",                       // Often indicates CDN/proxy with HTTP/3 support
 }
 
 // reverseProxyServerPatterns contains patterns to match in the Server header
@@ -240,4 +240,23 @@ func HasReverseProxyIndicatorsFromHistory(history *db.History) bool {
 		return false
 	}
 	return HasReverseProxyIndicators(headers)
+}
+
+var webSocketProtocolHeaders = []string{
+	"Connection",
+	"Upgrade",
+	"Sec-WebSocket-Key",
+	"Sec-WebSocket-Version",
+	"Sec-WebSocket-Protocol",
+	"Sec-WebSocket-Extensions",
+	"Sec-WebSocket-Accept",
+}
+
+func IsWebSocketProtocolHeader(key string) bool {
+	for _, h := range webSocketProtocolHeaders {
+		if strings.EqualFold(key, h) {
+			return true
+		}
+	}
+	return false
 }

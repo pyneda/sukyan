@@ -150,6 +150,7 @@ var (
 	WeakDigestAuthCredentialsCode        IssueCode = "weak_digest_auth_credentials"
 	WebassemblyDetectedCode              IssueCode = "webassembly_detected"
 	WebserverControlFileExposedCode      IssueCode = "webserver_control_file_exposed"
+	WebsocketCswshCode                   IssueCode = "websocket_cswsh"
 	WebsocketDetectedCode                IssueCode = "websocket_detected"
 	WordpressDetectedCode                IssueCode = "wordpress_detected"
 	WsdlDefinitionDetectedCode           IssueCode = "wsdl_definition_detected"
@@ -1961,6 +1962,20 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information",
 			"https://httpd.apache.org/docs/2.4/howto/htaccess.html",
+		},
+	},
+	{
+		Code:        WebsocketCswshCode,
+		Title:       "Cross-Site WebSocket Hijacking (CSWSH)",
+		Description: "The WebSocket endpoint does not properly validate the Origin header during the connection handshake. Cross-Site WebSocket Hijacking (CSWSH) occurs when an attacker can establish a WebSocket connection from a malicious website to a vulnerable target server. Since WebSockets are not subject to the Same-Origin Policy in the same way as regular HTTP requests, the server must explicitly validate the Origin header to prevent unauthorized cross-origin connections. Without proper Origin validation, attackers can hijack WebSocket sessions, potentially stealing sensitive data or performing unauthorized actions on behalf of authenticated users.",
+		Remediation: "To prevent Cross-Site WebSocket Hijacking, implement strict Origin header validation on the server side. The server should maintain a whitelist of allowed origins and reject WebSocket connections from untrusted sources. Additionally, implement CSRF tokens for WebSocket connections, use secure session management, and consider implementing additional authentication mechanisms at the WebSocket message level.",
+		Cwe:         1385,
+		Severity:    "High",
+		References: []string{
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/10-Testing_WebSockets",
+			"https://www.blackhillsinfosec.com/cant-stop-wont-stop-hijacking-websockets/",
+			"https://portswigger.net/web-security/websockets/cross-site-websocket-hijacking",
+			"https://christian-schneider.net/CrossSiteWebSocketHijacking.html",
 		},
 	},
 	{

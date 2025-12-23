@@ -19,7 +19,6 @@ import (
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
-	"github.com/pyneda/sukyan/pkg/scan/options"
 	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/pyneda/sukyan/pkg/scope"
 
@@ -86,7 +85,7 @@ func (s *ScanEngine) Resume() {
 	s.isPaused = false
 }
 
-func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, options options.HistoryItemScanOptions) {
+func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJobType, options scan_options.HistoryItemScanOptions) {
 	if s.isPaused {
 		return
 	}
@@ -103,7 +102,7 @@ func (s *ScanEngine) ScheduleHistoryItemScan(item *db.History, scanJobType ScanJ
 }
 
 // Get or create deduplication manager for a task
-func (s *ScanEngine) getOrCreateWSDeduplicationManager(taskID uint, mode options.ScanMode) *http_utils.WebSocketDeduplicationManager {
+func (s *ScanEngine) getOrCreateWSDeduplicationManager(taskID uint, mode scan_options.ScanMode) *http_utils.WebSocketDeduplicationManager {
 	s.wsDeduplicationMu.Lock()
 	defer s.wsDeduplicationMu.Unlock()
 
@@ -144,7 +143,7 @@ func (s *ScanEngine) getOrCreateWSPassiveDeduplicationManager(workspaceID uint) 
 		return manager
 	}
 	// Use ScanModeFast for passive scanning by default to avoid too many duplicates
-	manager := http_utils.NewWebSocketDeduplicationManager(options.ScanModeFast)
+	manager := http_utils.NewWebSocketDeduplicationManager(scan_options.ScanModeFast)
 	s.wsPassiveDeduplicationManagers[workspaceID] = manager
 	return manager
 }
@@ -174,7 +173,7 @@ func (s *ScanEngine) schedulePassiveScan(item *db.History, workspaceID uint) {
 	})
 }
 
-func (s *ScanEngine) ScheduleWebSocketPassiveScan(item *db.WebSocketConnection, options scan.WebSocketScanOptions) {
+func (s *ScanEngine) ScheduleWebSocketPassiveScan(item *db.WebSocketConnection, options scan_options.WebSocketScanOptions) {
 	s.passiveScanPool.Go(func() {
 		workspaceID := options.WorkspaceID
 		if item.WorkspaceID != nil {
@@ -357,7 +356,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 		if options.AuditCategories.WebSocket {
 			s.wg.Go(func() {
 				scanLog.Info().Int64("count", count).Msg("Scheduling scan to the WebSocket connections discovered during crawl")
-				websocketScanOptions := scan.WebSocketScanOptions{
+				websocketScanOptions := scan_options.WebSocketScanOptions{
 					WorkspaceID:     options.WorkspaceID,
 					TaskID:          task.ID,
 					Mode:            options.Mode,
@@ -477,7 +476,7 @@ func (s *ScanEngine) FullScan(options scan_options.FullScanOptions, waitCompleti
 	return task, nil
 }
 
-func (s *ScanEngine) EvaluateWebSocketConnections(connections []db.WebSocketConnection, options scan.WebSocketScanOptions) {
+func (s *ScanEngine) EvaluateWebSocketConnections(connections []db.WebSocketConnection, options scan_options.WebSocketScanOptions) {
 	cleartextHostsReported := make(map[string]bool)
 
 	for i := range connections {
@@ -490,19 +489,16 @@ func (s *ScanEngine) EvaluateWebSocketConnections(connections []db.WebSocketConn
 
 		if u.Scheme == "ws" && !cleartextHostsReported[u.Host] {
 			cleartextHostsReported[u.Host] = true
-			var taskJobID uint
-			db.CreateIssueFromWebSocketConnectionAndTemplate(
-				item,
-				db.UnencryptedWebsocketConnectionCode,
-				fmt.Sprintf("Cleartext WebSocket connections detected on host: %s", u.Host),
-				100,
-				"",
-				&options.WorkspaceID,
-				&options.TaskID,
-				&taskJobID,
-				&options.ScanID,
-				&options.ScanJobID,
-			)
+			db.CreateWebSocketIssue(db.WebSocketIssueOptions{
+				Connection:  item,
+				Code:        db.UnencryptedWebsocketConnectionCode,
+				Details:     fmt.Sprintf("Cleartext WebSocket connections detected on host: %s", u.Host),
+				Confidence:  100,
+				WorkspaceID: &options.WorkspaceID,
+				TaskID:      &options.TaskID,
+				ScanID:      &options.ScanID,
+				ScanJobID:   &options.ScanJobID,
+			})
 		}
 
 		s.scheduleWebSocketConnectionScan(item, options)
@@ -514,7 +510,7 @@ func (s *ScanEngine) EvaluateWebSocketConnections(connections []db.WebSocketConn
 		Msg("Completed scheduling active WebSocket connection scans")
 }
 
-func (s *ScanEngine) scheduleWebSocketConnectionScan(item *db.WebSocketConnection, options scan.WebSocketScanOptions) {
+func (s *ScanEngine) scheduleWebSocketConnectionScan(item *db.WebSocketConnection, options scan_options.WebSocketScanOptions) {
 	s.activeScanPool.Go(func() {
 		connectionOptions := options
 		taskJob, err := db.Connection().NewWebSocketTaskJob(

@@ -166,20 +166,17 @@ func CrackJWTAndCreateIssueFromWebSocketConnection(connection *db.WebSocketConne
 
 	if result.Found {
 		details := generateWebSocketConnectionIssueDetails(result, connection)
-		noTaskJob := uint(0)
 
-		issue, err := db.CreateIssueFromWebSocketConnectionAndTemplate(
-			connection,
-			db.JwtWeakSigningSecretCode,
-			details,
-			100,
-			"",
-			connection.WorkspaceID,
-			connection.TaskID,
-			&noTaskJob,
-			connection.ScanID,
-			connection.ScanJobID,
-		)
+		issue, err := db.CreateWebSocketIssue(db.WebSocketIssueOptions{
+			Connection:  connection,
+			Code:        db.JwtWeakSigningSecretCode,
+			Details:     details,
+			Confidence:  100,
+			WorkspaceID: connection.WorkspaceID,
+			TaskID:      connection.TaskID,
+			ScanID:      connection.ScanID,
+			ScanJobID:   connection.ScanJobID,
+		})
 
 		if err != nil {
 			log.Error().Err(err).

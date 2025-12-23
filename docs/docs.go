@@ -2734,6 +2734,68 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/scan/options/categories": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns all unique categories from loaded payload generators. Can be used to filter scans by vulnerability category.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scan Options"
+                ],
+                "summary": "List all available categories",
+                "responses": {
+                    "200": {
+                        "description": "List of categories",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scan/options/platforms": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns all unique platforms from loaded payload generators. Can be used to filter scans by target platform.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scan Options"
+                ],
+                "summary": "List all available platforms",
+                "responses": {
+                    "200": {
+                        "description": "List of platforms",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/scan/passive": {
             "post": {
                 "security": [
@@ -6200,6 +6262,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "payload": {
+                    "type": "string"
+                },
+                "poc": {
+                    "type": "string"
+                },
+                "poc_type": {
                     "type": "string"
                 },
                 "references": {

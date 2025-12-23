@@ -5,11 +5,13 @@ import (
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
+	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 )
 
-func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options WebSocketScanOptions, deduplicationManager *http_utils.WebSocketDeduplicationManager) {
+func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, opts options.WebSocketScanOptions, deduplicationManager *http_utils.WebSocketDeduplicationManager) {
 	log.Info().Uint("connection", item.ID).Msg("Active scanning websocket connection")
+
 	scopedInsertionPoints := []string{}
 	for _, t := range WebSocketInsertionPointTypes() {
 		scopedInsertionPoints = append(scopedInsertionPoints, t.String())
@@ -54,7 +56,7 @@ func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsMan
 				Uint("connection", item.ID).
 				Uint("message", msg.ID).
 				Int("index", i).
-				Str("mode", options.Mode.String()).
+				Str("mode", opts.Mode.String()).
 				Msg("Skipping WebSocket message due to deduplication rules")
 			continue
 		}
@@ -90,7 +92,7 @@ func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsMan
 		}
 		scannedMessages++
 		// Run scan for this message and its insertion points
-		results := scanner.Run(item, messages, i, payloadGenerators, insertionPoints, options)
+		results := scanner.Run(item, messages, i, payloadGenerators, insertionPoints, opts)
 
 		totalVulnerabilities := 0
 		for issueCode, scanResults := range results {
@@ -113,6 +115,6 @@ func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsMan
 		Uint("connection", item.ID).
 		Int("scanned_messages", scannedMessages).
 		Int("skipped_messages", skippedMessages).
-		Str("mode", options.Mode.String()).
+		Str("mode", opts.Mode.String()).
 		Msg("Completed active scanning WebSocket connection")
 }

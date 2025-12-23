@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/go-rod/rod"
@@ -12,7 +13,7 @@ import (
 )
 
 func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID, scanID, scanJobID uint, source string) {
-	wsConnections := make(map[proto.NetworkRequestID]*db.WebSocketConnection)
+	var wsConnections sync.Map
 
 	go page.EachEvent(func(e *proto.NetworkWebSocketCreated) {
 		headers, _ := json.Marshal(e.Initiator)
@@ -39,13 +40,14 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID, scanID, scanJ
 			return
 		}
 		log.Info().Uint("workspace", workspaceID).Str("url", e.URL).Uint("id", connection.ID).Msg("Created WebSocket connection")
-		wsConnections[e.RequestID] = connection
+		wsConnections.Store(e.RequestID, connection)
 	}, func(e *proto.NetworkWebSocketHandshakeResponseReceived) {
-		connection, ok := wsConnections[e.RequestID]
+		connVal, ok := wsConnections.Load(e.RequestID)
 		if !ok {
 			log.Warn().Uint("workspace", workspaceID).Str("request_id", string(e.RequestID)).Msg("Unknown connection")
 			return
 		}
+		connection := connVal.(*db.WebSocketConnection)
 		headers, err := json.Marshal(e.Response.Headers)
 		if err == nil {
 			connection.ResponseHeaders = datatypes.JSON(headers)
@@ -62,11 +64,12 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID, scanID, scanJ
 		}
 
 	}, func(e *proto.NetworkWebSocketFrameSent) {
-		connection, ok := wsConnections[e.RequestID]
+		connVal, ok := wsConnections.Load(e.RequestID)
 		if !ok {
 			log.Warn().Uint("workspace", workspaceID).Str("request_id", string(e.RequestID)).Msg("Unknown connection")
 			return
 		}
+		connection := connVal.(*db.WebSocketConnection)
 		message := &db.WebSocketMessage{
 			ConnectionID: connection.ID,
 			Opcode:       e.Response.Opcode,
@@ -81,11 +84,12 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID, scanID, scanJ
 			log.Error().Uint("workspace", workspaceID).Err(err).Str("data", e.Response.PayloadData).Msg("Failed to create WebSocket message")
 		}
 	}, func(e *proto.NetworkWebSocketFrameReceived) {
-		connection, ok := wsConnections[e.RequestID]
+		connVal, ok := wsConnections.Load(e.RequestID)
 		if !ok {
 			log.Warn().Uint("workspace", workspaceID).Str("request_id", string(e.RequestID)).Msg("Unknown connection")
 			return
 		}
+		connection := connVal.(*db.WebSocketConnection)
 		message := &db.WebSocketMessage{
 			ConnectionID: connection.ID,
 			Opcode:       e.Response.Opcode,
@@ -100,17 +104,18 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID, scanID, scanJ
 			log.Error().Uint("workspace", workspaceID).Err(err).Str("data", e.Response.PayloadData).Msg("Failed to create WebSocket message")
 		}
 	}, func(e *proto.NetworkWebSocketClosed) {
-		connection, ok := wsConnections[e.RequestID]
+		connVal, ok := wsConnections.Load(e.RequestID)
 		if !ok {
 			log.Warn().Uint("workspace", workspaceID).Str("request_id", string(e.RequestID)).Msg("Unknown connection")
 			return
 		}
+		connection := connVal.(*db.WebSocketConnection)
 		now := time.Now()
 		connection.ClosedAt = now
 		err := db.Connection().UpdateWebSocketConnection(connection)
 		if err != nil {
 			log.Error().Uint("workspace", workspaceID).Err(err).Str("url", connection.URL).Msg("Failed to update WebSocket connection closed at")
 		}
-		delete(wsConnections, e.RequestID)
+		wsConnections.Delete(e.RequestID)
 	})()
 }

@@ -422,19 +422,16 @@ func attemptToCrackJwtFromWebSocketConnectionIfRequired(connection *db.WebSocket
 		sb.WriteString(fmt.Sprintf("- Algorithm: %s\n", jwt.Algorithm))
 		sb.WriteString(fmt.Sprintf("- Discovered Secret: %s\n\n", jwt.Secret))
 
-		noTaskJob := uint(0)
-		issue, err := db.CreateIssueFromWebSocketConnectionAndTemplate(
-			connection,
-			db.JwtWeakSigningSecretCode,
-			sb.String(),
-			100,
-			"",
-			connection.WorkspaceID,
-			connection.TaskID,
-			&noTaskJob,
-			connection.ScanID,
-			connection.ScanJobID,
-		)
+		issue, err := db.CreateWebSocketIssue(db.WebSocketIssueOptions{
+			Connection:  connection,
+			Code:        db.JwtWeakSigningSecretCode,
+			Details:     sb.String(),
+			Confidence:  100,
+			WorkspaceID: connection.WorkspaceID,
+			TaskID:      connection.TaskID,
+			ScanID:      connection.ScanID,
+			ScanJobID:   connection.ScanJobID,
+		})
 		if err != nil {
 			log.Error().Err(err).Str("token", jwt.Token).Msg("Failed to create issue for already cracked JWT from WebSocket connection")
 			return []db.Issue{}
@@ -476,18 +473,16 @@ func checkWebSocketHeadersForJwt(connection *db.WebSocketConnection, headers map
 
 	details := sb.String()
 	if details != "" {
-		jwtIssue, err := db.CreateIssueFromWebSocketConnectionAndTemplate(
-			connection,
-			db.JwtDetectedCode,
-			details,
-			90,
-			"",
-			connection.WorkspaceID,
-			connection.TaskID,
-			&defaultTaskJobID,
-			connection.ScanID,
-			connection.ScanJobID,
-		)
+		jwtIssue, err := db.CreateWebSocketIssue(db.WebSocketIssueOptions{
+			Connection:  connection,
+			Code:        db.JwtDetectedCode,
+			Details:     details,
+			Confidence:  90,
+			WorkspaceID: connection.WorkspaceID,
+			TaskID:      connection.TaskID,
+			ScanID:      connection.ScanID,
+			ScanJobID:   connection.ScanJobID,
+		})
 		if err != nil {
 			log.Error().Err(err).Uint("connection_id", connection.ID).Msg("Failed to create JWT detection issue from WebSocket headers")
 		} else {

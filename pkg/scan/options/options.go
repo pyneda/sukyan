@@ -199,3 +199,17 @@ func GetScanMode(mode string) ScanMode {
 		return ScanModeSmart
 	}
 }
+
+// WebSocketScanOptions defines the options for a WebSocket scan
+type WebSocketScanOptions struct {
+	WorkspaceID       uint
+	TaskID            uint
+	TaskJobID         uint
+	ScanID            uint
+	ScanJobID         uint
+	Mode              ScanMode
+	FingerprintTags   []string
+	ReplayMessages    bool          // Whether to replay previous messages to establish context
+	ObservationWindow time.Duration // How long to wait for responses
+	Concurrency       int
+}

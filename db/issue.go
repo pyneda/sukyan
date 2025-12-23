@@ -30,6 +30,8 @@ type Issue struct {
 	Severity      severity    `gorm:"index,type:severity;default:'Info'" json:"severity"`
 	CURLCommand   string      `json:"curl_command"`
 	Note          string      `json:"note"`
+	POC           string      `gorm:"column:poc" json:"poc"`
+	POCType       string      `gorm:"column:poc_type" json:"poc_type"`
 	Workspace     Workspace   `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID   *uint       `json:"workspace_id" gorm:"index"`
 	// OriginalHistory   History          `json:"original_history" gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
@@ -86,8 +88,8 @@ func (i Issue) String() string {
 	}
 
 	return fmt.Sprintf(
-		"ID: %d\nCode: %s\nTitle: %s\nCWE: %d\nURL: %s\nStatus Code: %d\nHTTP Method: %s\nPayload: %s\nFalse Positive: %t\nConfidence: %d\nReferences: %v\nSeverity: %s\nCURL Command: %s\nNote: %s\nWorkspace ID: %s\nScan ID: %s\nDescription: %s\nDetails: %s\nRemediation: %s\nRequest: %s\nResponse: %s",
-		i.ID, i.Code, i.Title, i.Cwe, i.URL, i.StatusCode, i.HTTPMethod, i.Payload, i.FalsePositive, i.Confidence, i.References, i.Severity, i.CURLCommand, i.Note, workspaceID, scanID, i.Description, i.Details, i.Remediation, string(i.Request), string(i.Response),
+		"ID: %d\nCode: %s\nTitle: %s\nCWE: %d\nURL: %s\nStatus Code: %d\nHTTP Method: %s\nPayload: %s\nFalse Positive: %t\nConfidence: %d\nReferences: %v\nSeverity: %s\nCURL Command: %s\nNote: %s\nPOC Type: %s\nWorkspace ID: %s\nScan ID: %s\nDescription: %s\nDetails: %s\nRemediation: %s\nPOC: %s\nRequest: %s\nResponse: %s",
+		i.ID, i.Code, i.Title, i.Cwe, i.URL, i.StatusCode, i.HTTPMethod, i.Payload, i.FalsePositive, i.Confidence, i.References, i.Severity, i.CURLCommand, i.Note, i.POCType, workspaceID, scanID, i.Description, i.Details, i.Remediation, i.POC, string(i.Request), string(i.Response),
 	)
 }
 
@@ -102,7 +104,7 @@ func (i Issue) Pretty() string {
 	}
 
 	return fmt.Sprintf(
-		"%sID:%s %d\n%sCode:%s %s\n%sTitle:%s %s\n%sCWE:%s %d\n%sURL:%s %s\n%sStatus Code:%s %d\n%sHTTP Method:%s %s\n%sPayload:%s %s\n%sFalse Positive:%s %t\n%sConfidence:%s %d\n%sReferences:%s %v\n%sSeverity:%s %s\n%sCURL Command:%s %s\n%sNote:%s %s\n%sWorkspace ID:%s %s\n%sScan ID:%s %s\n\n%sDescription:%s %s\n\n%sDetails:%s %s\n\n%sRemediation:%s %s\n\n%sRequest:%s %s\n\n%sResponse:%s %s\n",
+		"%sID:%s %d\n%sCode:%s %s\n%sTitle:%s %s\n%sCWE:%s %d\n%sURL:%s %s\n%sStatus Code:%s %d\n%sHTTP Method:%s %s\n%sPayload:%s %s\n%sFalse Positive:%s %t\n%sConfidence:%s %d\n%sReferences:%s %v\n%sSeverity:%s %s\n%sCURL Command:%s %s\n%sNote:%s %s\n%sPOC Type:%s %s\n%sWorkspace ID:%s %s\n%sScan ID:%s %s\n\n%sDescription:%s %s\n\n%sDetails:%s %s\n\n%sRemediation:%s %s\n\n%sPOC:%s %s\n\n%sRequest:%s %s\n\n%sResponse:%s %s\n",
 		lib.Blue, lib.ResetColor, i.ID,
 		lib.Blue, lib.ResetColor, i.Code,
 		lib.Blue, lib.ResetColor, i.Title,
@@ -117,11 +119,13 @@ func (i Issue) Pretty() string {
 		lib.Blue, lib.ResetColor, i.Severity,
 		lib.Blue, lib.ResetColor, i.CURLCommand,
 		lib.Blue, lib.ResetColor, i.Note,
+		lib.Blue, lib.ResetColor, i.POCType,
 		lib.Blue, lib.ResetColor, workspaceID,
 		lib.Blue, lib.ResetColor, scanID,
 		lib.Blue, lib.ResetColor, i.Description,
 		lib.Blue, lib.ResetColor, i.Details,
 		lib.Blue, lib.ResetColor, i.Remediation,
+		lib.Blue, lib.ResetColor, i.POC,
 		lib.Blue, lib.ResetColor, string(i.Request),
 		lib.Blue, lib.ResetColor, string(i.Response),
 	)
@@ -361,7 +365,7 @@ func (d *DatabaseConnection) CreateIssue(issue Issue) (Issue, error) {
 	}
 
 	var existingIssue Issue
-	query := d.db.Where("code = ? AND title = ? AND details = ? AND url = ? AND status_code = ? AND http_method = ? AND payload = ? AND confidence = ? AND severity = ? AND workspace_id = ? AND task_id = ? AND task_job_id = ? AND websocket_connection_id = ?",
+	query := d.db.Where("code = ? AND title = ? AND details = ? AND url = ? AND status_code = ? AND http_method = ? AND payload = ? AND confidence = ? AND severity = ? AND workspace_id = ? AND task_id = ? AND task_job_id = ? AND scan_id = ? AND websocket_connection_id = ?",
 		issue.Code,
 		issue.Title,
 		issue.Details,
@@ -374,6 +378,7 @@ func (d *DatabaseConnection) CreateIssue(issue Issue) (Issue, error) {
 		issue.WorkspaceID,
 		issue.TaskID,
 		issue.TaskJobID,
+		issue.ScanID,
 		issue.WebsocketConnectionID,
 	)
 

@@ -187,6 +187,8 @@ func StartAPI() {
 	scan_app.Post("/passive", JWTProtected(), PassiveScanHandler)
 	scan_app.Post("/active", JWTProtected(), ActiveScanHandler)
 	scan_app.Post("/active/websocket", JWTProtected(), ActiveWebSocketScanHandler)
+	scan_app.Get("/options/platforms", JWTProtected(), GetScanOptionsPlatforms)
+	scan_app.Get("/options/categories", JWTProtected(), GetScanOptionsCategories)
 
 	// Scans endpoints (Scan Engine V2 / Orchestrator)
 	scans_app := api.Group("/scans")

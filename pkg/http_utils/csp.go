@@ -246,7 +246,7 @@ func (p *CSPPolicy) AllowsHost(directive CSPDirective, host string) bool {
 			return true
 		}
 
-		vHost := extractHost(v)
+		vHost := extractHostFromCSPSource(v)
 		if vHost == host {
 			return true
 		}
@@ -387,7 +387,7 @@ func containsSource(values []string, source CSPSourceValue) bool {
 	return false
 }
 
-func extractHost(source string) string {
+func extractHostFromCSPSource(source string) string {
 	s := strings.TrimPrefix(source, "https://")
 	s = strings.TrimPrefix(s, "http://")
 	if idx := strings.Index(s, "/"); idx != -1 {

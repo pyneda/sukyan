@@ -1,8 +1,9 @@
 package options
 
 import (
-	"net/url"
 	"sync"
+
+	"github.com/pyneda/sukyan/lib"
 )
 
 // AuditType represents the type of expensive audit that can be sampled.
@@ -58,7 +59,7 @@ func NewAuditSampler(config AuditSamplingConfig) *AuditSampler {
 // For sampling rate N: returns true on every Nth call per host.
 // A sampling rate of 0 or 1 means always return true (no sampling).
 func (s *AuditSampler) ShouldRun(auditType AuditType, rawURL string) bool {
-	host := extractHost(rawURL)
+	host, _ := lib.GetHostFromURL(rawURL)
 	if host == "" {
 		// Can't determine host, default to allowing the audit
 		return true
@@ -126,13 +127,4 @@ func (s *AuditSampler) getSamplingRate(auditType AuditType) int {
 	default:
 		return 1 // Unknown type, don't sample
 	}
-}
-
-// extractHost extracts the host from a URL string.
-func extractHost(rawURL string) string {
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return ""
-	}
-	return parsed.Host
 }

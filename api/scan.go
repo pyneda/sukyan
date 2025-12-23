@@ -9,7 +9,6 @@ import (
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
-	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/pyneda/sukyan/pkg/scan/engine"
 	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
@@ -369,7 +368,7 @@ func ActiveWebSocketScanHandler(c *fiber.Ctx) error {
 		workspaceID = *connections[0].WorkspaceID
 	}
 
-	options := scan.WebSocketScanOptions{
+	opts := scan_options.WebSocketScanOptions{
 		WorkspaceID:       workspaceID,
 		TaskID:            input.TaskID,
 		Mode:              mode,
@@ -377,7 +376,7 @@ func ActiveWebSocketScanHandler(c *fiber.Ctx) error {
 		ObservationWindow: time.Duration(input.ObservationWindow) * time.Second,
 		Concurrency:       input.Concurrency,
 	}
-	e.EvaluateWebSocketConnections(connections, options)
+	e.EvaluateWebSocketConnections(connections, opts)
 
 	return c.JSON(ActionResponse{
 		Message: "Active WebSocket connections scan scheduled",
@@ -441,7 +440,7 @@ func PassiveWebSocketScanHandler(c *fiber.Ctx) error {
 		if connection.WorkspaceID != nil {
 			workspaceID = *connection.WorkspaceID
 		}
-		e.ScheduleWebSocketPassiveScan(&connection, scan.WebSocketScanOptions{
+		e.ScheduleWebSocketPassiveScan(&connection, scan_options.WebSocketScanOptions{
 			WorkspaceID: workspaceID,
 		})
 	}

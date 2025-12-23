@@ -154,6 +154,76 @@ func CreateIssueFromWebSocketConnectionAndTemplate(connection *WebSocketConnecti
 	return createdIssue, nil
 }
 
+// WebSocketIssueOptions contains options for creating an issue from a WebSocket connection
+type WebSocketIssueOptions struct {
+	Connection  *WebSocketConnection
+	Code        IssueCode
+	Details     string
+	Confidence  int
+	Severity    string // empty = use template default
+	WorkspaceID *uint
+	TaskID      *uint
+	TaskJobID   *uint
+	ScanID      *uint
+	ScanJobID   *uint
+	POC         string
+	POCType     string // e.g., "html", "curl", "python", "javascript"
+}
+
+// CreateWebSocketIssue creates an issue from a WebSocket connection using an options struct
+func CreateWebSocketIssue(opts WebSocketIssueOptions) (Issue, error) {
+	log.Info().Str("code", string(opts.Code)).Str("url", opts.Connection.URL).Msg("Creating issue from WebSocket connection")
+
+	issue := GetIssueTemplateByCode(opts.Code)
+	if issue == nil {
+		err := fmt.Errorf("issue template with code %s not found", opts.Code)
+		log.Error().Err(err).Str("code", string(opts.Code)).Msg("Failed to get issue template")
+		return Issue{}, err
+	}
+
+	requestHeaders, _ := opts.Connection.GetRequestHeadersAsString()
+	responseHeaders, _ := opts.Connection.GetResponseHeadersAsString()
+
+	issue.URL = opts.Connection.URL
+	issue.Request = []byte(requestHeaders)
+	issue.Response = []byte(responseHeaders)
+	issue.StatusCode = opts.Connection.StatusCode
+	issue.HTTPMethod = "WEBSOCKET"
+	issue.Confidence = opts.Confidence
+	issue.Details = opts.Details
+	issue.WorkspaceID = opts.WorkspaceID
+	issue.TaskID = opts.TaskID
+	issue.TaskJobID = opts.TaskJobID
+	issue.ScanID = opts.ScanID
+	issue.ScanJobID = opts.ScanJobID
+	issue.WebsocketConnectionID = &opts.Connection.ID
+	issue.POC = opts.POC
+	issue.POCType = opts.POCType
+
+	if opts.Severity != "" {
+		issue.Severity = NewSeverity(opts.Severity)
+	}
+
+	createdIssue, err := Connection().CreateIssue(*issue)
+	if err != nil {
+		log.Error().Err(err).Str("issue", issue.Title).Str("url", opts.Connection.URL).Msg("Failed to create issue")
+		return createdIssue, err
+	}
+
+	workspaceIDValue := uint(0)
+	if opts.WorkspaceID != nil {
+		workspaceIDValue = *opts.WorkspaceID
+	}
+
+	taskIDValue := uint(0)
+	if opts.TaskID != nil {
+		taskIDValue = *opts.TaskID
+	}
+
+	log.Warn().Uint("id", createdIssue.ID).Str("issue", issue.Title).Str("url", opts.Connection.URL).Uint("workspace", workspaceIDValue).Uint("task", taskIDValue).Msg("New issue found")
+	return createdIssue, nil
+}
+
 // CreateIssueFromWebSocketMessage creates an issue from a WebSocket message
 func CreateIssueFromWebSocketMessage(message *WebSocketMessage, code IssueCode, details string, confidence int, severityOverride string, workspaceID, taskID, taskJobID, scanID, scanJobID, connectionID, upgradeRequestID *uint) (Issue, error) {
 	template := GetIssueTemplateByCode(code)

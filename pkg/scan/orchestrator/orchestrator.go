@@ -408,7 +408,9 @@ func (o *Orchestrator) startFingerprintPhase(scanEntity *db.Scan) error {
 		sem := make(chan struct{}, maxConcurrentRetireJS)
 		var wg sync.WaitGroup
 
-		for _, item := range allHistoriesForBaseURL {
+		uniqueHistories := removeDuplicateHistoryItems(allHistoriesForBaseURL)
+
+		for _, item := range uniqueHistories {
 			wg.Add(1)
 			sem <- struct{}{} // Acquire semaphore
 
@@ -806,19 +808,15 @@ func (o *Orchestrator) startWebSocketPhase(scanEntity *db.Scan) error {
 
 		if u.Scheme == "ws" && !cleartextHostsReported[u.Host] {
 			cleartextHostsReported[u.Host] = true
-			var scanID uint = scanEntity.ID
-			db.CreateIssueFromWebSocketConnectionAndTemplate(
-				&conn,
-				db.UnencryptedWebsocketConnectionCode,
-				fmt.Sprintf("Cleartext WebSocket connections detected on host: %s", u.Host),
-				100,
-				"",
-				&scanEntity.WorkspaceID,
-				nil, // No taskID in new system
-				nil, // No taskJobID
-				&scanID,
-				nil, // No scanJobID at orchestrator level
-			)
+			scanID := scanEntity.ID
+			db.CreateWebSocketIssue(db.WebSocketIssueOptions{
+				Connection:  &conn,
+				Code:        db.UnencryptedWebsocketConnectionCode,
+				Details:     fmt.Sprintf("Cleartext WebSocket connections detected on host: %s", u.Host),
+				Confidence:  100,
+				WorkspaceID: &scanEntity.WorkspaceID,
+				ScanID:      &scanID,
+			})
 			scanLog.Info().Str("host", u.Host).Msg("Reported cleartext WebSocket connection issue")
 		}
 	}

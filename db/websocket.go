@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type WebSocketConnection struct {
@@ -217,6 +218,16 @@ func (m WebSocketMessage) Pretty() string {
 }
 
 func (d *DatabaseConnection) CreateWebSocketConnection(connection *WebSocketConnection) error {
+	if connection.TaskID != nil && *connection.TaskID == 0 {
+		connection.TaskID = nil
+	}
+	if connection.ScanID != nil && *connection.ScanID == 0 {
+		connection.ScanID = nil
+	}
+	if connection.ScanJobID != nil && *connection.ScanJobID == 0 {
+		connection.ScanJobID = nil
+	}
+
 	tx := d.db.Begin()
 
 	if err := tx.Create(connection).Error; err != nil {
@@ -228,7 +239,10 @@ func (d *DatabaseConnection) CreateWebSocketConnection(connection *WebSocketConn
 }
 func (d *DatabaseConnection) GetWebSocketConnection(id uint) (*WebSocketConnection, error) {
 	var connection WebSocketConnection
-	err := d.db.Preload("Messages").Preload("UpgradeRequest").First(&connection, id).Error
+	// Order messages by ID ascending to ensure chronological order for replay
+	err := d.db.Preload("Messages", func(db *gorm.DB) *gorm.DB {
+		return db.Order("id ASC")
+	}).Preload("UpgradeRequest").First(&connection, id).Error
 	return &connection, err
 }
 
@@ -333,7 +347,7 @@ func (d *DatabaseConnection) ListWebSocketMessages(filter WebSocketMessageFilter
 		query = query.Scopes(Paginate(&filter.Pagination))
 	}
 
-	query = query.Order("id desc")
+	query = query.Order("id asc")
 
 	if err := query.Find(&messages).Error; err != nil {
 		log.Error().Err(err).Msg("Failed to list WebSocket messages")

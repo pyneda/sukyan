@@ -148,6 +148,21 @@ func GetBaseURL(urlStr string) (string, error) {
 	return baseURL, nil
 }
 
+// ExtractOrigin extracts the origin from a URL, converting ws/wss schemes to http/https.
+func ExtractOrigin(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	scheme := u.Scheme
+	if scheme == "ws" {
+		scheme = "http"
+	} else if scheme == "wss" {
+		scheme = "https"
+	}
+	return scheme + "://" + u.Host
+}
+
 // GetUniqueBaseURLs parses a list of URLs and returns a slice of unique base URLs.
 func GetUniqueBaseURLs(urls []string) ([]string, error) {
 	baseURLs := make([]string, len(urls))

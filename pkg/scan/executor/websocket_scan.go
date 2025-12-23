@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/active"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
@@ -30,8 +33,10 @@ type WebSocketScanJobData struct {
 
 // WebSocketScanExecutor executes WebSocket scan jobs
 type WebSocketScanExecutor struct {
-	interactionsManager *integrations.InteractionsManager
-	payloadGenerators   []*generation.PayloadGenerator
+	interactionsManager   *integrations.InteractionsManager
+	payloadGenerators     []*generation.PayloadGenerator
+	deduplicationManagers map[uint]*http_utils.WebSocketDeduplicationManager // per-scan dedup managers
+	deduplicationMu       sync.RWMutex
 }
 
 // NewWebSocketScanExecutor creates a new WebSocket scan executor
@@ -40,9 +45,40 @@ func NewWebSocketScanExecutor(
 	payloadGenerators []*generation.PayloadGenerator,
 ) *WebSocketScanExecutor {
 	return &WebSocketScanExecutor{
-		interactionsManager: interactionsManager,
-		payloadGenerators:   payloadGenerators,
+		interactionsManager:   interactionsManager,
+		payloadGenerators:     payloadGenerators,
+		deduplicationManagers: make(map[uint]*http_utils.WebSocketDeduplicationManager),
 	}
+}
+
+// getOrCreateDeduplicationManager gets or creates a deduplication manager for a scan
+func (e *WebSocketScanExecutor) getOrCreateDeduplicationManager(scanID uint, mode scan_options.ScanMode) *http_utils.WebSocketDeduplicationManager {
+	e.deduplicationMu.Lock()
+	defer e.deduplicationMu.Unlock()
+
+	if manager, exists := e.deduplicationManagers[scanID]; exists {
+		return manager
+	}
+
+	manager := http_utils.NewWebSocketDeduplicationManager(mode)
+	e.deduplicationManagers[scanID] = manager
+	return manager
+}
+
+// CleanupDeduplicationManager removes the deduplication manager for a scan
+// Call this when a scan is complete to free memory
+func (e *WebSocketScanExecutor) CleanupDeduplicationManager(scanID uint) {
+	e.deduplicationMu.Lock()
+	defer e.deduplicationMu.Unlock()
+
+	if manager, exists := e.deduplicationManagers[scanID]; exists {
+		stats := manager.GetStatistics()
+		log.Info().
+			Uint("scan_id", scanID).
+			Interface("stats", stats).
+			Msg("WebSocket deduplication statistics before cleanup")
+	}
+	delete(e.deduplicationManagers, scanID)
 }
 
 // JobType returns the job type this executor handles
@@ -78,11 +114,6 @@ func (e *WebSocketScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ct
 		return fmt.Errorf("failed to get WebSocket connection %d: %w", jobData.WebSocketConnectionID, err)
 	}
 
-	// Create WebSocket scanner
-	scanner := scan.WebSocketScanner{
-		InteractionsManager: e.interactionsManager,
-	}
-
 	// Build scan options
 	concurrency := jobData.Concurrency
 	if concurrency == 0 {
@@ -94,7 +125,7 @@ func (e *WebSocketScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ct
 		observationWindow = 10 * time.Second
 	}
 
-	options := scan.WebSocketScanOptions{
+	opts := scan_options.WebSocketScanOptions{
 		WorkspaceID:       job.WorkspaceID,
 		TaskID:            0, // New scan system doesn't use tasks
 		TaskJobID:         0,
@@ -118,29 +149,46 @@ func (e *WebSocketScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ct
 		}
 	}
 
-	// Get insertion points from the target message
-	var insertionPoints []scan.InsertionPoint
-	if jobData.TargetMessageIndex >= 0 && jobData.TargetMessageIndex < len(wsConnection.Messages) {
-		targetMsg := wsConnection.Messages[jobData.TargetMessageIndex]
-		insertionPoints, _ = scan.GetWebSocketMessageInsertionPoints(&targetMsg, nil)
-	}
-
-	// Checkpoint: check before heavy operation
+	// Checkpoint: check before connection-level security checks
 	if !ctrl.CheckpointWithContext(ctx) {
-		taskLog.Info().Msg("Job cancelled before scanning")
+		taskLog.Info().Msg("Job cancelled before security checks")
 		return context.Canceled
 	}
 
-	// Execute the scan
-	// NOTE: Currently WebSocketScanner.Run doesn't support checkpointing internally.
-	// For now, we checkpoint before and after. In phase 3, we'll add internal checkpoints.
-	scanner.Run(
+	taskLog.Info().Msg("Running CSWSH detection")
+	cswshOpts := active.CSWSHScanOptions{
+		WebSocketScanOptions: opts,
+		TestNullOrigin:       true,
+		TestMissingOrigin:    true,
+		TestSubdomains:       true,
+		MessageTimeout:       5 * time.Second,
+		ConnectionTimeout:    30 * time.Second,
+	}
+	cswshResult, err := active.ScanForCSWSH(wsConnection, cswshOpts, e.interactionsManager)
+	if err != nil {
+		taskLog.Warn().Err(err).Msg("CSWSH check failed")
+	} else if cswshResult != nil && cswshResult.Vulnerable {
+		taskLog.Warn().
+			Int("confidence", cswshResult.Confidence).
+			Int("origins_tested", len(cswshResult.CrossOriginTests)).
+			Msg("CSWSH vulnerability detected")
+	}
+
+	// Checkpoint: check before message scanning
+	if !ctrl.CheckpointWithContext(ctx) {
+		taskLog.Info().Msg("Job cancelled before message scanning")
+		return context.Canceled
+	}
+
+	// Get or create deduplication manager for this scan
+	deduplicationManager := e.getOrCreateDeduplicationManager(job.ScanID, jobData.Mode)
+
+	scan.ActiveScanWebSocketConnection(
 		wsConnection,
-		wsConnection.Messages,
-		jobData.TargetMessageIndex,
+		e.interactionsManager,
 		e.payloadGenerators,
-		insertionPoints,
-		options,
+		opts,
+		deduplicationManager,
 	)
 
 	// Checkpoint: check after completion

@@ -1358,6 +1358,10 @@ definitions:
         type: string
       payload:
         type: string
+      poc:
+        type: string
+      poc_type:
+        type: string
       references:
         items:
           type: string
@@ -4714,6 +4718,46 @@ paths:
       summary: Submit URLs for full scanning
       tags:
       - Scan
+  /api/v1/scan/options/categories:
+    get:
+      description: Returns all unique categories from loaded payload generators. Can
+        be used to filter scans by vulnerability category.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of categories
+          schema:
+            additionalProperties:
+              items:
+                type: string
+              type: array
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List all available categories
+      tags:
+      - Scan Options
+  /api/v1/scan/options/platforms:
+    get:
+      description: Returns all unique platforms from loaded payload generators. Can
+        be used to filter scans by target platform.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of platforms
+          schema:
+            additionalProperties:
+              items:
+                type: string
+              type: array
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: List all available platforms
+      tags:
+      - Scan Options
   /api/v1/scan/passive:
     post:
       consumes:

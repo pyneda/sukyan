@@ -70,27 +70,13 @@ type WebSocketScanner struct {
 	results             sync.Map
 }
 
-// WebSocketScanOptions defines the options for a WebSocket scan
-type WebSocketScanOptions struct {
-	WorkspaceID       uint
-	TaskID            uint
-	TaskJobID         uint
-	ScanID            uint
-	ScanJobID         uint
-	Mode              options.ScanMode
-	FingerprintTags   []string
-	ReplayMessages    bool          // Whether to replay previous messages to establish context
-	ObservationWindow time.Duration // How long to wait for responses
-	Concurrency       int
-}
-
 // WebSocketScannerTask represents a single fuzzing task
 type WebSocketScannerTask struct {
 	connection         *db.WebSocketConnection
 	targetMessageIndex int
 	insertionPoint     InsertionPoint
 	payload            generation.Payload
-	options            WebSocketScanOptions
+	options            options.WebSocketScanOptions
 }
 
 // MessageBuilder represents how to build a WebSocket message with a payload
@@ -101,7 +87,7 @@ type MessageBuilder struct {
 }
 
 // shouldLaunch checks if the generator should be launched according to the launch conditions
-func (s *WebSocketScanner) shouldLaunch(conn *db.WebSocketConnection, generator *generation.PayloadGenerator, insertionPoint InsertionPoint, options WebSocketScanOptions) bool {
+func (s *WebSocketScanner) shouldLaunch(conn *db.WebSocketConnection, generator *generation.PayloadGenerator, insertionPoint InsertionPoint, opts options.WebSocketScanOptions) bool {
 
 	if len(generator.Launch.Conditions) == 0 {
 		return true
@@ -134,7 +120,7 @@ func (s *WebSocketScanner) shouldLaunch(conn *db.WebSocketConnection, generator 
 	for _, condition := range generator.Launch.Conditions {
 		switch condition.Type {
 		case generation.Platform:
-			if lib.SliceContains(options.FingerprintTags, condition.Value) {
+			if lib.SliceContains(opts.FingerprintTags, condition.Value) {
 				conditionsMet++
 			} else {
 				platform := ParsePlatform(condition.Value)
@@ -144,7 +130,7 @@ func (s *WebSocketScanner) shouldLaunch(conn *db.WebSocketConnection, generator 
 			}
 
 		case generation.ScanMode:
-			if condition.Value == options.Mode.String() {
+			if condition.Value == opts.Mode.String() {
 				conditionsMet++
 			}
 
@@ -191,7 +177,7 @@ func (s *WebSocketScanner) Run(
 	targetMessageIndex int,
 	payloadGenerators []*generation.PayloadGenerator,
 	insertionPoints []InsertionPoint,
-	options WebSocketScanOptions) map[string][]WebSocketScannerResult {
+	opts options.WebSocketScanOptions) map[string][]WebSocketScannerResult {
 
 	// Validate input parameters
 	if targetMessageIndex < 0 || targetMessageIndex >= len(originalMessages) {
@@ -203,12 +189,12 @@ func (s *WebSocketScanner) Run(
 	}
 
 	// Set default observation window if not specified
-	if options.ObservationWindow <= 0 {
-		options.ObservationWindow = 10 * time.Second
+	if opts.ObservationWindow <= 0 {
+		opts.ObservationWindow = 10 * time.Second
 	}
 
 	// Set default concurrency
-	concurrency := options.Concurrency
+	concurrency := opts.Concurrency
 	if concurrency <= 0 {
 		concurrency = 6
 	}
@@ -218,7 +204,7 @@ func (s *WebSocketScanner) Run(
 
 	// Generate all tasks first
 	tasks := s.generateTasks(connection, originalMessages, targetMessageIndex,
-		payloadGenerators, insertionPoints, options)
+		payloadGenerators, insertionPoints, opts)
 
 	// Process all tasks with the pool
 	for _, task := range tasks {
@@ -266,7 +252,7 @@ func (s *WebSocketScanner) generateTasks(
 	targetMessageIndex int,
 	payloadGenerators []*generation.PayloadGenerator,
 	insertionPoints []InsertionPoint,
-	options WebSocketScanOptions) []WebSocketScannerTask {
+	opts options.WebSocketScanOptions) []WebSocketScannerTask {
 
 	tasks := make([]WebSocketScannerTask, 0)
 
@@ -279,7 +265,7 @@ func (s *WebSocketScanner) generateTasks(
 				Str("point", insertionPoint.String()).
 				Msg("Scanning WebSocket insertion point")
 
-			if s.shouldLaunch(connection, generator, insertionPoint, options) {
+			if s.shouldLaunch(connection, generator, insertionPoint, opts) {
 				payloads, err := generator.BuildPayloads(*s.InteractionsManager)
 				if err != nil {
 					log.Error().Err(err).Interface("generator", generator).Msg("Failed to build payloads")
@@ -292,7 +278,7 @@ func (s *WebSocketScanner) generateTasks(
 						targetMessageIndex: targetMessageIndex,
 						payload:            payload,
 						insertionPoint:     insertionPoint,
-						options:            options,
+						options:            opts,
 					})
 				}
 			} else {
@@ -648,12 +634,21 @@ func (s *WebSocketScanner) setupWebSocketConnection(task WebSocketScannerTask, u
 		ResponseHeaders:  datatypes.JSON(respHeadersJSON),
 		StatusCode:       upgradeResponse.StatusCode,
 		StatusText:       upgradeResponse.Status,
-		WorkspaceID:      &task.options.WorkspaceID,
-		TaskID:           &task.options.TaskID,
-		ScanID:           &task.options.ScanID,
-		ScanJobID:        &task.options.ScanJobID,
 		Source:           db.SourceScanner,
 		UpgradeRequestID: &upgradeHistory.ID,
+	}
+
+	if task.options.WorkspaceID > 0 {
+		newConnection.WorkspaceID = &task.options.WorkspaceID
+	}
+	if task.options.TaskID > 0 {
+		newConnection.TaskID = &task.options.TaskID
+	}
+	if task.options.ScanID > 0 {
+		newConnection.ScanID = &task.options.ScanID
+	}
+	if task.options.ScanJobID > 0 {
+		newConnection.ScanJobID = &task.options.ScanJobID
 	}
 
 	// Save to database
@@ -675,13 +670,25 @@ func (s *WebSocketScanner) createOOBTest(task WebSocketScannerTask, upgradeHisto
 		Target:            task.connection.URL,
 		Payload:           task.payload.Value,
 		InsertionPoint:    task.insertionPoint.String(),
-		WorkspaceID:       &task.options.WorkspaceID,
-		TaskID:            &task.options.TaskID,
-		TaskJobID:         &task.options.TaskJobID,
-		ScanID:            &task.options.ScanID,
-		ScanJobID:         &task.options.ScanJobID,
 		HistoryID:         &upgradeHistory.ID,
 	}
+
+	if task.options.WorkspaceID > 0 {
+		oobTest.WorkspaceID = &task.options.WorkspaceID
+	}
+	if task.options.TaskID > 0 {
+		oobTest.TaskID = &task.options.TaskID
+	}
+	if task.options.TaskJobID > 0 {
+		oobTest.TaskJobID = &task.options.TaskJobID
+	}
+	if task.options.ScanID > 0 {
+		oobTest.ScanID = &task.options.ScanID
+	}
+	if task.options.ScanJobID > 0 {
+		oobTest.ScanJobID = &task.options.ScanJobID
+	}
+
 	db.Connection().CreateOOBTest(oobTest)
 }
 

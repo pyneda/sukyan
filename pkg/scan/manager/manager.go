@@ -14,7 +14,6 @@ import (
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
-	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/pyneda/sukyan/pkg/scan/circuitbreaker"
 	"github.com/pyneda/sukyan/pkg/scan/control"
 	"github.com/pyneda/sukyan/pkg/scan/executor"
@@ -618,7 +617,7 @@ func (sm *ScanManager) ScheduleHistoryItemScan(scanID uint, workspaceID uint, it
 }
 
 // scheduleWebSocketScanForConnection schedules a WebSocket scan job for a single connection.
-func (sm *ScanManager) scheduleWebSocketScanForConnection(scanID uint, workspaceID uint, conn *db.WebSocketConnection, opts scan.WebSocketScanOptions) error {
+func (sm *ScanManager) scheduleWebSocketScanForConnection(scanID uint, workspaceID uint, conn *db.WebSocketConnection, opts options.WebSocketScanOptions) error {
 	targetHost := ""
 	if u, err := url.Parse(conn.URL); err == nil {
 		targetHost = u.Host
@@ -977,7 +976,7 @@ func (sm *ScanManager) ScheduleWebSocketScan(ctx context.Context, scanID uint, c
 			observationWindow = 10 * time.Second
 		}
 
-		wsOpts := scan.WebSocketScanOptions{
+		wsOpts := options.WebSocketScanOptions{
 			Mode:              scanEntity.Options.Mode,
 			ReplayMessages:    scanEntity.Options.WebSocketOptions.ReplayMessages,
 			Concurrency:       scanEntity.Options.WebSocketOptions.Concurrency,

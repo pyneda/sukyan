@@ -34,7 +34,7 @@ var JMXHttpPaths = []string{
 	"admin/jmx",
 }
 
-func IsHTTPJMXValidationFunc(history *db.History) (bool, string, int) {
+func IsHTTPJMXValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode != 200 {
 		return false, "", 0
 	}

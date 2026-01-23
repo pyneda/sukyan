@@ -97,7 +97,7 @@ func analyzeCrossDomainPolicy(policy *CrossDomainPolicy) ([]string, string) {
 	return issues, severity
 }
 
-func IsFlashCrossDomainValidationFunc(history *db.History) (bool, string, int) {
+func IsFlashCrossDomainValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode != 200 {
 		return false, "", 0
 	}

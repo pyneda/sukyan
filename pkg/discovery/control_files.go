@@ -16,7 +16,7 @@ var WebServerControlPaths = []string{
 }
 
 // IsWebServerControlFileValidationFunc validates if the response indicates an exposed access control file
-func IsWebServerControlFileValidationFunc(history *db.History) (bool, string, int) {
+func IsWebServerControlFileValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode == 200 {
 		body, _ := history.ResponseBody()
 		bodyStr := string(body)

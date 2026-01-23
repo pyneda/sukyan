@@ -19,7 +19,7 @@ var PHPInfoPaths = []string{
 	"test/phpinfo.php",
 }
 
-func isPHPInfoValidationFunc(history *db.History) (bool, string, int) {
+func isPHPInfoValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode != 200 {
 		return false, "", 0
 	}

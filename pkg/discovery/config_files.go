@@ -30,7 +30,7 @@ var ConfigFilePaths = []string{
 	"httpd.conf",
 }
 
-func IsSensitiveConfigFileValidationFunc(history *db.History) (bool, string, int) {
+func IsSensitiveConfigFileValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	body, _ := history.ResponseBody()
 	bodyStr := string(body)
 	details := fmt.Sprintf("Potential sensitive configuration file detected: %s\n", history.URL)

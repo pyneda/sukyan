@@ -35,7 +35,7 @@ var VersionControlPaths = []string{
 	".bzr/repository",
 }
 
-func IsVersionControlFileValidationFunc(history *db.History) (bool, string, int) {
+func IsVersionControlFileValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode != 200 {
 		return false, "", 0
 	}

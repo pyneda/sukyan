@@ -46,7 +46,7 @@ var DockerAPIPaths = []string{
 	"v2/tags/list",
 }
 
-func IsDockerAPIValidationFunc(history *db.History) (bool, string, int) {
+func IsDockerAPIValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	body, _ := history.ResponseBody()
 	bodyStr := string(body)
 	details := fmt.Sprintf("Docker API endpoint found: %s\n", history.URL)

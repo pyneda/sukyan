@@ -21,7 +21,7 @@ var ServerInfoPaths = []string{
 	"apache2/server-info",
 }
 
-func isServerInfoValidationFunc(history *db.History) (bool, string, int) {
+func isServerInfoValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode != 200 {
 		return false, "", 0
 	}

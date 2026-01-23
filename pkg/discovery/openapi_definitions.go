@@ -76,7 +76,7 @@ var OpenAPIPaths = []string{
 	"api/definition/swagger.json",
 }
 
-func IsOpenAPIValidationFunc(history *db.History) (bool, string, int) {
+func IsOpenAPIValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	confidence := 20
 	details := make([]string, 0)
 

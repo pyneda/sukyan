@@ -11,7 +11,7 @@ var ElmahPaths = []string{
 	"elmah.axd",
 }
 
-func IsElmahValidationFunc(history *db.History) (bool, string, int) {
+func IsElmahValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode == 200 {
 		body, _ := history.ResponseBody()
 		bodyStr := string(body)

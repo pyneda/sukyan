@@ -72,7 +72,7 @@ var DBManagementPaths = []string{
 	"db-manager/",
 }
 
-func IsDBManagementValidationFunc(history *db.History) (bool, string, int) {
+func IsDBManagementValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	body, _ := history.ResponseBody()
 	bodyStr := strings.ToLower(string(body))
 	details := fmt.Sprintf("Database management interface found: %s\n", history.URL)

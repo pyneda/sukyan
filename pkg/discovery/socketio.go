@@ -27,7 +27,7 @@ var SocketIOPaths = []string{
 	"socket.io/4/",
 }
 
-func isSocketIOValidationFunc(history *db.History) (bool, string, int) {
+func isSocketIOValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode != 200 && history.StatusCode != 400 {
 		return false, "", 0
 	}

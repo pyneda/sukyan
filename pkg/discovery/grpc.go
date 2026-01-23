@@ -30,7 +30,7 @@ var gRPCPaths = []string{
 	"grpcwebtext",
 }
 
-func IsGRPCValidationFunc(history *db.History) (bool, string, int) {
+func IsGRPCValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 
 	confidence := 50
 	details := make([]string, 0)

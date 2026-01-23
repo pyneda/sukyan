@@ -87,7 +87,7 @@ type GraphQLValidationResponse struct {
 	} `json:"errors"`
 }
 
-func IsGraphQLValidationFunc(history *db.History) (bool, string, int) {
+func IsGraphQLValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	confidence := 40
 	details := make([]string, 0)
 

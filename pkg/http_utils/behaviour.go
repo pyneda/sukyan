@@ -20,6 +20,7 @@ type SiteBehavior struct {
 	NotFoundSamples    []*db.History `json:"not_found_samples"`
 	BaseURLSample      *db.History   `json:"base_url_sample"`
 	CommonHash         string        `json:"common_hash"`
+	NotFoundStatusCode int           `json:"not_found_status_code"`
 }
 
 type SiteBehaviourCheckOptions struct {
@@ -175,6 +176,7 @@ func (b *SiteBehavior) analyzeResponses() {
 	baseHash := b.BaseURLSample.ResponseHash()
 	notFoundCount := 0
 	uniqueHashes := make(map[string]int)
+	statusCodes := make(map[int]int)
 	allMatchBase := true
 
 	for _, sample := range b.NotFoundSamples {
@@ -183,6 +185,7 @@ func (b *SiteBehavior) analyzeResponses() {
 			allMatchBase = false
 		}
 		uniqueHashes[hash]++
+		statusCodes[sample.StatusCode]++
 		if sample.StatusCode == 404 {
 			notFoundCount++
 		}
@@ -194,6 +197,16 @@ func (b *SiteBehavior) analyzeResponses() {
 	if allMatchBase {
 		b.CommonHash = baseHash
 	}
+
+	maxCount := 0
+	mostCommonStatus := 0
+	for status, count := range statusCodes {
+		if count > maxCount {
+			maxCount = count
+			mostCommonStatus = status
+		}
+	}
+	b.NotFoundStatusCode = mostCommonStatus
 }
 
 func (b *SiteBehavior) IsNotFound(history *db.History) bool {
@@ -253,6 +266,14 @@ func (b *SiteBehavior) IsNotFound(history *db.History) bool {
 		return true
 	}
 
+	isAuthStatus := history.StatusCode == 401 || history.StatusCode == 403
+	matchesBaselineStatus := b.NotFoundStatusCode == history.StatusCode
+	similarityThreshold := 0.9
+	if isAuthStatus && matchesBaselineStatus {
+		similarityThreshold = 0.7
+		logger.Debug().Int("status_code", history.StatusCode).Int("baseline_status", b.NotFoundStatusCode).Float64("threshold", similarityThreshold).Msg("Using lenient similarity threshold for auth status matching baseline")
+	}
+
 	for _, sample := range b.NotFoundSamples {
 		if history.ResponseHash() == sample.ResponseHash() {
 			logger.Debug().Interface("sample", sample).Str("history_hash", history.ResponseHash()).Str("sample_hash", sample.ResponseHash()).Msg("history response hash matches not found sample response hash, returning true")
@@ -266,8 +287,8 @@ func (b *SiteBehavior) IsNotFound(history *db.History) bool {
 		}
 
 		similarity := lib.ComputeSimilarity(body, sampleBody)
-		logger.Debug().Float64("similarity", similarity).Msg("Response similarity with not found sample")
-		if similarity > 0.9 {
+		logger.Debug().Float64("similarity", similarity).Float64("threshold", similarityThreshold).Msg("Response similarity with not found sample")
+		if similarity > similarityThreshold {
 			logger.Debug().Float64("similarity", similarity).Msg("history response is similar to not found sample, returning true")
 			return true
 		}

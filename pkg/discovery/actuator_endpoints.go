@@ -34,7 +34,7 @@ var ActuatorPaths = []string{
 	"manage/beans",
 }
 
-func IsActuatorValidationFunc(history *db.History) (bool, string, int) {
+func IsActuatorValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	confidence := 40
 	var details string
 	body, _ := history.ResponseBody()

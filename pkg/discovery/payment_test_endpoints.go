@@ -52,7 +52,7 @@ var PaymentTestPaths = []string{
 	"payment/sandbox/debug",
 }
 
-func isPaymentTestEndpointValidationFunc(history *db.History) (bool, string, int) {
+func isPaymentTestEndpointValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode != 200 && history.StatusCode != 401 && history.StatusCode != 403 {
 		return false, "", 0
 	}

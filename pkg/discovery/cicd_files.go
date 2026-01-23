@@ -43,7 +43,7 @@ var CICDBuildFilePaths = []string{
 	"vars.tf",
 }
 
-func IsCICDBuildFileValidationFunc(history *db.History) (bool, string, int) {
+func IsCICDBuildFileValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode == 200 {
 		details := fmt.Sprintf("Exposed CI/CD or infrastructure configuration file detected: %s\n", history.URL)
 		confidence := 30

@@ -36,7 +36,7 @@ var KubernetesPaths = []string{
 	"kube-public/configmaps",
 }
 
-func IsKubernetesValidationFunc(history *db.History) (bool, string, int) {
+func IsKubernetesValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	body, _ := history.ResponseBody()
 	bodyStr := string(body)
 	details := fmt.Sprintf("Kubernetes endpoint found: %s\n", history.URL)
@@ -51,6 +51,19 @@ func IsKubernetesValidationFunc(history *db.History) (bool, string, int) {
 	}
 
 	if history.StatusCode == 401 || history.StatusCode == 403 {
+		if ctx != nil && ctx.SiteBehavior != nil && ctx.SiteBehavior.NotFoundStatusCode == history.StatusCode {
+			hasK8sContent := false
+			for errorStr := range k8sErrors {
+				if strings.Contains(bodyStr, errorStr) {
+					hasK8sContent = true
+					break
+				}
+			}
+			if !hasK8sContent {
+				return false, "", 0
+			}
+		}
+
 		for errorStr, description := range k8sErrors {
 			if strings.Contains(bodyStr, errorStr) {
 				confidence = 90

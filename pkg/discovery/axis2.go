@@ -123,7 +123,7 @@ var axis2Fingerprints = []axis2Pattern{
 	{pattern: "<h1>Axis2 Happiness Page</h1>", description: "Happy Axis2 page title", weight: 30, location: "body"},
 }
 
-func IsAxis2ValidationFunc(history *db.History) (bool, string, int) {
+func IsAxis2ValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode == 404 {
 		return false, "", 0
 	}

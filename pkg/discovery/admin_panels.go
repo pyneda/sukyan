@@ -14,7 +14,7 @@ var AdminPaths = []string{
 	"backend", "system/console", "admin-console",
 }
 
-func IsAdminInterfaceValidationFunc(history *db.History) (bool, string, int) {
+func IsAdminInterfaceValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	details := fmt.Sprintf("Potential admin interface detected: %s\n", history.URL)
 	confidence := 0
 
@@ -65,12 +65,17 @@ func IsAdminInterfaceValidationFunc(history *db.History) (bool, string, int) {
 			}
 		}
 	} else if history.StatusCode == 401 || history.StatusCode == 403 {
-		confidence = 70
+		if ctx != nil && ctx.SiteBehavior != nil && ctx.SiteBehavior.NotFoundStatusCode == history.StatusCode {
+			return false, "", 0
+		}
+
+		confidence = 40
 		details += "- Received restricted access status (401 or 403)\n"
+
 		if authHeader, ok := headers["WWW-Authenticate"]; ok {
 			for _, val := range authHeader {
 				if strings.Contains(strings.ToLower(val), "basic") || strings.Contains(strings.ToLower(val), "digest") {
-					confidence += 10
+					confidence = 70
 					details += "- WWW-Authenticate header indicates authentication prompt\n"
 					break
 				}

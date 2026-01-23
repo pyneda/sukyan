@@ -26,10 +26,15 @@ const (
 	DefaultUserAgent   = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
 )
 
-type ValidationFunc func(*db.History) (bool, string, int)
+// ValidationContext provides context information for validation functions
+type ValidationContext struct {
+	SiteBehavior *http_utils.SiteBehavior
+}
+
+type ValidationFunc func(*db.History, *ValidationContext) (bool, string, int)
 
 // DefaultValidationFunc validates based on HTTP status code 200
-func DefaultValidationFunc(history *db.History) (bool, string, int) {
+func DefaultValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	return history.StatusCode == 200, "Validated that status code is 200", 90
 }
 
@@ -194,7 +199,10 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 				return result, nil
 			}
 
-			if valid, _, _ := input.ValidationFunc(history); valid && input.StopAfterValid {
+			validationCtx := &ValidationContext{
+				SiteBehavior: input.SiteBehavior,
+			}
+			if valid, _, _ := input.ValidationFunc(history, validationCtx); valid && input.StopAfterValid {
 				mu.Lock()
 				if !validFound {
 					validFound = true
@@ -266,7 +274,10 @@ func DiscoverAndCreateIssue(input DiscoverAndCreateIssueInput) (DiscoverAndCreat
 	}
 
 	for _, history := range results.Responses {
-		passed, message, confidence := input.ValidationFunc(history)
+		validationCtx := &ValidationContext{
+			SiteBehavior: input.SiteBehavior,
+		}
+		passed, message, confidence := input.ValidationFunc(history, validationCtx)
 		if passed {
 			issue, err := db.CreateIssueFromHistoryAndTemplate(
 				history,

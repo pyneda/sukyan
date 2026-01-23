@@ -13,11 +13,31 @@ var TomcatUriNormalizationPatterns = []string{
 	"%252E%252E/manager/html",
 }
 
-func IsTomcatManagerResponse(history *db.History) (bool, string, int) {
+func IsTomcatManagerResponse(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	confidence := 0
 	details := make([]string, 0)
 
 	if history.StatusCode == 401 {
+		if ctx != nil && ctx.SiteBehavior != nil && ctx.SiteBehavior.NotFoundStatusCode == 401 {
+			hasTomcatHeaders := false
+			headers, err := history.GetResponseHeadersAsMap()
+			if err == nil {
+				for headerName, headerValues := range headers {
+					if strings.ToLower(headerName) == "www-authenticate" {
+						for _, value := range headerValues {
+							if strings.Contains(strings.ToLower(value), "tomcat") {
+								hasTomcatHeaders = true
+								break
+							}
+						}
+					}
+				}
+			}
+			if !hasTomcatHeaders {
+				return false, "", 0
+			}
+		}
+
 		headers, err := history.GetResponseHeadersAsMap()
 		if err == nil {
 			for headerName, headerValues := range headers {

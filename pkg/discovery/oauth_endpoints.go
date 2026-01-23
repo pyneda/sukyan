@@ -63,7 +63,7 @@ var OAuthPaths = []string{
 	"oauth2/revoke",
 }
 
-func isOAuthEndpointValidationFunc(history *db.History) (bool, string, int) {
+func isOAuthEndpointValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode != 200 {
 		return false, "", 0
 	}

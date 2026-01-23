@@ -33,7 +33,7 @@ var SSOPaths = []string{
 	"auth0-saml",
 }
 
-func isSSOSetupValidationFunc(history *db.History) (bool, string, int) {
+func isSSOSetupValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode != 200 {
 		return false, "", 0
 	}

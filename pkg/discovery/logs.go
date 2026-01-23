@@ -50,7 +50,7 @@ var LogFilesPaths = []string{
 	"weblogic/logs/",
 }
 
-func IsLogFileValidationFunc(history *db.History) (bool, string, int) {
+func IsLogFileValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode != 200 {
 		return false, "", 0
 	}

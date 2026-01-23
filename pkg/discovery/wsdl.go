@@ -66,7 +66,7 @@ var wsdlUIMarkers = []string{
 	"soap ui",
 }
 
-func IsWSDLValidationFunc(history *db.History) (bool, string, int) {
+func IsWSDLValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode == 404 {
 		return false, "", 0
 	}

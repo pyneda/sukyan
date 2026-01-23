@@ -18,7 +18,7 @@ var EnvFilePaths = []string{
 	".env.example",
 }
 
-func IsEnvFileValidationFunc(history *db.History) (bool, string, int) {
+func IsEnvFileValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode == 200 {
 		body, _ := history.ResponseBody()
 		bodyStr := string(body)

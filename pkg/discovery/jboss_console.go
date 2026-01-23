@@ -14,7 +14,7 @@ var JBossConsolePaths = []string{
 	"jmx-console",
 }
 
-func IsJBossConsoleValidationFunc(history *db.History) (bool, string, int) {
+func IsJBossConsoleValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	if history.StatusCode == 404 {
 		return false, "", 0
 	}
@@ -45,6 +45,11 @@ func IsJBossConsoleValidationFunc(history *db.History) (bool, string, int) {
 	}
 
 	if history.StatusCode == 401 || history.StatusCode == 403 {
+		if ctx != nil && ctx.SiteBehavior != nil && ctx.SiteBehavior.NotFoundStatusCode == history.StatusCode {
+			if confidence == 0 {
+				return false, "", 0
+			}
+		}
 		confidence += 30
 		details = append(details, "Protected console interface")
 	}

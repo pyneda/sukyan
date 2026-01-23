@@ -12,7 +12,7 @@ var AspNetTracePaths = []string{
 }
 
 // IsAspNetTraceValidationFunc validates if the response indicates an exposed ASP.NET trace page
-func IsAspNetTraceValidationFunc(history *db.History) (bool, string, int) {
+func IsAspNetTraceValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	confidence := 0
 	if history.StatusCode == 200 {
 		body, _ := history.ResponseBody()

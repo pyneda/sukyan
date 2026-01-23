@@ -16,7 +16,7 @@ var WordPressPaths = []string{
 	"xmlrpc.php",
 }
 
-func IsWordPressValidationFunc(history *db.History) (bool, string, int) {
+func IsWordPressValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
 	body, _ := history.ResponseBody()
 	bodyStr := string(body)
 	details := fmt.Sprintf("WordPress installation detected: %s\n", history.URL)

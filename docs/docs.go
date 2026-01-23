@@ -2796,96 +2796,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/scan/passive": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Receives a list of items and schedules them for passive scanning",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Scan"
-                ],
-                "summary": "Submit items for passive scanning",
-                "parameters": [
-                    {
-                        "description": "List of items",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/api.PassiveScanInput"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/api.ActionResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/scan/passive/websocket": {
-            "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Receives a list of WebSocket connection IDs and schedules them for passive scanning",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Scan"
-                ],
-                "summary": "Submit WebSocket connections for passive scanning",
-                "parameters": [
-                    {
-                        "description": "List of WebSocket connection IDs",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/api.PassiveWebSocketScanInput"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/api.ActionResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/scans": {
             "get": {
                 "security": [
@@ -4425,11 +4335,35 @@ const docTemplate = `{
                 "items"
             ],
             "properties": {
+                "audit_categories": {
+                    "$ref": "#/definitions/options.AuditCategories"
+                },
+                "experimental_audits": {
+                    "type": "boolean"
+                },
+                "insertion_points": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "items": {
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "fast",
+                        "smart",
+                        "fuzz"
+                    ]
+                },
+                "scan_id": {
+                    "type": "integer",
+                    "minimum": 1
                 },
                 "task": {
                     "type": "integer",
@@ -4447,6 +4381,9 @@ const docTemplate = `{
                 "connections"
             ],
             "properties": {
+                "audit_categories": {
+                    "$ref": "#/definitions/options.AuditCategories"
+                },
                 "concurrency": {
                     "type": "integer",
                     "maximum": 100,
@@ -4473,6 +4410,10 @@ const docTemplate = `{
                 },
                 "replay_messages": {
                     "type": "boolean"
+                },
+                "scan_id": {
+                    "type": "integer",
+                    "minimum": 1
                 },
                 "task_id": {
                     "type": "integer",
@@ -5192,34 +5133,6 @@ const docTemplate = `{
                 },
                 "target_namespace": {
                     "type": "string"
-                }
-            }
-        },
-        "api.PassiveScanInput": {
-            "type": "object",
-            "required": [
-                "items"
-            ],
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                }
-            }
-        },
-        "api.PassiveWebSocketScanInput": {
-            "type": "object",
-            "required": [
-                "connections"
-            ],
-            "properties": {
-                "connections": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
                 }
             }
         },
@@ -8304,9 +8217,6 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 255,
                     "minLength": 1
-                },
-                "use_orchestrator": {
-                    "type": "boolean"
                 },
                 "websocket_options": {
                     "$ref": "#/definitions/options.FullScanWebSocketOptions"

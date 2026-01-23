@@ -157,7 +157,6 @@ type FullScanOptions struct {
 	AuditCategories      AuditCategories          `json:"audit_categories" validate:"required"`
 	WebSocketOptions     FullScanWebSocketOptions `json:"websocket_options" validate:"omitempty"`
 	MaxRetries           int                      `json:"max_retries" validate:"min=0"`
-	UseOrchestrator      bool                     `json:"use_orchestrator"`
 	MaxConcurrentJobs    *int                     `json:"max_concurrent_jobs,omitempty"`
 	MaxRPS               *int                     `json:"max_rps,omitempty"`
 	JobTimeouts          *JobTimeouts             `json:"job_timeouts,omitempty"` // Per-scan job timeout overrides

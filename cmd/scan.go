@@ -41,7 +41,6 @@ var maxRetries int
 var workers int
 var maxConcurrentJobs int
 var maxRPS int
-var useOrchestrator bool
 var websocketConcurrency int
 var websocketReplayMessages bool
 var websocketObservationWindow int
@@ -142,7 +141,6 @@ var scanCmd = &cobra.Command{
 				ObservationWindow: websocketObservationWindow,
 			},
 			MaxRetries:           maxRetries,
-			UseOrchestrator:      useOrchestrator,
 			MaxConcurrentJobs:    maxConcurrentJobsPtr,
 			MaxRPS:               maxRPSPtr,
 			CaptureBrowserEvents: captureBrowserEvents,
@@ -176,7 +174,7 @@ var scanCmd = &cobra.Command{
 		// This ensures workers are configured with the scan ID filter from the start,
 		// preventing race conditions where other workers could claim our jobs.
 		// The isolated=true flag ensures API workers won't claim jobs from this scan.
-		scanEntity, err := manager.CreateScanRecord(db.Connection(), options, true)
+		scanEntity, err := manager.CreateScanRecord(db.Connection(), options, true, db.ScanStatusPending)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to create scan")
 			interactionsManager.Stop()
@@ -313,7 +311,6 @@ func init() {
 	scanCmd.Flags().IntVar(&workers, "workers", 0, "Number of concurrent workers (0 uses config setting, defaults to 5)")
 	scanCmd.Flags().IntVar(&maxConcurrentJobs, "max-concurrent-jobs", 0, "Maximum concurrent jobs across all workers (0 for unlimited)")
 	scanCmd.Flags().IntVar(&maxRPS, "max-rps", 0, "Maximum requests per second (0 for unlimited)")
-	scanCmd.Flags().BoolVar(&useOrchestrator, "use-orchestrator", false, "Use orchestrator for distributed scanning")
 	scanCmd.Flags().IntVar(&websocketConcurrency, "websocket-concurrency", 1, "WebSocket concurrency level (1-100)")
 	scanCmd.Flags().BoolVar(&websocketReplayMessages, "websocket-replay-messages", false, "Replay WebSocket messages")
 	scanCmd.Flags().IntVar(&websocketObservationWindow, "websocket-observation-window", 10, "WebSocket observation window in seconds (1-100)")

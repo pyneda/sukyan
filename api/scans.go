@@ -31,10 +31,6 @@ type CreateScanInput struct {
 
 	// Scan mode options
 	Mode string `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
-
-	// UseOrchestrator enables the new scan engine with full phase management
-	// When true, the scan will go through: crawl → fingerprint → discovery → nuclei → active_scan → websocket
-	UseOrchestrator bool `json:"use_orchestrator"`
 }
 
 // UpdateScanInput represents the input for updating a scan

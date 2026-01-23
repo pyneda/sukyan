@@ -409,6 +409,19 @@ func (d *DatabaseConnection) GetHistoriesByID(ids []uint) ([]History, error) {
 	return histories, nil
 }
 
+func (d *DatabaseConnection) GetHistoriesByIDAndWorkspace(ids []uint, workspaceID uint) ([]History, error) {
+	var histories []History
+	err := d.db.Where("id IN ? AND workspace_id = ?", ids, workspaceID).Find(&histories).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("records not found")
+		}
+		return nil, err
+	}
+
+	return histories, nil
+}
+
 // HistoryExists checks if a history record exists
 func (d *DatabaseConnection) HistoryExists(id uint) (bool, error) {
 	var count int64

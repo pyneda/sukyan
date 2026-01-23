@@ -134,10 +134,27 @@ definitions:
     type: object
   api.ActiveScanInput:
     properties:
+      audit_categories:
+        $ref: '#/definitions/options.AuditCategories'
+      experimental_audits:
+        type: boolean
+      insertion_points:
+        items:
+          type: string
+        type: array
       items:
         items:
           type: integer
         type: array
+      mode:
+        enum:
+        - fast
+        - smart
+        - fuzz
+        type: string
+      scan_id:
+        minimum: 1
+        type: integer
       task:
         minimum: 0
         type: integer
@@ -149,6 +166,8 @@ definitions:
     type: object
   api.ActiveWebSocketScanInput:
     properties:
+      audit_categories:
+        $ref: '#/definitions/options.AuditCategories'
       concurrency:
         maximum: 100
         minimum: 1
@@ -169,6 +188,9 @@ definitions:
         type: integer
       replay_messages:
         type: boolean
+      scan_id:
+        minimum: 1
+        type: integer
       task_id:
         minimum: 0
         type: integer
@@ -643,24 +665,6 @@ definitions:
         type: array
       target_namespace:
         type: string
-    type: object
-  api.PassiveScanInput:
-    properties:
-      items:
-        items:
-          type: integer
-        type: array
-    required:
-    - items
-    type: object
-  api.PassiveWebSocketScanInput:
-    properties:
-      connections:
-        items:
-          type: integer
-        type: array
-    required:
-    - connections
     type: object
   api.PlaygroundFuzzInput:
     properties:
@@ -2767,8 +2771,6 @@ definitions:
         maxLength: 255
         minLength: 1
         type: string
-      use_orchestrator:
-        type: boolean
       websocket_options:
         $ref: '#/definitions/options.FullScanWebSocketOptions'
       workspace_id:
@@ -4758,63 +4760,6 @@ paths:
       summary: List all available platforms
       tags:
       - Scan Options
-  /api/v1/scan/passive:
-    post:
-      consumes:
-      - application/json
-      description: Receives a list of items and schedules them for passive scanning
-      parameters:
-      - description: List of items
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/api.PassiveScanInput'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/api.ActionResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/api.ErrorResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Submit items for passive scanning
-      tags:
-      - Scan
-  /api/v1/scan/passive/websocket:
-    post:
-      consumes:
-      - application/json
-      description: Receives a list of WebSocket connection IDs and schedules them
-        for passive scanning
-      parameters:
-      - description: List of WebSocket connection IDs
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/api.PassiveWebSocketScanInput'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/api.ActionResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/api.ErrorResponse'
-      security:
-      - ApiKeyAuth: []
-      summary: Submit WebSocket connections for passive scanning
-      tags:
-      - Scan
   /api/v1/scans:
     get:
       consumes:

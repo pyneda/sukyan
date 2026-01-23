@@ -125,10 +125,13 @@ func (e *ActiveScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl 
 		passive.ScanHistoryItem(&history)
 	}
 
-	// Execute the active scan
+	// Execute the active scan only if server-side or client-side checks are enabled
 	// NOTE: Currently ScanHistoryItem doesn't support checkpointing internally.
 	// For now, we checkpoint before and after. In phase 3, we'll add internal checkpoints.
-	active.ScanHistoryItem(&history, e.interactionsManager, e.payloadGenerators, options)
+	if options.AuditCategories.ServerSide || options.AuditCategories.ClientSide {
+		taskLog.Debug().Msg("Running active scan on history item")
+		active.ScanHistoryItem(&history, e.interactionsManager, e.payloadGenerators, options)
+	}
 
 	// Checkpoint: check after completion
 	if !ctrl.CheckpointWithContext(ctx) {

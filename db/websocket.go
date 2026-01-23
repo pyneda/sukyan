@@ -239,11 +239,28 @@ func (d *DatabaseConnection) CreateWebSocketConnection(connection *WebSocketConn
 }
 func (d *DatabaseConnection) GetWebSocketConnection(id uint) (*WebSocketConnection, error) {
 	var connection WebSocketConnection
-	// Order messages by ID ascending to ensure chronological order for replay
 	err := d.db.Preload("Messages", func(db *gorm.DB) *gorm.DB {
 		return db.Order("id ASC")
 	}).Preload("UpgradeRequest").First(&connection, id).Error
 	return &connection, err
+}
+
+func (d *DatabaseConnection) GetWebSocketConnectionsByID(ids []uint) ([]WebSocketConnection, error) {
+	var connections []WebSocketConnection
+	err := d.db.Where("id IN ?", ids).Find(&connections).Error
+	if err != nil {
+		return nil, err
+	}
+	return connections, nil
+}
+
+func (d *DatabaseConnection) GetWebSocketConnectionsByIDAndWorkspace(ids []uint, workspaceID uint) ([]WebSocketConnection, error) {
+	var connections []WebSocketConnection
+	err := d.db.Where("id IN ? AND workspace_id = ?", ids, workspaceID).Find(&connections).Error
+	if err != nil {
+		return nil, err
+	}
+	return connections, nil
 }
 
 func (d *DatabaseConnection) CreateWebSocketMessage(message *WebSocketMessage) error {

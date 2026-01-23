@@ -145,6 +145,7 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem, b *
 	}
 	taskLog.Debug().Msg("Getting a browser page")
 	page := b.MustPage("")
+	defer page.Close()
 	web.IgnoreCertificateErrors(page)
 
 	taskLog.Debug().Msg("Browser page gathered")
@@ -270,10 +271,6 @@ func (x *XSSAudit) TestUrlParamWithAlertPayload(item lib.ParameterAuditItem, b *
 				taskLog.Info().Str("url", testurl).Bool("alert_found", hasAlert).Msg("Mouse events triggering completed")
 			}
 		}
-	}
-	err = pageWithCancel.Close()
-	if err != nil {
-		taskLog.Error().Err(err).Msg("Error closing browser page")
 	}
 	return nil
 }

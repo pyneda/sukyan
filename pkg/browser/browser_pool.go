@@ -115,3 +115,16 @@ func (b *BrowserPoolManager) createBrowser() (*rod.Browser, error) {
 func (b *BrowserPoolManager) Cleanup() {
 	b.pool.Cleanup(func(p *rod.Browser) { p.Close() })
 }
+
+// ShutdownBrowserPools gracefully shuts down all singleton browser pools,
+// closing all browser processes. Should be called during application shutdown.
+func ShutdownBrowserPools() {
+	if scannerBrowserPool != nil {
+		log.Info().Msg("Shutting down scanner browser pool")
+		scannerBrowserPool.Cleanup()
+	}
+	if playgroundBrowserPool != nil {
+		log.Info().Msg("Shutting down playground browser pool")
+		playgroundBrowserPool.Cleanup()
+	}
+}

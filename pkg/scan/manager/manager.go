@@ -23,6 +23,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/scan/ratelimit"
 	"github.com/pyneda/sukyan/pkg/scan/worker"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 // Compile-time assertion that ScanManager implements orchestrator.JobScheduler
@@ -257,15 +258,14 @@ func (sm *ScanManager) recover() error {
 		}
 	}
 
-	// Reset jobs that have exceeded their max_duration
-	resetCount, failedCount, affectedScanIDs, err := sm.dbConn.ResetTimedOutJobs()
+	// Mark timed-out jobs as failed (no retry for timeouts)
+	failedCount, affectedScanIDs, err := sm.dbConn.ResetTimedOutJobs()
 	if err != nil {
-		log.Warn().Err(err).Msg("Failed to reset timed out jobs during recovery")
-	} else if resetCount > 0 || failedCount > 0 {
+		log.Warn().Err(err).Msg("Failed to process timed out jobs during recovery")
+	} else if failedCount > 0 {
 		log.Info().
-			Int64("reset", resetCount).
 			Int64("failed", failedCount).
-			Msg("Processed timed out jobs during recovery")
+			Msg("Marked timed out jobs as failed during recovery")
 		// Update job counts for affected scans
 		for _, scanID := range affectedScanIDs {
 			sm.dbConn.UpdateScanJobCounts(scanID)
@@ -344,15 +344,14 @@ func (sm *ScanManager) runStaleJobRecovery() {
 		}
 	}
 
-	// 2. Reset jobs that have exceeded their max_duration
-	resetCount, failedCount, affectedScanIDs, err := sm.dbConn.ResetTimedOutJobs()
+	// 2. Mark timed-out jobs as failed (no retry for timeouts)
+	failedCount, affectedScanIDs, err := sm.dbConn.ResetTimedOutJobs()
 	if err != nil {
-		log.Warn().Err(err).Msg("Failed to reset timed out jobs")
-	} else if resetCount > 0 || failedCount > 0 {
+		log.Warn().Err(err).Msg("Failed to process timed out jobs")
+	} else if failedCount > 0 {
 		log.Info().
-			Int64("reset", resetCount).
 			Int64("failed", failedCount).
-			Msg("Processed timed out jobs during periodic recovery")
+			Msg("Marked timed out jobs as failed during periodic recovery")
 		// Update job counts for affected scans
 		for _, scanID := range affectedScanIDs {
 			sm.dbConn.UpdateScanJobCounts(scanID)
@@ -754,6 +753,9 @@ func (sm *ScanManager) ScheduleCrawlWithOptions(scanID uint, workspaceID uint, s
 	}
 	payload, _ := json.Marshal(jobData)
 
+	// Calculate dynamic timeout based on number of sites
+	timeout := calculateCrawlTimeout(startURLs)
+
 	job := &db.ScanJob{
 		ScanID:      scanID,
 		WorkspaceID: workspaceID,
@@ -764,6 +766,7 @@ func (sm *ScanManager) ScheduleCrawlWithOptions(scanID uint, workspaceID uint, s
 		URL:         startURLs[0],
 		Method:      "GET",
 		Payload:     payload,
+		MaxDuration: timeout,
 	}
 
 	if err := sm.queue.Enqueue(sm.ctx, job); err != nil {
@@ -773,6 +776,46 @@ func (sm *ScanManager) ScheduleCrawlWithOptions(scanID uint, workspaceID uint, s
 	sm.dbConn.UpdateScanJobCounts(scanID)
 
 	return nil
+}
+
+// calculateCrawlTimeout computes dynamic timeout for crawl jobs based on number of sites.
+// Formula: baseTimeout + (numSites × perSiteTimeout)
+// This ensures crawl jobs get adequate time based on workload instead of a fixed timeout.
+func calculateCrawlTimeout(startURLs []string) time.Duration {
+	baseTimeoutMin := viper.GetInt("scan.crawl.base_timeout")
+	if baseTimeoutMin <= 0 {
+		baseTimeoutMin = 30 // Fallback to 30 minutes
+	}
+
+	perSiteTimeoutMin := viper.GetInt("scan.crawl.per_site_timeout")
+	if perSiteTimeoutMin <= 0 {
+		perSiteTimeoutMin = 10 // Fallback to 10 minutes
+	}
+
+	// Count unique sites from startURLs
+	sites := make(map[string]bool)
+	for _, urlStr := range startURLs {
+		if baseURL, err := lib.GetBaseURL(urlStr); err == nil {
+			sites[baseURL] = true
+		}
+	}
+
+	numSites := len(sites)
+	if numSites < 1 {
+		numSites = 1 // At least 1 site
+	}
+
+	totalMinutes := baseTimeoutMin + (numSites * perSiteTimeoutMin)
+	timeout := time.Duration(totalMinutes) * time.Minute
+
+	log.Debug().
+		Int("num_sites", numSites).
+		Int("base_timeout_min", baseTimeoutMin).
+		Int("per_site_timeout_min", perSiteTimeoutMin).
+		Int("total_timeout_min", totalMinutes).
+		Msg("Calculated dynamic crawl timeout")
+
+	return timeout
 }
 
 // ScheduleNuclei schedules a Nuclei scan job.

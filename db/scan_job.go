@@ -606,18 +606,17 @@ func (d *DatabaseConnection) GetScanJobStatsForJob(scanJobID uint) (ScanJobStats
 	return stats, nil
 }
 
-// ResetTimedOutJobs resets jobs that have exceeded their max_duration.
-// Jobs are reset to pending status with incremented attempts count.
-// Jobs that have exceeded MaxJobAttempts are marked as failed.
-// Returns the number of jobs reset, the number of jobs marked as failed, and affected scan IDs.
-func (d *DatabaseConnection) ResetTimedOutJobs() (reset int64, failed int64, affectedScanIDs []uint, err error) {
+// ResetTimedOutJobs marks jobs that have exceeded their max_duration as failed.
+// Timed-out jobs are NOT retried
+// Returns the number of jobs marked as failed and affected scan IDs.
+func (d *DatabaseConnection) ResetTimedOutJobs() (failed int64, affectedScanIDs []uint, err error) {
 	now := time.Now()
 
 	// max_duration is stored in nanoseconds (Go's time.Duration), convert to seconds for PostgreSQL
 	// PostgreSQL: started_at + (max_duration / 1000000000) * interval '1 second'
 	timeoutCondition := "started_at + make_interval(secs => max_duration / 1000000000) < ?"
 
-	// First, get the scan IDs that will be affected (for updating counts later)
+	// Get the scan IDs that will be affected (for updating counts later)
 	var scanIDs []uint
 	d.db.Model(&ScanJob{}).
 		Select("DISTINCT scan_id").
@@ -627,59 +626,31 @@ func (d *DatabaseConnection) ResetTimedOutJobs() (reset int64, failed int64, aff
 		Pluck("scan_id", &scanIDs)
 	affectedScanIDs = scanIDs
 
-	// First, mark jobs as failed if they've exceeded max attempts
-	// These are jobs that are timed out AND have already been attempted MaxJobAttempts times
-	failedResult := d.db.Model(&ScanJob{}).
-		Where("status IN ? AND started_at IS NOT NULL AND attempts >= ?",
-			[]ScanJobStatus{ScanJobStatusClaimed, ScanJobStatusRunning},
-			MaxJobAttempts).
+	// Mark ALL timed-out jobs as failed (no retry for timeouts)
+	result := d.db.Model(&ScanJob{}).
+		Where("status IN ? AND started_at IS NOT NULL",
+			[]ScanJobStatus{ScanJobStatusClaimed, ScanJobStatusRunning}).
 		Where(timeoutCondition, now).
 		Updates(map[string]interface{}{
 			"status":        ScanJobStatusFailed,
 			"completed_at":  now,
 			"error_type":    "timeout",
-			"error_message": "Job exceeded maximum duration and retry attempts",
+			"error_message": "Job exceeded maximum duration (timeouts are not retried)",
 			"updated_at":    now,
 		})
 
-	if failedResult.Error != nil {
-		return 0, 0, affectedScanIDs, fmt.Errorf("failed to mark timed out jobs as failed: %w", failedResult.Error)
+	if result.Error != nil {
+		return 0, affectedScanIDs, fmt.Errorf("failed to mark timed out jobs as failed: %w", result.Error)
 	}
-	failed = failedResult.RowsAffected
+	failed = result.RowsAffected
 
 	if failed > 0 {
 		log.Warn().
 			Int64("count", failed).
-			Msg("Marked timed out jobs as permanently failed (max attempts exceeded)")
+			Msg("Timed-out jobs marked as failed (timeouts are not retried)")
 	}
 
-	// Then, reset jobs that have timed out but still have attempts remaining
-	resetResult := d.db.Model(&ScanJob{}).
-		Where("status IN ? AND started_at IS NOT NULL AND attempts < ?",
-			[]ScanJobStatus{ScanJobStatusClaimed, ScanJobStatusRunning},
-			MaxJobAttempts).
-		Where(timeoutCondition, now).
-		Updates(map[string]interface{}{
-			"status":     ScanJobStatusPending,
-			"worker_id":  nil,
-			"claimed_at": nil,
-			"started_at": nil,
-			"attempts":   gorm.Expr("attempts + 1"),
-			"updated_at": now,
-		})
-
-	if resetResult.Error != nil {
-		return 0, failed, affectedScanIDs, fmt.Errorf("failed to reset timed out jobs: %w", resetResult.Error)
-	}
-	reset = resetResult.RowsAffected
-
-	if reset > 0 {
-		log.Info().
-			Int64("count", reset).
-			Msg("Reset timed out jobs for retry")
-	}
-
-	return reset, failed, affectedScanIDs, nil
+	return failed, affectedScanIDs, nil
 }
 
 // ReleaseJobsByWorker releases all jobs claimed by a specific worker back to pending status.

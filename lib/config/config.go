@@ -83,6 +83,11 @@ func SetDefaultConfig() {
 
 	viper.SetDefault("scan.avoid_repeated_issues", true)
 
+	// Crawl job timeout configuration
+	// Dynamic timeout formula: base_timeout + (num_sites * per_site_timeout)
+	viper.SetDefault("scan.crawl.base_timeout", 30)     // Base timeout in minutes for crawl jobs
+	viper.SetDefault("scan.crawl.per_site_timeout", 10) // Additional timeout per site in minutes
+
 	viper.SetDefault("http.client.timeout", "30s")
 	viper.SetDefault("http.client.max_idle_conns", 100)
 	viper.SetDefault("http.client.max_idle_conns_per_host", 10)

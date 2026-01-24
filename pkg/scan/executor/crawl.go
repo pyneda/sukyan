@@ -16,6 +16,7 @@ import (
 type CrawlJobData struct {
 	StartURLs       []string            `json:"start_urls"`
 	MaxPagesToCrawl int                 `json:"max_pages_to_crawl"`
+	MaxPagesPerSite int                 `json:"max_pages_per_site"`
 	MaxDepth        int                 `json:"max_depth"`
 	PoolSize        int                 `json:"pool_size"`
 	ExcludePatterns []string            `json:"exclude_patterns,omitempty"`
@@ -78,6 +79,7 @@ func (e *CrawlExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *cont
 	crawler := crawl.NewCrawler(
 		jobData.StartURLs,
 		jobData.MaxPagesToCrawl,
+		jobData.MaxPagesPerSite,
 		jobData.MaxDepth,
 		jobData.PoolSize,
 		jobData.ExcludePatterns,

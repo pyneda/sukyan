@@ -734,7 +734,7 @@ func (sm *ScanManager) scheduleDiscoveryForURL(scanID uint, workspaceID uint, ba
 
 // ScheduleCrawlWithOptions schedules a crawl job with specific options.
 // This method is used directly by the API when creating scans with custom crawl settings.
-func (sm *ScanManager) ScheduleCrawlWithOptions(scanID uint, workspaceID uint, startURLs []string, maxPages, maxDepth, poolSize int, excludePatterns []string, headers map[string][]string) error {
+func (sm *ScanManager) ScheduleCrawlWithOptions(scanID uint, workspaceID uint, startURLs []string, maxPages, maxPagesPerSite, maxDepth, poolSize int, excludePatterns []string, headers map[string][]string) error {
 	targetHost := ""
 	if len(startURLs) > 0 {
 		if u, err := url.Parse(startURLs[0]); err == nil {
@@ -746,6 +746,7 @@ func (sm *ScanManager) ScheduleCrawlWithOptions(scanID uint, workspaceID uint, s
 	jobData := executor.CrawlJobData{
 		StartURLs:       startURLs,
 		MaxPagesToCrawl: maxPages,
+		MaxPagesPerSite: maxPagesPerSite,
 		MaxDepth:        maxDepth,
 		PoolSize:        poolSize,
 		ExcludePatterns: excludePatterns,
@@ -1023,6 +1024,7 @@ func (sm *ScanManager) ScheduleCrawl(ctx context.Context, scanID uint, urls []st
 		scanEntity.WorkspaceID,
 		urls,
 		scanEntity.Options.MaxPagesToCrawl,
+		scanEntity.Options.MaxPagesPerSite,
 		scanEntity.Options.MaxDepth,
 		scanEntity.Options.PagesPoolSize,
 		scanEntity.Options.ExcludePatterns,

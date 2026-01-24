@@ -64,6 +64,7 @@ func SetDefaultConfig() {
 	viper.SetDefault("crawl.common.files", []string{"/robots.txt", "/sitemap.xml"})
 	viper.SetDefault("crawl.ignored_extensions", []string{".jpg", ".woff2", ".png", ".gif", ".webp", ".ico", ".css", ".svg", ".tif", ".tiff", ".bmp", ".raw", ".indd", ".ai", ".eps", ".pdf", ".exe", ".dll", ".psd", ".fla", ".avi", ".flv", ".mov", ".mp4", ".mpg", ".mpeg", ".swf", ".mkv", ".wav", ".mp3", ".flac", ".m4a", ".wma", ".aac", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf", ".zip", ".rar", ".7z", ".tar.gz", ".iso", ".dmg"})
 	viper.SetDefault("crawl.max_pages_with_same_params", 20)
+	viper.SetDefault("crawl.max_pages_per_site", 0) // 0 = unlimited, otherwise limits pages crawled per site (scheme://host:port)
 
 	// Scan
 	viper.SetDefault("scan.workers", 10)

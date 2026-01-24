@@ -15,6 +15,7 @@ import (
 var startUrls []string
 var depth int
 var maxPagesToCrawl int
+var maxPagesPerSite int
 var pagesPoolSize int
 var crawlCaptureBrowserEvents bool
 
@@ -38,7 +39,7 @@ to quickly create a Cobra application.`,
 
 		log.Info().Strs("startUrls", startUrls).Int("count", len(startUrls)).Msg("Creating and scheduling the crawler")
 		httpClient := http_utils.CreateHTTPClientFromConfig(http_utils.HTTPClientConfig{})
-	crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, 0, 0, 0, headers, crawlCaptureBrowserEvents, httpClient)
+		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, maxPagesPerSite, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, 0, 0, 0, headers, crawlCaptureBrowserEvents, httpClient)
 		crawler.Run()
 	},
 }
@@ -49,6 +50,7 @@ func init() {
 	crawlCmd.Flags().StringArrayVar(&crawlExcludePatterns, "exclude-pattern", nil, "URL patterns to ignore when crawling")
 	crawlCmd.Flags().IntVar(&pagesPoolSize, "pool-size", 4, "Page pool size")
 	crawlCmd.Flags().IntVar(&depth, "depth", 0, "Max crawl depth")
+	crawlCmd.Flags().IntVar(&maxPagesPerSite, "max-pages-per-site", 0, "Max pages to crawl per site (scheme://host:port)")
 	crawlCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	crawlCmd.Flags().StringVarP(&requestsHeadersString, "headers", "H", "", "Headers to use in requests")
 	crawlCmd.Flags().BoolVar(&crawlCaptureBrowserEvents, "capture-browser-events", false, "Capture and store browser events (console, storage, security, etc.) during crawling")

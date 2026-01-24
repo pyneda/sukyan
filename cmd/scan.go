@@ -24,6 +24,7 @@ import (
 var startURLs []string
 var crawlDepth int
 var crawlMaxPages int
+var crawlMaxPagesPerSite int
 var crawlExcludePatterns []string
 var workspaceID uint
 var scanTitle string
@@ -146,6 +147,7 @@ var scanCmd = &cobra.Command{
 			StartURLs:          startURLs,
 			MaxDepth:           crawlDepth,
 			MaxPagesToCrawl:    crawlMaxPages,
+			MaxPagesPerSite:    crawlMaxPagesPerSite,
 			ExcludePatterns:    crawlExcludePatterns,
 			WorkspaceID:        workspaceID,
 			PagesPoolSize:      pagesPoolSize,
@@ -324,7 +326,8 @@ func init() {
 	scanCmd.Flags().StringVarP(&urlFile, "file", "f", "", "File containing multiple URLs to scan")
 	scanCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	scanCmd.Flags().IntVar(&pagesPoolSize, "pool-size", 4, "Page pool size (not used)")
-	scanCmd.Flags().IntVar(&crawlMaxPages, "max-pages", 0, "Max pages to crawl")
+	scanCmd.Flags().IntVar(&crawlMaxPages, "max-pages", 0, "Max pages to crawl (global limit)")
+	scanCmd.Flags().IntVar(&crawlMaxPagesPerSite, "max-pages-per-site", 0, "Max pages to crawl per site (scheme://host:port)")
 	scanCmd.Flags().StringArrayVar(&crawlExcludePatterns, "exclude-pattern", nil, "URL patterns to ignore when crawling")
 	scanCmd.Flags().IntVar(&crawlDepth, "depth", 5, "Max crawl depth")
 	scanCmd.Flags().StringVarP(&scanTitle, "title", "t", "Scan", "Scan title")

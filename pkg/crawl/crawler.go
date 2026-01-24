@@ -22,6 +22,7 @@ type CrawlOptions struct {
 	ExtraHeaders    map[string][]string
 	MaxDepth        int
 	MaxPagesToCrawl int
+	MaxPagesPerSite int
 }
 
 type Crawler struct {
@@ -35,6 +36,7 @@ type Crawler struct {
 	browser                 *browser.PagePoolManager
 	pages                   sync.Map
 	pageCounter             int
+	sitePageCounts          sync.Map
 	workspaceID             uint
 	taskID                  uint
 	scanID                  uint
@@ -74,12 +76,13 @@ type SubmittedForm struct {
 	xpath string
 }
 
-func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool, httpClient *http.Client) *Crawler {
+func NewCrawler(startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool, httpClient *http.Client) *Crawler {
 	hijackChan := make(chan browser.HijackResult)
 	options := CrawlOptions{
 		ExtraHeaders:    extraHeaders,
 		MaxDepth:        maxDepth,
 		MaxPagesToCrawl: maxPagesToCrawl,
+		MaxPagesPerSite: maxPagesPerSite,
 	}
 	browser := browser.NewHijackedPagePoolManager(
 		browser.PagePoolManagerConfig{
@@ -111,8 +114,8 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 }
 
 // NewCrawlerWithContext creates a new Crawler with context for cancellation support
-func NewCrawlerWithContext(ctx context.Context, startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool, httpClient *http.Client) *Crawler {
-	crawler := NewCrawler(startURLs, maxPagesToCrawl, maxDepth, poolSize, excludePatterns, workspaceID, taskID, scanID, scanJobID, extraHeaders, captureBrowserEvents, httpClient)
+func NewCrawlerWithContext(ctx context.Context, startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool, httpClient *http.Client) *Crawler {
+	crawler := NewCrawler(startURLs, maxPagesToCrawl, maxPagesPerSite, maxDepth, poolSize, excludePatterns, workspaceID, taskID, scanID, scanJobID, extraHeaders, captureBrowserEvents, httpClient)
 	crawler.ctx, crawler.cancel = context.WithCancel(ctx)
 	return crawler
 }
@@ -169,7 +172,7 @@ func (c *Crawler) RunWithContext(ctx context.Context) []*db.History {
 							return
 						default:
 						}
-						// Checking if max pages to crawl are reached
+						// Check if max pages to crawl are reached (global limit)
 						c.counterLock.Lock()
 						if c.Options.MaxPagesToCrawl != 0 && c.pageCounter >= c.Options.MaxPagesToCrawl {
 							taskLog.Info().Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Not processing new crawler urls due to max pages to crawl")
@@ -177,6 +180,13 @@ func (c *Crawler) RunWithContext(ctx context.Context) []*db.History {
 							continue // Max pages reached, skip processing the rest of the discovered URLs
 						}
 						c.counterLock.Unlock()
+
+						// Check if per-site limit is reached
+						if c.isSiteLimitReached(url) {
+							taskLog.Debug().Str("url", url).Int("max_pages_per_site", c.Options.MaxPagesPerSite).Int("site_count", c.getSitePageCount(url)).Msg("Skipping URL due to per-site page limit")
+							continue
+						}
+
 						// Calculate the depth of the URL
 						depth := lib.CalculateURLDepth(url)
 
@@ -243,6 +253,69 @@ func (c *Crawler) isAllowedCrawlDepth(item *CrawlItem) bool {
 		return true
 	}
 	return item.depth <= c.Options.MaxDepth
+}
+
+// isSiteLimitReached checks if the per-site page limit has been reached for the given URL.
+// Returns true if the limit is reached, false otherwise.
+// This method is thread-safe and should be called while holding counterLock.
+func (c *Crawler) isSiteLimitReached(urlStr string) bool {
+	if c.Options.MaxPagesPerSite == 0 {
+		return false // No per-site limit configured
+	}
+
+	site, err := lib.GetBaseURL(urlStr)
+	if err != nil {
+		log.Warn().Err(err).Str("url", urlStr).Msg("Failed to extract site from URL for per-site limit check")
+		return false // On error, don't block crawling
+	}
+
+	countVal, _ := c.sitePageCounts.Load(site)
+	if countVal == nil {
+		return false
+	}
+	return countVal.(int) >= c.Options.MaxPagesPerSite
+}
+
+// incrementSiteCounter increments the page counter for the site of the given URL.
+// This method is thread-safe.
+func (c *Crawler) incrementSiteCounter(urlStr string) {
+	if c.Options.MaxPagesPerSite == 0 {
+		return // No per-site limit configured, no need to track
+	}
+
+	site, err := lib.GetBaseURL(urlStr)
+	if err != nil {
+		log.Warn().Err(err).Str("url", urlStr).Msg("Failed to extract site from URL for counter increment")
+		return
+	}
+
+	// Atomic increment using LoadOrStore and Store
+	for {
+		countVal, loaded := c.sitePageCounts.LoadOrStore(site, 1)
+		if !loaded {
+			// Successfully stored initial value of 1
+			return
+		}
+		// Value already exists, try to increment
+		oldCount := countVal.(int)
+		if c.sitePageCounts.CompareAndSwap(site, oldCount, oldCount+1) {
+			return
+		}
+		// CAS failed, retry
+	}
+}
+
+// getSitePageCount returns the current page count for a site.
+func (c *Crawler) getSitePageCount(urlStr string) int {
+	site, err := lib.GetBaseURL(urlStr)
+	if err != nil {
+		return 0
+	}
+	countVal, _ := c.sitePageCounts.Load(site)
+	if countVal == nil {
+		return 0
+	}
+	return countVal.(int)
 }
 
 func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
@@ -346,7 +419,14 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	if !c.shouldCrawl(item) {
 		return
 	}
-	// Increment pageCounter
+
+	// Check per-site limit before proceeding
+	if c.isSiteLimitReached(item.url) {
+		log.Debug().Uint("workspace", c.workspaceID).Int("max_pages_per_site", c.Options.MaxPagesPerSite).Int("site_count", c.getSitePageCount(item.url)).Str("url", item.url).Msg("Crawler skipping page due to per-site page limit")
+		return
+	}
+
+	// Increment global pageCounter
 	c.counterLock.Lock()
 	if c.Options.MaxPagesToCrawl != 0 && c.pageCounter >= c.Options.MaxPagesToCrawl {
 		log.Debug().Uint("workspace", c.workspaceID).Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Str("url", item.url).Msg("Crawler skipping page due to having reached max pages to crawl")
@@ -355,6 +435,9 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	}
 	c.pageCounter++
 	c.counterLock.Unlock()
+
+	// Increment per-site counter
+	c.incrementSiteCounter(item.url)
 
 	c.pages.Store(item.url, item)
 

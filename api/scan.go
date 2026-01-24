@@ -13,14 +13,14 @@ import (
 var validate = validator.New()
 
 type ActiveScanInput struct {
-	Items              []uint                         `json:"items" validate:"required,dive,min=0"`
-	ScanID             *uint                          `json:"scan_id" validate:"omitempty,min=1"`
-	WorkspaceID        uint                           `json:"workspace" validate:"omitempty,min=0"`
-	TaskID             uint                           `json:"task" validate:"omitempty,min=0"`
-	AuditCategories    *scan_options.AuditCategories  `json:"audit_categories" validate:"omitempty"`
-	Mode               string                         `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
-	InsertionPoints    []string                       `json:"insertion_points" validate:"omitempty"`
-	ExperimentalAudits bool                           `json:"experimental_audits"`
+	Items              []uint                        `json:"items" validate:"required,dive,min=0"`
+	ScanID             *uint                         `json:"scan_id" validate:"omitempty,min=1"`
+	WorkspaceID        uint                          `json:"workspace" validate:"omitempty,min=0"`
+	TaskID             uint                          `json:"task" validate:"omitempty,min=0"`
+	AuditCategories    *scan_options.AuditCategories `json:"audit_categories" validate:"omitempty"`
+	Mode               string                        `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
+	InsertionPoints    []string                      `json:"insertion_points" validate:"omitempty"`
+	ExperimentalAudits bool                          `json:"experimental_audits"`
 }
 
 // ActiveScanHandler godoc
@@ -268,15 +268,15 @@ func FullScanHandler(c *fiber.Ctx) error {
 }
 
 type ActiveWebSocketScanInput struct {
-	Connections       []uint                         `json:"connections" validate:"required,dive,min=0"`
-	ScanID            *uint                          `json:"scan_id" validate:"omitempty,min=1"`
-	WorkspaceID       uint                           `json:"workspace_id" validate:"omitempty,min=0"`
-	TaskID            uint                           `json:"task_id" validate:"omitempty,min=0"`
-	AuditCategories   *scan_options.AuditCategories  `json:"audit_categories" validate:"omitempty"`
-	ReplayMessages    bool                           `json:"replay_messages"`
-	ObservationWindow int                            `json:"observation_window" validate:"omitempty,min=0,max=120"`
-	Concurrency       int                            `json:"concurrency" validate:"omitempty,min=1,max=100"`
-	Mode              string                         `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
+	Connections       []uint                        `json:"connections" validate:"required,dive,min=0"`
+	ScanID            *uint                         `json:"scan_id" validate:"omitempty,min=1"`
+	WorkspaceID       uint                          `json:"workspace_id" validate:"omitempty,min=0"`
+	TaskID            uint                          `json:"task_id" validate:"omitempty,min=0"`
+	AuditCategories   *scan_options.AuditCategories `json:"audit_categories" validate:"omitempty"`
+	ReplayMessages    bool                          `json:"replay_messages"`
+	ObservationWindow int                           `json:"observation_window" validate:"omitempty,min=0,max=120"`
+	Concurrency       int                           `json:"concurrency" validate:"omitempty,min=1,max=100"`
+	Mode              string                        `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
 }
 
 // ActiveWebSocketScanHandler godoc
@@ -421,4 +421,3 @@ func ActiveWebSocketScanHandler(c *fiber.Ctx) error {
 		"job_count": len(connections),
 	})
 }
-

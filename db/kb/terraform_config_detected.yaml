@@ -1,0 +1,28 @@
+code: terraform_config_detected
+title: Terraform Configuration Detected
+description: |
+  A Terraform configuration file has been discovered. This exposes infrastructure-as-code details about the application's cloud or server infrastructure.
+
+  Exposed information may include:
+  - Cloud provider configurations and API endpoints
+  - Resource names, identifiers, and ARNs
+  - Network topology and CIDR ranges
+  - Security group configurations
+  - Database connection strings
+  - Environment variables
+
+  Terraform state files (.tfstate) are particularly sensitive as they may contain secrets, passwords, and API keys in plaintext, even when the source configuration uses variables.
+remediation: |
+  Prevent public access to Terraform files:
+  - Remove all Terraform files (.tf, .tfvars, .tfstate, .tfstate.backup) from web-accessible directories
+  - Configure web server to block access to these file extensions
+  - Store state files in secure remote backends (S3 with encryption, Terraform Cloud)
+  - Use secret management solutions (Vault, AWS Secrets Manager) instead of inline secrets
+  - Enable state file encryption at rest
+  - Review deployment processes to prevent accidental exposure
+cwe: 540
+severity: Medium
+references:
+  - https://developer.hashicorp.com/terraform/language
+  - https://developer.hashicorp.com/terraform/language/state/sensitive-data
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/03-Test_File_Extensions_Handling_for_Sensitive_Information

@@ -1,0 +1,23 @@
+code: exposed_cargo_toml
+title: Exposed Rust Cargo Manifest
+description: |
+  A Rust Cargo manifest file (Cargo.toml) is publicly accessible. This file defines the application's Rust crate dependencies and project metadata.
+
+  Exposed information may include:
+  - All crate dependencies and features
+  - Build and development dependencies
+  - Package metadata and authors
+  - Private crate registry configurations
+  - Build configuration and target settings
+
+  This information reveals dependency versions which could be cross-referenced with known vulnerability databases.
+remediation: |
+  Prevent public access to Cargo manifest files:
+  - Configure web server to block access to Cargo.toml and Cargo.lock
+  - Ensure these files are not deployed to public directories
+  - Use server configuration to deny access
+cwe: 538
+severity: Low
+references:
+  - https://doc.rust-lang.org/cargo/reference/manifest.html
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/03-Test_File_Extensions_Handling_for_Sensitive_Information

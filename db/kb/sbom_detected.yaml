@@ -1,0 +1,27 @@
+code: sbom_detected
+title: Software Bill of Materials (SBOM) Detected
+description: |
+  A Software Bill of Materials (SBOM) file has been discovered. An SBOM is a detailed inventory of all components, libraries, and dependencies used in the application.
+
+  The SBOM may contain:
+  - Complete list of software components
+  - Version information for all dependencies
+  - License information
+  - Supplier and origin data
+  - Known vulnerability associations
+
+  Publishing SBOMs is increasingly encouraged by regulatory bodies (including CISA and the US Executive Order 14028) for supply chain transparency. Many organizations intentionally make SBOMs publicly available.
+remediation: |
+  Review SBOM publication practices:
+  - Verify if public SBOM access is intentional per organizational policy
+  - If unintentional, restrict access or remove from public directories
+  - Ensure the SBOM does not contain internal or proprietary component names that were not intended for disclosure
+  - Use SBOMs as part of your vulnerability management program
+  - Consider documenting your SBOM publication policy
+cwe: 200
+severity: Info
+references:
+  - https://www.cisa.gov/sbom
+  - https://www.ntia.gov/page/software-bill-materials
+  - https://cyclonedx.org/
+  - https://spdx.dev/

@@ -1,0 +1,22 @@
+code: acme_challenge_detected
+title: ACME Challenge Directory Detected
+description: |
+  The ACME (Automatic Certificate Management Environment) challenge directory is accessible. This directory is used by Let's Encrypt and other certificate authorities for domain validation.
+
+  While the directory itself is not sensitive, its presence indicates:
+  - The domain uses automated SSL/TLS certificate management
+  - The web server is configured to serve challenge responses
+  - Potential for certificate management issues if misconfigured
+
+  Old challenge tokens left in this directory could indicate stale configurations.
+remediation: |
+  Review the ACME challenge configuration:
+  - Ensure old challenge files are cleaned up after certificate issuance
+  - Verify the certificate renewal process is working correctly
+  - Consider using DNS-01 challenges for internal services
+  - Monitor certificate expiration dates
+cwe: 200
+severity: Info
+references:
+  - https://datatracker.ietf.org/doc/html/rfc8555
+  - https://letsencrypt.org/docs/challenge-types/

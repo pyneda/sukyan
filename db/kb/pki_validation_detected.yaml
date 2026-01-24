@@ -1,0 +1,22 @@
+code: pki_validation_detected
+title: PKI Validation Directory Detected
+description: |
+  A PKI (Public Key Infrastructure) validation directory is accessible. This directory is typically used by certificate authorities for domain control validation when issuing SSL/TLS certificates.
+
+  The presence of this directory indicates:
+  - SSL/TLS certificate management on the domain
+  - Potential validation files from certificate authorities
+  - Infrastructure for certificate issuance
+
+  Stale validation files may remain from previous certificate requests.
+remediation: |
+  Review the PKI validation configuration:
+  - Remove old validation files after certificate issuance
+  - Ensure the directory doesn't contain sensitive information
+  - Consider restricting access after validation is complete
+  - Monitor for unexpected files in this directory
+cwe: 200
+severity: Info
+references:
+  - https://cabforum.org/baseline-requirements-documents/
+  - https://datatracker.ietf.org/doc/html/rfc5280

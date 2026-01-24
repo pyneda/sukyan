@@ -1,0 +1,23 @@
+code: exposed_go_mod
+title: Exposed Go Modules File
+description: |
+  A Go modules file (go.mod) is publicly accessible. This file defines the application's Go module dependencies and version requirements.
+
+  Exposed information may include:
+  - All Go module dependencies
+  - Module path revealing project structure
+  - Version constraints and replacements
+  - Private module paths
+  - Indirect dependencies
+
+  This information reveals dependency versions which could be cross-referenced with known vulnerability databases, and private module paths that may indicate internal infrastructure.
+remediation: |
+  Prevent public access to Go module files:
+  - Configure web server to block access to go.mod and go.sum
+  - Ensure these files are not copied to public directories during deployment
+  - Use server configuration to deny access to these paths
+cwe: 538
+severity: Low
+references:
+  - https://go.dev/doc/modules/gomod-ref
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/03-Test_File_Extensions_Handling_for_Sensitive_Information

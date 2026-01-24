@@ -1,0 +1,24 @@
+code: llms_txt_detected
+title: LLMs.txt File Detected
+description: |
+  An llms.txt file has been discovered. This file is used to provide guidance to AI language models about how to interact with the website content.
+
+  The file may contain:
+  - Instructions for AI crawlers and models
+  - Content usage permissions
+  - Preferred summarization guidelines
+  - API access information for AI services
+  - Site structure information
+
+  This is an emerging standard for AI-web interactions, similar to robots.txt for search engines.
+remediation: |
+  Review the llms.txt file to ensure:
+  - The instructions accurately reflect your AI interaction policy
+  - No sensitive information is exposed in the guidelines
+  - The file is kept up to date with content changes
+  - Consider if AI training restrictions should be specified
+cwe: 200
+severity: Info
+references:
+  - https://llmstxt.org/
+  - https://llmstxt.site/

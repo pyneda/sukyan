@@ -1,0 +1,24 @@
+code: exposed_composer_json
+title: Exposed PHP Composer Manifest
+description: |
+  A PHP Composer manifest file (composer.json) is publicly accessible. This file contains the application's PHP package dependencies and project configuration.
+
+  Exposed information may include:
+  - All Composer package dependencies and version constraints
+  - Autoload configuration revealing class structures
+  - Development dependencies and tooling
+  - Private/internal package names
+  - PSR-4 namespace mappings
+
+  This information reveals dependency versions which could be cross-referenced with known vulnerability databases, and internal package names that may be susceptible to dependency confusion attacks.
+remediation: |
+  Prevent public access to Composer manifest files:
+  - Configure web server to block access to composer.json and composer.lock
+  - Move Composer files outside the web root
+  - Use .htaccess or nginx rules to deny access to these files
+  - Ensure deployment processes don't expose these files
+cwe: 538
+severity: Low
+references:
+  - https://getcomposer.org/doc/04-schema.md
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/03-Test_File_Extensions_Handling_for_Sensitive_Information

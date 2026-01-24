@@ -1,0 +1,23 @@
+code: host_meta_detected
+title: Host-Meta File Detected
+description: |
+  A host-meta file has been discovered. This file follows RFC 6415 for host metadata discovery, providing information about services available at the host.
+
+  The file may contain:
+  - Link relations for WebFinger, OAuth, and other services
+  - Service discovery endpoints
+  - Authentication provider information
+  - Federation configuration
+
+  This is commonly used for decentralized identity and federation protocols.
+remediation: |
+  Review the host-meta file to ensure:
+  - All listed services are intentionally exposed
+  - Link relations point to valid, secure endpoints
+  - Authentication endpoints use HTTPS
+  - The file doesn't expose internal service configurations
+cwe: 200
+severity: Info
+references:
+  - https://datatracker.ietf.org/doc/html/rfc6415
+  - https://webfinger.net/

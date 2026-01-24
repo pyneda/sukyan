@@ -1,0 +1,24 @@
+code: exposed_pom_xml
+title: Exposed Maven POM File
+description: |
+  A Maven Project Object Model (pom.xml) file is publicly accessible. This file defines the Java/Maven project's dependencies, build configuration, and metadata.
+
+  Exposed information may include:
+  - All Maven dependencies and their versions
+  - Plugin configurations
+  - Repository URLs including private repositories
+  - Build profiles and properties
+  - Parent POM references
+
+  This information reveals dependency versions which could be cross-referenced with known vulnerability databases, and may expose private repository URLs.
+remediation: |
+  Prevent public access to Maven configuration files:
+  - Configure web server to block access to pom.xml
+  - Ensure build files are not deployed to public directories
+  - Use .htaccess or server configuration to deny access
+  - Review deployment pipelines to exclude build configuration files
+cwe: 538
+severity: Low
+references:
+  - https://maven.apache.org/pom.html
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/03-Test_File_Extensions_Handling_for_Sensitive_Information

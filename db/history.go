@@ -108,6 +108,126 @@ func (h History) ResponseHeadersAsString() (string, error) {
 	return lib.FormatHeadersAsString(headers), nil
 }
 
+// IsHTMLResponse checks if the response appears to be HTML content.
+// This is useful for detecting soft 404s where servers return their homepage
+// or default page for any requested path.
+func (h History) IsHTMLResponse() bool {
+	// Check Content-Type header first
+	contentType := strings.ToLower(h.ResponseContentType)
+	if strings.Contains(contentType, "text/html") {
+		return true
+	}
+
+	// Also check body content for HTML markers
+	body, err := h.ResponseBody()
+	if err != nil || len(body) == 0 {
+		return false
+	}
+
+	bodyStr := strings.TrimSpace(string(body))
+	bodyLower := strings.ToLower(bodyStr)
+
+	// Check for common HTML indicators at the start
+	// Note: <?xml alone is NOT HTML - many config files (web.config, pom.xml) start with it
+	// XHTML starts with <?xml but then has <!DOCTYPE html or <html xmlns
+	htmlPrefixes := []string{
+		"<!doctype html",
+		"<html",
+		"<head",
+		"<body",
+	}
+
+	for _, prefix := range htmlPrefixes {
+		if strings.HasPrefix(bodyLower, prefix) {
+			return true
+		}
+	}
+
+	// Handle XML documents - only treat as HTML if it's actually XHTML
+	if strings.HasPrefix(bodyLower, "<?xml") {
+		// Check if this is XHTML (has html element after xml declaration)
+		if strings.Contains(bodyLower, "<html") ||
+			strings.Contains(bodyLower, "<!doctype html") ||
+			strings.Contains(bodyLower, "xhtml") {
+			return true
+		}
+		// Regular XML config file, not HTML
+		return false
+	}
+
+	// Check for HTML structure patterns anywhere in content
+	htmlPatterns := []string{
+		"<html",
+		"</html>",
+		"<head>",
+		"</head>",
+		"<body",
+		"</body>",
+		"<title>",
+		"<meta charset",
+		"<meta http-equiv",
+		"<link rel=\"stylesheet\"",
+		"<script src=",
+	}
+
+	htmlIndicators := 0
+	for _, pattern := range htmlPatterns {
+		if strings.Contains(bodyLower, pattern) {
+			htmlIndicators++
+			if htmlIndicators >= 3 {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// IsJSONResponse checks if the response appears to be JSON content
+func (h History) IsJSONResponse() bool {
+	contentType := strings.ToLower(h.ResponseContentType)
+	if strings.Contains(contentType, "application/json") {
+		return true
+	}
+
+	body, err := h.ResponseBody()
+	if err != nil || len(body) == 0 {
+		return false
+	}
+
+	trimmed := strings.TrimSpace(string(body))
+	return (strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")) ||
+		(strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]"))
+}
+
+// IsXMLResponse checks if the response appears to be XML content (not HTML/XHTML)
+func (h History) IsXMLResponse() bool {
+	contentType := strings.ToLower(h.ResponseContentType)
+	if strings.Contains(contentType, "application/xml") ||
+		strings.Contains(contentType, "text/xml") ||
+		strings.Contains(contentType, "application/xrd+xml") {
+		return true
+	}
+
+	body, err := h.ResponseBody()
+	if err != nil || len(body) == 0 {
+		return false
+	}
+
+	trimmed := strings.TrimSpace(string(body))
+	trimmedLower := strings.ToLower(trimmed)
+	// Make sure it's XML but not HTML/XHTML
+	return strings.HasPrefix(trimmedLower, "<?xml") &&
+		!strings.Contains(trimmedLower, "<!doctype html") &&
+		!strings.Contains(trimmedLower, "<html")
+}
+
+// IsPlainTextResponse checks if the response is plain text
+func (h History) IsPlainTextResponse() bool {
+	contentType := strings.ToLower(h.ResponseContentType)
+	return strings.Contains(contentType, "text/plain")
+}
+
 // For backward compatibility
 func (h *History) GetResponseHeadersAsMap() (map[string][]string, error) {
 	return h.ResponseHeaders()

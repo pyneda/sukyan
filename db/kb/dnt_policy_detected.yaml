@@ -1,0 +1,22 @@
+code: dnt_policy_detected
+title: DNT Policy File Detected
+description: |
+  A Do Not Track (DNT) policy file has been discovered. This file indicates how the website responds to the DNT browser header preference.
+
+  The policy may contain:
+  - Tracking practices disclosure
+  - How DNT preference is honored
+  - Third-party tracking information
+  - Data collection policies
+
+  While DNT is not widely enforced, this file demonstrates the site's privacy practices.
+remediation: |
+  Review the DNT policy to ensure:
+  - The policy accurately reflects actual tracking practices
+  - It is kept up to date with any changes in data collection
+  - Consider implementing additional privacy controls
+cwe: 200
+severity: Info
+references:
+  - https://www.w3.org/TR/tracking-dnt/
+  - https://www.eff.org/issues/do-not-track

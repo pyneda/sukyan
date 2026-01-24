@@ -1,0 +1,24 @@
+code: csaf_detected
+title: CSAF Provider Metadata Detected
+description: |
+  A Common Security Advisory Framework (CSAF) provider metadata file has been discovered. This indicates the domain provides structured security advisories following the OASIS CSAF standard.
+
+  The metadata may contain:
+  - Security advisory publication information
+  - Advisory categories and distributions
+  - Publisher information
+  - Update frequency
+  - Links to security advisories
+
+  CSAF provides machine-readable security vulnerability information.
+remediation: |
+  Review the CSAF configuration:
+  - Ensure security advisories are published promptly
+  - Verify the provider metadata is accurate
+  - Consider if all published advisories should be public
+  - Maintain the advisory feed according to the standard
+cwe: 200
+severity: Info
+references:
+  - https://docs.oasis-open.org/csaf/csaf/v2.0/csaf-v2.0.html
+  - https://www.cisa.gov/resources-tools/services/csaf

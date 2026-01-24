@@ -1,0 +1,23 @@
+code: mta_sts_detected
+title: MTA-STS Policy Detected
+description: |
+  An MTA-STS (Mail Transfer Agent Strict Transport Security) policy file has been discovered. This file defines the email security policy for the domain, requiring TLS encryption for email delivery.
+
+  The policy contains:
+  - Policy version and mode (enforce, testing, none)
+  - Maximum policy age
+  - Valid MX hostnames
+
+  MTA-STS helps prevent man-in-the-middle attacks on email traffic by enforcing TLS.
+remediation: |
+  Review the MTA-STS policy to ensure:
+  - The policy mode matches your security requirements
+  - All MX hostnames are correctly listed
+  - The max_age is appropriately set
+  - DNS records (TXT _mta-sts) are correctly configured
+  - Consider using DANE as an additional layer of protection
+cwe: 200
+severity: Info
+references:
+  - https://datatracker.ietf.org/doc/html/rfc8461
+  - https://www.hardenize.com/blog/mta-sts

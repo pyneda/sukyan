@@ -1,0 +1,24 @@
+code: exposed_package_json
+title: Exposed Node.js Package Manifest
+description: |
+  A Node.js package manifest file (package.json) is publicly accessible. This file contains metadata about the application's npm dependencies, development dependencies, and project configuration.
+
+  Exposed information may include:
+  - All npm package dependencies and their version constraints
+  - Development and build tool configurations
+  - Project metadata (name, version, author)
+  - npm scripts and commands
+  - Internal package names that may be susceptible to dependency confusion attacks
+
+  This information reveals dependency versions which could be cross-referenced with known vulnerability databases.
+remediation: |
+  Prevent public access to package manifest files:
+  - Configure web server to block access to package.json, package-lock.json, and similar files
+  - Use .htaccess rules or nginx location blocks to deny access
+  - Ensure build processes don't copy these files to public directories
+  - Review CI/CD pipelines to prevent accidental exposure
+cwe: 538
+severity: Low
+references:
+  - https://docs.npmjs.com/cli/v10/configuring-npm/package-json
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/03-Test_File_Extensions_Handling_for_Sensitive_Information

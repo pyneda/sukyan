@@ -1,0 +1,23 @@
+code: apple_app_site_association_detected
+title: Apple App Site Association Detected
+description: |
+  An Apple App Site Association (AASA) file has been discovered. This file is used by iOS/macOS to establish Universal Links, allowing apps to open specific URLs directly.
+
+  The file may contain:
+  - App identifiers (team ID and bundle ID)
+  - URL path patterns for deep linking
+  - Webcredentials configuration for password AutoFill
+  - App Clip configurations
+
+  While intended to be public, this reveals mobile application configurations and URL routing logic.
+remediation: |
+  Review the apple-app-site-association file to ensure:
+  - Only production app identifiers are listed
+  - URL patterns don't expose sensitive endpoints
+  - The file is properly formatted and validated
+  - Webcredentials are correctly configured if used
+cwe: 200
+severity: Info
+references:
+  - https://developer.apple.com/documentation/xcode/supporting-associated-domains
+  - https://developer.apple.com/documentation/bundleresources/applinks

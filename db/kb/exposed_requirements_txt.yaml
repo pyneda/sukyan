@@ -1,0 +1,24 @@
+code: exposed_requirements_txt
+title: Exposed Python Requirements File
+description: |
+  A Python requirements file (requirements.txt) is publicly accessible. This file lists the application's Python package dependencies.
+
+  Exposed information may include:
+  - All Python package dependencies
+  - Exact version pins or version ranges
+  - Private PyPI package names
+  - Development and testing dependencies
+  - Links to internal package indexes
+
+  This information reveals dependency versions which could be cross-referenced with known vulnerability databases, and private package names that may be susceptible to dependency confusion attacks.
+remediation: |
+  Prevent public access to Python dependency files:
+  - Configure web server to block access to requirements.txt, Pipfile, and pyproject.toml
+  - Move these files outside the web root
+  - Use .htaccess or nginx rules to deny access
+  - Ensure deployment processes don't copy these files to public directories
+cwe: 538
+severity: Low
+references:
+  - https://pip.pypa.io/en/stable/reference/requirements-file-format/
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/03-Test_File_Extensions_Handling_for_Sensitive_Information

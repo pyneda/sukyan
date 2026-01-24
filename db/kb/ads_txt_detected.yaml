@@ -1,0 +1,23 @@
+code: ads_txt_detected
+title: Ads.txt File Detected
+description: |
+  An ads.txt file has been discovered. This file is part of the IAB Tech Lab's Authorized Digital Sellers initiative, declaring which advertising systems are authorized to sell the publisher's inventory.
+
+  The file contains:
+  - Authorized advertising partners and their seller IDs
+  - Relationship types (DIRECT, RESELLER)
+  - Certification authority IDs
+  - Publisher contact information (optional)
+
+  This is standard for websites using programmatic advertising.
+remediation: |
+  Review the ads.txt file to ensure:
+  - All listed sellers are authorized partners
+  - Seller IDs and domain references are accurate
+  - The file is regularly updated when partnerships change
+  - No unauthorized sellers are listed
+cwe: 200
+severity: Info
+references:
+  - https://iabtechlab.com/ads-txt/
+  - https://iabtechlab.com/wp-content/uploads/2021/03/ads.txt-1.0.3.pdf

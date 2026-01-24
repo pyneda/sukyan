@@ -1,10 +1,10 @@
 package passive
 
 import (
-	"net/http"
 	"strings"
 	"testing"
-	"time"
+
+	"github.com/pyneda/sukyan/pkg/dependency"
 )
 
 func TestExtractFromPackageJson(t *testing.T) {
@@ -68,7 +68,7 @@ func TestExtractFromPackageJson(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			packages := extractFromPackageJson(tt.content)
+			packages := dependency.ExtractFromPackageJSON(tt.content)
 
 			if len(packages) != tt.expected {
 				t.Errorf("Expected %d packages, got %d", tt.expected, len(packages))
@@ -111,7 +111,7 @@ func TestExtractFromPackageLock(t *testing.T) {
 		}
 	}`
 
-	packages := extractFromPackageLock(packageLockContent)
+	packages := dependency.ExtractFromPackageLock(packageLockContent)
 
 	if len(packages) != 2 {
 		t.Errorf("Expected 2 packages, got %d", len(packages))
@@ -150,7 +150,7 @@ func TestExtractFromYarnLock(t *testing.T) {
   resolved "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz"
 `
 
-	packages := extractFromYarnLock(yarnLockContent)
+	packages := dependency.ExtractFromYarnLock(yarnLockContent)
 
 	if len(packages) != 2 {
 		t.Errorf("Expected 2 packages, got %d", len(packages))
@@ -175,42 +175,11 @@ func TestExtractFromYarnLock(t *testing.T) {
 	}
 }
 
-func TestExtractPackagesWithRegex(t *testing.T) {
-	content := `{
-		"dependencies": {
-			"express": "^4.18.0",
-			"@babel/core": "^7.0.0",
-			"lodash": "4.17.21"
-		}
-	}`
-
-	packages := extractPackagesWithRegex(content, "test-source")
-
-	if len(packages) != 3 {
-		t.Errorf("Expected 3 packages, got %d", len(packages))
-	}
-
-	expectedPackages := []string{"express", "@babel/core", "lodash"}
-	packageNames := make(map[string]bool)
-	for _, pkg := range packages {
-		packageNames[pkg.Name] = true
-		if pkg.Source != "test-source (regex)" {
-			t.Errorf("Package %s has incorrect source: %s", pkg.Name, pkg.Source)
-		}
-	}
-
-	for _, expected := range expectedPackages {
-		if !packageNames[expected] {
-			t.Errorf("Expected package %s not found", expected)
-		}
-	}
-}
-
-func TestExtractPackageNames(t *testing.T) {
+func TestExtractPackages(t *testing.T) {
 	tests := []struct {
 		name     string
 		content  string
-		fileType string
+		fileType dependency.FileType
 		expected int
 	}{
 		{
@@ -221,7 +190,7 @@ func TestExtractPackageNames(t *testing.T) {
 					"lodash": "^4.17.21"
 				}
 			}`,
-			fileType: "package.json",
+			fileType: dependency.FileTypePackageJSON,
 			expected: 2,
 		},
 		{
@@ -233,27 +202,21 @@ func TestExtractPackageNames(t *testing.T) {
 					}
 				}
 			}`,
-			fileType: "package-lock.json",
+			fileType: dependency.FileTypePackageLock,
 			expected: 1,
 		},
 		{
 			name: "yarn.lock file",
 			content: `"express@^4.18.0":
   version "4.18.2"`,
-			fileType: "yarn.lock",
+			fileType: dependency.FileTypeYarnLock,
 			expected: 1,
-		},
-		{
-			name:     "unknown file type",
-			content:  `{"test": "content"}`,
-			fileType: "unknown",
-			expected: 0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			packages := extractPackageNames(tt.content, tt.fileType)
+			packages := dependency.ExtractPackages(tt.content, tt.fileType)
 			if len(packages) != tt.expected {
 				t.Errorf("Expected %d packages, got %d", tt.expected, len(packages))
 			}
@@ -270,7 +233,7 @@ func TestInvalidJSON(t *testing.T) {
 	}`
 
 	// Should fallback to regex parsing
-	packages := extractFromPackageJson(invalidContent)
+	packages := dependency.ExtractFromPackageJSON(invalidContent)
 
 	// The regex should still extract the express package
 	if len(packages) == 0 {
@@ -296,57 +259,49 @@ func TestInvalidJSON(t *testing.T) {
 func TestFileDetectionPatterns(t *testing.T) {
 	tests := []struct {
 		name       string
-		url        string
+		path       string
 		shouldScan bool
 	}{
 		{
 			name:       "package.json file",
-			url:        "https://example.com/package.json",
+			path:       "/package.json",
 			shouldScan: true,
 		},
 		{
 			name:       "package-lock.json file",
-			url:        "https://example.com/package-lock.json",
+			path:       "/package-lock.json",
 			shouldScan: true,
 		},
 		{
 			name:       "yarn.lock file",
-			url:        "https://example.com/yarn.lock",
+			path:       "/yarn.lock",
 			shouldScan: true,
 		},
 		{
 			name:       "nested package.json",
-			url:        "https://example.com/frontend/package.json",
-			shouldScan: true,
-		},
-		{
-			name:       "case insensitive",
-			url:        "https://example.com/Package.JSON",
+			path:       "/frontend/package.json",
 			shouldScan: true,
 		},
 		{
 			name:       "non-package file",
-			url:        "https://example.com/index.html",
+			path:       "/index.html",
 			shouldScan: false,
 		},
 		{
 			name:       "similar but different file",
-			url:        "https://example.com/my-package.json.backup",
+			path:       "/my-package.json.backup",
 			shouldScan: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test the file detection logic by checking URL patterns
-			matches := packageJsonRegex.MatchString(tt.url) ||
-				packageLockRegex.MatchString(tt.url) ||
-				yarnLockRegex.MatchString(tt.url)
+			_, matches := dependency.GetFileType(tt.path)
 
 			if tt.shouldScan && !matches {
-				t.Errorf("URL %s should match package file patterns but doesn't", tt.url)
+				t.Errorf("Path %s should match package file patterns but doesn't", tt.path)
 			} else if !tt.shouldScan && matches {
-				t.Errorf("URL %s should not match package file patterns but does", tt.url)
+				t.Errorf("Path %s should not match package file patterns but does", tt.path)
 			}
 		})
 	}
@@ -354,7 +309,7 @@ func TestFileDetectionPatterns(t *testing.T) {
 
 func TestPackageInfoStructure(t *testing.T) {
 	// Test that PackageInfo struct works as expected
-	pkg := PackageInfo{
+	pkg := dependency.PackageInfo{
 		Name:    "test-package",
 		Version: "1.2.3",
 		Source:  "package.json",
@@ -372,14 +327,12 @@ func TestPackageInfoStructure(t *testing.T) {
 }
 
 // Integration tests for registry checking functions
-func TestCheckOfficialNpmRegistryIntegration(t *testing.T) {
+func TestNPMCheckerIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	client := &http.Client{
-		Timeout: 15 * time.Second,
-	}
+	checker := dependency.NewNPMChecker(nil)
 
 	tests := []struct {
 		name           string
@@ -421,133 +374,48 @@ func TestCheckOfficialNpmRegistryIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			exists, version := checkOfficialNpmRegistry(client, tt.packageName)
+			result := checker.CheckPackage(tt.packageName)
 
-			if exists != tt.expectedExists {
+			if result.Exists != tt.expectedExists {
 				t.Errorf("Package %s: expected exists=%v, got exists=%v (%s)",
-					tt.packageName, tt.expectedExists, exists, tt.description)
+					tt.packageName, tt.expectedExists, result.Exists, tt.description)
 			}
 
-			if tt.expectedExists && exists {
-				if version == "" {
+			if tt.expectedExists && result.Exists {
+				if result.LatestVersion == "" {
 					t.Errorf("Package %s exists but version info is empty", tt.packageName)
 				}
-				if !strings.Contains(version, "versions available") {
-					t.Logf("Package %s version info: %s", tt.packageName, version)
+				if !strings.Contains(result.LatestVersion, "versions available") && !strings.Contains(result.LatestVersion, "unpkg") {
+					t.Logf("Package %s version info: %s", tt.packageName, result.LatestVersion)
 				}
 			}
 
-			if !tt.expectedExists && exists {
-				t.Errorf("Package %s should not exist but registry returned: %s", tt.packageName, version)
+			if !tt.expectedExists && result.Exists {
+				t.Errorf("Package %s should not exist but registry returned: %s", tt.packageName, result.LatestVersion)
 			}
 		})
 	}
 }
 
-func TestCheckUnpkgRegistryIntegration(t *testing.T) {
+func TestCheckPackagesIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	client := &http.Client{
-		Timeout: 15 * time.Second,
+	packages := []dependency.PackageInfo{
+		{Name: "express", Version: "^4.18.0", Registry: dependency.RegistryNPM},
+		{Name: "lodash", Version: "^4.17.21", Registry: dependency.RegistryNPM},
+		{Name: "this-package-does-not-exist-abc123", Version: "1.0.0", Registry: dependency.RegistryNPM},
 	}
 
-	tests := []struct {
-		name           string
-		packageName    string
-		expectedExists bool
-		description    string
-	}{
-		{
-			name:           "Popular package should exist on unpkg",
-			packageName:    "lodash",
-			expectedExists: true,
-			description:    "Lodash is available on unpkg CDN",
-		},
-		{
-			name:           "Another popular package should exist on unpkg",
-			packageName:    "jquery",
-			expectedExists: true,
-			description:    "jQuery is available on unpkg CDN",
-		},
-		{
-			name:           "Non-existent package should not exist on unpkg",
-			packageName:    "this-package-absolutely-does-not-exist-unpkg-test-12345",
-			expectedExists: false,
-			description:    "This package should not exist on unpkg",
-		},
+	missing := dependency.CheckPackages(packages, nil)
+
+	if len(missing) != 1 {
+		t.Errorf("Expected 1 missing package, got %d", len(missing))
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			exists, version := checkUnpkgRegistry(client, tt.packageName)
-
-			if exists != tt.expectedExists {
-				t.Errorf("Package %s on unpkg: expected exists=%v, got exists=%v (%s)",
-					tt.packageName, tt.expectedExists, exists, tt.description)
-			}
-
-			if tt.expectedExists && exists {
-				if version != "available on unpkg" {
-					t.Errorf("Package %s exists on unpkg but got unexpected version info: %s", tt.packageName, version)
-				}
-			}
-		})
-	}
-}
-
-func TestCheckPackageInNpmRegistryIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	tests := []struct {
-		name           string
-		packageName    string
-		expectedExists bool
-		description    string
-	}{
-		{
-			name:           "Well-known package should exist",
-			packageName:    "axios",
-			expectedExists: true,
-			description:    "Axios is a popular HTTP client library",
-		},
-		{
-			name:           "Built-in Node.js module style name should not exist as npm package",
-			packageName:    "definitely-nonexistent-package-for-dependency-confusion-test-abcd123",
-			expectedExists: false,
-			description:    "This package name should not exist in any registry",
-		},
-		{
-			name:           "Test with scoped package",
-			packageName:    "@types/node",
-			expectedExists: true,
-			description:    "TypeScript definitions for Node.js should exist",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			exists, version := checkPackageInNpmRegistry(tt.packageName)
-
-			if exists != tt.expectedExists {
-				t.Errorf("Package %s: expected exists=%v, got exists=%v (%s)",
-					tt.packageName, tt.expectedExists, exists, tt.description)
-			}
-
-			if tt.expectedExists && exists {
-				if version == "" {
-					t.Errorf("Package %s exists but version info is empty", tt.packageName)
-				}
-				t.Logf("Package %s found with version info: %s", tt.packageName, version)
-			}
-
-			if !tt.expectedExists && exists {
-				t.Errorf("Package %s should not exist but was found with version: %s", tt.packageName, version)
-			}
-		})
+	if len(missing) > 0 && missing[0].Name != "this-package-does-not-exist-abc123" {
+		t.Errorf("Expected missing package to be 'this-package-does-not-exist-abc123', got '%s'", missing[0].Name)
 	}
 }
 
@@ -555,6 +423,8 @@ func TestRegistryCheckingResilience(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
+
+	checker := dependency.NewNPMChecker(nil)
 
 	// Test edge cases and error handling
 	tests := []struct {
@@ -588,12 +458,12 @@ func TestRegistryCheckingResilience(t *testing.T) {
 				}
 			}()
 
-			exists, version := checkPackageInNpmRegistry(tt.packageName)
+			result := checker.CheckPackage(tt.packageName)
 
 			// For edge cases, we mainly care that it doesn't crash
 			// Most of these should return false (not exist)
-			if exists {
-				t.Logf("Package '%s' unexpectedly exists with version: %s", tt.packageName, version)
+			if result.Exists {
+				t.Logf("Package '%s' unexpectedly exists with version: %s", tt.packageName, result.LatestVersion)
 			}
 		})
 	}

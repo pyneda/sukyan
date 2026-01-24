@@ -1,0 +1,22 @@
+code: android_asset_links_detected
+title: Android App Links Configuration Detected
+description: |
+  An Android Asset Links file (assetlinks.json) has been discovered at the well-known location. This file is used by Android to establish a trust relationship between an app and a website for App Links (deep linking).
+
+  The file contains:
+  - Package names of Android apps trusted by this domain
+  - SHA256 certificate fingerprints for app verification
+  - Namespace and relation declarations
+
+  While this is typically intended to be public, it reveals information about mobile applications associated with the domain.
+remediation: |
+  Review the assetlinks.json file to ensure:
+  - Only intended applications are listed
+  - Certificate fingerprints are correct and up-to-date
+  - The file doesn't expose internal or development application configurations
+  - Consider if all listed apps should be publicly associated with this domain
+cwe: 200
+severity: Info
+references:
+  - https://developer.android.com/training/app-links/verify-android-applinks
+  - https://developers.google.com/digital-asset-links/v1/getting-started

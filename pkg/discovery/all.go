@@ -71,6 +71,14 @@ func DiscoverAll(options DiscoveryOptions) ([]DiscoveryResult, error) {
 		"jboss_invoker":            DiscoverJBossInvokers,
 		"jboss_console":            DiscoverJBossConsoles,
 		"jboss_status":             DiscoverJBossStatus,
+		"app_association":          DiscoverAppAssociation,
+		"dependency_files":         DiscoverDependencyFiles,
+		"backup_files":             DiscoverBackupFiles,
+		"security_policy":          DiscoverSecurityPolicy,
+		"infrastructure":           DiscoverInfrastructure,
+		"ai_crawler":               DiscoverAICrawler,
+		"advertising":              DiscoverAdvertising,
+		"well_known":               DiscoverWellKnownMetadata,
 	}
 
 	p := pool.NewWithResults[struct {

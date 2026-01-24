@@ -1,0 +1,24 @@
+code: sellers_json_detected
+title: Sellers.json File Detected
+description: |
+  A sellers.json file has been discovered. This file is part of the IAB Tech Lab's seller transparency specification, providing information about entities authorized to sell advertising inventory.
+
+  The file contains:
+  - Seller identification information
+  - Contact details for each seller
+  - Seller types (publisher, intermediary, both)
+  - Domain ownership information
+  - Passthrough vs. owned inventory indicators
+
+  This is standard for advertising supply chain transparency.
+remediation: |
+  Review the sellers.json file to ensure:
+  - All listed sellers are legitimate business partners
+  - Contact information is accurate and up to date
+  - Seller types correctly reflect business relationships
+  - The file is maintained as partnerships change
+cwe: 200
+severity: Info
+references:
+  - https://iabtechlab.com/sellers-json/
+  - https://iabtechlab.com/wp-content/uploads/2022/04/Sellers.json-Public-Comment-FINAL.pdf

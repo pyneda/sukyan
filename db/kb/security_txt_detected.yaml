@@ -1,0 +1,25 @@
+code: security_txt_detected
+title: Security.txt File Detected
+description: |
+  A security.txt file has been discovered, following the RFC 9116 standard for security vulnerability disclosure policies. This file provides contact information for security researchers.
+
+  The file typically contains:
+  - Contact information for reporting vulnerabilities
+  - PGP keys for encrypted communication
+  - Preferred languages for communication
+  - Bug bounty program links
+  - Security policy and acknowledgments pages
+
+  This is a recommended security best practice for organizations to facilitate responsible disclosure.
+remediation: |
+  Review the security.txt file to ensure:
+  - Contact information is current and monitored
+  - PGP keys are valid and not expired
+  - The policy accurately reflects your security disclosure process
+  - Links to bug bounty programs are correct if applicable
+  - The file is signed with a valid PGP signature for authenticity
+cwe: 200
+severity: Info
+references:
+  - https://securitytxt.org/
+  - https://datatracker.ietf.org/doc/html/rfc9116

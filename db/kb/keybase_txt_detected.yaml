@@ -1,0 +1,22 @@
+code: keybase_txt_detected
+title: Keybase Proof File Detected
+description: |
+  A Keybase verification file has been discovered. This file is used to cryptographically prove ownership of the domain on the Keybase identity platform.
+
+  The file contains:
+  - Keybase username
+  - Cryptographic signature
+  - Domain ownership proof
+
+  This indicates the domain owner has verified their identity through Keybase. Note that Keybase was acquired by Zoom in 2020 and active development has slowed, though existing proofs remain functional.
+remediation: |
+  Review the Keybase proof to ensure:
+  - The linked Keybase account is still controlled by the domain owner
+  - The proof is still valid and intended
+  - Consider if this identity verification should remain public
+  - Evaluate if the proof is still relevant given Keybase's reduced activity
+cwe: 200
+severity: Info
+references:
+  - https://keybase.io/
+  - https://book.keybase.io/docs/server

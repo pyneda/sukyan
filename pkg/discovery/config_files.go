@@ -8,7 +8,7 @@ import (
 )
 
 var ConfigFilePaths = []string{
-	".env",
+	// Note: .env files are handled by env_files.go (DiscoverEnvFiles)
 	"config.php",
 	"settings.php",
 	"config.yaml",
@@ -31,16 +31,20 @@ var ConfigFilePaths = []string{
 }
 
 func IsSensitiveConfigFileValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
+	if history.StatusCode != 200 {
+		return false, "", 0
+	}
+
+	// CRITICAL: Config files should not be HTML
+	if history.IsHTMLResponse() {
+		return false, "", 0
+	}
+
 	body, _ := history.ResponseBody()
 	bodyStr := string(body)
 	details := fmt.Sprintf("Potential sensitive configuration file detected: %s\n", history.URL)
-	confidence := 0
-
-	// Base confidence for 200 status code response
-	if history.StatusCode == 200 {
-		confidence += 30
-		details += "- Received 200 OK status for configuration file endpoint\n"
-	}
+	confidence := 30 // Base confidence for 200 status code
+	details += "- Received 200 OK status for configuration file endpoint\n"
 
 	// Additional sensitive data indicators in the body
 	configIndicators := map[string]string{

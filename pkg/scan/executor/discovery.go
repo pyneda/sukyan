@@ -70,11 +70,21 @@ func (e *DiscoveryExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *
 		CreateNewBodyStream: true,
 	}
 
-	// Create HTTP client for discovery
-	transport := http_utils.CreateHttpTransport()
-	transport.ForceAttemptHTTP2 = true
-	httpClient := &http.Client{
-		Transport: transport,
+	scan, err := db.Connection().GetScanByID(job.ScanID)
+	if err != nil {
+		return fmt.Errorf("failed to get scan %d: %w", job.ScanID, err)
+	}
+
+	httpClient := http_utils.CreateHTTPClientFromConfig(http_utils.HTTPClientConfig{
+		Timeout:             scan.Options.HTTPTimeout,
+		MaxIdleConns:        scan.Options.HTTPMaxIdleConns,
+		MaxIdleConnsPerHost: scan.Options.HTTPMaxIdleConnsPerHost,
+		MaxConnsPerHost:     scan.Options.HTTPMaxConnsPerHost,
+		DisableKeepAlives:   scan.Options.HTTPDisableKeepAlives,
+	})
+
+	if transport, ok := httpClient.Transport.(*http.Transport); ok {
+		transport.ForceAttemptHTTP2 = true
 	}
 
 	// Build discovery options

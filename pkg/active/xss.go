@@ -75,7 +75,7 @@ func (x *XSSAudit) Run(targetUrl string, params []string, wordlistPath string, u
 			taskLog.Debug().Msg("Got scan browser from the pool")
 			hijackResultsChannel := make(chan browser.HijackResult)
 			hijackContext, hijackCancel := context.WithCancel(context.Background())
-			browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
+			browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, nil, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
 
 			go func() {
 				for {

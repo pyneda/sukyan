@@ -88,7 +88,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluateWithContext(parentCtx contex
 	hijackContext, hijackCancel := context.WithCancel(overallCtx)
 	defer hijackCancel()
 
-	hijackRouter := browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, "Scanner", hijackResultsChannel, hijackContext, a.WorkspaceID, a.TaskID, a.ScanID, a.ScanJobID)
+	hijackRouter := browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, nil, "Scanner", hijackResultsChannel, hijackContext, a.WorkspaceID, a.TaskID, a.ScanID, a.ScanJobID)
 	defer hijackRouter.Stop()
 	incognito, err := b.Incognito()
 	if err != nil {

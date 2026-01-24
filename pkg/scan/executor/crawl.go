@@ -7,6 +7,7 @@ import (
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/crawl"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/scan/control"
 	"github.com/rs/zerolog/log"
 )
@@ -61,16 +62,19 @@ func (e *CrawlExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *cont
 		jobData.PoolSize = 5
 	}
 
-	// Fetch scan to get CaptureBrowserEvents setting
-	captureBrowserEvents := false
 	scan, err := db.Connection().GetScanByID(job.ScanID)
 	if err != nil {
-		taskLog.Warn().Err(err).Msg("Failed to get scan for browser events setting, defaulting to disabled")
-	} else {
-		captureBrowserEvents = scan.CaptureBrowserEvents
+		return fmt.Errorf("failed to get scan %d: %w", job.ScanID, err)
 	}
 
-	// Create and run crawler with scanID and scanJobID for history association
+	httpClient := http_utils.CreateHTTPClientFromConfig(http_utils.HTTPClientConfig{
+		Timeout:             scan.Options.HTTPTimeout,
+		MaxIdleConns:        scan.Options.HTTPMaxIdleConns,
+		MaxIdleConnsPerHost: scan.Options.HTTPMaxIdleConnsPerHost,
+		MaxConnsPerHost:     scan.Options.HTTPMaxConnsPerHost,
+		DisableKeepAlives:   scan.Options.HTTPDisableKeepAlives,
+	})
+
 	crawler := crawl.NewCrawler(
 		jobData.StartURLs,
 		jobData.MaxPagesToCrawl,
@@ -78,11 +82,12 @@ func (e *CrawlExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *cont
 		jobData.PoolSize,
 		jobData.ExcludePatterns,
 		job.WorkspaceID,
-		0,          // taskID - not used in new system
-		job.ScanID, // scanID - used to associate history items with the scan
-		job.ID,     // scanJobID - used to associate history items with this specific job
+		0,
+		job.ScanID,
+		job.ID,
 		jobData.ExtraHeaders,
-		captureBrowserEvents,
+		scan.CaptureBrowserEvents,
+		httpClient,
 	)
 
 	// Checkpoint: check before heavy operation

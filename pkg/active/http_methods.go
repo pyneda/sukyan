@@ -3,6 +3,7 @@ package active
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
 
 	"github.com/pyneda/sukyan/db"
@@ -20,6 +21,7 @@ type HTTPMethodsAudit struct {
 	TaskJobID   uint
 	ScanID      uint
 	ScanJobID   uint
+	HTTPClient  *http.Client
 }
 
 type httpMethodsAudiItem struct {
@@ -132,7 +134,10 @@ func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
 }
 
 func (a *HTTPMethodsAudit) testItemWithContext(ctx context.Context, item httpMethodsAudiItem) {
-	client := http_utils.CreateHttpClient()
+	client := a.HTTPClient
+	if client == nil {
+		client = http_utils.CreateHttpClient()
+	}
 	auditLog := log.With().Str("audit", "httpMethods").Interface("auditItem", item).Str("url", a.HistoryItem.URL).Uint("workspace", a.WorkspaceID).Logger()
 	request, err := http_utils.BuildRequestFromHistoryItem(a.HistoryItem)
 	if err != nil {

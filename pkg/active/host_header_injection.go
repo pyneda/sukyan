@@ -32,6 +32,7 @@ type HostHeaderInjectionAudit struct {
 	TaskJobID          uint
 	ScanID             uint
 	ScanJobID          uint
+	HTTPClient         *http.Client
 }
 
 type hostHeaderInjectionAuditItem struct {
@@ -170,7 +171,10 @@ func (a *HostHeaderInjectionAudit) testItemWithContext(ctx context.Context, item
 	// - Use the data gathered in previous steps to compare with the current implementation results
 	// - Could use interactsh payloads
 	// - Could also probably send all headers at once
-	client := http_utils.CreateHttpClient()
+	client := a.HTTPClient
+	if client == nil {
+		client = http_utils.CreateHttpClient()
+	}
 	auditLog := log.With().Str("audit", "host-header-injection").Interface("auditItem", item).Str("url", a.URL).Logger()
 	request, err := http.NewRequestWithContext(ctx, "GET", a.URL, nil)
 	if err != nil {

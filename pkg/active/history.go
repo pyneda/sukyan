@@ -43,6 +43,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		ScanID:      options.ScanID,
 		ScanJobID:   options.ScanJobID,
 		ScanMode:    options.Mode,
+		HTTPClient:  options.HTTPClient,
 	}
 	historyCreateOptions := http_utils.HistoryCreationOptions{
 		Source:              db.SourceScanner,

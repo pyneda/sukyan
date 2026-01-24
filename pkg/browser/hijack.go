@@ -59,10 +59,13 @@ func (rt *RedirectTracker) IsRedirectLoop(url string) bool {
 	return rt.urlCounts[url] > 3
 }
 
-func HijackWithContext(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, ctx context.Context, workspaceID, taskID, scanID, scanJobID uint) *rod.HijackRouter {
+func HijackWithContext(config HijackConfig, browser *rod.Browser, httpClient *http.Client, source string, resultsChannel chan HijackResult, ctx context.Context, workspaceID, taskID, scanID, scanJobID uint) *rod.HijackRouter {
 	router := browser.HijackRequests()
 	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
 	redirectTracker := NewRedirectTracker()
+	if httpClient == nil {
+		httpClient = http_utils.CreateHttpClient()
+	}
 	router.MustAdd("*", func(hj *rod.Hijack) {
 
 		if hj == nil || hj.Request == nil || hj.Request.URL() == nil {
@@ -89,7 +92,7 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 			hj.ContinueRequest(&proto.FetchContinueRequest{})
 			return
 		}
-		err := hj.LoadResponse(http.DefaultClient, true)
+		err := hj.LoadResponse(httpClient, true)
 		mustSkip := false
 
 		if err != nil {
@@ -145,10 +148,12 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, source string,
 
 }
 
-func Hijack(config HijackConfig, browser *rod.Browser, source string, resultsChannel chan HijackResult, workspaceID, taskID, scanID, scanJobID uint) {
+func Hijack(config HijackConfig, browser *rod.Browser, httpClient *http.Client, source string, resultsChannel chan HijackResult, workspaceID, taskID, scanID, scanJobID uint) {
 	router := browser.HijackRequests()
 	ignoreKeywords := []string{"google", "twitter", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
-	httpClient := http_utils.CreateHttpClient()
+	if httpClient == nil {
+		httpClient = http_utils.CreateHttpClient()
+	}
 	redirectTracker := NewRedirectTracker()
 	router.MustAdd("*", func(ctx *rod.Hijack) {
 		if ctx == nil || ctx.Request == nil || ctx.Request.URL() == nil {

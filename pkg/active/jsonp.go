@@ -74,7 +74,10 @@ func JSONPCallbackScan(history *db.History, options ActiveModuleOptions) {
 	hasJsonParam := hasJsonpParameter(history)
 	callbacksToTest := getCallbacksForMode(options.ScanMode, hasJsonParam)
 
-	client := http_utils.CreateHttpClient()
+	client := options.HTTPClient
+	if client == nil {
+		client = http_utils.CreateHttpClient()
+	}
 	p := pool.New().WithMaxGoroutines(options.Concurrency)
 
 	for _, param := range callbacksToTest {

@@ -139,7 +139,10 @@ func (a *React2ShellAudit) Run() {
 		CreateNewBodyStream: false,
 	}
 
-	client := http_utils.CreateHttpClient()
+	client := a.Options.HTTPClient
+	if client == nil {
+		client = http_utils.CreateHttpClient()
+	}
 	executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
 		Client:                 client,
 		CreateHistory:          true,

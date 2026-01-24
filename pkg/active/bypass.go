@@ -24,6 +24,7 @@ type ActiveModuleOptions struct {
 	ScanJobID   uint
 	Concurrency int
 	ScanMode    options.ScanMode
+	HTTPClient  *http.Client
 }
 
 type HeaderTest struct {
@@ -125,7 +126,10 @@ func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 	if options.Concurrency == 0 {
 		options.Concurrency = 5
 	}
-	client := http_utils.CreateHttpClient()
+	client := options.HTTPClient
+	if client == nil {
+		client = http_utils.CreateHttpClient()
+	}
 
 	// Get context, defaulting to background if not provided
 	ctx := options.Ctx

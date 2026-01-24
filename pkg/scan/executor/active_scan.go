@@ -10,6 +10,7 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/active"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan/control"
@@ -96,11 +97,26 @@ func (e *ActiveScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl 
 		return fmt.Errorf("failed to get history item %d: %w", jobData.HistoryID, err)
 	}
 
+	// Fetch scan for HTTP client configuration
+	scan, err := db.Connection().GetScanByID(job.ScanID)
+	if err != nil {
+		return fmt.Errorf("failed to get scan %d: %w", job.ScanID, err)
+	}
+
+	// Create HTTP client from scan options
+	httpClient := http_utils.CreateHTTPClientFromConfig(http_utils.HTTPClientConfig{
+		Timeout:             scan.Options.HTTPTimeout,
+		MaxIdleConns:        scan.Options.HTTPMaxIdleConns,
+		MaxIdleConnsPerHost: scan.Options.HTTPMaxIdleConnsPerHost,
+		MaxConnsPerHost:     scan.Options.HTTPMaxConnsPerHost,
+		DisableKeepAlives:   scan.Options.HTTPDisableKeepAlives,
+	})
+
 	// Build scan options
 	options := scan_options.HistoryItemScanOptions{
 		Ctx:                ctx,
 		WorkspaceID:        job.WorkspaceID,
-		TaskID:             0, // New scan system doesn't use tasks
+		TaskID:             0,
 		TaskJobID:          0,
 		ScanID:             job.ScanID,
 		ScanJobID:          job.ID,
@@ -111,6 +127,7 @@ func (e *ActiveScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl 
 		FingerprintTags:    jobData.FingerprintTags,
 		Fingerprints:       jobData.Fingerprints,
 		MaxRetries:         jobData.MaxRetries,
+		HTTPClient:         httpClient,
 	}
 
 	// Checkpoint: check before heavy operation

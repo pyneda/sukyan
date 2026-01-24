@@ -185,7 +185,7 @@ Content-Type: text/xml
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			valid, details, confidence := IsFlashCrossDomainValidationFunc(tc.history)
+			valid, details, confidence := IsFlashCrossDomainValidationFunc(tc.history, nil)
 			assert.Equal(t, tc.expectValid, valid)
 			if valid {
 				assert.NotEmpty(t, details)

@@ -66,8 +66,10 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 		auditLog.Info().Msg("No interesting insertion points to test for open redirect")
 		return false, nil
 	}
-	client := http_utils.CreateHttpClient()
-	// ensure that the client does not follow redirects
+	client := options.HTTPClient
+	if client == nil {
+		client = http_utils.CreateHttpClient()
+	}
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	}

@@ -289,7 +289,7 @@ func (x *AlertAudit) testPayloadForSingleInsertionPoint(browserPool *browser.Bro
 		parentCtx = context.Background()
 	}
 	hijackContext, hijackCancel := context.WithCancel(parentCtx)
-	browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
+	browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, nil, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
 	defer browserPool.ReleaseBrowser(b)
 	defer hijackCancel()
 
@@ -342,7 +342,7 @@ func (x *AlertAudit) testPayload(browserPool *browser.BrowserPoolManager, histor
 		parentCtx = context.Background()
 	}
 	hijackContext, hijackCancel := context.WithCancel(parentCtx)
-	browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
+	browser.HijackWithContext(browser.HijackConfig{AnalyzeJs: false, AnalyzeHTML: false}, b, nil, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
 	defer browserPool.ReleaseBrowser(b)
 	defer hijackCancel()
 	go func() {

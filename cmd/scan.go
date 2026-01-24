@@ -45,6 +45,11 @@ var websocketConcurrency int
 var websocketReplayMessages bool
 var websocketObservationWindow int
 var captureBrowserEvents bool
+var httpTimeout int
+var httpMaxIdleConns int
+var httpMaxIdleConnsPerHost int
+var httpMaxConnsPerHost int
+var httpDisableKeepAlives bool
 
 var validate = validator.New()
 
@@ -106,7 +111,6 @@ var scanCmd = &cobra.Command{
 		headers := lib.ParseHeadersStringToMap(requestsHeadersString)
 		log.Info().Interface("headers", headers).Msg("Parsed headers")
 
-		// Prepare optional int pointers
 		var maxConcurrentJobsPtr *int
 		var maxRPSPtr *int
 		if maxConcurrentJobs > 0 {
@@ -114,6 +118,27 @@ var scanCmd = &cobra.Command{
 		}
 		if maxRPS > 0 {
 			maxRPSPtr = &maxRPS
+		}
+
+		var httpTimeoutPtr *int
+		var httpMaxIdleConnsPtr *int
+		var httpMaxIdleConnsPerHostPtr *int
+		var httpMaxConnsPerHostPtr *int
+		var httpDisableKeepAlivesPtr *bool
+		if httpTimeout > 0 {
+			httpTimeoutPtr = &httpTimeout
+		}
+		if httpMaxIdleConns > 0 {
+			httpMaxIdleConnsPtr = &httpMaxIdleConns
+		}
+		if httpMaxIdleConnsPerHost > 0 {
+			httpMaxIdleConnsPerHostPtr = &httpMaxIdleConnsPerHost
+		}
+		if httpMaxConnsPerHost > 0 {
+			httpMaxConnsPerHostPtr = &httpMaxConnsPerHost
+		}
+		if httpDisableKeepAlives {
+			httpDisableKeepAlivesPtr = &httpDisableKeepAlives
 		}
 
 		options := scan_options.FullScanOptions{
@@ -140,10 +165,15 @@ var scanCmd = &cobra.Command{
 				ReplayMessages:    websocketReplayMessages,
 				ObservationWindow: websocketObservationWindow,
 			},
-			MaxRetries:           maxRetries,
-			MaxConcurrentJobs:    maxConcurrentJobsPtr,
-			MaxRPS:               maxRPSPtr,
-			CaptureBrowserEvents: captureBrowserEvents,
+			MaxRetries:              maxRetries,
+			MaxConcurrentJobs:       maxConcurrentJobsPtr,
+			MaxRPS:                  maxRPSPtr,
+			CaptureBrowserEvents:    captureBrowserEvents,
+			HTTPTimeout:             httpTimeoutPtr,
+			HTTPMaxIdleConns:        httpMaxIdleConnsPtr,
+			HTTPMaxIdleConnsPerHost: httpMaxIdleConnsPerHostPtr,
+			HTTPMaxConnsPerHost:     httpMaxConnsPerHostPtr,
+			HTTPDisableKeepAlives:   httpDisableKeepAlivesPtr,
 		}
 		if err := validate.Struct(options); err != nil {
 			log.Error().Err(err).Msg("Validation failed")
@@ -315,4 +345,11 @@ func init() {
 	scanCmd.Flags().BoolVar(&websocketReplayMessages, "websocket-replay-messages", false, "Replay WebSocket messages")
 	scanCmd.Flags().IntVar(&websocketObservationWindow, "websocket-observation-window", 10, "WebSocket observation window in seconds (1-100)")
 	scanCmd.Flags().BoolVar(&captureBrowserEvents, "capture-browser-events", false, "Capture and store browser events (console, storage, security, etc.) during scanning")
+
+	// HTTP Client Configuration
+	scanCmd.Flags().IntVar(&httpTimeout, "http-timeout", 0, "HTTP client timeout in seconds (0 = use global default)")
+	scanCmd.Flags().IntVar(&httpMaxIdleConns, "http-max-idle-conns", 0, "Max idle connections total (0 = use global default)")
+	scanCmd.Flags().IntVar(&httpMaxIdleConnsPerHost, "http-max-idle-conns-per-host", 0, "Max idle connections per host (0 = use global default)")
+	scanCmd.Flags().IntVar(&httpMaxConnsPerHost, "http-max-conns-per-host", 0, "Max concurrent connections per host (0 = use global default)")
+	scanCmd.Flags().BoolVar(&httpDisableKeepAlives, "http-disable-keep-alives", false, "Disable HTTP keep-alives")
 }

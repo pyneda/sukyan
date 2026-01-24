@@ -6,6 +6,7 @@ import (
 
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/crawl"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -36,7 +37,8 @@ to quickly create a Cobra application.`,
 		headers := lib.ParseHeadersStringToMap(requestsHeadersString)
 
 		log.Info().Strs("startUrls", startUrls).Int("count", len(startUrls)).Msg("Creating and scheduling the crawler")
-		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, 0, 0, 0, headers, crawlCaptureBrowserEvents)
+		httpClient := http_utils.CreateHTTPClientFromConfig(http_utils.HTTPClientConfig{})
+	crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, 0, 0, 0, headers, crawlCaptureBrowserEvents, httpClient)
 		crawler.Run()
 	},
 }

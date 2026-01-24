@@ -107,7 +107,7 @@ func (b *BrowserPoolManager) createBrowser() (*rod.Browser, error) {
 	// browser.IgnoreCertErrors(true)
 	go browser.HandleAuth(viper.GetString("navigation.auth.basic.username"), viper.GetString("navigation.auth.basic.password"))()
 	if b.hijack {
-		Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, browser, b.config.Source, b.HijackResultsChannel, b.workspaceID, b.taskID, b.scanID, b.scanJobID)
+		Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, browser, nil, b.config.Source, b.HijackResultsChannel, b.workspaceID, b.taskID, b.scanID, b.scanJobID)
 	}
 	return browser, nil
 }

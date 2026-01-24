@@ -82,6 +82,15 @@ func SetDefaultConfig() {
 
 	viper.SetDefault("scan.avoid_repeated_issues", true)
 
+	viper.SetDefault("http.client.timeout", "30s")
+	viper.SetDefault("http.client.max_idle_conns", 100)
+	viper.SetDefault("http.client.max_idle_conns_per_host", 10)
+	viper.SetDefault("http.client.max_conns_per_host", 15)
+	viper.SetDefault("http.client.disable_keep_alives", false)
+	viper.SetDefault("http.client.tls_handshake_timeout", "10s")
+	viper.SetDefault("http.client.idle_conn_timeout", "90s")
+	viper.SetDefault("http.client.expect_continue_timeout", "1s")
+
 	// DOM XSS scanning
 	viper.SetDefault("scan.dom_xss.skip_if_no_patterns", true)
 	viper.SetDefault("scan.dom_xss.source_timeout", 30)

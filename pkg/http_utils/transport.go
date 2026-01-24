@@ -110,3 +110,49 @@ func CreateHttp3Client() *http.Client {
 		Transport: transport,
 	}
 }
+
+type HTTPClientConfig struct {
+	Timeout             *int
+	MaxIdleConns        *int
+	MaxIdleConnsPerHost *int
+	MaxConnsPerHost     *int
+	DisableKeepAlives   *bool
+}
+
+func CreateHTTPClientFromConfig(cfg HTTPClientConfig) *http.Client {
+	transport := CreateHttpTransport()
+
+	if cfg.MaxIdleConns != nil {
+		transport.MaxIdleConns = *cfg.MaxIdleConns
+	} else {
+		transport.MaxIdleConns = viper.GetInt("http.client.max_idle_conns")
+	}
+
+	if cfg.MaxIdleConnsPerHost != nil {
+		transport.MaxIdleConnsPerHost = *cfg.MaxIdleConnsPerHost
+	} else {
+		transport.MaxIdleConnsPerHost = viper.GetInt("http.client.max_idle_conns_per_host")
+	}
+
+	if cfg.MaxConnsPerHost != nil {
+		transport.MaxConnsPerHost = *cfg.MaxConnsPerHost
+	} else {
+		transport.MaxConnsPerHost = viper.GetInt("http.client.max_conns_per_host")
+	}
+
+	if cfg.DisableKeepAlives != nil {
+		transport.DisableKeepAlives = *cfg.DisableKeepAlives
+	} else {
+		transport.DisableKeepAlives = viper.GetBool("http.client.disable_keep_alives")
+	}
+
+	timeout := viper.GetDuration("http.client.timeout")
+	if cfg.Timeout != nil {
+		timeout = time.Duration(*cfg.Timeout) * time.Second
+	}
+
+	return &http.Client{
+		Transport: transport,
+		Timeout:   timeout,
+	}
+}

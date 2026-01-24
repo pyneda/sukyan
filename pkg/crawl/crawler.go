@@ -2,6 +2,7 @@ package crawl
 
 import (
 	"context"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -73,7 +74,7 @@ type SubmittedForm struct {
 	xpath string
 }
 
-func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool) *Crawler {
+func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool, httpClient *http.Client) *Crawler {
 	hijackChan := make(chan browser.HijackResult)
 	options := CrawlOptions{
 		ExtraHeaders:    extraHeaders,
@@ -82,7 +83,8 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 	}
 	browser := browser.NewHijackedPagePoolManager(
 		browser.PagePoolManagerConfig{
-			PoolSize: poolSize,
+			PoolSize:   poolSize,
+			HTTPClient: httpClient,
 		},
 		"Crawler",
 		hijackChan,
@@ -109,8 +111,8 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize 
 }
 
 // NewCrawlerWithContext creates a new Crawler with context for cancellation support
-func NewCrawlerWithContext(ctx context.Context, startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool) *Crawler {
-	crawler := NewCrawler(startURLs, maxPagesToCrawl, maxDepth, poolSize, excludePatterns, workspaceID, taskID, scanID, scanJobID, extraHeaders, captureBrowserEvents)
+func NewCrawlerWithContext(ctx context.Context, startURLs []string, maxPagesToCrawl int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool, httpClient *http.Client) *Crawler {
+	crawler := NewCrawler(startURLs, maxPagesToCrawl, maxDepth, poolSize, excludePatterns, workspaceID, taskID, scanID, scanJobID, extraHeaders, captureBrowserEvents, httpClient)
 	crawler.ctx, crawler.cancel = context.WithCancel(ctx)
 	return crawler
 }

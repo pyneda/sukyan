@@ -31,6 +31,7 @@ type Log4ShellInjectionAudit struct {
 	ScanID              uint
 	ScanJobID           uint
 	Mode                scan_options.ScanMode
+	HTTPClient          *http.Client
 }
 
 type log4ShellAuditItem struct {
@@ -224,7 +225,10 @@ func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
 }
 
 func (a *Log4ShellInjectionAudit) testItemWithContext(ctx context.Context, item log4ShellAuditItem) {
-	client := http_utils.CreateHttpClient()
+	client := a.HTTPClient
+	if client == nil {
+		client = http_utils.CreateHttpClient()
+	}
 	auditLog := log.With().Str("audit", "log4shell").Interface("auditItem", item).Str("url", a.URL).Logger()
 	request, err := http.NewRequestWithContext(ctx, "GET", a.URL, nil)
 	if err != nil {

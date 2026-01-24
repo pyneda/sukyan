@@ -205,7 +205,7 @@ func TestDiscoverPaths(t *testing.T) {
 				Concurrency:    2,
 				Timeout:        5,
 				StopAfterValid: true,
-				ValidationFunc: func(h *db.History) (bool, string, int) {
+				ValidationFunc: func(h *db.History, ctx *ValidationContext) (bool, string, int) {
 					return h.StatusCode == 403, "Found forbidden endpoint", 90
 				},
 				HistoryCreationOptions: http_utils.HistoryCreationOptions{

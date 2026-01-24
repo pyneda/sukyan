@@ -2,6 +2,7 @@ package options
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/pyneda/sukyan/lib"
@@ -126,7 +127,8 @@ type HistoryItemScanOptions struct {
 	ExperimentalAudits bool              `json:"experimental_audits"`
 	AuditCategories    AuditCategories   `json:"audit_categories" validate:"required"`
 	MaxRetries         int               `json:"max_retries" validate:"min=0"`
-	AuditSampler       *AuditSampler     `json:"-"` // Sampler for expensive audits (optional)
+	AuditSampler       *AuditSampler     `json:"-"`
+	HTTPClient         *http.Client      `json:"-"`
 }
 
 func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bool {
@@ -159,8 +161,13 @@ type FullScanOptions struct {
 	MaxRetries           int                      `json:"max_retries" validate:"min=0"`
 	MaxConcurrentJobs    *int                     `json:"max_concurrent_jobs,omitempty"`
 	MaxRPS               *int                     `json:"max_rps,omitempty"`
-	JobTimeouts          *JobTimeouts             `json:"job_timeouts,omitempty"` // Per-scan job timeout overrides
-	CaptureBrowserEvents bool                     `json:"capture_browser_events"` // Enable browser event capture and storage
+	JobTimeouts              *JobTimeouts `json:"job_timeouts,omitempty"`
+	CaptureBrowserEvents     bool         `json:"capture_browser_events"`
+	HTTPTimeout              *int         `json:"http_timeout,omitempty"`
+	HTTPMaxIdleConns         *int         `json:"http_max_idle_conns,omitempty"`
+	HTTPMaxIdleConnsPerHost  *int         `json:"http_max_idle_conns_per_host,omitempty"`
+	HTTPMaxConnsPerHost      *int         `json:"http_max_conns_per_host,omitempty"`
+	HTTPDisableKeepAlives    *bool        `json:"http_disable_keep_alives,omitempty"`
 }
 
 type FullScanWebSocketOptions struct {

@@ -2,7 +2,7 @@ package discovery
 
 import (
 	"encoding/json"
-	"math"
+	"fmt"
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
@@ -77,90 +77,96 @@ var OpenAPIPaths = []string{
 }
 
 func IsOpenAPIValidationFunc(history *db.History, ctx *ValidationContext) (bool, string, int) {
-	confidence := 20
-	details := make([]string, 0)
-
 	if history.StatusCode != 200 {
-		confidence = 15
-	}
-
-	contentType := strings.ToLower(history.ResponseContentType)
-	if strings.Contains(contentType, "application/json") {
-		confidence += 20
-		if strings.HasSuffix(history.URL, "json") {
-			confidence += 10
-		}
-		details = append(details, "JSON content type detected")
-	} else if strings.Contains(contentType, "application/yaml") || strings.Contains(contentType, "application/x-yaml") {
-		confidence += 30
-		details = append(details, "YAML content type detected")
-	} else if strings.Contains(contentType, "text/html") {
-		confidence -= 20
+		return false, "", 0
 	}
 
 	body, _ := history.ResponseBody()
-	bodyStr := string(body)
-	bodyLower := strings.ToLower(bodyStr)
-
-	commonFields := []string{
-		"\"swagger\":", "\"openapi\":", "\"info\":", "\"paths\":", "\"components\":",
-		"\"definitions\":", "\"consumes\":", "\"produces\":", "$ref", "\"responses\":",
-		"\"servers\":", "\"security\":", "\"tags\":", "\"externalDocs\":",
-		"\"parameters\":", "\"schemas\":", "\"requestBody\":", "\"callbacks\":",
-		"\"links\":", "\"headers\":", "\"securitySchemes\":", "\"examples\":",
-		"\"description\":", "\"summary\":", "\"operationId\":", "\"deprecated\":",
-		"\"content\":", "\"mediaType\":", "\"required\":", "\"type\":", "\"properties\":",
-		"swagger:", "openapi:", "info:", "paths:", "components:", "definitions:",
-		"servers:", "security:", "tags:", "externalDocs:", "parameters:", "schemas:",
-		"requestBody:", "callbacks:", "links:", "headers:", "securitySchemes:",
-		"examples:", "description:", "summary:", "operationId:", "deprecated:",
-		"content:", "mediaType:", "required:", "type:", "properties:",
+	if len(body) == 0 {
+		return false, "", 0
 	}
 
-	fieldCount := 0
-	matchedFields := []string{}
+	var jsonObj map[string]interface{}
+	if json.Unmarshal(body, &jsonObj) != nil {
+		return false, "", 0
+	}
 
-	for _, field := range commonFields {
-		if strings.Contains(bodyLower, field) {
-			fieldCount++
+	swaggerVersion, hasSwagger := jsonObj["swagger"]
+	openapiVersion, hasOpenAPI := jsonObj["openapi"]
+
+	if !hasSwagger && !hasOpenAPI {
+		return false, "", 0
+	}
+
+	confidence := 40
+	details := make([]string, 0)
+
+	if hasSwagger {
+		if v, ok := swaggerVersion.(string); ok && strings.HasPrefix(v, "2.") {
+			confidence += 15
+			details = append(details, fmt.Sprintf("Swagger version: %s", v))
+		} else {
+			details = append(details, "Swagger version field present")
+		}
+	}
+
+	if hasOpenAPI {
+		if v, ok := openapiVersion.(string); ok && (strings.HasPrefix(v, "3.0") || strings.HasPrefix(v, "3.1")) {
+			confidence += 15
+			details = append(details, fmt.Sprintf("OpenAPI version: %s", v))
+		} else {
+			details = append(details, "OpenAPI version field present")
+		}
+	}
+
+	definitiveFields := map[string]int{
+		"info": 10, "paths": 15, "components": 10, "definitions": 10,
+		"servers": 5, "basePath": 5, "host": 5, "consumes": 5, "produces": 5,
+	}
+
+	matchedFields := []string{}
+	for field, points := range definitiveFields {
+		if _, exists := jsonObj[field]; exists {
+			confidence += points
 			matchedFields = append(matchedFields, field)
 		}
 	}
 
-	// Increment confidence by 15 per match, with a maximum of 100
-	confidenceIncrement := 15
-	confidence = int(math.Min(float64(confidence+(confidenceIncrement*fieldCount)), 100))
-
-	if fieldCount >= 2 {
-		details = append(details, "Multiple OpenAPI/Swagger fields detected: "+strings.Join(matchedFields, ", "))
+	if len(matchedFields) > 0 {
+		details = append(details, "OpenAPI fields found: "+strings.Join(matchedFields, ", "))
 	}
 
-	headersStr, err := history.GetResponseHeadersAsString()
-	if err == nil {
-		headersLower := strings.ToLower(headersStr)
-		if strings.Contains(headersLower, "swagger") || strings.Contains(headersLower, "openapi") {
-			confidence = int(math.Min(float64(confidence+20), 100))
-			details = append(details, "API documentation related header detected")
+	if info, ok := jsonObj["info"].(map[string]interface{}); ok {
+		if _, hasTitle := info["title"]; hasTitle {
+			confidence += 5
+		}
+		if _, hasVersion := info["version"]; hasVersion {
+			confidence += 5
 		}
 	}
 
-	var jsonObj map[string]interface{}
-
-	if json.Unmarshal(body, &jsonObj) == nil {
-		if _, hasSwagger := jsonObj["swagger"]; hasSwagger {
-			confidence += 20
-			details = append(details, "Valid Swagger version field found")
+	if paths, ok := jsonObj["paths"].(map[string]interface{}); ok && len(paths) > 0 {
+		validPathCount := 0
+		for pathKey := range paths {
+			if strings.HasPrefix(pathKey, "/") {
+				validPathCount++
+			}
 		}
-		if _, hasOpenAPI := jsonObj["openapi"]; hasOpenAPI {
-			confidence += 20
-			details = append(details, "Valid OpenAPI version field found")
+		if validPathCount > 0 {
+			confidence += 10
+			details = append(details, fmt.Sprintf("Found %d API path definitions", validPathCount))
 		}
 	}
 
-	if confidence > 50 {
-		if confidence > 100 {
-			confidence = 100
-		}
+	if strings.Contains(strings.ToLower(history.ResponseContentType), "application/json") {
+		confidence += 5
+	}
+
+	if confidence > 100 {
+		confidence = 100
+	}
+
+	if confidence >= 60 {
 		return true, strings.Join(details, "\n"), confidence
 	}
 

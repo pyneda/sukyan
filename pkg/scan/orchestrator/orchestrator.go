@@ -26,19 +26,21 @@ import (
 type ScanPhase string
 
 const (
-	PhaseCrawl       ScanPhase = "crawl"
-	PhaseFingerprint ScanPhase = "fingerprint"
-	PhaseDiscovery   ScanPhase = "discovery"
-	PhaseNuclei      ScanPhase = "nuclei"
-	PhaseActiveScan  ScanPhase = "active_scan"
-	PhaseWebSocket   ScanPhase = "websocket"
-	PhaseComplete    ScanPhase = "complete"
+	PhaseCrawl        ScanPhase = "crawl"
+	PhaseFingerprint  ScanPhase = "fingerprint"
+	PhaseSiteBehavior ScanPhase = "site_behavior"
+	PhaseDiscovery    ScanPhase = "discovery"
+	PhaseNuclei       ScanPhase = "nuclei"
+	PhaseActiveScan   ScanPhase = "active_scan"
+	PhaseWebSocket    ScanPhase = "websocket"
+	PhaseComplete     ScanPhase = "complete"
 )
 
 // PhaseOrder defines the sequence of phases in a full scan
 var PhaseOrder = []ScanPhase{
 	PhaseCrawl,
 	PhaseFingerprint,
+	PhaseSiteBehavior,
 	PhaseDiscovery,
 	PhaseNuclei,
 	PhaseActiveScan,
@@ -59,6 +61,8 @@ type JobScheduler interface {
 	ScheduleDiscovery(ctx context.Context, scanID uint, baseURLs []string) error
 	// ScheduleCrawl schedules crawling jobs
 	ScheduleCrawl(ctx context.Context, scanID uint, urls []string) error
+	// ScheduleSiteBehavior schedules site behavior check jobs for base URLs
+	ScheduleSiteBehavior(ctx context.Context, scanID uint, baseURLs []string) error
 }
 
 // Config holds orchestrator configuration
@@ -253,6 +257,8 @@ func (o *Orchestrator) transitionToNextPhase(scanEntity *db.Scan) error {
 		return o.startCrawlPhase(scanEntity)
 	case PhaseFingerprint:
 		return o.startFingerprintPhase(scanEntity)
+	case PhaseSiteBehavior:
+		return o.startSiteBehaviorPhase(scanEntity)
 	case PhaseDiscovery:
 		return o.startDiscoveryPhase(scanEntity)
 	case PhaseNuclei:
@@ -491,6 +497,28 @@ func removeDuplicateHistoryItems(histories []*db.History) []*db.History {
 	return result
 }
 
+// startSiteBehaviorPhase initiates the site behavior checking phase
+func (o *Orchestrator) startSiteBehaviorPhase(scanEntity *db.Scan) error {
+	scanLog := log.With().Uint("scan_id", scanEntity.ID).Logger()
+	scanLog.Info().Msg("Starting site behavior phase")
+
+	scanScope := o.getScopeForScan(scanEntity)
+
+	baseURLs, err := o.getInScopeBaseURLsForScan(scanEntity, scanScope)
+	if err != nil {
+		return fmt.Errorf("failed to get base URLs: %w", err)
+	}
+
+	if len(baseURLs) == 0 {
+		scanLog.Warn().Msg("No in-scope base URLs for site behavior phase")
+		return nil
+	}
+
+	scanLog.Info().Int("base_url_count", len(baseURLs)).Msg("Scheduling site behavior checks")
+
+	return o.scheduler.ScheduleSiteBehavior(o.ctx, scanEntity.ID, baseURLs)
+}
+
 // startDiscoveryPhase initiates the discovery/fuzzing phase
 func (o *Orchestrator) startDiscoveryPhase(scanEntity *db.Scan) error {
 	scanLog := log.With().Uint("scan_id", scanEntity.ID).Logger()
@@ -509,60 +537,7 @@ func (o *Orchestrator) startDiscoveryPhase(scanEntity *db.Scan) error {
 		return nil
 	}
 
-	// Check site behavior for each base URL before discovery
-	o.siteBehaviorMu.Lock()
-	if o.siteBehaviors[scanEntity.ID] == nil {
-		o.siteBehaviors[scanEntity.ID] = make(map[string]*http_utils.SiteBehavior)
-	}
-	o.siteBehaviorMu.Unlock()
-
-	for _, baseURL := range baseURLs {
-		createOpts := http_utils.HistoryCreationOptions{
-			Source:      db.SourceScanner,
-			WorkspaceID: scanEntity.WorkspaceID,
-			TaskID:      0,
-			ScanID:      scanEntity.ID,
-		}
-
-		siteBehavior, err := http_utils.CheckSiteBehavior(http_utils.SiteBehaviourCheckOptions{
-			BaseURL:                baseURL,
-			Client:                 o.httpClient,
-			HistoryCreationOptions: createOpts,
-			Concurrency:            10,
-			Headers:                scanEntity.Options.Headers,
-		})
-		if err != nil {
-			scanLog.Error().Err(err).Str("base_url", baseURL).Msg("Could not check site behavior")
-			continue
-		}
-
-		o.siteBehaviorMu.Lock()
-		o.siteBehaviors[scanEntity.ID][baseURL] = siteBehavior
-		o.siteBehaviorMu.Unlock()
-	}
-
-	// Store site behaviors in checkpoint
-	if scanEntity.Checkpoint == nil {
-		scanEntity.Checkpoint = &db.ScanCheckpoint{}
-	}
-	if scanEntity.Checkpoint.SiteBehaviors == nil {
-		scanEntity.Checkpoint.SiteBehaviors = make(map[string]*db.SiteBehavior)
-	}
-
-	o.siteBehaviorMu.RLock()
-	for baseURL, behavior := range o.siteBehaviors[scanEntity.ID] {
-		scanEntity.Checkpoint.SiteBehaviors[baseURL] = &db.SiteBehavior{
-			NotFoundReturns404: behavior.NotFoundReturns404,
-			NotFoundChanges:    behavior.NotFoundChanges,
-			CommonHash:         behavior.CommonHash,
-		}
-	}
-	o.siteBehaviorMu.RUnlock()
-
-	if _, err := db.Connection().UpdateScan(scanEntity); err != nil {
-		scanLog.Error().Err(err).Msg("Failed to update scan checkpoint with site behaviors")
-	}
-
+	// Site behaviors are already populated in the database by the site_behavior phase
 	return o.scheduler.ScheduleDiscovery(o.ctx, scanEntity.ID, baseURLs)
 }
 

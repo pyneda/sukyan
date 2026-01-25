@@ -158,6 +158,9 @@ func (sm *ScanManager) registerExecutors() {
 	// Register crawl executor
 	sm.executorRegistry.Register(executor.NewCrawlExecutor())
 
+	// Register site behavior executor
+	sm.executorRegistry.Register(executor.NewSiteBehaviorExecutor())
+
 	log.Debug().Msg("Registered all scan executors")
 }
 
@@ -682,22 +685,32 @@ func (sm *ScanManager) scheduleDiscoveryForURL(scanID uint, workspaceID uint, ba
 		targetHost = u.Host
 	}
 
-	// Get scan to retrieve headers and site behavior
+	// Get scan to retrieve headers
 	scan, scanErr := sm.dbConn.GetScanByID(scanID)
 	var baseHeaders map[string][]string
-	var siteBehavior *http_utils.SiteBehavior
 	if scanErr == nil {
 		baseHeaders = scan.Options.Headers
-		// Get site behavior from checkpoint if available
-		if scan.Checkpoint != nil && scan.Checkpoint.SiteBehaviors != nil {
-			if sb, ok := scan.Checkpoint.SiteBehaviors[baseURL]; ok {
-				siteBehavior = &http_utils.SiteBehavior{
-					NotFoundReturns404: sb.NotFoundReturns404,
-					NotFoundChanges:    sb.NotFoundChanges,
-					CommonHash:         sb.CommonHash,
-				}
-			}
+	}
+
+	// Get site behavior from database table (populated by site_behavior phase)
+	var siteBehavior *http_utils.SiteBehavior
+	sbResult, sbErr := sm.dbConn.GetSiteBehaviorForBaseURL(scanID, baseURL)
+	if sbErr == nil && sbResult != nil {
+		siteBehavior = &http_utils.SiteBehavior{
+			NotFoundReturns404:  sbResult.NotFoundReturns404,
+			NotFoundChanges:     sbResult.NotFoundChanges,
+			NotFoundCommonHash:  sbResult.NotFoundCommonHash,
 		}
+		log.Debug().
+			Uint("scan_id", scanID).
+			Str("base_url", baseURL).
+			Bool("not_found_returns_404", sbResult.NotFoundReturns404).
+			Msg("Using site behavior from database for discovery job")
+	} else {
+		log.Debug().
+			Uint("scan_id", scanID).
+			Str("base_url", baseURL).
+			Msg("No site behavior found in database for discovery job")
 	}
 
 	// Build payload for the executor
@@ -1073,4 +1086,61 @@ func (sm *ScanManager) ScheduleCrawl(ctx context.Context, scanID uint, urls []st
 		scanEntity.Options.ExcludePatterns,
 		scanEntity.Options.Headers,
 	)
+}
+
+func (sm *ScanManager) ScheduleSiteBehavior(ctx context.Context, scanID uint, baseURLs []string) error {
+	scanEntity, err := sm.dbConn.GetScanByID(scanID)
+	if err != nil {
+		return fmt.Errorf("failed to get scan: %w", err)
+	}
+
+	for _, baseURL := range baseURLs {
+		if err := sm.scheduleSiteBehaviorForURL(scanID, scanEntity.WorkspaceID, baseURL, scanEntity.Options.Headers); err != nil {
+			log.Warn().Err(err).Str("url", baseURL).Msg("Failed to schedule site behavior check")
+		}
+	}
+
+	return nil
+}
+
+func (sm *ScanManager) scheduleSiteBehaviorForURL(scanID uint, workspaceID uint, baseURL string, headers map[string][]string) error {
+	exists, err := sm.dbConn.SiteBehaviorJobExistsForURL(scanID, baseURL)
+	if err != nil {
+		log.Warn().Err(err).Uint("scan_id", scanID).Str("url", baseURL).Msg("Failed to check for existing site behavior job")
+	} else if exists {
+		log.Debug().Uint("scan_id", scanID).Str("url", baseURL).Msg("Site behavior job already exists, skipping")
+		return nil
+	}
+
+	targetHost := ""
+	if u, err := url.Parse(baseURL); err == nil {
+		targetHost = u.Host
+	}
+
+	jobData := executor.SiteBehaviorJobData{
+		BaseURL:     baseURL,
+		Headers:     headers,
+		Concurrency: 10,
+	}
+	payload, _ := json.Marshal(jobData)
+
+	job := &db.ScanJob{
+		ScanID:      scanID,
+		WorkspaceID: workspaceID,
+		Status:      db.ScanJobStatusPending,
+		JobType:     db.ScanJobTypeSiteBehavior,
+		Priority:    15,
+		TargetHost:  targetHost,
+		URL:         baseURL,
+		Method:      "GET",
+		Payload:     payload,
+	}
+
+	if err := sm.queue.Enqueue(sm.ctx, job); err != nil {
+		return fmt.Errorf("failed to enqueue site behavior job: %w", err)
+	}
+
+	sm.dbConn.UpdateScanJobCounts(scanID)
+
+	return nil
 }

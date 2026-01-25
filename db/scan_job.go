@@ -25,6 +25,8 @@ func DefaultJobTimeout(jobType ScanJobType) time.Duration {
 		return 20 * time.Minute
 	case ScanJobTypeWebSocketScan:
 		return 15 * time.Minute
+	case ScanJobTypeSiteBehavior:
+		return 2 * time.Minute
 	default:
 		return 30 * time.Minute // Default fallback
 	}
@@ -51,6 +53,7 @@ const (
 	ScanJobTypeDiscovery     ScanJobType = "discovery"
 	ScanJobTypeNuclei        ScanJobType = "nuclei"
 	ScanJobTypeCrawl         ScanJobType = "crawl"
+	ScanJobTypeSiteBehavior  ScanJobType = "site_behavior"
 )
 
 // AuditType identifies audit modules for checkpoint tracking

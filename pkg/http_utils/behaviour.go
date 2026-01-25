@@ -19,7 +19,7 @@ type SiteBehavior struct {
 	NotFoundChanges    bool          `json:"not_found_changes"`
 	NotFoundSamples    []*db.History `json:"not_found_samples"`
 	BaseURLSample      *db.History   `json:"base_url_sample"`
-	CommonHash         string        `json:"common_hash"`
+	NotFoundCommonHash string `json:"not_found_common_hash"`
 	NotFoundStatusCode int           `json:"not_found_status_code"`
 }
 
@@ -195,7 +195,7 @@ func (b *SiteBehavior) analyzeResponses() {
 	b.NotFoundChanges = !allMatchBase && len(uniqueHashes) > 1
 
 	if allMatchBase {
-		b.CommonHash = baseHash
+		b.NotFoundCommonHash = baseHash
 	}
 
 	maxCount := 0
@@ -261,8 +261,8 @@ func (b *SiteBehavior) IsNotFound(history *db.History) bool {
 		}
 	}
 
-	if b.CommonHash == history.ResponseHash() {
-		logger.Debug().Str("history_hash", history.ResponseHash()).Str("common_hash", b.CommonHash).Msg("history response hash matches CommonHash, returning true")
+	if b.NotFoundCommonHash == history.ResponseHash() {
+		logger.Debug().Str("history_hash", history.ResponseHash()).Str("common_hash", b.NotFoundCommonHash).Msg("history response hash matches NotFoundCommonHash, returning true")
 		return true
 	}
 

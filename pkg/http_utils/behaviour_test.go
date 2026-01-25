@@ -78,7 +78,7 @@ func TestSiteBehaviorDetection(t *testing.T) {
 			validate: func(t *testing.T, behavior *SiteBehavior) {
 				assert.True(t, behavior.NotFoundReturns404, "should detect standard 404 responses")
 				assert.False(t, behavior.NotFoundChanges, "404 responses should be consistent")
-				assert.NotEqual(t, behavior.CommonHash, behavior.BaseURLSample.ResponseHash(), "error pages should differ from base URL")
+				assert.NotEqual(t, behavior.NotFoundCommonHash, behavior.BaseURLSample.ResponseHash(), "error pages should differ from base URL")
 			},
 		},
 		{
@@ -87,7 +87,7 @@ func TestSiteBehaviorDetection(t *testing.T) {
 			validate: func(t *testing.T, behavior *SiteBehavior) {
 				assert.False(t, behavior.NotFoundReturns404, "should not detect 404s")
 				assert.False(t, behavior.NotFoundChanges, "responses should not change")
-				assert.Equal(t, behavior.CommonHash, behavior.BaseURLSample.ResponseHash(), "all responses should match base URL")
+				assert.Equal(t, behavior.NotFoundCommonHash, behavior.BaseURLSample.ResponseHash(), "all responses should match base URL")
 			},
 		},
 		{
@@ -96,7 +96,7 @@ func TestSiteBehaviorDetection(t *testing.T) {
 			validate: func(t *testing.T, behavior *SiteBehavior) {
 				assert.False(t, behavior.NotFoundReturns404, "should not detect 404s")
 				assert.False(t, behavior.NotFoundChanges, "error pages should be consistent")
-				assert.NotEqual(t, behavior.CommonHash, behavior.BaseURLSample.ResponseHash(), "error pages should differ from base URL")
+				assert.NotEqual(t, behavior.NotFoundCommonHash, behavior.BaseURLSample.ResponseHash(), "error pages should differ from base URL")
 			},
 		},
 	}

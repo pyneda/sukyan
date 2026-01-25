@@ -26,12 +26,13 @@ const (
 type ScanPhase string
 
 const (
-	ScanPhaseCrawl       ScanPhase = "crawl"
-	ScanPhaseFingerprint ScanPhase = "fingerprint"
-	ScanPhaseDiscovery   ScanPhase = "discovery"
-	ScanPhaseNuclei      ScanPhase = "nuclei"
-	ScanPhaseActiveScan  ScanPhase = "active_scan"
-	ScanPhaseWebSocket   ScanPhase = "websocket"
+	ScanPhaseCrawl        ScanPhase = "crawl"
+	ScanPhaseFingerprint  ScanPhase = "fingerprint"
+	ScanPhaseSiteBehavior ScanPhase = "site_behavior"
+	ScanPhaseDiscovery    ScanPhase = "discovery"
+	ScanPhaseNuclei       ScanPhase = "nuclei"
+	ScanPhaseActiveScan   ScanPhase = "active_scan"
+	ScanPhaseWebSocket    ScanPhase = "websocket"
 )
 
 // ScanCheckpoint stores scan-level state for restart recovery
@@ -54,11 +55,10 @@ type ScanCheckpoint struct {
 	SiteBehaviors map[string]*SiteBehavior `json:"site_behaviors,omitempty"`
 }
 
-// SiteBehavior stores site behavior information for a base URL
 type SiteBehavior struct {
 	NotFoundReturns404 bool   `json:"not_found_returns_404"`
 	NotFoundChanges    bool   `json:"not_found_changes"`
-	CommonHash         string `json:"common_hash"`
+	NotFoundCommonHash string `json:"not_found_common_hash"`
 }
 
 // CrawlCheckpoint stores crawl phase state

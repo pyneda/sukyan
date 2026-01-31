@@ -185,7 +185,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		taskLog.Info().Msg("No insertion points to audit")
 	}
 
-	if item.StatusCode >= 300 || item.StatusCode < 400 {
+	if item.StatusCode >= 300 && item.StatusCode < 400 {
 		OpenRedirectScan(item, activeOptions, insertionPoints)
 	} else {
 		var openRedirectInsertionPoints []scan.InsertionPoint
@@ -231,14 +231,9 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	if options.AuditCategories.ServerSide {
 
 		hostHeader := HostHeaderInjectionAudit{
-			Ctx:         ctx,
+			Options:     activeOptions,
 			URL:         item.URL,
-			Concurrency: historyItemModulesConcurrency,
-			WorkspaceID: options.WorkspaceID,
-			TaskID:      options.TaskID,
-			TaskJobID:   options.TaskJobID,
-			ScanID:      options.ScanID,
-			ScanJobID:   options.ScanJobID,
+			HistoryItem: item,
 		}
 		hostHeader.Run()
 

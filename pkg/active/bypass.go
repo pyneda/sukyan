@@ -9,23 +9,10 @@ import (
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
-	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc/pool"
 )
-
-type ActiveModuleOptions struct {
-	Ctx         context.Context
-	WorkspaceID uint
-	TaskID      uint
-	TaskJobID   uint
-	ScanID      uint
-	ScanJobID   uint
-	Concurrency int
-	ScanMode    options.ScanMode
-	HTTPClient  *http.Client
-}
 
 type HeaderTest struct {
 	HeaderName string

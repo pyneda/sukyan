@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
@@ -16,16 +17,16 @@ import (
 
 const openRedirecTestDomain = "sukyan.com"
 
+var metaRefreshPattern = regexp.MustCompile(`(?i)<meta[^>]*http-equiv\s*=\s*["']?refresh["']?[^>]*content\s*=\s*["']?\d+\s*;\s*url\s*=\s*["']?([^"'\s>]+)`)
+
 func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertionPoints []scan.InsertionPoint) (bool, error) {
 	auditLog := log.With().Str("audit", "open-redirect").Str("url", history.URL).Uint("workspace", options.WorkspaceID).Logger()
 
-	// Get context, defaulting to background if not provided
 	ctx := options.Ctx
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	// Check context before starting
 	select {
 	case <-ctx.Done():
 		auditLog.Info().Msg("Open redirect scan cancelled before starting")
@@ -75,7 +76,6 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 	}
 	for _, insertionPoint := range scanInsertionPoints {
 		for _, payload := range payloads {
-			// Check context before each test
 			select {
 			case <-ctx.Done():
 				auditLog.Info().Msg("Open redirect scan cancelled during testing")
@@ -96,7 +96,6 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 				continue
 			}
 
-			// Add context to request
 			req = req.WithContext(ctx)
 
 			executionResult := http_utils.ExecuteRequest(req, http_utils.RequestExecutionOptions{
@@ -121,18 +120,30 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 
 			if new.StatusCode >= 300 && new.StatusCode < 400 {
 				newLocation := executionResult.Response.Header.Get("Location")
-				if newLocation != "" && newLocation == payload || strings.Contains(newLocation, openRedirecTestDomain) {
-					auditLog.Info().Str("insertionPoint", insertionPoint.String()).Str("payload", payload).Msg("Open redirect found")
+				if newLocation != "" && (newLocation == payload || strings.Contains(newLocation, openRedirecTestDomain)) {
+					auditLog.Info().Str("insertionPoint", insertionPoint.String()).Str("payload", payload).Msg("Open redirect found via Location header")
 
 					details := fmt.Sprintf("Using the payload %s in the insertion point %s, the server redirected the request to %s.", payload, insertionPoint.String(), newLocation)
 					db.CreateIssueFromHistoryAndTemplate(new, db.OpenRedirectCode, details, 90, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID, &options.ScanID, &options.ScanJobID)
 
 					return true, nil
-
 				}
-
 			}
 
+			responseBody, err := new.ResponseBody()
+			if err == nil && len(responseBody) > 0 {
+				if matches := metaRefreshPattern.FindSubmatch(responseBody); len(matches) > 1 {
+					redirectURL := string(matches[1])
+					if strings.Contains(redirectURL, openRedirecTestDomain) {
+						auditLog.Info().Str("insertionPoint", insertionPoint.String()).Str("payload", payload).Str("redirectURL", redirectURL).Msg("Open redirect found via meta refresh")
+
+						details := fmt.Sprintf("Using the payload %s in the insertion point %s, the server returned a meta refresh tag redirecting to %s.", payload, insertionPoint.String(), redirectURL)
+						db.CreateIssueFromHistoryAndTemplate(new, db.OpenRedirectCode, details, 90, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID, &options.ScanID, &options.ScanJobID)
+
+						return true, nil
+					}
+				}
+			}
 		}
 	}
 	return false, nil

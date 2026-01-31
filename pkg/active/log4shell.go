@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -12,26 +11,19 @@ import (
 	"github.com/pyneda/sukyan/pkg/fuzz"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
-	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
+	"github.com/sourcegraph/conc/pool"
 )
 
 // Log4ShellInjectionAudit configuration
 type Log4ShellInjectionAudit struct {
-	Ctx                 context.Context
+	Options             ActiveModuleOptions
 	URL                 string
-	Concurrency         int
+	HistoryItem         *db.History
 	HeuristicRecords    []fuzz.HeuristicRecord
 	ExpectedResponses   fuzz.ExpectedResponses
 	ExtraHeadersToTest  []string
 	InteractionsManager *integrations.InteractionsManager
-	WorkspaceID         uint
-	TaskID              uint
-	TaskJobID           uint
-	ScanID              uint
-	ScanJobID           uint
-	Mode                scan_options.ScanMode
-	HTTPClient          *http.Client
 }
 
 type log4ShellAuditItem struct {
@@ -136,7 +128,7 @@ func (a *Log4ShellInjectionAudit) GetHeadersToTest() (headers []string) {
 // Run starts the audit
 func (a *Log4ShellInjectionAudit) Run() {
 	// Get context, defaulting to background if not provided
-	ctx := a.Ctx
+	ctx := a.Options.Ctx
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -149,17 +141,8 @@ func (a *Log4ShellInjectionAudit) Run() {
 	default:
 	}
 
-	auditItemsChannel := make(chan log4ShellAuditItem)
-	pendingChannel := make(chan int)
-	var wg sync.WaitGroup
+	p := pool.New().WithMaxGoroutines(a.Options.Concurrency)
 
-	// Schedule workers
-	for i := 0; i < a.Concurrency; i++ {
-		wg.Add(1)
-		go a.workerWithContext(ctx, auditItemsChannel, pendingChannel, &wg)
-	}
-	// Schedule goroutine to monitor pending tasks
-	go a.monitor(auditItemsChannel, pendingChannel)
 	log.Info().Str("url", a.URL).Msg("Starting to schedule Log4Shell injection audit items")
 
 	// Add tests to the channel
@@ -168,69 +151,48 @@ func (a *Log4ShellInjectionAudit) Run() {
 		select {
 		case <-ctx.Done():
 			log.Info().Str("url", a.URL).Msg("Log4Shell audit cancelled during scheduling")
-			close(auditItemsChannel)
 			return
 		default:
 		}
 
 		payload := payloads.GenerateLog4ShellPayload(a.InteractionsManager)
-		pendingChannel <- 1
-		auditItemsChannel <- log4ShellAuditItem{
+		item := log4ShellAuditItem{
 			payload: payload,
 			header:  header,
 		}
+		p.Go(func() {
+			// Check context inside worker
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			a.testItem(ctx, item)
+		})
 	}
-	wg.Wait()
+	p.Wait()
 	log.Info().Str("url", a.URL).Msg("All Log4Shell injection audit items completed")
 }
 
-func (a *Log4ShellInjectionAudit) worker(auditItems chan log4ShellAuditItem, pendingChannel chan int, wg *sync.WaitGroup) {
-	for auditItem := range auditItems {
-		a.testItem(auditItem)
-		pendingChannel <- -1
-	}
-	wg.Done()
-}
-
-func (a *Log4ShellInjectionAudit) workerWithContext(ctx context.Context, auditItems chan log4ShellAuditItem, pendingChannel chan int, wg *sync.WaitGroup) {
-	for auditItem := range auditItems {
-		// Check context before processing each item
-		select {
-		case <-ctx.Done():
-			pendingChannel <- -1
-			continue
-		default:
-		}
-		a.testItemWithContext(ctx, auditItem)
-		pendingChannel <- -1
-	}
-	wg.Done()
-}
-
-func (a *Log4ShellInjectionAudit) monitor(auditItems chan log4ShellAuditItem, pendingChannel chan int) {
-	count := 0
-	log.Debug().Str("url", a.URL).Msg("Log4Shell audit monitor started")
-	for c := range pendingChannel {
-		count += c
-		if count == 0 {
-			log.Info().Str("url", a.URL).Msg("Log4Shell audit finished, closing communication channels")
-			close(auditItems)
-			close(pendingChannel)
-		}
-	}
-}
-
-func (a *Log4ShellInjectionAudit) testItem(item log4ShellAuditItem) {
-	a.testItemWithContext(context.Background(), item)
-}
-
-func (a *Log4ShellInjectionAudit) testItemWithContext(ctx context.Context, item log4ShellAuditItem) {
-	client := a.HTTPClient
+func (a *Log4ShellInjectionAudit) testItem(ctx context.Context, item log4ShellAuditItem) {
+	client := a.Options.HTTPClient
 	if client == nil {
 		client = http_utils.CreateHttpClient()
 	}
 	auditLog := log.With().Str("audit", "log4shell").Interface("auditItem", item).Str("url", a.URL).Logger()
-	request, err := http.NewRequestWithContext(ctx, "GET", a.URL, nil)
+	// New request logic
+	var request *http.Request
+	var err error
+
+	if a.HistoryItem != nil {
+		request, err = http_utils.BuildRequestFromHistoryItem(a.HistoryItem)
+		if err == nil {
+			request = request.WithContext(ctx)
+		}
+	} else {
+		request, err = http.NewRequestWithContext(ctx, "GET", a.URL, nil)
+	}
+
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error creating the request")
 		return
@@ -248,11 +210,11 @@ func (a *Log4ShellInjectionAudit) testItemWithContext(ctx context.Context, item 
 		Target:            a.URL,
 		Payload:           item.payload.GetValue(),
 		InsertionPoint:    insertionPoint,
-		WorkspaceID:       &a.WorkspaceID,
-		TaskID:            &a.TaskID,
-		TaskJobID:         &a.TaskJobID,
-		ScanID:            &a.ScanID,
-		ScanJobID:         &a.ScanJobID,
+		WorkspaceID:       &a.Options.WorkspaceID,
+		TaskID:            &a.Options.TaskID,
+		TaskJobID:         &a.Options.TaskJobID,
+		ScanID:            &a.Options.ScanID,
+		ScanJobID:         &a.Options.ScanJobID,
 	})
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Failed to create OOB test")
@@ -264,8 +226,8 @@ func (a *Log4ShellInjectionAudit) testItemWithContext(ctx context.Context, item 
 		CreateHistory: true,
 		HistoryCreationOptions: http_utils.HistoryCreationOptions{
 			Source:              db.SourceScanner,
-			WorkspaceID:         a.WorkspaceID,
-			TaskID:              a.TaskID,
+			WorkspaceID:         a.Options.WorkspaceID,
+			TaskID:              a.Options.TaskID,
 			CreateNewBodyStream: false,
 		},
 	})
@@ -301,7 +263,7 @@ func (a *Log4ShellInjectionAudit) testItemWithContext(ctx context.Context, item 
 			FalsePositive: false,
 			Confidence:    75,
 			Severity:      "Medium",
-			WorkspaceID:   &a.WorkspaceID,
+			WorkspaceID:   &a.Options.WorkspaceID,
 		}
 		db.Connection().CreateIssue(issue)
 

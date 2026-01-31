@@ -15,29 +15,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// SNIAudit configuration
-type SNIAudit struct {
-	Ctx                 context.Context
-	HistoryItem         *db.History
-	InteractionsManager *integrations.InteractionsManager
-	WorkspaceID         uint
-	TaskID              uint
-	TaskJobID           uint
-	ScanID              uint
-	ScanJobID           uint
-}
+// SNIScan performs SNI injection audit
+func SNIScan(historyItem *db.History, options ActiveModuleOptions, interactionsManager *integrations.InteractionsManager) {
+	auditLog := log.With().Str("audit", "sni-injection").Str("url", historyItem.URL).Logger()
 
-// Run starts the audit
-func (a *SNIAudit) Run() {
-	auditLog := log.With().Str("audit", "sni-injection").Str("url", a.HistoryItem.URL).Logger()
-
-	// Get context, defaulting to background if not provided
-	ctx := a.Ctx
+	ctx := options.Ctx
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	// Check context before starting
 	select {
 	case <-ctx.Done():
 		auditLog.Info().Msg("SNI audit cancelled before starting")
@@ -45,12 +31,12 @@ func (a *SNIAudit) Run() {
 	default:
 	}
 
-	if !strings.HasPrefix(a.HistoryItem.URL, "https://") {
+	if !strings.HasPrefix(historyItem.URL, "https://") {
 		auditLog.Info().Msg("URL is not HTTPS, skipping audit")
 		return
 	}
 	auditLog.Info().Msg("Starting SNI Injection audit")
-	interactionData := a.InteractionsManager.GetURL()
+	interactionData := interactionsManager.GetURL()
 	transport := &http.Transport{
 		DialContext: (&net.Dialer{}).DialContext,
 		TLSClientConfig: &tls.Config{
@@ -58,7 +44,7 @@ func (a *SNIAudit) Run() {
 		},
 	}
 	client := &http.Client{Transport: transport}
-	request, err := http_utils.BuildRequestFromHistoryItem(a.HistoryItem)
+	request, err := http_utils.BuildRequestFromHistoryItem(historyItem)
 
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error creating the request")
@@ -73,14 +59,14 @@ func (a *SNIAudit) Run() {
 		TestName:          issueTemplate.Title,
 		InteractionDomain: interactionData.URL,
 		InteractionFullID: interactionData.ID,
-		Target:            a.HistoryItem.URL,
+		Target:            historyItem.URL,
 		Payload:           interactionData.URL,
 		InsertionPoint:    "sni",
-		WorkspaceID:       &a.WorkspaceID,
-		TaskID:            &a.TaskID,
-		TaskJobID:         &a.TaskJobID,
-		ScanID:            &a.ScanID,
-		ScanJobID:         &a.ScanJobID,
+		WorkspaceID:       &options.WorkspaceID,
+		TaskID:            &options.TaskID,
+		TaskJobID:         &options.TaskJobID,
+		ScanID:            &options.ScanID,
+		ScanJobID:         &options.ScanJobID,
 	})
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Failed to create OOB test")
@@ -92,10 +78,11 @@ func (a *SNIAudit) Run() {
 		CreateHistory: true,
 		HistoryCreationOptions: http_utils.HistoryCreationOptions{
 			Source:              db.SourceScanner,
-			WorkspaceID:         a.WorkspaceID,
-			TaskID:              a.TaskID,
-			ScanID:              a.ScanID,
-			ScanJobID:           a.ScanJobID,
+			WorkspaceID:         options.WorkspaceID,
+			TaskID:              options.TaskID,
+			TaskJobID:           options.TaskJobID,
+			ScanID:              options.ScanID,
+			ScanJobID:           options.ScanJobID,
 			CreateNewBodyStream: false,
 		},
 	})
@@ -111,5 +98,5 @@ func (a *SNIAudit) Run() {
 		db.Connection().UpdateOOBTestHistoryID(oobTest.ID, &history.ID)
 	}
 
-	log.Info().Str("url", a.HistoryItem.URL).Msg("SNI Injection audit completed")
+	log.Info().Str("url", historyItem.URL).Msg("SNI Injection audit completed")
 }

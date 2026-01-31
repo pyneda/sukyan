@@ -3,25 +3,17 @@ package active
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"sync"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
+	"github.com/sourcegraph/conc/pool"
 )
 
 // HTTPMethodsAudit configuration
 type HTTPMethodsAudit struct {
-	Ctx         context.Context
+	Options     ActiveModuleOptions
 	HistoryItem *db.History
-	Concurrency int
-	WorkspaceID uint
-	TaskID      uint
-	TaskJobID   uint
-	ScanID      uint
-	ScanJobID   uint
-	HTTPClient  *http.Client
 }
 
 type httpMethodsAudiItem struct {
@@ -45,7 +37,7 @@ func (a *HTTPMethodsAudit) GetMethodsToTest() (headers []string) {
 // Run starts the audit
 func (a *HTTPMethodsAudit) Run() {
 	// Get context, defaulting to background if not provided
-	ctx := a.Ctx
+	ctx := a.Options.Ctx
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -58,17 +50,8 @@ func (a *HTTPMethodsAudit) Run() {
 	default:
 	}
 
-	auditItemsChannel := make(chan httpMethodsAudiItem)
-	pendingChannel := make(chan int)
-	var wg sync.WaitGroup
+	p := pool.New().WithMaxGoroutines(a.Options.Concurrency)
 
-	// Schedule workers
-	for i := 0; i < a.Concurrency; i++ {
-		wg.Add(1)
-		go a.workerWithContext(ctx, auditItemsChannel, pendingChannel, &wg)
-	}
-	// Schedule goroutine to monitor pending tasks
-	go a.monitor(auditItemsChannel, pendingChannel)
 	log.Info().Str("url", a.HistoryItem.URL).Msg("Starting to schedule HTTPMethods injection audit items")
 
 	// Add tests to the channel
@@ -78,67 +61,35 @@ func (a *HTTPMethodsAudit) Run() {
 			select {
 			case <-ctx.Done():
 				log.Info().Str("url", a.HistoryItem.URL).Msg("HTTP methods audit cancelled during scheduling")
-				close(auditItemsChannel)
 				return
 			default:
 			}
-			pendingChannel <- 1
-			auditItemsChannel <- httpMethodsAudiItem{
+
+			item := httpMethodsAudiItem{
 				method: method,
 			}
+			p.Go(func() {
+				// Check context inside worker
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+				a.testItem(ctx, item)
+			})
 		}
 
 	}
-	wg.Wait()
+	p.Wait()
 	log.Debug().Str("url", a.HistoryItem.URL).Msg("All HTTPMethods audit items completed")
 }
 
-func (a *HTTPMethodsAudit) worker(auditItems chan httpMethodsAudiItem, pendingChannel chan int, wg *sync.WaitGroup) {
-	for auditItem := range auditItems {
-		a.testItem(auditItem)
-		pendingChannel <- -1
-	}
-	wg.Done()
-}
-
-func (a *HTTPMethodsAudit) workerWithContext(ctx context.Context, auditItems chan httpMethodsAudiItem, pendingChannel chan int, wg *sync.WaitGroup) {
-	for auditItem := range auditItems {
-		// Check context before processing each item
-		select {
-		case <-ctx.Done():
-			pendingChannel <- -1
-			continue
-		default:
-		}
-		a.testItemWithContext(ctx, auditItem)
-		pendingChannel <- -1
-	}
-	wg.Done()
-}
-
-func (a *HTTPMethodsAudit) monitor(auditItems chan httpMethodsAudiItem, pendingChannel chan int) {
-	count := 0
-	log.Debug().Str("url", a.HistoryItem.URL).Msg("HTTPMethods audit monitor started")
-	for c := range pendingChannel {
-		count += c
-		if count == 0 {
-			log.Debug().Str("url", a.HistoryItem.URL).Msg("HTTPMethods audit finished, closing communication channels")
-			close(auditItems)
-			close(pendingChannel)
-		}
-	}
-}
-
-func (a *HTTPMethodsAudit) testItem(item httpMethodsAudiItem) {
-	a.testItemWithContext(context.Background(), item)
-}
-
-func (a *HTTPMethodsAudit) testItemWithContext(ctx context.Context, item httpMethodsAudiItem) {
-	client := a.HTTPClient
+func (a *HTTPMethodsAudit) testItem(ctx context.Context, item httpMethodsAudiItem) {
+	client := a.Options.HTTPClient
 	if client == nil {
 		client = http_utils.CreateHttpClient()
 	}
-	auditLog := log.With().Str("audit", "httpMethods").Interface("auditItem", item).Str("url", a.HistoryItem.URL).Uint("workspace", a.WorkspaceID).Logger()
+	auditLog := log.With().Str("audit", "httpMethods").Interface("auditItem", item).Str("url", a.HistoryItem.URL).Uint("workspace", a.Options.WorkspaceID).Logger()
 	request, err := http_utils.BuildRequestFromHistoryItem(a.HistoryItem)
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error creating the request")
@@ -152,10 +103,10 @@ func (a *HTTPMethodsAudit) testItemWithContext(ctx context.Context, item httpMet
 		CreateHistory: true,
 		HistoryCreationOptions: http_utils.HistoryCreationOptions{
 			Source:              db.SourceScanner,
-			WorkspaceID:         a.WorkspaceID,
-			TaskID:              a.TaskID,
-			ScanID:              a.ScanID,
-			ScanJobID:           a.ScanJobID,
+			WorkspaceID:         a.Options.WorkspaceID,
+			TaskID:              a.Options.TaskID,
+			ScanID:              a.Options.ScanID,
+			ScanJobID:           a.Options.ScanJobID,
 			CreateNewBodyStream: false,
 		},
 	})
@@ -174,15 +125,15 @@ func (a *HTTPMethodsAudit) testItemWithContext(ctx context.Context, item httpMet
 			fmt.Sprintf("Received a %d status code making an %s request.", history.StatusCode, history.Method),
 			80,
 			"",
-			&a.WorkspaceID,
-			&a.TaskID,
-			&a.TaskJobID,
-			&a.ScanID,
-			&a.ScanJobID,
+			&a.Options.WorkspaceID,
+			&a.Options.TaskID,
+			&a.Options.TaskJobID,
+			&a.Options.ScanID,
+			&a.Options.ScanJobID,
 		)
 		issue.Title = fmt.Sprintf("%s: %s", issue.Title, history.Method)
 		db.Connection().CreateIssue(*issue)
-		log.Warn().Str("issue", issue.Title).Str("url", history.URL).Uint("workspace", a.WorkspaceID).Msg("New issue found")
+		log.Warn().Str("issue", issue.Title).Str("url", history.URL).Uint("workspace", a.Options.WorkspaceID).Msg("New issue found")
 
 	}
 }

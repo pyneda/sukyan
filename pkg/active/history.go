@@ -215,15 +215,10 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 
 	if options.AuditCategories.ServerSide && (options.Mode == scan_options.ScanModeFuzz || scan.PlatformJava.MatchesAnyFingerprint(options.Fingerprints)) {
 		log4shell := Log4ShellInjectionAudit{
-			Ctx:                 ctx,
+			Options:             activeOptions,
 			URL:                 item.URL,
-			Concurrency:         historyItemModulesConcurrency,
+			HistoryItem:         item,
 			InteractionsManager: interactionsManager,
-			WorkspaceID:         options.WorkspaceID,
-			TaskID:              options.TaskID,
-			TaskJobID:           options.TaskJobID,
-			ScanID:              options.ScanID,
-			ScanJobID:           options.ScanJobID,
 		}
 		log4shell.Run()
 	}
@@ -246,17 +241,7 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 			options.AuditSampler.ShouldRun(scan_options.AuditTypeSNI, item.URL)
 
 		if shouldRunSNI {
-			sni := SNIAudit{
-				Ctx:                 ctx,
-				HistoryItem:         item,
-				InteractionsManager: interactionsManager,
-				WorkspaceID:         options.WorkspaceID,
-				TaskID:              options.TaskID,
-				TaskJobID:           options.TaskJobID,
-				ScanID:              options.ScanID,
-				ScanJobID:           options.ScanJobID,
-			}
-			sni.Run()
+			SNIScan(item, activeOptions, interactionsManager)
 		} else {
 			taskLog.Debug().Msg("Skipping SNI audit - sampled out")
 		}
@@ -295,14 +280,8 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	if options.ExperimentalAudits {
 
 		methods := HTTPMethodsAudit{
-			Ctx:         ctx,
+			Options:     activeOptions,
 			HistoryItem: item,
-			Concurrency: 5,
-			WorkspaceID: options.WorkspaceID,
-			TaskID:      options.TaskID,
-			TaskJobID:   options.TaskJobID,
-			ScanID:      options.ScanID,
-			ScanJobID:   options.ScanJobID,
 		}
 		methods.Run()
 	}

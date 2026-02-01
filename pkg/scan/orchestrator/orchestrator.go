@@ -18,6 +18,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/scope"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
@@ -31,6 +32,7 @@ const (
 	PhaseSiteBehavior ScanPhase = "site_behavior"
 	PhaseDiscovery    ScanPhase = "discovery"
 	PhaseNuclei       ScanPhase = "nuclei"
+	PhaseAPIBehavior  ScanPhase = "api_behavior"
 	PhaseActiveScan   ScanPhase = "active_scan"
 	PhaseWebSocket    ScanPhase = "websocket"
 	PhaseComplete     ScanPhase = "complete"
@@ -43,6 +45,7 @@ var PhaseOrder = []ScanPhase{
 	PhaseSiteBehavior,
 	PhaseDiscovery,
 	PhaseNuclei,
+	PhaseAPIBehavior,
 	PhaseActiveScan,
 	PhaseWebSocket,
 	PhaseComplete,
@@ -63,6 +66,10 @@ type JobScheduler interface {
 	ScheduleCrawl(ctx context.Context, scanID uint, urls []string) error
 	// ScheduleSiteBehavior schedules site behavior check jobs for base URLs
 	ScheduleSiteBehavior(ctx context.Context, scanID uint, baseURLs []string) error
+	// ScheduleAPIBehavior schedules API behavior check jobs for API definitions
+	ScheduleAPIBehavior(ctx context.Context, scanID uint) error
+	// ScheduleAPIScan schedules API scanning jobs for discovered API definitions
+	ScheduleAPIScan(ctx context.Context, scanID uint) error
 }
 
 // Config holds orchestrator configuration
@@ -75,6 +82,8 @@ type Config struct {
 	EnableFingerprint bool
 	// EnableDiscovery enables discovery/fuzzing phase
 	EnableDiscovery bool
+	// EnableAPIScan enables API scanning phase
+	EnableAPIScan bool
 	// EnableNuclei enables nuclei scanning phase
 	EnableNuclei bool
 	// EnableWebSocket enables websocket scanning phase
@@ -88,6 +97,7 @@ func DefaultConfig() Config {
 		PhaseTimeout:      2 * time.Hour,
 		EnableFingerprint: true,
 		EnableDiscovery:   true,
+		EnableAPIScan:     true,
 		EnableNuclei:      true,
 		EnableWebSocket:   true,
 	}
@@ -259,6 +269,8 @@ func (o *Orchestrator) transitionToNextPhase(scanEntity *db.Scan) error {
 		return o.startFingerprintPhase(scanEntity)
 	case PhaseSiteBehavior:
 		return o.startSiteBehaviorPhase(scanEntity)
+	case PhaseAPIBehavior:
+		return o.startAPIBehaviorPhase(scanEntity)
 	case PhaseDiscovery:
 		return o.startDiscoveryPhase(scanEntity)
 	case PhaseNuclei:
@@ -338,6 +350,12 @@ func (o *Orchestrator) startCrawlPhase(scanEntity *db.Scan) error {
 	// Get target URLs from scan configuration
 	urls := o.getTargetURLs(scanEntity)
 	if len(urls) == 0 {
+		// Check if this is an API-only scan (has API definitions but no start URLs)
+		hasAPIDefinitions, _ := db.Connection().HasLinkedAPIDefinitions(scanEntity.ID)
+		if hasAPIDefinitions || scanEntity.Options.APIScanOptions.Enabled {
+			scanLog.Info().Msg("API-only scan mode: skipping crawl phase")
+			return nil
+		}
 		scanLog.Warn().Msg("No target URLs for crawl phase")
 		return nil
 	}
@@ -519,6 +537,21 @@ func (o *Orchestrator) startSiteBehaviorPhase(scanEntity *db.Scan) error {
 	return o.scheduler.ScheduleSiteBehavior(o.ctx, scanEntity.ID, baseURLs)
 }
 
+// startAPIBehaviorPhase initiates the API behavior phase.
+// Runs after discovery so all API definitions (user-imported, crawl-discovered,
+// and discovery-found) are available.
+func (o *Orchestrator) startAPIBehaviorPhase(scanEntity *db.Scan) error {
+	scanLog := log.With().Uint("scan_id", scanEntity.ID).Logger()
+	scanLog.Info().Msg("Starting API behavior phase")
+
+	if err := o.scheduler.ScheduleAPIBehavior(o.ctx, scanEntity.ID); err != nil {
+		scanLog.Error().Err(err).Msg("Failed to schedule API behavior checks")
+		return err
+	}
+
+	return nil
+}
+
 // startDiscoveryPhase initiates the discovery/fuzzing phase
 func (o *Orchestrator) startDiscoveryPhase(scanEntity *db.Scan) error {
 	scanLog := log.With().Uint("scan_id", scanEntity.ID).Logger()
@@ -595,7 +628,11 @@ func (o *Orchestrator) startNucleiPhase(scanEntity *db.Scan) error {
 	return nil
 }
 
-// startActiveScanPhase initiates the active scanning phase
+// startActiveScanPhase initiates the active scanning phase.
+// This phase also schedules API scan jobs (if enabled) alongside regular active scan jobs.
+// Both job types are scheduled before execution begins, so API scan baseline requests
+// (created during execution) won't be picked up as additional active scan targets.
+// API scan jobs use higher priority so workers process them first.
 func (o *Orchestrator) startActiveScanPhase(scanEntity *db.Scan) error {
 	scanLog := log.With().Uint("scan_id", scanEntity.ID).Logger()
 	scanLog.Info().Msg("Starting active scan phase")
@@ -611,12 +648,20 @@ func (o *Orchestrator) startActiveScanPhase(scanEntity *db.Scan) error {
 		return fmt.Errorf("failed to get history metadata: %w", err)
 	}
 
-	if len(items) == 0 {
-		scanLog.Warn().Msg("No in-scope history items for active scan phase")
-		return nil
+	// Schedule regular active scan jobs from crawled/discovered history
+	if len(items) > 0 {
+		o.scheduleActiveScanJobs(scanLog, scanEntity, items)
+	} else {
+		scanLog.Info().Msg("No in-scope history items for regular active scanning")
 	}
 
-	// Remove duplicate history items to avoid scanning the same request/response multiple times
+	// Schedule API scan jobs in the same phase (higher priority, processed first by workers)
+	o.scheduleAPIScanJobs(scanLog, scanEntity)
+
+	return nil
+}
+
+func (o *Orchestrator) scheduleActiveScanJobs(scanLog zerolog.Logger, scanEntity *db.Scan, items []*db.History) {
 	originalCount := len(items)
 	items = removeDuplicateHistoryItems(items)
 	if len(items) < originalCount {
@@ -626,10 +671,6 @@ func (o *Orchestrator) startActiveScanPhase(scanEntity *db.Scan) error {
 			Msg("Removed duplicate history items before active scanning")
 	}
 
-	// Filter items based on the same logic as FullScan
-	// Separate items into two groups:
-	// 1. fullInsertionPointIDs: items that should be scanned with all insertion points (first occurrence of each URL path)
-	// 2. reducedInsertionPointIDs: items that should be scanned without urlpath (duplicate URL paths)
 	ignoredExtensions := viper.GetStringSlice("crawl.ignored_extensions")
 	scheduledURLPaths := make(map[string]bool)
 	fullInsertionPointIDs := make([]uint, 0)
@@ -638,12 +679,10 @@ func (o *Orchestrator) startActiveScanPhase(scanEntity *db.Scan) error {
 	urlpathEnabled := lib.SliceContains(scanEntity.Options.InsertionPoints, "urlpath")
 
 	for _, item := range items {
-		// Skip 404 responses
 		if item.StatusCode == 404 {
 			continue
 		}
 
-		// Skip ignored extensions
 		shouldSkip := false
 		for _, extension := range ignoredExtensions {
 			if strings.HasSuffix(item.URL, extension) {
@@ -655,7 +694,6 @@ func (o *Orchestrator) startActiveScanPhase(scanEntity *db.Scan) error {
 			continue
 		}
 
-		// URL path deduplication when urlpath insertion point is enabled
 		if urlpathEnabled {
 			normalizedURLPath, err := lib.NormalizeURLPath(item.URL)
 			if err != nil {
@@ -663,10 +701,8 @@ func (o *Orchestrator) startActiveScanPhase(scanEntity *db.Scan) error {
 				continue
 			}
 			if _, exists := scheduledURLPaths[normalizedURLPath]; exists {
-				// URL path already scheduled - scan with other insertion points (excluding urlpath)
 				reducedInsertionPointIDs = append(reducedInsertionPointIDs, item.ID)
 			} else {
-				// First occurrence of this URL path - scan with all insertion points
 				fullInsertionPointIDs = append(fullInsertionPointIDs, item.ID)
 				scheduledURLPaths[normalizedURLPath] = true
 			}
@@ -677,8 +713,8 @@ func (o *Orchestrator) startActiveScanPhase(scanEntity *db.Scan) error {
 
 	totalFiltered := len(fullInsertionPointIDs) + len(reducedInsertionPointIDs)
 	if totalFiltered == 0 {
-		scanLog.Warn().Msg("No history items remaining after filtering for active scan phase")
-		return nil
+		scanLog.Info().Msg("No history items remaining after filtering for active scanning")
+		return
 	}
 
 	scanLog.Info().
@@ -687,21 +723,35 @@ func (o *Orchestrator) startActiveScanPhase(scanEntity *db.Scan) error {
 		Int("reduced_insertion_point_items", len(reducedInsertionPointIDs)).
 		Msg("Scheduling active scans for filtered history items")
 
-	// Schedule items with full insertion points
 	if len(fullInsertionPointIDs) > 0 {
 		if err := o.scheduler.ScheduleActiveScan(o.ctx, scanEntity.ID, fullInsertionPointIDs); err != nil {
-			return fmt.Errorf("failed to schedule full insertion point scans: %w", err)
+			scanLog.Error().Err(err).Msg("Failed to schedule full insertion point scans")
 		}
 	}
 
-	// Schedule items with reduced insertion points (excluding urlpath)
 	if len(reducedInsertionPointIDs) > 0 {
 		if err := o.scheduler.ScheduleActiveScanWithOptions(o.ctx, scanEntity.ID, reducedInsertionPointIDs, []string{"urlpath"}); err != nil {
-			return fmt.Errorf("failed to schedule reduced insertion point scans: %w", err)
+			scanLog.Error().Err(err).Msg("Failed to schedule reduced insertion point scans")
+		}
+	}
+}
+
+func (o *Orchestrator) scheduleAPIScanJobs(scanLog zerolog.Logger, scanEntity *db.Scan) {
+	if !o.config.EnableAPIScan {
+		return
+	}
+
+	if !scanEntity.Options.APIScanOptions.Enabled {
+		hasDefinitions, _ := db.Connection().HasLinkedAPIDefinitions(scanEntity.ID)
+		if !hasDefinitions {
+			return
 		}
 	}
 
-	return nil
+	scanLog.Info().Msg("Scheduling API scan jobs")
+	if err := o.scheduler.ScheduleAPIScan(o.ctx, scanEntity.ID); err != nil {
+		scanLog.Error().Err(err).Msg("Failed to schedule API scan jobs")
+	}
 }
 
 // startWebSocketPhase initiates the websocket scanning phase

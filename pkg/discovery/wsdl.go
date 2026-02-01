@@ -188,7 +188,7 @@ func isWSDLUI(history *db.History) bool {
 }
 
 func DiscoverWSDLDefinitions(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
-	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
+	results, err := DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
 			URL:         options.BaseURL,
 			Method:      "GET",
@@ -206,4 +206,8 @@ func DiscoverWSDLDefinitions(options DiscoveryOptions) (DiscoverAndCreateIssueRe
 		ValidationFunc: IsWSDLValidationFunc,
 		IssueCode:      db.WsdlDefinitionDetectedCode,
 	})
+
+	persistDiscoveredAPIDefinitions(results, options, IsWSDLValidationFunc, PersistWSDLDefinition, "WSDL")
+
+	return results, err
 }

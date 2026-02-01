@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
@@ -27,6 +28,10 @@ func DefaultJobTimeout(jobType ScanJobType) time.Duration {
 		return 15 * time.Minute
 	case ScanJobTypeSiteBehavior:
 		return 2 * time.Minute
+	case ScanJobTypeAPIBehavior:
+		return 5 * time.Minute
+	case ScanJobTypeAPIScan:
+		return 30 * time.Minute
 	default:
 		return 30 * time.Minute // Default fallback
 	}
@@ -54,6 +59,8 @@ const (
 	ScanJobTypeNuclei        ScanJobType = "nuclei"
 	ScanJobTypeCrawl         ScanJobType = "crawl"
 	ScanJobTypeSiteBehavior  ScanJobType = "site_behavior"
+	ScanJobTypeAPIBehavior   ScanJobType = "api_behavior"
+	ScanJobTypeAPIScan       ScanJobType = "api_scan"
 )
 
 // AuditType identifies audit modules for checkpoint tracking
@@ -110,6 +117,8 @@ type ScanJob struct {
 	History               *History             `json:"-" gorm:"foreignKey:HistoryID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WebSocketConnectionID *uint                `json:"websocket_connection_id,omitempty" gorm:"index"`
 	WebSocketConnection   *WebSocketConnection `json:"-" gorm:"foreignKey:WebSocketConnectionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	APIDefinitionID       *uuid.UUID           `json:"api_definition_id,omitempty" gorm:"index;type:uuid"`
+	APIDefinition         *APIDefinition       `json:"-" gorm:"foreignKey:APIDefinitionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 
 	// Payload stores job-specific configuration (JSON)
 	Payload []byte `json:"payload,omitempty" gorm:"type:jsonb"`
@@ -210,6 +219,21 @@ func (d *DatabaseConnection) DiscoveryJobExistsForURL(scanID uint, url string) (
 	err := d.db.Model(&ScanJob{}).
 		Where("scan_id = ? AND job_type = ? AND url = ? AND status != ?",
 			scanID, ScanJobTypeDiscovery, url, ScanJobStatusCancelled).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// APIScanJobExistsForEndpoint checks if an API scan job already exists for the given scan, definition, URL, and method.
+// This is used for deduplication in distributed environments where multiple orchestrators may run.
+// Returns true if a non-cancelled API scan job exists for the combination.
+func (d *DatabaseConnection) APIScanJobExistsForEndpoint(scanID uint, apiDefinitionID uuid.UUID, endpointURL string, method string) (bool, error) {
+	var count int64
+	err := d.db.Model(&ScanJob{}).
+		Where("scan_id = ? AND job_type = ? AND api_definition_id = ? AND url = ? AND method = ? AND status != ?",
+			scanID, ScanJobTypeAPIScan, apiDefinitionID, endpointURL, method, ScanJobStatusCancelled).
 		Count(&count).Error
 	if err != nil {
 		return false, err
@@ -552,6 +576,11 @@ func (d *DatabaseConnection) ScanHasPendingJobs(scanID uint) (bool, error) {
 		Where("scan_id = ? AND status IN ?", scanID, []ScanJobStatus{ScanJobStatusPending, ScanJobStatusClaimed, ScanJobStatusRunning}).
 		Count(&count).Error
 	return count > 0, err
+}
+
+// LinkHistoryToScanJob sets the history_id on a scan job without touching other fields.
+func (d *DatabaseConnection) LinkHistoryToScanJob(jobID uint, historyID uint) error {
+	return d.db.Model(&ScanJob{}).Where("id = ?", jobID).Update("history_id", historyID).Error
 }
 
 // UpdateScanJobCheckpoint updates the checkpoint for a job

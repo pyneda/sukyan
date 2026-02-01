@@ -1,0 +1,29 @@
+code: wsdl_exposure
+title: WSDL File Publicly Accessible
+description: |-
+  The WSDL (Web Services Description Language) file is publicly accessible. This
+  file describes the complete structure of the SOAP web service including all
+  operations, parameters, data types, and endpoint locations.
+
+  The exposed WSDL provides attackers with:
+  - Complete list of available operations
+  - Parameter names and types for each operation
+  - Data structure definitions
+  - Security binding information
+  - Endpoint URLs
+remediation: |-
+  Consider restricting access to WSDL files in production:
+  - Require authentication to access the WSDL
+  - Use IP-based access controls to limit WSDL access
+  - Disable automatic WSDL generation (?wsdl parameter)
+  - Host WSDL files in a separate, protected location
+
+  If WSDL must be public, ensure all documented operations are:
+  - Properly authenticated
+  - Authorized based on user roles
+  - Protected against common attacks
+cwe: 200
+severity: Low
+references:
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/
+  - https://cheatsheetseries.owasp.org/cheatsheets/Web_Service_Security_Cheat_Sheet.html

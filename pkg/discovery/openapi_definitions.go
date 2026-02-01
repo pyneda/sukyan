@@ -174,7 +174,7 @@ func IsOpenAPIValidationFunc(history *db.History, ctx *ValidationContext) (bool,
 }
 
 func DiscoverOpenapiDefinitions(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
-	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
+	results, err := DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
 			URL:         options.BaseURL,
 			Method:      "GET",
@@ -192,4 +192,8 @@ func DiscoverOpenapiDefinitions(options DiscoveryOptions) (DiscoverAndCreateIssu
 		ValidationFunc: IsOpenAPIValidationFunc,
 		IssueCode:      db.OpenapiDefinitionFoundCode,
 	})
+
+	persistDiscoveredAPIDefinitions(results, options, IsOpenAPIValidationFunc, PersistOpenAPIDefinition, "OpenAPI")
+
+	return results, err
 }

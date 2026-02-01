@@ -15,6 +15,948 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/api-auth-configs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns a list of API authentication configurations",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-auth"
+                ],
+                "summary": "List API auth configurations",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIAuthConfigListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Creates a new API authentication configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-auth"
+                ],
+                "summary": "Create API auth configuration",
+                "parameters": [
+                    {
+                        "description": "Auth config input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.CreateAPIAuthConfigInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/db.APIAuthConfig"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/api-auth-configs/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns a single API authentication configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-auth"
+                ],
+                "summary": "Get API auth configuration by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Auth Config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.APIAuthConfig"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Deletes an API authentication configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-auth"
+                ],
+                "summary": "Delete API auth configuration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Auth Config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Updates an existing API authentication configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-auth"
+                ],
+                "summary": "Update API auth configuration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Auth Config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateAPIAuthConfigInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.APIAuthConfig"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/api-definitions": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns a list of API definitions with optional filtering",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "List API definitions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter by workspace ID",
+                        "name": "workspace_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by scan ID",
+                        "name": "scan_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by type (openapi, graphql, wsdl)",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIDefinitionListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Creates a new API definition by parsing from URL or provided content",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "Create API definition",
+                "parameters": [
+                    {
+                        "description": "API definition input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.CreateAPIDefinitionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIDefinitionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/api-definitions/import-and-scan": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Imports an API definition and immediately starts a scan for it",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "Import and scan API definition in one step",
+                "parameters": [
+                    {
+                        "description": "Import and scan configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ImportAndScanInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/api-definitions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns a single API definition with its endpoints",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "Get API definition by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API Definition ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIDefinitionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Deletes an API definition and all its endpoints",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "Delete API definition",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API Definition ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Updates an existing API definition",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "Update API definition",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API Definition ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateAPIDefinitionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.APIDefinition"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/api-definitions/{id}/endpoints": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns a list of endpoints for a specific API definition",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "List endpoints for an API definition",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API Definition ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by enabled status",
+                        "name": "enabled",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by HTTP method",
+                        "name": "method",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.APIEndpointListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/api-definitions/{id}/endpoints/toggle-all": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Sets the enabled status for all endpoints in an API definition",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "Enable or disable all endpoints",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API Definition ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Enable or disable all endpoints",
+                        "name": "enabled",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.SuccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/api-definitions/{id}/endpoints/{endpoint_id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns a single API endpoint with its parameters",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "Get API endpoint by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API Definition ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "API Endpoint ID",
+                        "name": "endpoint_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.APIEndpoint"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Updates an existing API endpoint",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "Update API endpoint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API Definition ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "API Endpoint ID",
+                        "name": "endpoint_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateAPIEndpointInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.APIEndpoint"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/api-definitions/{id}/scan": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Creates and starts a scan for the specified API definition",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "Start scan for API definition",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API Definition ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Scan configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.StartAPIDefinitionScanInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ActionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/api-definitions/{id}/security-schemes": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns the security schemes and global security requirements for an API definition",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "Get security schemes for an API definition",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API Definition ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/token/renew": {
             "post": {
                 "security": [
@@ -2696,7 +3638,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Receives a list of URLs and other parameters and schedules them for a full scan",
+                "description": "Receives a list of URLs and other parameters and schedules them for a full scan. Supports API-only scans with definition_ids or inline_imports.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4321,6 +5263,146 @@ const docTemplate = `{
                 "WaitLoad"
             ]
         },
+        "api.APIAuthConfigListResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIAuthConfig"
+                    }
+                }
+            }
+        },
+        "api.APIDefinitionListResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIDefinition"
+                    }
+                }
+            }
+        },
+        "api.APIDefinitionResponse": {
+            "type": "object",
+            "properties": {
+                "auth_config": {
+                    "$ref": "#/definitions/db.APIAuthConfig"
+                },
+                "auth_config_id": {
+                    "type": "string"
+                },
+                "auto_discovered": {
+                    "type": "boolean"
+                },
+                "base_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "endpoint_count": {
+                    "type": "integer"
+                },
+                "endpoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIEndpoint"
+                    }
+                },
+                "graphql_mutation_count": {
+                    "type": "integer"
+                },
+                "graphql_query_count": {
+                    "type": "integer"
+                },
+                "graphql_subscription_count": {
+                    "type": "integer"
+                },
+                "graphql_type_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "openapi_servers": {
+                    "type": "integer"
+                },
+                "openapi_title": {
+                    "type": "string"
+                },
+                "openapi_version": {
+                    "type": "string"
+                },
+                "scan_id": {
+                    "type": "integer"
+                },
+                "security_schemes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIDefinitionSecurityScheme"
+                    }
+                },
+                "source_history_id": {
+                    "type": "integer"
+                },
+                "source_url": {
+                    "type": "string"
+                },
+                "stats": {
+                    "$ref": "#/definitions/db.APIDefinitionStats"
+                },
+                "status": {
+                    "$ref": "#/definitions/db.APIDefinitionStatus"
+                },
+                "type": {
+                    "$ref": "#/definitions/db.APIDefinitionType"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                },
+                "wsdl_port_count": {
+                    "type": "integer"
+                },
+                "wsdl_service_count": {
+                    "type": "integer"
+                },
+                "wsdl_soap_version": {
+                    "type": "string"
+                },
+                "wsdl_target_namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.APIEndpointListResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIEndpoint"
+                    }
+                }
+            }
+        },
         "api.ActionResponse": {
             "type": "object",
             "properties": {
@@ -4565,6 +5647,112 @@ const docTemplate = `{
                 }
             }
         },
+        "api.CreateAPIAuthConfigInput": {
+            "type": "object",
+            "required": [
+                "name",
+                "type",
+                "workspace_id"
+            ],
+            "properties": {
+                "api_key_location": {
+                    "enum": [
+                        "header",
+                        "query",
+                        "cookie"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.APIKeyLocation"
+                        }
+                    ]
+                },
+                "api_key_name": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "api_key_value": {
+                    "type": "string"
+                },
+                "custom_headers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.CustomHeaderInput"
+                    }
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "password": {
+                    "type": "string",
+                    "maxLength": 500
+                },
+                "token": {
+                    "type": "string"
+                },
+                "token_prefix": {
+                    "type": "string",
+                    "maxLength": 50
+                },
+                "type": {
+                    "enum": [
+                        "none",
+                        "basic",
+                        "bearer",
+                        "api_key",
+                        "oauth2"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.APIAuthType"
+                        }
+                    ]
+                },
+                "username": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.CreateAPIDefinitionInput": {
+            "type": "object",
+            "required": [
+                "workspace_id"
+            ],
+            "properties": {
+                "auth_config_id": {
+                    "type": "string"
+                },
+                "base_url": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "openapi",
+                        "graphql",
+                        "wsdl"
+                    ]
+                },
+                "url": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "api.CreatePlaygroundCollectionInput": {
             "type": "object",
             "required": [
@@ -4607,6 +5795,22 @@ const docTemplate = `{
                 },
                 "type": {
                     "$ref": "#/definitions/db.PlaygroundSessionType"
+                }
+            }
+        },
+        "api.CustomHeaderInput": {
+            "type": "object",
+            "required": [
+                "header_name",
+                "header_value"
+            ],
+            "properties": {
+                "header_name": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "header_value": {
+                    "type": "string"
                 }
             }
         },
@@ -4845,6 +6049,61 @@ const docTemplate = `{
                 },
                 "url": {
                     "type": "string"
+                }
+            }
+        },
+        "api.ImportAndScanInput": {
+            "type": "object",
+            "required": [
+                "workspace_id"
+            ],
+            "properties": {
+                "audit_categories": {
+                    "$ref": "#/definitions/options.AuditCategories"
+                },
+                "auth_config_id": {
+                    "type": "string"
+                },
+                "base_url": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "fast",
+                        "smart",
+                        "fuzz"
+                    ]
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "run_api_specific_tests": {
+                    "type": "boolean"
+                },
+                "run_schema_tests": {
+                    "type": "boolean"
+                },
+                "run_standard_tests": {
+                    "type": "boolean"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "openapi",
+                        "graphql",
+                        "wsdl"
+                    ]
+                },
+                "url": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -5682,6 +6941,51 @@ const docTemplate = `{
                 }
             }
         },
+        "api.StartAPIDefinitionScanInput": {
+            "type": "object",
+            "properties": {
+                "auth_config_id": {
+                    "type": "string"
+                },
+                "client_side_checks": {
+                    "type": "boolean"
+                },
+                "endpoint_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "fast",
+                        "smart",
+                        "fuzz"
+                    ]
+                },
+                "passive_checks": {
+                    "type": "boolean"
+                },
+                "run_api_specific_tests": {
+                    "type": "boolean"
+                },
+                "run_standard_tests": {
+                    "type": "boolean"
+                },
+                "server_side_checks": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "api.SuccessResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
         "api.ThroughputInfo": {
             "type": "object",
             "properties": {
@@ -5705,6 +7009,96 @@ const docTemplate = `{
                 },
                 "success_rate": {
                     "type": "number"
+                }
+            }
+        },
+        "api.UpdateAPIAuthConfigInput": {
+            "type": "object",
+            "properties": {
+                "api_key_location": {
+                    "enum": [
+                        "header",
+                        "query",
+                        "cookie"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.APIKeyLocation"
+                        }
+                    ]
+                },
+                "api_key_name": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "api_key_value": {
+                    "type": "string"
+                },
+                "custom_headers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.CustomHeaderInput"
+                    }
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "password": {
+                    "type": "string",
+                    "maxLength": 500
+                },
+                "token": {
+                    "type": "string"
+                },
+                "token_prefix": {
+                    "type": "string",
+                    "maxLength": 50
+                },
+                "type": {
+                    "enum": [
+                        "none",
+                        "basic",
+                        "bearer",
+                        "api_key",
+                        "oauth2"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.APIAuthType"
+                        }
+                    ]
+                },
+                "username": {
+                    "type": "string",
+                    "maxLength": 255
+                }
+            }
+        },
+        "api.UpdateAPIDefinitionInput": {
+            "type": "object",
+            "properties": {
+                "auth_config_id": {
+                    "type": "string"
+                },
+                "base_url": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255
+                }
+            }
+        },
+        "api.UpdateAPIEndpointInput": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255
                 }
             }
         },
@@ -5891,6 +7285,525 @@ const docTemplate = `{
                 }
             }
         },
+        "db.APIAuthConfig": {
+            "type": "object",
+            "properties": {
+                "api_key_location": {
+                    "$ref": "#/definitions/db.APIKeyLocation"
+                },
+                "api_key_name": {
+                    "type": "string"
+                },
+                "api_key_value": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "custom_headers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIAuthHeader"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "token_prefix": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/db.APIAuthType"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "db.APIAuthHeader": {
+            "type": "object",
+            "properties": {
+                "auth_config_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "header_name": {
+                    "type": "string"
+                },
+                "header_value": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.APIAuthType": {
+            "type": "string",
+            "enum": [
+                "none",
+                "basic",
+                "bearer",
+                "api_key",
+                "oauth2"
+            ],
+            "x-enum-varnames": [
+                "APIAuthTypeNone",
+                "APIAuthTypeBasic",
+                "APIAuthTypeBearer",
+                "APIAuthTypeAPIKey",
+                "APIAuthTypeOAuth2"
+            ]
+        },
+        "db.APIDefinition": {
+            "type": "object",
+            "properties": {
+                "auth_config": {
+                    "$ref": "#/definitions/db.APIAuthConfig"
+                },
+                "auth_config_id": {
+                    "type": "string"
+                },
+                "auto_discovered": {
+                    "type": "boolean"
+                },
+                "base_url": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "endpoint_count": {
+                    "type": "integer"
+                },
+                "endpoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIEndpoint"
+                    }
+                },
+                "graphql_mutation_count": {
+                    "type": "integer"
+                },
+                "graphql_query_count": {
+                    "type": "integer"
+                },
+                "graphql_subscription_count": {
+                    "type": "integer"
+                },
+                "graphql_type_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "openapi_servers": {
+                    "type": "integer"
+                },
+                "openapi_title": {
+                    "type": "string"
+                },
+                "openapi_version": {
+                    "type": "string"
+                },
+                "scan_id": {
+                    "type": "integer"
+                },
+                "security_schemes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIDefinitionSecurityScheme"
+                    }
+                },
+                "source_history_id": {
+                    "type": "integer"
+                },
+                "source_url": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/db.APIDefinitionStatus"
+                },
+                "type": {
+                    "$ref": "#/definitions/db.APIDefinitionType"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                },
+                "wsdl_port_count": {
+                    "type": "integer"
+                },
+                "wsdl_service_count": {
+                    "type": "integer"
+                },
+                "wsdl_soap_version": {
+                    "type": "string"
+                },
+                "wsdl_target_namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.APIDefinitionSecurityScheme": {
+            "type": "object",
+            "properties": {
+                "bearer_format": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "definition_id": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "in": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "openid_connect_url": {
+                    "type": "string"
+                },
+                "parameter_name": {
+                    "type": "string"
+                },
+                "scheme": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.APIDefinitionStats": {
+            "type": "object",
+            "properties": {
+                "enabled_endpoints": {
+                    "type": "integer"
+                },
+                "last_scanned_at": {
+                    "type": "string"
+                },
+                "scanned_endpoints": {
+                    "type": "integer"
+                },
+                "total_endpoints": {
+                    "type": "integer"
+                },
+                "total_issues": {
+                    "type": "integer"
+                }
+            }
+        },
+        "db.APIDefinitionStatus": {
+            "type": "string",
+            "enum": [
+                "parsed",
+                "scanning",
+                "completed",
+                "failed"
+            ],
+            "x-enum-varnames": [
+                "APIDefinitionStatusParsed",
+                "APIDefinitionStatusScanning",
+                "APIDefinitionStatusCompleted",
+                "APIDefinitionStatusFailed"
+            ]
+        },
+        "db.APIDefinitionType": {
+            "type": "string",
+            "enum": [
+                "openapi",
+                "graphql",
+                "wsdl"
+            ],
+            "x-enum-varnames": [
+                "APIDefinitionTypeOpenAPI",
+                "APIDefinitionTypeGraphQL",
+                "APIDefinitionTypeWSDL"
+            ]
+        },
+        "db.APIEndpoint": {
+            "type": "object",
+            "properties": {
+                "binding_style": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "definition_id": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "issues_found": {
+                    "type": "integer"
+                },
+                "last_scanned_at": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "operation_id": {
+                    "type": "string"
+                },
+                "operation_type": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIEndpointParameter"
+                    }
+                },
+                "path": {
+                    "type": "string"
+                },
+                "port_name": {
+                    "type": "string"
+                },
+                "request_variations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIRequestVariation"
+                    }
+                },
+                "return_type": {
+                    "type": "string"
+                },
+                "security_schemes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIEndpointSecurity"
+                    }
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "soap_action": {
+                    "type": "string"
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.APIEndpointParameter": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "data_type": {
+                    "type": "string"
+                },
+                "default_value": {
+                    "type": "string"
+                },
+                "endpoint_id": {
+                    "type": "string"
+                },
+                "enum_values": {
+                    "type": "string"
+                },
+                "example": {
+                    "type": "string"
+                },
+                "format": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "location": {
+                    "$ref": "#/definitions/db.APIParameterLocation"
+                },
+                "max_length": {
+                    "type": "integer"
+                },
+                "maximum": {
+                    "type": "number"
+                },
+                "min_length": {
+                    "type": "integer"
+                },
+                "minimum": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pattern": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.APIEndpointSecurity": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "endpoint_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "scheme_name": {
+                    "type": "string"
+                },
+                "scopes": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.APIKeyLocation": {
+            "type": "string",
+            "enum": [
+                "header",
+                "query",
+                "cookie"
+            ],
+            "x-enum-varnames": [
+                "APIKeyLocationHeader",
+                "APIKeyLocationQuery",
+                "APIKeyLocationCookie"
+            ]
+        },
+        "db.APIParameterLocation": {
+            "type": "string",
+            "enum": [
+                "path",
+                "query",
+                "header",
+                "cookie",
+                "body"
+            ],
+            "x-enum-varnames": [
+                "APIParamLocationPath",
+                "APIParamLocationQuery",
+                "APIParamLocationHeader",
+                "APIParamLocationCookie",
+                "APIParamLocationBody"
+            ]
+        },
+        "db.APIRequestVariation": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "content_type": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "endpoint_id": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "operation_name": {
+                    "type": "string"
+                },
+                "query": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "variables": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "db.BrowserActionScope": {
             "type": "string",
             "enum": [
@@ -5951,6 +7864,12 @@ const docTemplate = `{
         "db.History": {
             "type": "object",
             "properties": {
+                "api_definition_id": {
+                    "type": "string"
+                },
+                "api_endpoint_id": {
+                    "type": "string"
+                },
                 "clean_url": {
                     "type": "string"
                 },
@@ -6134,6 +8053,12 @@ const docTemplate = `{
         "db.Issue": {
             "type": "object",
             "properties": {
+                "api_definition_id": {
+                    "type": "string"
+                },
+                "api_endpoint_id": {
+                    "type": "string"
+                },
                 "code": {
                     "type": "string"
                 },
@@ -6996,14 +8921,20 @@ const docTemplate = `{
                 "websocket_scan",
                 "discovery",
                 "nuclei",
-                "crawl"
+                "crawl",
+                "site_behavior",
+                "api_behavior",
+                "api_scan"
             ],
             "x-enum-varnames": [
                 "ScanJobTypeActiveScan",
                 "ScanJobTypeWebSocketScan",
                 "ScanJobTypeDiscovery",
                 "ScanJobTypeNuclei",
-                "ScanJobTypeCrawl"
+                "ScanJobTypeCrawl",
+                "ScanJobTypeSiteBehavior",
+                "ScanJobTypeAPIBehavior",
+                "ScanJobTypeAPIScan"
             ]
         },
         "db.ScanPhase": {
@@ -7011,6 +8942,8 @@ const docTemplate = `{
             "enum": [
                 "crawl",
                 "fingerprint",
+                "site_behavior",
+                "api_behavior",
                 "discovery",
                 "nuclei",
                 "active_scan",
@@ -7019,6 +8952,8 @@ const docTemplate = `{
             "x-enum-varnames": [
                 "ScanPhaseCrawl",
                 "ScanPhaseFingerprint",
+                "ScanPhaseSiteBehavior",
+                "ScanPhaseAPIBehavior",
                 "ScanPhaseDiscovery",
                 "ScanPhaseNuclei",
                 "ScanPhaseActiveScan",
@@ -7049,11 +8984,11 @@ const docTemplate = `{
         "db.SiteBehavior": {
             "type": "object",
             "properties": {
-                "common_hash": {
-                    "type": "string"
-                },
                 "not_found_changes": {
                     "type": "boolean"
+                },
+                "not_found_common_hash": {
+                    "type": "string"
                 },
                 "not_found_returns_404": {
                     "type": "boolean"
@@ -8105,6 +10040,36 @@ const docTemplate = `{
                 }
             }
         },
+        "options.APIDefinitionScanConfig": {
+            "type": "object",
+            "required": [
+                "definition_id"
+            ],
+            "properties": {
+                "auth_config_id": {
+                    "description": "Override definition's auth",
+                    "type": "string"
+                },
+                "definition_id": {
+                    "type": "string"
+                },
+                "endpoint_ids": {
+                    "description": "Empty = all enabled endpoints",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "inline_auth": {
+                    "description": "Or configure inline",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/options.InlineAuth"
+                        }
+                    ]
+                }
+            }
+        },
         "options.AuditCategories": {
             "type": "object",
             "properties": {
@@ -8125,19 +10090,57 @@ const docTemplate = `{
                 }
             }
         },
+        "options.FullScanAPIScanOptions": {
+            "type": "object",
+            "properties": {
+                "definition_configs": {
+                    "description": "Per-definition configuration with endpoint selection and auth override",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/options.APIDefinitionScanConfig"
+                    }
+                },
+                "definition_ids": {
+                    "description": "Legacy: Simple list of definition IDs (backwards compatible)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "inline_imports": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/options.InlineAPIImport"
+                    }
+                },
+                "run_api_specific_tests": {
+                    "type": "boolean"
+                },
+                "run_schema_tests": {
+                    "type": "boolean"
+                },
+                "run_standard_tests": {
+                    "type": "boolean"
+                }
+            }
+        },
         "options.FullScanOptions": {
             "type": "object",
             "required": [
                 "audit_categories",
-                "start_urls",
                 "workspace_id"
             ],
             "properties": {
+                "api_scan_options": {
+                    "$ref": "#/definitions/options.FullScanAPIScanOptions"
+                },
                 "audit_categories": {
                     "$ref": "#/definitions/options.AuditCategories"
                 },
                 "capture_browser_events": {
-                    "description": "Enable browser event capture and storage",
                     "type": "boolean"
                 },
                 "exclude_patterns": {
@@ -8158,6 +10161,21 @@ const docTemplate = `{
                         }
                     }
                 },
+                "http_disable_keep_alives": {
+                    "type": "boolean"
+                },
+                "http_max_conns_per_host": {
+                    "type": "integer"
+                },
+                "http_max_idle_conns": {
+                    "type": "integer"
+                },
+                "http_max_idle_conns_per_host": {
+                    "type": "integer"
+                },
+                "http_timeout": {
+                    "type": "integer"
+                },
                 "insertion_points": {
                     "type": "array",
                     "items": {
@@ -8165,17 +10183,16 @@ const docTemplate = `{
                     }
                 },
                 "job_timeouts": {
-                    "description": "Per-scan job timeout overrides",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/options.JobTimeouts"
-                        }
-                    ]
+                    "$ref": "#/definitions/options.JobTimeouts"
                 },
                 "max_concurrent_jobs": {
                     "type": "integer"
                 },
                 "max_depth": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max_pages_per_site": {
                     "type": "integer",
                     "minimum": 0
                 },
@@ -8245,10 +10262,94 @@ const docTemplate = `{
                 }
             }
         },
+        "options.InlineAPIImport": {
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "auth_config_id": {
+                    "type": "string"
+                },
+                "base_url": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "openapi",
+                        "graphql",
+                        "wsdl"
+                    ]
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "options.InlineAuth": {
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "api_key_location": {
+                    "type": "string",
+                    "enum": [
+                        "header",
+                        "query",
+                        "cookie"
+                    ]
+                },
+                "api_key_name": {
+                    "type": "string"
+                },
+                "api_key_value": {
+                    "type": "string"
+                },
+                "custom_headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "password": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "token_prefix": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "none",
+                        "basic",
+                        "bearer",
+                        "api_key"
+                    ]
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "options.JobTimeouts": {
             "type": "object",
             "properties": {
                 "active_scan": {
+                    "type": "integer",
+                    "example": 1800000000000
+                },
+                "api_scan": {
                     "type": "integer",
                     "example": 1800000000000
                 },

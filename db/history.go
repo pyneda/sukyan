@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/lib"
 
 	"github.com/rs/zerolog"
@@ -44,6 +45,10 @@ type History struct {
 	RequestContentType  string            `gorm:"index" json:"request_content_type"`
 	ResponseContentType string            `gorm:"index" json:"response_content_type"`
 	IsWebSocketUpgrade  bool              `json:"is_websocket_upgrade"`
+	APIDefinitionID *uuid.UUID     `json:"api_definition_id,omitempty" gorm:"type:uuid;index"`
+	APIDefinition   *APIDefinition `json:"-" gorm:"foreignKey:APIDefinitionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	APIEndpointID   *uuid.UUID     `json:"api_endpoint_id,omitempty" gorm:"type:uuid;index"`
+	APIEndpoint     *APIEndpoint   `json:"-" gorm:"foreignKey:APIEndpointID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 func (h History) TaskTitle() string {

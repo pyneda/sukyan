@@ -249,7 +249,7 @@ func storeTestConnection(targetURL string, reqHeaders http.Header, resp *http.Re
 		ResponseHeaders: respHeadersJSON,
 		StatusCode:      statusCode,
 		StatusText:      statusText,
-		Source:          "cswsh-scanner",
+		Source:          db.SourceScanner,
 		ClosedAt:        time.Now(),
 	}
 

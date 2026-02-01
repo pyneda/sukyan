@@ -51,6 +51,7 @@ var httpMaxIdleConns int
 var httpMaxIdleConnsPerHost int
 var httpMaxConnsPerHost int
 var httpDisableKeepAlives bool
+var noAPIScan bool
 
 var validate = validator.New()
 
@@ -166,6 +167,11 @@ var scanCmd = &cobra.Command{
 				Concurrency:       websocketConcurrency,
 				ReplayMessages:    websocketReplayMessages,
 				ObservationWindow: websocketObservationWindow,
+			},
+			APIScanOptions: scan_options.FullScanAPIScanOptions{
+				Enabled:             !noAPIScan,
+				RunAPISpecificTests: true,
+				RunStandardTests:    true,
 			},
 			MaxRetries:              maxRetries,
 			MaxConcurrentJobs:       maxConcurrentJobsPtr,
@@ -355,4 +361,7 @@ func init() {
 	scanCmd.Flags().IntVar(&httpMaxIdleConnsPerHost, "http-max-idle-conns-per-host", 0, "Max idle connections per host (0 = use global default)")
 	scanCmd.Flags().IntVar(&httpMaxConnsPerHost, "http-max-conns-per-host", 0, "Max concurrent connections per host (0 = use global default)")
 	scanCmd.Flags().BoolVar(&httpDisableKeepAlives, "http-disable-keep-alives", false, "Disable HTTP keep-alives")
+
+	// API Scan Configuration
+	scanCmd.Flags().BoolVar(&noAPIScan, "no-api-scan", false, "Disable API scanning phase (for discovered API definitions)")
 }

@@ -58,6 +58,11 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		ForbiddenBypassScan(item, activeOptions)
 	}
 
+	if options.AuditCategories.ServerSide {
+		MethodOverrideScan(item, activeOptions)
+		MassAssignmentScan(item, activeOptions)
+	}
+
 	// Check context after bypass scan
 	select {
 	case <-ctx.Done():

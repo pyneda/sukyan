@@ -28,6 +28,12 @@ const (
 	InsertionPointTypeFullBody  InsertionPointType = "fullbody"
 )
 
+// GraphQL insertion point types
+const (
+	InsertionPointTypeGraphQLVariable  InsertionPointType = "graphql_variable"
+	InsertionPointTypeGraphQLInlineArg InsertionPointType = "graphql_inline_arg"
+)
+
 // WebSocket general insertion point types
 const (
 	InsertionPointTypeWSRawMessage InsertionPointType = "ws_raw_message"
@@ -74,6 +80,12 @@ func (ipt InsertionPointType) HumanReadableName() string {
 		return "URL Path Component"
 	case InsertionPointTypeFullBody:
 		return "Full Request Body"
+
+	// GraphQL types
+	case InsertionPointTypeGraphQLVariable:
+		return "GraphQL Variable"
+	case InsertionPointTypeGraphQLInlineArg:
+		return "GraphQL Inline Argument"
 
 	// WebSocket JSON types
 	case InsertionPointTypeWSJSONField:
@@ -122,6 +134,10 @@ func AllInsertionPointTypes() []InsertionPointType {
 		InsertionPointTypeURLPath,
 		InsertionPointTypeFullBody,
 
+		// GraphQL types
+		InsertionPointTypeGraphQLVariable,
+		InsertionPointTypeGraphQLInlineArg,
+
 		// WebSocket JSON types
 		InsertionPointTypeWSJSONField,
 		InsertionPointTypeWSJSONValue,
@@ -153,6 +169,8 @@ func HTTPInsertionPointTypes() []InsertionPointType {
 		InsertionPointTypeCookie,
 		InsertionPointTypeURLPath,
 		InsertionPointTypeFullBody,
+		InsertionPointTypeGraphQLVariable,
+		InsertionPointTypeGraphQLInlineArg,
 	}
 }
 
@@ -221,7 +239,8 @@ func (ipt InsertionPointType) IsWebSocketType() bool {
 func (ipt InsertionPointType) IsHTTPType() bool {
 	switch ipt {
 	case InsertionPointTypeParameter, InsertionPointTypeHeader, InsertionPointTypeBody,
-		InsertionPointTypeCookie, InsertionPointTypeURLPath, InsertionPointTypeFullBody:
+		InsertionPointTypeCookie, InsertionPointTypeURLPath, InsertionPointTypeFullBody,
+		InsertionPointTypeGraphQLVariable, InsertionPointTypeGraphQLInlineArg:
 		return true
 	default:
 		return false
@@ -615,6 +634,20 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 			ValueType:    lib.GuessDataType(bodyStr),
 			OriginalData: bodyStr,
 		})
+	}
+
+	// GraphQL-specific insertion points (variables + inline args)
+	if (len(scoped) == 0 || lib.SliceContains(scoped, "graphql")) &&
+		strings.Contains(history.RequestContentType, "application/json") && len(body) > 0 {
+		var jsonData map[string]any
+		if err := json.Unmarshal(body, &jsonData); err == nil && isGraphQLBody(jsonData) {
+			if vars, ok := jsonData["variables"].(map[string]any); ok && len(vars) > 0 {
+				points = append(points, extractGraphQLVariablePoints("", vars, bodyStr)...)
+			}
+			if queryStr, ok := jsonData["query"].(string); ok {
+				points = append(points, extractGraphQLInlineArgPoints(queryStr, bodyStr)...)
+			}
+		}
 	}
 
 	return points, nil

@@ -1,0 +1,32 @@
+code: api_mass_assignment
+title: Potential Mass Assignment Vulnerability
+description: |-
+  The API endpoint may be vulnerable to mass assignment attacks. The endpoint
+  accepted additional fields beyond what was documented or expected, and these
+  fields may have been processed by the server.
+
+  Mass assignment vulnerabilities occur when an API automatically binds client
+  request data to internal object properties without proper filtering. An attacker
+  can exploit this by adding unexpected fields like:
+  - isAdmin: true
+  - role: "admin"
+  - verified: true
+  - price: 0
+remediation: |-
+  Implement explicit allowlisting of accepted fields:
+  - Never blindly bind request data to internal objects
+  - Use Data Transfer Objects (DTOs) that explicitly define accepted fields
+  - Validate all input against a strict schema
+  - Use frameworks' built-in mass assignment protection features
+  - Reject requests containing unexpected fields
+
+  For API frameworks:
+  - Express.js: Validate input with Joi or similar
+  - Rails: Use strong parameters
+  - Django REST: Use serializers with explicit fields
+  - Spring: Use @Valid with DTOs
+cwe: 915
+severity: High
+references:
+  - https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html
+  - https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/

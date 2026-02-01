@@ -108,7 +108,7 @@ func StartAPI() {
 	api.Get("/issues", JWTProtected(), FindIssues)
 	api.Get("/issues/grouped", JWTProtected(), FindIssuesGrouped)
 	api.Get("/issues/:id", JWTProtected(), GetIssueDetail)
-	api.Post("/issues/:id/set-false-positive", SetFalsePositive)
+	api.Post("/issues/:id/set-false-positive", JWTProtected(), SetFalsePositive)
 	api.Get("/history/:id/children", JWTProtected(), GetChildren)
 	api.Get("/history/root-nodes", JWTProtected(), GetRootNodes)
 	api.Get("/history/websocket/connections/:id", JWTProtected(), FindWebSocketConnectionByID)
@@ -161,6 +161,27 @@ func StartAPI() {
 
 	// Knowledge base endpoints
 	api.Get("/kb/issues", JWTProtected(), ListIssueTemplates)
+
+	// API definitions endpoints
+	api.Get("/api-definitions", JWTProtected(), ListAPIDefinitions)
+	api.Post("/api-definitions", JWTProtected(), CreateAPIDefinition)
+	api.Post("/api-definitions/import-and-scan", JWTProtected(), ImportAndScanAPIDefinition)
+	api.Get("/api-definitions/:id", JWTProtected(), GetAPIDefinition)
+	api.Patch("/api-definitions/:id", JWTProtected(), UpdateAPIDefinition)
+	api.Delete("/api-definitions/:id", JWTProtected(), DeleteAPIDefinition)
+	api.Post("/api-definitions/:id/scan", JWTProtected(), StartAPIDefinitionScan)
+	api.Get("/api-definitions/:id/endpoints", JWTProtected(), ListAPIEndpoints)
+	api.Get("/api-definitions/:id/endpoints/:endpoint_id", JWTProtected(), GetAPIEndpoint)
+	api.Patch("/api-definitions/:id/endpoints/:endpoint_id", JWTProtected(), UpdateAPIEndpoint)
+	api.Post("/api-definitions/:id/endpoints/toggle-all", JWTProtected(), ToggleAllEndpoints)
+	api.Get("/api-definitions/:id/security-schemes", JWTProtected(), GetAPIDefinitionSecuritySchemes)
+
+	// API auth config endpoints
+	api.Get("/api-auth-configs", JWTProtected(), ListAPIAuthConfigs)
+	api.Get("/api-auth-configs/:id", JWTProtected(), GetAPIAuthConfig)
+	api.Post("/api-auth-configs", JWTProtected(), CreateAPIAuthConfig)
+	api.Patch("/api-auth-configs/:id", JWTProtected(), UpdateAPIAuthConfig)
+	api.Delete("/api-auth-configs/:id", JWTProtected(), DeleteAPIAuthConfig)
 
 	// Auth related endpoints
 	auth_app := api.Group("/auth")

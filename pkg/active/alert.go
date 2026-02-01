@@ -532,7 +532,7 @@ func (x *AlertAudit) saveBrowserDialogEvent(history *db.History, e proto.PageJav
 		ScanJobID:   scanJobID,
 		HistoryID:   historyID,
 		TaskID:      taskID,
-		Source:      "xss_audit",
+		Source:      db.SourceScanner,
 	}
 
 	if err := db.Connection().SaveBrowserEvent(browserEvent); err != nil {

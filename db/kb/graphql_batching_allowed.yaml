@@ -1,0 +1,22 @@
+code: graphql_batching_allowed
+title: GraphQL Query Batching Allowed
+description: |-
+  The GraphQL endpoint accepts batched queries without apparent limits. This allows
+  multiple queries to be sent in a single request, which could enable resource
+  exhaustion attacks by sending many expensive operations simultaneously.
+
+  Batched queries can be used to:
+  - Bypass rate limiting (one request contains many operations)
+  - Amplify the impact of expensive queries
+  - Perform brute-force attacks more efficiently
+remediation: |-
+  Consider implementing controls for query batching:
+  - Limit the number of operations allowed per request
+  - Implement query cost analysis to limit overall complexity
+  - Apply rate limiting based on total query complexity rather than just request count
+  - Disable batching entirely if not required for your use case
+cwe: 770
+severity: Medium
+references:
+  - https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/01-Testing_GraphQL

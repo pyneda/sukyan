@@ -1,0 +1,24 @@
+code: soap_action_spoofing
+title: SOAP Action Spoofing Possible
+description: |-
+  The SOAP service processes requests where the SOAPAction header does not match
+  the actual operation being invoked in the SOAP body. This could indicate that
+  the service relies on the SOAPAction header for routing or authorization
+  decisions without verifying it matches the actual operation.
+
+  An attacker could potentially:
+  - Bypass action-based access controls
+  - Invoke operations intended for different authorization levels
+  - Confuse logging and monitoring systems
+remediation: |-
+  Ensure the SOAP service validates that the SOAPAction header matches the
+  operation in the SOAP body:
+  - Implement server-side validation of SOAPAction consistency
+  - Do not rely solely on SOAPAction for authorization decisions
+  - Log and alert on SOAPAction mismatches
+  - Consider using WS-Security for operation-level authorization
+cwe: 284
+severity: Medium
+references:
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/
+  - https://cheatsheetseries.owasp.org/cheatsheets/Web_Service_Security_Cheat_Sheet.html

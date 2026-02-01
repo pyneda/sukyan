@@ -127,6 +127,98 @@ definitions:
     - WaitHidden
     - WaitEnabled
     - WaitLoad
+  api.APIAuthConfigListResponse:
+    properties:
+      count:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/db.APIAuthConfig'
+        type: array
+    type: object
+  api.APIDefinitionListResponse:
+    properties:
+      count:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/db.APIDefinition'
+        type: array
+    type: object
+  api.APIDefinitionResponse:
+    properties:
+      auth_config:
+        $ref: '#/definitions/db.APIAuthConfig'
+      auth_config_id:
+        type: string
+      auto_discovered:
+        type: boolean
+      base_url:
+        type: string
+      created_at:
+        type: string
+      endpoint_count:
+        type: integer
+      endpoints:
+        items:
+          $ref: '#/definitions/db.APIEndpoint'
+        type: array
+      graphql_mutation_count:
+        type: integer
+      graphql_query_count:
+        type: integer
+      graphql_subscription_count:
+        type: integer
+      graphql_type_count:
+        type: integer
+      id:
+        type: string
+      name:
+        type: string
+      openapi_servers:
+        type: integer
+      openapi_title:
+        type: string
+      openapi_version:
+        type: string
+      scan_id:
+        type: integer
+      security_schemes:
+        items:
+          $ref: '#/definitions/db.APIDefinitionSecurityScheme'
+        type: array
+      source_history_id:
+        type: integer
+      source_url:
+        type: string
+      stats:
+        $ref: '#/definitions/db.APIDefinitionStats'
+      status:
+        $ref: '#/definitions/db.APIDefinitionStatus'
+      type:
+        $ref: '#/definitions/db.APIDefinitionType'
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+      wsdl_port_count:
+        type: integer
+      wsdl_service_count:
+        type: integer
+      wsdl_soap_version:
+        type: string
+      wsdl_target_namespace:
+        type: string
+    type: object
+  api.APIEndpointListResponse:
+    properties:
+      count:
+        type: integer
+      items:
+        items:
+          $ref: '#/definitions/db.APIEndpoint'
+        type: array
+    type: object
   api.ActionResponse:
     properties:
       message:
@@ -293,6 +385,78 @@ definitions:
       pre_request_action_id:
         type: integer
     type: object
+  api.CreateAPIAuthConfigInput:
+    properties:
+      api_key_location:
+        allOf:
+        - $ref: '#/definitions/db.APIKeyLocation'
+        enum:
+        - header
+        - query
+        - cookie
+      api_key_name:
+        maxLength: 255
+        type: string
+      api_key_value:
+        type: string
+      custom_headers:
+        items:
+          $ref: '#/definitions/api.CustomHeaderInput'
+        type: array
+      name:
+        maxLength: 255
+        type: string
+      password:
+        maxLength: 500
+        type: string
+      token:
+        type: string
+      token_prefix:
+        maxLength: 50
+        type: string
+      type:
+        allOf:
+        - $ref: '#/definitions/db.APIAuthType'
+        enum:
+        - none
+        - basic
+        - bearer
+        - api_key
+        - oauth2
+      username:
+        maxLength: 255
+        type: string
+      workspace_id:
+        type: integer
+    required:
+    - name
+    - type
+    - workspace_id
+    type: object
+  api.CreateAPIDefinitionInput:
+    properties:
+      auth_config_id:
+        type: string
+      base_url:
+        type: string
+      content:
+        type: string
+      name:
+        maxLength: 255
+        type: string
+      type:
+        enum:
+        - openapi
+        - graphql
+        - wsdl
+        type: string
+      url:
+        type: string
+      workspace_id:
+        type: integer
+    required:
+    - workspace_id
+    type: object
   api.CreatePlaygroundCollectionInput:
     properties:
       description:
@@ -323,6 +487,17 @@ definitions:
     required:
     - collection_id
     - name
+    type: object
+  api.CustomHeaderInput:
+    properties:
+      header_name:
+        maxLength: 255
+        type: string
+      header_value:
+        type: string
+    required:
+    - header_name
+    - header_value
     type: object
   api.DashboardStats:
     properties:
@@ -476,6 +651,44 @@ definitions:
         type: integer
       url:
         type: string
+    type: object
+  api.ImportAndScanInput:
+    properties:
+      audit_categories:
+        $ref: '#/definitions/options.AuditCategories'
+      auth_config_id:
+        type: string
+      base_url:
+        type: string
+      content:
+        type: string
+      mode:
+        enum:
+        - fast
+        - smart
+        - fuzz
+        type: string
+      name:
+        maxLength: 255
+        type: string
+      run_api_specific_tests:
+        type: boolean
+      run_schema_tests:
+        type: boolean
+      run_standard_tests:
+        type: boolean
+      type:
+        enum:
+        - openapi
+        - graphql
+        - wsdl
+        type: string
+      url:
+        type: string
+      workspace_id:
+        type: integer
+    required:
+    - workspace_id
     type: object
   api.IssueUpdateResponse:
     properties:
@@ -1029,6 +1242,36 @@ definitions:
       refresh:
         type: string
     type: object
+  api.StartAPIDefinitionScanInput:
+    properties:
+      auth_config_id:
+        type: string
+      client_side_checks:
+        type: boolean
+      endpoint_ids:
+        items:
+          type: string
+        type: array
+      mode:
+        enum:
+        - fast
+        - smart
+        - fuzz
+        type: string
+      passive_checks:
+        type: boolean
+      run_api_specific_tests:
+        type: boolean
+      run_standard_tests:
+        type: boolean
+      server_side_checks:
+        type: boolean
+    type: object
+  api.SuccessResponse:
+    properties:
+      message:
+        type: string
+    type: object
   api.ThroughputInfo:
     properties:
       in_flight:
@@ -1045,6 +1288,66 @@ definitions:
         type: integer
       success_rate:
         type: number
+    type: object
+  api.UpdateAPIAuthConfigInput:
+    properties:
+      api_key_location:
+        allOf:
+        - $ref: '#/definitions/db.APIKeyLocation'
+        enum:
+        - header
+        - query
+        - cookie
+      api_key_name:
+        maxLength: 255
+        type: string
+      api_key_value:
+        type: string
+      custom_headers:
+        items:
+          $ref: '#/definitions/api.CustomHeaderInput'
+        type: array
+      name:
+        maxLength: 255
+        type: string
+      password:
+        maxLength: 500
+        type: string
+      token:
+        type: string
+      token_prefix:
+        maxLength: 50
+        type: string
+      type:
+        allOf:
+        - $ref: '#/definitions/db.APIAuthType'
+        enum:
+        - none
+        - basic
+        - bearer
+        - api_key
+        - oauth2
+      username:
+        maxLength: 255
+        type: string
+    type: object
+  api.UpdateAPIDefinitionInput:
+    properties:
+      auth_config_id:
+        type: string
+      base_url:
+        type: string
+      name:
+        maxLength: 255
+        type: string
+    type: object
+  api.UpdateAPIEndpointInput:
+    properties:
+      enabled:
+        type: boolean
+      name:
+        maxLength: 255
+        type: string
     type: object
   api.UpdatePlaygroundSessionInput:
     properties:
@@ -1166,6 +1469,359 @@ definitions:
       refresh:
         type: string
     type: object
+  db.APIAuthConfig:
+    properties:
+      api_key_location:
+        $ref: '#/definitions/db.APIKeyLocation'
+      api_key_name:
+        type: string
+      api_key_value:
+        type: string
+      created_at:
+        type: string
+      custom_headers:
+        items:
+          $ref: '#/definitions/db.APIAuthHeader'
+        type: array
+      id:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+      token:
+        type: string
+      token_prefix:
+        type: string
+      type:
+        $ref: '#/definitions/db.APIAuthType'
+      updated_at:
+        type: string
+      username:
+        type: string
+      workspace_id:
+        type: integer
+    type: object
+  db.APIAuthHeader:
+    properties:
+      auth_config_id:
+        type: string
+      created_at:
+        type: string
+      header_name:
+        type: string
+      header_value:
+        type: string
+      id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  db.APIAuthType:
+    enum:
+    - none
+    - basic
+    - bearer
+    - api_key
+    - oauth2
+    type: string
+    x-enum-varnames:
+    - APIAuthTypeNone
+    - APIAuthTypeBasic
+    - APIAuthTypeBearer
+    - APIAuthTypeAPIKey
+    - APIAuthTypeOAuth2
+  db.APIDefinition:
+    properties:
+      auth_config:
+        $ref: '#/definitions/db.APIAuthConfig'
+      auth_config_id:
+        type: string
+      auto_discovered:
+        type: boolean
+      base_url:
+        type: string
+      created_at:
+        type: string
+      endpoint_count:
+        type: integer
+      endpoints:
+        items:
+          $ref: '#/definitions/db.APIEndpoint'
+        type: array
+      graphql_mutation_count:
+        type: integer
+      graphql_query_count:
+        type: integer
+      graphql_subscription_count:
+        type: integer
+      graphql_type_count:
+        type: integer
+      id:
+        type: string
+      name:
+        type: string
+      openapi_servers:
+        type: integer
+      openapi_title:
+        type: string
+      openapi_version:
+        type: string
+      scan_id:
+        type: integer
+      security_schemes:
+        items:
+          $ref: '#/definitions/db.APIDefinitionSecurityScheme'
+        type: array
+      source_history_id:
+        type: integer
+      source_url:
+        type: string
+      status:
+        $ref: '#/definitions/db.APIDefinitionStatus'
+      type:
+        $ref: '#/definitions/db.APIDefinitionType'
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+      wsdl_port_count:
+        type: integer
+      wsdl_service_count:
+        type: integer
+      wsdl_soap_version:
+        type: string
+      wsdl_target_namespace:
+        type: string
+    type: object
+  db.APIDefinitionSecurityScheme:
+    properties:
+      bearer_format:
+        type: string
+      created_at:
+        type: string
+      definition_id:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      in:
+        type: string
+      name:
+        type: string
+      openid_connect_url:
+        type: string
+      parameter_name:
+        type: string
+      scheme:
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  db.APIDefinitionStats:
+    properties:
+      enabled_endpoints:
+        type: integer
+      last_scanned_at:
+        type: string
+      scanned_endpoints:
+        type: integer
+      total_endpoints:
+        type: integer
+      total_issues:
+        type: integer
+    type: object
+  db.APIDefinitionStatus:
+    enum:
+    - parsed
+    - scanning
+    - completed
+    - failed
+    type: string
+    x-enum-varnames:
+    - APIDefinitionStatusParsed
+    - APIDefinitionStatusScanning
+    - APIDefinitionStatusCompleted
+    - APIDefinitionStatusFailed
+  db.APIDefinitionType:
+    enum:
+    - openapi
+    - graphql
+    - wsdl
+    type: string
+    x-enum-varnames:
+    - APIDefinitionTypeOpenAPI
+    - APIDefinitionTypeGraphQL
+    - APIDefinitionTypeWSDL
+  db.APIEndpoint:
+    properties:
+      binding_style:
+        type: string
+      created_at:
+        type: string
+      definition_id:
+        type: string
+      description:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: string
+      issues_found:
+        type: integer
+      last_scanned_at:
+        type: string
+      method:
+        type: string
+      name:
+        type: string
+      operation_id:
+        type: string
+      operation_type:
+        type: string
+      parameters:
+        items:
+          $ref: '#/definitions/db.APIEndpointParameter'
+        type: array
+      path:
+        type: string
+      port_name:
+        type: string
+      request_variations:
+        items:
+          $ref: '#/definitions/db.APIRequestVariation'
+        type: array
+      return_type:
+        type: string
+      security_schemes:
+        items:
+          $ref: '#/definitions/db.APIEndpointSecurity'
+        type: array
+      service_name:
+        type: string
+      soap_action:
+        type: string
+      summary:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  db.APIEndpointParameter:
+    properties:
+      created_at:
+        type: string
+      data_type:
+        type: string
+      default_value:
+        type: string
+      endpoint_id:
+        type: string
+      enum_values:
+        type: string
+      example:
+        type: string
+      format:
+        type: string
+      id:
+        type: string
+      location:
+        $ref: '#/definitions/db.APIParameterLocation'
+      max_length:
+        type: integer
+      maximum:
+        type: number
+      min_length:
+        type: integer
+      minimum:
+        type: number
+      name:
+        type: string
+      pattern:
+        type: string
+      required:
+        type: boolean
+      updated_at:
+        type: string
+    type: object
+  db.APIEndpointSecurity:
+    properties:
+      created_at:
+        type: string
+      endpoint_id:
+        type: string
+      id:
+        type: string
+      scheme_name:
+        type: string
+      scopes:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  db.APIKeyLocation:
+    enum:
+    - header
+    - query
+    - cookie
+    type: string
+    x-enum-varnames:
+    - APIKeyLocationHeader
+    - APIKeyLocationQuery
+    - APIKeyLocationCookie
+  db.APIParameterLocation:
+    enum:
+    - path
+    - query
+    - header
+    - cookie
+    - body
+    type: string
+    x-enum-varnames:
+    - APIParamLocationPath
+    - APIParamLocationQuery
+    - APIParamLocationHeader
+    - APIParamLocationCookie
+    - APIParamLocationBody
+  db.APIRequestVariation:
+    properties:
+      body:
+        items:
+          type: integer
+        type: array
+      content_type:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      endpoint_id:
+        type: string
+      headers:
+        items:
+          type: integer
+        type: array
+      id:
+        type: string
+      label:
+        type: string
+      method:
+        type: string
+      operation_name:
+        type: string
+      query:
+        type: string
+      updated_at:
+        type: string
+      url:
+        type: string
+      variables:
+        items:
+          type: integer
+        type: array
+    type: object
   db.BrowserActionScope:
     enum:
     - global
@@ -1206,6 +1862,10 @@ definitions:
     type: object
   db.History:
     properties:
+      api_definition_id:
+        type: string
+      api_endpoint_id:
+        type: string
       clean_url:
         type: string
       created_at:
@@ -1331,6 +1991,10 @@ definitions:
     type: object
   db.Issue:
     properties:
+      api_definition_id:
+        type: string
+      api_endpoint_id:
+        type: string
       code:
         type: string
       confidence:
@@ -1930,6 +2594,9 @@ definitions:
     - discovery
     - nuclei
     - crawl
+    - site_behavior
+    - api_behavior
+    - api_scan
     type: string
     x-enum-varnames:
     - ScanJobTypeActiveScan
@@ -1937,10 +2604,15 @@ definitions:
     - ScanJobTypeDiscovery
     - ScanJobTypeNuclei
     - ScanJobTypeCrawl
+    - ScanJobTypeSiteBehavior
+    - ScanJobTypeAPIBehavior
+    - ScanJobTypeAPIScan
   db.ScanPhase:
     enum:
     - crawl
     - fingerprint
+    - site_behavior
+    - api_behavior
     - discovery
     - nuclei
     - active_scan
@@ -1949,6 +2621,8 @@ definitions:
     x-enum-varnames:
     - ScanPhaseCrawl
     - ScanPhaseFingerprint
+    - ScanPhaseSiteBehavior
+    - ScanPhaseAPIBehavior
     - ScanPhaseDiscovery
     - ScanPhaseNuclei
     - ScanPhaseActiveScan
@@ -1973,10 +2647,10 @@ definitions:
     - ScanStatusFailed
   db.SiteBehavior:
     properties:
-      common_hash:
-        type: string
       not_found_changes:
         type: boolean
+      not_found_common_hash:
+        type: string
       not_found_returns_404:
         type: boolean
     type: object
@@ -2699,6 +3373,25 @@ definitions:
           type: string
         type: array
     type: object
+  options.APIDefinitionScanConfig:
+    properties:
+      auth_config_id:
+        description: Override definition's auth
+        type: string
+      definition_id:
+        type: string
+      endpoint_ids:
+        description: Empty = all enabled endpoints
+        items:
+          type: string
+        type: array
+      inline_auth:
+        allOf:
+        - $ref: '#/definitions/options.InlineAuth'
+        description: Or configure inline
+    required:
+    - definition_id
+    type: object
   options.AuditCategories:
     properties:
       client_side:
@@ -2712,12 +3405,39 @@ definitions:
       websocket:
         type: boolean
     type: object
+  options.FullScanAPIScanOptions:
+    properties:
+      definition_configs:
+        description: Per-definition configuration with endpoint selection and auth
+          override
+        items:
+          $ref: '#/definitions/options.APIDefinitionScanConfig'
+        type: array
+      definition_ids:
+        description: 'Legacy: Simple list of definition IDs (backwards compatible)'
+        items:
+          type: string
+        type: array
+      enabled:
+        type: boolean
+      inline_imports:
+        items:
+          $ref: '#/definitions/options.InlineAPIImport'
+        type: array
+      run_api_specific_tests:
+        type: boolean
+      run_schema_tests:
+        type: boolean
+      run_standard_tests:
+        type: boolean
+    type: object
   options.FullScanOptions:
     properties:
+      api_scan_options:
+        $ref: '#/definitions/options.FullScanAPIScanOptions'
       audit_categories:
         $ref: '#/definitions/options.AuditCategories'
       capture_browser_events:
-        description: Enable browser event capture and storage
         type: boolean
       exclude_patterns:
         items:
@@ -2731,17 +3451,28 @@ definitions:
             type: string
           type: array
         type: object
+      http_disable_keep_alives:
+        type: boolean
+      http_max_conns_per_host:
+        type: integer
+      http_max_idle_conns:
+        type: integer
+      http_max_idle_conns_per_host:
+        type: integer
+      http_timeout:
+        type: integer
       insertion_points:
         items:
           type: string
         type: array
       job_timeouts:
-        allOf:
-        - $ref: '#/definitions/options.JobTimeouts'
-        description: Per-scan job timeout overrides
+        $ref: '#/definitions/options.JobTimeouts'
       max_concurrent_jobs:
         type: integer
       max_depth:
+        minimum: 0
+        type: integer
+      max_pages_per_site:
         minimum: 0
         type: integer
       max_pages_to_crawl:
@@ -2778,7 +3509,6 @@ definitions:
         type: integer
     required:
     - audit_categories
-    - start_urls
     - workspace_id
     type: object
   options.FullScanWebSocketOptions:
@@ -2794,9 +3524,67 @@ definitions:
       replay_messages:
         type: boolean
     type: object
+  options.InlineAPIImport:
+    properties:
+      auth_config_id:
+        type: string
+      base_url:
+        type: string
+      content:
+        type: string
+      name:
+        type: string
+      type:
+        enum:
+        - openapi
+        - graphql
+        - wsdl
+        type: string
+      url:
+        type: string
+    required:
+    - type
+    type: object
+  options.InlineAuth:
+    properties:
+      api_key_location:
+        enum:
+        - header
+        - query
+        - cookie
+        type: string
+      api_key_name:
+        type: string
+      api_key_value:
+        type: string
+      custom_headers:
+        additionalProperties:
+          type: string
+        type: object
+      password:
+        type: string
+      token:
+        type: string
+      token_prefix:
+        type: string
+      type:
+        enum:
+        - none
+        - basic
+        - bearer
+        - api_key
+        type: string
+      username:
+        type: string
+    required:
+    - type
+    type: object
   options.JobTimeouts:
     properties:
       active_scan:
+        example: 1800000000000
+        type: integer
+      api_scan:
         example: 1800000000000
         type: integer
       crawl:
@@ -2961,6 +3749,609 @@ info:
   title: Sukyan API
   version: "0.1"
 paths:
+  /api/v1/api-auth-configs:
+    get:
+      consumes:
+      - application/json
+      description: Returns a list of API authentication configurations
+      parameters:
+      - description: Workspace ID
+        in: query
+        name: workspace_id
+        required: true
+        type: integer
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.APIAuthConfigListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List API auth configurations
+      tags:
+      - api-auth
+    post:
+      consumes:
+      - application/json
+      description: Creates a new API authentication configuration
+      parameters:
+      - description: Auth config input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateAPIAuthConfigInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/db.APIAuthConfig'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create API auth configuration
+      tags:
+      - api-auth
+  /api/v1/api-auth-configs/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes an API authentication configuration
+      parameters:
+      - description: Auth Config ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete API auth configuration
+      tags:
+      - api-auth
+    get:
+      consumes:
+      - application/json
+      description: Returns a single API authentication configuration
+      parameters:
+      - description: Auth Config ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.APIAuthConfig'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get API auth configuration by ID
+      tags:
+      - api-auth
+    patch:
+      consumes:
+      - application/json
+      description: Updates an existing API authentication configuration
+      parameters:
+      - description: Auth Config ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateAPIAuthConfigInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.APIAuthConfig'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update API auth configuration
+      tags:
+      - api-auth
+  /api/v1/api-definitions:
+    get:
+      consumes:
+      - application/json
+      description: Returns a list of API definitions with optional filtering
+      parameters:
+      - description: Filter by workspace ID
+        in: query
+        name: workspace_id
+        type: integer
+      - description: Filter by scan ID
+        in: query
+        name: scan_id
+        type: integer
+      - description: Filter by type (openapi, graphql, wsdl)
+        in: query
+        name: type
+        type: string
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.APIDefinitionListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List API definitions
+      tags:
+      - api-definitions
+    post:
+      consumes:
+      - application/json
+      description: Creates a new API definition by parsing from URL or provided content
+      parameters:
+      - description: API definition input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateAPIDefinitionInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/api.APIDefinitionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create API definition
+      tags:
+      - api-definitions
+  /api/v1/api-definitions/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes an API definition and all its endpoints
+      parameters:
+      - description: API Definition ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete API definition
+      tags:
+      - api-definitions
+    get:
+      consumes:
+      - application/json
+      description: Returns a single API definition with its endpoints
+      parameters:
+      - description: API Definition ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.APIDefinitionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get API definition by ID
+      tags:
+      - api-definitions
+    patch:
+      consumes:
+      - application/json
+      description: Updates an existing API definition
+      parameters:
+      - description: API Definition ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateAPIDefinitionInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.APIDefinition'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update API definition
+      tags:
+      - api-definitions
+  /api/v1/api-definitions/{id}/endpoints:
+    get:
+      consumes:
+      - application/json
+      description: Returns a list of endpoints for a specific API definition
+      parameters:
+      - description: API Definition ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Filter by enabled status
+        in: query
+        name: enabled
+        type: boolean
+      - description: Filter by HTTP method
+        in: query
+        name: method
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.APIEndpointListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List endpoints for an API definition
+      tags:
+      - api-definitions
+  /api/v1/api-definitions/{id}/endpoints/{endpoint_id}:
+    get:
+      consumes:
+      - application/json
+      description: Returns a single API endpoint with its parameters
+      parameters:
+      - description: API Definition ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: API Endpoint ID
+        in: path
+        name: endpoint_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.APIEndpoint'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get API endpoint by ID
+      tags:
+      - api-definitions
+    patch:
+      consumes:
+      - application/json
+      description: Updates an existing API endpoint
+      parameters:
+      - description: API Definition ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: API Endpoint ID
+        in: path
+        name: endpoint_id
+        required: true
+        type: string
+      - description: Update input
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.UpdateAPIEndpointInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/db.APIEndpoint'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Update API endpoint
+      tags:
+      - api-definitions
+  /api/v1/api-definitions/{id}/endpoints/toggle-all:
+    post:
+      consumes:
+      - application/json
+      description: Sets the enabled status for all endpoints in an API definition
+      parameters:
+      - description: API Definition ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Enable or disable all endpoints
+        in: query
+        name: enabled
+        required: true
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Enable or disable all endpoints
+      tags:
+      - api-definitions
+  /api/v1/api-definitions/{id}/scan:
+    post:
+      consumes:
+      - application/json
+      description: Creates and starts a scan for the specified API definition
+      parameters:
+      - description: API Definition ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Scan configuration
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.StartAPIDefinitionScanInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ActionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Start scan for API definition
+      tags:
+      - api-definitions
+  /api/v1/api-definitions/{id}/security-schemes:
+    get:
+      consumes:
+      - application/json
+      description: Returns the security schemes and global security requirements for
+        an API definition
+      parameters:
+      - description: API Definition ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get security schemes for an API definition
+      tags:
+      - api-definitions
+  /api/v1/api-definitions/import-and-scan:
+    post:
+      consumes:
+      - application/json
+      description: Imports an API definition and immediately starts a scan for it
+      parameters:
+      - description: Import and scan configuration
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/api.ImportAndScanInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.ActionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Import and scan API definition in one step
+      tags:
+      - api-definitions
   /api/v1/auth/token/renew:
     post:
       consumes:
@@ -4696,7 +6087,7 @@ paths:
       consumes:
       - application/json
       description: Receives a list of URLs and other parameters and schedules them
-        for a full scan
+        for a full scan. Supports API-only scans with definition_ids or inline_imports.
       parameters:
       - description: Configuration for full scan
         in: body

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
@@ -160,6 +161,17 @@ func (sm *ScanManager) registerExecutors() {
 
 	// Register site behavior executor
 	sm.executorRegistry.Register(executor.NewSiteBehaviorExecutor())
+
+	// Register API scan executor
+	sm.executorRegistry.Register(executor.NewAPIScanExecutor(
+		sm.interactionsManager,
+		sm.payloadGenerators,
+	))
+
+	// Register API behavior executor
+	sm.executorRegistry.Register(executor.NewAPIBehaviorExecutor(
+		sm.interactionsManager,
+	))
 
 	log.Debug().Msg("Registered all scan executors")
 }
@@ -1144,3 +1156,344 @@ func (sm *ScanManager) scheduleSiteBehaviorForURL(scanID uint, workspaceID uint,
 
 	return nil
 }
+
+// ScheduleAPIBehavior implements orchestrator.JobScheduler interface.
+// It schedules API behavior check jobs for all API definitions linked to a scan.
+func (sm *ScanManager) ScheduleAPIBehavior(ctx context.Context, scanID uint) error {
+	scanEntity, err := sm.dbConn.GetScanByID(scanID)
+	if err != nil {
+		return fmt.Errorf("failed to get scan: %w", err)
+	}
+
+	definitions, err := sm.dbConn.GetAllAPIDefinitionsForScan(scanID)
+	if err != nil {
+		return fmt.Errorf("failed to get API definitions: %w", err)
+	}
+
+	if len(definitions) == 0 {
+		log.Debug().Uint("scan_id", scanID).Msg("No API definitions found for API behavior phase")
+		return nil
+	}
+
+	scheduled := 0
+	for _, definition := range definitions {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if err := sm.scheduleAPIBehaviorForDefinition(scanID, scanEntity.WorkspaceID, definition, scanEntity.Options.Headers); err != nil {
+			log.Warn().Err(err).Str("definition_id", definition.ID.String()).Msg("Failed to schedule API behavior check")
+			continue
+		}
+		scheduled++
+	}
+
+	log.Info().
+		Uint("scan_id", scanID).
+		Int("definitions", len(definitions)).
+		Int("scheduled", scheduled).
+		Msg("Scheduled API behavior jobs")
+
+	return nil
+}
+
+func (sm *ScanManager) scheduleAPIBehaviorForDefinition(scanID uint, workspaceID uint, definition *db.APIDefinition, headers map[string][]string) error {
+	exists, err := sm.dbConn.APIBehaviorJobExistsForDefinition(scanID, definition.ID)
+	if err != nil {
+		log.Warn().Err(err).Uint("scan_id", scanID).Str("definition_id", definition.ID.String()).Msg("Failed to check for existing API behavior job")
+	} else if exists {
+		log.Debug().Uint("scan_id", scanID).Str("definition_id", definition.ID.String()).Msg("API behavior job already exists, skipping")
+		return nil
+	}
+
+	baseURL := definition.BaseURL
+	if baseURL == "" {
+		baseURL = definition.SourceURL
+	}
+
+	targetHost := ""
+	if u, err := url.Parse(baseURL); err == nil {
+		targetHost = u.Host
+	}
+
+	jobData := executor.APIBehaviorJobData{
+		DefinitionID: definition.ID,
+		Headers:      headers,
+		Concurrency:  5,
+	}
+	payload, _ := json.Marshal(jobData)
+
+	defID := definition.ID
+	job := &db.ScanJob{
+		ScanID:          scanID,
+		WorkspaceID:     workspaceID,
+		Status:          db.ScanJobStatusPending,
+		JobType:         db.ScanJobTypeAPIBehavior,
+		Priority:        12,
+		TargetHost:      targetHost,
+		URL:             baseURL,
+		Method:          "POST",
+		APIDefinitionID: &defID,
+		Payload:         payload,
+	}
+
+	if err := sm.queue.Enqueue(sm.ctx, job); err != nil {
+		return fmt.Errorf("failed to enqueue API behavior job: %w", err)
+	}
+
+	sm.dbConn.UpdateScanJobCounts(scanID)
+
+	return nil
+}
+
+// ScheduleAPIScan implements orchestrator.JobScheduler interface.
+// It schedules API scanning jobs for both user-specified and auto-discovered API definitions.
+func (sm *ScanManager) ScheduleAPIScan(ctx context.Context, scanID uint) error {
+	scanEntity, err := sm.dbConn.GetScanByID(scanID)
+	if err != nil {
+		return fmt.Errorf("failed to get scan: %w", err)
+	}
+
+	definitions, err := sm.dbConn.GetAllAPIDefinitionsForScan(scanID)
+	if err != nil {
+		return fmt.Errorf("failed to get API definitions: %w", err)
+	}
+
+	if len(definitions) == 0 {
+		log.Debug().Uint("scan_id", scanID).Msg("No API definitions found for scan")
+		return nil
+	}
+
+	definitionConfigs := sm.buildDefinitionConfigMap(scanEntity.Options.APIScanOptions)
+
+	totalJobsScheduled := 0
+
+	for _, definition := range definitions {
+		config := definitionConfigs[definition.ID]
+
+		endpoints, err := sm.getEndpointsForScanConfig(definition.ID, config)
+		if err != nil {
+			log.Warn().Err(err).Str("definition_id", definition.ID.String()).Msg("Failed to get endpoints for API definition")
+			continue
+		}
+
+		if len(endpoints) == 0 {
+			log.Debug().Str("definition_id", definition.ID.String()).Msg("No endpoints to scan for API definition")
+			continue
+		}
+
+		authConfigID := sm.resolveAuthForScan(config, definition, scanEntity.WorkspaceID, scanID)
+
+		apiScan := &db.APIScan{
+			ScanID:              scanID,
+			DefinitionID:        definition.ID,
+			RunAPISpecificTests: scanEntity.Options.APIScanOptions.RunAPISpecificTests,
+			RunStandardTests:    scanEntity.Options.APIScanOptions.RunStandardTests,
+			RunSchemaTests:      scanEntity.Options.APIScanOptions.RunSchemaTests,
+			TotalEndpoints:      len(endpoints),
+		}
+
+		apiScan, err = sm.dbConn.CreateAPIScan(apiScan)
+		if err != nil {
+			log.Warn().Err(err).Str("definition_id", definition.ID.String()).Msg("Failed to create APIScan record")
+			continue
+		}
+
+		if err := sm.dbConn.MarkAPIScanStarted(apiScan.ID); err != nil {
+			log.Warn().Err(err).Str("api_scan_id", apiScan.ID.String()).Msg("Failed to mark API scan as started")
+		}
+
+		for _, endpoint := range endpoints {
+			select {
+			case <-ctx.Done():
+				log.Info().Uint("scan_id", scanID).Msg("API scan scheduling cancelled")
+				return ctx.Err()
+			default:
+			}
+
+			endpointBaseURL := definition.BaseURL
+			if endpointBaseURL == "" {
+				endpointBaseURL = definition.SourceURL
+			}
+			fullURL := endpointBaseURL + endpoint.Path
+
+			exists, err := sm.dbConn.APIScanJobExistsForEndpoint(scanID, definition.ID, fullURL, endpoint.Method)
+			if err != nil {
+				log.Warn().Err(err).Uint("scan_id", scanID).Str("url", fullURL).Str("method", endpoint.Method).Msg("Failed to check for existing API scan job")
+			} else if exists {
+				log.Debug().Uint("scan_id", scanID).Str("url", fullURL).Str("method", endpoint.Method).Msg("API scan job already exists, skipping")
+				continue
+			}
+
+			if err := sm.scheduleAPIScanForEndpointWithAuth(scanID, scanEntity.WorkspaceID, definition, endpoint, apiScan, scanEntity, authConfigID); err != nil {
+				log.Warn().Err(err).
+					Str("endpoint_id", endpoint.ID.String()).
+					Str("path", endpoint.Path).
+					Msg("Failed to schedule API scan for endpoint")
+				continue
+			}
+			totalJobsScheduled++
+		}
+	}
+
+	log.Info().
+		Uint("scan_id", scanID).
+		Int("definitions", len(definitions)).
+		Int("jobs_scheduled", totalJobsScheduled).
+		Msg("Scheduled API scan jobs")
+
+	return nil
+}
+
+func (sm *ScanManager) buildDefinitionConfigMap(opts options.FullScanAPIScanOptions) map[uuid.UUID]*options.APIDefinitionScanConfig {
+	configs := make(map[uuid.UUID]*options.APIDefinitionScanConfig)
+
+	for i := range opts.DefinitionConfigs {
+		cfg := &opts.DefinitionConfigs[i]
+		configs[cfg.DefinitionID] = cfg
+	}
+
+	for _, defID := range opts.DefinitionIDs {
+		if _, exists := configs[defID]; !exists {
+			configs[defID] = &options.APIDefinitionScanConfig{
+				DefinitionID: defID,
+			}
+		}
+	}
+
+	return configs
+}
+
+func (sm *ScanManager) getEndpointsForScanConfig(definitionID uuid.UUID, config *options.APIDefinitionScanConfig) ([]*db.APIEndpoint, error) {
+	if config != nil && len(config.EndpointIDs) > 0 {
+		return sm.dbConn.GetAPIEndpointsByIDs(definitionID, config.EndpointIDs)
+	}
+	return sm.dbConn.GetEnabledAPIEndpointsByDefinitionID(definitionID)
+}
+
+func (sm *ScanManager) resolveAuthForScan(config *options.APIDefinitionScanConfig, definition *db.APIDefinition, workspaceID uint, scanID uint) *uuid.UUID {
+	if config == nil {
+		return definition.AuthConfigID
+	}
+
+	if config.InlineAuth != nil {
+		tempAuth := sm.createTempAuthConfig(config.InlineAuth, workspaceID, scanID)
+		if tempAuth != nil {
+			return &tempAuth.ID
+		}
+	}
+
+	if config.AuthConfigID != nil {
+		return config.AuthConfigID
+	}
+
+	return definition.AuthConfigID
+}
+
+func (sm *ScanManager) createTempAuthConfig(inlineAuth *options.InlineAuth, workspaceID uint, scanID uint) *db.APIAuthConfig {
+	authType := db.APIAuthType(inlineAuth.Type)
+	if authType == "" || (authType == "none" && len(inlineAuth.CustomHeaders) == 0) {
+		return nil
+	}
+
+	config := &db.APIAuthConfig{
+		WorkspaceID:    workspaceID,
+		Name:           fmt.Sprintf("Scan %d inline auth", scanID),
+		Type:           authType,
+		Username:       inlineAuth.Username,
+		Password:       inlineAuth.Password,
+		Token:          inlineAuth.Token,
+		TokenPrefix:    inlineAuth.TokenPrefix,
+		APIKeyName:     inlineAuth.APIKeyName,
+		APIKeyValue:    inlineAuth.APIKeyValue,
+		APIKeyLocation: db.APIKeyLocation(inlineAuth.APIKeyLocation),
+	}
+
+	created, err := sm.dbConn.CreateAPIAuthConfig(config)
+	if err != nil {
+		log.Warn().Err(err).Msg("Failed to create temporary auth config")
+		return nil
+	}
+
+	if len(inlineAuth.CustomHeaders) > 0 {
+		var headers []*db.APIAuthHeader
+		for name, value := range inlineAuth.CustomHeaders {
+			headers = append(headers, &db.APIAuthHeader{
+				AuthConfigID: created.ID,
+				HeaderName:   name,
+				HeaderValue:  value,
+			})
+		}
+		if err := sm.dbConn.CreateAPIAuthHeaders(headers); err != nil {
+			log.Warn().Err(err).Msg("Failed to create custom headers for temp auth config")
+		}
+	}
+
+	return created
+}
+
+func (sm *ScanManager) scheduleAPIScanForEndpointWithAuth(
+	scanID uint,
+	workspaceID uint,
+	definition *db.APIDefinition,
+	endpoint *db.APIEndpoint,
+	apiScan *db.APIScan,
+	scanEntity *db.Scan,
+	authConfigID *uuid.UUID,
+) error {
+	targetHost := ""
+	baseURL := definition.BaseURL
+	if baseURL == "" {
+		baseURL = definition.SourceURL
+	}
+	if u, err := url.Parse(baseURL); err == nil {
+		targetHost = u.Host
+	}
+
+	fullURL := baseURL + endpoint.Path
+
+	var fingerprintTags []string
+	if scanEntity.Checkpoint != nil {
+		fingerprintTags = scanEntity.Checkpoint.FingerprintTags
+	}
+
+	jobData := executor.APIScanJobData{
+		DefinitionID:        definition.ID,
+		EndpointID:          endpoint.ID,
+		APIScanID:           apiScan.ID,
+		Mode:                scanEntity.Options.Mode,
+		AuditCategories:     scanEntity.Options.AuditCategories,
+		RunAPISpecificTests: apiScan.RunAPISpecificTests,
+		RunStandardTests:    apiScan.RunStandardTests,
+		RunSchemaTests:      apiScan.RunSchemaTests,
+		AuthConfigID:        authConfigID,
+		FingerprintTags:     fingerprintTags,
+		MaxRetries:          scanEntity.Options.MaxRetries,
+	}
+	payload, _ := json.Marshal(jobData)
+
+	defID := definition.ID
+	job := &db.ScanJob{
+		ScanID:          scanID,
+		WorkspaceID:     workspaceID,
+		Status:          db.ScanJobStatusPending,
+		JobType:         db.ScanJobTypeAPIScan,
+		Priority:        8,
+		TargetHost:      targetHost,
+		URL:             fullURL,
+		Method:          endpoint.Method,
+		APIDefinitionID: &defID,
+		Payload:         payload,
+	}
+
+	if err := sm.queue.Enqueue(sm.ctx, job); err != nil {
+		return fmt.Errorf("failed to enqueue API scan job: %w", err)
+	}
+
+	sm.dbConn.UpdateScanJobCounts(scanID)
+
+	return nil
+}
+

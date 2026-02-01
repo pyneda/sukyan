@@ -29,6 +29,7 @@ const (
 	ScanPhaseCrawl        ScanPhase = "crawl"
 	ScanPhaseFingerprint  ScanPhase = "fingerprint"
 	ScanPhaseSiteBehavior ScanPhase = "site_behavior"
+	ScanPhaseAPIBehavior  ScanPhase = "api_behavior"
 	ScanPhaseDiscovery    ScanPhase = "discovery"
 	ScanPhaseNuclei       ScanPhase = "nuclei"
 	ScanPhaseActiveScan   ScanPhase = "active_scan"
@@ -112,8 +113,9 @@ type Scan struct {
 	CaptureBrowserEvents bool `json:"capture_browser_events" gorm:"default:false"`
 
 	// Relationships
-	Jobs      []ScanJob `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	Histories []History `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Jobs           []ScanJob       `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Histories      []History       `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	APIDefinitions []APIDefinition `json:"-" gorm:"many2many:scan_api_definitions;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 // IsPausable returns true if the scan can be paused

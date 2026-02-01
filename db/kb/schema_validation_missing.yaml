@@ -1,0 +1,35 @@
+code: schema_validation_missing
+title: Schema Validation Missing
+description: |-
+  The API endpoint does not properly validate input against its defined schema constraints. When testing with values that violate the API specification (such as values outside defined min/max bounds, strings exceeding length limits, or values not matching required patterns), the server accepted the request instead of rejecting it.
+
+  This indicates that the server-side validation does not match the API specification, which can lead to:
+  - Data integrity issues when invalid data is stored
+  - Business logic bypass when constraints are not enforced
+  - Potential security vulnerabilities if malformed input reaches backend systems
+  - Inconsistency between documented API behavior and actual implementation
+
+  Missing schema validation is particularly concerning for:
+  - Numeric bounds (min/max values)
+  - String length constraints
+  - Pattern/regex validation
+  - Enum value restrictions
+  - Required field enforcement
+remediation: |-
+  Implement comprehensive server-side validation that enforces all schema constraints defined in the API specification:
+
+  1. Validate all input parameters against their defined types and constraints
+  2. Ensure numeric values respect min/max bounds
+  3. Enforce string length limits (minLength/maxLength)
+  4. Apply pattern validation for formatted fields (email, UUID, etc.)
+  5. Restrict values to defined enum lists where applicable
+  6. Return appropriate 400 Bad Request responses for invalid input
+  7. Never rely solely on client-side validation
+
+  Consider using validation libraries that can automatically enforce OpenAPI/JSON Schema constraints.
+cwe: 20
+severity: Medium
+references:
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/
+  - https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html
+  - https://json-schema.org/understanding-json-schema/reference/

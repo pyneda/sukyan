@@ -1,0 +1,34 @@
+code: api_type_confusion
+title: API Type Confusion
+description: |-
+  The API endpoint accepted a value of an incorrect type without proper validation. When a parameter expected a specific data type (string, integer, boolean, etc.), the server accepted a different type without returning an error.
+
+  Type confusion can lead to:
+  - Unexpected application behavior when the wrong type is processed
+  - Security bypass in code that relies on type checking for authorization
+  - Data corruption when values are stored with incorrect types
+  - Deserialization vulnerabilities in some frameworks
+  - Logic flaws that could be exploited for injection attacks
+
+  Examples of type confusion:
+  - Sending an array where a string is expected
+  - Sending an object where a primitive is expected
+  - Sending a string representation of a number where an integer is expected
+  - Sending boolean-like strings ("yes", "no") where actual booleans are expected
+remediation: |-
+  Implement strict type checking on the server side:
+
+  1. Validate that each parameter matches its expected type exactly
+  2. Do not rely on implicit type coercion or automatic type conversion
+  3. Return 400 Bad Request with clear error messages when type mismatches occur
+  4. Use strongly-typed deserialization in your API framework
+  5. Consider using schema validation middleware that enforces types
+  6. Test API endpoints with various type combinations to ensure proper rejection
+
+  For JSON APIs, ensure that the parser configuration is strict and does not allow type coercion.
+cwe: 843
+severity: Medium
+references:
+  - https://cwe.mitre.org/data/definitions/843.html
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/
+  - https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html

@@ -94,18 +94,48 @@ func createRequestFromBody(history *db.History, builders []InsertionPointBuilder
 		}
 		return strings.NewReader(values.Encode()), "application/x-www-form-urlencoded", nil
 	case strings.Contains(history.RequestContentType, "application/json"):
-		var requestBody map[string]interface{}
-		if err := json.Unmarshal(body, &requestBody); err != nil {
-			return nil, "", err
+		var graphQLVarBuilders, graphQLInlineBuilders, flatBodyBuilders []InsertionPointBuilder
+		for _, b := range builders {
+			switch b.Point.Type {
+			case InsertionPointTypeGraphQLVariable:
+				graphQLVarBuilders = append(graphQLVarBuilders, b)
+			case InsertionPointTypeGraphQLInlineArg:
+				graphQLInlineBuilders = append(graphQLInlineBuilders, b)
+			default:
+				flatBodyBuilders = append(flatBodyBuilders, b)
+			}
 		}
-		for _, builder := range builders {
-			requestBody[builder.Point.Name] = builder.Payload
+
+		modified := body
+		if len(graphQLVarBuilders) > 0 {
+			var err error
+			modified, err = modifyGraphQLVariables(modified, graphQLVarBuilders)
+			if err != nil {
+				return nil, "", err
+			}
 		}
-		jsonPayload, err := json.Marshal(requestBody)
-		if err != nil {
-			return nil, "", err
+		if len(graphQLInlineBuilders) > 0 {
+			var err error
+			modified, err = modifyGraphQLInlineArg(modified, graphQLInlineBuilders)
+			if err != nil {
+				return nil, "", err
+			}
 		}
-		return strings.NewReader(string(jsonPayload)), "application/json", nil
+		if len(flatBodyBuilders) > 0 {
+			var requestBody map[string]interface{}
+			if err := json.Unmarshal(modified, &requestBody); err != nil {
+				return nil, "", err
+			}
+			for _, builder := range flatBodyBuilders {
+				requestBody[builder.Point.Name] = builder.Payload
+			}
+			var err error
+			modified, err = json.Marshal(requestBody)
+			if err != nil {
+				return nil, "", err
+			}
+		}
+		return strings.NewReader(string(modified)), "application/json", nil
 	case strings.Contains(history.RequestContentType, "multipart/form-data"):
 		var b bytes.Buffer
 		writer := multipart.NewWriter(&b)
@@ -212,7 +242,7 @@ func createRequestFromInsertionPointsInternal(history *db.History, builders []In
 			for name, values := range h {
 				headers[name] = values
 			}
-		case InsertionPointTypeBody:
+		case InsertionPointTypeBody, InsertionPointTypeGraphQLVariable, InsertionPointTypeGraphQLInlineArg:
 			bodyBuilders = append(bodyBuilders, builder)
 		// case InsertionPointTypeFullBody:
 		// 	requestBody = strings.NewReader(builder.Payload)

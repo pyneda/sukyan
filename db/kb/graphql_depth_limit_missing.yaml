@@ -1,0 +1,24 @@
+code: graphql_depth_limit_missing
+title: GraphQL Query Depth Limit Missing
+description: |-
+  The GraphQL endpoint does not appear to enforce query depth limits. This allows
+  deeply nested queries to be executed, which could lead to denial of service through
+  recursive query attacks.
+
+  Example of a deeply nested query:
+  {user{posts{author{posts{author{posts{...}}}}}}}
+
+  Without depth limits, such queries can consume excessive server resources.
+remediation: |-
+  Implement query depth limiting to prevent excessively nested queries:
+  - Apollo Server: Use graphql-depth-limit package
+  - GraphQL-Java: Use MaxQueryDepthInstrumentation
+  - Express-GraphQL: Implement custom validation rule
+  - graphql-ruby: Configure max_depth option
+
+  A typical safe depth limit is between 5-15 levels depending on your schema.
+cwe: 770
+severity: Medium
+references:
+  - https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html
+  - https://www.apollographql.com/blog/graphql/security/securing-your-graphql-api-from-malicious-queries/

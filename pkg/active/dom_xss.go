@@ -1228,7 +1228,7 @@ func (a *DOMXSSAudit) saveBrowserEvent(detection *DOMXSSDetection, issue *db.Iss
 		ScanJobID:   scanJobID,
 		HistoryID:   historyID,
 		TaskID:      taskID,
-		Source:      "dom_xss_audit",
+		Source:      db.SourceScanner,
 	}
 
 	if err := db.Connection().SaveBrowserEvent(browserEvent); err != nil {

@@ -81,6 +81,45 @@ func (p *Parser) ParseFromJSON(data []byte) (*GraphQLSchema, error) {
 	return nil, fmt.Errorf("invalid introspection data: schema is nil")
 }
 
+// FetchIntrospectionRaw performs introspection and returns the raw response bytes
+func (p *Parser) FetchIntrospectionRaw(url string) ([]byte, error) {
+	query := struct {
+		Query string `json:"query"`
+	}{
+		Query: IntrospectionQuery,
+	}
+
+	body, err := json.Marshal(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal query: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	for key, value := range p.headers {
+		req.Header.Set(key, value)
+	}
+
+	resp, err := p.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
 // executeIntrospection sends the introspection query to the endpoint
 func (p *Parser) executeIntrospection(url string) (*IntrospectionResponse, error) {
 	query := struct {

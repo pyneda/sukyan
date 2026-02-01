@@ -1,0 +1,27 @@
+code: http_method_override
+title: HTTP Method Override Accepted
+description: |-
+  The application accepts HTTP method override headers, allowing the actual HTTP
+  method to be changed via headers or query parameters. This can potentially be
+  used to bypass method-based access controls.
+
+  Common override mechanisms:
+  - X-HTTP-Method-Override header
+  - X-Method-Override header
+  - _method query parameter
+
+  For example, a GET request with X-HTTP-Method-Override: DELETE might be
+  processed as a DELETE request, bypassing security controls that only check
+  the actual HTTP method.
+remediation: |-
+  Disable HTTP method override functionality in production unless absolutely required.
+  If method override is needed:
+  - Implement strict validation of the original method
+  - Apply the same authorization checks regardless of override
+  - Log method override usage for security monitoring
+  - Consider restricting which methods can be overridden
+cwe: 650
+severity: Medium
+references:
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/06-Test_HTTP_Methods
+  - https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html

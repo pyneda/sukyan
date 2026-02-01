@@ -187,9 +187,8 @@ func containsGraphQLErrorPattern(text string) bool {
 
 func DiscoverGraphQLEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
 	introspectionQuery := `{"query": "query { __schema { queryType { name } types { name kind } } }"}`
-	// TODO: Another check for full schema introspection query, to parse it and generate requests to scan
 
-	return DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
+	results, err := DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{
 			URL:         options.BaseURL,
 			Method:      "POST",
@@ -209,4 +208,8 @@ func DiscoverGraphQLEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueR
 		ValidationFunc: IsGraphQLValidationFunc,
 		IssueCode:      db.GraphqlEndpointDetectedCode,
 	})
+
+	persistDiscoveredAPIDefinitions(results, options, IsGraphQLValidationFunc, PersistGraphQLDefinition, "GraphQL")
+
+	return results, err
 }

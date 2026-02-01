@@ -228,6 +228,9 @@ func (a *Log4ShellInjectionAudit) testItem(ctx context.Context, item log4ShellAu
 			Source:              db.SourceScanner,
 			WorkspaceID:         a.Options.WorkspaceID,
 			TaskID:              a.Options.TaskID,
+			TaskJobID:           a.Options.TaskJobID,
+			ScanID:              a.Options.ScanID,
+			ScanJobID:           a.Options.ScanJobID,
 			CreateNewBodyStream: false,
 		},
 	})

@@ -32,6 +32,17 @@ func main() {
 		&db.OOBInteraction{},
 		&db.BrowserEvent{},
 		&db.SiteBehaviorResult{},
+		&db.APIBehaviorResult{},
+		&db.APIDefinition{},
+		&db.APIEndpoint{},
+		&db.APIEndpointParameter{},
+		&db.APIEndpointSecurity{},
+		&db.APIDefinitionSecurityScheme{},
+		&db.APIRequestVariation{},
+		&db.APIAuthConfig{},
+		&db.APIAuthHeader{},
+		&db.APIScan{},
+		&db.ScanAPIDefinition{},
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)

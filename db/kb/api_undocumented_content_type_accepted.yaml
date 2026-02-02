@@ -1,0 +1,43 @@
+code: api_undocumented_content_type_accepted
+title: API Accepts Undocumented Content Type
+description: |-
+  The API endpoint accepts and processes request bodies with content types not declared in the OpenAPI specification. The specification explicitly defines which content types are accepted (typically application/json), but the server also processes requests with alternative content types such as XML, form data, or others.
+
+  This indicates that the server's request parsing is more permissive than documented, which creates several security concerns:
+
+  - Parser differential attacks become possible when multiple parsers handle the same endpoint
+  - XML content types may enable XXE (XML External Entity) injection if XML parsing is enabled
+  - Alternative content types may bypass input validation designed for JSON
+  - Inconsistent parsing behavior can lead to parameter pollution or type confusion
+  - WAF and security tools configured based on the spec may not inspect alternative formats
+
+  The acceptance of undocumented content types often reveals:
+  - Framework defaults that auto-negotiate content types
+  - Legacy support for deprecated formats
+  - Middleware that transforms requests before validation
+  - Missing content-type validation at the application layer
+
+  This is especially dangerous when XML is accepted unexpectedly, as it may expose the application to XXE attacks that the developers did not anticipate or protect against.
+remediation: |-
+  Restrict content type handling to only those declared in the API specification:
+
+  1. Explicitly validate Content-Type header before processing request bodies
+  2. Return 415 Unsupported Media Type for undocumented content types
+  3. Configure framework to disable automatic content negotiation
+  4. Remove or disable XML parsers if XML is not required
+  5. If XML must be supported, ensure XXE protections are in place
+  6. Update API specification if additional content types are intentionally supported
+  7. Use middleware to enforce content type restrictions consistently
+
+  Framework-specific guidance:
+  - Disable automatic content negotiation in your framework
+  - Explicitly configure allowed content types per endpoint
+  - Use strict content-type checking middleware
+  - Remove default XML/form parsers if not needed
+cwe: 436
+severity: Medium
+references:
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/16-Testing_for_HTTP_Incoming_Requests
+  - https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html
+  - https://cwe.mitre.org/data/definitions/436.html
+  - https://portswigger.net/web-security/xxe

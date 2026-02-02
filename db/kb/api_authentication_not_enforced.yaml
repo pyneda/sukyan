@@ -1,0 +1,40 @@
+code: api_authentication_not_enforced
+title: API Authentication Not Enforced
+description: |-
+  The API endpoint accepts requests without authentication despite the OpenAPI specification declaring that authentication is required. The specification explicitly defines security requirements (such as API keys, OAuth2 tokens, or HTTP authentication) for this endpoint, but the server processes requests that omit these credentials.
+
+  This indicates a critical mismatch between the documented security model and the actual implementation. When an API specification declares security requirements, it represents the intended security contract. Failure to enforce this contract means:
+
+  - Authentication controls exist only in documentation, not in code
+  - The endpoint may have been deployed without proper middleware configuration
+  - Security requirements may have been removed or bypassed during development
+  - Defense-in-depth controls are missing at the API layer
+
+  This vulnerability is particularly severe because:
+  - Attackers can access protected resources without credentials
+  - The specification gives a false sense of security to API consumers
+  - Automated security tools relying on the spec will miss the vulnerability
+  - It often indicates systemic authentication configuration issues
+remediation: |-
+  Implement and verify authentication enforcement for all endpoints that require it:
+
+  1. Review middleware/interceptor configuration to ensure authentication is applied
+  2. Verify that security requirements in the OpenAPI spec match actual enforcement
+  3. Implement authentication at the framework level, not individual endpoints
+  4. Add integration tests that verify unauthenticated requests are rejected
+  5. Use API gateway or reverse proxy to enforce authentication consistently
+  6. Consider fail-closed authentication where missing credentials result in 401
+  7. Audit all endpoints to ensure spec and implementation are synchronized
+
+  For frameworks:
+  - Express.js: Ensure auth middleware is applied before route handlers
+  - Spring: Verify @PreAuthorize or SecurityConfig covers the endpoint
+  - Django: Check authentication_classes on views
+  - Go: Ensure auth middleware wraps protected handlers
+cwe: 306
+severity: High
+references:
+  - https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/
+  - https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html
+  - https://cwe.mitre.org/data/definitions/306.html
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/

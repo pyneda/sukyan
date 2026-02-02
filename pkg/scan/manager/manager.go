@@ -1313,17 +1313,11 @@ func (sm *ScanManager) ScheduleAPIScan(ctx context.Context, scanID uint) error {
 			default:
 			}
 
-			endpointBaseURL := definition.BaseURL
-			if endpointBaseURL == "" {
-				endpointBaseURL = definition.SourceURL
-			}
-			fullURL := endpointBaseURL + endpoint.Path
-
-			exists, err := sm.dbConn.APIScanJobExistsForEndpoint(scanID, definition.ID, fullURL, endpoint.Method)
+			exists, err := sm.dbConn.APIScanJobExistsForEndpoint(scanID, definition.ID, endpoint.ID)
 			if err != nil {
-				log.Warn().Err(err).Uint("scan_id", scanID).Str("url", fullURL).Str("method", endpoint.Method).Msg("Failed to check for existing API scan job")
+				log.Warn().Err(err).Uint("scan_id", scanID).Str("endpoint_id", endpoint.ID.String()).Msg("Failed to check for existing API scan job")
 			} else if exists {
-				log.Debug().Uint("scan_id", scanID).Str("url", fullURL).Str("method", endpoint.Method).Msg("API scan job already exists, skipping")
+				log.Debug().Uint("scan_id", scanID).Str("endpoint_id", endpoint.ID.String()).Msg("API scan job already exists, skipping")
 				continue
 			}
 
@@ -1475,6 +1469,7 @@ func (sm *ScanManager) scheduleAPIScanForEndpointWithAuth(
 	payload, _ := json.Marshal(jobData)
 
 	defID := definition.ID
+	endpointID := endpoint.ID
 	job := &db.ScanJob{
 		ScanID:          scanID,
 		WorkspaceID:     workspaceID,
@@ -1485,6 +1480,7 @@ func (sm *ScanManager) scheduleAPIScanForEndpointWithAuth(
 		URL:             fullURL,
 		Method:          endpoint.Method,
 		APIDefinitionID: &defID,
+		APIEndpointID:   &endpointID,
 		Payload:         payload,
 	}
 

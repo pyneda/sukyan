@@ -102,14 +102,32 @@ func (e *SiteBehaviorExecutor) Execute(ctx context.Context, job *db.ScanJob, ctr
 		NotFoundStatusCode: siteBehavior.NotFoundStatusCode,
 	}
 
+	if siteBehavior.BaseURLSample != nil {
+		result.BaseURLSampleID = &siteBehavior.BaseURLSample.ID
+	}
+
 	if _, err = db.Connection().CreateSiteBehaviorResult(result); err != nil {
 		return fmt.Errorf("failed to store site behavior result: %w", err)
+	}
+
+	for _, sample := range siteBehavior.NotFoundSamples {
+		if sample == nil {
+			continue
+		}
+		nfSample := &db.SiteBehaviorNotFoundSample{
+			SiteBehaviorResultID: result.ID,
+			HistoryID:            sample.ID,
+		}
+		if err := db.Connection().CreateSiteBehaviorNotFoundSample(nfSample); err != nil {
+			taskLog.Warn().Err(err).Uint("history_id", sample.ID).Msg("Failed to store not-found sample reference")
+		}
 	}
 
 	taskLog.Info().
 		Str("base_url", jobData.BaseURL).
 		Bool("not_found_returns_404", siteBehavior.NotFoundReturns404).
 		Bool("not_found_changes", siteBehavior.NotFoundChanges).
+		Int("not_found_samples", len(siteBehavior.NotFoundSamples)).
 		Msg("Site behavior check completed")
 
 	return nil

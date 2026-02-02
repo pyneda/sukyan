@@ -119,6 +119,8 @@ type ScanJob struct {
 	WebSocketConnection   *WebSocketConnection `json:"-" gorm:"foreignKey:WebSocketConnectionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	APIDefinitionID       *uuid.UUID           `json:"api_definition_id,omitempty" gorm:"index;type:uuid"`
 	APIDefinition         *APIDefinition       `json:"-" gorm:"foreignKey:APIDefinitionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	APIEndpointID         *uuid.UUID           `json:"api_endpoint_id,omitempty" gorm:"index;type:uuid"`
+	APIEndpoint           *APIEndpoint         `json:"-" gorm:"foreignKey:APIEndpointID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 
 	// Payload stores job-specific configuration (JSON)
 	Payload []byte `json:"payload,omitempty" gorm:"type:jsonb"`
@@ -226,14 +228,13 @@ func (d *DatabaseConnection) DiscoveryJobExistsForURL(scanID uint, url string) (
 	return count > 0, nil
 }
 
-// APIScanJobExistsForEndpoint checks if an API scan job already exists for the given scan, definition, URL, and method.
+// APIScanJobExistsForEndpoint checks if an API scan job already exists for the given scan, definition, and endpoint.
 // This is used for deduplication in distributed environments where multiple orchestrators may run.
-// Returns true if a non-cancelled API scan job exists for the combination.
-func (d *DatabaseConnection) APIScanJobExistsForEndpoint(scanID uint, apiDefinitionID uuid.UUID, endpointURL string, method string) (bool, error) {
+func (d *DatabaseConnection) APIScanJobExistsForEndpoint(scanID uint, apiDefinitionID uuid.UUID, endpointID uuid.UUID) (bool, error) {
 	var count int64
 	err := d.db.Model(&ScanJob{}).
-		Where("scan_id = ? AND job_type = ? AND api_definition_id = ? AND url = ? AND method = ? AND status != ?",
-			scanID, ScanJobTypeAPIScan, apiDefinitionID, endpointURL, method, ScanJobStatusCancelled).
+		Where("scan_id = ? AND job_type = ? AND api_definition_id = ? AND api_endpoint_id = ? AND status != ?",
+			scanID, ScanJobTypeAPIScan, apiDefinitionID, endpointID, ScanJobStatusCancelled).
 		Count(&count).Error
 	if err != nil {
 		return false, err

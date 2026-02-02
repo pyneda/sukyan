@@ -140,6 +140,7 @@ func StartAPI() {
 	api.Get("/playground/wordlists", JWTProtected(), ListAvailableWordlists)
 
 	api.Post("/playground/openapi/parse", JWTProtected(), ParseOpenAPISpec)
+	api.Post("/playground/openapi/parse-content", JWTProtected(), ParseOpenAPISpecFromContent)
 	api.Post("/playground/graphql/parse", JWTProtected(), ParseGraphQLSchema)
 	api.Post("/playground/graphql/parse-introspection", JWTProtected(), ParseGraphQLFromIntrospection)
 	api.Post("/playground/wsdl/parse", JWTProtected(), ParseWSDL)

@@ -121,6 +121,68 @@ func TestSiteBehaviorDetection(t *testing.T) {
 	}
 }
 
+func TestNewSiteBehaviorFromResult(t *testing.T) {
+	t.Run("nil result returns nil", func(t *testing.T) {
+		sb := NewSiteBehaviorFromResult(nil)
+		assert.Nil(t, sb)
+	})
+
+	t.Run("reconstructs scalar fields", func(t *testing.T) {
+		result := &db.SiteBehaviorResult{
+			NotFoundReturns404: true,
+			NotFoundChanges:    false,
+			NotFoundCommonHash: "abc123",
+			NotFoundStatusCode: 404,
+		}
+		sb := NewSiteBehaviorFromResult(result)
+		assert.NotNil(t, sb)
+		assert.True(t, sb.NotFoundReturns404)
+		assert.False(t, sb.NotFoundChanges)
+		assert.Equal(t, "abc123", sb.NotFoundCommonHash)
+		assert.Equal(t, 404, sb.NotFoundStatusCode)
+		assert.Nil(t, sb.BaseURLSample)
+		assert.Empty(t, sb.NotFoundSamples)
+	})
+
+	t.Run("reconstructs base URL sample", func(t *testing.T) {
+		baseHistory := &db.History{URL: "http://example.com/"}
+		baseHistory.ID = 42
+		result := &db.SiteBehaviorResult{
+			NotFoundReturns404: false,
+			BaseURLSample:      baseHistory,
+		}
+		sb := NewSiteBehaviorFromResult(result)
+		assert.NotNil(t, sb.BaseURLSample)
+		assert.Equal(t, uint(42), sb.BaseURLSample.ID)
+		assert.Equal(t, "http://example.com/", sb.BaseURLSample.URL)
+	})
+
+	t.Run("reconstructs not found samples", func(t *testing.T) {
+		h1 := db.History{URL: "http://example.com/nf1"}
+		h1.ID = 10
+		h2 := db.History{URL: "http://example.com/nf2"}
+		h2.ID = 20
+		result := &db.SiteBehaviorResult{
+			NotFoundSamples: []db.SiteBehaviorNotFoundSample{
+				{History: h1},
+				{History: h2},
+			},
+		}
+		sb := NewSiteBehaviorFromResult(result)
+		assert.Len(t, sb.NotFoundSamples, 2)
+		assert.Equal(t, uint(10), sb.NotFoundSamples[0].ID)
+		assert.Equal(t, uint(20), sb.NotFoundSamples[1].ID)
+	})
+
+	t.Run("empty not found samples produces empty slice", func(t *testing.T) {
+		result := &db.SiteBehaviorResult{
+			NotFoundSamples: []db.SiteBehaviorNotFoundSample{},
+		}
+		sb := NewSiteBehaviorFromResult(result)
+		assert.Empty(t, sb.NotFoundSamples)
+	})
+}
+
 func TestIsNotFound(t *testing.T) {
 	workspaceID := setupTestWorkspace(t)
 

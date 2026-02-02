@@ -142,12 +142,20 @@ func (e *ActiveScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl 
 		passive.ScanHistoryItem(&history)
 	}
 
+	// Load site behavior for soft-404 detection in active modules
+	var siteBehavior *http_utils.SiteBehavior
+	if baseURL, err := lib.GetBaseURL(history.URL); err == nil {
+		if sbResult, err := db.Connection().GetSiteBehaviorWithSamples(job.ScanID, baseURL); err == nil {
+			siteBehavior = http_utils.NewSiteBehaviorFromResult(sbResult)
+		}
+	}
+
 	// Execute the active scan only if server-side or client-side checks are enabled
 	// NOTE: Currently ScanHistoryItem doesn't support checkpointing internally.
 	// For now, we checkpoint before and after. In phase 3, we'll add internal checkpoints.
 	if options.AuditCategories.ServerSide || options.AuditCategories.ClientSide {
 		taskLog.Debug().Msg("Running active scan on history item")
-		active.ScanHistoryItem(&history, e.interactionsManager, e.payloadGenerators, options)
+		active.ScanHistoryItem(&history, e.interactionsManager, e.payloadGenerators, siteBehavior, options)
 	}
 
 	// Checkpoint: check after completion

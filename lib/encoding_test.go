@@ -110,3 +110,137 @@ func TestSanitizeUTF8(t *testing.T) {
 		})
 	}
 }
+
+func TestJSONToXML(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []byte
+		contains []string // parts that must be present (order may vary)
+		wantErr  bool
+	}{
+		{
+			name:     "Empty input",
+			input:    []byte{},
+			contains: []string{"<?xml version=\"1.0\"?>", "<root></root>"},
+		},
+		{
+			name:     "Simple JSON object",
+			input:    []byte(`{"name":"test"}`),
+			contains: []string{"<?xml version=\"1.0\"?>", "<root>", "</root>", "<name>test</name>"},
+		},
+		{
+			name:     "JSON with special XML chars",
+			input:    []byte(`{"data":"<script>alert(1)</script>"}`),
+			contains: []string{"&lt;script&gt;", "&lt;/script&gt;"},
+		},
+		{
+			name:     "JSON with ampersand",
+			input:    []byte(`{"query":"foo&bar"}`),
+			contains: []string{"foo&amp;bar"},
+		},
+		{
+			name:     "Non-JSON input",
+			input:    []byte("plain text"),
+			contains: []string{"<?xml version=\"1.0\"?>", "<root>plain text</root>"},
+		},
+		{
+			name:     "JSON with number",
+			input:    []byte(`{"count":42}`),
+			contains: []string{"<count>42</count>"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := JSONToXML(test.input)
+			if (err != nil) != test.wantErr {
+				t.Errorf("JSONToXML() error = %v, wantErr %v", err, test.wantErr)
+				return
+			}
+			resultStr := string(result)
+			for _, part := range test.contains {
+				if !contains(resultStr, part) {
+					t.Errorf("JSONToXML() result %q should contain %q", resultStr, part)
+				}
+			}
+		})
+	}
+}
+
+func TestJSONToFormURLEncoded(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []byte
+		contains []string
+		wantErr  bool
+	}{
+		{
+			name:     "Empty input",
+			input:    []byte{},
+			contains: []string{},
+		},
+		{
+			name:     "Simple JSON object",
+			input:    []byte(`{"name":"test"}`),
+			contains: []string{"name=test"},
+		},
+		{
+			name:     "Multiple fields",
+			input:    []byte(`{"a":"1","b":"2"}`),
+			contains: []string{"a=1", "b=2"},
+		},
+		{
+			name:     "Special characters get URL encoded",
+			input:    []byte(`{"query":"foo&bar=baz"}`),
+			contains: []string{"query=foo%26bar%3Dbaz"},
+		},
+		{
+			name:     "Spaces get URL encoded",
+			input:    []byte(`{"message":"hello world"}`),
+			contains: []string{"message=hello%20world"},
+		},
+		{
+			name:    "Non-JSON input",
+			input:   []byte("not json"),
+			wantErr: true,
+		},
+		{
+			name:    "JSON array (not object)",
+			input:   []byte(`[1,2,3]`),
+			wantErr: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := JSONToFormURLEncoded(test.input)
+			if (err != nil) != test.wantErr {
+				t.Errorf("JSONToFormURLEncoded() error = %v, wantErr %v", err, test.wantErr)
+				return
+			}
+			if err != nil {
+				return
+			}
+			resultStr := string(result)
+			for _, part := range test.contains {
+				if !contains(resultStr, part) {
+					t.Errorf("JSONToFormURLEncoded() result %q should contain %q", resultStr, part)
+				}
+			}
+		})
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
+		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

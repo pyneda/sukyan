@@ -757,33 +757,6 @@ func GetAPIDefinitionSecuritySchemes(c *fiber.Ctx) error {
 					db.Connection().UpdateAPIDefinition(definition)
 				}
 			}
-
-			// Backfill per-endpoint security
-			operations := doc.GetOperations()
-			endpoints, _ := db.Connection().GetAPIEndpointsByDefinitionID(id)
-			for _, ep := range endpoints {
-				op := pkgapi.FindOperation(operations, ep.Path, ep.Method)
-				if op == nil {
-					continue
-				}
-				reqs, hasOverride := doc.GetOperationSecurityRequirements(op)
-				if !hasOverride || len(reqs) == 0 {
-					continue
-				}
-				var epSecRecords []*db.APIEndpointSecurity
-				for _, req := range reqs {
-					for _, ref := range req.Schemes {
-						epSecRecords = append(epSecRecords, &db.APIEndpointSecurity{
-							EndpointID: ep.ID,
-							SchemeName: ref.Name,
-							Scopes:     strings.Join(ref.Scopes, ","),
-						})
-					}
-				}
-				if len(epSecRecords) > 0 {
-					db.Connection().CreateAPIEndpointSecurities(epSecRecords)
-				}
-			}
 		}
 	}
 

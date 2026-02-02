@@ -16,7 +16,7 @@ import (
 
 const historyItemModulesConcurrency = 10
 
-func ScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, options scan_options.HistoryItemScanOptions) {
+func ScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, siteBehavior *http_utils.SiteBehavior, options scan_options.HistoryItemScanOptions) {
 	taskLog := log.With().Uint("workspace", options.WorkspaceID).Str("mode", options.Mode.String()).Str("item", item.URL).Str("method", item.Method).Int("ID", int(item.ID)).Logger()
 	taskLog.Info().Msg("Starting to scan history item")
 
@@ -35,15 +35,16 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	}
 
 	activeOptions := ActiveModuleOptions{
-		Ctx:         ctx,
-		Concurrency: historyItemModulesConcurrency,
-		WorkspaceID: options.WorkspaceID,
-		TaskID:      options.TaskID,
-		TaskJobID:   options.TaskJobID,
-		ScanID:      options.ScanID,
-		ScanJobID:   options.ScanJobID,
-		ScanMode:    options.Mode,
-		HTTPClient:  options.HTTPClient,
+		Ctx:          ctx,
+		Concurrency:  historyItemModulesConcurrency,
+		WorkspaceID:  options.WorkspaceID,
+		TaskID:       options.TaskID,
+		TaskJobID:    options.TaskJobID,
+		ScanID:       options.ScanID,
+		ScanJobID:    options.ScanJobID,
+		ScanMode:     options.Mode,
+		HTTPClient:   options.HTTPClient,
+		SiteBehavior: siteBehavior,
 	}
 	historyCreateOptions := http_utils.HistoryCreationOptions{
 		Source:              db.SourceScanner,

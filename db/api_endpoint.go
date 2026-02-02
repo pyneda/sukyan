@@ -34,9 +34,6 @@ type APIEndpoint struct {
 	SOAPAction   string `gorm:"size:500" json:"soap_action"`
 	BindingStyle string `gorm:"size:50" json:"binding_style"`
 
-	Parameters        []APIEndpointParameter  `gorm:"foreignKey:EndpointID;constraint:OnDelete:CASCADE" json:"parameters,omitempty"`
-	SecuritySchemes   []APIEndpointSecurity   `gorm:"foreignKey:EndpointID;constraint:OnDelete:CASCADE" json:"security_schemes,omitempty"`
-	RequestVariations []APIRequestVariation   `gorm:"foreignKey:EndpointID;constraint:OnDelete:CASCADE" json:"request_variations,omitempty"`
 }
 
 func (e APIEndpoint) TableHeaders() []string {
@@ -133,8 +130,7 @@ func (d *DatabaseConnection) GetAPIEndpointByID(id uuid.UUID) (*APIEndpoint, err
 
 func (d *DatabaseConnection) GetAPIEndpointByIDWithRelations(id uuid.UUID) (*APIEndpoint, error) {
 	var endpoint APIEndpoint
-	err := d.db.Preload("Parameters").Preload("SecuritySchemes").Preload("RequestVariations").
-		Where("id = ?", id).First(&endpoint).Error
+	err := d.db.Where("id = ?", id).First(&endpoint).Error
 	if err != nil {
 		log.Error().Err(err).Str("id", id.String()).Msg("Unable to fetch API endpoint by ID with relations")
 		return nil, err
@@ -207,7 +203,7 @@ func (d *DatabaseConnection) ListAPIEndpoints(filter APIEndpointFilter) (items [
 		order = filter.SortBy + " " + sortOrder
 	}
 
-	err = query.Scopes(Paginate(&filter.Pagination)).Order(order).Preload("SecuritySchemes").Find(&items).Error
+	err = query.Scopes(Paginate(&filter.Pagination)).Order(order).Find(&items).Error
 	return items, count, err
 }
 

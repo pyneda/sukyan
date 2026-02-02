@@ -13,10 +13,9 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/active"
-	"github.com/pyneda/sukyan/pkg/active/api"
+	activegraphql "github.com/pyneda/sukyan/pkg/active/api/graphql"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/scan/control"
-	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc/pool"
 )
@@ -174,59 +173,22 @@ func (e *APIBehaviorExecutor) runAPILevelSecurityChecks(
 		return
 	}
 
-	defID := definition.ID
-	opts := api.APITestOptions{
-		ActiveModuleOptions: active.ActiveModuleOptions{
-			Ctx:         ctx,
-			WorkspaceID: job.WorkspaceID,
-			ScanID:      job.ScanID,
-			ScanJobID:   job.ID,
-			HTTPClient:  httpClient,
-			APIContext: &scan_options.APIContext{
-				DefinitionType: string(definition.Type),
-				DefinitionID:   &defID,
-			},
-		},
-		Definition: definition,
-	}
-
-	var results []api.APITestResult
-
 	switch definition.Type {
 	case db.APIDefinitionTypeGraphQL:
 		taskLog.Debug().Msg("Running API-level GraphQL security tests")
-		results = api.RunGraphQLAPILevelTests(opts)
-	}
-
-	for _, testResult := range results {
-		if testResult.Vulnerable {
-			issueHistory := testResult.History
-			_, issueErr := db.CreateIssueFromHistoryAndTemplate(
-				issueHistory,
-				testResult.IssueCode,
-				testResult.Details,
-				testResult.Confidence,
-				"",
-				&job.WorkspaceID,
-				nil,
-				nil,
-				&job.ScanID,
-				&job.ID,
-			)
-			if issueErr != nil {
-				taskLog.Error().Err(issueErr).
-					Str("issue_code", string(testResult.IssueCode)).
-					Msg("Failed to create issue from API-level test")
-			} else {
-				taskLog.Info().
-					Str("issue", string(testResult.IssueCode)).
-					Int("confidence", testResult.Confidence).
-					Msg("API-level issue found")
-			}
+		graphqlOpts := &activegraphql.GraphQLAuditOptions{
+			ActiveModuleOptions: active.ActiveModuleOptions{
+				Ctx:         ctx,
+				WorkspaceID: job.WorkspaceID,
+				ScanID:      job.ScanID,
+				ScanJobID:   job.ID,
+				HTTPClient:  httpClient,
+			},
 		}
+		activegraphql.ScanGraphQLAPI(definition, graphqlOpts)
 	}
 
-	taskLog.Debug().Int("results", len(results)).Msg("API-level security tests completed")
+	taskLog.Debug().Msg("API-level security tests completed")
 }
 
 func (e *APIBehaviorExecutor) fingerprintNotFound(

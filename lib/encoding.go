@@ -2,6 +2,7 @@ package lib
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -50,4 +51,71 @@ func SanitizeUTF8(s string) string {
 		sanitized = strings.ReplaceAll(sanitized, "\x00", "")
 	}
 	return sanitized
+}
+
+// JSONToXML converts a JSON object to a simple XML representation.
+// If the input is an empty byte slice, returns an empty root element.
+// If the input is not valid JSON, wraps the raw content in a root element.
+func JSONToXML(jsonBody []byte) ([]byte, error) {
+	if len(jsonBody) == 0 {
+		return []byte("<?xml version=\"1.0\"?><root></root>"), nil
+	}
+
+	var data map[string]any
+	if err := json.Unmarshal(jsonBody, &data); err != nil {
+		// If not a JSON object, wrap the value
+		return []byte(fmt.Sprintf("<?xml version=\"1.0\"?><root>%s</root>", string(jsonBody))), nil
+	}
+
+	var xmlBuilder strings.Builder
+	xmlBuilder.WriteString("<?xml version=\"1.0\"?>\n<root>\n")
+	for key, value := range data {
+		// Escape XML special characters in value
+		valStr := fmt.Sprintf("%v", value)
+		valStr = strings.ReplaceAll(valStr, "&", "&amp;")
+		valStr = strings.ReplaceAll(valStr, "<", "&lt;")
+		valStr = strings.ReplaceAll(valStr, ">", "&gt;")
+		xmlBuilder.WriteString(fmt.Sprintf("  <%s>%s</%s>\n", key, valStr, key))
+	}
+	xmlBuilder.WriteString("</root>")
+	return []byte(xmlBuilder.String()), nil
+}
+
+// JSONToFormURLEncoded converts a JSON object to application/x-www-form-urlencoded format.
+// Returns an error if the input is not a valid JSON object.
+func JSONToFormURLEncoded(jsonBody []byte) ([]byte, error) {
+	if len(jsonBody) == 0 {
+		return []byte(""), nil
+	}
+
+	var data map[string]any
+	if err := json.Unmarshal(jsonBody, &data); err != nil {
+		return nil, fmt.Errorf("input must be a JSON object: %w", err)
+	}
+
+	var pairs []string
+	for key, value := range data {
+		// URL encode both key and value for proper form encoding
+		encodedKey := urlQueryEscape(key)
+		encodedValue := urlQueryEscape(fmt.Sprintf("%v", value))
+		pairs = append(pairs, encodedKey+"="+encodedValue)
+	}
+	return []byte(strings.Join(pairs, "&")), nil
+}
+
+// urlQueryEscape escapes a string for use in URL query parameters.
+// This is a simplified implementation that handles common special characters.
+func urlQueryEscape(s string) string {
+	var b strings.Builder
+	for _, c := range s {
+		switch {
+		case (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'):
+			b.WriteRune(c)
+		case c == '-' || c == '_' || c == '.' || c == '~':
+			b.WriteRune(c)
+		default:
+			b.WriteString(fmt.Sprintf("%%%02X", c))
+		}
+	}
+	return b.String()
 }

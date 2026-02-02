@@ -12,9 +12,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/active"
 	"github.com/pyneda/sukyan/pkg/active/api"
+	activegraphql "github.com/pyneda/sukyan/pkg/active/api/graphql"
+	activeopenapi "github.com/pyneda/sukyan/pkg/active/api/openapi"
+	activesoap "github.com/pyneda/sukyan/pkg/active/api/soap"
 	pkgapi "github.com/pyneda/sukyan/pkg/api"
 	apicore "github.com/pyneda/sukyan/pkg/api/core"
 	apigraphql "github.com/pyneda/sukyan/pkg/api/graphql"
@@ -147,6 +151,13 @@ func (e *APIScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *co
 	if jobData.RunStandardTests && (jobData.AuditCategories.ServerSide || jobData.AuditCategories.ClientSide) {
 		taskLog.Debug().Msg("Running standard active scan on API endpoint")
 
+		var siteBehavior *http_utils.SiteBehavior
+		if baseURL, err := lib.GetBaseURL(history.URL); err == nil {
+			if sbResult, err := db.Connection().GetSiteBehaviorWithSamples(job.ScanID, baseURL); err == nil {
+				siteBehavior = http_utils.NewSiteBehaviorFromResult(sbResult)
+			}
+		}
+
 		options := scan_options.HistoryItemScanOptions{
 			Ctx:             ctx,
 			WorkspaceID:     job.WorkspaceID,
@@ -159,7 +170,7 @@ func (e *APIScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *co
 			HTTPClient:      httpClient,
 		}
 
-		active.ScanHistoryItem(history, e.interactionsManager, e.payloadGenerators, options)
+		active.ScanHistoryItem(history, e.interactionsManager, e.payloadGenerators, siteBehavior, options)
 	}
 
 	var operation *apicore.Operation
@@ -208,44 +219,17 @@ func (e *APIScanExecutor) buildAndExecuteRequest(
 	httpClient *http.Client,
 	job *db.ScanJob,
 ) (*db.History, error) {
-	var req *http.Request
-	var err error
-
-	if len(endpoint.RequestVariations) > 0 {
-		req, err = e.buildRequestFromVariation(ctx, &endpoint.RequestVariations[0])
-		if err != nil {
-			log.Warn().Err(err).
-				Str("endpoint", endpoint.Path).
-				Str("method", endpoint.Method).
-				Msg("Failed to build request from stored variation, falling back to operation parsing")
-			req = nil
-		} else {
-			log.Debug().
-				Str("endpoint", endpoint.Path).
-				Str("method", endpoint.Method).
-				Msg("Using stored request variation")
-		}
+	operation, parseErr := e.parseOperationForEndpoint(definition, endpoint)
+	if parseErr != nil {
+		return nil, fmt.Errorf("failed to parse operation: %w", parseErr)
+	}
+	if operation == nil {
+		return nil, fmt.Errorf("no matching operation found for endpoint %s %s", endpoint.Method, endpoint.Path)
 	}
 
-	if req == nil {
-		operation, parseErr := e.parseOperationForEndpoint(definition, endpoint)
-		if parseErr == nil && operation != nil {
-			req, err = e.buildRequestFromOperation(ctx, definition.Type, operation)
-			if err != nil {
-				log.Warn().Err(err).
-					Str("endpoint", endpoint.Path).
-					Str("method", endpoint.Method).
-					Msg("Failed to build request from parsed operation")
-				return nil, fmt.Errorf("failed to create request: %w", err)
-			}
-		} else if parseErr != nil {
-			log.Debug().Err(parseErr).
-				Str("endpoint", endpoint.Path).
-				Msg("Failed to parse operation for request building")
-			return nil, fmt.Errorf("failed to parse operation: %w", parseErr)
-		} else {
-			return nil, fmt.Errorf("no matching operation found for endpoint %s %s", endpoint.Method, endpoint.Path)
-		}
+	req, err := e.buildRequestFromOperation(ctx, definition.Type, operation)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	if req.Body != nil {
@@ -305,48 +289,6 @@ func (e *APIScanExecutor) buildAndExecuteRequest(
 	}
 
 	return result.History, nil
-}
-
-func (e *APIScanExecutor) buildRequestFromVariation(ctx context.Context, variation *db.APIRequestVariation) (*http.Request, error) {
-	if variation.URL == "" {
-		return nil, fmt.Errorf("variation has empty URL")
-	}
-
-	var bodyReader io.Reader
-	if len(variation.Body) > 0 {
-		bodyReader = bytes.NewReader(variation.Body)
-	}
-
-	method := variation.Method
-	if method == "" {
-		method = "GET"
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, variation.URL, bodyReader)
-	if err != nil {
-		return nil, fmt.Errorf("creating request from variation: %w", err)
-	}
-
-	if len(variation.Headers) > 0 {
-		var headers http.Header
-		if err := json.Unmarshal(variation.Headers, &headers); err != nil {
-			log.Warn().Err(err).
-				Str("endpoint_id", variation.EndpointID.String()).
-				Msg("Failed to unmarshal stored headers, proceeding without them")
-		} else {
-			for name, values := range headers {
-				for _, v := range values {
-					req.Header.Add(name, v)
-				}
-			}
-		}
-	}
-
-	if variation.ContentType != "" {
-		req.Header.Set("Content-Type", variation.ContentType)
-	}
-
-	return req, nil
 }
 
 func (e *APIScanExecutor) buildRequestFromOperation(ctx context.Context, defType db.APIDefinitionType, operation *apicore.Operation) (*http.Request, error) {
@@ -460,54 +402,66 @@ func (e *APIScanExecutor) runAPISpecificTests(
 
 	opts := e.buildAPITestOptions(ctx, job, jobData, definition, endpoint, history, operation, httpClient)
 
-	var results []api.APITestResult
-
 	switch definition.Type {
 	case db.APIDefinitionTypeGraphQL:
 		taskLog.Debug().Msg("Running GraphQL-specific tests")
-		results = api.RunGraphQLTests(opts)
+		graphqlOpts := &activegraphql.GraphQLAuditOptions{
+			ActiveModuleOptions: active.ActiveModuleOptions{
+				Ctx:         opts.Ctx,
+				WorkspaceID: opts.WorkspaceID,
+				TaskID:      opts.TaskID,
+				TaskJobID:   opts.TaskJobID,
+				ScanID:      opts.ScanID,
+				ScanJobID:   opts.ScanJobID,
+				ScanMode:    opts.ScanMode,
+				HTTPClient:  opts.HTTPClient,
+			},
+		}
+		activegraphql.ScanGraphQLOperation(opts.Definition, opts.Operation, graphqlOpts)
 
 	case db.APIDefinitionTypeOpenAPI:
-		taskLog.Debug().Msg("Running REST API-specific tests")
-		results = api.RunRESTTests(opts)
+		taskLog.Debug().Msg("Running OpenAPI-specific tests")
+
+		// Fetch behavior result for this API definition if available
+		var behaviorResult *db.APIBehaviorResult
+		if opts.ScanID > 0 {
+			behaviorResult, _ = db.Connection().GetAPIBehaviorForDefinition(opts.ScanID, definition.ID)
+		}
+
+		openapiOpts := &activeopenapi.OpenAPIAuditOptions{
+			ActiveModuleOptions: active.ActiveModuleOptions{
+				Ctx:         opts.Ctx,
+				WorkspaceID: opts.WorkspaceID,
+				TaskID:      opts.TaskID,
+				TaskJobID:   opts.TaskJobID,
+				ScanID:      opts.ScanID,
+				ScanJobID:   opts.ScanJobID,
+				ScanMode:    opts.ScanMode,
+				HTTPClient:  opts.HTTPClient,
+			},
+			Operation:      opts.Operation,
+			BehaviorResult: behaviorResult,
+		}
+		activeopenapi.ScanOpenAPIEndpoint(opts.Definition, opts.Endpoint, opts.BaseHistory, openapiOpts)
 
 	case db.APIDefinitionTypeWSDL:
 		taskLog.Debug().Msg("Running SOAP/WSDL-specific tests")
-		results = api.RunSOAPTests(opts)
-	}
-
-	for _, result := range results {
-		if result.Vulnerable {
-			issueHistory := history
-			if result.History != nil {
-				issueHistory = result.History
-			}
-			_, issueErr := db.CreateIssueFromHistoryAndTemplate(
-				issueHistory,
-				result.IssueCode,
-				result.Details,
-				result.Confidence,
-				"",
-				&job.WorkspaceID,
-				nil,
-				nil,
-				&job.ScanID,
-				&job.ID,
-			)
-			if issueErr != nil {
-				taskLog.Error().Err(issueErr).
-					Str("issue_code", string(result.IssueCode)).
-					Msg("Failed to create issue from API-specific test result")
-			} else {
-				taskLog.Info().
-					Str("issue", string(result.IssueCode)).
-					Int("confidence", result.Confidence).
-					Msg("API-specific issue found")
-			}
+		soapOpts := &activesoap.SOAPAuditOptions{
+			ActiveModuleOptions: active.ActiveModuleOptions{
+				Ctx:         opts.Ctx,
+				WorkspaceID: opts.WorkspaceID,
+				TaskID:      opts.TaskID,
+				TaskJobID:   opts.TaskJobID,
+				ScanID:      opts.ScanID,
+				ScanJobID:   opts.ScanJobID,
+				ScanMode:    opts.ScanMode,
+				HTTPClient:  opts.HTTPClient,
+			},
 		}
+		activesoap.ScanSOAPEndpoint(opts.Definition, opts.Endpoint, opts.BaseHistory, soapOpts)
 	}
 
-	taskLog.Debug().Int("results", len(results)).Msg("API-specific tests completed")
+	taskLog.Debug().Msg("API-specific tests completed")
 }
 
 func (e *APIScanExecutor) runSchemaBasedTests(

@@ -1,4 +1,4 @@
-h1:yIMhfpKPoSCtLVdiWo2+D76RURUodyRQYhBnGCdsXLQ=
+h1:2OK7yEXxLyKPjiBmlgtxGA2jKK0IUrrQ6FiDd886ysU=
 20251208012158_initial.sql h1:gwJqqGHQCjCbqlxba40IAPxNgWyj2LdQniyWHXO9vlc=
 20251208041927_add_scan_isolated.sql h1:dF6ne/760ggiHVjvqLh8HY/PqReOrDs6ugiexfmkvNM=
 20251209020515_add_browser_events_table.sql h1:J2lHVNkZ1RH4Mxp6MO6Pc4TtF5R5nlqX9j7OQ2XR+sQ=
@@ -12,3 +12,5 @@ h1:yIMhfpKPoSCtLVdiWo2+D76RURUodyRQYhBnGCdsXLQ=
 20260201032329_add_scan_job_api_definition_id.sql h1:onVe1lpMfZO/Ua7Ifr7VxvsSeNdCddqx29VORLC//I4=
 20260201050000_add_unique_idx_api_def_workspace_source.sql h1:wsC3bUJAX7Q8/NpuBu/vkWGoTL55HFR5ED+4BsgjCQA=
 20260201050100_fix_api_def_auth_config_fk.sql h1:Nt0s3Ot3MJDWhBJcGgS5S6wzQ63O/BW2ZTudcKQaZN0=
+20260202045439_add_api_endpoint_id_to_scan_jobs.sql h1:dc7Kl/HVEPmE6mulBeKofRRueMYIo5Vs9YjjYDeea9Q=
+20260202050042.sql h1:X5F0Df95JLIy2OMoYll7OubTUk2YHPDgNXpC6iCT4V0=

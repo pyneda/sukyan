@@ -146,7 +146,7 @@ func (d *DatabaseConnection) GetAPIDefinitionByID(id uuid.UUID) (*APIDefinition,
 
 func (d *DatabaseConnection) GetAPIDefinitionByIDWithEndpoints(id uuid.UUID) (*APIDefinition, error) {
 	var definition APIDefinition
-	err := d.db.Preload("Endpoints").Preload("Endpoints.SecuritySchemes").Preload("SecuritySchemes").
+	err := d.db.Preload("Endpoints").Preload("SecuritySchemes").
 		Where("id = ?", id).First(&definition).Error
 	if err != nil {
 		log.Error().Err(err).Str("id", id.String()).Msg("Unable to fetch API definition by ID with endpoints")

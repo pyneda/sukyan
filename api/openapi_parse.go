@@ -109,3 +109,81 @@ func ParseOpenAPISpec(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(response)
 }
+
+type ParseOpenAPISpecFromContentInput struct {
+	Content         string `json:"content" validate:"required"`
+	BaseURL         string `json:"base_url" validate:"omitempty,url"`
+	IncludeOptional bool   `json:"include_optional"`
+	EnableFuzzing   bool   `json:"enable_fuzzing"`
+}
+
+// ParseOpenAPISpecFromContent godoc
+// @Summary Parse an OpenAPI specification from raw content
+// @Description Parses OpenAPI from provided JSON/YAML content (useful when spec is not directly accessible via URL)
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param input body ParseOpenAPISpecFromContentInput true "OpenAPI content and configuration"
+// @Success 200 {object} ParseOpenAPISpecResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/openapi/parse-content [post]
+func ParseOpenAPISpecFromContent(c *fiber.Ctx) error {
+	input := new(ParseOpenAPISpecFromContentInput)
+
+	if err := c.BodyParser(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Cannot parse JSON",
+			"message": err.Error(),
+		})
+	}
+
+	if err := validate.Struct(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Validation failed",
+			"message": err.Error(),
+		})
+	}
+
+	doc, err := openapi.Parse([]byte(input.Content))
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to parse OpenAPI content")
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Failed to parse OpenAPI content",
+			"message": err.Error(),
+		})
+	}
+
+	config := openapi.GenerationConfig{
+		BaseURL:               doc.BaseURL(),
+		IncludeOptionalParams: input.IncludeOptional,
+		FuzzingEnabled:        input.EnableFuzzing,
+	}
+
+	if input.BaseURL != "" {
+		config.BaseURL = input.BaseURL
+	}
+
+	endpoints, err := openapi.GenerateRequests(doc, config)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to generate requests from OpenAPI content")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to generate requests",
+			"message": err.Error(),
+		})
+	}
+
+	securitySchemes := doc.GetSecuritySchemes()
+	globalSecurity := doc.GetGlobalSecurityRequirements()
+
+	response := ParseOpenAPISpecResponse{
+		Endpoints:       endpoints,
+		SecuritySchemes: securitySchemes,
+		GlobalSecurity:  globalSecurity,
+		BaseURL:         config.BaseURL,
+		Count:           len(endpoints),
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response)
+}

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/lib"
 	pkgapi "github.com/pyneda/sukyan/pkg/api"
 	"github.com/pyneda/sukyan/pkg/discovery"
 )
@@ -100,53 +99,12 @@ func createAuthConfig(workspaceID uint, params apiDefsAuthParams) (*db.APIAuthCo
 }
 
 func parseAndPersistDefinition(content []byte, sourceURL string, apiType db.APIDefinitionType, workspaceID uint, authConfig *db.APIAuthConfig) (*db.APIDefinition, error) {
-	history := &db.History{
-		URL:         sourceURL,
-		Method:      "GET",
-		StatusCode:  200,
-		RawResponse: content,
-	}
-
-	if h, err := db.Connection().CreateHistory(history); err == nil {
-		history = h
-	}
-
-	opts := discovery.APIPersistenceOptions{
+	opts := discovery.APIPersistenceFromContentOptions{
 		WorkspaceID: workspaceID,
+		SourceURL:   sourceURL,
 	}
-
-	var definition *db.APIDefinition
-	var err error
-
-	switch apiType {
-	case db.APIDefinitionTypeOpenAPI:
-		definition, err = discovery.PersistOpenAPIDefinition(history, opts)
-	case db.APIDefinitionTypeGraphQL:
-		definition, err = discovery.PersistGraphQLDefinition(history, opts)
-	case db.APIDefinitionTypeWSDL:
-		definition, err = discovery.PersistWSDLDefinition(history, opts)
-	default:
-		baseURL, _ := lib.GetBaseURL(sourceURL)
-		definition = &db.APIDefinition{
-			WorkspaceID:   workspaceID,
-			Name:          "API Definition - " + baseURL,
-			Type:          apiType,
-			Status:        db.APIDefinitionStatusParsed,
-			SourceURL:     sourceURL,
-			BaseURL:       baseURL,
-			RawDefinition: content,
-		}
-		definition, err = db.Connection().CreateAPIDefinition(definition)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
 	if authConfig != nil {
-		definition.AuthConfigID = &authConfig.ID
-		db.Connection().UpdateAPIDefinition(definition)
+		opts.AuthConfigID = &authConfig.ID
 	}
-
-	return definition, nil
+	return discovery.PersistAPIDefinitionFromContent(content, apiType, opts)
 }

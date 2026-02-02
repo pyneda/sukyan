@@ -20,6 +20,19 @@ type SiteBehaviorResult struct {
 	NotFoundChanges     bool   `json:"not_found_changes"`
 	NotFoundCommonHash  string `json:"not_found_common_hash,omitempty" gorm:"size:255"`
 	NotFoundStatusCode  int    `json:"not_found_status_code,omitempty"`
+
+	BaseURLSampleID *uint    `json:"base_url_sample_id,omitempty" gorm:"index"`
+	BaseURLSample   *History `json:"-" gorm:"foreignKey:BaseURLSampleID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+
+	NotFoundSamples []SiteBehaviorNotFoundSample `json:"-" gorm:"foreignKey:SiteBehaviorResultID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+}
+
+type SiteBehaviorNotFoundSample struct {
+	BaseModel
+	SiteBehaviorResultID uuid.UUID          `json:"site_behavior_result_id" gorm:"type:uuid;not null;index"`
+	SiteBehaviorResult   SiteBehaviorResult `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	HistoryID            uint               `json:"history_id" gorm:"not null;index"`
+	History              History            `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
 
 func (d *DatabaseConnection) CreateSiteBehaviorResult(result *SiteBehaviorResult) (*SiteBehaviorResult, error) {
@@ -63,4 +76,21 @@ func (d *DatabaseConnection) SiteBehaviorJobExistsForURL(scanID uint, url string
 			scanID, ScanJobTypeSiteBehavior, url, ScanJobStatusCancelled).
 		Count(&count).Error
 	return count > 0, err
+}
+
+func (d *DatabaseConnection) GetSiteBehaviorWithSamples(scanID uint, baseURL string) (*SiteBehaviorResult, error) {
+	var result SiteBehaviorResult
+	err := d.db.
+		Where("scan_id = ? AND base_url = ?", scanID, baseURL).
+		Preload("BaseURLSample").
+		Preload("NotFoundSamples.History").
+		First(&result).Error
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (d *DatabaseConnection) CreateSiteBehaviorNotFoundSample(sample *SiteBehaviorNotFoundSample) error {
+	return d.db.Create(sample).Error
 }

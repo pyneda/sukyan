@@ -168,6 +168,24 @@ func CheckSiteBehavior(options SiteBehaviourCheckOptions) (*SiteBehavior, error)
 	return behavior, nil
 }
 
+func NewSiteBehaviorFromResult(result *db.SiteBehaviorResult) *SiteBehavior {
+	if result == nil {
+		return nil
+	}
+	sb := &SiteBehavior{
+		NotFoundReturns404: result.NotFoundReturns404,
+		NotFoundChanges:    result.NotFoundChanges,
+		NotFoundCommonHash: result.NotFoundCommonHash,
+		NotFoundStatusCode: result.NotFoundStatusCode,
+		BaseURLSample:      result.BaseURLSample,
+	}
+	for _, sample := range result.NotFoundSamples {
+		history := sample.History
+		sb.NotFoundSamples = append(sb.NotFoundSamples, &history)
+	}
+	return sb
+}
+
 func (b *SiteBehavior) analyzeResponses() {
 	if len(b.NotFoundSamples) == 0 || b.BaseURLSample == nil {
 		return

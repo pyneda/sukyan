@@ -10,8 +10,10 @@ var (
 	AndroidAssetLinksDetectedCode IssueCode = "android_asset_links_detected"
 	ApacheStrutsDevModeCode IssueCode = "apache_struts_dev_mode"
 	ApacheTapestryExceptionCode IssueCode = "apache_tapestry_exception"
+	ApiAuthenticationNotEnforcedCode IssueCode = "api_authentication_not_enforced"
 	ApiMassAssignmentCode IssueCode = "api_mass_assignment"
 	ApiTypeConfusionCode IssueCode = "api_type_confusion"
+	ApiUndocumentedContentTypeAcceptedCode IssueCode = "api_undocumented_content_type_accepted"
 	AppleAppSiteAssociationDetectedCode IssueCode = "apple_app_site_association_detected"
 	AspCodeInjectionCode IssueCode = "asp_code_injection"
 	AspNetMvcHeaderCode IssueCode = "asp_net_mvc_header"
@@ -282,6 +284,20 @@ var issueTemplates = []IssueTemplate{
 		},
 	},
 	{
+		Code:        ApiAuthenticationNotEnforcedCode,
+		Title:       "API Authentication Not Enforced",
+		Description: "The API endpoint accepts requests without authentication despite the OpenAPI specification declaring that authentication is required. The specification explicitly defines security requirements (such as API keys, OAuth2 tokens, or HTTP authentication) for this endpoint, but the server processes requests that omit these credentials.\n\nThis indicates a critical mismatch between the documented security model and the actual implementation. When an API specification declares security requirements, it represents the intended security contract. Failure to enforce this contract means:\n\n- Authentication controls exist only in documentation, not in code\n- The endpoint may have been deployed without proper middleware configuration\n- Security requirements may have been removed or bypassed during development\n- Defense-in-depth controls are missing at the API layer\n\nThis vulnerability is particularly severe because:\n- Attackers can access protected resources without credentials\n- The specification gives a false sense of security to API consumers\n- Automated security tools relying on the spec will miss the vulnerability\n- It often indicates systemic authentication configuration issues",
+		Remediation: "Implement and verify authentication enforcement for all endpoints that require it:\n\n1. Review middleware/interceptor configuration to ensure authentication is applied\n2. Verify that security requirements in the OpenAPI spec match actual enforcement\n3. Implement authentication at the framework level, not individual endpoints\n4. Add integration tests that verify unauthenticated requests are rejected\n5. Use API gateway or reverse proxy to enforce authentication consistently\n6. Consider fail-closed authentication where missing credentials result in 401\n7. Audit all endpoints to ensure spec and implementation are synchronized\n\nFor frameworks:\n- Express.js: Ensure auth middleware is applied before route handlers\n- Spring: Verify @PreAuthorize or SecurityConfig covers the endpoint\n- Django: Check authentication_classes on views\n- Go: Ensure auth middleware wraps protected handlers",
+		Cwe:         306,
+		Severity:    "High",
+		References: []string{
+			"https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/",
+			"https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html",
+			"https://cwe.mitre.org/data/definitions/306.html",
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/",
+		},
+	},
+	{
 		Code:        ApiMassAssignmentCode,
 		Title:       "Potential Mass Assignment Vulnerability",
 		Description: "The API endpoint may be vulnerable to mass assignment attacks. The endpoint\naccepted additional fields beyond what was documented or expected, and these\nfields may have been processed by the server.\n\nMass assignment vulnerabilities occur when an API automatically binds client\nrequest data to internal object properties without proper filtering. An attacker\ncan exploit this by adding unexpected fields like:\n- isAdmin: true\n- role: \"admin\"\n- verified: true\n- price: 0",
@@ -304,6 +320,20 @@ var issueTemplates = []IssueTemplate{
 			"https://cwe.mitre.org/data/definitions/843.html",
 			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/",
 			"https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+		},
+	},
+	{
+		Code:        ApiUndocumentedContentTypeAcceptedCode,
+		Title:       "API Accepts Undocumented Content Type",
+		Description: "The API endpoint accepts and processes request bodies with content types not declared in the OpenAPI specification. The specification explicitly defines which content types are accepted (typically application/json), but the server also processes requests with alternative content types such as XML, form data, or others.\n\nThis indicates that the server's request parsing is more permissive than documented, which creates several security concerns:\n\n- Parser differential attacks become possible when multiple parsers handle the same endpoint\n- XML content types may enable XXE (XML External Entity) injection if XML parsing is enabled\n- Alternative content types may bypass input validation designed for JSON\n- Inconsistent parsing behavior can lead to parameter pollution or type confusion\n- WAF and security tools configured based on the spec may not inspect alternative formats\n\nThe acceptance of undocumented content types often reveals:\n- Framework defaults that auto-negotiate content types\n- Legacy support for deprecated formats\n- Middleware that transforms requests before validation\n- Missing content-type validation at the application layer\n\nThis is especially dangerous when XML is accepted unexpectedly, as it may expose the application to XXE attacks that the developers did not anticipate or protect against.",
+		Remediation: "Restrict content type handling to only those declared in the API specification:\n\n1. Explicitly validate Content-Type header before processing request bodies\n2. Return 415 Unsupported Media Type for undocumented content types\n3. Configure framework to disable automatic content negotiation\n4. Remove or disable XML parsers if XML is not required\n5. If XML must be supported, ensure XXE protections are in place\n6. Update API specification if additional content types are intentionally supported\n7. Use middleware to enforce content type restrictions consistently\n\nFramework-specific guidance:\n- Disable automatic content negotiation in your framework\n- Explicitly configure allowed content types per endpoint\n- Use strict content-type checking middleware\n- Remove default XML/form parsers if not needed",
+		Cwe:         436,
+		Severity:    "Medium",
+		References: []string{
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/16-Testing_for_HTTP_Incoming_Requests",
+			"https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html",
+			"https://cwe.mitre.org/data/definitions/436.html",
+			"https://portswigger.net/web-security/xxe",
 		},
 	},
 	{

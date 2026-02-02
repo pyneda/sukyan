@@ -295,8 +295,21 @@ func sendRequestAndCheckBypass(client *http.Client, request *http.Request, origi
 	}
 
 	history := executionResult.History
-	if history.StatusCode != 400 && history.StatusCode != 401 && history.StatusCode != 403 && history.StatusCode != 404 {
+
+	if history.StatusCode >= 200 && history.StatusCode < 400 {
+		if options.SiteBehavior != nil && options.SiteBehavior.IsNotFound(history) {
+			auditLog.Debug().Str("url", request.URL.String()).Msg("Bypass response matches site not-found behavior, skipping")
+			return
+		}
+
 		bypassHeaders := http_utils.HeadersToString(request.Header)
+
+		confidence := 75
+		if history.StatusCode >= 200 && history.StatusCode < 300 {
+			confidence = 90
+		} else {
+			confidence = 50
+		}
 
 		details := fmt.Sprintf(`
 Original Request:
@@ -315,13 +328,6 @@ Response received:
 	-	Status Code: %d
 	-	Response Size: %d bytes
 `, original.URL, original.Method, original.StatusCode, original.ResponseBodySize, request.URL, bypassHeaders, history.StatusCode, history.ResponseBodySize)
-
-		confidence := 75
-		if history.StatusCode >= 200 && history.StatusCode < 300 {
-			confidence = 90
-		} else if history.StatusCode >= 400 {
-			confidence = 40
-		}
 
 		db.CreateIssueFromHistoryAndTemplate(history, db.ForbiddenBypassCode, details, confidence, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID, &options.ScanID, &options.ScanJobID)
 	}

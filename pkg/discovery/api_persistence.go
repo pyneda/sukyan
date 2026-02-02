@@ -2,23 +2,18 @@ package discovery
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
-	pkgapi "github.com/pyneda/sukyan/pkg/api"
-	apicore "github.com/pyneda/sukyan/pkg/api/core"
-	apigraphql "github.com/pyneda/sukyan/pkg/api/graphql"
-	apiopenapi "github.com/pyneda/sukyan/pkg/api/openapi"
-	apisoap "github.com/pyneda/sukyan/pkg/api/soap"
 	"github.com/pyneda/sukyan/pkg/graphql"
+	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/openapi"
 	pkgWsdl "github.com/pyneda/sukyan/pkg/wsdl"
 	"github.com/rs/zerolog/log"
@@ -82,7 +77,7 @@ func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (
 
 	baseURL := doc.BaseURL()
 	if baseURL == "" {
-		baseURL, _ = getBaseURLFromHistory(history)
+		baseURL, _ = lib.GetBaseURL(history.URL)
 	}
 
 	name := openapiTitle
@@ -169,51 +164,6 @@ func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (
 				return fmt.Errorf("creating endpoints: %w", err)
 			}
 
-			var reloadedEndpoints []*db.APIEndpoint
-			if err := tx.Where("definition_id = ?", definition.ID).Find(&reloadedEndpoints).Error; err != nil {
-				return fmt.Errorf("reloading endpoints: %w", err)
-			}
-
-			allParams := collectOpenAPIEndpointParameters(operations, reloadedEndpoints)
-			if len(allParams) > 0 {
-				if err := tx.Create(allParams).Error; err != nil {
-					return fmt.Errorf("creating endpoint parameters: %w", err)
-				}
-			}
-
-			variations := buildRequestVariations(context.Background(), definition, reloadedEndpoints)
-			if len(variations) > 0 {
-				if err := tx.Create(variations).Error; err != nil {
-					return fmt.Errorf("creating request variations: %w", err)
-				}
-			}
-
-			var endpointSecurities []*db.APIEndpointSecurity
-			for _, endpoint := range reloadedEndpoints {
-				methods, ok := operations[endpoint.Path]
-				if !ok {
-					continue
-				}
-				op, ok := methods[strings.ToLower(endpoint.Method)]
-				if !ok || op.Security == nil {
-					continue
-				}
-				for _, secReq := range *op.Security {
-					for schemeName, scopes := range secReq {
-						endpointSecurities = append(endpointSecurities, &db.APIEndpointSecurity{
-							EndpointID: endpoint.ID,
-							SchemeName: schemeName,
-							Scopes:     strings.Join(scopes, ","),
-						})
-					}
-				}
-			}
-			if len(endpointSecurities) > 0 {
-				if err := tx.Create(endpointSecurities).Error; err != nil {
-					return fmt.Errorf("creating endpoint security requirements: %w", err)
-				}
-			}
-
 			var count int64
 			if err := tx.Model(&db.APIEndpoint{}).Where("definition_id = ?", definition.ID).Count(&count).Error; err != nil {
 				return fmt.Errorf("counting endpoints: %w", err)
@@ -228,6 +178,8 @@ func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (
 	if txErr != nil {
 		log.Warn().Err(txErr).Str("definition_id", definition.ID.String()).Msg("Failed to persist OpenAPI definition child records")
 	}
+
+	definition.EndpointCount = len(endpoints)
 
 	log.Info().
 		Str("definition_id", definition.ID.String()).
@@ -254,10 +206,6 @@ func getOperationName(op interface{}, method, path string) string {
 	path = strings.Trim(path, "_")
 
 	return strings.ToUpper(method) + "_" + path
-}
-
-func getBaseURLFromHistory(history *db.History) (string, error) {
-	return lib.GetBaseURL(history.URL)
 }
 
 func PersistGraphQLDefinition(history *db.History, opts APIPersistenceOptions) (*db.APIDefinition, error) {
@@ -287,7 +235,7 @@ func PersistGraphQLDefinition(history *db.History, opts APIPersistenceOptions) (
 		return existingDef, nil
 	}
 
-	baseURL, _ := getBaseURLFromHistory(history)
+	baseURL, _ := lib.GetBaseURL(history.URL)
 	name := "GraphQL - " + baseURL
 
 	historyID := history.ID
@@ -374,25 +322,6 @@ func PersistGraphQLDefinition(history *db.History, opts APIPersistenceOptions) (
 				return fmt.Errorf("creating endpoints: %w", err)
 			}
 
-			var reloadedEndpoints []*db.APIEndpoint
-			if err := tx.Where("definition_id = ?", definition.ID).Find(&reloadedEndpoints).Error; err != nil {
-				return fmt.Errorf("reloading endpoints: %w", err)
-			}
-
-			allParams := collectGraphQLEndpointParameters(schema, reloadedEndpoints)
-			if len(allParams) > 0 {
-				if err := tx.Create(allParams).Error; err != nil {
-					return fmt.Errorf("creating endpoint parameters: %w", err)
-				}
-			}
-
-			variations := buildRequestVariations(context.Background(), definition, reloadedEndpoints)
-			if len(variations) > 0 {
-				if err := tx.Create(variations).Error; err != nil {
-					return fmt.Errorf("creating request variations: %w", err)
-				}
-			}
-
 			var count int64
 			if err := tx.Model(&db.APIEndpoint{}).Where("definition_id = ?", definition.ID).Count(&count).Error; err != nil {
 				return fmt.Errorf("counting endpoints: %w", err)
@@ -408,6 +337,8 @@ func PersistGraphQLDefinition(history *db.History, opts APIPersistenceOptions) (
 		log.Warn().Err(txErr).Str("definition_id", definition.ID.String()).Msg("Failed to persist GraphQL definition child records")
 	}
 
+	definition.EndpointCount = len(endpoints)
+
 	log.Info().
 		Str("definition_id", definition.ID.String()).
 		Str("name", definition.Name).
@@ -418,375 +349,6 @@ func PersistGraphQLDefinition(history *db.History, opts APIPersistenceOptions) (
 		Msg("Persisted discovered GraphQL definition")
 
 	return definition, nil
-}
-
-func collectOpenAPIEndpointParameters(operations map[string]map[string]*openapi3.Operation, endpoints []*db.APIEndpoint) []*db.APIEndpointParameter {
-	var allParams []*db.APIEndpointParameter
-
-	for _, endpoint := range endpoints {
-		methods, ok := operations[endpoint.Path]
-		if !ok {
-			continue
-		}
-		op, ok := methods[strings.ToLower(endpoint.Method)]
-		if !ok {
-			continue
-		}
-		params := extractOpenAPIParameters(op, endpoint.ID)
-		allParams = append(allParams, params...)
-	}
-
-	return allParams
-}
-
-func collectGraphQLEndpointParameters(schema *graphql.GraphQLSchema, endpoints []*db.APIEndpoint) []*db.APIEndpointParameter {
-	var allParams []*db.APIEndpointParameter
-
-	allOps := make(map[string]graphql.Operation)
-	for _, q := range schema.Queries {
-		allOps[q.Name] = q
-	}
-	for _, m := range schema.Mutations {
-		allOps[m.Name] = m
-	}
-	for _, s := range schema.Subscriptions {
-		allOps[s.Name] = s
-	}
-
-	for _, endpoint := range endpoints {
-		op, ok := allOps[endpoint.OperationID]
-		if !ok {
-			continue
-		}
-		for _, arg := range op.Arguments {
-			dbParam := &db.APIEndpointParameter{
-				EndpointID: endpoint.ID,
-				Name:       arg.Name,
-				Location:   db.APIParamLocationBody,
-				Required:   arg.Type.Required,
-				DataType:   mapGraphQLTypeToString(arg.Type),
-			}
-			if arg.DefaultValue != nil {
-				dbParam.DefaultValue = fmt.Sprintf("%v", arg.DefaultValue)
-			}
-			allParams = append(allParams, dbParam)
-		}
-	}
-
-	return allParams
-}
-
-func mapGraphQLTypeToString(typeRef graphql.TypeRef) string {
-	baseName := getGraphQLBaseTypeName(typeRef)
-
-	switch baseName {
-	case "String", "ID":
-		return "string"
-	case "Int":
-		return "integer"
-	case "Float":
-		return "number"
-	case "Boolean":
-		return "boolean"
-	default:
-		if typeRef.IsList {
-			return "array"
-		}
-		if typeRef.Kind == graphql.TypeKindInputObject {
-			return "object"
-		}
-		return "string"
-	}
-}
-
-func getGraphQLBaseTypeName(typeRef graphql.TypeRef) string {
-	if typeRef.Name != "" {
-		return typeRef.Name
-	}
-	if typeRef.OfType != nil {
-		return getGraphQLBaseTypeName(*typeRef.OfType)
-	}
-	return ""
-}
-
-func extractOpenAPIParameters(op *openapi3.Operation, endpointID uuid.UUID) []*db.APIEndpointParameter {
-	var params []*db.APIEndpointParameter
-
-	for _, paramRef := range op.Parameters {
-		if paramRef.Value == nil {
-			continue
-		}
-		p := paramRef.Value
-		dbParam := &db.APIEndpointParameter{
-			EndpointID: endpointID,
-			Name:       p.Name,
-			Location:   mapOpenAPIParamLocation(p.In),
-			Required:   p.Required,
-		}
-		if p.Schema != nil && p.Schema.Value != nil {
-			populateSchemaFields(p.Schema.Value, dbParam)
-		}
-		params = append(params, dbParam)
-	}
-
-	if op.RequestBody != nil && op.RequestBody.Value != nil {
-		for _, mediaType := range op.RequestBody.Value.Content {
-			if mediaType.Schema == nil || mediaType.Schema.Value == nil {
-				continue
-			}
-			schema := mediaType.Schema.Value
-
-			if schema.Type != nil && len(schema.Type.Slice()) > 0 && schema.Type.Slice()[0] == "object" {
-				for propName, propRef := range schema.Properties {
-					if propRef.Value == nil {
-						continue
-					}
-					dbParam := &db.APIEndpointParameter{
-						EndpointID: endpointID,
-						Name:       propName,
-						Location:   db.APIParamLocationBody,
-						Required:   isPropertyRequired(propName, schema.Required),
-					}
-					populateSchemaFields(propRef.Value, dbParam)
-					params = append(params, dbParam)
-				}
-			} else {
-				dbParam := &db.APIEndpointParameter{
-					EndpointID: endpointID,
-					Name:       "body",
-					Location:   db.APIParamLocationBody,
-					Required:   op.RequestBody.Value.Required,
-				}
-				populateSchemaFields(schema, dbParam)
-				params = append(params, dbParam)
-			}
-			break
-		}
-	}
-
-	return params
-}
-
-func populateSchemaFields(schema *openapi3.Schema, param *db.APIEndpointParameter) {
-	if schema.Type != nil && len(schema.Type.Slice()) > 0 {
-		param.DataType = schema.Type.Slice()[0]
-	}
-	param.Format = schema.Format
-	param.Pattern = schema.Pattern
-
-	if schema.MinLength != 0 {
-		minLen := int(schema.MinLength)
-		param.MinLength = &minLen
-	}
-	if schema.MaxLength != nil {
-		maxLen := int(*schema.MaxLength)
-		param.MaxLength = &maxLen
-	}
-	if schema.Min != nil {
-		param.Minimum = schema.Min
-	}
-	if schema.Max != nil {
-		param.Maximum = schema.Max
-	}
-
-	if len(schema.Enum) > 0 {
-		b, err := json.Marshal(schema.Enum)
-		if err == nil {
-			param.EnumValues = string(b)
-		}
-	}
-
-	param.DefaultValue = stringifyValue(schema.Default)
-	param.Example = stringifyValue(schema.Example)
-}
-
-func mapOpenAPIParamLocation(in string) db.APIParameterLocation {
-	switch in {
-	case "path":
-		return db.APIParamLocationPath
-	case "query":
-		return db.APIParamLocationQuery
-	case "header":
-		return db.APIParamLocationHeader
-	case "cookie":
-		return db.APIParamLocationCookie
-	case "body":
-		return db.APIParamLocationBody
-	default:
-		return db.APIParamLocationQuery
-	}
-}
-
-func isPropertyRequired(propName string, required []string) bool {
-	for _, r := range required {
-		if r == propName {
-			return true
-		}
-	}
-	return false
-}
-
-func stringifyValue(v interface{}) string {
-	if v == nil {
-		return ""
-	}
-	switch val := v.(type) {
-	case string:
-		return val
-	case float64, float32, int, int64, int32, bool:
-		return fmt.Sprintf("%v", val)
-	default:
-		b, err := json.Marshal(v)
-		if err != nil {
-			return fmt.Sprintf("%v", v)
-		}
-		return string(b)
-	}
-}
-
-func buildRequestVariations(ctx context.Context, definition *db.APIDefinition, endpoints []*db.APIEndpoint) []*db.APIRequestVariation {
-	var operations []apicore.Operation
-	var err error
-
-	switch definition.Type {
-	case db.APIDefinitionTypeOpenAPI:
-		parser := apiopenapi.NewParser()
-		operations, err = parser.Parse(definition)
-	case db.APIDefinitionTypeGraphQL:
-		parser := apigraphql.NewParser()
-		operations, err = parser.Parse(definition)
-	case db.APIDefinitionTypeWSDL:
-		parser := apisoap.NewParser()
-		operations, err = parser.Parse(definition)
-	default:
-		log.Warn().Str("type", string(definition.Type)).Msg("Unsupported definition type for request variation generation")
-		return nil
-	}
-
-	if err != nil {
-		log.Warn().Err(err).Str("definition_id", definition.ID.String()).Msg("Failed to parse definition for request variation generation")
-		return nil
-	}
-
-	opByID := make(map[string]*apicore.Operation)
-	opByPathMethod := make(map[string]*apicore.Operation)
-	for i := range operations {
-		op := &operations[i]
-		if op.OperationID != "" {
-			opByID[op.OperationID] = op
-		}
-		if op.Name != "" && op.Name != op.OperationID {
-			opByID[op.Name] = op
-		}
-		key := strings.ToUpper(op.Method) + ":" + op.Path
-		opByPathMethod[key] = op
-	}
-
-	var variations []*db.APIRequestVariation
-
-	for _, endpoint := range endpoints {
-		var matchedOp *apicore.Operation
-
-		if endpoint.OperationID != "" {
-			matchedOp = opByID[endpoint.OperationID]
-		}
-		if matchedOp == nil {
-			key := strings.ToUpper(endpoint.Method) + ":" + endpoint.Path
-			matchedOp = opByPathMethod[key]
-		}
-
-		if matchedOp == nil {
-			log.Debug().
-				Str("endpoint_id", endpoint.ID.String()).
-				Str("path", endpoint.Path).
-				Str("method", endpoint.Method).
-				Msg("No matching operation found for request variation generation")
-			continue
-		}
-
-		req, buildErr := pkgapi.BuildDefaultRequest(ctx, definition.Type, matchedOp)
-		if buildErr != nil {
-			log.Warn().Err(buildErr).
-				Str("endpoint_id", endpoint.ID.String()).
-				Msg("Failed to build request for variation generation")
-			continue
-		}
-
-		variation, serErr := serializeRequestToVariation(endpoint.ID, req, definition.Type)
-		if serErr != nil {
-			log.Warn().Err(serErr).
-				Str("endpoint_id", endpoint.ID.String()).
-				Msg("Failed to serialize request to variation")
-			continue
-		}
-
-		variations = append(variations, variation)
-	}
-
-	return variations
-}
-
-func serializeRequestToVariation(endpointID uuid.UUID, req *http.Request, defType db.APIDefinitionType) (*db.APIRequestVariation, error) {
-	variation := &db.APIRequestVariation{
-		EndpointID: endpointID,
-		Label:      "Happy Path",
-		URL:        req.URL.String(),
-		Method:     req.Method,
-	}
-
-	filteredHeaders := make(http.Header)
-	for name, values := range req.Header {
-		lower := strings.ToLower(name)
-		if lower == "authorization" || lower == "proxy-authorization" || lower == "cookie" {
-			continue
-		}
-		filteredHeaders[name] = values
-	}
-	if len(filteredHeaders) > 0 {
-		headersJSON, err := json.Marshal(filteredHeaders)
-		if err == nil {
-			variation.Headers = headersJSON
-		}
-	}
-
-	variation.ContentType = req.Header.Get("Content-Type")
-
-	if req.Body != nil {
-		bodyBytes, err := io.ReadAll(req.Body)
-		if err != nil {
-			return nil, fmt.Errorf("reading request body: %w", err)
-		}
-		req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-		variation.Body = bodyBytes
-
-		if defType == db.APIDefinitionTypeGraphQL && len(bodyBytes) > 0 {
-			var gqlReq struct {
-				Query         string         `json:"query"`
-				Variables     map[string]any `json:"variables"`
-				OperationName string         `json:"operationName"`
-			}
-			if err := json.Unmarshal(bodyBytes, &gqlReq); err != nil {
-				log.Warn().Err(err).
-					Str("endpoint_id", endpointID.String()).
-					Msg("Failed to parse GraphQL request body for variation metadata")
-			} else {
-				variation.Query = gqlReq.Query
-				variation.OperationName = gqlReq.OperationName
-				if len(gqlReq.Variables) > 0 {
-					varsJSON, marshalErr := json.Marshal(gqlReq.Variables)
-					if marshalErr != nil {
-						log.Warn().Err(marshalErr).
-							Str("endpoint_id", endpointID.String()).
-							Msg("Failed to marshal GraphQL variables")
-					} else {
-						variation.Variables = varsJSON
-					}
-				}
-			}
-		}
-	}
-
-	return variation, nil
 }
 
 func PersistWSDLDefinition(history *db.History, opts APIPersistenceOptions) (*db.APIDefinition, error) {
@@ -816,7 +378,7 @@ func PersistWSDLDefinition(history *db.History, opts APIPersistenceOptions) (*db
 		return existingDef, nil
 	}
 
-	baseURL, _ := getBaseURLFromHistory(history)
+	baseURL, _ := lib.GetBaseURL(history.URL)
 
 	var wsdlServiceCount int
 	var wsdlPortCount int
@@ -912,25 +474,6 @@ func PersistWSDLDefinition(history *db.History, opts APIPersistenceOptions) (*db
 				return fmt.Errorf("creating endpoints: %w", err)
 			}
 
-			var reloadedEndpoints []*db.APIEndpoint
-			if err := tx.Where("definition_id = ?", definition.ID).Find(&reloadedEndpoints).Error; err != nil {
-				return fmt.Errorf("reloading endpoints: %w", err)
-			}
-
-			allParams := collectWSDLEndpointParameters(definition, reloadedEndpoints)
-			if len(allParams) > 0 {
-				if err := tx.Create(allParams).Error; err != nil {
-					return fmt.Errorf("creating endpoint parameters: %w", err)
-				}
-			}
-
-			variations := buildRequestVariations(context.Background(), definition, reloadedEndpoints)
-			if len(variations) > 0 {
-				if err := tx.Create(variations).Error; err != nil {
-					return fmt.Errorf("creating request variations: %w", err)
-				}
-			}
-
 			var count int64
 			if err := tx.Model(&db.APIEndpoint{}).Where("definition_id = ?", definition.ID).Count(&count).Error; err != nil {
 				return fmt.Errorf("counting endpoints: %w", err)
@@ -945,6 +488,8 @@ func PersistWSDLDefinition(history *db.History, opts APIPersistenceOptions) (*db
 	if txErr != nil {
 		log.Warn().Err(txErr).Str("definition_id", definition.ID.String()).Msg("Failed to persist WSDL definition child records")
 	}
+
+	definition.EndpointCount = len(endpoints)
 
 	log.Info().
 		Str("definition_id", definition.ID.String()).
@@ -977,41 +522,85 @@ func extractWSDLLocalName(qname string) string {
 	return qname
 }
 
-func collectWSDLEndpointParameters(definition *db.APIDefinition, endpoints []*db.APIEndpoint) []*db.APIEndpointParameter {
-	soapParser := apisoap.NewParser()
-	operations, err := soapParser.Parse(definition)
+type APIPersistenceFromContentOptions struct {
+	WorkspaceID  uint
+	ScanID       *uint
+	SourceURL    string
+	Name         string
+	BaseURL      string
+	AuthConfigID *uuid.UUID
+}
+
+func PersistAPIDefinitionFromContent(content []byte, apiType db.APIDefinitionType, opts APIPersistenceFromContentOptions) (*db.APIDefinition, error) {
+	requestURL := &url.URL{Path: "/"}
+	if opts.SourceURL != "" {
+		if u, err := url.Parse(opts.SourceURL); err == nil {
+			requestURL = u
+		}
+	}
+
+	syntheticResp := &http.Response{
+		StatusCode: 200,
+		Proto:      "HTTP/1.1",
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(bytes.NewReader(content)),
+		Request:    &http.Request{Method: "GET", URL: requestURL},
+	}
+
+	history, err := http_utils.ReadHttpResponseAndCreateHistory(syntheticResp, http_utils.HistoryCreationOptions{
+		Source:      db.SourceScanner,
+		WorkspaceID: opts.WorkspaceID,
+	})
 	if err != nil {
-		log.Warn().Err(err).Str("definition_id", definition.ID.String()).Msg("Failed to parse WSDL for parameter extraction")
-		return nil
+		return nil, fmt.Errorf("creating history from content: %w", err)
 	}
 
-	opByName := make(map[string]*apicore.Operation)
-	for i := range operations {
-		opByName[operations[i].Name] = &operations[i]
+	persistOpts := APIPersistenceOptions{
+		WorkspaceID: opts.WorkspaceID,
+		ScanID:      opts.ScanID,
 	}
 
-	var allParams []*db.APIEndpointParameter
-	for _, endpoint := range endpoints {
-		op, ok := opByName[endpoint.OperationID]
-		if !ok {
-			continue
+	var definition *db.APIDefinition
+
+	switch apiType {
+	case db.APIDefinitionTypeOpenAPI:
+		definition, err = PersistOpenAPIDefinition(history, persistOpts)
+	case db.APIDefinitionTypeGraphQL:
+		definition, err = PersistGraphQLDefinition(history, persistOpts)
+	case db.APIDefinitionTypeWSDL:
+		definition, err = PersistWSDLDefinition(history, persistOpts)
+	default:
+		return nil, fmt.Errorf("unsupported API type: %s", apiType)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	updates := make(map[string]interface{})
+	if opts.Name != "" {
+		updates["name"] = opts.Name
+	}
+	if opts.BaseURL != "" {
+		updates["base_url"] = opts.BaseURL
+	}
+	if opts.AuthConfigID != nil {
+		updates["auth_config_id"] = opts.AuthConfigID
+	}
+	if len(updates) > 0 {
+		if opts.Name != "" {
+			definition.Name = opts.Name
 		}
-		for _, param := range op.Parameters {
-			dbParam := &db.APIEndpointParameter{
-				EndpointID: endpoint.ID,
-				Name:       param.Name,
-				Location:   db.APIParamLocationBody,
-				Required:   param.Required,
-				DataType:   string(param.DataType),
-			}
-			if param.DefaultValue != nil {
-				dbParam.DefaultValue = fmt.Sprintf("%v", param.DefaultValue)
-			}
-			allParams = append(allParams, dbParam)
+		if opts.BaseURL != "" {
+			definition.BaseURL = opts.BaseURL
 		}
+		if opts.AuthConfigID != nil {
+			definition.AuthConfigID = opts.AuthConfigID
+		}
+		db.Connection().UpdateAPIDefinition(definition)
 	}
 
-	return allParams
+	return definition, nil
 }
 
 type APIPersistFunc func(*db.History, APIPersistenceOptions) (*db.APIDefinition, error)

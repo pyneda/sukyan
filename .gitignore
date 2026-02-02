@@ -50,3 +50,4 @@ pkg/active/README.md
 
 # Go workspace file
 go.work
+.worktrees/

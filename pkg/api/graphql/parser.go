@@ -16,19 +16,19 @@ func NewParser() *Parser {
 	return &Parser{}
 }
 
-func (p *Parser) Parse(definition *db.APIDefinition) ([]core.Operation, error) {
+func (p *Parser) Parse(definition *db.APIDefinition) ([]core.Operation, *pkgGraphql.GraphQLSchema, error) {
 	if definition.Type != db.APIDefinitionTypeGraphQL {
-		return nil, fmt.Errorf("expected GraphQL definition, got %s", definition.Type)
+		return nil, nil, fmt.Errorf("expected GraphQL definition, got %s", definition.Type)
 	}
 
 	if len(definition.RawDefinition) == 0 {
-		return nil, fmt.Errorf("empty raw definition")
+		return nil, nil, fmt.Errorf("empty raw definition")
 	}
 
 	parser := pkgGraphql.NewParser()
 	schema, err := parser.ParseFromJSON(definition.RawDefinition)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse GraphQL schema: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse GraphQL schema: %w", err)
 	}
 
 	baseURL := definition.BaseURL
@@ -60,7 +60,7 @@ func (p *Parser) Parse(definition *db.APIDefinition) ([]core.Operation, error) {
 		Int("subscriptions", len(schema.Subscriptions)).
 		Msg("Parsed GraphQL definition")
 
-	return operations, nil
+	return operations, schema, nil
 }
 
 func (p *Parser) convertOperation(definitionID uuid.UUID, baseURL, operationType string, op pkgGraphql.Operation, schema *pkgGraphql.GraphQLSchema) core.Operation {
@@ -246,7 +246,7 @@ func (p *Parser) formatTypeRef(typeRef pkgGraphql.TypeRef) string {
 	return result
 }
 
-func ParseFromRawDefinition(rawDefinition []byte, baseURL string) ([]core.Operation, error) {
+func ParseFromRawDefinition(rawDefinition []byte, baseURL string) ([]core.Operation, *pkgGraphql.GraphQLSchema, error) {
 	parser := NewParser()
 
 	tempDef := &db.APIDefinition{

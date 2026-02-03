@@ -240,7 +240,7 @@ func TestParse_ValidIntrospection(t *testing.T) {
 	parser := NewParser()
 	definition := newTestDefinition(minimalIntrospectionJSON, "https://api.example.com/graphql")
 
-	ops, err := parser.Parse(definition)
+	ops, _, err := parser.Parse(definition)
 	require.NoError(t, err)
 	require.NotEmpty(t, ops)
 
@@ -302,7 +302,7 @@ func TestParse_OperationTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			parser := NewParser()
 			def := newTestDefinition(tt.json, "https://example.com/graphql")
-			ops, err := parser.Parse(def)
+			ops, _, err := parser.Parse(def)
 			require.NoError(t, err)
 
 			var q, m, s int
@@ -327,7 +327,7 @@ func TestParse_OperationTypes(t *testing.T) {
 func TestParse_OperationMetadata(t *testing.T) {
 	parser := NewParser()
 	def := newTestDefinition(minimalIntrospectionJSON, "https://api.test.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -425,7 +425,7 @@ func TestParse_OperationMetadata(t *testing.T) {
 func TestParse_ParameterTypeMapping(t *testing.T) {
 	parser := NewParser()
 	def := newTestDefinition(minimalIntrospectionJSON, "https://example.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 
 	var usersOp *core.Operation
@@ -481,7 +481,7 @@ func TestParse_ScalarTypeMapping(t *testing.T) {
 			json := buildSingleArgIntrospection(tt.scalarName)
 			parser := NewParser()
 			def := newTestDefinition(json, "https://example.com/graphql")
-			ops, err := parser.Parse(def)
+			ops, _, err := parser.Parse(def)
 			require.NoError(t, err)
 			require.Len(t, ops, 1)
 			require.Len(t, ops[0].Parameters, 1)
@@ -498,7 +498,7 @@ func TestParse_ScalarTypeMapping(t *testing.T) {
 func TestParse_RequiredArgument(t *testing.T) {
 	parser := NewParser()
 	def := newTestDefinition(minimalIntrospectionJSON, "https://example.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 
 	var userOp *core.Operation
@@ -521,7 +521,7 @@ func TestParse_RequiredArgument(t *testing.T) {
 func TestParse_EnumConstraints(t *testing.T) {
 	parser := NewParser()
 	def := newTestDefinition(minimalIntrospectionJSON, "https://example.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 
 	var usersOp *core.Operation
@@ -544,7 +544,7 @@ func TestParse_EnumConstraints(t *testing.T) {
 func TestParse_DefaultValuePreserved(t *testing.T) {
 	parser := NewParser()
 	def := newTestDefinition(minimalIntrospectionJSON, "https://example.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 
 	var usersOp *core.Operation
@@ -564,7 +564,7 @@ func TestParse_DefaultValuePreserved(t *testing.T) {
 func TestParse_InputObjectNestedParams_NonNullWrapped(t *testing.T) {
 	parser := NewParser()
 	def := newTestDefinition(minimalIntrospectionJSON, "https://example.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 
 	var createUserOp *core.Operation
@@ -639,7 +639,7 @@ func TestParse_InputObjectNestedParams_DirectKind(t *testing.T) {
 
 	parser := NewParser()
 	def := newTestDefinition(directInputJSON, "https://example.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 
 	var createUserOp *core.Operation
@@ -699,7 +699,7 @@ func TestParse_InputObjectNestedParams_DirectKind(t *testing.T) {
 func TestParse_InputObjectFilterNestedParams(t *testing.T) {
 	parser := NewParser()
 	def := newTestDefinition(minimalIntrospectionJSON, "https://example.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 
 	var usersOp *core.Operation
@@ -775,7 +775,7 @@ func TestParse_CircularInputTypes(t *testing.T) {
 
 	parser := NewParser()
 	def := newTestDefinition(circularJSON, "https://example.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 	require.Len(t, ops, 1)
 
@@ -855,7 +855,7 @@ func TestParse_MutuallyCircularInputTypes(t *testing.T) {
 
 	parser := NewParser()
 	def := newTestDefinition(mutualCircularJSON, "https://example.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 	require.Len(t, ops, 1)
 
@@ -917,7 +917,7 @@ func TestParse_DeeplyNestedInputTypes(t *testing.T) {
 
 	parser := NewParser()
 	def := newTestDefinition(deepJSON, "https://example.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 	require.Len(t, ops, 1)
 
@@ -941,7 +941,7 @@ func TestParse_DeeplyNestedInputTypes(t *testing.T) {
 func TestParse_ReturnTypeFormatting(t *testing.T) {
 	parser := NewParser()
 	def := newTestDefinition(minimalIntrospectionJSON, "https://example.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -980,7 +980,7 @@ func TestParse_DefinitionIDPropagated(t *testing.T) {
 	def.ID = defID
 
 	parser := NewParser()
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 	require.NotEmpty(t, ops)
 
@@ -1020,7 +1020,7 @@ func TestParse_BaseURLFallback(t *testing.T) {
 			}
 
 			parser := NewParser()
-			ops, err := parser.Parse(def)
+			ops, _, err := parser.Parse(def)
 			require.NoError(t, err)
 			require.NotEmpty(t, ops)
 
@@ -1074,7 +1074,7 @@ func TestParse_ErrorCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			parser := NewParser()
-			_, err := parser.Parse(tt.def)
+			_, _, err := parser.Parse(tt.def)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
@@ -1082,7 +1082,7 @@ func TestParse_ErrorCases(t *testing.T) {
 }
 
 func TestParseFromRawDefinition(t *testing.T) {
-	ops, err := ParseFromRawDefinition([]byte(minimalIntrospectionJSON), "https://example.com/graphql")
+	ops, _, err := ParseFromRawDefinition([]byte(minimalIntrospectionJSON), "https://example.com/graphql")
 	require.NoError(t, err)
 	require.NotEmpty(t, ops)
 
@@ -1096,7 +1096,7 @@ func TestParseFromRawDefinition(t *testing.T) {
 func TestParse_FormatTypeRef(t *testing.T) {
 	parser := NewParser()
 	def := newTestDefinition(minimalIntrospectionJSON, "https://example.com/graphql")
-	ops, err := parser.Parse(def)
+	ops, _, err := parser.Parse(def)
 	require.NoError(t, err)
 
 	var usersOp *core.Operation

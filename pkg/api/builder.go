@@ -11,6 +11,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/api/graphql"
 	"github.com/pyneda/sukyan/pkg/api/openapi"
 	"github.com/pyneda/sukyan/pkg/api/soap"
+	pkgGraphql "github.com/pyneda/sukyan/pkg/graphql"
 )
 
 func DetectAPIType(content []byte, sourceURL string) db.APIDefinitionType {
@@ -69,7 +70,7 @@ func BuildRequest(ctx context.Context, apiType core.APIType, operation core.Oper
 	}
 }
 
-func BuildDefaultRequest(ctx context.Context, defType db.APIDefinitionType, operation *core.Operation) (*http.Request, error) {
+func BuildDefaultRequest(ctx context.Context, defType db.APIDefinitionType, operation *core.Operation, graphqlSchema ...*pkgGraphql.GraphQLSchema) (*http.Request, error) {
 	switch defType {
 	case db.APIDefinitionTypeOpenAPI:
 		builder := openapi.NewRequestBuilder()
@@ -77,6 +78,9 @@ func BuildDefaultRequest(ctx context.Context, defType db.APIDefinitionType, oper
 		return builder.Build(ctx, *operation, defaultValues)
 	case db.APIDefinitionTypeGraphQL:
 		builder := graphql.NewRequestBuilder()
+		if len(graphqlSchema) > 0 && graphqlSchema[0] != nil {
+			builder = builder.WithSchema(graphqlSchema[0])
+		}
 		defaultValues := builder.GetDefaultParamValues(*operation)
 		return builder.Build(ctx, *operation, defaultValues)
 	case db.APIDefinitionTypeWSDL:

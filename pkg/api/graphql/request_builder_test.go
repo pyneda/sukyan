@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/pkg/api/core"
+	pkgGraphql "github.com/pyneda/sukyan/pkg/graphql"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -446,18 +447,41 @@ func TestBuildQuery_ReturnsEmptyForNonGraphQL(t *testing.T) {
 	assert.Empty(t, query)
 }
 
-func TestBuildQuery_FieldSelection(t *testing.T) {
-	builder := NewRequestBuilder()
+func TestBuildQuery_FieldSelectionFromSchema(t *testing.T) {
+	schema := &pkgGraphql.GraphQLSchema{
+		Types: map[string]pkgGraphql.TypeDef{
+			"User": {
+				Name: "User",
+				Fields: []pkgGraphql.Field{
+					{Name: "id", Type: pkgGraphql.TypeRef{Name: "ID", Kind: pkgGraphql.TypeKindScalar}},
+					{Name: "name", Type: pkgGraphql.TypeRef{Name: "String", Kind: pkgGraphql.TypeKindScalar}},
+					{Name: "email", Type: pkgGraphql.TypeRef{Name: "String", Kind: pkgGraphql.TypeKindScalar}},
+				},
+			},
+		},
+	}
+
+	builder := NewRequestBuilder().WithSchema(schema)
 	op := makeQueryOperation("getUser", []core.Parameter{
 		{Name: "id", Location: core.ParameterLocationArgument, DataType: core.DataTypeString, Required: true},
-		{Name: "name", Location: core.ParameterLocationBody, DataType: core.DataTypeString},
-		{Name: "email", Location: core.ParameterLocationBody, DataType: core.DataTypeString},
 	})
 
 	query := builder.buildQuery(op, map[string]any{"id": "1"})
 
+	assert.Contains(t, query, "id")
 	assert.Contains(t, query, "name")
 	assert.Contains(t, query, "email")
+	assert.NotContains(t, query, "__typename")
+}
+
+func TestBuildQuery_FallbackToTypenameWithoutSchema(t *testing.T) {
+	builder := NewRequestBuilder()
+	op := makeQueryOperation("getUser", []core.Parameter{
+		{Name: "id", Location: core.ParameterLocationArgument, DataType: core.DataTypeString, Required: true},
+	})
+
+	query := builder.buildQuery(op, map[string]any{"id": "1"})
+
 	assert.Contains(t, query, "__typename")
 }
 

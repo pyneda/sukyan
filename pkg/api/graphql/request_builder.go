@@ -9,12 +9,14 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/pkg/api/core"
+	pkgGraphql "github.com/pyneda/sukyan/pkg/graphql"
 )
 
 type RequestBuilder struct {
 	DefaultHeaders map[string]string
 	AuthConfig     *AuthConfig
 	MaxDepth       int
+	schema         *pkgGraphql.GraphQLSchema
 }
 
 type AuthConfig struct {
@@ -46,6 +48,11 @@ func (b *RequestBuilder) WithAuth(config *AuthConfig) *RequestBuilder {
 
 func (b *RequestBuilder) WithMaxDepth(depth int) *RequestBuilder {
 	b.MaxDepth = depth
+	return b
+}
+
+func (b *RequestBuilder) WithSchema(schema *pkgGraphql.GraphQLSchema) *RequestBuilder {
+	b.schema = schema
 	return b
 }
 
@@ -145,20 +152,19 @@ func (b *RequestBuilder) buildQuery(op core.Operation, paramValues map[string]an
 		sb.WriteString(")")
 	}
 
-	sb.WriteString(" {\n")
-	sb.WriteString("    __typename\n")
-	if op.GraphQL != nil && op.GraphQL.ReturnType != "" {
-		for _, param := range op.Parameters {
-			if param.Location == core.ParameterLocationArgument {
-				continue
-			}
-			sb.WriteString("    ")
-			sb.WriteString(param.Name)
-			sb.WriteString("\n")
+	if b.schema != nil && op.GraphQL != nil && op.GraphQL.ReturnType != "" {
+		selectionSet := b.buildSelectionSetFromTypeName(op.GraphQL.ReturnType, 0)
+		if selectionSet != "" {
+			sb.WriteString(" ")
+			sb.WriteString(selectionSet)
+		} else {
+			sb.WriteString(" {\n    __typename\n  }")
 		}
+	} else {
+		sb.WriteString(" {\n    __typename\n  }")
 	}
-	sb.WriteString("  }\n")
-	sb.WriteString("}")
+
+	sb.WriteString("\n}")
 
 	return sb.String()
 }
@@ -222,6 +228,70 @@ func (b *RequestBuilder) applyAuth(req *http.Request) {
 	for k, v := range b.AuthConfig.CustomHeaders {
 		req.Header.Set(k, v)
 	}
+}
+
+func (b *RequestBuilder) buildSelectionSetFromTypeName(typeName string, depth int) string {
+	if b.schema == nil || depth > b.MaxDepth {
+		return ""
+	}
+
+	baseName := stripTypeModifiers(typeName)
+
+	typeDef, ok := b.schema.Types[baseName]
+	if !ok {
+		return ""
+	}
+
+	var fields []string
+	for _, field := range typeDef.Fields {
+		fieldBaseName := getBaseTypeNameFromRef(field.Type)
+		if b.isScalarOrEnumType(fieldBaseName) {
+			fields = append(fields, field.Name)
+		} else if depth < b.MaxDepth {
+			nestedSelection := b.buildSelectionSetFromTypeName(fieldBaseName, depth+1)
+			if nestedSelection != "" {
+				fields = append(fields, field.Name+" "+nestedSelection)
+			}
+		}
+	}
+
+	if len(fields) == 0 {
+		fields = append(fields, "__typename")
+	}
+
+	return "{\n    " + strings.Join(fields, "\n    ") + "\n  }"
+}
+
+func (b *RequestBuilder) isScalarOrEnumType(typeName string) bool {
+	builtinScalars := map[string]bool{
+		"String": true, "Int": true, "Float": true, "Boolean": true, "ID": true,
+	}
+	if builtinScalars[typeName] {
+		return true
+	}
+	if b.schema != nil {
+		for _, s := range b.schema.Scalars {
+			if s == typeName {
+				return true
+			}
+		}
+		if _, ok := b.schema.Enums[typeName]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func getBaseTypeNameFromRef(ref pkgGraphql.TypeRef) string {
+	if ref.OfType != nil {
+		return getBaseTypeNameFromRef(*ref.OfType)
+	}
+	return ref.Name
+}
+
+func stripTypeModifiers(typeName string) string {
+	replacer := strings.NewReplacer("[", "", "]", "", "!", "")
+	return replacer.Replace(typeName)
 }
 
 func BuildIntrospectionRequest(ctx context.Context, baseURL string) (*http.Request, error) {

@@ -24,6 +24,7 @@ import (
 	apigraphql "github.com/pyneda/sukyan/pkg/api/graphql"
 	apiopenapi "github.com/pyneda/sukyan/pkg/api/openapi"
 	apisoap "github.com/pyneda/sukyan/pkg/api/soap"
+	pkgGraphql "github.com/pyneda/sukyan/pkg/graphql"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
@@ -175,7 +176,7 @@ func (e *APIScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *co
 
 	var operation *apicore.Operation
 	if jobData.RunAPISpecificTests || jobData.RunSchemaTests {
-		parsed, parseErr := e.parseOperationForEndpoint(definition, endpoint)
+		parsed, _, parseErr := e.parseOperationForEndpoint(definition, endpoint)
 		if parseErr != nil {
 			taskLog.Debug().Err(parseErr).Msg("Failed to parse operation for endpoint")
 		}
@@ -219,7 +220,7 @@ func (e *APIScanExecutor) buildAndExecuteRequest(
 	httpClient *http.Client,
 	job *db.ScanJob,
 ) (*db.History, error) {
-	operation, parseErr := e.parseOperationForEndpoint(definition, endpoint)
+	operation, graphqlSchema, parseErr := e.parseOperationForEndpoint(definition, endpoint)
 	if parseErr != nil {
 		return nil, fmt.Errorf("failed to parse operation: %w", parseErr)
 	}
@@ -227,7 +228,7 @@ func (e *APIScanExecutor) buildAndExecuteRequest(
 		return nil, fmt.Errorf("no matching operation found for endpoint %s %s", endpoint.Method, endpoint.Path)
 	}
 
-	req, err := e.buildRequestFromOperation(ctx, definition.Type, operation)
+	req, err := e.buildRequestFromOperation(ctx, definition.Type, operation, graphqlSchema)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -291,8 +292,8 @@ func (e *APIScanExecutor) buildAndExecuteRequest(
 	return result.History, nil
 }
 
-func (e *APIScanExecutor) buildRequestFromOperation(ctx context.Context, defType db.APIDefinitionType, operation *apicore.Operation) (*http.Request, error) {
-	return pkgapi.BuildDefaultRequest(ctx, defType, operation)
+func (e *APIScanExecutor) buildRequestFromOperation(ctx context.Context, defType db.APIDefinitionType, operation *apicore.Operation, graphqlSchema *pkgGraphql.GraphQLSchema) (*http.Request, error) {
+	return pkgapi.BuildDefaultRequest(ctx, defType, operation, graphqlSchema)
 }
 
 func (e *APIScanExecutor) applyAuthToRequest(req *http.Request, authConfig *db.APIAuthConfig) {
@@ -543,8 +544,9 @@ func (e *APIScanExecutor) runSchemaBasedTests(
 func (e *APIScanExecutor) parseOperationForEndpoint(
 	definition *db.APIDefinition,
 	endpoint *db.APIEndpoint,
-) (*apicore.Operation, error) {
+) (*apicore.Operation, *pkgGraphql.GraphQLSchema, error) {
 	var operations []apicore.Operation
+	var graphqlSchema *pkgGraphql.GraphQLSchema
 	var err error
 
 	switch definition.Type {
@@ -553,31 +555,31 @@ func (e *APIScanExecutor) parseOperationForEndpoint(
 		operations, err = parser.Parse(definition)
 	case db.APIDefinitionTypeGraphQL:
 		parser := apigraphql.NewParser()
-		operations, err = parser.Parse(definition)
+		operations, graphqlSchema, err = parser.Parse(definition)
 	case db.APIDefinitionTypeWSDL:
 		parser := apisoap.NewParser()
 		operations, err = parser.Parse(definition)
 	default:
-		return nil, fmt.Errorf("unsupported API definition type: %s", definition.Type)
+		return nil, nil, fmt.Errorf("unsupported API definition type: %s", definition.Type)
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse definition: %w", err)
+		return nil, nil, fmt.Errorf("failed to parse definition: %w", err)
 	}
 
 	if endpoint.OperationID != "" {
 		for i := range operations {
 			if operations[i].OperationID == endpoint.OperationID || operations[i].Name == endpoint.OperationID {
-				return &operations[i], nil
+				return &operations[i], graphqlSchema, nil
 			}
 		}
 	}
 
 	for i := range operations {
 		if operations[i].Path == endpoint.Path && strings.EqualFold(operations[i].Method, endpoint.Method) {
-			return &operations[i], nil
+			return &operations[i], graphqlSchema, nil
 		}
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }

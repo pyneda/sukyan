@@ -134,14 +134,40 @@ func (a *ContentTypeEnforcementAudit) getDeclaredContentTypes() []string {
 	return a.Options.Operation.ContentTypes.Request
 }
 
-// isContentTypeDeclared checks if a content type matches any declared type
+// equivalentContentTypes maps content types that are semantically identical
+// and should not be flagged when either variant is declared in the spec.
+var equivalentContentTypes = map[string][]string{
+	"application/xml":        {"text/xml"},
+	"text/xml":               {"application/xml"},
+	"application/json":       {"text/json"},
+	"text/json":              {"application/json"},
+	"application/javascript": {"text/javascript"},
+	"text/javascript":        {"application/javascript"},
+}
+
+// isContentTypeDeclared checks if a content type (or a semantically equivalent one)
+// matches any declared type
 func (a *ContentTypeEnforcementAudit) isContentTypeDeclared(contentType string, declared []string) bool {
-	contentTypeLower := strings.ToLower(contentType)
+	baseType := strings.TrimSpace(strings.Split(strings.ToLower(contentType), ";")[0])
+
 	for _, d := range declared {
-		if strings.Contains(strings.ToLower(d), strings.Split(contentTypeLower, ";")[0]) {
+		declaredBase := strings.TrimSpace(strings.Split(strings.ToLower(d), ";")[0])
+		if declaredBase == baseType {
 			return true
 		}
 	}
+
+	if equivalents, ok := equivalentContentTypes[baseType]; ok {
+		for _, equiv := range equivalents {
+			for _, d := range declared {
+				declaredBase := strings.TrimSpace(strings.Split(strings.ToLower(d), ";")[0])
+				if declaredBase == equiv {
+					return true
+				}
+			}
+		}
+	}
+
 	return false
 }
 

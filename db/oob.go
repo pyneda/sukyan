@@ -230,20 +230,17 @@ func BuildInteractionsDetails(interactions []OOBInteraction, payload string, ins
 			protocolCounts[i.Protocol]++
 		}
 
-		sb.WriteString("**Summary of protocols:**\n")
+		sb.WriteString("Summary of protocols:\n")
 		for protocol, count := range protocolCounts {
 			sb.WriteString(fmt.Sprintf("- %s: %d interaction(s)\n", protocol, count))
 		}
-		sb.WriteString("\n---\n\n")
+		sb.WriteString("\n")
 
 		for idx, i := range interactions {
-			sb.WriteString(fmt.Sprintf("### Interaction %d (%s)\n\n", idx+1, i.Protocol))
+			sb.WriteString(fmt.Sprintf("Interaction %d (%s)\n\n", idx+1, i.Protocol))
 			sb.WriteString("The interaction originated from " + i.RemoteAddress + " and was performed at " + i.Timestamp.String() + ".\n\n")
-			sb.WriteString("**Request data:**\n```\n" + i.RawRequest + "\n```\n\n")
-			sb.WriteString("**Response data:**\n```\n" + i.RawResponse + "\n```\n\n")
-			if idx < len(interactions)-1 {
-				sb.WriteString("---\n\n")
-			}
+			sb.WriteString("Request data:\n" + i.RawRequest + "\n\n")
+			sb.WriteString("Response data:\n" + i.RawResponse + "\n\n")
 		}
 	}
 

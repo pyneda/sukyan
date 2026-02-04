@@ -184,13 +184,21 @@ func (e *APIScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *co
 			}
 		}
 
+		auditCategories := jobData.AuditCategories
+		if auditCategories.ClientSide && jobData.Mode != scan_options.ScanModeFuzz && !http_utils.CanRenderClientSideContent(history.ResponseContentType) {
+			taskLog.Debug().
+				Str("content_type", history.ResponseContentType).
+				Msg("Disabling client-side audit categories for non-renderable API response")
+			auditCategories.ClientSide = false
+		}
+
 		options := scan_options.HistoryItemScanOptions{
 			Ctx:             ctx,
 			WorkspaceID:     job.WorkspaceID,
 			ScanID:          job.ScanID,
 			ScanJobID:       job.ID,
 			Mode:            jobData.Mode,
-			AuditCategories: jobData.AuditCategories,
+			AuditCategories: auditCategories,
 			FingerprintTags: jobData.FingerprintTags,
 			MaxRetries:      jobData.MaxRetries,
 			HTTPClient:      httpClient,

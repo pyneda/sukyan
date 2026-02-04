@@ -549,3 +549,16 @@ func IsJavaScriptContentType(contentType string) bool {
 	ct := strings.ToLower(contentType)
 	return strings.Contains(ct, "javascript") || strings.Contains(ct, "ecmascript")
 }
+
+// CanRenderClientSideContent checks if the content type is one that browsers
+// render in a way that can trigger client-side vulnerabilities (XSS, CSTI, etc.).
+func CanRenderClientSideContent(contentType string) bool {
+	ct := strings.ToLower(contentType)
+	return strings.Contains(ct, "text/html") ||
+		strings.Contains(ct, "application/xhtml") ||
+		strings.Contains(ct, "javascript") ||
+		strings.Contains(ct, "ecmascript") ||
+		strings.Contains(ct, "image/svg") ||
+		strings.Contains(ct, "text/xml") ||
+		strings.Contains(ct, "application/xml")
+}

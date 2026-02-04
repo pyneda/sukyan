@@ -43,7 +43,8 @@ type APIAuthConfig struct {
 	APIKeyValue    string         `gorm:"type:text" json:"api_key_value,omitempty"`
 	APIKeyLocation APIKeyLocation `gorm:"size:50" json:"api_key_location,omitempty"`
 
-	CustomHeaders []APIAuthHeader `gorm:"foreignKey:AuthConfigID;constraint:OnDelete:CASCADE" json:"custom_headers,omitempty"`
+	CustomHeaders      []APIAuthHeader     `gorm:"foreignKey:AuthConfigID;constraint:OnDelete:CASCADE" json:"custom_headers,omitempty"`
+	TokenRefreshConfig *TokenRefreshConfig `gorm:"foreignKey:AuthConfigID;constraint:OnDelete:CASCADE" json:"token_refresh_config,omitempty"`
 }
 
 func (c APIAuthConfig) TableHeaders() []string {
@@ -108,11 +109,11 @@ func (d *DatabaseConnection) GetAPIAuthConfigByID(id uuid.UUID) (*APIAuthConfig,
 	return &config, nil
 }
 
-func (d *DatabaseConnection) GetAPIAuthConfigByIDWithHeaders(id uuid.UUID) (*APIAuthConfig, error) {
+func (d *DatabaseConnection) GetAPIAuthConfigByIDWithRelations(id uuid.UUID) (*APIAuthConfig, error) {
 	var config APIAuthConfig
-	err := d.db.Preload("CustomHeaders").Where("id = ?", id).First(&config).Error
+	err := d.db.Preload("CustomHeaders").Preload("TokenRefreshConfig").Where("id = ?", id).First(&config).Error
 	if err != nil {
-		log.Error().Err(err).Str("id", id.String()).Msg("Unable to fetch API auth config by ID with headers")
+		log.Error().Err(err).Str("id", id.String()).Msg("Unable to fetch API auth config by ID with relations")
 		return nil, err
 	}
 	return &config, nil
@@ -171,7 +172,7 @@ func (d *DatabaseConnection) ListAPIAuthConfigs(filter APIAuthConfigFilter) (ite
 		order = filter.SortBy + " " + sortOrder
 	}
 
-	err = query.Scopes(Paginate(&filter.Pagination)).Order(order).Find(&items).Error
+	err = query.Scopes(Paginate(&filter.Pagination)).Preload("TokenRefreshConfig").Order(order).Find(&items).Error
 	return items, count, err
 }
 

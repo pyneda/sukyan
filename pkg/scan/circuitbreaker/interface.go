@@ -38,6 +38,9 @@ type CircuitBreaker interface {
 	// RecordFailure increments counter and returns action to take.
 	// errType classifies the error (e.g., "timeout", "connection_refused", "rate_limited").
 	RecordFailure(scanID uint, host string, errType string) Action
+
+	// Reset removes all state for a scan, preventing memory leaks after scan completion.
+	Reset(scanID uint)
 }
 
 // NoOpCircuitBreaker is a circuit breaker that does nothing.
@@ -55,3 +58,6 @@ func (n *NoOpCircuitBreaker) RecordSuccess(scanID uint, host string) {}
 func (n *NoOpCircuitBreaker) RecordFailure(scanID uint, host string, errType string) Action {
 	return ActionContinue
 }
+
+// Reset does nothing.
+func (n *NoOpCircuitBreaker) Reset(scanID uint) {}

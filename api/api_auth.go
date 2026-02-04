@@ -5,6 +5,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/scan/auth"
 	"github.com/rs/zerolog/log"
 )
 
@@ -19,7 +20,8 @@ type CreateAPIAuthConfigInput struct {
 	APIKeyName     string            `json:"api_key_name" validate:"omitempty,max=255"`
 	APIKeyValue    string            `json:"api_key_value" validate:"omitempty"`
 	APIKeyLocation db.APIKeyLocation `json:"api_key_location" validate:"omitempty,oneof=header query cookie"`
-	CustomHeaders  []CustomHeaderInput `json:"custom_headers" validate:"omitempty,dive"`
+	CustomHeaders      []CustomHeaderInput      `json:"custom_headers" validate:"omitempty,dive"`
+	TokenRefreshConfig *TokenRefreshConfigInput `json:"token_refresh_config" validate:"omitempty"`
 }
 
 type UpdateAPIAuthConfigInput struct {
@@ -32,12 +34,25 @@ type UpdateAPIAuthConfigInput struct {
 	APIKeyName     *string              `json:"api_key_name" validate:"omitempty,max=255"`
 	APIKeyValue    *string              `json:"api_key_value" validate:"omitempty"`
 	APIKeyLocation *db.APIKeyLocation   `json:"api_key_location" validate:"omitempty,oneof=header query cookie"`
-	CustomHeaders  []CustomHeaderInput  `json:"custom_headers" validate:"omitempty,dive"`
+	CustomHeaders            []CustomHeaderInput      `json:"custom_headers" validate:"omitempty,dive"`
+	TokenRefreshConfig       *TokenRefreshConfigInput `json:"token_refresh_config,omitempty"`
+	RemoveTokenRefreshConfig *bool                    `json:"remove_token_refresh_config,omitempty"`
 }
 
 type CustomHeaderInput struct {
 	HeaderName  string `json:"header_name" validate:"required,max=255"`
 	HeaderValue string `json:"header_value" validate:"required"`
+}
+
+type TokenRefreshConfigInput struct {
+	RequestURL         string            `json:"request_url" validate:"required,url"`
+	RequestMethod      string            `json:"request_method" validate:"required,oneof=GET POST PUT"`
+	RequestHeaders     map[string]string `json:"request_headers" validate:"omitempty"`
+	RequestBody        string            `json:"request_body" validate:"omitempty"`
+	RequestContentType string            `json:"request_content_type" validate:"omitempty,max=100"`
+	IntervalSeconds    int               `json:"interval_seconds" validate:"required,min=1"`
+	ExtractionSource   string            `json:"extraction_source" validate:"required,oneof=body_jsonpath response_header"`
+	ExtractionValue    string            `json:"extraction_value" validate:"required"`
 }
 
 type APIAuthConfigListResponse struct {
@@ -99,7 +114,7 @@ func GetAPIAuthConfig(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid ID format"})
 	}
 
-	config, err := db.Connection().GetAPIAuthConfigByIDWithHeaders(id)
+	config, err := db.Connection().GetAPIAuthConfigByIDWithRelations(id)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Auth config not found"})
 	}
@@ -162,7 +177,24 @@ func CreateAPIAuthConfig(c *fiber.Ctx) error {
 		}
 	}
 
-	created, _ = db.Connection().GetAPIAuthConfigByIDWithHeaders(created.ID)
+	if input.TokenRefreshConfig != nil {
+		refreshConfig := &db.TokenRefreshConfig{
+			AuthConfigID:       created.ID,
+			RequestURL:         input.TokenRefreshConfig.RequestURL,
+			RequestMethod:      input.TokenRefreshConfig.RequestMethod,
+			RequestHeaders:     input.TokenRefreshConfig.RequestHeaders,
+			RequestBody:        input.TokenRefreshConfig.RequestBody,
+			RequestContentType: input.TokenRefreshConfig.RequestContentType,
+			IntervalSeconds:    input.TokenRefreshConfig.IntervalSeconds,
+			ExtractionSource:   db.TokenExtractionSource(input.TokenRefreshConfig.ExtractionSource),
+			ExtractionValue:    input.TokenRefreshConfig.ExtractionValue,
+		}
+		if _, err := db.Connection().CreateTokenRefreshConfig(refreshConfig); err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+		}
+	}
+
+	created, _ = db.Connection().GetAPIAuthConfigByIDWithRelations(created.ID)
 
 	return c.Status(fiber.StatusCreated).JSON(created)
 }
@@ -262,7 +294,30 @@ func UpdateAPIAuthConfig(c *fiber.Ctx) error {
 		}
 	}
 
-	updated, _ = db.Connection().GetAPIAuthConfigByIDWithHeaders(updated.ID)
+	if input.RemoveTokenRefreshConfig != nil && *input.RemoveTokenRefreshConfig {
+		if err := db.Connection().DeleteTokenRefreshConfigByAuthConfigID(id); err != nil {
+			log.Error().Err(err).Str("config_id", id.String()).Msg("Failed to delete token refresh config")
+		}
+	} else if input.TokenRefreshConfig != nil {
+		db.Connection().DeleteTokenRefreshConfigByAuthConfigID(id)
+		refreshConfig := &db.TokenRefreshConfig{
+			AuthConfigID:       id,
+			RequestURL:         input.TokenRefreshConfig.RequestURL,
+			RequestMethod:      input.TokenRefreshConfig.RequestMethod,
+			RequestHeaders:     input.TokenRefreshConfig.RequestHeaders,
+			RequestBody:        input.TokenRefreshConfig.RequestBody,
+			RequestContentType: input.TokenRefreshConfig.RequestContentType,
+			IntervalSeconds:    input.TokenRefreshConfig.IntervalSeconds,
+			ExtractionSource:   db.TokenExtractionSource(input.TokenRefreshConfig.ExtractionSource),
+			ExtractionValue:    input.TokenRefreshConfig.ExtractionValue,
+		}
+		if _, err := db.Connection().CreateTokenRefreshConfig(refreshConfig); err != nil {
+			log.Error().Err(err).Str("config_id", id.String()).Msg("Failed to create token refresh config")
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "Failed to update token refresh config"})
+		}
+	}
+
+	updated, _ = db.Connection().GetAPIAuthConfigByIDWithRelations(updated.ID)
 
 	return c.JSON(updated)
 }
@@ -302,4 +357,51 @@ func DeleteAPIAuthConfig(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// TestTokenRefresh godoc
+// @Summary Test token refresh configuration
+// @Description Executes a token refresh request and returns the result
+// @Tags api-auth
+// @Accept json
+// @Produce json
+// @Param id path string true "Auth Config ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/api-auth-configs/{id}/test-refresh [post]
+func TestTokenRefresh(c *fiber.Ctx) error {
+	id, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid ID format"})
+	}
+
+	config, err := db.Connection().GetAPIAuthConfigByIDWithRelations(id)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Auth config not found"})
+	}
+
+	if config.TokenRefreshConfig == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "No token refresh configuration found"})
+	}
+
+	tokenManager := auth.NewTokenManager(db.Connection())
+	token, err := tokenManager.ExecuteRefresh(config.TokenRefreshConfig)
+	if err != nil {
+		return c.JSON(fiber.Map{
+			"success": false,
+			"error":   err.Error(),
+		})
+	}
+
+	displayToken := token
+	if len(displayToken) > 20 {
+		displayToken = displayToken[:20] + "..."
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"token":   displayToken,
+	})
 }

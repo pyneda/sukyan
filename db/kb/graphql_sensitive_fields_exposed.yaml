@@ -1,0 +1,11 @@
+code: graphql_sensitive_fields_exposed
+title: GraphQL Sensitive Fields Exposed
+description:
+  The GraphQL schema exposes potentially sensitive fields that may leak credentials, personal data, or internal system information. By probing for common sensitive field names (such as password, token, ssn, apiKey, or debug fields), an attacker can discover and access data that should not be publicly queryable. This can lead to credential exposure, privacy violations, and unauthorized access to administrative functionality.
+remediation:
+  Implement field-level authorization to restrict access to sensitive data based on the authenticated user's role. Remove sensitive fields from the public schema if they are not intended for external use. Apply field filtering or masking for fields that must exist but should return redacted values. Audit all exposed fields regularly and ensure that internal or debug fields are disabled in production environments.
+cwe: 200
+severity: Medium
+references:
+  - https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/01-Testing_GraphQL

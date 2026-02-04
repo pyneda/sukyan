@@ -74,12 +74,9 @@ type ScanResponse struct {
 	PreviousStatus db.ScanStatus           `json:"previous_status,omitempty"`
 	Options        options.FullScanOptions `json:"options"`
 
-	// Rate limiting and circuit breaker fields
-	MaxRPS              *int       `json:"max_rps,omitempty"`
-	MaxConcurrentJobs   *int       `json:"max_concurrent_jobs,omitempty"`
-	ConsecutiveFailures int        `json:"consecutive_failures"`
-	LastFailureAt       *time.Time `json:"last_failure_at,omitempty"`
-	ThrottledUntil      *time.Time `json:"throttled_until,omitempty"`
+	// Rate limiting fields
+	MaxRPS            *int `json:"max_rps,omitempty"`
+	MaxConcurrentJobs *int `json:"max_concurrent_jobs,omitempty"`
 
 	// Job counters for progress tracking
 	TotalJobsCount     int `json:"total_jobs_count"`
@@ -113,11 +110,8 @@ func ScanResponseFromDBScan(scan *db.Scan, stats ScanStats) ScanResponse {
 		Phase:               scan.Phase,
 		PreviousStatus:      scan.PreviousStatus,
 		Options:             scan.Options,
-		MaxRPS:              scan.MaxRPS,
-		MaxConcurrentJobs:   scan.MaxConcurrentJobs,
-		ConsecutiveFailures: scan.ConsecutiveFailures,
-		LastFailureAt:       scan.LastFailureAt,
-		ThrottledUntil:      scan.ThrottledUntil,
+		MaxRPS:            scan.MaxRPS,
+		MaxConcurrentJobs: scan.MaxConcurrentJobs,
 		TotalJobsCount:      scan.TotalJobsCount,
 		PendingJobsCount:    scan.PendingJobsCount,
 		RunningJobsCount:    scan.RunningJobsCount,

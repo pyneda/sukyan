@@ -156,6 +156,21 @@ func (i Issue) AddInteraction(interaction OOBInteraction) error {
 	return Connection().DB().Model(&i).Association("Interactions").Append(&interaction)
 }
 
+// AppendHistories links additional History records to the issue's Requests association.
+// Nil entries in the slice are filtered out automatically.
+func (i Issue) AppendHistories(histories []*History) error {
+	var valid []*History
+	for _, h := range histories {
+		if h != nil {
+			valid = append(valid, h)
+		}
+	}
+	if len(valid) == 0 {
+		return nil
+	}
+	return Connection().DB().Model(&i).Association("Requests").Append(valid)
+}
+
 // UpdateFalsePositive updates the FalsePositive attribute of an issue in the database.
 func (i Issue) UpdateFalsePositive(value bool) error {
 	i.FalsePositive = value

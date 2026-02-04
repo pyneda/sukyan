@@ -1,24 +1,12 @@
 code: graphql_depth_limit_missing
 title: GraphQL Query Depth Limit Missing
-description: |-
-  The GraphQL endpoint does not appear to enforce query depth limits. This allows
-  deeply nested queries to be executed, which could lead to denial of service through
-  recursive query attacks.
-
-  Example of a deeply nested query:
-  {user{posts{author{posts{author{posts{...}}}}}}}
-
-  Without depth limits, such queries can consume excessive server resources.
-remediation: |-
-  Implement query depth limiting to prevent excessively nested queries:
-  - Apollo Server: Use graphql-depth-limit package
-  - GraphQL-Java: Use MaxQueryDepthInstrumentation
-  - Express-GraphQL: Implement custom validation rule
-  - graphql-ruby: Configure max_depth option
-
-  A typical safe depth limit is between 5-15 levels depending on your schema.
+description:
+  The GraphQL endpoint does not enforce query depth limits or has a limit that is too permissive. This allows deeply nested queries to be executed, which can lead to denial of service through recursive query attacks and exponential resource consumption on the server. An attacker can craft queries that nest fields to arbitrary depths, especially when the schema contains circular type relationships (e.g. User -> posts -> Post -> author -> User). Each nesting level can multiply the amount of work the server performs, leading to database query amplification and memory exhaustion. Without depth limits, a single malicious request can degrade or crash the service.
+remediation:
+  Implement query depth limiting to reject queries that exceed a safe nesting threshold. A typical limit is between 5 and 10 levels depending on the schema complexity. Common approaches include graphql-depth-limit for Apollo Server, the @envelop/depth-limit plugin for GraphQL Yoga, MaxQueryDepthInstrumentation for GraphQL-Java, the max_depth schema option for graphql-ruby, custom validation rules using graphql-core ASTValidationRule for Python, and custom middleware for gqlgen in Go. Depth limiting should be combined with query cost analysis for schemas that have list fields or expensive resolvers, since a shallow but wide query can also be resource-intensive.
 cwe: 770
 severity: Medium
 references:
   - https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html
   - https://www.apollographql.com/blog/graphql/security/securing-your-graphql-api-from-malicious-queries/
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/01-Testing_GraphQL

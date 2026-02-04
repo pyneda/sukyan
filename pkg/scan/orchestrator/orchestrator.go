@@ -70,6 +70,8 @@ type JobScheduler interface {
 	ScheduleAPIBehavior(ctx context.Context, scanID uint) error
 	// ScheduleAPIScan schedules API scanning jobs for discovered API definitions
 	ScheduleAPIScan(ctx context.Context, scanID uint) error
+	// NotifyScanCompleted is called when a scan finishes to allow cleanup of per-scan resources.
+	NotifyScanCompleted(scanID uint)
 }
 
 // Config holds orchestrator configuration
@@ -848,6 +850,8 @@ func (o *Orchestrator) completeScan(scanEntity *db.Scan) error {
 	o.siteBehaviorMu.Lock()
 	delete(o.siteBehaviors, scanEntity.ID)
 	o.siteBehaviorMu.Unlock()
+
+	o.scheduler.NotifyScanCompleted(scanEntity.ID)
 
 	scanLog.Info().
 		Uint("scan_id", scanEntity.ID).

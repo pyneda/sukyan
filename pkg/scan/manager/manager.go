@@ -15,6 +15,7 @@ import (
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
+	"github.com/pyneda/sukyan/pkg/scan/auth"
 	"github.com/pyneda/sukyan/pkg/scan/circuitbreaker"
 	"github.com/pyneda/sukyan/pkg/scan/control"
 	"github.com/pyneda/sukyan/pkg/scan/executor"
@@ -83,6 +84,7 @@ type ScanManager struct {
 	executorRegistry    *executor.ExecutorRegistry
 	rateLimiter         ratelimit.RateLimiter
 	circuitBreaker      circuitbreaker.CircuitBreaker
+	tokenManager        *auth.TokenManager
 	interactionsManager *integrations.InteractionsManager
 	payloadGenerators   []*generation.PayloadGenerator
 
@@ -125,7 +127,8 @@ func New(cfg Config, dbConn *db.DatabaseConnection, interactionsManager *integra
 		registry:            control.NewRegistry(dbConn),
 		executorRegistry:    execRegistry,
 		rateLimiter:         ratelimit.NewNoOpRateLimiter(),
-		circuitBreaker:      circuitbreaker.NewNoOpCircuitBreaker(),
+		circuitBreaker:      circuitbreaker.NewAuthCircuitBreaker(5),
+		tokenManager:        auth.NewTokenManager(dbConn),
 		interactionsManager: interactionsManager,
 		payloadGenerators:   payloadGenerators,
 		ctx:                 ctx,
@@ -163,10 +166,16 @@ func (sm *ScanManager) registerExecutors() {
 	sm.executorRegistry.Register(executor.NewSiteBehaviorExecutor())
 
 	// Register API scan executor
-	sm.executorRegistry.Register(executor.NewAPIScanExecutor(
+	apiScanExec := executor.NewAPIScanExecutor(
 		sm.interactionsManager,
 		sm.payloadGenerators,
-	))
+		sm.tokenManager,
+		sm.circuitBreaker,
+	)
+	apiScanExec.SetOnAuthPause(func(scanID uint, reason string) error {
+		return sm.PauseScanWithReason(scanID, reason)
+	})
+	sm.executorRegistry.Register(apiScanExec)
 
 	// Register API behavior executor
 	sm.executorRegistry.Register(executor.NewAPIBehaviorExecutor(
@@ -228,6 +237,8 @@ func (sm *ScanManager) Start() error {
 func (sm *ScanManager) Stop() {
 	sm.stopOnce.Do(func() {
 		log.Info().Msg("Stopping ScanManager")
+
+		sm.tokenManager.Stop()
 
 		// Signal stop to all goroutines
 		close(sm.stopCh)
@@ -397,6 +408,7 @@ func CreateScanRecord(dbConn *db.DatabaseConnection, opts options.FullScanOption
 		MaxRPS:               opts.MaxRPS,
 		Isolated:             isolated,
 		CaptureBrowserEvents: opts.CaptureBrowserEvents,
+		PauseOnAuthFailure:   opts.PauseOnAuthFailure,
 	}
 
 	scan, err := dbConn.CreateScan(scan)
@@ -505,6 +517,19 @@ func (sm *ScanManager) PauseScan(scanID uint) error {
 	return nil
 }
 
+// PauseScanWithReason pauses a running scan and records the reason.
+func (sm *ScanManager) PauseScanWithReason(scanID uint, reason string) error {
+	_, err := sm.dbConn.PauseScanWithReason(scanID, reason)
+	if err != nil {
+		return err
+	}
+
+	sm.registry.SetPaused(scanID)
+
+	log.Info().Uint("scan_id", scanID).Str("reason", reason).Msg("Scan paused")
+	return nil
+}
+
 // ResumeScan resumes a paused scan.
 func (sm *ScanManager) ResumeScan(scanID uint) error {
 	// Update database first
@@ -530,6 +555,7 @@ func (sm *ScanManager) CancelScan(scanID uint) error {
 
 	// Then update in-memory state
 	sm.registry.SetCancelled(scanID)
+	sm.circuitBreaker.Reset(scanID)
 
 	// Unregister after cancellation (with a small delay to let workers finish)
 	go func() {
@@ -539,6 +565,11 @@ func (sm *ScanManager) CancelScan(scanID uint) error {
 
 	log.Info().Uint("scan_id", scanID).Msg("Scan cancelled")
 	return nil
+}
+
+// NotifyScanCompleted is called by the orchestrator when a scan finishes to clean up per-scan resources.
+func (sm *ScanManager) NotifyScanCompleted(scanID uint) {
+	sm.circuitBreaker.Reset(scanID)
 }
 
 // GetScan retrieves a scan by ID.
@@ -901,6 +932,10 @@ func (sm *ScanManager) NodeID() string {
 		return ""
 	}
 	return sm.workerPool.NodeID()
+}
+
+func (sm *ScanManager) TokenManager() *auth.TokenManager {
+	return sm.tokenManager
 }
 
 // SetScanIDFilter sets the scan ID filter for all workers.

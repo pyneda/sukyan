@@ -39,6 +39,7 @@ func main() {
 		&db.APIDefinitionSecurityScheme{},
 		&db.APIAuthConfig{},
 		&db.APIAuthHeader{},
+		&db.TokenRefreshConfig{},
 		&db.APIScan{},
 		&db.ScanAPIDefinition{},
 	)

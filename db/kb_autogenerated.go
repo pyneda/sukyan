@@ -77,8 +77,10 @@ var (
 	GrailsExceptionCode IssueCode = "grails_exception"
 	GraphqlBatchingAllowedCode IssueCode = "graphql_batching_allowed"
 	GraphqlDepthLimitMissingCode IssueCode = "graphql_depth_limit_missing"
+	GraphqlDirectiveAbuseCode IssueCode = "graphql_directive_abuse"
 	GraphqlFieldSuggestionsCode IssueCode = "graphql_field_suggestions"
 	GraphqlIntrospectionEnabledCode IssueCode = "graphql_introspection_enabled"
+	GraphqlSensitiveFieldsExposedCode IssueCode = "graphql_sensitive_fields_exposed"
 	GraphqlEndpointDetectedCode IssueCode = "graphql_endpoint_detected"
 	GrpcEndpointDetectedCode IssueCode = "grpc_endpoint_detected"
 	HeaderInsightsReportCode IssueCode = "header_insights_report"
@@ -1083,8 +1085,8 @@ var issueTemplates = []IssueTemplate{
 	{
 		Code:        GraphqlBatchingAllowedCode,
 		Title:       "GraphQL Query Batching Allowed",
-		Description: "The GraphQL endpoint accepts batched queries without apparent limits. This allows\nmultiple queries to be sent in a single request, which could enable resource\nexhaustion attacks by sending many expensive operations simultaneously.\n\nBatched queries can be used to:\n- Bypass rate limiting (one request contains many operations)\n- Amplify the impact of expensive queries\n- Perform brute-force attacks more efficiently",
-		Remediation: "Consider implementing controls for query batching:\n- Limit the number of operations allowed per request\n- Implement query cost analysis to limit overall complexity\n- Apply rate limiting based on total query complexity rather than just request count\n- Disable batching entirely if not required for your use case",
+		Description: "The GraphQL endpoint accepts batched queries without apparent limits. This allows multiple queries to be sent in a single request, which could enable resource exhaustion attacks by sending many expensive operations simultaneously. Batched queries can be used to bypass rate limiting (one request contains many operations), amplify the impact of expensive queries, and perform brute-force attacks more efficiently.",
+		Remediation: "Consider implementing controls for query batching. Limit the number of operations allowed per request. Implement query cost analysis to limit overall complexity. Apply rate limiting based on total query complexity rather than just request count. Disable batching entirely if not required for your use case.",
 		Cwe:         770,
 		Severity:    "Medium",
 		References: []string{
@@ -1095,20 +1097,34 @@ var issueTemplates = []IssueTemplate{
 	{
 		Code:        GraphqlDepthLimitMissingCode,
 		Title:       "GraphQL Query Depth Limit Missing",
-		Description: "The GraphQL endpoint does not appear to enforce query depth limits. This allows\ndeeply nested queries to be executed, which could lead to denial of service through\nrecursive query attacks.\n\nExample of a deeply nested query:\n{user{posts{author{posts{author{posts{...}}}}}}}\n\nWithout depth limits, such queries can consume excessive server resources.",
-		Remediation: "Implement query depth limiting to prevent excessively nested queries:\n- Apollo Server: Use graphql-depth-limit package\n- GraphQL-Java: Use MaxQueryDepthInstrumentation\n- Express-GraphQL: Implement custom validation rule\n- graphql-ruby: Configure max_depth option\n\nA typical safe depth limit is between 5-15 levels depending on your schema.",
+		Description: "The GraphQL endpoint does not enforce query depth limits or has a limit that is too permissive. This allows deeply nested queries to be executed, which can lead to denial of service through recursive query attacks and exponential resource consumption on the server. An attacker can craft queries that nest fields to arbitrary depths, especially when the schema contains circular type relationships (e.g. User -> posts -> Post -> author -> User). Each nesting level can multiply the amount of work the server performs, leading to database query amplification and memory exhaustion. Without depth limits, a single malicious request can degrade or crash the service.",
+		Remediation: "Implement query depth limiting to reject queries that exceed a safe nesting threshold. A typical limit is between 5 and 10 levels depending on the schema complexity. Common approaches include graphql-depth-limit for Apollo Server, the @envelop/depth-limit plugin for GraphQL Yoga, MaxQueryDepthInstrumentation for GraphQL-Java, the max_depth schema option for graphql-ruby, custom validation rules using graphql-core ASTValidationRule for Python, and custom middleware for gqlgen in Go. Depth limiting should be combined with query cost analysis for schemas that have list fields or expensive resolvers, since a shallow but wide query can also be resource-intensive.",
 		Cwe:         770,
 		Severity:    "Medium",
 		References: []string{
 			"https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html",
 			"https://www.apollographql.com/blog/graphql/security/securing-your-graphql-api-from-malicious-queries/",
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/01-Testing_GraphQL",
+		},
+	},
+	{
+		Code:        GraphqlDirectiveAbuseCode,
+		Title:       "GraphQL Directive Handling Vulnerability",
+		Description: "The GraphQL endpoint exhibits improper handling of directives, which could allow attackers to bypass security controls or cause unexpected behavior. Directives such as @include, @skip, and custom directives control query execution flow. When directive validation is inadequate, attackers may exploit conflicting directives, unknown directive injection, or improper directive placement to circumvent authorization checks, expose unintended data, or trigger undefined server behavior.",
+		Remediation: "Implement strict directive validation following the GraphQL specification. Reject unknown or unsupported directives with clear error messages. Validate directive combinations to prevent conflicting behaviors (e.g., @include and @skip on the same field). Ensure directives are only accepted in their intended locations (schema vs query context). Consider implementing directive allowlisting and audit directive usage patterns.",
+		Cwe:         693,
+		Severity:    "Low",
+		References: []string{
+			"https://graphql.org/learn/queries/#directives",
+			"https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html",
+			"https://spec.graphql.org/October2021/#sec-Directives",
 		},
 	},
 	{
 		Code:        GraphqlFieldSuggestionsCode,
 		Title:       "GraphQL Field Suggestions Enabled",
-		Description: "The GraphQL endpoint provides field suggestions in error messages when an invalid\nfield is requested. This feature aids in schema enumeration even when introspection\nis disabled.\n\nWhen enabled, error responses may contain suggestions like \"Did you mean 'password'?\"\nwhich can help attackers discover valid field names without access to the schema.",
-		Remediation: "Disable field suggestions in production environments. Most GraphQL servers allow\nconfiguring this behavior:\n- Apollo Server: Set fieldSuggestion: false in formatError\n- GraphQL-Java: Customize error handling to remove suggestions\n- Express-GraphQL: Use custom error formatter\n\nEnsure error messages in production only contain generic information.",
+		Description: "The GraphQL endpoint provides field suggestions in error messages when an invalid field is requested. This feature aids in schema enumeration even when introspection is disabled. When enabled, error responses may contain suggestions like \"Did you mean 'password'?\" which can help attackers discover valid field names without access to the schema.",
+		Remediation: "Disable field suggestions in production environments. Most GraphQL servers allow configuring this behavior. In Apollo Server, set fieldSuggestion to false in formatError. In GraphQL-Java, customize error handling to remove suggestions. In Express-GraphQL, use a custom error formatter. Ensure error messages in production only contain generic information.",
 		Cwe:         200,
 		Severity:    "Info",
 		References: []string{
@@ -1126,6 +1142,18 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/01-Testing_GraphQL",
 			"https://graphql.org/learn/introspection/",
+		},
+	},
+	{
+		Code:        GraphqlSensitiveFieldsExposedCode,
+		Title:       "GraphQL Sensitive Fields Exposed",
+		Description: "The GraphQL schema exposes potentially sensitive fields that may leak credentials, personal data, or internal system information. By probing for common sensitive field names (such as password, token, ssn, apiKey, or debug fields), an attacker can discover and access data that should not be publicly queryable. This can lead to credential exposure, privacy violations, and unauthorized access to administrative functionality.",
+		Remediation: "Implement field-level authorization to restrict access to sensitive data based on the authenticated user's role. Remove sensitive fields from the public schema if they are not intended for external use. Apply field filtering or masking for fields that must exist but should return redacted values. Audit all exposed fields regularly and ensure that internal or debug fields are disabled in production environments.",
+		Cwe:         200,
+		Severity:    "Medium",
+		References: []string{
+			"https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html",
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/01-Testing_GraphQL",
 		},
 	},
 	{

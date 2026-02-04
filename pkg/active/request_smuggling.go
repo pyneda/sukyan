@@ -451,20 +451,9 @@ func (a *RequestSmugglingAudit) reportIssue(
 		return
 	}
 
-	// Link all revalidation request histories to the issue
-	if len(revalidationHistories) > 0 {
-		validHistories := make([]*db.History, 0, len(revalidationHistories))
-		for _, h := range revalidationHistories {
-			if h != nil {
-				validHistories = append(validHistories, h)
-			}
-		}
-		if len(validHistories) > 0 {
-			if err := db.Connection().DB().Model(&issue).Association("Requests").Append(validHistories); err != nil {
-				log.Warn().Err(err).Uint("issue_id", issue.ID).Int("history_count", len(validHistories)).
-					Msg("Failed to link revalidation histories to issue")
-			}
-		}
+	if err := issue.AppendHistories(revalidationHistories); err != nil {
+		log.Warn().Err(err).Uint("issue_id", issue.ID).Int("history_count", len(revalidationHistories)).
+			Msg("Failed to link revalidation histories to issue")
 	}
 }
 

@@ -180,30 +180,12 @@ func (a *FieldSuggestionsAudit) Run() {
 			discoveredList = append(discoveredList, field)
 		}
 
-		details := fmt.Sprintf(`GraphQL field suggestions are enabled.
+		details := fmt.Sprintf(`Field suggestions are enabled on this GraphQL endpoint.
 
-When querying for invalid/misspelled fields, the error response includes suggestions
-for valid field names. This aids in schema enumeration even when introspection is disabled.
-
-Request URL: %s
-
-Schema Enumeration Impact:
-- Attackers can discover field names through typo probing
-- Internal/hidden fields may be revealed
-- Bypasses introspection disabling as a security measure
+Error responses include suggestions for valid field names when invalid fields are queried.
 
 Fields discovered through suggestion probing:
-%s
-
-Techniques used:
-- Typo-based probing (e.g., "usr" -> suggests "user")
-- Partial name probing (e.g., "admi" -> suggests "admin")
-- Argument name probing
-
-Remediation:
-- Disable field suggestions in production (library-specific setting)
-- Use allowlisting instead of suggestions
-- Implement query allowlisting for production`, baseURL, formatDiscoveredFields(discoveredList))
+%s`, formatDiscoveredFields(discoveredList))
 
 		reportIssue(firstHistory, db.GraphqlFieldSuggestionsCode, details, 85, a.Options)
 	}

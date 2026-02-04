@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
@@ -268,30 +267,13 @@ func (a *DirectivesAudit) Run() {
 				confidence = 70
 			}
 
-			details := fmt.Sprintf(`GraphQL directive handling vulnerability detected.
-
-Test: %s
-Severity: %s
+			details := fmt.Sprintf(`Test: %s
 Description: %s
 
 Query: %s
-Response Status: %d
+Response Status: %d`, tc.name, tc.description, tc.query, result.History.StatusCode)
 
-Improper directive handling can lead to:
-- Query logic bypass (skip authorization checks via directives)
-- Unexpected data exposure
-- Security control circumvention
-- Undefined behavior exploitation
-
-Request URL: %s
-
-Remediation:
-- Implement strict directive validation
-- Reject unknown directives
-- Validate directive combinations
-- Follow GraphQL specification for directive behavior`, tc.name, strings.ToUpper(tc.severity), tc.description, tc.query, result.History.StatusCode, baseURL)
-
-			reportIssue(result.History, db.GraphqlFieldSuggestionsCode, details, confidence, a.Options)
+			reportIssue(result.History, db.GraphqlDirectiveAbuseCode, details, confidence, a.Options)
 		}
 	}
 

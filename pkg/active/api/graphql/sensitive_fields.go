@@ -12,14 +12,12 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// SensitiveFieldsAudit tests for exposed sensitive GraphQL fields
 type SensitiveFieldsAudit struct {
 	Options     *GraphQLAuditOptions
 	Definition  *db.APIDefinition
 	BaseHistory *db.History
 }
 
-// sensitiveFieldProbe represents a sensitive field to probe
 type sensitiveFieldProbe struct {
 	field       string
 	category    string
@@ -27,10 +25,8 @@ type sensitiveFieldProbe struct {
 	severity    string
 }
 
-// getSensitiveFieldProbes returns fields to probe for sensitive data
 func getSensitiveFieldProbes() []sensitiveFieldProbe {
 	return []sensitiveFieldProbe{
-		// Authentication/Authorization
 		{field: "password", category: "auth", description: "Password field", severity: "critical"},
 		{field: "passwordHash", category: "auth", description: "Password hash field", severity: "critical"},
 		{field: "hashedPassword", category: "auth", description: "Hashed password field", severity: "critical"},
@@ -45,7 +41,6 @@ func getSensitiveFieldProbes() []sensitiveFieldProbe {
 		{field: "privateKey", category: "auth", description: "Private key field", severity: "critical"},
 		{field: "encryptionKey", category: "auth", description: "Encryption key field", severity: "critical"},
 
-		// PII
 		{field: "ssn", category: "pii", description: "Social Security Number", severity: "critical"},
 		{field: "socialSecurityNumber", category: "pii", description: "Social Security Number", severity: "critical"},
 		{field: "creditCard", category: "pii", description: "Credit card field", severity: "critical"},
@@ -55,7 +50,6 @@ func getSensitiveFieldProbes() []sensitiveFieldProbe {
 		{field: "bankAccount", category: "pii", description: "Bank account field", severity: "high"},
 		{field: "taxId", category: "pii", description: "Tax ID field", severity: "high"},
 
-		// Internal/Debug
 		{field: "__debug", category: "internal", description: "Debug field", severity: "medium"},
 		{field: "__internal", category: "internal", description: "Internal field", severity: "medium"},
 		{field: "_private", category: "internal", description: "Private field", severity: "medium"},
@@ -67,7 +61,6 @@ func getSensitiveFieldProbes() []sensitiveFieldProbe {
 		{field: "env", category: "internal", description: "Environment field", severity: "medium"},
 		{field: "environment", category: "internal", description: "Environment field", severity: "medium"},
 
-		// Admin/Privileged
 		{field: "admin", category: "admin", description: "Admin field", severity: "medium"},
 		{field: "adminPanel", category: "admin", description: "Admin panel field", severity: "medium"},
 		{field: "isAdmin", category: "admin", description: "Admin flag field", severity: "medium"},
@@ -79,7 +72,6 @@ func getSensitiveFieldProbes() []sensitiveFieldProbe {
 	}
 }
 
-// Run executes the sensitive fields audit
 func (a *SensitiveFieldsAudit) Run() {
 	auditLog := log.With().
 		Str("audit", "graphql-sensitive-fields").
@@ -112,7 +104,12 @@ func (a *SensitiveFieldsAudit) Run() {
 	}
 
 	probes := getSensitiveFieldProbes()
-	discoveredFields := make(map[string]sensitiveFieldProbe)
+
+	type discoveredField struct {
+		probe   sensitiveFieldProbe
+		history *db.History
+	}
+	discovered := make(map[string]discoveredField)
 
 	for _, probe := range probes {
 		if a.Options.Ctx != nil {
@@ -123,79 +120,86 @@ func (a *SensitiveFieldsAudit) Run() {
 			}
 		}
 
-		// Test as query field
-		queryResult := a.probeField(baseURL, client, probe, "query")
-		if queryResult != nil {
-			discoveredFields[probe.field] = probe
+		queryHistory := a.probeField(baseURL, client, probe, "query")
+		if queryHistory != nil {
+			discovered[probe.field] = discoveredField{probe: probe, history: queryHistory}
 		}
 
-		// Test as mutation (for action-based fields)
 		if probe.category == "admin" {
-			mutationResult := a.probeField(baseURL, client, probe, "mutation")
-			if mutationResult != nil && queryResult == nil {
-				discoveredFields[probe.field] = probe
+			mutationHistory := a.probeField(baseURL, client, probe, "mutation")
+			if mutationHistory != nil && queryHistory == nil {
+				discovered[probe.field] = discoveredField{probe: probe, history: mutationHistory}
 			}
 		}
 	}
 
-	// Group findings by severity
-	if len(discoveredFields) > 0 {
-		criticalFields := []string{}
-		highFields := []string{}
-		mediumFields := []string{}
-		lowFields := []string{}
-
-		for field, probe := range discoveredFields {
-			switch probe.severity {
-			case "critical":
-				criticalFields = append(criticalFields, field)
-			case "high":
-				highFields = append(highFields, field)
-			case "medium":
-				mediumFields = append(mediumFields, field)
-			case "low":
-				lowFields = append(lowFields, field)
-			}
-		}
-
-		// Create single consolidated report
-		confidence := 65
-		if len(criticalFields) > 0 {
-			confidence = 90
-		} else if len(highFields) > 0 {
-			confidence = 80
-		}
-
-		details := fmt.Sprintf(`Potentially sensitive GraphQL fields are accessible.
-
-Request URL: %s
-
-Discovered Fields by Severity:
-%s
-Impact:
-- Information disclosure
-- Credential/token exposure
-- Privacy violations (PII)
-- Privilege escalation vectors
-
-Note: Field existence was confirmed through query probing.
-Manual verification recommended to assess actual data exposure.
-
-Remediation:
-- Implement field-level authorization
-- Remove sensitive fields from public schema
-- Use field filtering/masking
-- Audit all exposed fields`, baseURL, formatFieldsBySeverity(criticalFields, highFields, mediumFields, lowFields))
-
-		// We need a history for reporting - use the first discovered field's history
-		// For now, we'll create a minimal issue without history
-		reportIssue(nil, db.GraphqlIntrospectionEnabledCode, details, confidence, a.Options)
+	if len(discovered) == 0 {
+		auditLog.Info().Msg("No sensitive fields discovered")
+		return
 	}
 
-	auditLog.Info().Int("fields_discovered", len(discoveredFields)).Msg("Completed GraphQL sensitive fields audit")
+	var criticalFields, highFields, mediumFields, lowFields []string
+	for field, df := range discovered {
+		switch df.probe.severity {
+		case "critical":
+			criticalFields = append(criticalFields, field)
+		case "high":
+			highFields = append(highFields, field)
+		case "medium":
+			mediumFields = append(mediumFields, field)
+		case "low":
+			lowFields = append(lowFields, field)
+		}
+	}
+
+	confidence := 65
+	if len(criticalFields) > 0 {
+		confidence = 90
+	} else if len(highFields) > 0 {
+		confidence = 80
+	}
+
+	details := fmt.Sprintf("Discovered %d potentially sensitive fields through query probing.\n\n"+
+		"Fields by severity:\n%s\n"+
+		"Field existence was confirmed through query probing. Manual verification recommended to assess actual data exposure.",
+		len(discovered), formatFieldsBySeverity(criticalFields, highFields, mediumFields, lowFields))
+
+	var firstHistory *db.History
+	var additionalHistories []*db.History
+	for _, df := range discovered {
+		if firstHistory == nil {
+			firstHistory = df.history
+		} else {
+			additionalHistories = append(additionalHistories, df.history)
+		}
+	}
+
+	issue, err := db.CreateIssueFromHistoryAndTemplate(
+		firstHistory,
+		db.GraphqlSensitiveFieldsExposedCode,
+		details,
+		confidence,
+		"",
+		&a.Options.WorkspaceID,
+		&a.Options.TaskID,
+		&a.Options.TaskJobID,
+		&a.Options.ScanID,
+		&a.Options.ScanJobID,
+	)
+	if err != nil {
+		auditLog.Error().Err(err).Msg("Failed to create sensitive fields issue")
+		return
+	}
+
+	if len(additionalHistories) > 0 {
+		if err := issue.AppendHistories(additionalHistories); err != nil {
+			auditLog.Warn().Err(err).Uint("issue_id", issue.ID).Msg("Failed to link additional histories to issue")
+		}
+	}
+
+	auditLog.Info().Uint("issue_id", issue.ID).Int("fields_discovered", len(discovered)).Msg("Created sensitive fields issue")
 }
 
-// probeField tests if a specific field exists and is accessible
 func (a *SensitiveFieldsAudit) probeField(baseURL string, client *http.Client, probe sensitiveFieldProbe, opType string) *db.History {
 	var query string
 	if opType == "mutation" {
@@ -232,57 +236,45 @@ func (a *SensitiveFieldsAudit) probeField(baseURL string, client *http.Client, p
 		return nil
 	}
 
-	// Check if data was returned for this field
 	if data, ok := response["data"].(map[string]interface{}); ok {
 		if _, fieldExists := data[probe.field]; fieldExists {
 			return result.History
 		}
 	}
 
-	// Also check if field exists but returned null (still means it's in schema)
-	if data, ok := response["data"].(map[string]interface{}); ok {
-		// Field exists if it's a key, even with null value
-		for key := range data {
-			if key == probe.field {
-				return result.History
-			}
-		}
-	}
-
 	return nil
 }
 
-// formatFieldsBySeverity formats fields grouped by severity
 func formatFieldsBySeverity(critical, high, medium, low []string) string {
 	var sb strings.Builder
 
 	if len(critical) > 0 {
-		sb.WriteString("\n🔴 CRITICAL:\n")
+		sb.WriteString("CRITICAL:\n")
 		for _, f := range critical {
-			sb.WriteString(fmt.Sprintf("   - %s\n", f))
+			sb.WriteString(fmt.Sprintf("  - %s\n", f))
 		}
 	}
 	if len(high) > 0 {
-		sb.WriteString("\n🟠 HIGH:\n")
+		sb.WriteString("HIGH:\n")
 		for _, f := range high {
-			sb.WriteString(fmt.Sprintf("   - %s\n", f))
+			sb.WriteString(fmt.Sprintf("  - %s\n", f))
 		}
 	}
 	if len(medium) > 0 {
-		sb.WriteString("\n🟡 MEDIUM:\n")
+		sb.WriteString("MEDIUM:\n")
 		for _, f := range medium {
-			sb.WriteString(fmt.Sprintf("   - %s\n", f))
+			sb.WriteString(fmt.Sprintf("  - %s\n", f))
 		}
 	}
 	if len(low) > 0 {
-		sb.WriteString("\n🟢 LOW:\n")
+		sb.WriteString("LOW:\n")
 		for _, f := range low {
-			sb.WriteString(fmt.Sprintf("   - %s\n", f))
+			sb.WriteString(fmt.Sprintf("  - %s\n", f))
 		}
 	}
 
 	if sb.Len() == 0 {
-		return "  (none detected)"
+		return "(none detected)\n"
 	}
 	return sb.String()
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,10 +29,14 @@ import (
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
+	"github.com/pyneda/sukyan/pkg/scan/auth"
+	"github.com/pyneda/sukyan/pkg/scan/circuitbreaker"
 	"github.com/pyneda/sukyan/pkg/scan/control"
 	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 )
+
+var errScanPausedAuth = errors.New("scan paused due to repeated authentication failures")
 
 type APIScanJobData struct {
 	DefinitionID        uuid.UUID                    `json:"definition_id"`
@@ -50,16 +55,27 @@ type APIScanJobData struct {
 type APIScanExecutor struct {
 	interactionsManager *integrations.InteractionsManager
 	payloadGenerators   []*generation.PayloadGenerator
+	tokenManager        *auth.TokenManager
+	circuitBreaker      circuitbreaker.CircuitBreaker
+	onAuthPause         func(scanID uint, reason string) error
 }
 
 func NewAPIScanExecutor(
 	interactionsManager *integrations.InteractionsManager,
 	payloadGenerators []*generation.PayloadGenerator,
+	tokenManager *auth.TokenManager,
+	circuitBreaker circuitbreaker.CircuitBreaker,
 ) *APIScanExecutor {
 	return &APIScanExecutor{
 		interactionsManager: interactionsManager,
 		payloadGenerators:   payloadGenerators,
+		tokenManager:        tokenManager,
+		circuitBreaker:      circuitBreaker,
 	}
+}
+
+func (e *APIScanExecutor) SetOnAuthPause(fn func(scanID uint, reason string) error) {
+	e.onAuthPause = fn
 }
 
 func (e *APIScanExecutor) JobType() db.ScanJobType {
@@ -110,10 +126,15 @@ func (e *APIScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *co
 
 	var authConfig *db.APIAuthConfig
 	if jobData.AuthConfigID != nil {
-		authConfig, err = db.Connection().GetAPIAuthConfigByIDWithHeaders(*jobData.AuthConfigID)
+		authConfig, err = db.Connection().GetAPIAuthConfigByIDWithRelations(*jobData.AuthConfigID)
 		if err != nil {
 			taskLog.Warn().Err(err).Msg("Failed to get auth config, proceeding without authentication")
 		}
+	}
+
+	if authConfig != nil && authConfig.TokenRefreshConfig != nil && e.tokenManager != nil {
+		e.tokenManager.RegisterScan(authConfig.ID)
+		defer e.tokenManager.UnregisterScan(authConfig.ID)
 	}
 
 	if !ctrl.CheckpointWithContext(ctx) {
@@ -123,6 +144,10 @@ func (e *APIScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *co
 
 	history, err := e.buildAndExecuteRequest(ctx, definition, endpoint, authConfig, httpClient, job)
 	if err != nil {
+		if errors.Is(err, errScanPausedAuth) {
+			taskLog.Info().Msg("Job stopped: scan was paused due to auth failures")
+			return nil
+		}
 		return fmt.Errorf("failed to execute API request: %w", err)
 	}
 
@@ -220,6 +245,12 @@ func (e *APIScanExecutor) buildAndExecuteRequest(
 	httpClient *http.Client,
 	job *db.ScanJob,
 ) (*db.History, error) {
+	taskLog := log.With().
+		Uint("scan_id", job.ScanID).
+		Uint("job_id", job.ID).
+		Str("endpoint", endpoint.Path).
+		Logger()
+
 	operation, graphqlSchema, parseErr := e.parseOperationForEndpoint(definition, endpoint)
 	if parseErr != nil {
 		return nil, fmt.Errorf("failed to parse operation: %w", parseErr)
@@ -271,6 +302,45 @@ func (e *APIScanExecutor) buildAndExecuteRequest(
 	}
 
 	result := http_utils.ExecuteRequest(req, execOptions)
+
+	if result.History != nil && (result.History.StatusCode == 401 || result.History.StatusCode == 403) {
+		if authConfig != nil && authConfig.TokenRefreshConfig != nil && e.tokenManager != nil {
+			taskLog.Info().Int("status", result.History.StatusCode).Msg("Auth failure detected, attempting token refresh and retry")
+			if _, refreshErr := e.tokenManager.ForceRefresh(authConfig.ID); refreshErr == nil {
+				retryReq, retryErr := e.buildRequestFromOperation(ctx, definition.Type, operation, graphqlSchema)
+				if retryErr == nil {
+					if retryReq.Body != nil {
+						bodyBytes, _ := io.ReadAll(retryReq.Body)
+						retryReq.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+					}
+					e.applyAuthToRequest(retryReq, authConfig)
+					result = http_utils.ExecuteRequest(retryReq, execOptions)
+				}
+			}
+		}
+	}
+
+	if result.History != nil && e.circuitBreaker != nil {
+		if result.History.StatusCode == 401 || result.History.StatusCode == 403 {
+			action := e.circuitBreaker.RecordFailure(job.ScanID, job.TargetHost, "auth_failure")
+			if action == circuitbreaker.ActionPauseScan {
+				scan, scanErr := db.Connection().GetScanByID(job.ScanID)
+				if scanErr == nil && scan.PauseOnAuthFailure {
+					reason := "Scan paused: repeated authentication failures detected"
+					if e.onAuthPause != nil {
+						if pauseErr := e.onAuthPause(job.ScanID, reason); pauseErr != nil {
+							taskLog.Warn().Err(pauseErr).Uint("scan_id", job.ScanID).Msg("Failed to pause scan via manager")
+						}
+					}
+					taskLog.Warn().Uint("scan_id", job.ScanID).Msg("Auto-pausing scan due to repeated auth failures")
+					return result.History, errScanPausedAuth
+				}
+			}
+		} else if result.History.StatusCode >= 200 && result.History.StatusCode < 400 {
+			e.circuitBreaker.RecordSuccess(job.ScanID, job.TargetHost)
+		}
+	}
+
 	if result.Err != nil {
 		return result.History, fmt.Errorf("API request failed: %w", result.Err)
 	}
@@ -306,38 +376,56 @@ func (e *APIScanExecutor) applyAuthToRequest(req *http.Request, authConfig *db.A
 		}
 
 	case db.APIAuthTypeBearer:
-		if authConfig.Token != "" {
+		token := authConfig.Token
+		if authConfig.TokenRefreshConfig != nil && e.tokenManager != nil {
+			if dynamicToken, tmErr := e.tokenManager.GetToken(authConfig.ID); tmErr == nil && dynamicToken != "" {
+				token = dynamicToken
+			}
+		}
+		if token != "" {
 			prefix := authConfig.TokenPrefix
 			if prefix == "" {
 				prefix = "Bearer"
 			}
-			req.Header.Set("Authorization", prefix+" "+authConfig.Token)
+			req.Header.Set("Authorization", prefix+" "+token)
 		}
 
 	case db.APIAuthTypeAPIKey:
-		if authConfig.APIKeyName != "" && authConfig.APIKeyValue != "" {
+		keyValue := authConfig.APIKeyValue
+		if authConfig.TokenRefreshConfig != nil && e.tokenManager != nil {
+			if dynamicToken, tmErr := e.tokenManager.GetToken(authConfig.ID); tmErr == nil && dynamicToken != "" {
+				keyValue = dynamicToken
+			}
+		}
+		if authConfig.APIKeyName != "" && keyValue != "" {
 			switch authConfig.APIKeyLocation {
 			case db.APIKeyLocationHeader:
-				req.Header.Set(authConfig.APIKeyName, authConfig.APIKeyValue)
+				req.Header.Set(authConfig.APIKeyName, keyValue)
 			case db.APIKeyLocationQuery:
 				q := req.URL.Query()
-				q.Set(authConfig.APIKeyName, authConfig.APIKeyValue)
+				q.Set(authConfig.APIKeyName, keyValue)
 				req.URL.RawQuery = q.Encode()
 			case db.APIKeyLocationCookie:
 				req.AddCookie(&http.Cookie{
 					Name:  authConfig.APIKeyName,
-					Value: authConfig.APIKeyValue,
+					Value: keyValue,
 				})
 			}
 		}
 
 	case db.APIAuthTypeOAuth2:
-		if authConfig.Token != "" {
+		token := authConfig.Token
+		if authConfig.TokenRefreshConfig != nil && e.tokenManager != nil {
+			if dynamicToken, tmErr := e.tokenManager.GetToken(authConfig.ID); tmErr == nil && dynamicToken != "" {
+				token = dynamicToken
+			}
+		}
+		if token != "" {
 			prefix := authConfig.TokenPrefix
 			if prefix == "" {
 				prefix = "Bearer"
 			}
-			req.Header.Set("Authorization", prefix+" "+authConfig.Token)
+			req.Header.Set("Authorization", prefix+" "+token)
 		} else {
 			log.Warn().Msg("OAuth2 auth config has no token set, skipping authentication")
 		}

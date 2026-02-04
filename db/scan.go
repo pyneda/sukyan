@@ -83,12 +83,12 @@ type Scan struct {
 	PreviousStatus ScanStatus              `json:"previous_status,omitempty" gorm:"size:50"`
 	Options        options.FullScanOptions `json:"options" gorm:"serializer:json"`
 
-	// Rate limiting and circuit breaker fields
-	MaxRPS              *int       `json:"max_rps,omitempty"`
-	MaxConcurrentJobs   *int       `json:"max_concurrent_jobs,omitempty"`
-	ConsecutiveFailures int        `json:"consecutive_failures" gorm:"default:0"`
-	LastFailureAt       *time.Time `json:"last_failure_at,omitempty"`
-	ThrottledUntil      *time.Time `json:"throttled_until,omitempty"`
+	// Rate limiting fields
+	MaxRPS            *int `json:"max_rps,omitempty"`
+	MaxConcurrentJobs *int `json:"max_concurrent_jobs,omitempty"`
+
+	PauseOnAuthFailure bool   `json:"pause_on_auth_failure" gorm:"default:false"`
+	PauseReason        string `json:"pause_reason,omitempty" gorm:"type:text"`
 
 	// Job counters for progress tracking
 	TotalJobsCount     int `json:"total_jobs_count" gorm:"default:0"`
@@ -310,6 +310,25 @@ func (d *DatabaseConnection) PauseScan(scanID uint) (*Scan, error) {
 	return d.UpdateScan(scan)
 }
 
+func (d *DatabaseConnection) PauseScanWithReason(scanID uint, reason string) (*Scan, error) {
+	scan, err := d.GetScanByID(scanID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !scan.IsPausable() {
+		return nil, fmt.Errorf("scan %d cannot be paused (status: %s)", scanID, scan.Status)
+	}
+
+	scan.PreviousStatus = scan.Status
+	scan.Status = ScanStatusPaused
+	scan.PauseReason = reason
+	now := time.Now()
+	scan.PausedAt = &now
+
+	return d.UpdateScan(scan)
+}
+
 // ResumeScan resumes a paused scan
 func (d *DatabaseConnection) ResumeScan(scanID uint) (*Scan, error) {
 	scan, err := d.GetScanByID(scanID)
@@ -328,6 +347,7 @@ func (d *DatabaseConnection) ResumeScan(scanID uint) (*Scan, error) {
 	}
 	scan.PreviousStatus = ""
 	scan.PausedAt = nil
+	scan.PauseReason = ""
 
 	return d.UpdateScan(scan)
 }

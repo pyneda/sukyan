@@ -157,21 +157,10 @@ func (a *IntrospectionAudit) Run() {
 				confidence = 85 // Bypass techniques get slightly lower confidence
 			}
 
-			details := fmt.Sprintf(`GraphQL introspection is enabled on this endpoint.
+			details := fmt.Sprintf(`Introspection query variant: %s (%s)
 
-Attack Vector: %s
-Description: %s
-
-The introspection query returned schema information, allowing discovery of:
-- All types defined in the schema
-- Available queries, mutations, and subscriptions
-- Field definitions and their arguments
-- Custom directives
-
-Request URL: %s
 Query: %s
-
-This exposes the entire API structure to potential attackers.`, payload.name, payload.description, baseURL, truncateQuery(payload.query, 200))
+Response Status: %d`, payload.name, payload.description, truncateQuery(payload.query, 200), result.History.StatusCode)
 
 			reportIssue(result.History, db.GraphqlIntrospectionEnabledCode, details, confidence, a.Options)
 			foundIntrospection = true
@@ -225,14 +214,11 @@ func (a *IntrospectionAudit) testGETIntrospection(baseURL string, client *http.C
 	bodyStr := string(body)
 
 	if strings.Contains(bodyStr, "__schema") && strings.Contains(bodyStr, "types") {
-		details := fmt.Sprintf(`GraphQL introspection is enabled via GET request.
+		details := fmt.Sprintf(`Introspection query variant: GET method with query parameter
 
-The endpoint accepts introspection queries via GET method with query parameter.
-This may bypass WAF rules that only inspect POST bodies.
+The endpoint accepts introspection queries via GET method, which may bypass WAF rules that only inspect POST bodies.
 
-Request URL: %s
-
-Consider disabling GET method for GraphQL or ensuring introspection is blocked for all methods.`, url)
+Response Status: %d`, result.History.StatusCode)
 
 		reportIssue(result.History, db.GraphqlIntrospectionEnabledCode, details, 90, a.Options)
 		return true

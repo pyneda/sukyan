@@ -1,20 +1,9 @@
 code: graphql_field_suggestions
 title: GraphQL Field Suggestions Enabled
-description: |-
-  The GraphQL endpoint provides field suggestions in error messages when an invalid
-  field is requested. This feature aids in schema enumeration even when introspection
-  is disabled.
-
-  When enabled, error responses may contain suggestions like "Did you mean 'password'?"
-  which can help attackers discover valid field names without access to the schema.
-remediation: |-
-  Disable field suggestions in production environments. Most GraphQL servers allow
-  configuring this behavior:
-  - Apollo Server: Set fieldSuggestion: false in formatError
-  - GraphQL-Java: Customize error handling to remove suggestions
-  - Express-GraphQL: Use custom error formatter
-
-  Ensure error messages in production only contain generic information.
+description:
+  The GraphQL endpoint provides field suggestions in error messages when an invalid field is requested. This feature aids in schema enumeration even when introspection is disabled. When enabled, error responses may contain suggestions like "Did you mean 'password'?" which can help attackers discover valid field names without access to the schema.
+remediation:
+  Disable field suggestions in production environments. Most GraphQL servers allow configuring this behavior. In Apollo Server, set fieldSuggestion to false in formatError. In GraphQL-Java, customize error handling to remove suggestions. In Express-GraphQL, use a custom error formatter. Ensure error messages in production only contain generic information.
 cwe: 200
 severity: Info
 references:

@@ -183,6 +183,7 @@ func StartAPI() {
 	api.Post("/api-auth-configs", JWTProtected(), CreateAPIAuthConfig)
 	api.Patch("/api-auth-configs/:id", JWTProtected(), UpdateAPIAuthConfig)
 	api.Delete("/api-auth-configs/:id", JWTProtected(), DeleteAPIAuthConfig)
+	api.Post("/api-auth-configs/:id/test-refresh", JWTProtected(), TestTokenRefresh)
 
 	// Auth related endpoints
 	auth_app := api.Group("/auth")

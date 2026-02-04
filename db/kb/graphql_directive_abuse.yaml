@@ -1,0 +1,12 @@
+code: graphql_directive_abuse
+title: GraphQL Directive Handling Vulnerability
+description:
+  The GraphQL endpoint exhibits improper handling of directives, which could allow attackers to bypass security controls or cause unexpected behavior. Directives such as @include, @skip, and custom directives control query execution flow. When directive validation is inadequate, attackers may exploit conflicting directives, unknown directive injection, or improper directive placement to circumvent authorization checks, expose unintended data, or trigger undefined server behavior.
+remediation:
+  Implement strict directive validation following the GraphQL specification. Reject unknown or unsupported directives with clear error messages. Validate directive combinations to prevent conflicting behaviors (e.g., @include and @skip on the same field). Ensure directives are only accepted in their intended locations (schema vs query context). Consider implementing directive allowlisting and audit directive usage patterns.
+cwe: 693
+severity: Low
+references:
+  - https://graphql.org/learn/queries/#directives
+  - https://cheatsheetseries.owasp.org/cheatsheets/GraphQL_Cheat_Sheet.html
+  - https://spec.graphql.org/October2021/#sec-Directives

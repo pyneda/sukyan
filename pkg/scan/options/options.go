@@ -175,6 +175,7 @@ type FullScanOptions struct {
 	HTTPMaxIdleConnsPerHost *int                     `json:"http_max_idle_conns_per_host,omitempty"`
 	HTTPMaxConnsPerHost     *int                     `json:"http_max_conns_per_host,omitempty"`
 	HTTPDisableKeepAlives   *bool                    `json:"http_disable_keep_alives,omitempty"`
+	PauseOnAuthFailure      bool                     `json:"pause_on_auth_failure"`
 }
 
 // InlineAuth allows configuring auth inline without persisting to DB

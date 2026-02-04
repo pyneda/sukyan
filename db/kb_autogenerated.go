@@ -149,6 +149,7 @@ var (
 	SbomDetectedCode IssueCode = "sbom_detected"
 	SchemaValidationMissingCode IssueCode = "schema_validation_missing"
 	SecretsInJsCode IssueCode = "secrets_in_js"
+	SecretsInJsonCode IssueCode = "secrets_in_json"
 	SecurityTxtDetectedCode IssueCode = "security_txt_detected"
 	SellersJsonDetectedCode IssueCode = "sellers_json_detected"
 	SensitiveConfigDetectedCode IssueCode = "sensitive_config_detected"
@@ -1996,6 +1997,16 @@ var issueTemplates = []IssueTemplate{
 		Title:       "Exposed Secrets in Javascript",
 		Description: "The application appears to contain sensitive data, such as API keys, passwords or cryptographic keys, directly within the JavaScript code. This exposure can lead to critical vulnerabilities as it provides potential attackers with sensitive details that can be used to exploit the application or other related systems.",
 		Remediation: "To mitigate this issue, never hard-code secrets into your JavaScript or any other client-side code. Instead, store secrets server-side and ensure they are securely transmitted and only to authenticated and authorized entities. Implement strict access controls and consider using secret management solutions. Regular code reviews can help to identify and remove any accidentally committed secrets.",
+		Cwe:         615,
+		Severity:    "Medium",
+		References: []string{
+		},
+	},
+	{
+		Code:        SecretsInJsonCode,
+		Title:       "Exposed Secrets in JSON Response",
+		Description: "The application returns sensitive data, such as API keys, passwords or cryptographic keys, within a JSON API response. This exposure can lead to critical vulnerabilities as it provides potential attackers with sensitive details that can be used to exploit the application or other related systems.",
+		Remediation: "To mitigate this issue, never include secrets in JSON responses served to clients. Store secrets server-side and ensure they are securely transmitted and only to authenticated and authorized entities. Implement strict access controls and consider using secret management solutions. Regular code reviews can help to identify and remove any accidentally exposed secrets.",
 		Cwe:         615,
 		Severity:    "Medium",
 		References: []string{

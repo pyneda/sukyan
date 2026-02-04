@@ -369,7 +369,6 @@ func (d *DatabaseConnection) ClaimScanJob(workerID string) (*ScanJob, error) {
 			WHERE sj.status = ?
 			  AND s.status IN (?, ?)
 			  AND s.isolated = false
-			  AND (s.throttled_until IS NULL OR s.throttled_until < ?)
 			  AND (
 				s.max_concurrent_jobs IS NULL
 				OR (SELECT COUNT(*) FROM scan_jobs
@@ -384,7 +383,6 @@ func (d *DatabaseConnection) ClaimScanJob(workerID string) (*ScanJob, error) {
 		ScanJobStatusClaimed, workerID, now,
 		ScanJobStatusPending,
 		ScanStatusCrawling, ScanStatusScanning,
-		now,
 		ScanJobStatusClaimed, ScanJobStatusRunning,
 	).Scan(&job).Error
 
@@ -416,10 +414,9 @@ func (d *DatabaseConnection) ClaimScanJobForScan(workerID string, scanID uint) (
 			WHERE sj.status = ?
 			  AND sj.scan_id = ?
 			  AND s.status IN (?, ?)
-			  AND (s.throttled_until IS NULL OR s.throttled_until < ?)
 			  AND (
 				s.max_concurrent_jobs IS NULL
-				OR (SELECT COUNT(*) FROM scan_jobs 
+				OR (SELECT COUNT(*) FROM scan_jobs
 					WHERE scan_id = sj.scan_id AND status IN (?, ?)) < s.max_concurrent_jobs
 			  )
 			ORDER BY sj.priority DESC, sj.created_at ASC
@@ -432,7 +429,6 @@ func (d *DatabaseConnection) ClaimScanJobForScan(workerID string, scanID uint) (
 		ScanJobStatusPending,
 		scanID,
 		ScanStatusCrawling, ScanStatusScanning,
-		now,
 		ScanJobStatusClaimed, ScanJobStatusRunning,
 	).Scan(&job).Error
 

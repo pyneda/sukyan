@@ -1,13 +1,10 @@
 package api
 
 import (
-	"fmt"
-
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
-	pkgapi "github.com/pyneda/sukyan/pkg/api"
 	"github.com/pyneda/sukyan/pkg/passive"
 	"github.com/pyneda/sukyan/pkg/scan/manager"
 	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
@@ -199,7 +196,7 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 
 // FullScanHandler godoc
 // @Summary Submit URLs for full scanning
-// @Description Receives a list of URLs and other parameters and schedules them for a full scan. Supports API-only scans with definition_ids or inline_imports.
+// @Description Receives a list of URLs and other parameters and schedules them for a full scan. Supports API-only scans with definition_configs.
 // @Tags Scan
 // @Accept  json
 // @Produce  json
@@ -233,49 +230,33 @@ func FullScanHandler(c *fiber.Ctx) error {
 	}
 
 	hasURLs := len(input.StartURLs) > 0
-	hasAPIDefinitions := len(input.APIScanOptions.DefinitionIDs) > 0
-	hasInlineImports := len(input.APIScanOptions.InlineImports) > 0
+	hasAPIDefinitions := len(input.APIScanOptions.DefinitionConfigs) > 0
 
-	if !hasURLs && !hasAPIDefinitions && !hasInlineImports {
+	if !hasURLs && !hasAPIDefinitions {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "No scan targets provided",
-			Message: "Either start_urls, api_scan_options.definition_ids, or api_scan_options.inline_imports must be provided",
+			Message: "Either start_urls or api_scan_options.definition_configs must be provided",
 		})
 	}
 
+	var definitionIDs []uuid.UUID
 	if hasAPIDefinitions {
-		for _, defID := range input.APIScanOptions.DefinitionIDs {
-			def, err := db.Connection().GetAPIDefinitionByID(defID)
+		for _, cfg := range input.APIScanOptions.DefinitionConfigs {
+			def, err := db.Connection().GetAPIDefinitionByID(cfg.DefinitionID)
 			if err != nil {
 				return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 					Error:   "Invalid API definition",
-					Message: "API definition " + defID.String() + " not found",
+					Message: "API definition " + cfg.DefinitionID.String() + " not found",
 				})
 			}
 			if def.WorkspaceID != input.WorkspaceID {
 				return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 					Error:   "API definition workspace mismatch",
-					Message: "API definition " + defID.String() + " does not belong to the specified workspace",
+					Message: "API definition " + cfg.DefinitionID.String() + " does not belong to the specified workspace",
 				})
 			}
+			definitionIDs = append(definitionIDs, cfg.DefinitionID)
 		}
-	}
-
-	if hasInlineImports {
-		for _, imp := range input.APIScanOptions.InlineImports {
-			defID, err := processInlineAPIImport(imp, input.WorkspaceID)
-			if err != nil {
-				return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-					Error:   "Failed to import API definition",
-					Message: err.Error(),
-				})
-			}
-			input.APIScanOptions.DefinitionIDs = append(input.APIScanOptions.DefinitionIDs, defID)
-		}
-		input.APIScanOptions.InlineImports = nil
-	}
-
-	if len(input.APIScanOptions.DefinitionIDs) > 0 {
 		input.APIScanOptions.Enabled = true
 	}
 
@@ -314,16 +295,16 @@ func FullScanHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	if len(input.APIScanOptions.DefinitionIDs) > 0 {
-		if err := db.Connection().LinkAPIDefinitionsToScan(scan.ID, input.APIScanOptions.DefinitionIDs); err != nil {
+	if len(definitionIDs) > 0 {
+		if err := db.Connection().LinkAPIDefinitionsToScan(scan.ID, definitionIDs); err != nil {
 			log.Error().Err(err).Uint("scan_id", scan.ID).Msg("Failed to link API definitions to scan")
 		}
 	}
 
 	return c.JSON(fiber.Map{
-		"message":            "Full scan scheduled",
-		"scan_id":            scan.ID,
-		"api_definitions":    len(input.APIScanOptions.DefinitionIDs),
+		"message":         "Full scan scheduled",
+		"scan_id":         scan.ID,
+		"api_definitions": len(definitionIDs),
 	})
 }
 
@@ -482,29 +463,3 @@ func ActiveWebSocketScanHandler(c *fiber.Ctx) error {
 	})
 }
 
-func processInlineAPIImport(imp scan_options.InlineAPIImport, workspaceID uint) (uuid.UUID, error) {
-	fetched, err := pkgapi.FetchAPIContent(imp.URL, imp.Content, imp.Type)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("failed to fetch API content: %w", err)
-	}
-
-	if fetched.Type == "" {
-		return uuid.Nil, fmt.Errorf("unable to detect API type, please specify type parameter")
-	}
-
-	opts := pkgapi.ImportOptions{
-		WorkspaceID:  workspaceID,
-		Name:         imp.Name,
-		SourceURL:    fetched.SourceURL,
-		BaseURL:      imp.BaseURL,
-		Type:         string(fetched.Type),
-		AuthConfigID: imp.AuthConfigID,
-	}
-
-	definition, err := pkgapi.ImportAPIDefinition(fetched.Content, fetched.SourceURL, opts)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("failed to create API definition: %w", err)
-	}
-
-	return definition.ID, nil
-}

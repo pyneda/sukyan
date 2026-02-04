@@ -102,9 +102,9 @@ func (sm ScanMode) IsLowerOrEqual(other ScanMode) bool {
 func (sm ScanMode) MaxDiscoveryPathsPerModule() int {
 	switch sm {
 	case ScanModeFast:
-		return 4
+		return 20
 	case ScanModeSmart:
-		return 15
+		return -1
 	default:
 		return -1
 	}
@@ -178,25 +178,11 @@ type FullScanOptions struct {
 	PauseOnAuthFailure      bool                     `json:"pause_on_auth_failure"`
 }
 
-// InlineAuth allows configuring auth inline without persisting to DB
-type InlineAuth struct {
-	Type           string            `json:"type" validate:"required,oneof=none basic bearer api_key"`
-	Username       string            `json:"username,omitempty"`
-	Password       string            `json:"password,omitempty"`
-	Token          string            `json:"token,omitempty"`
-	TokenPrefix    string            `json:"token_prefix,omitempty"`
-	APIKeyName     string            `json:"api_key_name,omitempty"`
-	APIKeyValue    string            `json:"api_key_value,omitempty"`
-	APIKeyLocation string            `json:"api_key_location,omitempty" validate:"omitempty,oneof=header query cookie"`
-	CustomHeaders  map[string]string `json:"custom_headers,omitempty"`
-}
-
-// APIDefinitionScanConfig holds per-definition scan configuration
 type APIDefinitionScanConfig struct {
-	DefinitionID uuid.UUID   `json:"definition_id" validate:"required"`
-	EndpointIDs  []uuid.UUID `json:"endpoint_ids,omitempty"`   // Empty = all enabled endpoints
-	AuthConfigID *uuid.UUID  `json:"auth_config_id,omitempty"` // Override definition's auth
-	InlineAuth   *InlineAuth `json:"inline_auth,omitempty"`    // Or configure inline
+	DefinitionID  uuid.UUID            `json:"definition_id" validate:"required"`
+	EndpointIDs   []uuid.UUID          `json:"endpoint_ids,omitempty"`
+	AuthConfigID  *uuid.UUID           `json:"auth_config_id,omitempty"`
+	SchemeAuthMap map[string]uuid.UUID  `json:"scheme_auth_map,omitempty"`
 }
 
 type FullScanAPIScanOptions struct {
@@ -205,22 +191,7 @@ type FullScanAPIScanOptions struct {
 	RunStandardTests    bool `json:"run_standard_tests"`
 	RunSchemaTests      bool `json:"run_schema_tests"`
 
-	// Legacy: Simple list of definition IDs (backwards compatible)
-	DefinitionIDs []uuid.UUID `json:"definition_ids,omitempty"`
-
-	// Per-definition configuration with endpoint selection and auth override
 	DefinitionConfigs []APIDefinitionScanConfig `json:"definition_configs,omitempty"`
-
-	InlineImports []InlineAPIImport `json:"inline_imports,omitempty"`
-}
-
-type InlineAPIImport struct {
-	URL          string     `json:"url,omitempty" validate:"omitempty,url"`
-	Content      string     `json:"content,omitempty"`
-	Type         string     `json:"type" validate:"required,oneof=openapi graphql wsdl"`
-	BaseURL      string     `json:"base_url,omitempty"`
-	Name         string     `json:"name,omitempty"`
-	AuthConfigID *uuid.UUID `json:"auth_config_id,omitempty"`
 }
 
 type APIContext struct {

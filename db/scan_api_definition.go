@@ -90,6 +90,14 @@ func (d *DatabaseConnection) GetLinkedAPIDefinitionIDs(scanID uint) ([]uuid.UUID
 func (d *DatabaseConnection) HasLinkedAPIDefinitions(scanID uint) (bool, error) {
 	var count int64
 	err := d.db.Model(&ScanAPIDefinition{}).Where("scan_id = ?", scanID).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	if count > 0 {
+		return true, nil
+	}
+
+	err = d.db.Model(&APIDefinition{}).Where("scan_id = ? AND auto_discovered = true", scanID).Count(&count).Error
 	return count > 0, err
 }
 

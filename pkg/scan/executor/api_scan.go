@@ -48,6 +48,7 @@ type APIScanJobData struct {
 	RunStandardTests    bool                         `json:"run_standard_tests"`
 	RunSchemaTests      bool                         `json:"run_schema_tests"`
 	AuthConfigID        *uuid.UUID                   `json:"auth_config_id,omitempty"`
+	SchemeAuthMap       map[string]uuid.UUID         `json:"scheme_auth_map,omitempty"`
 	FingerprintTags     []string                     `json:"fingerprint_tags,omitempty"`
 	MaxRetries          int                          `json:"max_retries,omitempty"`
 }
@@ -125,7 +126,7 @@ func (e *APIScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *co
 	})
 
 	var authConfig *db.APIAuthConfig
-	if jobData.AuthConfigID != nil {
+	if len(jobData.SchemeAuthMap) == 0 && jobData.AuthConfigID != nil {
 		authConfig, err = db.Connection().GetAPIAuthConfigByIDWithRelations(*jobData.AuthConfigID)
 		if err != nil {
 			taskLog.Warn().Err(err).Msg("Failed to get auth config, proceeding without authentication")
@@ -142,7 +143,7 @@ func (e *APIScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *co
 		return context.Canceled
 	}
 
-	history, err := e.buildAndExecuteRequest(ctx, definition, endpoint, authConfig, httpClient, job)
+	history, err := e.buildAndExecuteRequest(ctx, definition, endpoint, authConfig, httpClient, job, jobData.SchemeAuthMap)
 	if err != nil {
 		if errors.Is(err, errScanPausedAuth) {
 			taskLog.Info().Msg("Job stopped: scan was paused due to auth failures")
@@ -185,7 +186,7 @@ func (e *APIScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *co
 		}
 
 		auditCategories := jobData.AuditCategories
-		if auditCategories.ClientSide && jobData.Mode != scan_options.ScanModeFuzz && !http_utils.CanRenderClientSideContent(history.ResponseContentType) {
+		if auditCategories.ClientSide && jobData.Mode != scan_options.ScanModeFuzz && history.ResponseContentType != "" && !http_utils.CanRenderClientSideContent(history.ResponseContentType) {
 			taskLog.Debug().
 				Str("content_type", history.ResponseContentType).
 				Msg("Disabling client-side audit categories for non-renderable API response")
@@ -252,6 +253,7 @@ func (e *APIScanExecutor) buildAndExecuteRequest(
 	authConfig *db.APIAuthConfig,
 	httpClient *http.Client,
 	job *db.ScanJob,
+	schemeAuthMap map[string]uuid.UUID,
 ) (*db.History, error) {
 	taskLog := log.With().
 		Uint("scan_id", job.ScanID).
@@ -265,6 +267,24 @@ func (e *APIScanExecutor) buildAndExecuteRequest(
 	}
 	if operation == nil {
 		return nil, fmt.Errorf("no matching operation found for endpoint %s %s", endpoint.Method, endpoint.Path)
+	}
+
+	if len(schemeAuthMap) > 0 {
+		resolvedID := e.resolveAuthForOperation(operation, schemeAuthMap)
+		if resolvedID != nil {
+			resolved, resolveErr := db.Connection().GetAPIAuthConfigByIDWithRelations(*resolvedID)
+			if resolveErr != nil {
+				taskLog.Warn().Err(resolveErr).Msg("Failed to get resolved auth config for operation, proceeding without auth")
+			} else {
+				authConfig = resolved
+			}
+		} else {
+			taskLog.Debug().
+				Str("path", operation.Path).
+				Str("method", operation.Method).
+				Msg("No auth config resolved for operation, endpoint may be public")
+			authConfig = nil
+		}
 	}
 
 	req, err := e.buildRequestFromOperation(ctx, definition.Type, operation, graphqlSchema)
@@ -442,6 +462,28 @@ func (e *APIScanExecutor) applyAuthToRequest(req *http.Request, authConfig *db.A
 	for _, header := range authConfig.CustomHeaders {
 		req.Header.Set(header.HeaderName, header.HeaderValue)
 	}
+}
+
+func (e *APIScanExecutor) resolveAuthForOperation(operation *apicore.Operation, schemeAuthMap map[string]uuid.UUID) *uuid.UUID {
+	if len(schemeAuthMap) == 0 || operation == nil {
+		return nil
+	}
+
+	if len(operation.Security) == 0 {
+		return nil
+	}
+
+	for _, req := range operation.Security {
+		if id, ok := schemeAuthMap[req.Name]; ok {
+			return &id
+		}
+	}
+
+	log.Debug().
+		Str("path", operation.Path).
+		Str("method", operation.Method).
+		Msg("No matching auth config found in scheme map for operation security requirements")
+	return nil
 }
 
 func (e *APIScanExecutor) buildAPITestOptions(

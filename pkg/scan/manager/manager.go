@@ -1319,7 +1319,16 @@ func (sm *ScanManager) ScheduleAPIScan(ctx context.Context, scanID uint) error {
 			continue
 		}
 
-		authConfigID := sm.resolveAuthForScan(config, definition, scanEntity.WorkspaceID, scanID)
+		var schemeAuthMap map[string]uuid.UUID
+		var authConfigID *uuid.UUID
+
+		if config != nil && len(config.SchemeAuthMap) > 0 {
+			schemeAuthMap = config.SchemeAuthMap
+		} else if config != nil && config.AuthConfigID != nil {
+			authConfigID = config.AuthConfigID
+		} else {
+			authConfigID = definition.AuthConfigID
+		}
 
 		apiScan := &db.APIScan{
 			ScanID:              scanID,
@@ -1356,7 +1365,7 @@ func (sm *ScanManager) ScheduleAPIScan(ctx context.Context, scanID uint) error {
 				continue
 			}
 
-			if err := sm.scheduleAPIScanForEndpointWithAuth(scanID, scanEntity.WorkspaceID, definition, endpoint, apiScan, scanEntity, authConfigID); err != nil {
+			if err := sm.scheduleAPIScanForEndpointWithAuth(scanID, scanEntity.WorkspaceID, definition, endpoint, apiScan, scanEntity, authConfigID, schemeAuthMap); err != nil {
 				log.Warn().Err(err).
 					Str("endpoint_id", endpoint.ID.String()).
 					Str("path", endpoint.Path).
@@ -1384,14 +1393,6 @@ func (sm *ScanManager) buildDefinitionConfigMap(opts options.FullScanAPIScanOpti
 		configs[cfg.DefinitionID] = cfg
 	}
 
-	for _, defID := range opts.DefinitionIDs {
-		if _, exists := configs[defID]; !exists {
-			configs[defID] = &options.APIDefinitionScanConfig{
-				DefinitionID: defID,
-			}
-		}
-	}
-
 	return configs
 }
 
@@ -1402,67 +1403,6 @@ func (sm *ScanManager) getEndpointsForScanConfig(definitionID uuid.UUID, config 
 	return sm.dbConn.GetEnabledAPIEndpointsByDefinitionID(definitionID)
 }
 
-func (sm *ScanManager) resolveAuthForScan(config *options.APIDefinitionScanConfig, definition *db.APIDefinition, workspaceID uint, scanID uint) *uuid.UUID {
-	if config == nil {
-		return definition.AuthConfigID
-	}
-
-	if config.InlineAuth != nil {
-		tempAuth := sm.createTempAuthConfig(config.InlineAuth, workspaceID, scanID)
-		if tempAuth != nil {
-			return &tempAuth.ID
-		}
-	}
-
-	if config.AuthConfigID != nil {
-		return config.AuthConfigID
-	}
-
-	return definition.AuthConfigID
-}
-
-func (sm *ScanManager) createTempAuthConfig(inlineAuth *options.InlineAuth, workspaceID uint, scanID uint) *db.APIAuthConfig {
-	authType := db.APIAuthType(inlineAuth.Type)
-	if authType == "" || (authType == "none" && len(inlineAuth.CustomHeaders) == 0) {
-		return nil
-	}
-
-	config := &db.APIAuthConfig{
-		WorkspaceID:    workspaceID,
-		Name:           fmt.Sprintf("Scan %d inline auth", scanID),
-		Type:           authType,
-		Username:       inlineAuth.Username,
-		Password:       inlineAuth.Password,
-		Token:          inlineAuth.Token,
-		TokenPrefix:    inlineAuth.TokenPrefix,
-		APIKeyName:     inlineAuth.APIKeyName,
-		APIKeyValue:    inlineAuth.APIKeyValue,
-		APIKeyLocation: db.APIKeyLocation(inlineAuth.APIKeyLocation),
-	}
-
-	created, err := sm.dbConn.CreateAPIAuthConfig(config)
-	if err != nil {
-		log.Warn().Err(err).Msg("Failed to create temporary auth config")
-		return nil
-	}
-
-	if len(inlineAuth.CustomHeaders) > 0 {
-		var headers []*db.APIAuthHeader
-		for name, value := range inlineAuth.CustomHeaders {
-			headers = append(headers, &db.APIAuthHeader{
-				AuthConfigID: created.ID,
-				HeaderName:   name,
-				HeaderValue:  value,
-			})
-		}
-		if err := sm.dbConn.CreateAPIAuthHeaders(headers); err != nil {
-			log.Warn().Err(err).Msg("Failed to create custom headers for temp auth config")
-		}
-	}
-
-	return created
-}
-
 func (sm *ScanManager) scheduleAPIScanForEndpointWithAuth(
 	scanID uint,
 	workspaceID uint,
@@ -1471,6 +1411,7 @@ func (sm *ScanManager) scheduleAPIScanForEndpointWithAuth(
 	apiScan *db.APIScan,
 	scanEntity *db.Scan,
 	authConfigID *uuid.UUID,
+	schemeAuthMap map[string]uuid.UUID,
 ) error {
 	targetHost := ""
 	baseURL := definition.BaseURL
@@ -1498,6 +1439,7 @@ func (sm *ScanManager) scheduleAPIScanForEndpointWithAuth(
 		RunStandardTests:    apiScan.RunStandardTests,
 		RunSchemaTests:      apiScan.RunSchemaTests,
 		AuthConfigID:        authConfigID,
+		SchemeAuthMap:       schemeAuthMap,
 		FingerprintTags:     fingerprintTags,
 		MaxRetries:          scanEntity.Options.MaxRetries,
 	}

@@ -27,14 +27,15 @@ type CreateAPIDefinitionInput struct {
 }
 
 type StartAPIDefinitionScanInput struct {
-	EndpointIDs         []uuid.UUID `json:"endpoint_ids" validate:"omitempty"`
-	Mode                string      `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
-	RunAPISpecificTests *bool       `json:"run_api_specific_tests"`
-	RunStandardTests    *bool       `json:"run_standard_tests"`
-	ServerSideChecks    *bool       `json:"server_side_checks"`
-	ClientSideChecks    *bool       `json:"client_side_checks"`
-	PassiveChecks       *bool       `json:"passive_checks"`
-	AuthConfigID        *uuid.UUID  `json:"auth_config_id" validate:"omitempty"`
+	EndpointIDs         []uuid.UUID          `json:"endpoint_ids" validate:"omitempty"`
+	Mode                string               `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
+	RunAPISpecificTests *bool                `json:"run_api_specific_tests"`
+	RunStandardTests    *bool                `json:"run_standard_tests"`
+	ServerSideChecks    *bool                `json:"server_side_checks"`
+	ClientSideChecks    *bool                `json:"client_side_checks"`
+	PassiveChecks       *bool                `json:"passive_checks"`
+	AuthConfigID        *uuid.UUID           `json:"auth_config_id" validate:"omitempty"`
+	SchemeAuthMap       map[string]uuid.UUID `json:"scheme_auth_map,omitempty"`
 }
 
 type UpdateAPIDefinitionInput struct {
@@ -598,14 +599,20 @@ func StartAPIDefinitionScan(c *fiber.Ctx) error {
 
 	db.Connection().MarkAPIScanStarted(apiScan.ID)
 
-	authConfigID := definition.AuthConfigID
-	if input.AuthConfigID != nil {
+	var schemeAuthMap map[string]uuid.UUID
+	var authConfigID *uuid.UUID
+
+	if len(input.SchemeAuthMap) > 0 {
+		schemeAuthMap = input.SchemeAuthMap
+	} else if input.AuthConfigID != nil {
 		authConfigID = input.AuthConfigID
+	} else {
+		authConfigID = definition.AuthConfigID
 	}
 
 	jobsScheduled := 0
 	for _, endpoint := range endpoints {
-		if err := scheduleAPIScanJob(scan, definition, endpoint, apiScan, mode, auditCategories, runAPISpecificTests, runStandardTests, authConfigID); err != nil {
+		if err := scheduleAPIScanJob(scan, definition, endpoint, apiScan, mode, auditCategories, runAPISpecificTests, runStandardTests, authConfigID, schemeAuthMap); err != nil {
 			log.Warn().Err(err).Str("endpoint_id", endpoint.ID.String()).Msg("Failed to schedule API scan job")
 			continue
 		}
@@ -638,6 +645,7 @@ func scheduleAPIScanJob(
 	runAPISpecificTests bool,
 	runStandardTests bool,
 	authConfigID *uuid.UUID,
+	schemeAuthMap map[string]uuid.UUID,
 ) error {
 	baseURL := definition.BaseURL
 	if baseURL == "" {
@@ -655,6 +663,7 @@ func scheduleAPIScanJob(
 		RunAPISpecificTests: runAPISpecificTests,
 		RunStandardTests:    runStandardTests,
 		AuthConfigID:        authConfigID,
+		SchemeAuthMap:       schemeAuthMap,
 		MaxRetries:          3,
 	}
 	payload, _ := json.Marshal(jobData)
@@ -895,7 +904,9 @@ func ImportAndScanAPIDefinition(c *fiber.Ctx) error {
 			RunAPISpecificTests: runAPISpecificTests,
 			RunStandardTests:    runStandardTests,
 			RunSchemaTests:      runSchemaTests,
-			DefinitionIDs:       []uuid.UUID{definition.ID},
+			DefinitionConfigs: []options.APIDefinitionScanConfig{
+				{DefinitionID: definition.ID},
+			},
 		},
 		PagesPoolSize: 1,
 		MaxRetries:    3,

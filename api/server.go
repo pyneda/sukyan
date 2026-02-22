@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -20,6 +21,7 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
+	"github.com/pyneda/sukyan/pkg/proxy"
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -60,6 +62,12 @@ func StartAPI() {
 	// Initialize the scan manager (orchestrator / Scan Engine V2)
 	if err := InitScanManager(interactionsManager, generators); err != nil {
 		apiLogger.Warn().Err(err).Msg("Failed to initialize scan manager - orchestrator scans will not be available")
+	}
+
+	// Initialize proxy manager
+	proxyManager := proxy.NewProxyManager()
+	if err := proxyManager.StartAllEnabled(context.Background()); err != nil {
+		apiLogger.Warn().Err(err).Msg("Failed to start enabled proxies")
 	}
 
 	apiLogger.Info().Msg("Initialized everything. Starting the API...")
@@ -136,6 +144,7 @@ func StartAPI() {
 	api.Get("/playground/sessions/:id", JWTProtected(), GetPlaygroundSession)
 	api.Get("/playground/sessions", JWTProtected(), ListPlaygroundSessions)
 	api.Post("/playground/sessions", JWTProtected(), CreatePlaygroundSession)
+	api.Put("/playground/collections/:id", JWTProtected(), UpdatePlaygroundCollection)
 	api.Put("/playground/sessions/:id", JWTProtected(), UpdatePlaygroundSession)
 	api.Get("/playground/wordlists", JWTProtected(), ListAvailableWordlists)
 
@@ -215,6 +224,8 @@ func StartAPI() {
 	// Scans endpoints (Scan Engine V2 / Orchestrator)
 	scans_app := api.Group("/scans")
 	scans_app.Get("", JWTProtected(), ListScansHandler)
+	scans_app.Post("/pause-all", JWTProtected(), PauseAllScansHandler)
+	scans_app.Post("/resume-all", JWTProtected(), ResumeAllScansHandler)
 	scans_app.Get("/:id", JWTProtected(), GetScanHandler)
 	scans_app.Patch("/:id", JWTProtected(), UpdateScanHandler)
 	scans_app.Delete("/:id", JWTProtected(), DeleteScanHandler)
@@ -226,6 +237,27 @@ func StartAPI() {
 	scans_app.Post("/:id/jobs/:job_id/cancel", JWTProtected(), CancelScanJobHandler)
 	scans_app.Get("/:id/stats", JWTProtected(), GetScanStatsHandler)
 	scans_app.Post("/:id/schedule-items", JWTProtected(), ScheduleHistoryItemScansHandler)
+
+	// Proxy services endpoints
+	// Workspace-scoped proxy services (need proxyManager access)
+	api.Post("/workspaces/:workspaceId/proxy-services", JWTProtected(), CreateProxyService)
+	api.Get("/workspaces/:workspaceId/proxy-services", JWTProtected(), func(c *fiber.Ctx) error {
+		c.Locals("proxyManager", proxyManager)
+		return ListProxyServices(c)
+	})
+
+	// Proxy services management (with middleware for proxy manager access)
+	proxy_services := api.Group("/proxy-services")
+	proxy_services.Use(func(c *fiber.Ctx) error {
+		c.Locals("proxyManager", proxyManager)
+		return c.Next()
+	})
+	proxy_services.Get("/:id", JWTProtected(), GetProxyService)
+	proxy_services.Patch("/:id", JWTProtected(), UpdateProxyService)
+	proxy_services.Delete("/:id", JWTProtected(), DeleteProxyService)
+	proxy_services.Post("/:id/start", JWTProtected(), StartProxyService)
+	proxy_services.Post("/:id/stop", JWTProtected(), StopProxyService)
+	proxy_services.Post("/:id/restart", JWTProtected(), RestartProxyService)
 
 	// Dashboard endpoints (separate from API using basic auth)
 	if viper.GetBool("api.dashboard.enabled") {
@@ -286,14 +318,23 @@ func StartAPI() {
 		apiLogger.Info().Msg("Scan manager stopped")
 	}
 
-	// 3. Stop interactions manager
+	// 3. Stop proxy manager
+	if proxyManager != nil {
+		apiLogger.Info().Msg("Stopping proxy manager...")
+		if err := proxyManager.Shutdown(); err != nil {
+			apiLogger.Error().Err(err).Msg("Error shutting down proxy manager")
+		}
+		apiLogger.Info().Msg("Proxy manager stopped")
+	}
+
+	// 4. Stop interactions manager
 	if interactionsManager != nil {
 		apiLogger.Info().Msg("Stopping interactions manager...")
 		interactionsManager.Stop()
 		apiLogger.Info().Msg("Interactions manager stopped")
 	}
 
-	// 4. Cleanup database connections
+	// 5. Cleanup database connections
 	db.Cleanup()
 
 	apiLogger.Info().Msg("Graceful shutdown completed")

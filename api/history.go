@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 
 	"github.com/gofiber/fiber/v2"
@@ -163,6 +164,18 @@ func FindHistory(c *fiber.Ctx) error {
 		})
 	}
 
+	var proxyServiceID *uuid.UUID
+	if proxyServiceIDStr := c.Query("proxy_service_id"); proxyServiceIDStr != "" {
+		parsedID, err := parseUUID(proxyServiceIDStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Invalid proxy service ID",
+				"message": "The provided proxy_service_id is not a valid UUID",
+			})
+		}
+		proxyServiceID = &parsedID
+	}
+
 	var statusCodes []int
 	var httpMethods []string
 	var sources []string
@@ -231,6 +244,7 @@ func FindHistory(c *fiber.Ctx) error {
 		ScanJobID:           scanJobID,
 		IDs:                 filterIDs,
 		PlaygroundSessionID: playgroundSession,
+		ProxyServiceID:      proxyServiceID,
 	}
 	validate := validator.New()
 	if err := validate.Struct(filters); err != nil {

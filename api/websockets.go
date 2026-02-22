@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
@@ -76,6 +77,18 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 		})
 	}
 
+	var proxyServiceID *uuid.UUID
+	if proxyServiceIDStr := c.Query("proxy_service_id"); proxyServiceIDStr != "" {
+		parsedID, err := parseUUID(proxyServiceIDStr)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Invalid proxy service ID",
+				"message": "The provided proxy_service_id is not a valid UUID",
+			})
+		}
+		proxyServiceID = &parsedID
+	}
+
 	if unparsedSources != "" {
 		for _, source := range strings.Split(unparsedSources, ",") {
 			if db.IsValidSource(source) {
@@ -90,11 +103,12 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 			Page:     page,
 			PageSize: pageSize,
 		},
-		WorkspaceID: workspaceID,
-		TaskID:      taskID,
-		ScanID:      scanID,
-		ScanJobID:   scanJobID,
-		Sources:     sources,
+		WorkspaceID:    workspaceID,
+		TaskID:         taskID,
+		ScanID:         scanID,
+		ScanJobID:      scanJobID,
+		ProxyServiceID: proxyServiceID,
+		Sources:        sources,
 	})
 
 	if err != nil {

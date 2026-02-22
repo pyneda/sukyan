@@ -309,6 +309,7 @@ type HistoryFilter struct {
 	TaskID               uint       `json:"task_id" validate:"omitempty,numeric"`
 	IDs                  []uint     `json:"ids" validate:"omitempty,dive,numeric"`
 	PlaygroundSessionID  uint       `json:"playground_session_id" validate:"omitempty,numeric"`
+	ProxyServiceID       *uuid.UUID `json:"proxy_service_id,omitempty"`
 	CreatedAfter         *time.Time `json:"created_after,omitempty"`
 	CreatedBefore        *time.Time `json:"created_before,omitempty"`
 }
@@ -354,6 +355,9 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 	}
 	if filter.PlaygroundSessionID > 0 {
 		query = query.Where("playground_session_id = ?", filter.PlaygroundSessionID)
+	}
+	if filter.ProxyServiceID != nil {
+		query = query.Where("proxy_service_id = ?", filter.ProxyServiceID)
 	}
 
 	if filter.CreatedAfter != nil {

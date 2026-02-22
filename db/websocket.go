@@ -290,11 +290,12 @@ func (d *DatabaseConnection) UpdateWebSocketConnection(connection *WebSocketConn
 
 type WebSocketConnectionFilter struct {
 	Pagination
-	WorkspaceID uint     `json:"workspace_id" validate:"required"`
-	TaskID      uint     `json:"task_id"`
-	ScanID      uint     `json:"scan_id"`
-	ScanJobID   uint     `json:"scan_job_id"`
-	Sources     []string `json:"sources" validate:"omitempty,dive,ascii"`
+	WorkspaceID    uint       `json:"workspace_id" validate:"required"`
+	TaskID         uint       `json:"task_id"`
+	ScanID         uint       `json:"scan_id"`
+	ScanJobID      uint       `json:"scan_job_id"`
+	ProxyServiceID *uuid.UUID `json:"proxy_service_id,omitempty"`
+	Sources        []string   `json:"sources" validate:"omitempty,dive,ascii"`
 }
 
 func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnectionFilter) ([]WebSocketConnection, int64, error) {
@@ -314,6 +315,9 @@ func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnection
 	}
 	if filter.ScanJobID > 0 {
 		query = query.Where("scan_job_id = ?", filter.ScanJobID)
+	}
+	if filter.ProxyServiceID != nil {
+		query = query.Where("proxy_service_id = ?", filter.ProxyServiceID)
 	}
 
 	var connections []WebSocketConnection

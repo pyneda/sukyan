@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
@@ -30,6 +32,7 @@ type Proxy struct {
 	Verbose               bool
 	LogOutOfScopeRequests bool
 	WorkspaceID           uint
+	ProxyServiceID        uuid.UUID
 	wsConnections         sync.Map
 }
 
@@ -76,14 +79,13 @@ func (p *Proxy) SetCA() error {
 	return setCA(caCert, caKey)
 }
 
-func (p *Proxy) Run() {
+func (p *Proxy) RunWithContext(ctx context.Context) error {
 	err := p.SetCA()
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to set CA")
-		return
+		return fmt.Errorf("failed to set CA: %w", err)
 	}
 	listenAddress := fmt.Sprintf("%s:%d", p.Host, p.Port)
-	log.Info().Str("address", listenAddress).Uint("workspace", p.WorkspaceID).Msg("Proxy starting up")
+	log.Info().Str("address", listenAddress).Uint("workspace", p.WorkspaceID).Str("proxy_service_id", p.ProxyServiceID.String()).Msg("Proxy starting up")
 	proxy := goproxy.NewProxyHttpServer()
 	proxy.Verbose = p.Verbose
 
@@ -180,6 +182,7 @@ func (p *Proxy) Run() {
 				TaskID:              0,
 				CreateNewBodyStream: true,
 				IsWebSocketUpgrade:  isWebSocketUpgrade,
+				ProxyServiceID:      &p.ProxyServiceID,
 			}
 
 			history, err := http_utils.ReadHttpResponseAndCreateHistory(ctx.Resp, options)
@@ -227,8 +230,41 @@ func (p *Proxy) Run() {
 			return resp
 		},
 	)
-	if err := http.ListenAndServe(listenAddress, proxy); err != nil {
-		log.Fatal().Err(err).Msg("Proxy startup failed")
+
+	// Create HTTP server
+	server := &http.Server{
+		Addr:    listenAddress,
+		Handler: proxy,
+	}
+
+	// Start server in goroutine
+	serverErr := make(chan error, 1)
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErr <- err
+		}
+	}()
+
+	// Wait for context cancellation or server error
+	select {
+	case <-ctx.Done():
+		log.Info().Str("proxy_service_id", p.ProxyServiceID.String()).Msg("Shutting down proxy")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Error().Err(err).Msg("Proxy shutdown error")
+			return err
+		}
+		return nil
+	case err := <-serverErr:
+		return err
+	}
+}
+
+func (p *Proxy) Run() {
+	ctx := context.Background()
+	if err := p.RunWithContext(ctx); err != nil {
+		log.Fatal().Err(err).Msg("Proxy failed")
 	}
 }
 
@@ -254,6 +290,7 @@ func (p *Proxy) createWebSocketConnection(resp *http.Response, history *db.Histo
 		StatusCode:       resp.StatusCode,
 		StatusText:       resp.Status,
 		WorkspaceID:      &p.WorkspaceID,
+		ProxyServiceID:   &p.ProxyServiceID,
 		Source:           db.SourceProxy,
 		UpgradeRequestID: &history.ID,
 	}

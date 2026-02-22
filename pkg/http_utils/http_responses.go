@@ -12,6 +12,7 @@ import (
 	"net/http/httputil"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 )
@@ -111,6 +112,7 @@ type HistoryCreationOptions struct {
 	PlaygroundSessionID uint
 	TaskJobID           uint
 	IsWebSocketUpgrade  bool
+	ProxyServiceID      *uuid.UUID
 }
 
 func ReadHttpResponseAndCreateHistory(response *http.Response, options HistoryCreationOptions) (*db.History, error) {
@@ -214,6 +216,7 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		PlaygroundSessionID: playgroundSessionID,
 		Proto:               response.Proto,
 		IsWebSocketUpgrade:  options.IsWebSocketUpgrade || response.StatusCode == http.StatusSwitchingProtocols,
+		ProxyServiceID:      options.ProxyServiceID,
 	}
 	return db.Connection().CreateHistory(&record)
 }

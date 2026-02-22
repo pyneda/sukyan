@@ -100,9 +100,22 @@ func (pm *ProxyManager) StartProxy(ctx context.Context, proxyServiceID uuid.UUID
 			Uint("workspace_id", *service.WorkspaceID).
 			Msg("Starting proxy instance")
 
-		// STUB: Wait for context cancellation since RunWithContext doesn't exist yet (Task 6)
-		// TODO: Replace with actual proxy.RunWithContext(proxyCtx) in Task 6
-		<-proxyCtx.Done()
+		// Create proxy instance
+		proxy := &Proxy{
+			Host:           service.Host,
+			Port:           service.Port,
+			Verbose:        false, // TODO: Make this configurable via ProxyService
+			WorkspaceID:    *service.WorkspaceID,
+			ProxyServiceID: service.ID,
+		}
+
+		// Run proxy with context
+		if err := proxy.RunWithContext(proxyCtx); err != nil {
+			log.Error().
+				Err(err).
+				Str("proxy_id", proxyServiceID.String()).
+				Msg("Proxy run error")
+		}
 
 		log.Info().
 			Str("proxy_id", proxyServiceID.String()).

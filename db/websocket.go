@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/lib"
 
 	"github.com/rs/zerolog/log"
@@ -34,6 +35,8 @@ type WebSocketConnection struct {
 	UpgradeRequestID *uint              `json:"upgrade_request_id" gorm:"index"`
 	UpgradeRequest   History            `json:"-" gorm:"foreignKey:UpgradeRequestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	JsonWebTokens    []JsonWebToken     `json:"json_web_tokens" gorm:"many2many:json_web_token_websocket_connections;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ProxyServiceID   *uuid.UUID         `json:"proxy_service_id" gorm:"type:uuid;index"`
+	ProxyService     *ProxyService      `json:"-" gorm:"foreignKey:ProxyServiceID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 func (c WebSocketConnection) TaskTitle() string {
@@ -241,7 +244,7 @@ func (d *DatabaseConnection) GetWebSocketConnection(id uint) (*WebSocketConnecti
 	var connection WebSocketConnection
 	err := d.db.Preload("Messages", func(db *gorm.DB) *gorm.DB {
 		return db.Order("id ASC")
-	}).Preload("UpgradeRequest").First(&connection, id).Error
+	}).Preload("UpgradeRequest").Preload("ProxyService").First(&connection, id).Error
 	return &connection, err
 }
 

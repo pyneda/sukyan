@@ -5,7 +5,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"gorm.io/gorm"
 )
 
 // ProxyService represents a managed proxy instance
@@ -45,6 +44,18 @@ func (p ProxyService) TableRow() []string {
 	}
 }
 
+// validatePort validates that a port is in the valid range (1-65535)
+// and logs a warning for privileged ports (< 1024)
+func validatePort(port int) error {
+	if port < 1 || port > 65535 {
+		return fmt.Errorf("invalid port %d: must be between 1 and 65535", port)
+	}
+	if port < 1024 {
+		log.Warn().Int("port", port).Msg("Using privileged port (< 1024), may require elevated permissions")
+	}
+	return nil
+}
+
 // CreateProxyService creates a new proxy service
 func (conn *DatabaseConnection) CreateProxyService(proxyService *ProxyService) (*ProxyService, error) {
 	result := conn.db.Create(proxyService)
@@ -69,9 +80,6 @@ func (conn *DatabaseConnection) GetProxyServiceByID(id uuid.UUID) (*ProxyService
 func (conn *DatabaseConnection) GetProxyServiceByPort(port int) (*ProxyService, error) {
 	var proxyService ProxyService
 	if err := conn.db.Where("port = ?", port).First(&proxyService).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		log.Error().Err(err).Int("port", port).Msg("Unable to fetch proxy service by port")
 		return nil, err
 	}
@@ -114,6 +122,9 @@ func (conn *DatabaseConnection) UpdateProxyService(id uuid.UUID, updates *ProxyS
 		proxyService.Host = updates.Host
 	}
 	if updates.Port != 0 {
+		if err := validatePort(updates.Port); err != nil {
+			return err
+		}
 		proxyService.Port = updates.Port
 	}
 	proxyService.Verbose = updates.Verbose
@@ -129,7 +140,7 @@ func (conn *DatabaseConnection) UpdateProxyService(id uuid.UUID, updates *ProxyS
 
 // DeleteProxyService deletes a proxy service
 func (conn *DatabaseConnection) DeleteProxyService(id uuid.UUID) error {
-	if err := conn.db.Where("id = ?", id).Delete(&ProxyService{}).Error; err != nil {
+	if err := conn.db.Delete(&ProxyService{}, "id = ?", id).Error; err != nil {
 		log.Error().Err(err).Str("id", id.String()).Msg("Unable to delete proxy service")
 		return err
 	}
@@ -138,9 +149,13 @@ func (conn *DatabaseConnection) DeleteProxyService(id uuid.UUID) error {
 
 // SetProxyServiceEnabled sets the enabled status of a proxy service
 func (conn *DatabaseConnection) SetProxyServiceEnabled(id uuid.UUID, enabled bool) error {
-	if err := conn.db.Model(&ProxyService{}).Where("id = ?", id).Update("enabled", enabled).Error; err != nil {
-		log.Error().Err(err).Str("id", id.String()).Bool("enabled", enabled).Msg("Unable to update proxy service enabled status")
-		return err
+	result := conn.db.Model(&ProxyService{}).Where("id = ?", id).Update("enabled", enabled)
+	if result.Error != nil {
+		log.Error().Err(result.Error).Str("id", id.String()).Bool("enabled", enabled).Msg("Unable to update proxy service enabled status")
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("proxy service with id %s not found", id.String())
 	}
 	return nil
 }

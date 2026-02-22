@@ -50,7 +50,7 @@ type History struct {
 	APIEndpointID   *uuid.UUID     `json:"api_endpoint_id,omitempty" gorm:"type:uuid;index"`
 	APIEndpoint     *APIEndpoint   `json:"-" gorm:"foreignKey:APIEndpointID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	ProxyServiceID  *uuid.UUID     `json:"proxy_service_id" gorm:"type:uuid;index"`
-	ProxyService    *ProxyService  `json:"proxy_service,omitempty" gorm:"foreignKey:ProxyServiceID"`
+	ProxyService    *ProxyService  `json:"-" gorm:"foreignKey:ProxyServiceID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 func (h History) TaskTitle() string {

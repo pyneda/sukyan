@@ -536,3 +536,41 @@ func TestHistoryWithProxyService(t *testing.T) {
 	assert.NotNil(t, fetched.ProxyService)
 	assert.Equal(t, "Test Proxy", fetched.ProxyService.Name)
 }
+
+func TestHistoryProxyServiceConstraints(t *testing.T) {
+	// Auto-migrate to ensure constraints are applied
+	err := Connection().DB().AutoMigrate(&History{})
+	require.NoError(t, err)
+
+	workspace := createTestWorkspace(t)
+	randomPort := 51000 + (int(workspace.ID) % 10000)
+
+	proxyService := &ProxyService{
+		WorkspaceID: &workspace.ID,
+		Name:        "Test Proxy Constraints",
+		Port:        randomPort,
+	}
+	created, err := Connection().CreateProxyService(proxyService)
+	require.NoError(t, err)
+
+	history := &History{
+		WorkspaceID:    &workspace.ID,
+		ProxyServiceID: &created.ID,
+		URL:            "https://example.com/constraint-test",
+		Method:         "GET",
+		StatusCode:     200,
+	}
+
+	createdHistory, err := Connection().CreateHistory(history)
+	require.NoError(t, err)
+	assert.Equal(t, created.ID, *createdHistory.ProxyServiceID)
+
+	// Test OnDelete:SET NULL constraint
+	err = Connection().DB().Delete(proxyService).Error
+	require.NoError(t, err)
+
+	// Verify proxy_service_id is now NULL
+	fetched, err := Connection().GetHistoryByID(createdHistory.ID)
+	require.NoError(t, err)
+	assert.Nil(t, fetched.ProxyServiceID, "ProxyServiceID should be NULL after proxy service deletion")
+}

@@ -49,6 +49,8 @@ type History struct {
 	APIDefinition   *APIDefinition `json:"-" gorm:"foreignKey:APIDefinitionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	APIEndpointID   *uuid.UUID     `json:"api_endpoint_id,omitempty" gorm:"type:uuid;index"`
 	APIEndpoint     *APIEndpoint   `json:"-" gorm:"foreignKey:APIEndpointID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	ProxyServiceID  *uuid.UUID     `json:"proxy_service_id" gorm:"type:uuid;index"`
+	ProxyService    *ProxyService  `json:"proxy_service,omitempty" gorm:"foreignKey:ProxyServiceID"`
 }
 
 func (h History) TaskTitle() string {
@@ -457,9 +459,15 @@ func (d *DatabaseConnection) GetHistoryFromURL(urlString string) (history Histor
 	return history, err
 }
 
-func (d *DatabaseConnection) GetHistoryByID(id uint) (*History, error) {
+func (d *DatabaseConnection) GetHistoryByID(id uint, preload ...bool) (*History, error) {
 	var history History
-	err := d.db.First(&history, id).Error
+	query := d.db
+
+	if len(preload) > 0 && preload[0] {
+		query = query.Preload("Task").Preload("ProxyService")
+	}
+
+	err := query.First(&history, id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("record not found")

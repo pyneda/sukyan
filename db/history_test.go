@@ -5,8 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pyneda/sukyan/lib"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetChildrenHistories(t *testing.T) {
@@ -486,4 +488,51 @@ func TestListHistory(t *testing.T) {
 	}
 	err = Connection().DeleteWorkspace(workspaceID)
 	assert.Nil(t, err)
+}
+
+func createTestWorkspace(t *testing.T) *Workspace {
+	workspace := &Workspace{
+		Code:  "test-history-" + lib.GenerateRandomLowercaseString(8),
+		Title: "Test Workspace",
+	}
+	created, err := Connection().CreateWorkspace(workspace)
+	require.NoError(t, err)
+	return created
+}
+
+func TestHistoryWithProxyService(t *testing.T) {
+	// Auto-migrate to add proxy_service_id column
+	err := Connection().DB().AutoMigrate(&History{})
+	require.NoError(t, err)
+
+	workspace := createTestWorkspace(t)
+
+	// Use a random high port to avoid conflicts
+	randomPort := 50000 + (int(workspace.ID) % 10000)
+
+	proxyService := &ProxyService{
+		WorkspaceID: &workspace.ID,
+		Name:        "Test Proxy",
+		Port:        randomPort,
+	}
+	created, err := Connection().CreateProxyService(proxyService)
+	require.NoError(t, err)
+
+	history := &History{
+		WorkspaceID:    &workspace.ID,
+		ProxyServiceID: &created.ID,
+		URL:            "https://example.com",
+		Method:         "GET",
+		StatusCode:     200,
+	}
+
+	createdHistory, err := Connection().CreateHistory(history)
+	require.NoError(t, err)
+	assert.Equal(t, created.ID, *createdHistory.ProxyServiceID)
+
+	// Fetch with preload
+	fetched, err := Connection().GetHistoryByID(createdHistory.ID, true)
+	require.NoError(t, err)
+	assert.NotNil(t, fetched.ProxyService)
+	assert.Equal(t, "Test Proxy", fetched.ProxyService.Name)
 }

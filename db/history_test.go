@@ -565,8 +565,8 @@ func TestHistoryProxyServiceConstraints(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, created.ID, *createdHistory.ProxyServiceID)
 
-	// Test OnDelete:SET NULL constraint
-	err = Connection().DB().Delete(proxyService).Error
+	// Test OnDelete:SET NULL constraint (use Unscoped to actually delete, not soft delete)
+	err = Connection().DB().Unscoped().Delete(proxyService).Error
 	require.NoError(t, err)
 
 	// Verify proxy_service_id is now NULL

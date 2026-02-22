@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
@@ -279,4 +280,8 @@ func parseCommaSeparatedStrings(input string) []string {
 		}
 	}
 	return result
+}
+
+func parseUUID(input string) (uuid.UUID, error) {
+	return uuid.Parse(input)
 }

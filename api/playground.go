@@ -390,6 +390,67 @@ func GetPlaygroundSession(c *fiber.Ctx) error {
 	return c.JSON(session)
 }
 
+// UpdatePlaygroundCollectionInput represents the input for updating a Playground Collection.
+type UpdatePlaygroundCollectionInput struct {
+	Name string `json:"name" validate:"required"`
+}
+
+// UpdatePlaygroundCollection updates a PlaygroundCollection by its ID.
+// @Summary Update Playground Collection by ID
+// @Description Update a playground collection by its ID
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param id path int true "Playground Collection ID"
+// @Param input body UpdatePlaygroundCollectionInput true "Update Playground Collection Input"
+// @Success 200 {object} db.PlaygroundCollection
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/collections/{id} [put]
+func UpdatePlaygroundCollection(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid ID",
+			"message": "The provided ID is not valid",
+		})
+	}
+
+	input := new(UpdatePlaygroundCollectionInput)
+	if err := c.BodyParser(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Cannot parse JSON",
+		})
+	}
+
+	if err := validate.Struct(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Validation failed",
+			"message": err.Error(),
+		})
+	}
+
+	collection, err := db.Connection().GetPlaygroundCollection(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error":   "Not Found",
+			"message": "Playground collection not found",
+		})
+	}
+
+	collection.Name = input.Name
+
+	if err := db.Connection().UpdatePlaygroundCollection(collection.ID, collection); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Failed to update playground collection",
+			"message": err.Error(),
+		})
+	}
+
+	return c.JSON(collection)
+}
+
 // UpdatePlaygroundSessionInput represents the input for updating a Playground Session.
 type UpdatePlaygroundSessionInput struct {
 	Name string `json:"name" validate:"required"`

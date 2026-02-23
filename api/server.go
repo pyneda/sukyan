@@ -33,7 +33,16 @@ import (
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
 // @name Authorization
-func StartAPI() {
+type APIServerOptions struct {
+	EnableProxyServices bool
+}
+
+func StartAPI(opts ...APIServerOptions) {
+	options := APIServerOptions{}
+	if len(opts) > 0 {
+		options = opts[0]
+	}
+
 	apiLogger := log.With().Str("type", "api").Logger()
 
 	apiLogger.Info().Msg("Initializing...")
@@ -64,10 +73,15 @@ func StartAPI() {
 		apiLogger.Warn().Err(err).Msg("Failed to initialize scan manager - orchestrator scans will not be available")
 	}
 
-	// Initialize proxy manager
-	proxyManager := proxy.NewProxyManager()
-	if err := proxyManager.StartAllEnabled(context.Background()); err != nil {
-		apiLogger.Warn().Err(err).Msg("Failed to start enabled proxies")
+	// Initialize proxy manager only if proxy services feature is enabled
+	var proxyManager *proxy.ProxyManager
+	if options.EnableProxyServices {
+		proxyManager = proxy.NewProxyManager()
+		if err := proxyManager.StartAllEnabled(context.Background()); err != nil {
+			apiLogger.Warn().Err(err).Msg("Failed to start enabled proxies")
+		}
+	} else {
+		apiLogger.Info().Msg("Proxy services management API endpoints are disabled (use --enable-proxy-services to enable)")
 	}
 
 	apiLogger.Info().Msg("Initialized everything. Starting the API...")
@@ -110,6 +124,8 @@ func StartAPI() {
 	}
 
 	api := app.Group("/api/v1")
+	apiCapabilities := BuildAPICapabilities(options)
+	api.Get("/capabilities", JWTProtected(), GetAPICapabilitiesHandler(apiCapabilities))
 	api.Get("/history", JWTProtected(), FindHistory)
 	api.Post("/history", JWTProtected(), FindHistoryPost)
 	api.Get("/history/:id", JWTProtected(), GetHistoryDetail)
@@ -238,26 +254,28 @@ func StartAPI() {
 	scans_app.Get("/:id/stats", JWTProtected(), GetScanStatsHandler)
 	scans_app.Post("/:id/schedule-items", JWTProtected(), ScheduleHistoryItemScansHandler)
 
-	// Proxy services endpoints
-	// Workspace-scoped proxy services (need proxyManager access)
-	api.Post("/workspaces/:workspaceId/proxy-services", JWTProtected(), CreateProxyService)
-	api.Get("/workspaces/:workspaceId/proxy-services", JWTProtected(), func(c *fiber.Ctx) error {
-		c.Locals("proxyManager", proxyManager)
-		return ListProxyServices(c)
-	})
+	// Proxy services endpoints (feature-flagged)
+	if options.EnableProxyServices {
+		// Workspace-scoped proxy services (need proxyManager access)
+		api.Post("/workspaces/:workspaceId/proxy-services", JWTProtected(), CreateProxyService)
+		api.Get("/workspaces/:workspaceId/proxy-services", JWTProtected(), func(c *fiber.Ctx) error {
+			c.Locals("proxyManager", proxyManager)
+			return ListProxyServices(c)
+		})
 
-	// Proxy services management (with middleware for proxy manager access)
-	proxy_services := api.Group("/proxy-services")
-	proxy_services.Use(func(c *fiber.Ctx) error {
-		c.Locals("proxyManager", proxyManager)
-		return c.Next()
-	})
-	proxy_services.Get("/:id", JWTProtected(), GetProxyService)
-	proxy_services.Patch("/:id", JWTProtected(), UpdateProxyService)
-	proxy_services.Delete("/:id", JWTProtected(), DeleteProxyService)
-	proxy_services.Post("/:id/start", JWTProtected(), StartProxyService)
-	proxy_services.Post("/:id/stop", JWTProtected(), StopProxyService)
-	proxy_services.Post("/:id/restart", JWTProtected(), RestartProxyService)
+		// Proxy services management (with middleware for proxy manager access)
+		proxy_services := api.Group("/proxy-services")
+		proxy_services.Use(func(c *fiber.Ctx) error {
+			c.Locals("proxyManager", proxyManager)
+			return c.Next()
+		})
+		proxy_services.Get("/:id", JWTProtected(), GetProxyService)
+		proxy_services.Patch("/:id", JWTProtected(), UpdateProxyService)
+		proxy_services.Delete("/:id", JWTProtected(), DeleteProxyService)
+		proxy_services.Post("/:id/start", JWTProtected(), StartProxyService)
+		proxy_services.Post("/:id/stop", JWTProtected(), StopProxyService)
+		proxy_services.Post("/:id/restart", JWTProtected(), RestartProxyService)
+	}
 
 	// Dashboard endpoints (separate from API using basic auth)
 	if viper.GetBool("api.dashboard.enabled") {

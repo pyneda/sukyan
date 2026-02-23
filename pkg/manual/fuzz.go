@@ -113,7 +113,7 @@ func Fuzz(input RequestFuzzOptions, taskID uint) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	// https://github.com/projectdiscovery/rawhttp/blob/acd587a6157ef709f2fb6ba25866bfffc28b7594/pipelineoptions.go#L20C5-L20C27
+
 	pipeOptions := rawhttp.PipelineOptions{
 		Host:                parsedUrl.Host,
 		Timeout:             30 * time.Second,
@@ -125,70 +125,82 @@ func Fuzz(input RequestFuzzOptions, taskID uint) (int, error) {
 		pipeOptions.Timeout = time.Duration(input.Options.Timeout) * time.Second
 	}
 
-	pipeClient := rawhttp.NewPipelineClient(pipeOptions)
-	// NOTE: Concurrency should be provided as option. Same as other pipeline options.
-	p := pool.New().WithMaxGoroutines(30)
-	scheduledRequests := 0
-
-	// Determine the smallest payload set
 	smallestPayloadSetSize := len(input.InsertionPoints[0].generatePayloads())
 	for _, point := range input.InsertionPoints {
 		if len(point.generatePayloads()) < smallestPayloadSetSize {
 			smallestPayloadSetSize = len(point.generatePayloads())
 		}
 	}
-	historyOptions := http_utils.HistoryCreationOptions{
-		Source:              db.SourceFuzzer,
-		WorkspaceID:         input.Session.WorkspaceID,
-		TaskID:              taskID,
-		CreateNewBodyStream: true,
-		PlaygroundSessionID: input.Session.ID,
-	}
-	// Generate and send fuzzed requests
-	for i := 0; i < smallestPayloadSetSize; i++ {
-		payloadsForThisRequest := make([]string, len(input.InsertionPoints))
-		for j, point := range input.InsertionPoints {
-			allPayloads := point.generatePayloads()
-			payloadsForThisRequest[j] = allPayloads[i]
+
+	scheduledRequests := smallestPayloadSetSize
+
+	go func() {
+		dbConn := db.Connection()
+		if err := dbConn.SetTaskStatus(taskID, string(db.TaskStatusRunning)); err != nil {
+			log.Error().Err(err).Uint("task_id", taskID).Msg("Failed to set task status to running")
 		}
-		p.Go(func() {
-			fuzzedRawRequest := replacePayloadsInRaw(input.Raw, input.InsertionPoints, payloadsForThisRequest)
-			log.Info().Msgf("Fuzzed request: %s", fuzzedRawRequest)
-			parsedRequest, err := ParseRawRequest(fuzzedRawRequest, input.URL)
-			if err != nil {
-				log.Error().Err(err).Msg("Error parsing fuzzed request")
-				return
-			}
-			log.Info().Interface("parsedRequest", parsedRequest).Msg("Parsed fuzzed request")
-			bodyReader := bytes.NewReader([]byte(parsedRequest.Body))
-			response, err := pipeClient.DoRaw(parsedRequest.Method, parsedRequest.URL, parsedRequest.URI, parsedRequest.Headers, bodyReader)
-			if err != nil {
-				log.Error().Err(err).Msg("Error sending fuzzed request")
-				return
-			}
-			// NOTE: rawhttp doesn't set the http.Response.Request field, so we need to do it manually
 
-			reqUrl, err := url.Parse(parsedRequest.URL + parsedRequest.URI)
-			if err != nil {
-				reqUrl = parsedUrl
-			}
+		pipeClient := rawhttp.NewPipelineClient(pipeOptions)
+		p := pool.New().WithMaxGoroutines(30)
 
-			response.Request = &http.Request{
-				Method: parsedRequest.Method,
-				URL:    reqUrl,
-				Header: parsedRequest.Headers,
-				Body:   io.NopCloser(bytes.NewReader([]byte(parsedRequest.Body))),
-			}
+		historyOptions := http_utils.HistoryCreationOptions{
+			Source:              db.SourceFuzzer,
+			WorkspaceID:         input.Session.WorkspaceID,
+			TaskID:              taskID,
+			CreateNewBodyStream: true,
+			PlaygroundSessionID: input.Session.ID,
+		}
 
-			history, err := http_utils.ReadHttpResponseAndCreateHistory(response, historyOptions)
-			if err != nil {
-				log.Error().Err(err).Msg("Error creating history from fuzzed response")
+		for i := 0; i < smallestPayloadSetSize; i++ {
+			payloadsForThisRequest := make([]string, len(input.InsertionPoints))
+			for j, point := range input.InsertionPoints {
+				allPayloads := point.generatePayloads()
+				payloadsForThisRequest[j] = allPayloads[i]
 			}
-			log.Info().Uint("historyID", history.ID).Msg("Created history from fuzzed response")
-		})
-		scheduledRequests++
-	}
+			p.Go(func() {
+				fuzzedRawRequest := replacePayloadsInRaw(input.Raw, input.InsertionPoints, payloadsForThisRequest)
+				log.Info().Msgf("Fuzzed request: %s", fuzzedRawRequest)
+				parsedRequest, err := ParseRawRequest(fuzzedRawRequest, input.URL)
+				if err != nil {
+					log.Error().Err(err).Msg("Error parsing fuzzed request")
+					return
+				}
+				log.Info().Interface("parsedRequest", parsedRequest).Msg("Parsed fuzzed request")
+				bodyReader := bytes.NewReader([]byte(parsedRequest.Body))
+				response, err := pipeClient.DoRaw(parsedRequest.Method, parsedRequest.URL, parsedRequest.URI, parsedRequest.Headers, bodyReader)
+				if err != nil {
+					log.Error().Err(err).Msg("Error sending fuzzed request")
+					return
+				}
 
-	// p.Wait()
+				reqUrl, err := url.Parse(parsedRequest.URL + parsedRequest.URI)
+				if err != nil {
+					reqUrl = parsedUrl
+				}
+
+				response.Request = &http.Request{
+					Method: parsedRequest.Method,
+					URL:    reqUrl,
+					Header: parsedRequest.Headers,
+					Body:   io.NopCloser(bytes.NewReader([]byte(parsedRequest.Body))),
+				}
+
+				history, err := http_utils.ReadHttpResponseAndCreateHistory(response, historyOptions)
+				if err != nil {
+					log.Error().Err(err).Msg("Error creating history from fuzzed response")
+					return
+				}
+				log.Info().Uint("historyID", history.ID).Msg("Created history from fuzzed response")
+			})
+		}
+
+		p.Wait()
+
+		if err := dbConn.SetTaskStatus(taskID, string(db.TaskStatusFinished)); err != nil {
+			log.Error().Err(err).Uint("task_id", taskID).Msg("Failed to set task status to finished")
+		}
+		log.Info().Uint("task_id", taskID).Int("requests", scheduledRequests).Msg("Fuzzing task completed")
+	}()
+
 	return scheduledRequests, nil
 }

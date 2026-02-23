@@ -375,6 +375,44 @@ func (d *DatabaseConnection) CancelScan(scanID uint) (*Scan, error) {
 	return d.UpdateScan(scan)
 }
 
+// PauseAllScans pauses all active scans
+func (d *DatabaseConnection) PauseAllScans() ([]*Scan, error) {
+	activeScans, err := d.GetActiveScans()
+	if err != nil {
+		return nil, fmt.Errorf("fetching active scans: %w", err)
+	}
+
+	var paused []*Scan
+	for _, scan := range activeScans {
+		s, err := d.PauseScan(scan.ID)
+		if err != nil {
+			log.Error().Err(err).Uint("scan_id", scan.ID).Msg("Failed to pause scan during pause-all")
+			continue
+		}
+		paused = append(paused, s)
+	}
+	return paused, nil
+}
+
+// ResumeAllScans resumes all paused scans
+func (d *DatabaseConnection) ResumeAllScans() ([]*Scan, error) {
+	pausedScans, err := d.GetPausedScans()
+	if err != nil {
+		return nil, fmt.Errorf("fetching paused scans: %w", err)
+	}
+
+	var resumed []*Scan
+	for _, scan := range pausedScans {
+		s, err := d.ResumeScan(scan.ID)
+		if err != nil {
+			log.Error().Err(err).Uint("scan_id", scan.ID).Msg("Failed to resume scan during resume-all")
+			continue
+		}
+		resumed = append(resumed, s)
+	}
+	return resumed, nil
+}
+
 // GetActiveScans returns all scans that are currently running
 func (d *DatabaseConnection) GetActiveScans() ([]*Scan, error) {
 	var scans []*Scan

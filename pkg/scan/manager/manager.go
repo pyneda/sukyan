@@ -545,6 +545,36 @@ func (sm *ScanManager) ResumeScan(scanID uint) error {
 	return nil
 }
 
+// PauseAllScans pauses all active scans.
+func (sm *ScanManager) PauseAllScans() ([]*db.Scan, error) {
+	paused, err := sm.dbConn.PauseAllScans()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, scan := range paused {
+		sm.registry.SetPaused(scan.ID)
+	}
+
+	log.Info().Int("count", len(paused)).Msg("All active scans paused")
+	return paused, nil
+}
+
+// ResumeAllScans resumes all paused scans.
+func (sm *ScanManager) ResumeAllScans() ([]*db.Scan, error) {
+	resumed, err := sm.dbConn.ResumeAllScans()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, scan := range resumed {
+		sm.registry.SetRunning(scan.ID)
+	}
+
+	log.Info().Int("count", len(resumed)).Msg("All paused scans resumed")
+	return resumed, nil
+}
+
 // CancelScan cancels a scan and all its pending jobs.
 func (sm *ScanManager) CancelScan(scanID uint) error {
 	// Update database first (this also cancels pending jobs)

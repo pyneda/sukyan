@@ -593,6 +593,64 @@ func CancelScanHandler(c *fiber.Ctx) error {
 	return c.JSON(scan)
 }
 
+// PauseAllScansHandler pauses all active scans
+// @Summary Pause all scans
+// @Description Pauses all currently active scans
+// @Tags Scans
+// @Accept json
+// @Produce json
+// @Success 200 {array} db.Scan
+// @Failure 503 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/scans/pause-all [post]
+func PauseAllScansHandler(c *fiber.Ctx) error {
+	if scanManager == nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(ErrorResponse{
+			Error:   "Scan service unavailable",
+			Message: "Scan manager is not initialized",
+		})
+	}
+
+	paused, err := scanManager.PauseAllScans()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:   "Failed to pause scans",
+			Message: err.Error(),
+		})
+	}
+
+	return c.JSON(paused)
+}
+
+// ResumeAllScansHandler resumes all paused scans
+// @Summary Resume all scans
+// @Description Resumes all paused scans
+// @Tags Scans
+// @Accept json
+// @Produce json
+// @Success 200 {array} db.Scan
+// @Failure 503 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/scans/resume-all [post]
+func ResumeAllScansHandler(c *fiber.Ctx) error {
+	if scanManager == nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(ErrorResponse{
+			Error:   "Scan service unavailable",
+			Message: "Scan manager is not initialized",
+		})
+	}
+
+	resumed, err := scanManager.ResumeAllScans()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:   "Failed to resume scans",
+			Message: err.Error(),
+		})
+	}
+
+	return c.JSON(resumed)
+}
+
 // DeleteScanHandler deletes a scan
 // @Summary Delete scan
 // @Description Deletes a scan and all its jobs

@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-rod/rod"
@@ -27,16 +28,18 @@ type PagePoolManager struct {
 	HijackResultsChannel chan HijackResult
 }
 
-func NewPagePoolManager(config PagePoolManagerConfig, source string) *PagePoolManager {
+func NewPagePoolManager(config PagePoolManagerConfig, source string) (*PagePoolManager, error) {
 	manager := PagePoolManager{
 		config: config,
 	}
-	manager.Start(false, source)
+	if err := manager.Start(false, source); err != nil {
+		return nil, err
+	}
 
-	return &manager
+	return &manager, nil
 }
 
-func NewHijackedPagePoolManager(config PagePoolManagerConfig, source string, hijackResultsChannel chan HijackResult, workspaceID, taskID, scanID, scanJobID uint) *PagePoolManager {
+func NewHijackedPagePoolManager(config PagePoolManagerConfig, source string, hijackResultsChannel chan HijackResult, workspaceID, taskID, scanID, scanJobID uint) (*PagePoolManager, error) {
 	manager := PagePoolManager{
 		config:               config,
 		httpClient:           config.HTTPClient,
@@ -46,14 +49,19 @@ func NewHijackedPagePoolManager(config PagePoolManagerConfig, source string, hij
 		scanID:               scanID,
 		scanJobID:            scanJobID,
 	}
-	manager.Start(true, source)
+	if err := manager.Start(true, source); err != nil {
+		return nil, err
+	}
 
-	return &manager
+	return &manager, nil
 }
 
-func (b *PagePoolManager) Start(hijack bool, source string) {
+func (b *PagePoolManager) Start(hijack bool, source string) error {
 	l := GetBrowserLauncher()
-	controlURL := l.MustLaunch()
+	controlURL, err := l.Launch()
+	if err != nil {
+		return fmt.Errorf("launching browser: %w", err)
+	}
 	b.browser = rod.New().
 		ControlURL(controlURL).
 		MustConnect()
@@ -70,6 +78,7 @@ func (b *PagePoolManager) Start(hijack bool, source string) {
 	// b.pool = rod.NewPagePool(poolSize)
 	b.pool = rod.NewPagePool(poolSize)
 
+	return nil
 }
 
 func (b *PagePoolManager) NewPage() *rod.Page {

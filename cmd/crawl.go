@@ -39,7 +39,10 @@ to quickly create a Cobra application.`,
 
 		log.Info().Strs("startUrls", startUrls).Int("count", len(startUrls)).Msg("Creating and scheduling the crawler")
 		httpClient := http_utils.CreateHTTPClientFromConfig(http_utils.HTTPClientConfig{})
-		crawler := crawl.NewCrawler(startUrls, maxPagesToCrawl, maxPagesPerSite, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, 0, 0, 0, headers, crawlCaptureBrowserEvents, httpClient)
+		crawler, err := crawl.NewCrawler(startUrls, maxPagesToCrawl, maxPagesPerSite, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, 0, 0, 0, headers, crawlCaptureBrowserEvents, httpClient)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to create crawler")
+		}
 		crawler.Run()
 	},
 }

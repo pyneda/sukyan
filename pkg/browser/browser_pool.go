@@ -1,6 +1,7 @@
 package browser
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/go-rod/rod"
@@ -102,7 +103,10 @@ func (b *BrowserPoolManager) ReleaseBrowser(browser *rod.Browser) {
 
 func (b *BrowserPoolManager) createBrowser() (*rod.Browser, error) {
 	l := GetBrowserLauncher()
-	controlURL := l.MustLaunch()
+	controlURL, err := l.Launch()
+	if err != nil {
+		return nil, fmt.Errorf("launching browser: %w", err)
+	}
 	browser := rod.New().ControlURL(controlURL).MustConnect()
 	// browser.IgnoreCertErrors(true)
 	go browser.HandleAuth(viper.GetString("navigation.auth.basic.username"), viper.GetString("navigation.auth.basic.password"))()

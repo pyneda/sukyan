@@ -76,7 +76,7 @@ func (e *CrawlExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *cont
 		DisableKeepAlives:   scan.Options.HTTPDisableKeepAlives,
 	})
 
-	crawler := crawl.NewCrawler(
+	crawler, err := crawl.NewCrawler(
 		jobData.StartURLs,
 		jobData.MaxPagesToCrawl,
 		jobData.MaxPagesPerSite,
@@ -91,6 +91,10 @@ func (e *CrawlExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *cont
 		scan.CaptureBrowserEvents,
 		httpClient,
 	)
+	if err != nil {
+		taskLog.Error().Err(err).Msg("Failed to create crawler")
+		return fmt.Errorf("creating crawler: %w", err)
+	}
 
 	// Checkpoint: check before heavy operation
 	if !ctrl.CheckpointWithContext(ctx) {

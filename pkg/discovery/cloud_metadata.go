@@ -61,8 +61,24 @@ func isCloudMetadataValidationFunc(history *db.History, ctx *ValidationContext) 
 	if history.StatusCode != 200 {
 		return false, "", 0
 	}
+
+	// Cloud metadata endpoints return plain text or JSON, never HTML
+	respHeaders, _ := history.GetResponseHeadersAsMap()
+	if ct, ok := respHeaders["Content-Type"]; ok {
+		ctStr := strings.ToLower(strings.Join(ct, ""))
+		if strings.Contains(ctStr, "text/html") {
+			return false, "", 0
+		}
+	}
+
 	body, _ := history.ResponseBody()
 	bodyStr := string(body)
+
+	// Reject full HTML pages — metadata endpoints don't return structured HTML
+	if strings.Contains(bodyStr, "<!DOCTYPE") || strings.Contains(bodyStr, "<html") {
+		return false, "", 0
+	}
+
 	details := fmt.Sprintf("Cloud metadata endpoint exposed: %s\n", history.URL)
 	confidence := 30
 

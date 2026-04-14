@@ -76,7 +76,7 @@ type SubmittedForm struct {
 	xpath string
 }
 
-func NewCrawler(startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool, httpClient *http.Client) *Crawler {
+func NewCrawler(startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool, httpClient *http.Client) (*Crawler, error) {
 	hijackChan := make(chan browser.HijackResult)
 	options := CrawlOptions{
 		ExtraHeaders:    extraHeaders,
@@ -84,7 +84,7 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, ma
 		MaxPagesToCrawl: maxPagesToCrawl,
 		MaxPagesPerSite: maxPagesPerSite,
 	}
-	browser := browser.NewHijackedPagePoolManager(
+	browser, err := browser.NewHijackedPagePoolManager(
 		browser.PagePoolManagerConfig{
 			PoolSize:   poolSize,
 			HTTPClient: httpClient,
@@ -96,6 +96,9 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, ma
 		scanID,
 		scanJobID,
 	)
+	if err != nil {
+		return nil, err
+	}
 	return &Crawler{
 		Options:                options,
 		startURLs:              startURLs,
@@ -110,14 +113,17 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, ma
 		scanJobID:              scanJobID,
 		maxPagesWithSameParams: viper.GetInt("crawl.max_pages_with_same_params"),
 		captureBrowserEvents:   captureBrowserEvents,
-	}
+	}, nil
 }
 
 // NewCrawlerWithContext creates a new Crawler with context for cancellation support
-func NewCrawlerWithContext(ctx context.Context, startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool, httpClient *http.Client) *Crawler {
-	crawler := NewCrawler(startURLs, maxPagesToCrawl, maxPagesPerSite, maxDepth, poolSize, excludePatterns, workspaceID, taskID, scanID, scanJobID, extraHeaders, captureBrowserEvents, httpClient)
+func NewCrawlerWithContext(ctx context.Context, startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool, httpClient *http.Client) (*Crawler, error) {
+	crawler, err := NewCrawler(startURLs, maxPagesToCrawl, maxPagesPerSite, maxDepth, poolSize, excludePatterns, workspaceID, taskID, scanID, scanJobID, extraHeaders, captureBrowserEvents, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	crawler.ctx, crawler.cancel = context.WithCancel(ctx)
-	return crawler
+	return crawler, nil
 }
 
 func (c *Crawler) Run() []*db.History {

@@ -48,17 +48,32 @@ func IsActuatorValidationFunc(history *db.History, ctx *ValidationContext) (bool
 			confidence += 10
 			if err := json.Unmarshal(body, &jsonBody); err == nil {
 
-				if _, exists := jsonBody["status"]; exists {
-					confidence += 30
+				// Spring-specific keys that distinguish actuator from generic JSON APIs
+				springKeys := map[string]struct {
+					weight int
+					detail string
+				}{
+					"propertySources": {40, "Exposes environment properties"},
+					"beans":           {40, "Exposes application beans configuration"},
+					"contexts":        {35, "Exposes application contexts"},
+					"configprops":     {35, "Exposes configuration properties"},
+					"_links":          {30, "HAL-style actuator index"},
+				}
+
+				springKeyFound := false
+				for key, info := range springKeys {
+					if _, exists := jsonBody[key]; exists {
+						confidence += info.weight
+						details += fmt.Sprintf("- %s\n", info.detail)
+						springKeyFound = true
+					}
+				}
+
+				// "status" alone is too generic (matches status pages, health checks, etc.)
+				// Only count it if we also found a Spring-specific key
+				if _, exists := jsonBody["status"]; exists && springKeyFound {
+					confidence += 20
 					details += "- Exposes application status information\n"
-				}
-				if _, exists := jsonBody["propertySources"]; exists {
-					confidence += 40
-					details += "- Exposes environment properties\n"
-				}
-				if _, exists := jsonBody["beans"]; exists {
-					confidence += 40
-					details += "- Exposes application beans configuration\n"
 				}
 
 				sensitivePatterns := []string{"spring.datasource", "spring.mail", "secret", "password", "token", "aws", "azure"}

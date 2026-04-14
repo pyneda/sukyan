@@ -34,7 +34,7 @@ func TestMethodOverrideScanDetectsHeaderOverride(t *testing.T) {
 		HistoryCreationOptions: http_utils.HistoryCreationOptions{
 			Source:      db.SourceScanner,
 			WorkspaceID: workspace.ID,
-			TaskID:      1,
+			TaskID:      0,
 		},
 	})
 	require.NoError(t, baseResult.Err)
@@ -71,7 +71,7 @@ func TestMethodOverrideScanSkipsNonGET(t *testing.T) {
 		HistoryCreationOptions: http_utils.HistoryCreationOptions{
 			Source:      db.SourceScanner,
 			WorkspaceID: workspace.ID,
-			TaskID:      2,
+			TaskID:      0,
 		},
 	})
 	require.NoError(t, baseResult.Err)

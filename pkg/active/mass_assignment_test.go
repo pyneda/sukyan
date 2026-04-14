@@ -45,7 +45,7 @@ func TestMassAssignmentScanDetectsAddedFields(t *testing.T) {
 		HistoryCreationOptions: http_utils.HistoryCreationOptions{
 			Source:      db.SourceScanner,
 			WorkspaceID: workspace.ID,
-			TaskID:      10,
+			TaskID:      0,
 		},
 	})
 	require.NoError(t, baseResult.Err)
@@ -83,7 +83,7 @@ func TestMassAssignmentScanSkipsNonJSON(t *testing.T) {
 		HistoryCreationOptions: http_utils.HistoryCreationOptions{
 			Source:      db.SourceScanner,
 			WorkspaceID: workspace.ID,
-			TaskID:      11,
+			TaskID:      0,
 		},
 	})
 	require.NoError(t, baseResult.Err)

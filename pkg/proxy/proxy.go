@@ -36,6 +36,13 @@ type Proxy struct {
 	wsConnections         sync.Map
 }
 
+func (p *Proxy) proxyServiceIDPtr() *uuid.UUID {
+	if p.ProxyServiceID == uuid.Nil {
+		return nil
+	}
+	return &p.ProxyServiceID
+}
+
 type WebSocketConnectionInfo struct {
 	Connection *db.WebSocketConnection
 	Created    time.Time
@@ -182,7 +189,7 @@ func (p *Proxy) RunWithContext(ctx context.Context) error {
 				TaskID:              0,
 				CreateNewBodyStream: true,
 				IsWebSocketUpgrade:  isWebSocketUpgrade,
-				ProxyServiceID:      &p.ProxyServiceID,
+				ProxyServiceID:      p.proxyServiceIDPtr(),
 			}
 
 			history, err := http_utils.ReadHttpResponseAndCreateHistory(ctx.Resp, options)

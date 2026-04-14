@@ -75,30 +75,33 @@ func IsKubernetesValidationFunc(history *db.History, ctx *ValidationContext) (bo
 	}
 
 	if history.StatusCode == 200 {
+		// K8s API endpoints return JSON, not HTML. HTML responses with generic
+		// words like "metadata", "status", "spec" are not k8s API responses.
+		if strings.Contains(history.ResponseContentType, "text/html") {
+			return false, "", 0
+		}
+
 		confidence = 25
-
-		// Check response structure
-		k8sIndicators := map[string]string{
-			"kind":       "Kubernetes resource type indicator",
-			"apiVersion": "API version field",
-			"metadata":   "Resource metadata",
-			"namespace":  "Namespace information",
-			"status":     "Resource status field",
-			"spec":       "Resource specification",
-		}
-
-		for indicator, description := range k8sIndicators {
-			if strings.Contains(bodyStr, indicator) {
-				confidence += 20
-				details += fmt.Sprintf("- Contains %s\n", description)
-			}
-		}
 
 		if strings.Contains(history.ResponseContentType, "application/json") {
 			confidence += 20
-		}
-		if strings.Contains(history.ResponseContentType, "text/html") {
-			confidence -= 20
+
+			// Only check body indicators on JSON responses
+			k8sIndicators := map[string]string{
+				"kind":       "Kubernetes resource type indicator",
+				"apiVersion": "API version field",
+				"metadata":   "Resource metadata",
+				"namespace":  "Namespace information",
+				"status":     "Resource status field",
+				"spec":       "Resource specification",
+			}
+
+			for indicator, description := range k8sIndicators {
+				if strings.Contains(bodyStr, indicator) {
+					confidence += 20
+					details += fmt.Sprintf("- Contains %s\n", description)
+				}
+			}
 		}
 
 	}

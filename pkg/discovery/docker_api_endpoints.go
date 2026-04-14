@@ -63,6 +63,11 @@ func IsDockerAPIValidationFunc(history *db.History, ctx *ValidationContext) (boo
 
 	switch history.StatusCode {
 	case 200:
+		// Docker API returns JSON, not HTML. HTML responses with words like
+		// "container" or "image" are web apps, not Docker APIs.
+		if strings.Contains(history.ResponseContentType, "text/html") {
+			return false, "", 0
+		}
 		confidence += 20
 		var jsonData map[string]interface{}
 		if err := json.Unmarshal([]byte(bodyStr), &jsonData); err == nil {
@@ -81,47 +86,48 @@ func IsDockerAPIValidationFunc(history *db.History, ctx *ValidationContext) (boo
 		confidence += 10
 	}
 
-	dockerPatterns := map[string]string{
-		// Core system information
-		"OperatingSystem": "system information",
-		"DockerRootDir":   "Docker root directory",
-		"ServerVersion":   "Docker version",
-		"ApiVersion":      "API version",
-
-		// Resource information
-		"Containers": "container information",
-		"Images":     "image information",
-		"MemTotal":   "memory information",
-		"NCPU":       "CPU information",
-
-		// Features and configuration
+	// Docker-specific patterns (case-sensitive, unlikely to appear in generic web content)
+	dockerSpecificPatterns := map[string]string{
+		"DockerRootDir":      "Docker root directory",
+		"ServerVersion":      "Docker version",
+		"OperatingSystem":    "system information",
 		"ExperimentalBuild":  "build configuration",
 		"LiveRestoreEnabled": "restore configuration",
-		"Registry":           "registry configuration",
-		"Swarm":              "swarm information",
+		"docker daemon":      "daemon reference",
+		"MemTotal":           "memory information",
+		"NCPU":               "CPU information",
+	}
 
-		// Common error messages that confirm Docker
-		"docker daemon": "daemon reference",
-		"container":     "container reference",
-		"image":         "image reference",
+	// Generic patterns that only count on JSON responses
+	genericPatterns := map[string]string{
+		"Containers": "container information",
+		"Images":     "image information",
+		"ApiVersion": "API version",
+		"Registry":   "registry configuration",
+		"Swarm":      "swarm information",
 	}
 
 	patternMatches := 0
-	for pattern, description := range dockerPatterns {
+	for pattern, description := range dockerSpecificPatterns {
 		if strings.Contains(bodyStr, pattern) {
 			patternMatches++
 			details += fmt.Sprintf("- Contains %s\n", description)
 		}
 	}
 
-	// Adjust confidence based on pattern matches
-	if patternMatches > 0 {
-		confidence += min(patternMatches*10, 40)
-	}
-
 	if strings.Contains(history.ResponseContentType, "application/json") {
 		confidence += 10
 		details += "- Proper JSON content type\n"
+		for pattern, description := range genericPatterns {
+			if strings.Contains(bodyStr, pattern) {
+				patternMatches++
+				details += fmt.Sprintf("- Contains %s\n", description)
+			}
+		}
+	}
+
+	if patternMatches > 0 {
+		confidence += min(patternMatches*10, 40)
 	}
 
 	// Check for obvious Docker-related content

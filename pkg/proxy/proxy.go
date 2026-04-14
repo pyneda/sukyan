@@ -297,7 +297,7 @@ func (p *Proxy) createWebSocketConnection(resp *http.Response, history *db.Histo
 		StatusCode:       resp.StatusCode,
 		StatusText:       resp.Status,
 		WorkspaceID:      &p.WorkspaceID,
-		ProxyServiceID:   &p.ProxyServiceID,
+		ProxyServiceID:   p.proxyServiceIDPtr(),
 		Source:           db.SourceProxy,
 		UpgradeRequestID: &history.ID,
 	}

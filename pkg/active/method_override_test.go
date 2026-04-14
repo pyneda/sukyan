@@ -42,7 +42,7 @@ func TestMethodOverrideScanDetectsHeaderOverride(t *testing.T) {
 
 	MethodOverrideScan(baseResult.History, ActiveModuleOptions{
 		WorkspaceID: workspace.ID,
-		TaskID:      1,
+		TaskID:      0,
 		ScanMode:    scanopts.ScanModeSmart,
 		HTTPClient:  http.DefaultClient,
 	})
@@ -79,7 +79,7 @@ func TestMethodOverrideScanSkipsNonGET(t *testing.T) {
 
 	MethodOverrideScan(baseResult.History, ActiveModuleOptions{
 		WorkspaceID: workspace.ID,
-		TaskID:      2,
+		TaskID:      0,
 		ScanMode:    scanopts.ScanModeSmart,
 		HTTPClient:  http.DefaultClient,
 	})

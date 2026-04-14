@@ -53,7 +53,7 @@ func TestMassAssignmentScanDetectsAddedFields(t *testing.T) {
 
 	MassAssignmentScan(baseResult.History, ActiveModuleOptions{
 		WorkspaceID: workspace.ID,
-		TaskID:      10,
+		TaskID:      0,
 		ScanMode:    scanopts.ScanModeSmart,
 		HTTPClient:  http.DefaultClient,
 	})
@@ -91,7 +91,7 @@ func TestMassAssignmentScanSkipsNonJSON(t *testing.T) {
 
 	MassAssignmentScan(baseResult.History, ActiveModuleOptions{
 		WorkspaceID: workspace.ID,
-		TaskID:      11,
+		TaskID:      0,
 		ScanMode:    scanopts.ScanModeSmart,
 		HTTPClient:  http.DefaultClient,
 	})

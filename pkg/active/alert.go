@@ -47,7 +47,11 @@ func (x *AlertAudit) requestHasAlert(history *db.History, browserPool *browser.B
 		}
 	}
 
-	b := browserPool.NewBrowser()
+	b, err := browserPool.NewBrowser()
+	if err != nil {
+		log.Error().Err(err).Str("url", history.URL).Msg("Failed to get browser for alert check")
+		return false
+	}
 	page := b.MustPage("")
 	defer browserPool.ReleaseBrowser(b)
 
@@ -279,7 +283,11 @@ func (x *AlertAudit) testPayloadForSingleInsertionPoint(browserPool *browser.Bro
 		return
 	}
 
-	b := browserPool.NewBrowser()
+	b, err := browserPool.NewBrowser()
+	if err != nil {
+		log.Error().Err(err).Str("url", history.URL).Msg("Failed to get browser for alert payload test")
+		return
+	}
 	log.Debug().Msg("Got scan browser from the pool")
 
 	hijackResultsChannel := make(chan browser.HijackResult)
@@ -332,7 +340,11 @@ func (x *AlertAudit) testPayload(browserPool *browser.BrowserPoolManager, histor
 		}
 	}
 
-	b := browserPool.NewBrowser()
+	b, err := browserPool.NewBrowser()
+	if err != nil {
+		log.Error().Err(err).Str("url", history.URL).Msg("Failed to get browser for alert payload test")
+		return
+	}
 	log.Debug().Msg("Got scan browser from the pool")
 
 	hijackResultsChannel := make(chan browser.HijackResult)

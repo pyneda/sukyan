@@ -3,6 +3,7 @@ package manual
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -114,7 +115,10 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 	log.Info().Str("url", request.URL.String()).Msg("Replaying request in browser")
 
 	browserPool := browser.GetPlaygroundBrowserPoolManager()
-	b := browserPool.NewBrowser()
+	b, err := browserPool.NewBrowser()
+	if err != nil {
+		return ReplayResult{}, fmt.Errorf("getting browser: %w", err)
+	}
 	page := b.MustPage("")
 	defer browserPool.ReleaseBrowser(b)
 	ctx, cancel := context.WithCancel(context.Background())

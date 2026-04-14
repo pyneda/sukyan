@@ -70,7 +70,11 @@ func (x *XSSAudit) Run(targetUrl string, params []string, wordlistPath string, u
 	for scanner.Scan() {
 		payload := scanner.Text()
 		p.Go(func() {
-			b := browserPool.NewBrowser()
+			b, err := browserPool.NewBrowser()
+			if err != nil {
+				taskLog.Error().Err(err).Msg("Failed to get browser for XSS audit")
+				return
+			}
 
 			taskLog.Debug().Msg("Got scan browser from the pool")
 			hijackResultsChannel := make(chan browser.HijackResult)

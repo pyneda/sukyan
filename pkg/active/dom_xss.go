@@ -103,7 +103,11 @@ func (a *DOMXSSAudit) Run() {
 	}
 
 	browserPool := browser.GetScannerBrowserPoolManager()
-	b := browserPool.NewBrowser()
+	b, err := browserPool.NewBrowser()
+	if err != nil {
+		log.Error().Err(err).Str("url", a.HistoryItem.URL).Msg("Failed to get browser for DOM XSS audit")
+		return
+	}
 	defer browserPool.ReleaseBrowser(b)
 
 	overallTimeout := time.Duration(viper.GetInt("scan.dom_xss.total_timeout")) * time.Second

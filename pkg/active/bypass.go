@@ -302,6 +302,18 @@ func sendRequestAndCheckBypass(client *http.Client, request *http.Request, origi
 			return
 		}
 
+		// If the response URL domain differs from the original request domain,
+		// the server redirected to a different host — not a real bypass
+		originalHost := strings.ToLower(request.URL.Hostname())
+		responseHost := strings.ToLower(history.URL)
+		if parsedResponse, err := url.Parse(history.URL); err == nil {
+			responseHost = strings.ToLower(parsedResponse.Hostname())
+		}
+		if originalHost != responseHost {
+			auditLog.Debug().Str("original", originalHost).Str("response", responseHost).Msg("Response from different domain, not a bypass")
+			return
+		}
+
 		bypassHeaders := http_utils.HeadersToString(request.Header)
 
 		confidence := 75

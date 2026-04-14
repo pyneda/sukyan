@@ -244,9 +244,19 @@ func IsDBManagementValidationFunc(history *db.History, ctx *ValidationContext) (
 	}
 
 	for system, patterns := range dbPatterns {
+		// First check if the main identifier is present — generic database
+		// names like "redis", "mysql" appear on any page that discusses them
+		mainIdentifier, hasMain := patterns["main identifier"]
+		mainFound := hasMain && strings.Contains(bodyStr, mainIdentifier) &&
+			!strings.Contains(strings.ToLower(history.URL), mainIdentifier)
+
 		systemMatches := 0
 		for pattern, description := range patterns {
 			if strings.Contains(bodyStr, pattern) {
+				// Skip generic "database reference" patterns unless the main identifier was found
+				if description == "database reference" && !mainFound {
+					continue
+				}
 				if strings.Contains(strings.ToLower(history.URL), strings.ToLower(pattern)) {
 					confidence += 5
 				} else {

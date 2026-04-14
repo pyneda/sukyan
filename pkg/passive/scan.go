@@ -470,6 +470,13 @@ func StorageBucketDetectionScan(item *db.History) {
 }
 
 func LeakedApiKeysScan(item *db.History) {
+	// Skip JavaScript — library references (github.com/..., LICENSE URLs)
+	// contain quoted strings that match API key patterns
+	ct := strings.ToLower(item.ResponseContentType)
+	if strings.Contains(ct, "javascript") {
+		return
+	}
+
 	matchAgainst := string(item.RawResponse)
 
 	var sb strings.Builder

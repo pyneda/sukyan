@@ -42,12 +42,16 @@ func IsKubernetesValidationFunc(history *db.History, ctx *ValidationContext) (bo
 	details := fmt.Sprintf("Kubernetes endpoint found: %s\n", history.URL)
 	confidence := 0
 
-	// Check for standard k8s error responses
+	// Check for k8s-specific error responses — generic "Forbidden"/"Unauthorized"
+	// strings appear in any 401/403 page (S3, Cloudflare, nginx, etc.)
 	k8sErrors := map[string]string{
-		"Unauthorized":                "missing authentication credentials",
-		"Forbidden":                   "invalid credentials or insufficient permissions",
-		"users.authentication.k8s.io": "authentication API",
-		"forbidden: User":             "RBAC restriction",
+		"users.authentication.k8s.io":    "authentication API",
+		"forbidden: User":               "RBAC restriction",
+		"system:anonymous":              "anonymous user reference",
+		"\"kind\":\"Status\"":           "Kubernetes Status response",
+		"\"apiVersion\":\"v1\"":         "Kubernetes API version",
+		"cannot list resource":          "RBAC list restriction",
+		"is forbidden":                  "RBAC forbidden",
 	}
 
 	if history.StatusCode == 401 || history.StatusCode == 403 {

@@ -2,6 +2,7 @@ package browser
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/go-rod/rod"
@@ -16,6 +17,12 @@ func GetBrowserLauncher() *launcher.Launcher {
 		Set("disable-infobars").
 		Set("disable-extensions").
 		Set("no-sandbox")
+
+	if bin := viper.GetString("scan.browser.bin"); bin != "" {
+		options = options.Bin(bin)
+	} else if bin := os.Getenv("ROD_BROWSER_BIN"); bin != "" {
+		options = options.Bin(bin)
+	}
 
 	if viper.GetString("navigation.proxy") != "" {
 		options.Proxy(viper.GetString("navigation.proxy"))

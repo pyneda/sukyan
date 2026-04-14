@@ -82,19 +82,12 @@ func (b *BrowserPoolManager) Start() {
 	b.pool = rod.NewBrowserPool(poolSize)
 }
 
-func (b *BrowserPoolManager) NewBrowser() *rod.Browser {
+func (b *BrowserPoolManager) NewBrowser() (*rod.Browser, error) {
 	browser, err := b.pool.Get(b.createBrowser)
 	if err != nil {
-		log.Error().Err(err).Msg("Error getting browser from pool")
+		return nil, fmt.Errorf("getting browser from pool: %w", err)
 	}
-
-	// if b.config.UserAgent != "" {
-	// 	_ = browser.SetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Test"})
-	// } else if viper.GetString("navigation.user_agent") != "" {
-	// 	_ = browser.SetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: viper.GetString("navigation.user_agent")})
-	// }
-
-	return browser
+	return browser, nil
 }
 
 func (b *BrowserPoolManager) ReleaseBrowser(browser *rod.Browser) {

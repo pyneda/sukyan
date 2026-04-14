@@ -77,7 +77,11 @@ func (a *ClientSidePrototypePollutionAudit) evaluateWithContext(parentCtx contex
 		"__proto__%5Bsukyan%5D=reserved",
 	}
 	browserPool := browser.GetScannerBrowserPoolManager()
-	b := browserPool.NewBrowser()
+	b, err := browserPool.NewBrowser()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get browser for CSPP audit")
+		return
+	}
 	defer browserPool.ReleaseBrowser(b)
 
 	overallTimeout := time.Duration(viper.GetInt("navigation.timeout")) * time.Second * 4

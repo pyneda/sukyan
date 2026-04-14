@@ -148,7 +148,20 @@ func PrivateIPScan(item *db.History) {
 }
 
 func DatabaseErrorScan(item *db.History) {
+	// Skip JavaScript and CSS — error-like strings in source code are not database errors
+	ct := strings.ToLower(item.ResponseContentType)
+	if strings.Contains(ct, "javascript") || strings.Contains(ct, "text/css") {
+		return
+	}
+
 	matchAgainst := string(item.RawResponse)
+
+	// Skip React Server Component payloads — they contain serialized keys like
+	// "error", "errorStyles", "Warning" that match database error patterns
+	if strings.Contains(matchAgainst, "parallelRouterKey") || strings.Contains(matchAgainst, "templateStyles") {
+		return
+	}
+
 	match := SearchDatabaseErrors(matchAgainst)
 	if match != nil {
 		errorDescription := fmt.Sprintf("Discovered database error: \n - Database type: %s\n - Error: %s", match.DatabaseName, match.MatchStr)

@@ -19,6 +19,13 @@ func IsJBossConsoleValidationFunc(history *db.History, ctx *ValidationContext) (
 		return false, "", 0
 	}
 
+	// If the response URL contains a login/auth redirect, this isn't a JBoss console
+	// — it's a generic login page that happened to serve a 200 for the requested path
+	lowerURL := strings.ToLower(history.URL)
+	if strings.Contains(lowerURL, "/login") || strings.Contains(lowerURL, "/account") || strings.Contains(lowerURL, "/signin") || strings.Contains(lowerURL, "returnurl=") {
+		return false, "", 0
+	}
+
 	body, _ := history.ResponseBody()
 	bodyStr := string(body)
 	details := make([]string, 0)

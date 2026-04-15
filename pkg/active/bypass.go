@@ -314,6 +314,15 @@ func sendRequestAndCheckBypass(client *http.Client, request *http.Request, origi
 			return
 		}
 
+		// If the bypass response is identical to the homepage, the path
+		// normalized to root (e.g. ./resource/..) — not a real bypass
+		if options.SiteBehavior != nil && options.SiteBehavior.BaseURLSample != nil {
+			if history.ResponseHash() == options.SiteBehavior.BaseURLSample.ResponseHash() {
+				auditLog.Debug().Str("url", request.URL.String()).Msg("Bypass response matches homepage, path likely normalized")
+				return
+			}
+		}
+
 		bypassHeaders := http_utils.HeadersToString(request.Header)
 
 		confidence := 75

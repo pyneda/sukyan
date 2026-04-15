@@ -314,17 +314,6 @@ func sendRequestAndCheckBypass(client *http.Client, request *http.Request, origi
 			return
 		}
 
-		// If the response size is drastically different from the original, the
-		// path likely normalized to a different page (e.g., homepage) rather than
-		// actually serving the blocked resource
-		if original.ResponseBodySize > 0 && history.ResponseBodySize > 0 {
-			ratio := float64(history.ResponseBodySize) / float64(original.ResponseBodySize)
-			if ratio > 5.0 || ratio < 0.2 {
-				auditLog.Debug().Float64("ratio", ratio).Msg("Response size ratio too different from original, likely different page")
-				return
-			}
-		}
-
 		bypassHeaders := http_utils.HeadersToString(request.Header)
 
 		confidence := 75

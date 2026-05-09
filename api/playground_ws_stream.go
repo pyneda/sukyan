@@ -66,7 +66,13 @@ func PlaygroundWsStream(c *websocket.Conn) {
 
 	wsSess, err := db.Connection().GetPlaygroundWsSessionBySessionID(sessionID)
 	if err != nil {
-		_ = c.WriteJSON(fiber.Map{"type": "error", "data": "session not found"})
+		data, _ := json.Marshal(map[string]string{"message": "session not found"})
+		_ = c.WriteJSON(wsreplay.Event{
+			Type:     "error",
+			Instance: wsreplay.InteractiveInstance(),
+			Data:     data,
+			Ts:       time.Now(),
+		})
 		c.Close()
 		return
 	}
@@ -90,7 +96,12 @@ func PlaygroundWsStream(c *websocket.Conn) {
 		snap.Interactive.State = wsreplay.StateDisconnected
 	}
 	raw, _ := json.Marshal(snap)
-	_ = c.WriteJSON(map[string]any{"type": "snapshot", "instance": map[string]string{"kind": "session"}, "data": json.RawMessage(raw), "ts": time.Now()})
+	_ = c.WriteJSON(wsreplay.Event{
+		Type:     "snapshot",
+		Instance: wsreplay.InteractiveInstance(),
+		Data:     raw,
+		Ts:       time.Now(),
+	})
 
 	// Pump events. A read-detection goroutine watches for client disconnect; on
 	// any read error it closes `closed` so the for-select returns.

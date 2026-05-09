@@ -137,6 +137,9 @@ func (s *Session) State() SessionState { return s.state.Load().(SessionState) }
 // ConnectionID returns the persister-assigned websocket_connections.id.
 func (s *Session) ConnectionID() uint { return s.connID }
 
+// Instance returns the session's instance descriptor (interactive vs run).
+func (s *Session) Instance() Instance { return s.cfg.Instance }
+
 // Send queues an outgoing frame. Errors if the session is not in StateConnected
 // or if the send doesn't complete within SendTimeout.
 func (s *Session) Send(opcode int, content string) error {

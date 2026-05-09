@@ -22,7 +22,7 @@ type WebSocketConnection struct {
 	StatusCode          int                `gorm:"index" json:"status_code"`
 	StatusText          string             `json:"status_text"`
 	Messages            []WebSocketMessage `json:"messages" gorm:"foreignKey:ConnectionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	ClosedAt            time.Time          `json:"closed_at"` // timestamp for when the connection is closed
+	ClosedAt            *time.Time         `json:"closed_at"` // timestamp for when the connection is closed
 	Workspace           Workspace          `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	WorkspaceID         *uint              `json:"workspace_id"`
 	TaskID              *uint              `json:"task_id" gorm:"index" `
@@ -50,12 +50,16 @@ func (c WebSocketConnection) TableHeaders() []string {
 }
 
 func (c WebSocketConnection) TableRow() []string {
+	closedAt := ""
+	if c.ClosedAt != nil {
+		closedAt = c.ClosedAt.Format(time.RFC3339)
+	}
 	return []string{
 		fmt.Sprintf("%d", c.ID),
 		c.URL,
 		fmt.Sprintf("%d", c.StatusCode),
 		c.StatusText,
-		c.ClosedAt.Format(time.RFC3339),
+		closedAt,
 		fmt.Sprintf("%d", *c.WorkspaceID),
 		fmt.Sprintf("%d", *c.TaskID),
 		c.Source,
@@ -63,17 +67,25 @@ func (c WebSocketConnection) TableRow() []string {
 }
 
 func (c WebSocketConnection) String() string {
-	return fmt.Sprintf("ID: %d, URL: %s, StatusCode: %d, StatusText: %s, ClosedAt: %s, WorkspaceID: %d, TaskID: %d, Source: %s", c.ID, c.URL, c.StatusCode, c.StatusText, c.ClosedAt.Format(time.RFC3339), c.WorkspaceID, c.TaskID, c.Source)
+	closedAt := ""
+	if c.ClosedAt != nil {
+		closedAt = c.ClosedAt.Format(time.RFC3339)
+	}
+	return fmt.Sprintf("ID: %d, URL: %s, StatusCode: %d, StatusText: %s, ClosedAt: %s, WorkspaceID: %d, TaskID: %d, Source: %s", c.ID, c.URL, c.StatusCode, c.StatusText, closedAt, c.WorkspaceID, c.TaskID, c.Source)
 }
 
 func (c WebSocketConnection) Pretty() string {
+	closedAt := ""
+	if c.ClosedAt != nil {
+		closedAt = c.ClosedAt.Format(time.RFC3339)
+	}
 	return fmt.Sprintf(
 		"%sID:%s %d\n%sURL:%s %s\n%sStatusCode:%s %d\n%sStatusText:%s %s\n%sClosedAt:%s %s\n%sWorkspaceID:%s %d\n%sTaskID:%s %d\n%sSource:%s %s\n",
 		lib.Blue, lib.ResetColor, c.ID,
 		lib.Blue, lib.ResetColor, c.URL,
 		lib.Blue, lib.ResetColor, c.StatusCode,
 		lib.Blue, lib.ResetColor, c.StatusText,
-		lib.Blue, lib.ResetColor, c.ClosedAt.Format(time.RFC3339),
+		lib.Blue, lib.ResetColor, closedAt,
 		lib.Blue, lib.ResetColor, c.WorkspaceID,
 		lib.Blue, lib.ResetColor, c.TaskID,
 		lib.Blue, lib.ResetColor, c.Source)

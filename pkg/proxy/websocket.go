@@ -179,7 +179,7 @@ func (w *WebSocketInterceptor) Close() {
 
 	// Update ClosedAt timestamp
 	now := time.Now()
-	w.connection.ClosedAt = now
+	w.connection.ClosedAt = &now
 	err := db.Connection().UpdateWebSocketConnection(w.connection)
 	if err != nil {
 		log.Error().Uint("workspace", w.workspaceID).Err(err).Str("url", w.connection.URL).Msg("Failed to update WebSocket connection closed at")
@@ -493,7 +493,7 @@ func (w *WebSocketInterceptor) InterceptWebSocketTraffic(remoteConn io.ReadWrite
 	<-waitChan
 
 	now := time.Now()
-	w.connection.ClosedAt = now
+	w.connection.ClosedAt = &now
 	err := db.Connection().UpdateWebSocketConnection(w.connection)
 	if err != nil {
 		log.Error().Uint("workspace", w.workspaceID).Err(err).Str("url", w.connection.URL).Msg("Failed to update WebSocket connection closed at")

@@ -243,6 +243,7 @@ func storeTestConnection(targetURL string, reqHeaders http.Header, resp *http.Re
 		statusText = resp.Status
 	}
 
+	closedAt := time.Now()
 	wsConn := &db.WebSocketConnection{
 		URL:             targetURL,
 		RequestHeaders:  reqHeadersJSON,
@@ -250,7 +251,7 @@ func storeTestConnection(targetURL string, reqHeaders http.Header, resp *http.Re
 		StatusCode:      statusCode,
 		StatusText:      statusText,
 		Source:          db.SourceScanner,
-		ClosedAt:        time.Now(),
+		ClosedAt:        &closedAt,
 	}
 
 	if opts.WorkspaceID > 0 {

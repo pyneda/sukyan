@@ -111,7 +111,7 @@ func ListenForWebSocketEvents(page *rod.Page, workspaceID, taskID, scanID, scanJ
 		}
 		connection := connVal.(*db.WebSocketConnection)
 		now := time.Now()
-		connection.ClosedAt = now
+		connection.ClosedAt = &now
 		err := db.Connection().UpdateWebSocketConnection(connection)
 		if err != nil {
 			log.Error().Uint("workspace", workspaceID).Err(err).Str("url", connection.URL).Msg("Failed to update WebSocket connection closed at")

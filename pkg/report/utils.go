@@ -258,7 +258,7 @@ func processWebSocketConnection(conn *db.WebSocketConnection) *ReportWebSocketCo
 	}
 
 	closedAt := ""
-	if !conn.ClosedAt.IsZero() {
+	if conn.ClosedAt != nil && !conn.ClosedAt.IsZero() {
 		closedAt = conn.ClosedAt.Format("2006-01-02 15:04:05")
 	}
 

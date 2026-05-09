@@ -548,7 +548,8 @@ func (s *WebSocketScanner) executeWebSocketTest(ctx context.Context, result *Web
 	result.ElapsedTime = time.Since(startTime)
 
 	// Update the connection's closed timestamp before finishing
-	newConnection.ClosedAt = time.Now()
+	closedAt := time.Now()
+	newConnection.ClosedAt = &closedAt
 	err = db.Connection().UpdateWebSocketConnection(&newConnection)
 	if err != nil {
 		taskLog.Error().Err(err).Msg("Failed to update WebSocket connection close time")

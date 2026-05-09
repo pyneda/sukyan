@@ -660,10 +660,6 @@ func SendInteractiveFrame(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusAccepted)
 }
 
-// StartRunInput represents the (currently empty) body for starting a new run.
-// Runs always execute against the session's currently saved script and options.
-type StartRunInput struct{}
-
 // StartPlaygroundWsRun godoc
 // @Summary Start a new run for a playground WS session
 // @Description Snapshot the session's current script and options, persist a new run row, and
@@ -735,8 +731,8 @@ func executeRun(wsSess *db.PlaygroundWsSession, run *db.PlaygroundWsRun) {
 		Instance:            wsreplay.RunInstance(run.ID),
 		Persister:           wsreplay.NewDBPersister(db.Connection()),
 		Events:              bcast,
-		ConnectTimeout:      time.Duration(maxInt(opts.ConnectionTimeoutMs, 10000)) * time.Millisecond,
-		SendTimeout:         time.Duration(maxInt(opts.SendTimeoutMs, 5000)) * time.Millisecond,
+		ConnectTimeout:      time.Duration(max(opts.ConnectionTimeoutMs, 10000)) * time.Millisecond,
+		SendTimeout:         time.Duration(max(opts.SendTimeoutMs, 5000)) * time.Millisecond,
 	}
 	sess, err := wsreplay.DialSession(ctx, cfg)
 	if err != nil {
@@ -745,9 +741,12 @@ func executeRun(wsSess *db.PlaygroundWsSession, run *db.PlaygroundWsRun) {
 		run.Status = db.WsRunFailed
 		fin := time.Now()
 		run.FinishedAt = &fin
-		_ = db.Connection().UpdatePlaygroundWsRun(run)
+		if err := db.Connection().UpdatePlaygroundWsRun(run); err != nil {
+			log.Error().Err(err).Uint("run_id", run.ID).Msg("could not persist dial failure")
+		}
 		raw, _ := json.Marshal(map[string]any{"run_id": run.ID, "status": "failed", "finished_at": fin})
 		bcast.Publish(wsreplay.Event{Type: "run_finished", Instance: wsreplay.RunInstance(run.ID), Data: raw, Ts: time.Now()})
+		mgr.UnregisterRun(wsSess.ID, run.ID)
 		return
 	}
 	mgr.RegisterRun(wsSess.ID, run.ID, sess)
@@ -787,15 +786,6 @@ func executeRun(wsSess *db.PlaygroundWsSession, run *db.PlaygroundWsRun) {
 	sess.Close()
 }
 
-// maxInt returns the larger of a and b. Used to floor session timeout overrides
-// against sensible defaults when the stored options have zero/unset values.
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // ListPlaygroundWsRuns godoc
 // @Summary List runs for a playground WS session
 // @Description Return a paginated list of run rows for the given playground WS session,
@@ -822,7 +812,13 @@ func ListPlaygroundWsRuns(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Not found"})
 	}
 	page := c.QueryInt("page", 1)
+	if page < 1 {
+		page = 1
+	}
 	pageSize := c.QueryInt("page_size", 20)
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
 	runs, count, err := db.Connection().ListPlaygroundWsRuns(wsSess.ID, page, pageSize)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})

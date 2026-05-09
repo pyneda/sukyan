@@ -182,6 +182,9 @@ func (m *Manager) CancelRun(sessionID, runID uint) {
 	cancel := m.runCancels[sessionID][runID]
 	if rs, ok := m.runCancels[sessionID]; ok {
 		delete(rs, runID)
+		if len(rs) == 0 {
+			delete(m.runCancels, sessionID)
+		}
 	}
 	sess := m.runs[sessionID][runID]
 	m.mu.Unlock()

@@ -179,11 +179,11 @@ func (d *DatabaseConnection) CreatePlaygroundSession(session *PlaygroundSession)
 	return d.db.Create(session).Error
 }
 
-// DeletePlaygroundSession deletes a PlaygroundSession by its ID.
-// Cascade-delete relationships defined on PlaygroundSession (e.g. PlaygroundWsSession,
-// which in turn cascades to PlaygroundWsRun) take care of dependent rows.
+// DeletePlaygroundSession hard-deletes the row so the DB-level ON DELETE CASCADE
+// fires on playground_ws_sessions and playground_ws_runs. Soft delete would not
+// trigger the cascade and would leave child rows orphaned.
 func (d *DatabaseConnection) DeletePlaygroundSession(id uint) error {
-	return d.db.Delete(&PlaygroundSession{}, id).Error
+	return d.db.Unscoped().Delete(&PlaygroundSession{}, id).Error
 }
 
 func (d *DatabaseConnection) InitializeWorkspacePlayground(workspaceID uint) error {

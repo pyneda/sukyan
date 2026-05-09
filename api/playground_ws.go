@@ -208,7 +208,8 @@ func DeletePlaygroundWsSession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id", Message: "The provided ID is not valid"})
 	}
 
-	// Cascade delete via the parent playground_session row.
+	// Hard-deletes the parent playground_sessions row so DB-level FK CASCADE removes
+	// the playground_ws_sessions row and its playground_ws_runs.
 	if err := db.Connection().DeletePlaygroundSession(uint(id)); err != nil {
 		log.Error().Err(err).Uint("id", uint(id)).Msg("Failed to delete playground ws session")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "Failed to delete playground ws session", Message: err.Error()})

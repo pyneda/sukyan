@@ -8,7 +8,11 @@ import (
 	"github.com/PaesslerAG/jsonpath"
 )
 
-// Match returns true if `payload` satisfies the wait_for spec. Any unparseable inputs return false.
+// Match returns true if payload satisfies the wait_for spec.
+// Returns false if the pattern is malformed (invalid regex) or the payload
+// cannot be interpreted (non-JSON for json_path). Pattern validation is the
+// caller's responsibility — typically done at script-save time via the
+// frontend zod schema.
 func Match(spec WaitForSpec, payload string) bool {
 	switch spec.MatchType {
 	case MatchAny:

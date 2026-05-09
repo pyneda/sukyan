@@ -44,3 +44,25 @@ func TestMatchJSONPath(t *testing.T) {
 		t.Fatal("json_path should not match non-JSON payload")
 	}
 }
+
+func TestMatchEdgeCases(t *testing.T) {
+	// Empty pattern for contains matches everything (strings.Contains semantics).
+	if !Match(WaitForSpec{MatchType: MatchContains, Pattern: ""}, "anything") {
+		t.Fatal("contains with empty pattern should match")
+	}
+
+	// Empty regex compiles and matches everything.
+	if !Match(WaitForSpec{MatchType: MatchRegex, Pattern: ""}, "anything") {
+		t.Fatal("regex with empty pattern should match")
+	}
+
+	// Unknown match type returns false (default fallthrough).
+	if Match(WaitForSpec{MatchType: "unknown_type"}, "anything") {
+		t.Fatal("unknown match_type should not match")
+	}
+
+	// JSONPath finding a null value still counts as a match (presence-based).
+	if !Match(WaitForSpec{MatchType: MatchJSONPath, Pattern: "$.a"}, `{"a":null}`) {
+		t.Fatal("json_path on a null value should match (presence-based)")
+	}
+}

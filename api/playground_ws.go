@@ -524,10 +524,6 @@ func AppendMessagesToWsSession(c *fiber.Ctx) error {
 	return c.JSON(wsSess)
 }
 
-// connectInput is a placeholder for future expansion of the connect endpoint body.
-// The current connect handler uses the session's stored target URL and headers.
-type connectInput struct{}
-
 // ConnectPlaygroundWs godoc
 // @Summary Open the interactive WebSocket for a playground WS session
 // @Description Dial the upstream WebSocket using the session's stored target URL and headers,
@@ -557,7 +553,21 @@ func ConnectPlaygroundWs(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Error: "Already connected"})
 	}
 	var headers []wsreplay.HeaderSpec
-	_ = json.Unmarshal(wsSess.RequestHeaders, &headers)
+	if err := json.Unmarshal(wsSess.RequestHeaders, &headers); err != nil {
+		log.Warn().Err(err).Uint("session_id", wsSess.ID).Msg("could not unmarshal request headers; connecting with empty headers")
+	}
+	var opts wsreplay.SessionOptions
+	if err := json.Unmarshal(wsSess.Options, &opts); err != nil {
+		log.Warn().Err(err).Uint("session_id", wsSess.ID).Msg("could not unmarshal session options; using defaults")
+	}
+	connectTimeout := 10 * time.Second
+	if opts.ConnectionTimeoutMs > 0 {
+		connectTimeout = time.Duration(opts.ConnectionTimeoutMs) * time.Millisecond
+	}
+	sendTimeout := 5 * time.Second
+	if opts.SendTimeoutMs > 0 {
+		sendTimeout = time.Duration(opts.SendTimeoutMs) * time.Millisecond
+	}
 	pid := wsSess.PlaygroundSessionID
 	cfg := wsreplay.SessionConfig{
 		TargetURL:           wsSess.TargetURL,
@@ -566,8 +576,8 @@ func ConnectPlaygroundWs(c *fiber.Ctx) error {
 		Instance:            wsreplay.InteractiveInstance(),
 		Persister:           wsreplay.NewDBPersister(db.Connection()),
 		Events:              mgr.BroadcasterFor(wsSess.ID),
-		ConnectTimeout:      10 * time.Second,
-		SendTimeout:         5 * time.Second,
+		ConnectTimeout:      connectTimeout,
+		SendTimeout:         sendTimeout,
 	}
 	sess, err := mgr.OpenInteractive(context.Background(), wsSess.ID, cfg)
 	if err != nil {

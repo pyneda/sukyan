@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/rs/zerolog/log"
 )
 
 // Persister is the abstraction the engine uses to record connections + frames to the DB.
@@ -47,9 +48,11 @@ type SessionConfig struct {
 	Instance            Instance
 	Persister           Persister
 	Events              *Broadcaster
-	ConnectTimeout      time.Duration
-	SendTimeout         time.Duration
-	BufferSize          int // received-frames channel buffer; default 1000
+	// ConnectTimeout bounds the dial+upgrade handshake. Defaults to 10s if zero.
+	ConnectTimeout time.Duration
+	// SendTimeout bounds the time a single Send waits for the writer to ack. Defaults to 5s if zero.
+	SendTimeout time.Duration
+	BufferSize  int // received-frames channel buffer; default 1000
 }
 
 // Session owns one upstream WS connection and its IO goroutines.
@@ -69,6 +72,7 @@ type sendReq struct {
 	opcode  int
 	content string
 	done    chan error
+	cancel  chan struct{}
 }
 
 // DialSession opens an upstream WS connection, registers it with the persister,
@@ -77,7 +81,16 @@ func DialSession(ctx context.Context, cfg SessionConfig) (*Session, error) {
 	if cfg.BufferSize == 0 {
 		cfg.BufferSize = 1000
 	}
+	if cfg.ConnectTimeout <= 0 {
+		cfg.ConnectTimeout = 10 * time.Second
+	}
+	if cfg.SendTimeout <= 0 {
+		cfg.SendTimeout = 5 * time.Second
+	}
 	hdr := http.Header{}
+	// TODO(v2): Sec-WebSocket-Protocol must be passed via dialer.Subprotocols, not headers,
+	// for proper subprotocol negotiation. For now, custom Sec-WebSocket-Protocol values are
+	// passed as raw headers and may be ignored by the server.
 	for _, h := range cfg.Headers {
 		if h.Enabled {
 			hdr.Add(h.Key, h.Value)
@@ -130,7 +143,7 @@ func (s *Session) Send(opcode int, content string) error {
 	if s.State() != StateConnected {
 		return errors.New("not connected")
 	}
-	req := sendReq{opcode: opcode, content: content, done: make(chan error, 1)}
+	req := sendReq{opcode: opcode, content: content, done: make(chan error, 1), cancel: make(chan struct{})}
 	select {
 	case s.sendCh <- req:
 	case <-s.closed:
@@ -140,6 +153,7 @@ func (s *Session) Send(opcode int, content string) error {
 	case err := <-req.done:
 		return err
 	case <-time.After(s.cfg.SendTimeout):
+		close(req.cancel)
 		return errors.New("send timeout")
 	}
 }
@@ -163,6 +177,8 @@ func (s *Session) Close() {
 	s.closeOnce.Do(func() {
 		s.state.Store(StateClosing)
 		s.publish("state_changed", map[string]any{"to": StateClosing})
+		// State must be StateClosing BEFORE closing the conn so readLoop sees the
+		// graceful close and doesn't transition to StateErrored.
 		_ = s.conn.Close()
 		close(s.closed)
 		s.wg.Wait()
@@ -179,14 +195,22 @@ func (s *Session) readLoop() {
 		if err != nil {
 			if s.State() == StateConnected {
 				s.state.Store(StateErrored)
-				s.publish("state_changed", map[string]any{"to": StateErrored, "error": err.Error()})
+				s.publish("state_changed", map[string]any{"from": StateConnected, "to": StateErrored, "error": err.Error()})
 			}
 			return
 		}
 		content := string(msg)
-		mid, _ := s.cfg.Persister.RecordMessage(s.connID, mt, content, "received")
+		mid, perr := s.cfg.Persister.RecordMessage(s.connID, mt, content, "received")
+		if perr != nil {
+			s.recordPersistError("received", mt, perr)
+		} else {
+			s.publish("frame_received", map[string]any{"message_id": mid, "opcode": mt, "content": content, "ts": time.Now()})
+		}
 		f := Frame{MessageID: mid, Opcode: mt, Content: content, Direction: "received", Ts: time.Now()}
-		s.publish("frame_received", map[string]any{"message_id": mid, "opcode": mt, "content": content, "ts": f.Ts})
+		// Detect buffer saturation once-per-burst.
+		if len(s.frames) == cap(s.frames) {
+			s.publish("frames_buffer_full", map[string]any{"capacity": cap(s.frames)})
+		}
 		select {
 		case s.frames <- f:
 		case <-s.closed:
@@ -200,16 +224,54 @@ func (s *Session) writeLoop() {
 	for {
 		select {
 		case req := <-s.sendCh:
+			select {
+			case <-req.cancel:
+				continue
+			default:
+			}
 			err := s.conn.WriteMessage(req.opcode, []byte(req.content))
 			if err == nil {
-				mid, _ := s.cfg.Persister.RecordMessage(s.connID, req.opcode, req.content, "sent")
-				s.publish("frame_sent", map[string]any{"message_id": mid, "opcode": req.opcode, "content": req.content, "ts": time.Now()})
+				if mid, perr := s.cfg.Persister.RecordMessage(s.connID, req.opcode, req.content, "sent"); perr != nil {
+					s.recordPersistError("sent", req.opcode, perr)
+				} else {
+					s.publish("frame_sent", map[string]any{"message_id": mid, "opcode": req.opcode, "content": req.content, "ts": time.Now()})
+				}
+			} else {
+				s.handleWriteError(err)
 			}
 			req.done <- err
 		case <-s.closed:
 			return
 		}
 	}
+}
+
+// handleWriteError is called by writeLoop on a non-nil WriteMessage error.
+// It transitions to StateErrored (if still connected) and forces the upstream
+// connection closed so readLoop wakes up and exits cleanly.
+func (s *Session) handleWriteError(err error) {
+	if s.State() != StateConnected {
+		return
+	}
+	s.state.Store(StateErrored)
+	s.publish("state_changed", map[string]any{"from": StateConnected, "to": StateErrored, "error": err.Error()})
+	_ = s.conn.Close()
+}
+
+// recordPersistError surfaces a persister failure so operators see it in logs
+// and the UI can render a degraded-state badge. The frame still flows in-memory.
+func (s *Session) recordPersistError(direction string, opcode int, err error) {
+	log.Warn().
+		Err(err).
+		Uint("connection_id", s.connID).
+		Str("direction", direction).
+		Int("opcode", opcode).
+		Msg("ws playground frame persist failed")
+	s.publish("persist_error", map[string]any{
+		"direction": direction,
+		"opcode":    opcode,
+		"error":     err.Error(),
+	})
 }
 
 func (s *Session) publish(evType string, data map[string]any) {

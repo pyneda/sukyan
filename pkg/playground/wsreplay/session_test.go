@@ -2,6 +2,7 @@ package wsreplay
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -96,3 +97,123 @@ func TestSessionConnectAndEcho(t *testing.T) {
 		t.Fatal("expected persister to record a connection")
 	}
 }
+
+func TestSessionCloseTransitionsAndJoins(t *testing.T) {
+	echo := startEchoServer(t)
+	persist := newFakePersister()
+	b := NewBroadcaster(64, 1000)
+	sess, err := DialSession(context.Background(), SessionConfig{
+		TargetURL: wsURL(echo.URL), Instance: InteractiveInstance(),
+		Persister: persist, Events: b,
+		ConnectTimeout: time.Second, SendTimeout: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess.Close()
+	if got := sess.State(); got != StateDisconnected {
+		t.Fatalf("expected StateDisconnected after Close, got %s", got)
+	}
+	// Idempotent.
+	sess.Close()
+	// NextFrame after Close returns the closed error promptly.
+	start := time.Now()
+	if _, err := sess.NextFrame(2 * time.Second); err == nil {
+		t.Fatal("expected error from NextFrame after close")
+	}
+	if elapsed := time.Since(start); elapsed > 500*time.Millisecond {
+		t.Fatalf("NextFrame took too long after close: %s", elapsed)
+	}
+}
+
+func TestSessionSendAfterCloseFails(t *testing.T) {
+	echo := startEchoServer(t)
+	persist := newFakePersister()
+	b := NewBroadcaster(64, 1000)
+	sess, err := DialSession(context.Background(), SessionConfig{
+		TargetURL: wsURL(echo.URL), Instance: InteractiveInstance(),
+		Persister: persist, Events: b,
+		ConnectTimeout: time.Second, SendTimeout: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sess.Close()
+	if err := sess.Send(1, "hi"); err == nil {
+		t.Fatal("expected Send to fail after Close")
+	}
+}
+
+func TestSessionDialPersisterFails(t *testing.T) {
+	echo := startEchoServer(t)
+	persist := &failingPersister{err: errors.New("db down")}
+	b := NewBroadcaster(64, 1000)
+	_, err := DialSession(context.Background(), SessionConfig{
+		TargetURL: wsURL(echo.URL), Instance: InteractiveInstance(),
+		Persister: persist, Events: b,
+		ConnectTimeout: time.Second, SendTimeout: time.Second,
+	})
+	if err == nil {
+		t.Fatal("expected DialSession to fail when persister fails")
+	}
+}
+
+// failingPersister always errors on CreateConnection.
+type failingPersister struct{ err error }
+
+func (f *failingPersister) CreateConnection(string, []HeaderSpec, int, string, *uint) (uint, error) {
+	return 0, f.err
+}
+func (f *failingPersister) RecordMessage(uint, int, string, string) (uint, error) { return 0, nil }
+func (f *failingPersister) CloseConnection(uint) error                            { return nil }
+
+func TestSessionPersistErrorEmitsEvent(t *testing.T) {
+	echo := startEchoServer(t)
+	// Persister that errors on RecordMessage.
+	persist := &flakyPersister{recordErr: errors.New("disk full")}
+	b := NewBroadcaster(64, 1000)
+	subCh, _ := b.Subscribe(0)
+	sess, err := DialSession(context.Background(), SessionConfig{
+		TargetURL: wsURL(echo.URL), Instance: InteractiveInstance(),
+		Persister: persist, Events: b,
+		ConnectTimeout: time.Second, SendTimeout: time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sess.Close()
+	if err := sess.Send(1, "x"); err != nil {
+		t.Fatal(err)
+	}
+	// We expect to see at least one persist_error event within a short window.
+	deadline := time.After(2 * time.Second)
+	saw := false
+	for !saw {
+		select {
+		case ev := <-subCh:
+			if ev.Type == "persist_error" {
+				saw = true
+			}
+		case <-deadline:
+			t.Fatal("did not receive persist_error event")
+		}
+	}
+}
+
+// flakyPersister returns a fixed error on RecordMessage. CreateConnection succeeds.
+type flakyPersister struct {
+	mu        sync.Mutex
+	recordErr error
+	connID    uint
+}
+
+func (f *flakyPersister) CreateConnection(string, []HeaderSpec, int, string, *uint) (uint, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.connID++
+	return f.connID, nil
+}
+func (f *flakyPersister) RecordMessage(uint, int, string, string) (uint, error) {
+	return 0, f.recordErr
+}
+func (f *flakyPersister) CloseConnection(uint) error { return nil }

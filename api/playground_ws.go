@@ -659,3 +659,207 @@ func SendInteractiveFrame(c *fiber.Ctx) error {
 	}
 	return c.SendStatus(fiber.StatusAccepted)
 }
+
+// StartRunInput represents the (currently empty) body for starting a new run.
+// Runs always execute against the session's currently saved script and options.
+type StartRunInput struct{}
+
+// StartPlaygroundWsRun godoc
+// @Summary Start a new run for a playground WS session
+// @Description Snapshot the session's current script and options, persist a new run row, and
+// @Description kick off background execution against a fresh upstream socket. Returns the new
+// @Description run ID immediately; lifecycle events are published on the session's broadcaster.
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param id path int true "Playground Session ID"
+// @Success 202 {object} map[string]interface{}
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/ws/sessions/{id}/runs [post]
+func StartPlaygroundWsRun(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil || id <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
+	}
+	wsSess, err := db.Connection().GetPlaygroundWsSessionBySessionID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Not found"})
+	}
+	run := &db.PlaygroundWsRun{
+		PlaygroundWsSessionID: wsSess.ID,
+		Status:                db.WsRunPending,
+		ScriptSnapshot:        wsSess.Script,
+		OptionsSnapshot:       wsSess.Options,
+	}
+	if err := db.Connection().CreatePlaygroundWsRun(run); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	go executeRun(wsSess, run)
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{"run_id": run.ID})
+}
+
+// executeRun drives a run from "pending" to a terminal state in the background.
+// It dials a fresh upstream socket, registers the cancel func with the manager,
+// emits run_started/run_finished terminal events, and persists the final row.
+func executeRun(wsSess *db.PlaygroundWsSession, run *db.PlaygroundWsRun) {
+	mgr := wsreplay.Default()
+	bcast := mgr.BroadcasterFor(wsSess.ID)
+	now := time.Now()
+	run.StartedAt = &now
+	run.Status = db.WsRunRunning
+	if err := db.Connection().UpdatePlaygroundWsRun(run); err != nil {
+		log.Error().Err(err).Uint("run_id", run.ID).Msg("could not mark run running")
+	}
+
+	var headers []wsreplay.HeaderSpec
+	if err := json.Unmarshal(wsSess.RequestHeaders, &headers); err != nil {
+		log.Warn().Err(err).Uint("session_id", wsSess.ID).Msg("could not unmarshal headers; running with empty headers")
+	}
+	var opts wsreplay.SessionOptions
+	if err := json.Unmarshal(wsSess.Options, &opts); err != nil {
+		log.Warn().Err(err).Uint("session_id", wsSess.ID).Msg("could not unmarshal options; using defaults")
+	}
+	pid := wsSess.PlaygroundSessionID
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	mgr.RegisterRunCancel(wsSess.ID, run.ID, cancel)
+
+	cfg := wsreplay.SessionConfig{
+		TargetURL:           wsSess.TargetURL,
+		Headers:             headers,
+		PlaygroundSessionID: &pid,
+		Instance:            wsreplay.RunInstance(run.ID),
+		Persister:           wsreplay.NewDBPersister(db.Connection()),
+		Events:              bcast,
+		ConnectTimeout:      time.Duration(maxInt(opts.ConnectionTimeoutMs, 10000)) * time.Millisecond,
+		SendTimeout:         time.Duration(maxInt(opts.SendTimeoutMs, 5000)) * time.Millisecond,
+	}
+	sess, err := wsreplay.DialSession(ctx, cfg)
+	if err != nil {
+		fail := err.Error()
+		run.FailureReason = &fail
+		run.Status = db.WsRunFailed
+		fin := time.Now()
+		run.FinishedAt = &fin
+		_ = db.Connection().UpdatePlaygroundWsRun(run)
+		raw, _ := json.Marshal(map[string]any{"run_id": run.ID, "status": "failed", "finished_at": fin})
+		bcast.Publish(wsreplay.Event{Type: "run_finished", Instance: wsreplay.RunInstance(run.ID), Data: raw, Ts: time.Now()})
+		return
+	}
+	mgr.RegisterRun(wsSess.ID, run.ID, sess)
+	connID := sess.ConnectionID()
+	run.WebSocketConnectionID = &connID
+	if err := db.Connection().UpdatePlaygroundWsRun(run); err != nil {
+		log.Error().Err(err).Uint("run_id", run.ID).Msg("could not record websocket_connection_id")
+	}
+
+	var script []wsreplay.ScriptEntry
+	if err := json.Unmarshal(run.ScriptSnapshot, &script); err != nil {
+		log.Warn().Err(err).Uint("run_id", run.ID).Msg("could not unmarshal script snapshot; running with empty script")
+	}
+	raw, _ := json.Marshal(map[string]any{"run_id": run.ID, "total_steps": len(script), "started_at": now})
+	bcast.Publish(wsreplay.Event{Type: "run_started", Instance: wsreplay.RunInstance(run.ID), Data: raw, Ts: time.Now()})
+
+	res := wsreplay.WalkScript(ctx, sess, script, opts, bcast)
+	fin := time.Now()
+	run.FinishedAt = &fin
+	stepIdx := res.CurrentStepIndex
+	run.CurrentStepIndex = &stepIdx
+	switch res.Status {
+	case "succeeded":
+		run.Status = db.WsRunSucceeded
+	case "failed":
+		run.Status = db.WsRunFailed
+		run.FailureReason = &res.FailureReason
+	case "cancelled":
+		run.Status = db.WsRunCancelled
+	}
+	if err := db.Connection().UpdatePlaygroundWsRun(run); err != nil {
+		log.Error().Err(err).Uint("run_id", run.ID).Msg("could not finalize run status")
+	}
+	finRaw, _ := json.Marshal(map[string]any{"run_id": run.ID, "status": string(run.Status), "finished_at": fin})
+	bcast.Publish(wsreplay.Event{Type: "run_finished", Instance: wsreplay.RunInstance(run.ID), Data: finRaw, Ts: time.Now()})
+	mgr.UnregisterRun(wsSess.ID, run.ID)
+	sess.Close()
+}
+
+// maxInt returns the larger of a and b. Used to floor session timeout overrides
+// against sensible defaults when the stored options have zero/unset values.
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// ListPlaygroundWsRuns godoc
+// @Summary List runs for a playground WS session
+// @Description Return a paginated list of run rows for the given playground WS session,
+// @Description newest first. Page defaults to 1 and page_size to 20.
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param id path int true "Playground Session ID"
+// @Param page query int false "Page number (default 1)"
+// @Param page_size query int false "Page size (default 20)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/ws/sessions/{id}/runs [get]
+func ListPlaygroundWsRuns(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil || id <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
+	}
+	wsSess, err := db.Connection().GetPlaygroundWsSessionBySessionID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Not found"})
+	}
+	page := c.QueryInt("page", 1)
+	pageSize := c.QueryInt("page_size", 20)
+	runs, count, err := db.Connection().ListPlaygroundWsRuns(wsSess.ID, page, pageSize)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	return c.JSON(fiber.Map{"data": runs, "count": count})
+}
+
+// CancelPlaygroundWsRun godoc
+// @Summary Cancel an active playground WS run
+// @Description Signal context cancellation to the run's walker and close its upstream socket.
+// @Description Returns 404 if no active run is registered for the given (session, run) pair.
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param id path int true "Playground Session ID"
+// @Param run_id path int true "Run ID"
+// @Success 202 "Accepted"
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/ws/sessions/{id}/runs/{run_id}/cancel [post]
+func CancelPlaygroundWsRun(c *fiber.Ctx) error {
+	sid, err := c.ParamsInt("id")
+	if err != nil || sid <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
+	}
+	rid, err := c.ParamsInt("run_id")
+	if err != nil || rid <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run_id"})
+	}
+	wsSess, err := db.Connection().GetPlaygroundWsSessionBySessionID(uint(sid))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Not found"})
+	}
+	if sess := wsreplay.Default().GetRun(wsSess.ID, uint(rid)); sess == nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Run not active"})
+	}
+	wsreplay.Default().CancelRun(wsSess.ID, uint(rid))
+	return c.SendStatus(fiber.StatusAccepted)
+}

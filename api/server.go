@@ -171,6 +171,9 @@ func StartAPI(opts ...APIServerOptions) {
 	api.Post("/playground/ws/sessions/:id/connect", JWTProtected(), ConnectPlaygroundWs)
 	api.Post("/playground/ws/sessions/:id/disconnect", JWTProtected(), DisconnectPlaygroundWs)
 	api.Post("/playground/ws/sessions/:id/frames", JWTProtected(), SendInteractiveFrame)
+	api.Post("/playground/ws/sessions/:id/runs", JWTProtected(), StartPlaygroundWsRun)
+	api.Get("/playground/ws/sessions/:id/runs", JWTProtected(), ListPlaygroundWsRuns)
+	api.Post("/playground/ws/sessions/:id/runs/:run_id/cancel", JWTProtected(), CancelPlaygroundWsRun)
 	api.Get("/playground/wordlists", JWTProtected(), ListAvailableWordlists)
 
 	api.Post("/playground/openapi/parse", JWTProtected(), ParseOpenAPISpec)

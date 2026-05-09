@@ -17,9 +17,10 @@ import (
 // for v1; the design spec documents this.
 type Manager struct {
 	mu           sync.Mutex
-	interactive  map[uint]*Session          // session_id -> session
-	runs         map[uint]map[uint]*Session // session_id -> run_id -> session
-	broadcasters map[uint]*Broadcaster      // session_id -> broadcaster
+	interactive  map[uint]*Session                   // session_id -> session
+	runs         map[uint]map[uint]*Session          // session_id -> run_id -> session
+	broadcasters map[uint]*Broadcaster               // session_id -> broadcaster
+	runCancels   map[uint]map[uint]context.CancelFunc // session_id -> run_id -> cancel
 	persister    Persister
 }
 
@@ -30,6 +31,7 @@ func NewManager(p Persister) *Manager {
 		interactive:  make(map[uint]*Session),
 		runs:         make(map[uint]map[uint]*Session),
 		broadcasters: make(map[uint]*Broadcaster),
+		runCancels:   make(map[uint]map[uint]context.CancelFunc),
 		persister:    p,
 	}
 }
@@ -141,6 +143,12 @@ func (m *Manager) UnregisterRun(sessionID, runID uint) {
 			delete(m.runs, sessionID)
 		}
 	}
+	if rs, ok := m.runCancels[sessionID]; ok {
+		delete(rs, runID)
+		if len(rs) == 0 {
+			delete(m.runCancels, sessionID)
+		}
+	}
 }
 
 // GetRun returns a run-instance Session if registered, else nil.
@@ -151,4 +159,36 @@ func (m *Manager) GetRun(sessionID, runID uint) *Session {
 		return rs[runID]
 	}
 	return nil
+}
+
+// RegisterRunCancel records the cancel function for a run, so CancelRun can
+// signal context cancellation to the running walker. Caller is expected to
+// call this immediately after constructing a cancellable context for the run.
+func (m *Manager) RegisterRunCancel(sessionID, runID uint, cancel context.CancelFunc) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.runCancels[sessionID] == nil {
+		m.runCancels[sessionID] = make(map[uint]context.CancelFunc)
+	}
+	m.runCancels[sessionID][runID] = cancel
+}
+
+// CancelRun cancels the registered context for a run. Also closes the
+// session if one is registered, since a context-only cancel cannot interrupt
+// an in-flight NextFrame; closing the socket is the documented escape hatch
+// (see WalkScript's cancellation contract).
+func (m *Manager) CancelRun(sessionID, runID uint) {
+	m.mu.Lock()
+	cancel := m.runCancels[sessionID][runID]
+	if rs, ok := m.runCancels[sessionID]; ok {
+		delete(rs, runID)
+	}
+	sess := m.runs[sessionID][runID]
+	m.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	if sess != nil {
+		sess.Close()
+	}
 }

@@ -39,7 +39,7 @@ type PlaygroundWsRun struct {
 	WebSocketConnection   *WebSocketConnection  `json:"-" gorm:"foreignKey:WebSocketConnectionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	ScriptSnapshot        json.RawMessage       `json:"script_snapshot" gorm:"type:jsonb"`
 	OptionsSnapshot       json.RawMessage       `json:"options_snapshot" gorm:"type:jsonb"`
-	Status                PlaygroundWsRunStatus `json:"status" gorm:"index"`
+	Status                PlaygroundWsRunStatus `json:"status" gorm:"not null;default:'pending'"`
 	CurrentStepIndex      *int                  `json:"current_step_index"`
 	FailureReason         *string               `json:"failure_reason"`
 	StartedAt             *time.Time            `json:"started_at"`

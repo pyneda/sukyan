@@ -1,4 +1,4 @@
-h1:cEPlJ16Jcv5/nhgChZg2m9CJ6KEE+o8WmjvsRULa+io=
+h1:JZ5WsqZX2XGefn/fvU4IzCRxeetDYYuvXR/F1gwQkmA=
 20251208012158_initial.sql h1:gwJqqGHQCjCbqlxba40IAPxNgWyj2LdQniyWHXO9vlc=
 20251208041927_add_scan_isolated.sql h1:dF6ne/760ggiHVjvqLh8HY/PqReOrDs6ugiexfmkvNM=
 20251209020515_add_browser_events_table.sql h1:J2lHVNkZ1RH4Mxp6MO6Pc4TtF5R5nlqX9j7OQ2XR+sQ=
@@ -19,3 +19,5 @@ h1:cEPlJ16Jcv5/nhgChZg2m9CJ6KEE+o8WmjvsRULa+io=
 20260204010621_remove_dead_circuit_breaker_fields.sql h1:7K9UwMwUr+HNXt3AX3bb+n61Fh6v9W1qCK6yCZjLW1c=
 20260222153750.sql h1:WVyCq/i7jgw2z8T/laqTjuj3/DQ4F0X9DpDqV9B64zI=
 20260509091537_add_playground_ws.sql h1:gRZNidqypEhdfE/Kgkst4ILkfd+ALkAY0G05lAsz43M=
+20260509092138_add_status_default_and_drop_full_index.sql h1:xcI13cIocXJwTZCBG3AMCeFyL2XdK78t6jiW0G/Kjx8=
+20260509092200_add_partial_index_ws_runs_status_running.sql h1:z3+T6rnSLHuHlPQiR31KuFNG8V+sOZ/74cXfM0fv3sQ=

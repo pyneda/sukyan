@@ -16,6 +16,29 @@ type RunResult struct {
 // WalkScript executes the script against a connected session, emitting per-step
 // events on the broadcaster and honoring the script entries' on_timeout / on_no_match
 // policies. Returns when the script completes, fails, or ctx is cancelled.
+//
+// Contracts:
+//   - Cancellation: ctx cancellation is observed at delay boundaries and between
+//     NextFrame calls. To interrupt an in-flight wait_for during a NextFrame call,
+//     callers must also close the session. The Manager's CancelRun (Task 15) does
+//     both.
+//   - Exclusive frame ownership: WalkScript reads received frames via
+//     sess.NextFrame, which is destructive on the session's frame channel. The
+//     run-instance socket model gives each run its own session, so this is fine
+//     in practice; do not invoke WalkScript on a session that has another active
+//     consumer (e.g. the interactive socket).
+//   - Terminal events: WalkScript emits per-step events (run_step_started,
+//     wait_*, run_step_completed) only. The terminal events (run_started,
+//     run_finished, run_failed, run_cancelled) are the caller's responsibility,
+//     paired with the DB-row status transitions.
+//   - On a NextFrame error during wait_for, the walker classifies it as a
+//     timeout for backward compatibility with existing tests. A closed upstream
+//     would surface as wait_timeout rather than a distinct event; this is a
+//     known minor mis-categorization (TODO: distinguish via an explicit
+//     ErrSessionClosed sentinel from session.NextFrame).
+//   - wait_timeout is emitted unconditionally when the deadline elapses, even
+//     when on_timeout=abort. UIs see "timed out, then aborted" rather than the
+//     run silently failing.
 func WalkScript(ctx context.Context, sess *Session, script []ScriptEntry, opts SessionOptions, b *Broadcaster) RunResult {
 	res := RunResult{Status: "succeeded"}
 	publish := func(t string, data map[string]any) {

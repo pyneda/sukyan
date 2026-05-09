@@ -19,6 +19,8 @@ func main() {
 		&db.ScanJob{},
 		&db.PlaygroundCollection{},
 		&db.PlaygroundSession{},
+		&db.PlaygroundWsSession{},
+		&db.PlaygroundWsRun{},
 		&db.Task{},
 		&db.TaskJob{},
 		&db.History{},

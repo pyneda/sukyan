@@ -37,6 +37,8 @@ type WebSocketConnection struct {
 	JsonWebTokens    []JsonWebToken     `json:"json_web_tokens" gorm:"many2many:json_web_token_websocket_connections;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	ProxyServiceID   *uuid.UUID         `json:"proxy_service_id" gorm:"type:uuid;index"`
 	ProxyService     *ProxyService      `json:"-" gorm:"foreignKey:ProxyServiceID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	PlaygroundSessionID *uint              `json:"playground_session_id" gorm:"index"`
+	PlaygroundSession   *PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 func (c WebSocketConnection) TaskTitle() string {

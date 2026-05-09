@@ -20,8 +20,10 @@ type PlaygroundCollection struct {
 type PlaygroundSessionType string
 
 const (
-	ManualType PlaygroundSessionType = "manual"
-	FuzzType   PlaygroundSessionType = "fuzz"
+	ManualType   PlaygroundSessionType = "manual"
+	FuzzType     PlaygroundSessionType = "fuzz"
+	WsManualType PlaygroundSessionType = "ws_manual"
+	WsFuzzType   PlaygroundSessionType = "ws_fuzz"
 )
 
 // PlaygroundSession represents a playground session.

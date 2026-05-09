@@ -30,6 +30,30 @@ type PlaygroundWsSession struct {
 	ImportedFromConnection   *WebSocketConnection `json:"-" gorm:"foreignKey:ImportedFromConnectionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
+func (d *DatabaseConnection) CreatePlaygroundWsSession(ws *PlaygroundWsSession) error {
+	return d.db.Create(ws).Error
+}
+
+func (d *DatabaseConnection) GetPlaygroundWsSession(id uint) (*PlaygroundWsSession, error) {
+	var ws PlaygroundWsSession
+	err := d.db.First(&ws, id).Error
+	return &ws, err
+}
+
+func (d *DatabaseConnection) GetPlaygroundWsSessionBySessionID(sessionID uint) (*PlaygroundWsSession, error) {
+	var ws PlaygroundWsSession
+	err := d.db.Where("playground_session_id = ?", sessionID).First(&ws).Error
+	return &ws, err
+}
+
+func (d *DatabaseConnection) UpdatePlaygroundWsSession(ws *PlaygroundWsSession) error {
+	return d.db.Save(ws).Error
+}
+
+func (d *DatabaseConnection) DeletePlaygroundWsSession(id uint) error {
+	return d.db.Delete(&PlaygroundWsSession{}, id).Error
+}
+
 // PlaygroundWsRun is one execution of a script against a fresh upstream socket.
 type PlaygroundWsRun struct {
 	BaseModel

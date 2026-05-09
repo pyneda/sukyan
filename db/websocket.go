@@ -16,27 +16,27 @@ import (
 
 type WebSocketConnection struct {
 	BaseModel
-	URL              string             `json:"url"`
-	RequestHeaders   datatypes.JSON     `json:"request_headers" swaggerignore:"true"`
-	ResponseHeaders  datatypes.JSON     `json:"response_headers" swaggerignore:"true"`
-	StatusCode       int                `gorm:"index" json:"status_code"`
-	StatusText       string             `json:"status_text"`
-	Messages         []WebSocketMessage `json:"messages" gorm:"foreignKey:ConnectionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	ClosedAt         time.Time          `json:"closed_at"` // timestamp for when the connection is closed
-	Workspace        Workspace          `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID      *uint              `json:"workspace_id"`
-	TaskID           *uint              `json:"task_id" gorm:"index" `
-	Task             Task               `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	ScanID           *uint              `json:"scan_id" gorm:"index"`
-	Scan             Scan               `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	ScanJobID        *uint              `json:"scan_job_id" gorm:"index"`
-	ScanJob          ScanJob            `json:"-" gorm:"foreignKey:ScanJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	Source           string             `json:"source"`
-	UpgradeRequestID *uint              `json:"upgrade_request_id" gorm:"index"`
-	UpgradeRequest   History            `json:"-" gorm:"foreignKey:UpgradeRequestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	JsonWebTokens    []JsonWebToken     `json:"json_web_tokens" gorm:"many2many:json_web_token_websocket_connections;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	ProxyServiceID   *uuid.UUID         `json:"proxy_service_id" gorm:"type:uuid;index"`
-	ProxyService     *ProxyService      `json:"-" gorm:"foreignKey:ProxyServiceID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	URL                 string             `json:"url"`
+	RequestHeaders      datatypes.JSON     `json:"request_headers" swaggerignore:"true"`
+	ResponseHeaders     datatypes.JSON     `json:"response_headers" swaggerignore:"true"`
+	StatusCode          int                `gorm:"index" json:"status_code"`
+	StatusText          string             `json:"status_text"`
+	Messages            []WebSocketMessage `json:"messages" gorm:"foreignKey:ConnectionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ClosedAt            time.Time          `json:"closed_at"` // timestamp for when the connection is closed
+	Workspace           Workspace          `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	WorkspaceID         *uint              `json:"workspace_id"`
+	TaskID              *uint              `json:"task_id" gorm:"index" `
+	Task                Task               `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ScanID              *uint              `json:"scan_id" gorm:"index"`
+	Scan                Scan               `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	ScanJobID           *uint              `json:"scan_job_id" gorm:"index"`
+	ScanJob             ScanJob            `json:"-" gorm:"foreignKey:ScanJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	Source              string             `json:"source"`
+	UpgradeRequestID    *uint              `json:"upgrade_request_id" gorm:"index"`
+	UpgradeRequest      History            `json:"-" gorm:"foreignKey:UpgradeRequestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	JsonWebTokens       []JsonWebToken     `json:"json_web_tokens" gorm:"many2many:json_web_token_websocket_connections;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ProxyServiceID      *uuid.UUID         `json:"proxy_service_id" gorm:"type:uuid;index"`
+	ProxyService        *ProxyService      `json:"-" gorm:"foreignKey:ProxyServiceID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	PlaygroundSessionID *uint              `json:"playground_session_id" gorm:"index"`
 	PlaygroundSession   *PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }

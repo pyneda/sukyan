@@ -11,6 +11,7 @@ func TestCreateAndGetPlaygroundWsSession(t *testing.T) {
 	conn := Connection()
 	require.NoError(t, conn.DB().AutoMigrate(&PlaygroundWsSession{}))
 	ws := createTestWorkspace(t)
+	t.Cleanup(func() { Connection().DeleteWorkspace(ws.ID) })
 	coll := &PlaygroundCollection{Name: "c", WorkspaceID: ws.ID}
 	if err := conn.CreatePlaygroundCollection(coll); err != nil {
 		t.Fatal(err)
@@ -44,6 +45,7 @@ func TestUpdatePlaygroundWsSession(t *testing.T) {
 	conn := Connection()
 	require.NoError(t, conn.DB().AutoMigrate(&PlaygroundWsSession{}))
 	ws := createTestWorkspace(t)
+	t.Cleanup(func() { Connection().DeleteWorkspace(ws.ID) })
 	coll := &PlaygroundCollection{Name: "c", WorkspaceID: ws.ID}
 	if err := conn.CreatePlaygroundCollection(coll); err != nil {
 		t.Fatal(err)

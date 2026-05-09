@@ -302,6 +302,12 @@ func (d *DatabaseConnection) UpdateWebSocketConnection(connection *WebSocketConn
 	return tx.Commit().Error
 }
 
+// CloseWebSocketConnection stamps closed_at on the given connection.
+// Used by the WS replay engine when a session ends.
+func (d *DatabaseConnection) CloseWebSocketConnection(id uint, closedAt time.Time) error {
+	return d.db.Model(&WebSocketConnection{}).Where("id = ?", id).Update("closed_at", &closedAt).Error
+}
+
 type WebSocketConnectionFilter struct {
 	Pagination
 	WorkspaceID    uint       `json:"workspace_id" validate:"required"`

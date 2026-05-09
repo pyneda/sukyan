@@ -6,6 +6,7 @@ require (
 	ariga.io/atlas-provider-gorm v0.5.6
 	github.com/BishopFox/jsluice v0.0.0-20240110145140-0ddfab153e06
 	github.com/Masterminds/semver/v3 v3.2.1
+	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/PuerkitoBio/goquery v1.10.3
 	github.com/elazarl/goproxy v1.7.2
 	github.com/getkin/kin-openapi v0.132.0
@@ -60,6 +61,7 @@ require (
 	github.com/MicahParks/keyfunc/v2 v2.1.0 // indirect
 	github.com/Mzack9999/gcache v0.0.0-20230410081825-519e28eab057 // indirect
 	github.com/Mzack9999/go-http-digest-auth-client v0.6.1-0.20220414142836-eb8883508809 // indirect
+	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/akrylysov/pogreb v0.10.2 // indirect
 	github.com/alecthomas/assert/v2 v2.11.0 // indirect

@@ -262,6 +262,13 @@ func (d *DatabaseConnection) GetWebSocketConnection(id uint) (*WebSocketConnecti
 	return &connection, err
 }
 
+// GetWebSocketMessage retrieves a single WebSocketMessage by its ID.
+func (d *DatabaseConnection) GetWebSocketMessage(id uint) (*WebSocketMessage, error) {
+	var m WebSocketMessage
+	err := d.db.First(&m, id).Error
+	return &m, err
+}
+
 func (d *DatabaseConnection) GetWebSocketConnectionsByID(ids []uint) ([]WebSocketConnection, error) {
 	var connections []WebSocketConnection
 	err := d.db.Where("id IN ?", ids).Find(&connections).Error

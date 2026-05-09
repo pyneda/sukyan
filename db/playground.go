@@ -164,6 +164,15 @@ func (d *DatabaseConnection) CreatePlaygroundCollection(collection *PlaygroundCo
 	return d.db.Create(collection).Error
 }
 
+// FindOrCreatePlaygroundCollection finds a PlaygroundCollection by workspace ID and name,
+// creating it if it does not already exist. The lookup-and-insert is performed atomically
+// by GORM's FirstOrCreate to avoid duplicate rows under concurrent callers.
+func (d *DatabaseConnection) FindOrCreatePlaygroundCollection(workspaceID uint, name string) (*PlaygroundCollection, error) {
+	coll := PlaygroundCollection{WorkspaceID: workspaceID, Name: name}
+	err := d.db.Where(PlaygroundCollection{WorkspaceID: workspaceID, Name: name}).FirstOrCreate(&coll).Error
+	return &coll, err
+}
+
 // UpdatePlaygroundCollection updates an existing PlaygroundCollection record.
 func (d *DatabaseConnection) UpdatePlaygroundCollection(id uint, collection *PlaygroundCollection) error {
 	return d.db.Model(&PlaygroundCollection{}).Where("id = ?", id).Updates(collection).Error

@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
@@ -216,4 +218,248 @@ func DeletePlaygroundWsSession(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// ImportConnectionInput represents the input for importing an existing WebSocket connection
+// as a new playground WS replay session.
+type ImportConnectionInput struct {
+	ConnectionID uint   `json:"connection_id" validate:"required"`
+	CollectionID *uint  `json:"collection_id"`
+	WorkspaceID  uint   `json:"workspace_id" validate:"required"`
+	Name         string `json:"name"`
+}
+
+// importMessageCap is the maximum number of WebSocket messages copied into a derived script.
+const importMessageCap = 500
+
+// ImportConnectionToPlaygroundWs godoc
+// @Summary Import a WebSocket connection as a playground WS session
+// @Description Derive a scripted WS replay session from a captured WebSocket connection. Each
+// @Description sent text frame becomes a step; received frames between two sent frames attach a
+// @Description wait_for(any) hint to the preceding step. Binary frames are skipped. Long
+// @Description histories are capped at importMessageCap messages.
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param input body ImportConnectionInput true "Import Connection Input"
+// @Success 201 {object} map[string]interface{}
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/ws/sessions/import-connection [post]
+func ImportConnectionToPlaygroundWs(c *fiber.Ctx) error {
+	input := new(ImportConnectionInput)
+	if err := c.BodyParser(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Cannot parse JSON"})
+	}
+	if err := validate.Struct(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Validation failed", Message: err.Error()})
+	}
+
+	conn, err := db.Connection().GetWebSocketConnection(input.ConnectionID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Connection not found"})
+	}
+
+	// Resolve or auto-create the destination collection.
+	var collectionID uint
+	if input.CollectionID != nil {
+		collectionID = *input.CollectionID
+	} else {
+		coll, err := db.Connection().FindOrCreatePlaygroundCollection(input.WorkspaceID, "WebSocket Replays")
+		if err != nil {
+			log.Error().Err(err).Uint("workspace_id", input.WorkspaceID).Msg("Failed to find-or-create WebSocket Replays collection")
+			return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+		}
+		collectionID = coll.ID
+	}
+
+	// Fetch up to importMessageCap+1 messages so we can detect overflow.
+	msgs, _, err := db.Connection().ListWebSocketMessages(db.WebSocketMessageFilter{
+		ConnectionID: conn.ID,
+		Pagination:   db.Pagination{Page: 1, PageSize: importMessageCap + 1},
+	})
+	if err != nil {
+		log.Error().Err(err).Uint("connection_id", conn.ID).Msg("Failed to list WebSocket messages for import")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+
+	totalMessages := len(msgs)
+	skippedBinary := 0
+	if totalMessages > importMessageCap {
+		msgs = msgs[:importMessageCap]
+	}
+
+	// Derive script: each sent frame becomes a step. Received frames sandwiched between
+	// two sent frames attach a wait_for(any) hint to the preceding step and downgrade
+	// its on_timeout from "abort" to "continue".
+	script := []map[string]any{}
+	for _, m := range msgs {
+		if m.Opcode == 2 { // binary frame
+			skippedBinary++
+			continue
+		}
+		if m.Direction == "sent" {
+			script = append(script, map[string]any{
+				"id":          generateID(),
+				"name":        "",
+				"content":     m.PayloadData,
+				"opcode":      1,
+				"delay_ms":    0,
+				"on_timeout":  "abort",
+				"on_no_match": "abort",
+			})
+		} else if m.Direction == "received" && len(script) > 0 {
+			last := script[len(script)-1]
+			if _, ok := last["wait_for"]; !ok {
+				last["wait_for"] = map[string]any{
+					"match_type": "any",
+					"pattern":    "",
+					"timeout_ms": 5000,
+				}
+				last["on_timeout"] = "continue"
+			}
+		}
+	}
+
+	scriptJSON, _ := json.Marshal(script)
+
+	// conn.RequestHeaders is datatypes.JSON; PlaygroundWsSession.RequestHeaders is
+	// json.RawMessage. Both are []byte under the hood but distinct named types,
+	// so explicit conversion is required.
+	var headersJSON json.RawMessage
+	if len(conn.RequestHeaders) > 0 {
+		headersJSON = json.RawMessage(conn.RequestHeaders)
+	}
+	if len(headersJSON) == 0 {
+		headersJSON = json.RawMessage("[]")
+	}
+
+	name := input.Name
+	if name == "" {
+		name = deriveSessionName(conn.URL)
+	}
+
+	parent := &db.PlaygroundSession{
+		Name:         name,
+		Type:         db.WsManualType,
+		WorkspaceID:  input.WorkspaceID,
+		CollectionID: collectionID,
+	}
+	if err := db.Connection().CreatePlaygroundSession(parent); err != nil {
+		log.Error().Err(err).Interface("input", input).Msg("Failed to create parent playground session for import")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+
+	imported := conn.ID
+	wsSess := &db.PlaygroundWsSession{
+		PlaygroundSessionID:      parent.ID,
+		TargetURL:                conn.URL,
+		RequestHeaders:           headersJSON,
+		Script:                   scriptJSON,
+		Options:                  json.RawMessage(`{"connection_timeout_ms":10000,"send_timeout_ms":5000,"inter_step_delay_ms":0}`),
+		ImportedFromConnectionID: &imported,
+	}
+	if err := db.Connection().CreatePlaygroundWsSession(wsSess); err != nil {
+		log.Error().Err(err).Uint("session_id", parent.ID).Msg("Failed to create playground ws payload for import")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"session":        parent,
+		"ws":             wsSess,
+		"total_messages": totalMessages,
+		"skipped_binary": skippedBinary,
+		"capped":         totalMessages > importMessageCap,
+		"cap":            importMessageCap,
+	})
+}
+
+// deriveSessionName builds a default session name from a target URL plus the current time.
+func deriveSessionName(url string) string {
+	t := time.Now().Format("15:04")
+	if len(url) > 60 {
+		url = url[:60] + "…"
+	}
+	return url + " — " + t
+}
+
+// generateID returns a hex-encoded nanosecond timestamp suitable for tagging script steps.
+func generateID() string {
+	return fmt.Sprintf("%x", time.Now().UnixNano())
+}
+
+// AppendMessagesInput represents the input for appending captured WebSocket messages
+// onto an existing playground WS session script.
+type AppendMessagesInput struct {
+	MessageIDs []uint `json:"message_ids" validate:"required,min=1"`
+}
+
+// AppendMessagesToWsSession godoc
+// @Summary Append captured WebSocket messages to a playground WS session script
+// @Description Look up the given WebSocket message IDs and append each text frame as a new
+// @Description step at the end of the session's script. Binary frames are silently skipped.
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param id path int true "Playground Session ID"
+// @Param input body AppendMessagesInput true "Append Messages Input"
+// @Success 200 {object} db.PlaygroundWsSession
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/ws/sessions/{id}/messages-import [post]
+func AppendMessagesToWsSession(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil || id <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
+	}
+
+	input := new(AppendMessagesInput)
+	if err := c.BodyParser(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Cannot parse JSON"})
+	}
+	if err := validate.Struct(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Validation failed", Message: err.Error()})
+	}
+
+	wsSess, err := db.Connection().GetPlaygroundWsSessionBySessionID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Not found"})
+	}
+
+	var script []map[string]any
+	if err := json.Unmarshal(wsSess.Script, &script); err != nil {
+		script = []map[string]any{}
+	}
+
+	for _, mid := range input.MessageIDs {
+		m, err := db.Connection().GetWebSocketMessage(mid)
+		if err != nil {
+			continue
+		}
+		if m.Opcode == 2 {
+			continue
+		}
+		script = append(script, map[string]any{
+			"id":          generateID(),
+			"name":        "",
+			"content":     m.PayloadData,
+			"opcode":      1,
+			"delay_ms":    0,
+			"on_timeout":  "abort",
+			"on_no_match": "abort",
+		})
+	}
+
+	scriptJSON, _ := json.Marshal(script)
+	wsSess.Script = scriptJSON
+	if err := db.Connection().UpdatePlaygroundWsSession(wsSess); err != nil {
+		log.Error().Err(err).Uint("id", uint(id)).Msg("Failed to update playground ws session on messages-import")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+
+	return c.JSON(wsSess)
 }

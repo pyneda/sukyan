@@ -257,15 +257,35 @@ func ImportConnectionToPlaygroundWs(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Validation failed", Message: err.Error()})
 	}
 
+	workspaceExists, err := db.Connection().WorkspaceExists(input.WorkspaceID)
+	if err != nil {
+		log.Error().Err(err).Uint("workspace_id", input.WorkspaceID).Msg("Failed to check workspace existence")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "Failed to check workspace", Message: err.Error()})
+	}
+	if !workspaceExists {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid workspace", Message: "The provided workspace ID does not seem valid"})
+	}
+
 	conn, err := db.Connection().GetWebSocketConnection(input.ConnectionID)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Connection not found"})
 	}
 
+	if conn.WorkspaceID == nil || *conn.WorkspaceID != input.WorkspaceID {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Connection does not belong to workspace"})
+	}
+
 	// Resolve or auto-create the destination collection.
 	var collectionID uint
 	if input.CollectionID != nil {
-		collectionID = *input.CollectionID
+		coll, err := db.Connection().GetPlaygroundCollection(*input.CollectionID)
+		if err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Collection not found"})
+		}
+		if coll.WorkspaceID != input.WorkspaceID {
+			return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid collection", Message: "The collection does not belong to the provided workspace"})
+		}
+		collectionID = coll.ID
 	} else {
 		coll, err := db.Connection().FindOrCreatePlaygroundCollection(input.WorkspaceID, "WebSocket Replays")
 		if err != nil {
@@ -325,15 +345,30 @@ func ImportConnectionToPlaygroundWs(c *fiber.Ctx) error {
 
 	scriptJSON, _ := json.Marshal(script)
 
-	// conn.RequestHeaders is datatypes.JSON; PlaygroundWsSession.RequestHeaders is
-	// json.RawMessage. Both are []byte under the hood but distinct named types,
-	// so explicit conversion is required.
-	var headersJSON json.RawMessage
+	// Convert connection headers (map[string][]string JSON) to the playground
+	// WS session's expected []HeaderSpec JSON shape ({key, value, enabled}).
+	var headersJSON json.RawMessage = json.RawMessage("[]")
 	if len(conn.RequestHeaders) > 0 {
-		headersJSON = json.RawMessage(conn.RequestHeaders)
-	}
-	if len(headersJSON) == 0 {
-		headersJSON = json.RawMessage("[]")
+		var raw map[string][]string
+		if err := json.Unmarshal(conn.RequestHeaders, &raw); err == nil {
+			type headerSpec struct {
+				Key     string `json:"key"`
+				Value   string `json:"value"`
+				Enabled bool   `json:"enabled"`
+			}
+			specs := make([]headerSpec, 0, len(raw))
+			for k, vs := range raw {
+				for _, v := range vs {
+					specs = append(specs, headerSpec{Key: k, Value: v, Enabled: true})
+				}
+			}
+			if b, err := json.Marshal(specs); err == nil {
+				headersJSON = b
+			}
+		} else {
+			log.Warn().Err(err).Uint("connection_id", conn.ID).
+				Msg("could not parse connection headers; importing with empty headers")
+		}
 	}
 
 	name := input.Name
@@ -430,17 +465,36 @@ func AppendMessagesToWsSession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Not found"})
 	}
 
-	var script []map[string]any
-	if err := json.Unmarshal(wsSess.Script, &script); err != nil {
-		script = []map[string]any{}
+	parentSess, err := db.Connection().GetPlaygroundSession(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Parent session not found"})
 	}
 
+	var script []map[string]any
+	if err := json.Unmarshal(wsSess.Script, &script); err != nil {
+		log.Error().Err(err).Uint("session_id", uint(id)).
+			Msg("existing script is malformed; refusing to append")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:   "Existing script is malformed",
+			Message: err.Error(),
+		})
+	}
+
+	crossTenantSkips := 0
 	for _, mid := range input.MessageIDs {
 		m, err := db.Connection().GetWebSocketMessage(mid)
 		if err != nil {
 			continue
 		}
 		if m.Opcode == 2 {
+			continue
+		}
+		conn, err := db.Connection().GetWebSocketConnection(m.ConnectionID)
+		if err != nil {
+			continue
+		}
+		if conn.WorkspaceID == nil || *conn.WorkspaceID != parentSess.WorkspaceID {
+			crossTenantSkips++
 			continue
 		}
 		script = append(script, map[string]any{
@@ -452,6 +506,10 @@ func AppendMessagesToWsSession(c *fiber.Ctx) error {
 			"on_timeout":  "abort",
 			"on_no_match": "abort",
 		})
+	}
+	if crossTenantSkips > 0 {
+		log.Warn().Int("count", crossTenantSkips).Uint("session_id", uint(id)).
+			Msg("skipped cross-tenant messages during append")
 	}
 
 	scriptJSON, _ := json.Marshal(script)

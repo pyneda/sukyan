@@ -48,21 +48,54 @@ func (m *Manager) BroadcasterFor(sessionID uint) *Broadcaster {
 	return b
 }
 
+// CloseBroadcaster closes and removes the broadcaster for sessionID.
+// Use when a playground session is deleted or otherwise permanently torn down.
+// Safe when no broadcaster exists (no-op).
+func (m *Manager) CloseBroadcaster(sessionID uint) {
+	m.mu.Lock()
+	b := m.broadcasters[sessionID]
+	delete(m.broadcasters, sessionID)
+	m.mu.Unlock()
+	if b != nil {
+		b.Close()
+	}
+}
+
 // OpenInteractive opens (or returns) the interactive socket for sessionID.
 // If a connected session already exists it is returned as-is.
 // If a stale (non-connected) session exists, it is replaced.
 func (m *Manager) OpenInteractive(ctx context.Context, sessionID uint, cfg SessionConfig) (*Session, error) {
 	m.mu.Lock()
+	// Re-use only if the existing session is connected. Errored/Closing/Disconnected
+	// sessions are stale and replaced; for v1 DialSession is synchronous so we never
+	// observe StateConnecting here.
 	if existing := m.interactive[sessionID]; existing != nil && existing.State() == StateConnected {
 		m.mu.Unlock()
 		return existing, nil
 	}
 	m.mu.Unlock()
+
+	// Default the Persister from the manager's singleton if the caller didn't set one.
+	if cfg.Persister == nil {
+		cfg.Persister = m.persister
+	}
+
 	sess, err := DialSession(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
+
+	// Re-check after re-locking. If another goroutine raced and registered a
+	// connected session in the meantime, close ours and return the winner.
 	m.mu.Lock()
+	// Re-use only if the existing session is connected. Errored/Closing/Disconnected
+	// sessions are stale and replaced; for v1 DialSession is synchronous so we never
+	// observe StateConnecting here.
+	if existing := m.interactive[sessionID]; existing != nil && existing.State() == StateConnected {
+		m.mu.Unlock()
+		sess.Close()
+		return existing, nil
+	}
 	m.interactive[sessionID] = sess
 	m.mu.Unlock()
 	return sess, nil

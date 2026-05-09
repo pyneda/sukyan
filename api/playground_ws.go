@@ -1,12 +1,14 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/playground/wsreplay"
 	"github.com/rs/zerolog/log"
 )
 
@@ -520,4 +522,130 @@ func AppendMessagesToWsSession(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(wsSess)
+}
+
+// connectInput is a placeholder for future expansion of the connect endpoint body.
+// The current connect handler uses the session's stored target URL and headers.
+type connectInput struct{}
+
+// ConnectPlaygroundWs godoc
+// @Summary Open the interactive WebSocket for a playground WS session
+// @Description Dial the upstream WebSocket using the session's stored target URL and headers,
+// @Description and register the resulting interactive session with the in-process manager.
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param id path int true "Playground Session ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 502 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/ws/sessions/{id}/connect [post]
+func ConnectPlaygroundWs(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil || id <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
+	}
+	wsSess, err := db.Connection().GetPlaygroundWsSessionBySessionID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Not found"})
+	}
+	mgr := wsreplay.Default()
+	if existing := mgr.GetInteractive(wsSess.ID); existing != nil && existing.State() == wsreplay.StateConnected {
+		return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Error: "Already connected"})
+	}
+	var headers []wsreplay.HeaderSpec
+	_ = json.Unmarshal(wsSess.RequestHeaders, &headers)
+	pid := wsSess.PlaygroundSessionID
+	cfg := wsreplay.SessionConfig{
+		TargetURL:           wsSess.TargetURL,
+		Headers:             headers,
+		PlaygroundSessionID: &pid,
+		Instance:            wsreplay.InteractiveInstance(),
+		Persister:           wsreplay.NewDBPersister(db.Connection()),
+		Events:              mgr.BroadcasterFor(wsSess.ID),
+		ConnectTimeout:      10 * time.Second,
+		SendTimeout:         5 * time.Second,
+	}
+	sess, err := mgr.OpenInteractive(context.Background(), wsSess.ID, cfg)
+	if err != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(ErrorResponse{Error: "Could not connect", Message: err.Error()})
+	}
+	return c.JSON(fiber.Map{"state": sess.State(), "websocket_connection_id": sess.ConnectionID()})
+}
+
+// DisconnectPlaygroundWs godoc
+// @Summary Close the interactive WebSocket for a playground WS session
+// @Description Close and unregister the interactive WebSocket session if one is currently open.
+// @Description Safe to call when no interactive session exists; the manager treats it as a no-op.
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param id path int true "Playground Session ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/ws/sessions/{id}/disconnect [post]
+func DisconnectPlaygroundWs(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil || id <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
+	}
+	wsSess, err := db.Connection().GetPlaygroundWsSessionBySessionID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Not found"})
+	}
+	wsreplay.Default().CloseInteractive(wsSess.ID)
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// SendFrameInput represents the input for sending a single frame on the interactive WebSocket.
+type SendFrameInput struct {
+	Opcode  int    `json:"opcode" validate:"required,oneof=1 2"`
+	Content string `json:"content"`
+}
+
+// SendInteractiveFrame godoc
+// @Summary Send a frame on the interactive WebSocket of a playground WS session
+// @Description Queue a single text (opcode 1) or binary (opcode 2) frame on the currently open
+// @Description interactive WebSocket. Returns 409 if the session is not connected.
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param id path int true "Playground Session ID"
+// @Param input body SendFrameInput true "Send Frame Input"
+// @Success 202 "Accepted"
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 502 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/ws/sessions/{id}/frames [post]
+func SendInteractiveFrame(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil || id <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
+	}
+	input := new(SendFrameInput)
+	if err := c.BodyParser(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Cannot parse JSON"})
+	}
+	if err := validate.Struct(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Validation failed", Message: err.Error()})
+	}
+	wsSess, err := db.Connection().GetPlaygroundWsSessionBySessionID(uint(id))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Not found"})
+	}
+	sess := wsreplay.Default().GetInteractive(wsSess.ID)
+	if sess == nil {
+		return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Error: "Not connected"})
+	}
+	if err := sess.Send(input.Opcode, input.Content); err != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(ErrorResponse{Error: err.Error()})
+	}
+	return c.SendStatus(fiber.StatusAccepted)
 }

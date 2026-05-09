@@ -3,7 +3,12 @@ package wsreplay
 import (
 	"context"
 	"sync"
+	"time"
 )
+
+// defaultIdleTimeout is how long an interactive session may have zero
+// subscribers before the manager auto-closes it to free upstream resources.
+const defaultIdleTimeout = 30 * time.Second
 
 // Manager is the in-process registry of active playground WS sessions.
 //
@@ -22,6 +27,7 @@ type Manager struct {
 	broadcasters map[uint]*Broadcaster               // session_id -> broadcaster
 	runCancels   map[uint]map[uint]context.CancelFunc // session_id -> run_id -> cancel
 	persister    Persister
+	idleTimeout  time.Duration
 }
 
 // NewManager constructs an empty Manager. The persister is held to be passed
@@ -33,7 +39,39 @@ func NewManager(p Persister) *Manager {
 		broadcasters: make(map[uint]*Broadcaster),
 		runCancels:   make(map[uint]map[uint]context.CancelFunc),
 		persister:    p,
+		idleTimeout:  defaultIdleTimeout,
 	}
+}
+
+// SetIdleTimeout sets how long an interactive session may have zero subscribers
+// before the manager auto-closes it. Setting a new timeout does not retro-apply
+// to already-running watchdogs; only watchdogs spawned after this call observe
+// the new value.
+func (m *Manager) SetIdleTimeout(d time.Duration) {
+	m.mu.Lock()
+	m.idleTimeout = d
+	m.mu.Unlock()
+}
+
+// currentIdleTimeout returns the current idle timeout under lock.
+func (m *Manager) currentIdleTimeout() time.Duration {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.idleTimeout
+}
+
+// tickInterval picks a watchdog tick interval that's small enough to react
+// before the idle timeout elapses, but bounded so prod-default 30s timeouts
+// don't busy-tick.
+func tickInterval(idle time.Duration) time.Duration {
+	t := idle / 4
+	if t < 25*time.Millisecond {
+		t = 25 * time.Millisecond
+	}
+	if t > time.Second {
+		t = time.Second
+	}
+	return t
 }
 
 // BroadcasterFor returns the broadcaster for the given playground_ws_session_id,
@@ -100,7 +138,44 @@ func (m *Manager) OpenInteractive(ctx context.Context, sessionID uint, cfg Sessi
 	}
 	m.interactive[sessionID] = sess
 	m.mu.Unlock()
+	go m.watchInteractiveIdle(sessionID, sess)
 	return sess, nil
+}
+
+// watchInteractiveIdle auto-closes the interactive session for sessionID once
+// its broadcaster has had zero subscribers for at least idleTimeout. The
+// watchdog exits when the registered session is replaced, the session
+// transitions out of StateConnected, or it triggers the close itself.
+func (m *Manager) watchInteractiveIdle(sessionID uint, sess *Session) {
+	idle := m.currentIdleTimeout()
+	if idle <= 0 {
+		return
+	}
+	b := m.BroadcasterFor(sessionID)
+	tick := time.NewTicker(tickInterval(idle))
+	defer tick.Stop()
+
+	var idleStart time.Time
+	for range tick.C {
+		// Bail if the registry no longer points at our session, or we've
+		// transitioned out of Connected (e.g., upstream closed the socket).
+		if m.GetInteractive(sessionID) != sess || sess.State() != StateConnected {
+			return
+		}
+		if b.SubscriberCount() == 0 {
+			if idleStart.IsZero() {
+				idleStart = time.Now()
+				continue
+			}
+			if time.Since(idleStart) >= idle {
+				m.CloseInteractive(sessionID)
+				return
+			}
+			continue
+		}
+		// Subscribers came back; reset the idle window.
+		idleStart = time.Time{}
+	}
 }
 
 // GetInteractive returns the current interactive session for sessionID, or nil.

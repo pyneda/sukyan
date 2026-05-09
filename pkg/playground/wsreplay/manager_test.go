@@ -129,6 +129,31 @@ func TestManagerCloseInteractiveDoesNotAffectRuns(t *testing.T) {
 	}
 }
 
+func TestManagerAutoClosesIdleInteractive(t *testing.T) {
+	echo := startEchoServer(t)
+	persist := newFakePersister()
+	m := NewManager(persist)
+	m.SetIdleTimeout(200 * time.Millisecond)
+	cfg := SessionConfig{
+		TargetURL: wsURL(echo.URL), Instance: InteractiveInstance(),
+		Persister: persist, Events: m.BroadcasterFor(99),
+		ConnectTimeout: 2 * time.Second, SendTimeout: time.Second,
+	}
+	sess, err := m.OpenInteractive(context.Background(), 99, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = sess
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if m.GetInteractive(99) == nil {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatal("expected interactive session to auto-close")
+}
+
 func TestManagerCloseBroadcaster(t *testing.T) {
 	persist := newFakePersister()
 	m := NewManager(persist)

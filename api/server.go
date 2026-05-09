@@ -162,6 +162,10 @@ func StartAPI(opts ...APIServerOptions) {
 	api.Post("/playground/sessions", JWTProtected(), CreatePlaygroundSession)
 	api.Put("/playground/collections/:id", JWTProtected(), UpdatePlaygroundCollection)
 	api.Put("/playground/sessions/:id", JWTProtected(), UpdatePlaygroundSession)
+	api.Post("/playground/ws/sessions", JWTProtected(), CreatePlaygroundWsSession)
+	api.Get("/playground/ws/sessions/:id", JWTProtected(), GetPlaygroundWsSession)
+	api.Put("/playground/ws/sessions/:id", JWTProtected(), UpdatePlaygroundWsSession)
+	api.Delete("/playground/ws/sessions/:id", JWTProtected(), DeletePlaygroundWsSession)
 	api.Get("/playground/wordlists", JWTProtected(), ListAvailableWordlists)
 
 	api.Post("/playground/openapi/parse", JWTProtected(), ParseOpenAPISpec)

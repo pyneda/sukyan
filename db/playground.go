@@ -179,6 +179,13 @@ func (d *DatabaseConnection) CreatePlaygroundSession(session *PlaygroundSession)
 	return d.db.Create(session).Error
 }
 
+// DeletePlaygroundSession deletes a PlaygroundSession by its ID.
+// Cascade-delete relationships defined on PlaygroundSession (e.g. PlaygroundWsSession,
+// which in turn cascades to PlaygroundWsRun) take care of dependent rows.
+func (d *DatabaseConnection) DeletePlaygroundSession(id uint) error {
+	return d.db.Delete(&PlaygroundSession{}, id).Error
+}
+
 func (d *DatabaseConnection) InitializeWorkspacePlayground(workspaceID uint) error {
 	collection := PlaygroundCollection{
 		Name:        "Default collection",

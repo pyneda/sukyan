@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gofiber/contrib/fiberzerolog"
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
@@ -174,6 +175,7 @@ func StartAPI(opts ...APIServerOptions) {
 	api.Post("/playground/ws/sessions/:id/runs", JWTProtected(), StartPlaygroundWsRun)
 	api.Get("/playground/ws/sessions/:id/runs", JWTProtected(), ListPlaygroundWsRuns)
 	api.Post("/playground/ws/sessions/:id/runs/:run_id/cancel", JWTProtected(), CancelPlaygroundWsRun)
+	api.Get("/playground/ws/sessions/:id/stream", PlaygroundWsStreamUpgrade, websocket.New(PlaygroundWsStream))
 	api.Get("/playground/wordlists", JWTProtected(), ListAvailableWordlists)
 
 	api.Post("/playground/openapi/parse", JWTProtected(), ParseOpenAPISpec)

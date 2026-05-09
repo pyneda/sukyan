@@ -35,6 +35,7 @@ func (p *DBPersister) RecordMessage(connID uint, opcode int, content string, dir
 		Opcode:       float64(opcode),
 		PayloadData:  content,
 		Direction:    db.MessageDirection(direction),
+		IsBinary:     opcode == 2,
 		Timestamp:    time.Now(),
 	}
 	if err := p.conn.CreateWebSocketMessage(msg); err != nil {

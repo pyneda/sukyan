@@ -303,7 +303,8 @@ func (d *DatabaseConnection) UpdateWebSocketConnection(connection *WebSocketConn
 }
 
 // CloseWebSocketConnection stamps closed_at on the given connection.
-// Used by the WS replay engine when a session ends.
+// Idempotent: returns nil if the connection has been deleted (RowsAffected=0
+// is treated as success). Used by the WS replay engine when a session ends.
 func (d *DatabaseConnection) CloseWebSocketConnection(id uint, closedAt time.Time) error {
 	return d.db.Model(&WebSocketConnection{}).Where("id = ?", id).Update("closed_at", &closedAt).Error
 }

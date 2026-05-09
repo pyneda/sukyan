@@ -16,6 +16,14 @@ import (
 
 // Persister is the abstraction the engine uses to record connections + frames to the DB.
 // In tests it's a fake; in production it's wired to db.Connection() (Task 11).
+//
+// Callers (and the engine itself) MUST pass canonical values for the string-typed
+// arguments — the DB layer relies on exact-match queries:
+//   - direction: "sent" or "received"
+//   - source:    "playground"
+//
+// Non-canonical values (case differences, typos) will be persisted as-is and
+// silently break recovery sweeps and history filters.
 type Persister interface {
 	CreateConnection(url string, headers []HeaderSpec, statusCode int, source string, playgroundSessionID *uint) (uint, error)
 	RecordMessage(connID uint, opcode int, content string, direction string) (uint, error)

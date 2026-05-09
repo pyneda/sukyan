@@ -22,6 +22,7 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
+	"github.com/pyneda/sukyan/pkg/playground/wsreplay"
 	"github.com/pyneda/sukyan/pkg/proxy"
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/rs/zerolog/log"
@@ -86,6 +87,14 @@ func StartAPI(opts ...APIServerOptions) {
 	}
 
 	apiLogger.Info().Msg("Initialized everything. Starting the API...")
+
+	wsreplay.Init(wsreplay.NewDBPersister(db.Connection()))
+	if err := db.Connection().MarkOrphanedWsRunsAborted(); err != nil {
+		apiLogger.Error().Err(err).Msg("ws recovery sweep: runs")
+	}
+	if err := db.Connection().CloseOrphanedPlaygroundConnections(); err != nil {
+		apiLogger.Error().Err(err).Msg("ws recovery sweep: connections")
+	}
 
 	app := fiber.New(fiber.Config{
 		// Prefork:       true,

@@ -1,3 +1,5 @@
+// Package wsreplay provides the WebSocket replay engine for the playground:
+// session lifecycle, script-driven runs, and a control-event broadcaster.
 package wsreplay
 
 import (
@@ -6,6 +8,9 @@ import (
 )
 
 // SessionState describes the lifecycle of an upstream WS connection.
+// "disconnected" is the resting state both before connect and after close —
+// chosen over the spec's "closed" because it reads better in UI status badges
+// and avoids needing two terminal states to mean the same thing.
 type SessionState string
 
 const (
@@ -16,14 +21,40 @@ const (
 	StateErrored      SessionState = "errored"
 )
 
+// Instance kinds.
+const (
+	InstanceKindInteractive = "interactive"
+	InstanceKindRun         = "run"
+)
+
+// On-failure policies for run script entries.
+const (
+	PolicyAbort    = "abort"
+	PolicyContinue = "continue"
+)
+
+// WaitFor match types.
+const (
+	MatchAny      = "any"
+	MatchContains = "contains"
+	MatchRegex    = "regex"
+	MatchJSONPath = "json_path"
+)
+
 // Instance distinguishes the interactive socket from per-run sockets within a single session.
 type Instance struct {
 	Kind  string `json:"kind"` // "interactive" or "run"
 	RunID uint   `json:"run_id,omitempty"`
 }
 
-func InteractiveInstance() Instance   { return Instance{Kind: "interactive"} }
-func RunInstance(runID uint) Instance { return Instance{Kind: "run", RunID: runID} }
+func InteractiveInstance() Instance   { return Instance{Kind: InstanceKindInteractive} }
+func RunInstance(runID uint) Instance { return Instance{Kind: InstanceKindRun, RunID: runID} }
+
+// IsInteractive reports whether the instance is the long-lived interactive socket.
+func (i Instance) IsInteractive() bool { return i.Kind == InstanceKindInteractive }
+
+// IsRun reports whether the instance is a per-run socket.
+func (i Instance) IsRun() bool { return i.Kind == InstanceKindRun }
 
 // ScriptEntry mirrors the frontend zod schema. JSON-encoded in DB.
 type ScriptEntry struct {
@@ -65,14 +96,18 @@ type Event struct {
 	Ts       time.Time       `json:"ts"`
 }
 
+// SnapshotInteractive describes the interactive socket's state in a snapshot frame.
+type SnapshotInteractive struct {
+	State                 SessionState `json:"state"`
+	WebSocketConnectionID *uint        `json:"websocket_connection_id,omitempty"`
+}
+
 // Snapshot is the first frame delivered to a new control-WS subscriber.
+// Wire format: when emitted on the control WS, it is wrapped as Event{Type: "snapshot", Data: <Snapshot JSON>}.
 type Snapshot struct {
-	Interactive struct {
-		State                 SessionState `json:"state"`
-		WebSocketConnectionID *uint        `json:"websocket_connection_id,omitempty"`
-	} `json:"interactive"`
-	ActiveRuns []ActiveRunSummary `json:"active_runs"`
-	LastSeq    int64              `json:"last_seq"`
+	Interactive SnapshotInteractive `json:"interactive"`
+	ActiveRuns  []ActiveRunSummary  `json:"active_runs"`
+	LastSeq     int64               `json:"last_seq"`
 }
 
 type ActiveRunSummary struct {

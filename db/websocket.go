@@ -372,8 +372,9 @@ func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnection
 
 type WebSocketMessageFilter struct {
 	Pagination
-	ConnectionID uint
-	IsBinary     *bool // Pointer to allow distinguishing between false and not-set
+	ConnectionID        uint
+	PlaygroundSessionID *uint // optional; matches via web_socket_connections.playground_session_id
+	IsBinary            *bool // Pointer to allow distinguishing between false and not-set
 }
 
 func (d *DatabaseConnection) ListWebSocketMessages(filter WebSocketMessageFilter) ([]WebSocketMessage, int64, error) {
@@ -381,6 +382,11 @@ func (d *DatabaseConnection) ListWebSocketMessages(filter WebSocketMessageFilter
 
 	if filter.ConnectionID != 0 {
 		query = query.Where("connection_id = ?", filter.ConnectionID)
+	}
+
+	if filter.PlaygroundSessionID != nil {
+		query = query.Joins("JOIN web_socket_connections ON web_socket_connections.id = web_socket_messages.connection_id").
+			Where("web_socket_connections.playground_session_id = ?", *filter.PlaygroundSessionID)
 	}
 
 	if filter.IsBinary != nil {

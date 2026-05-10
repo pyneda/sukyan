@@ -124,6 +124,7 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 // @Param page_size query integer false "Size of each page" default(50)
 // @Param page query integer false "Page number" default(1)
 // @Param connection_id query string false "Filter messages by WebSocket connection ID"
+// @Param playground_session_id query int false "filter by playground session id"
 // @Param is_binary query boolean false "Filter by binary messages (true) or text messages (false)"
 // @Success 200 {array} db.WebSocketMessage
 // @Failure 500 {object} ErrorResponse
@@ -133,6 +134,7 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")
 	unparsedConnectionID := c.Query("connection_id")
+	unparsedPlaygroundSessionID := c.Query("playground_session_id")
 	unparsedIsBinary := c.Query("is_binary")
 
 	pageSize, err := strconv.Atoi(unparsedPageSize)
@@ -157,6 +159,17 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 		connectionID = uint(unparsedUint)
 	}
 
+	var playgroundSessionID *uint
+	if unparsedPlaygroundSessionID != "" {
+		parsed, err := strconv.ParseUint(unparsedPlaygroundSessionID, 10, 32)
+		if err != nil {
+			log.Error().Err(err).Msg("Error parsing playground_session_id query parameter")
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid playground_session_id parameter"})
+		}
+		parsedUint := uint(parsed)
+		playgroundSessionID = &parsedUint
+	}
+
 	var isBinary *bool
 	if unparsedIsBinary != "" {
 		parsed, err := strconv.ParseBool(unparsedIsBinary)
@@ -172,8 +185,9 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 			Page:     page,
 			PageSize: pageSize,
 		},
-		ConnectionID: connectionID,
-		IsBinary:     isBinary,
+		ConnectionID:        connectionID,
+		PlaygroundSessionID: playgroundSessionID,
+		IsBinary:            isBinary,
 	})
 
 	if err != nil {

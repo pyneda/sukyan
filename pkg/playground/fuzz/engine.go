@@ -308,7 +308,28 @@ type doRequestInput struct {
 // projection. Returns nil if the request couldn't be built at all (parse
 // error on the fuzzed raw HTTP — should be rare given the engine controls
 // the substitution).
-func doRequest(ctx context.Context, in doRequestInput) *FuzzResult {
+//
+// Wrapped in panic-recovery: the upstream rawhttp + httputil.DumpResponse
+// path can panic on a connection that closes mid-read (e.g. a cancel races
+// the body read). Treat such panics as a failed request rather than letting
+// them crash the whole process.
+func doRequest(ctx context.Context, in doRequestInput) (out *FuzzResult) {
+	defer func() {
+		if r := recover(); r != nil {
+			errStr := fmt.Sprintf("engine panic: %v", r)
+			log.Warn().Interface("panic", r).Msg("fuzz: recovered from panic in doRequest")
+			out = &FuzzResult{
+				Index:         in.assignment.Index,
+				PayloadValues: in.assignment.Payloads,
+				Error:         &errStr,
+				Ts:            time.Now(),
+			}
+		}
+	}()
+	return doRequestInner(ctx, in)
+}
+
+func doRequestInner(ctx context.Context, in doRequestInput) *FuzzResult {
 	raw := ReplacePayloads(in.input.RawRequest, in.input.Positions, in.assignment.Payloads)
 	parsedReq, err := manual.ParseRawRequest(raw, in.input.TargetURL)
 	if err != nil {

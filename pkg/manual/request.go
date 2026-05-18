@@ -128,8 +128,3 @@ func ParseRawRequest(raw string, targetURL string) (*Request, error) {
 	}, nil
 }
 
-func InsertPayloadIntoRawRequest(raw string, point FuzzerInsertionPoint, payload string) string {
-	before := raw[:point.Start]
-	after := raw[point.End:]
-	return before + payload + after
-}

@@ -1,92 +1,339 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
+	"strconv"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/pkg/manual"
+	"github.com/pyneda/sukyan/pkg/playground/fuzz"
+	"github.com/pyneda/sukyan/pkg/playground/stream"
 	"github.com/rs/zerolog/log"
 )
 
+// PlaygroundFuzzInput is the launch payload for POST /api/v1/playground/fuzz.
+// The shape must match the engine spec's data-model section.
 type PlaygroundFuzzInput struct {
-	URL             string                        `json:"url" validate:"required" example:"https://example.com/"`
-	RawRequest      string                        `json:"raw_request" validate:"required" example:"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"`
-	InsertionPoints []manual.FuzzerInsertionPoint `json:"insertion_points" validate:"required"`
-	SessionID       uint                          `json:"session_id" validate:"required"`
-	Options         manual.RequestOptions         `json:"options"`
+	URL            string                       `json:"url" validate:"required" example:"https://example.com/"`
+	RawRequest     string                       `json:"raw_request" validate:"required"`
+	SessionID      uint                         `json:"session_id" validate:"required,min=1"`
+	Mode           fuzz.FuzzMode                `json:"mode" validate:"required,oneof=single all paired combinations"`
+	Positions      []fuzz.FuzzerPosition        `json:"positions" validate:"required,min=1"`
+	SharedPayloads *fuzz.FuzzerPayloadsGroup    `json:"shared_payloads,omitempty"`
+	Options        fuzz.RequestOptions          `json:"options"`
+	Execution      fuzz.FuzzerExecutionOptions  `json:"execution"`
 }
 
+// PlaygroundFuzzResponse is the launch response.
 type PlaygroundFuzzResponse struct {
-	Message       string `json:"message"`
-	TaskID        uint   `json:"task_id"`
-	RequestsCount int    `json:"requests_count"`
+	RunID         uint `json:"run_id"`
+	RequestsCount int  `json:"requests_count"`
+}
+
+// PlaygroundFuzzPreviewInput is the preview payload. Same as launch input
+// minus the URL/RawRequest (preview doesn't need them; only counts requests).
+type PlaygroundFuzzPreviewInput struct {
+	Mode           fuzz.FuzzMode             `json:"mode" validate:"required,oneof=single all paired combinations"`
+	Positions      []fuzz.FuzzerPosition     `json:"positions" validate:"required,min=1"`
+	SharedPayloads *fuzz.FuzzerPayloadsGroup `json:"shared_payloads,omitempty"`
 }
 
 // FuzzRequest godoc
-// @Summary Schedules a new task to fuzz the provided request
-// @Description Schedules a new task to fuzz the provided request with the provided insertion points, payloads, etc and returns the task ID to filter the results
+// @Summary Launch a new fuzz run
+// @Description Validates the input, snapshots the config onto a new PlaygroundFuzzRun row, and launches the engine asynchronously. Returns immediately with the run id.
 // @Tags Playground
-// @Accept  json
-// @Produce  json
-// @Param input body PlaygroundFuzzInput true "Set the fuzzing request configuration"
-// @Success 200 {string} PlaygroundFuzzResponse
+// @Accept json
+// @Produce json
+// @Param input body PlaygroundFuzzInput true "Fuzz launch input"
+// @Success 200 {object} PlaygroundFuzzResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz [post]
 func FuzzRequest(c *fiber.Ctx) error {
 	input := new(PlaygroundFuzzInput)
-
 	if err := c.BodyParser(input); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Error:   "Bad Request",
-			Message: "Cannot parse JSON body",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Bad Request", Message: "Cannot parse JSON body"})
 	}
-
 	if err := validate.Struct(input); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Error:   "Validation Failed",
-			Message: err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Validation Failed", Message: err.Error()})
 	}
 
 	session, err := db.Connection().GetPlaygroundSession(input.SessionID)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Error:   "Invalid Session",
-			Message: "The provided session ID does not seem valid",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid Session", Message: "The provided session ID does not seem valid"})
 	}
 
-	fuzzOptions := manual.RequestFuzzOptions{
-		URL:             input.URL,
-		Raw:             input.RawRequest,
-		InsertionPoints: input.InsertionPoints,
-		Session:         *session,
-		Options:         input.Options,
+	// Engine-level validation (mode/payload consistency, overlap).
+	if err := fuzz.Validate(input.Mode, input.Positions, input.SharedPayloads); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid fuzz config", Message: err.Error()})
 	}
-	title := "Fuzz: " + input.URL
-	task, err := db.Connection().NewTask(session.WorkspaceID, &session.ID, title, db.TaskStatusPending, db.TaskTypePlaygroundFuzzer)
+
+	resolved := fuzz.Resolve(input.Mode, input.Positions, input.SharedPayloads)
+	strategy, err := fuzz.StrategyFor(input.Mode)
 	if err != nil {
-		log.Error().Err(err).Interface("task", task).Msg("Task creation failed")
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
-			Error:   "Fuzzing Initialization Failed",
-			Message: "Cannot create a new task",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid mode", Message: err.Error()})
 	}
-	requestsCount, err := manual.Fuzz(fuzzOptions, task.ID)
+	requestCount, err := strategy.RequestCount(input.Positions, resolved)
 	if err != nil {
-		log.Error().Err(err).Interface("options", fuzzOptions).Msg("Failed to initiate playground fuzzing")
-		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
-			Error:   "Fuzzing Initialization Failed",
-			Message: err.Error(),
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid fuzz config", Message: err.Error()})
 	}
+
+	// Snapshot the config to freeze what was actually launched.
+	cfg := fuzz.FuzzerConfig{
+		Mode:      input.Mode,
+		Positions: input.Positions,
+		Shared:    input.SharedPayloads,
+		Request:   input.Options,
+		Execution: input.Execution,
+	}
+	configRaw, _ := json.Marshal(cfg)
+
+	run := &db.PlaygroundFuzzRun{
+		PlaygroundSessionID: session.ID,
+		WorkspaceID:         session.WorkspaceID,
+		ConfigSnapshot:      configRaw,
+		Status:              db.FuzzRunPending,
+		PlannedRequestCount: requestCount,
+	}
+	if err := db.Connection().CreatePlaygroundFuzzRun(run); err != nil {
+		log.Error().Err(err).Msg("api: create fuzz run")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "Could not create run", Message: err.Error()})
+	}
+
+	// Per-run broadcaster + cancellation context; registered for cancel and
+	// streaming endpoints to find.
+	bcast := stream.NewBroadcaster(64, 1000)
+	runCtx, cancel := context.WithCancel(context.Background())
+	fuzz.Default().Register(run.ID, cancel, bcast)
+
+	go runFuzzAsync(runCtx, run, input, resolved, strategy, bcast)
 
 	return c.JSON(PlaygroundFuzzResponse{
-		Message:       "Fuzzing initiated successfully",
-		TaskID:        task.ID,
-		RequestsCount: requestsCount,
+		RunID:         run.ID,
+		RequestsCount: requestCount,
+	})
+}
+
+// runFuzzAsync is the background goroutine that drives one run to completion.
+// It owns the run row's status transitions and the registry cleanup.
+func runFuzzAsync(
+	ctx context.Context,
+	run *db.PlaygroundFuzzRun,
+	input *PlaygroundFuzzInput,
+	resolved fuzz.ResolvedPayloads,
+	strategy fuzz.ModeStrategy,
+	bcast *stream.Broadcaster,
+) {
+	defer fuzz.Default().Unregister(run.ID)
+	defer bcast.Close()
+
+	// Transition pending → running.
+	now := time.Now()
+	run.Status = db.FuzzRunRunning
+	run.StartedAt = &now
+	if err := db.Connection().UpdatePlaygroundFuzzRun(run); err != nil {
+		log.Error().Err(err).Uint("run_id", run.ID).Msg("api: update run to running")
+	}
+	bcast.Publish(&fuzz.FuzzEvent{
+		Type:   fuzz.FuzzEventStatus,
+		RunID:  run.ID,
+		At:     time.Now(),
+		Status: &fuzz.FuzzStatusEv{From: string(db.FuzzRunPending), To: string(db.FuzzRunRunning)},
 	})
 
+	hooks := fuzz.Hooks{
+		AttachRunID: func(historyID, runID uint) {
+			if err := db.Connection().DB().Model(&db.History{}).Where("id = ?", historyID).Update("playground_fuzz_run_id", runID).Error; err != nil {
+				log.Warn().Err(err).Uint("history_id", historyID).Uint("run_id", runID).Msg("api: attach run id to history")
+			}
+		},
+		UpdateProgress: func(sent, errs int) {
+			run.SentRequestCount = sent
+			run.ErrorCount = errs
+			_ = db.Connection().UpdatePlaygroundFuzzRun(run)
+			bcast.Publish(&fuzz.FuzzEvent{
+				Type:  fuzz.FuzzEventProgress,
+				RunID: run.ID,
+				At:    time.Now(),
+				Progress: &fuzz.FuzzProgress{
+					Sent:           sent,
+					Errors:         errs,
+					Planned:        run.PlannedRequestCount,
+					ElapsedSeconds: int(time.Since(now).Seconds()),
+				},
+			})
+		},
+	}
+
+	outcome := fuzz.Run(ctx, fuzz.RunInput{
+		RunID:               run.ID,
+		WorkspaceID:         run.WorkspaceID,
+		PlaygroundSessionID: run.PlaygroundSessionID,
+		TargetURL:           input.URL,
+		RawRequest:          input.RawRequest,
+		Mode:                input.Mode,
+		Positions:           input.Positions,
+		Resolved:            resolved,
+		Request:             input.Options,
+		Execution:           input.Execution,
+		Strategy:            strategy,
+		Broadcaster:         bcast,
+		Hooks:               hooks,
+	})
+
+	finishedAt := time.Now()
+	run.Status = outcome.Status
+	run.FinishedAt = &finishedAt
+	run.SentRequestCount = outcome.SentCount
+	run.ErrorCount = outcome.ErrorCount
+	if outcome.FailureReason != "" {
+		reason := outcome.FailureReason
+		run.FailureReason = &reason
+	}
+	if err := db.Connection().UpdatePlaygroundFuzzRun(run); err != nil {
+		log.Error().Err(err).Uint("run_id", run.ID).Msg("api: finalize run")
+	}
+
+	// Emit terminal events.
+	bcast.Publish(&fuzz.FuzzEvent{
+		Type:  fuzz.FuzzEventStatus,
+		RunID: run.ID,
+		At:    finishedAt,
+		Status: &fuzz.FuzzStatusEv{
+			From:   string(db.FuzzRunRunning),
+			To:     string(outcome.Status),
+			Reason: run.FailureReason,
+		},
+	})
+	bcast.Publish(&fuzz.FuzzEvent{
+		Type:  fuzz.FuzzEventDone,
+		RunID: run.ID,
+		At:    finishedAt,
+		Done: &fuzz.FuzzDoneEv{
+			FinalStatus:     string(outcome.Status),
+			TotalSent:       outcome.SentCount,
+			TotalErrors:     outcome.ErrorCount,
+			DurationSeconds: int(outcome.Duration.Seconds()),
+			Reason:          run.FailureReason,
+		},
+	})
 }
+
+// FuzzPreview godoc
+// @Summary Compute request count + warnings for a fuzz config without launching
+// @Tags Playground
+// @Accept json
+// @Produce json
+// @Param input body PlaygroundFuzzPreviewInput true "Fuzz preview input"
+// @Success 200 {object} fuzz.PreviewResult
+// @Failure 400 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/fuzz/preview [post]
+func FuzzPreview(c *fiber.Ctx) error {
+	input := new(PlaygroundFuzzPreviewInput)
+	if err := c.BodyParser(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Bad Request", Message: "Cannot parse JSON body"})
+	}
+	if err := validate.Struct(input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Validation Failed", Message: err.Error()})
+	}
+	res, err := fuzz.Preview(input.Mode, input.Positions, input.SharedPayloads)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid fuzz config", Message: err.Error()})
+	}
+	return c.JSON(res)
+}
+
+// CancelFuzzRun godoc
+// @Summary Cancel an in-flight fuzz run
+// @Tags Playground
+// @Param run_id path int true "Fuzz Run ID"
+// @Success 204 "No Content"
+// @Success 200 {object} map[string]string "already_finished"
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/fuzz/runs/{run_id} [delete]
+func CancelFuzzRun(c *fiber.Ctx) error {
+	runID, err := c.ParamsInt("run_id")
+	if err != nil || runID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
+	}
+	run, err := db.Connection().GetPlaygroundFuzzRun(uint(runID))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Run not found"})
+	}
+	if run.Status.IsTerminal() {
+		return c.JSON(fiber.Map{"status": "already_finished"})
+	}
+	if !fuzz.Default().Cancel(uint(runID)) {
+		// Run is non-terminal but no cancel func — orphaned (process restart
+		// during run; the recovery sweep should have caught it). Stamp it now
+		// to avoid leaving the row in pending forever.
+		now := time.Now()
+		reason := "cancelled (no live engine context found)"
+		run.Status = db.FuzzRunCancelled
+		run.FinishedAt = &now
+		run.FailureReason = &reason
+		_ = db.Connection().UpdatePlaygroundFuzzRun(run)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// GetFuzzRun godoc
+// @Summary Fetch a single fuzz run by ID
+// @Tags Playground
+// @Param run_id path int true "Fuzz Run ID"
+// @Success 200 {object} db.PlaygroundFuzzRun
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/fuzz/runs/{run_id} [get]
+func GetFuzzRun(c *fiber.Ctx) error {
+	runID, err := c.ParamsInt("run_id")
+	if err != nil || runID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
+	}
+	run, err := db.Connection().GetPlaygroundFuzzRun(uint(runID))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Run not found"})
+	}
+	return c.JSON(run)
+}
+
+// ListFuzzRunsForSession godoc
+// @Summary List fuzz runs for a session, newest first
+// @Tags Playground
+// @Param id path int true "Playground Session ID"
+// @Param page query int false "Page (1-based)"
+// @Param page_size query int false "Page size"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/sessions/{id}/fuzz-runs [get]
+func ListFuzzRunsForSession(c *fiber.Ctx) error {
+	sessID, err := c.ParamsInt("id")
+	if err != nil || sessID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid session id"})
+	}
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	pageSize, _ := strconv.Atoi(c.Query("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 20
+	}
+	runs, total, err := db.Connection().ListPlaygroundFuzzRuns(uint(sessID), page, pageSize)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "Could not list runs", Message: err.Error()})
+	}
+	return c.JSON(fiber.Map{
+		"runs":      runs,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+

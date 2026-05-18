@@ -133,8 +133,16 @@ func runFuzzAsync(
 	strategy fuzz.ModeStrategy,
 	bcast *stream.Broadcaster,
 ) {
-	defer fuzz.Default().Unregister(run.ID)
-	defer bcast.Close()
+	// Keep the broadcaster registered after the run finishes for a grace
+	// period (5 minutes) so a user who opens the just-finished run still
+	// gets the buffered history of result events. Without this, fast runs
+	// that complete before the UI has time to open the WS stream lose all
+	// rich per-result data (payload values, word/line counts).
+	const postRunGrace = 5 * time.Minute
+	defer time.AfterFunc(postRunGrace, func() {
+		fuzz.Default().Unregister(run.ID)
+		bcast.Close()
+	})
 
 	// Calibration phase — runs before the main fuzz when AutoBaseline isn't off.
 	var baseline *fuzz.RunBaseline

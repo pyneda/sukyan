@@ -89,6 +89,10 @@ func (b *Broadcaster) Subscribe(since int64) (<-chan Sequenced, int64) {
 	b.mu.Unlock()
 
 	go func() {
+		// Recover from send-on-closed-channel: a concurrent Publish may
+		// drop+close this subscriber for being slow while we're mid-replay.
+		// Treat that as a clean stop.
+		defer func() { _ = recover() }()
 		for _, ev := range replay {
 			select {
 			case s.ch <- ev:

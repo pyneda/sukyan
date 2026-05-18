@@ -91,6 +91,12 @@ func FuzzRequest(c *fiber.Ctx) error {
 	}
 	configRaw, _ := json.Marshal(cfg)
 
+	// Persist the launched config onto the session as the new live config so
+	// re-opening restores exactly what was last launched.
+	if err := db.Connection().UpdatePlaygroundSessionFuzzerConfig(session.ID, configRaw); err != nil {
+		log.Warn().Err(err).Uint("session_id", session.ID).Msg("api: persist fuzzer config on launch (continuing)")
+	}
+
 	run := &db.PlaygroundFuzzRun{
 		PlaygroundSessionID: session.ID,
 		WorkspaceID:         session.WorkspaceID,
@@ -300,6 +306,62 @@ func GetFuzzRun(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Run not found"})
 	}
 	return c.JSON(run)
+}
+
+// GetFuzzerConfig godoc
+// @Summary Fetch the persisted fuzzer config for a session
+// @Tags Playground
+// @Param id path int true "Playground Session ID"
+// @Success 200 {object} fuzz.FuzzerConfig
+// @Success 204 "No Content (no config persisted yet)"
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/sessions/{id}/fuzzer-config [get]
+func GetFuzzerConfig(c *fiber.Ctx) error {
+	sessID, err := c.ParamsInt("id")
+	if err != nil || sessID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid session id"})
+	}
+	sess, err := db.Connection().GetPlaygroundSession(uint(sessID))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Session not found"})
+	}
+	if len(sess.FuzzerConfig) == 0 {
+		return c.SendStatus(fiber.StatusNoContent)
+	}
+	c.Set("Content-Type", "application/json")
+	return c.Send(sess.FuzzerConfig)
+}
+
+// PutFuzzerConfig godoc
+// @Summary Persist the fuzzer config for a session (autosaved by the UI)
+// @Tags Playground
+// @Accept json
+// @Param id path int true "Playground Session ID"
+// @Param input body fuzz.FuzzerConfig true "Fuzzer config"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/sessions/{id}/fuzzer-config [put]
+func PutFuzzerConfig(c *fiber.Ctx) error {
+	sessID, err := c.ParamsInt("id")
+	if err != nil || sessID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid session id"})
+	}
+	// Verify the config is valid JSON before persisting. We do NOT enforce
+	// fuzz.Validate here because autosave happens before the config is
+	// complete — a half-edited config (e.g. mode chosen but no payloads yet)
+	// must still persist so the UI can restore it later.
+	var probe map[string]any
+	body := c.Body()
+	if err := json.Unmarshal(body, &probe); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid JSON", Message: err.Error()})
+	}
+	if err := db.Connection().UpdatePlaygroundSessionFuzzerConfig(uint(sessID), json.RawMessage(body)); err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Session not found", Message: err.Error()})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 // ListFuzzRunsForSession godoc

@@ -12,4 +12,6 @@ When you run `atlas migrate diff` you may see Atlas propose a migration that dro
 
 - `idx_playground_ws_runs_status_running` — partial index on `playground_ws_runs(status) WHERE status = 'running'`. Used by the boot-time recovery sweep that marks orphaned runs as `aborted_server_restart`. GORM's `index` tag emits a full btree only; the partial form is created by `20260509092200_add_partial_index_ws_runs_status_running.sql`.
 
-If you see `DROP INDEX "idx_playground_ws_runs_status_running"` in a fresh `atlas migrate diff` output, **discard that diff**. It's drift between gormschema and the live database, not a real change.
+- `idx_playground_fuzz_runs_status_active` — partial index on `playground_fuzz_runs(status) WHERE status IN ('pending','calibrating','running')`. Same purpose for the HTTP fuzzer recovery sweep (`MarkOrphanedFuzzRunsAborted`); created by `20260518060948_add_partial_index_fuzz_runs_active.sql`.
+
+If you see `DROP INDEX` for either partial index in a fresh `atlas migrate diff` output, **discard that diff**. It's drift between gormschema and the live database, not a real change.

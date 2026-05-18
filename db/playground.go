@@ -1,6 +1,7 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/rs/zerolog/log"
@@ -41,6 +42,11 @@ type PlaygroundSession struct {
 	WorkspaceID  uint                 `json:"workspace_id" gorm:"index"`
 	Workspace    Workspace            `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	Histories    []History            `gorm:"foreignKey:PlaygroundSessionID" json:"-"`
+	// FuzzerConfig is the live, editable fuzzer config for sessions of type
+	// "fuzz". Nullable: sessions of other types ignore it; new fuzz sessions
+	// persist a config on first save. Snapshotted into PlaygroundFuzzRun on
+	// each launch.
+	FuzzerConfig json.RawMessage `json:"fuzzer_config,omitempty" gorm:"type:jsonb"`
 }
 
 // PlaygroundCollectionFilters contains filters for listing PlaygroundCollections.
@@ -181,6 +187,21 @@ func (d *DatabaseConnection) UpdatePlaygroundCollection(id uint, collection *Pla
 // UpdatePlaygroundSession updates an existing PlaygroundSession record.
 func (d *DatabaseConnection) UpdatePlaygroundSession(id uint, session *PlaygroundSession) error {
 	return d.db.Model(&PlaygroundSession{}).Where("id = ?", id).Updates(session).Error
+}
+
+// UpdatePlaygroundSessionFuzzerConfig persists the fuzzer config blob for a
+// session. Returns ErrRecordNotFound if the session doesn't exist. Allows
+// nil json.RawMessage to clear the field — pass an empty config explicitly
+// to keep the column non-null.
+func (d *DatabaseConnection) UpdatePlaygroundSessionFuzzerConfig(id uint, cfg json.RawMessage) error {
+	res := d.db.Model(&PlaygroundSession{}).Where("id = ?", id).Update("fuzzer_config", cfg)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("session %d not found", id)
+	}
+	return nil
 }
 
 // CreatePlaygroundSession creates a new PlaygroundSession record.

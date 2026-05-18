@@ -25,6 +25,8 @@ func fuzzTestApp() *fiber.App {
 	app.Get("/api/v1/playground/fuzz/runs/:run_id", GetFuzzRun)
 	app.Delete("/api/v1/playground/fuzz/runs/:run_id", CancelFuzzRun)
 	app.Get("/api/v1/playground/sessions/:id/fuzz-runs", ListFuzzRunsForSession)
+	app.Get("/api/v1/playground/sessions/:id/fuzzer-config", GetFuzzerConfig)
+	app.Put("/api/v1/playground/sessions/:id/fuzzer-config", PutFuzzerConfig)
 	return app
 }
 
@@ -161,6 +163,41 @@ func TestFuzzLaunchRejectsInvalidConfig(t *testing.T) {
 		"positions":   []map[string]any{{"start": 0, "end": 1, "originalValue": "a"}},
 		// missing shared_payloads — invalid for single
 	})
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestFuzzerConfigGetAndPut(t *testing.T) {
+	_, sessID := createFuzzWorkspaceSession(t)
+	app := fuzzTestApp()
+
+	// Initial GET: 204 (no config persisted yet)
+	resp := doJSON(t, app, "GET", fmt.Sprintf("/api/v1/playground/sessions/%d/fuzzer-config", sessID), nil)
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	// PUT a config
+	cfg := map[string]any{
+		"mode":      "paired",
+		"positions": []map[string]any{{"start": 0, "end": 1, "originalValue": "a"}},
+		"request":   map[string]any{"follow_redirects": true, "max_redirects": 5},
+	}
+	put := doJSON(t, app, "PUT", fmt.Sprintf("/api/v1/playground/sessions/%d/fuzzer-config", sessID), cfg)
+	require.Equal(t, http.StatusNoContent, put.StatusCode)
+
+	// GET again: 200 with the persisted body
+	got := doJSON(t, app, "GET", fmt.Sprintf("/api/v1/playground/sessions/%d/fuzzer-config", sessID), nil)
+	require.Equal(t, http.StatusOK, got.StatusCode)
+	var roundTrip map[string]any
+	require.NoError(t, json.NewDecoder(got.Body).Decode(&roundTrip))
+	require.Equal(t, "paired", roundTrip["mode"])
+}
+
+func TestFuzzerConfigPutRejectsInvalidJSON(t *testing.T) {
+	_, sessID := createFuzzWorkspaceSession(t)
+	app := fuzzTestApp()
+	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/v1/playground/sessions/%d/fuzzer-config", sessID), bytes.NewReader([]byte("this is not json")))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 

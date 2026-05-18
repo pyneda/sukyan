@@ -745,7 +745,7 @@ func executeRun(wsSess *db.PlaygroundWsSession, run *db.PlaygroundWsRun) {
 			log.Error().Err(err).Uint("run_id", run.ID).Msg("could not persist dial failure")
 		}
 		raw, _ := json.Marshal(map[string]any{"run_id": run.ID, "status": "failed", "finished_at": fin})
-		bcast.Publish(wsreplay.Event{Type: "run_finished", Instance: wsreplay.RunInstance(run.ID), Data: raw, Ts: time.Now()})
+		bcast.Publish(&wsreplay.Event{Type: "run_finished", Instance: wsreplay.RunInstance(run.ID), Data: raw, Ts: time.Now()})
 		mgr.UnregisterRun(wsSess.ID, run.ID)
 		return
 	}
@@ -761,7 +761,7 @@ func executeRun(wsSess *db.PlaygroundWsSession, run *db.PlaygroundWsRun) {
 		log.Warn().Err(err).Uint("run_id", run.ID).Msg("could not unmarshal script snapshot; running with empty script")
 	}
 	raw, _ := json.Marshal(map[string]any{"run_id": run.ID, "total_steps": len(script), "started_at": now})
-	bcast.Publish(wsreplay.Event{Type: "run_started", Instance: wsreplay.RunInstance(run.ID), Data: raw, Ts: time.Now()})
+	bcast.Publish(&wsreplay.Event{Type: "run_started", Instance: wsreplay.RunInstance(run.ID), Data: raw, Ts: time.Now()})
 
 	res := wsreplay.WalkScript(ctx, sess, script, opts, bcast)
 	fin := time.Now()
@@ -781,7 +781,7 @@ func executeRun(wsSess *db.PlaygroundWsSession, run *db.PlaygroundWsRun) {
 		log.Error().Err(err).Uint("run_id", run.ID).Msg("could not finalize run status")
 	}
 	finRaw, _ := json.Marshal(map[string]any{"run_id": run.ID, "status": string(run.Status), "finished_at": fin})
-	bcast.Publish(wsreplay.Event{Type: "run_finished", Instance: wsreplay.RunInstance(run.ID), Data: finRaw, Ts: time.Now()})
+	bcast.Publish(&wsreplay.Event{Type: "run_finished", Instance: wsreplay.RunInstance(run.ID), Data: finRaw, Ts: time.Now()})
 	mgr.UnregisterRun(wsSess.ID, run.ID)
 	sess.Close()
 }

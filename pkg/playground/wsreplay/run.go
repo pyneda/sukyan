@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/pyneda/sukyan/pkg/playground/stream"
 )
 
 // RunResult captures the outcome of one WalkScript invocation.
@@ -39,11 +41,11 @@ type RunResult struct {
 //   - wait_timeout is emitted unconditionally when the deadline elapses, even
 //     when on_timeout=abort. UIs see "timed out, then aborted" rather than the
 //     run silently failing.
-func WalkScript(ctx context.Context, sess *Session, script []ScriptEntry, opts SessionOptions, b *Broadcaster) RunResult {
+func WalkScript(ctx context.Context, sess *Session, script []ScriptEntry, opts SessionOptions, b *stream.Broadcaster) RunResult {
 	res := RunResult{Status: "succeeded"}
 	publish := func(t string, data map[string]any) {
 		raw, _ := json.Marshal(data)
-		b.Publish(Event{Type: t, Instance: sess.Instance(), Data: raw, Ts: time.Now()})
+		b.Publish(&Event{Type: t, Instance: sess.Instance(), Data: raw, Ts: time.Now()})
 	}
 	runID := sess.Instance().RunID
 

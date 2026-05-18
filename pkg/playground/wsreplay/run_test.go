@@ -4,12 +4,14 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/pyneda/sukyan/pkg/playground/stream"
 )
 
 func TestRunSucceeds_AllStepsMatch(t *testing.T) {
 	echo := startEchoServer(t)
 	persist := newFakePersister()
-	b := NewBroadcaster(256, 1000)
+	b := stream.NewBroadcaster(256, 1000)
 	sess, err := DialSession(context.Background(), SessionConfig{
 		TargetURL: wsURL(echo.URL), Instance: RunInstance(1),
 		Persister: persist, Events: b,
@@ -34,7 +36,7 @@ func TestRunSucceeds_AllStepsMatch(t *testing.T) {
 func TestRunFailsOnAbortTimeout(t *testing.T) {
 	echo := startEchoServer(t)
 	persist := newFakePersister()
-	b := NewBroadcaster(256, 1000)
+	b := stream.NewBroadcaster(256, 1000)
 	sess, err := DialSession(context.Background(), SessionConfig{
 		TargetURL: wsURL(echo.URL), Instance: RunInstance(2),
 		Persister: persist, Events: b,
@@ -57,7 +59,7 @@ func TestRunFailsOnAbortTimeout(t *testing.T) {
 func TestRunContinuesOnContinueTimeout(t *testing.T) {
 	echo := startEchoServer(t)
 	persist := newFakePersister()
-	b := NewBroadcaster(256, 1000)
+	b := stream.NewBroadcaster(256, 1000)
 	sess, err := DialSession(context.Background(), SessionConfig{
 		TargetURL: wsURL(echo.URL), Instance: RunInstance(3),
 		Persister: persist, Events: b,
@@ -82,7 +84,7 @@ func TestRunContinuesOnContinueTimeout(t *testing.T) {
 func TestRunCancelInterrupts(t *testing.T) {
 	echo := startEchoServer(t)
 	persist := newFakePersister()
-	b := NewBroadcaster(256, 1000)
+	b := stream.NewBroadcaster(256, 1000)
 	sess, err := DialSession(context.Background(), SessionConfig{
 		TargetURL: wsURL(echo.URL), Instance: RunInstance(4),
 		Persister: persist, Events: b,
@@ -109,7 +111,7 @@ func TestRunCancelInterrupts(t *testing.T) {
 func TestRunEmitsExpectedEventSequence(t *testing.T) {
 	echo := startEchoServer(t)
 	persist := newFakePersister()
-	b := NewBroadcaster(256, 1000)
+	b := stream.NewBroadcaster(256, 1000)
 	// Subscribe BEFORE dial so we capture the session state_changed events too.
 	subCh, _ := b.Subscribe(0)
 	sess, err := DialSession(context.Background(), SessionConfig{
@@ -137,7 +139,8 @@ func TestRunEmitsExpectedEventSequence(t *testing.T) {
 	deadline := time.After(2 * time.Second)
 	for len(seen) < len(wantOrder) {
 		select {
-		case ev := <-subCh:
+		case raw := <-subCh:
+			ev := raw.(*Event)
 			for _, want := range wantOrder {
 				if ev.Type == want {
 					seen = append(seen, ev.Type)

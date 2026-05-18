@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/pyneda/sukyan/pkg/playground/stream"
 )
 
 // defaultIdleTimeout is how long an interactive session may have zero
@@ -22,9 +24,9 @@ const defaultIdleTimeout = 30 * time.Second
 // for v1; the design spec documents this.
 type Manager struct {
 	mu           sync.Mutex
-	interactive  map[uint]*Session                   // session_id -> session
-	runs         map[uint]map[uint]*Session          // session_id -> run_id -> session
-	broadcasters map[uint]*Broadcaster               // session_id -> broadcaster
+	interactive  map[uint]*Session                    // session_id -> session
+	runs         map[uint]map[uint]*Session           // session_id -> run_id -> session
+	broadcasters map[uint]*stream.Broadcaster         // session_id -> broadcaster
 	runCancels   map[uint]map[uint]context.CancelFunc // session_id -> run_id -> cancel
 	persister    Persister
 	idleTimeout  time.Duration
@@ -36,7 +38,7 @@ func NewManager(p Persister) *Manager {
 	return &Manager{
 		interactive:  make(map[uint]*Session),
 		runs:         make(map[uint]map[uint]*Session),
-		broadcasters: make(map[uint]*Broadcaster),
+		broadcasters: make(map[uint]*stream.Broadcaster),
 		runCancels:   make(map[uint]map[uint]context.CancelFunc),
 		persister:    p,
 		idleTimeout:  defaultIdleTimeout,
@@ -77,13 +79,13 @@ func tickInterval(idle time.Duration) time.Duration {
 // BroadcasterFor returns the broadcaster for the given playground_ws_session_id,
 // lazy-creating it on first request. Multiple callers (REST handlers, control-WS
 // handler) share the same broadcaster.
-func (m *Manager) BroadcasterFor(sessionID uint) *Broadcaster {
+func (m *Manager) BroadcasterFor(sessionID uint) *stream.Broadcaster {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if b, ok := m.broadcasters[sessionID]; ok {
 		return b
 	}
-	b := NewBroadcaster(64, 1000)
+	b := stream.NewBroadcaster(64, 1000)
 	m.broadcasters[sessionID] = b
 	return b
 }

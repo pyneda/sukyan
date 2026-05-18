@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/pyneda/sukyan/pkg/playground/stream"
 )
 
 // startEchoServer starts an in-process WS echo server. Used by session and run tests.
@@ -69,7 +70,7 @@ func (f *fakePersister) CloseConnection(connID uint) error { return nil }
 func TestSessionConnectAndEcho(t *testing.T) {
 	echo := startEchoServer(t)
 	persist := newFakePersister()
-	b := NewBroadcaster(64, 1000)
+	b := stream.NewBroadcaster(64, 1000)
 	sess, err := DialSession(context.Background(), SessionConfig{
 		TargetURL:      wsURL(echo.URL),
 		Headers:        nil,
@@ -101,7 +102,7 @@ func TestSessionConnectAndEcho(t *testing.T) {
 func TestSessionCloseTransitionsAndJoins(t *testing.T) {
 	echo := startEchoServer(t)
 	persist := newFakePersister()
-	b := NewBroadcaster(64, 1000)
+	b := stream.NewBroadcaster(64, 1000)
 	sess, err := DialSession(context.Background(), SessionConfig{
 		TargetURL: wsURL(echo.URL), Instance: InteractiveInstance(),
 		Persister: persist, Events: b,
@@ -129,7 +130,7 @@ func TestSessionCloseTransitionsAndJoins(t *testing.T) {
 func TestSessionSendAfterCloseFails(t *testing.T) {
 	echo := startEchoServer(t)
 	persist := newFakePersister()
-	b := NewBroadcaster(64, 1000)
+	b := stream.NewBroadcaster(64, 1000)
 	sess, err := DialSession(context.Background(), SessionConfig{
 		TargetURL: wsURL(echo.URL), Instance: InteractiveInstance(),
 		Persister: persist, Events: b,
@@ -147,7 +148,7 @@ func TestSessionSendAfterCloseFails(t *testing.T) {
 func TestSessionDialPersisterFails(t *testing.T) {
 	echo := startEchoServer(t)
 	persist := &failingPersister{err: errors.New("db down")}
-	b := NewBroadcaster(64, 1000)
+	b := stream.NewBroadcaster(64, 1000)
 	_, err := DialSession(context.Background(), SessionConfig{
 		TargetURL: wsURL(echo.URL), Instance: InteractiveInstance(),
 		Persister: persist, Events: b,
@@ -171,7 +172,7 @@ func TestSessionPersistErrorEmitsEvent(t *testing.T) {
 	echo := startEchoServer(t)
 	// Persister that errors on RecordMessage.
 	persist := &flakyPersister{recordErr: errors.New("disk full")}
-	b := NewBroadcaster(64, 1000)
+	b := stream.NewBroadcaster(64, 1000)
 	subCh, _ := b.Subscribe(0)
 	sess, err := DialSession(context.Background(), SessionConfig{
 		TargetURL: wsURL(echo.URL), Instance: InteractiveInstance(),
@@ -190,7 +191,8 @@ func TestSessionPersistErrorEmitsEvent(t *testing.T) {
 	saw := false
 	for !saw {
 		select {
-		case ev := <-subCh:
+		case raw := <-subCh:
+			ev := raw.(*Event)
 			if ev.Type == "persist_error" {
 				saw = true
 			}

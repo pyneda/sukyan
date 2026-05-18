@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/pyneda/sukyan/pkg/playground/stream"
 	"github.com/rs/zerolog/log"
 )
 
@@ -55,7 +56,7 @@ type SessionConfig struct {
 	PlaygroundSessionID *uint
 	Instance            Instance
 	Persister           Persister
-	Events              *Broadcaster
+	Events              *stream.Broadcaster
 	// ConnectTimeout bounds the dial+upgrade handshake. Defaults to 10s if zero.
 	ConnectTimeout time.Duration
 	// SendTimeout bounds the time a single Send waits for the writer to ack. Defaults to 5s if zero.
@@ -290,5 +291,5 @@ func (s *Session) publish(evType string, data map[string]any) {
 		return
 	}
 	raw, _ := json.Marshal(data)
-	s.cfg.Events.Publish(Event{Type: evType, Instance: s.cfg.Instance, Data: raw, Ts: time.Now()})
+	s.cfg.Events.Publish(&Event{Type: evType, Instance: s.cfg.Instance, Data: raw, Ts: time.Now()})
 }

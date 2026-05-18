@@ -88,6 +88,8 @@ type HeaderSpec struct {
 }
 
 // Event is the discriminated union sent over the control WS.
+// Implements stream.Sequenced (via pointer receivers) so it can flow through
+// the shared broadcaster.
 type Event struct {
 	Type     string          `json:"type"`
 	Seq      int64           `json:"seq"`
@@ -95,6 +97,12 @@ type Event struct {
 	Data     json.RawMessage `json:"data,omitempty"`
 	Ts       time.Time       `json:"ts"`
 }
+
+// GetSeq satisfies stream.Sequenced.
+func (e *Event) GetSeq() int64 { return e.Seq }
+
+// SetSeq satisfies stream.Sequenced. Called by the broadcaster on Publish.
+func (e *Event) SetSeq(s int64) { e.Seq = s }
 
 // SnapshotInteractive describes the interactive socket's state in a snapshot frame.
 type SnapshotInteractive struct {

@@ -188,28 +188,37 @@ func runFuzzAsync(
 		}
 	}
 
-	// Transition pending/calibrating → running.
+	// Transition pending/calibrating → running, unless a pause request
+	// landed during calibration and flipped DB status to paused — in that
+	// case, honor it (the engine's worker loop will block on the gate
+	// regardless).
 	now := time.Now()
 	prevStatus := run.Status
-	run.Status = db.FuzzRunRunning
+	if fresh, err := db.Connection().GetPlaygroundFuzzRun(run.ID); err == nil && fresh.Status == db.FuzzRunPaused {
+		run.Status = db.FuzzRunPaused
+	} else {
+		run.Status = db.FuzzRunRunning
+	}
 	if run.StartedAt == nil {
 		run.StartedAt = &now
 	}
 	if err := db.Connection().UpdatePlaygroundFuzzRun(run); err != nil {
-		log.Error().Err(err).Uint("run_id", run.ID).Msg("api: update run to running")
+		log.Error().Err(err).Uint("run_id", run.ID).Msg("api: update run status after calibration")
 	}
 	bcast.Publish(&fuzz.FuzzEvent{
 		Type:   fuzz.FuzzEventStatus,
 		RunID:  run.ID,
 		At:     time.Now(),
-		Status: &fuzz.FuzzStatusEv{From: string(prevStatus), To: string(db.FuzzRunRunning)},
+		Status: &fuzz.FuzzStatusEv{From: string(prevStatus), To: string(run.Status)},
 	})
 
 	hooks := fuzz.Hooks{
 		UpdateProgress: func(sent, errs int) {
 			run.SentRequestCount = sent
 			run.ErrorCount = errs
-			_ = db.Connection().UpdatePlaygroundFuzzRun(run)
+			// Use a targeted update so a concurrent pause/resume that flipped
+			// status in the DB is not overwritten by our in-memory run.Status.
+			_ = db.Connection().UpdatePlaygroundFuzzRunProgress(run.ID, sent, errs)
 			bcast.Publish(&fuzz.FuzzEvent{
 				Type:  fuzz.FuzzEventProgress,
 				RunID: run.ID,
@@ -238,10 +247,18 @@ func runFuzzAsync(
 		Strategy:            strategy,
 		Broadcaster:         bcast,
 		Baseline:            baseline,
+		PauseGate:           fuzz.Default().Gate(run.ID),
 		Hooks:               hooks,
 	})
 
 	finishedAt := time.Now()
+	// Re-read the row so a pause/resume that flipped run.Status mid-flight
+	// (via the API endpoints) is not overwritten by our stale in-memory copy.
+	// We only need the status — counters and timestamps are owned by us.
+	if fresh, err := db.Connection().GetPlaygroundFuzzRun(run.ID); err == nil {
+		run.Status = fresh.Status
+	}
+	preFinalStatus := run.Status
 	run.Status = outcome.Status
 	run.FinishedAt = &finishedAt
 	run.SentRequestCount = outcome.SentCount
@@ -260,7 +277,7 @@ func runFuzzAsync(
 		RunID: run.ID,
 		At:    finishedAt,
 		Status: &fuzz.FuzzStatusEv{
-			From:   string(db.FuzzRunRunning),
+			From:   string(preFinalStatus),
 			To:     string(outcome.Status),
 			Reason: run.FailureReason,
 		},
@@ -335,6 +352,106 @@ func CancelFuzzRun(c *fiber.Ctx) error {
 		run.FinishedAt = &now
 		run.FailureReason = &reason
 		_ = db.Connection().UpdatePlaygroundFuzzRun(run)
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// PauseFuzzRun godoc
+// @Summary Pause an in-flight fuzz run
+// @Description Stops scheduling new requests; in-flight workers complete naturally. Idempotent — calling on an already-paused run returns 200 with {"status":"already_paused"}.
+// @Tags Playground
+// @Param run_id path int true "Fuzz Run ID"
+// @Success 204 "No Content"
+// @Success 200 {object} map[string]string "already_paused"
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/fuzz/runs/{run_id}/pause [post]
+func PauseFuzzRun(c *fiber.Ctx) error {
+	runID, err := c.ParamsInt("run_id")
+	if err != nil || runID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
+	}
+	run, err := db.Connection().GetPlaygroundFuzzRun(uint(runID))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Run not found"})
+	}
+	if run.Status.IsTerminal() {
+		return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Error: "Invalid state", Message: "cannot pause a terminal run"})
+	}
+	if run.Status == db.FuzzRunPaused {
+		return c.JSON(fiber.Map{"status": "already_paused"})
+	}
+	if !fuzz.Default().Pause(uint(runID)) {
+		// Gate didn't flip — either run is unknown to the registry (orphan)
+		// or somehow already paused at the gate. The DB check above already
+		// covered the already-paused case, so treat this as 404.
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Run not found", Message: "no live engine context for this run"})
+	}
+	prev := run.Status
+	run.Status = db.FuzzRunPaused
+	if err := db.Connection().UpdatePlaygroundFuzzRun(run); err != nil {
+		log.Error().Err(err).Uint("run_id", run.ID).Msg("api: persist paused status")
+	}
+	if bcast := fuzz.Default().Broadcaster(uint(runID)); bcast != nil {
+		bcast.Publish(&fuzz.FuzzEvent{
+			Type:   fuzz.FuzzEventStatus,
+			RunID:  uint(runID),
+			At:     time.Now(),
+			Status: &fuzz.FuzzStatusEv{From: string(prev), To: string(db.FuzzRunPaused)},
+		})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// ResumeFuzzRun godoc
+// @Summary Resume a paused fuzz run
+// @Description Re-opens the pause gate so workers resume scheduling. Idempotent — calling on a non-paused run returns 200 with {"status":"not_paused"}.
+// @Tags Playground
+// @Param run_id path int true "Fuzz Run ID"
+// @Success 204 "No Content"
+// @Success 200 {object} map[string]string "not_paused"
+// @Failure 404 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/playground/fuzz/runs/{run_id}/resume [post]
+func ResumeFuzzRun(c *fiber.Ctx) error {
+	runID, err := c.ParamsInt("run_id")
+	if err != nil || runID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
+	}
+	run, err := db.Connection().GetPlaygroundFuzzRun(uint(runID))
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Run not found"})
+	}
+	if run.Status.IsTerminal() {
+		return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Error: "Invalid state", Message: "cannot resume a terminal run"})
+	}
+	if run.Status != db.FuzzRunPaused {
+		return c.JSON(fiber.Map{"status": "not_paused"})
+	}
+	if !fuzz.Default().Resume(uint(runID)) {
+		// DB says paused but no live gate — orphan. Mark it cancelled so the
+		// row doesn't linger; the user can launch a fresh run.
+		now := time.Now()
+		reason := "resume requested but no live engine context found"
+		run.Status = db.FuzzRunCancelled
+		run.FinishedAt = &now
+		run.FailureReason = &reason
+		_ = db.Connection().UpdatePlaygroundFuzzRun(run)
+		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Run not found", Message: "no live engine context for this run"})
+	}
+	run.Status = db.FuzzRunRunning
+	if err := db.Connection().UpdatePlaygroundFuzzRun(run); err != nil {
+		log.Error().Err(err).Uint("run_id", run.ID).Msg("api: persist running status on resume")
+	}
+	if bcast := fuzz.Default().Broadcaster(uint(runID)); bcast != nil {
+		bcast.Publish(&fuzz.FuzzEvent{
+			Type:   fuzz.FuzzEventStatus,
+			RunID:  uint(runID),
+			At:     time.Now(),
+			Status: &fuzz.FuzzStatusEv{From: string(db.FuzzRunPaused), To: string(db.FuzzRunRunning)},
+		})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }

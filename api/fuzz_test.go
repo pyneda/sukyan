@@ -24,6 +24,8 @@ func fuzzTestApp() *fiber.App {
 	app.Post("/api/v1/playground/fuzz", FuzzRequest)
 	app.Get("/api/v1/playground/fuzz/runs/:run_id", GetFuzzRun)
 	app.Delete("/api/v1/playground/fuzz/runs/:run_id", CancelFuzzRun)
+	app.Post("/api/v1/playground/fuzz/runs/:run_id/pause", PauseFuzzRun)
+	app.Post("/api/v1/playground/fuzz/runs/:run_id/resume", ResumeFuzzRun)
 	app.Get("/api/v1/playground/sessions/:id/fuzz-runs", ListFuzzRunsForSession)
 	app.Get("/api/v1/playground/sessions/:id/fuzzer-config", GetFuzzerConfig)
 	app.Put("/api/v1/playground/sessions/:id/fuzzer-config", PutFuzzerConfig)
@@ -149,6 +151,136 @@ func TestFuzzLaunchAndCancel(t *testing.T) {
 	}
 	require.NotNil(t, run, "expected run to reach terminal status")
 	require.Equal(t, db.FuzzRunCancelled, run.Status)
+}
+
+func TestPauseFuzzRunUnknownRun(t *testing.T) {
+	ensureFuzzRunTableApi(t)
+	app := fuzzTestApp()
+	resp := doJSON(t, app, "POST", "/api/v1/playground/fuzz/runs/9999999/pause", nil)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestResumeFuzzRunUnknownRun(t *testing.T) {
+	ensureFuzzRunTableApi(t)
+	app := fuzzTestApp()
+	resp := doJSON(t, app, "POST", "/api/v1/playground/fuzz/runs/9999998/resume", nil)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestPauseFuzzRunTerminalReturns409(t *testing.T) {
+	ensureFuzzRunTableApi(t)
+	wsID, sessID := createFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundFuzzRun{
+		PlaygroundSessionID: sessID,
+		WorkspaceID:         wsID,
+		ConfigSnapshot:      []byte(`{}`),
+		Status:              db.FuzzRunSucceeded,
+	}
+	require.NoError(t, conn.CreatePlaygroundFuzzRun(run))
+
+	app := fuzzTestApp()
+	resp := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/fuzz/runs/%d/pause", run.ID), nil)
+	require.Equal(t, http.StatusConflict, resp.StatusCode)
+}
+
+func TestResumeFuzzRunNotPausedReturns200(t *testing.T) {
+	ensureFuzzRunTableApi(t)
+	wsID, sessID := createFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundFuzzRun{
+		PlaygroundSessionID: sessID,
+		WorkspaceID:         wsID,
+		ConfigSnapshot:      []byte(`{}`),
+		Status:              db.FuzzRunRunning,
+	}
+	require.NoError(t, conn.CreatePlaygroundFuzzRun(run))
+
+	app := fuzzTestApp()
+	resp := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/fuzz/runs/%d/resume", run.ID), nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var body map[string]string
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	require.Equal(t, "not_paused", body["status"])
+}
+
+func TestFuzzLaunchPauseResume(t *testing.T) {
+	ensureFuzzRunTableApi(t)
+	_, sessID := createFuzzWorkspaceSession(t)
+
+	// Slow server so the run is still in flight long enough to pause + resume.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(80 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	raw := fmt.Sprintf("GET /?q=Q HTTP/1.1\r\nHost: %s\r\n\r\n", strings.TrimPrefix(srv.URL, "http://"))
+	qIdx := strings.Index(raw, "Q")
+	payloads := make([]string, 30)
+	for i := range payloads {
+		payloads[i] = fmt.Sprintf("p%d", i)
+	}
+
+	app := fuzzTestApp()
+	launch := doJSON(t, app, "POST", "/api/v1/playground/fuzz", map[string]any{
+		"url":             srv.URL,
+		"raw_request":     raw,
+		"session_id":      sessID,
+		"mode":            "single",
+		"positions":       []map[string]any{{"start": qIdx, "end": qIdx + 1, "originalValue": "Q"}},
+		"shared_payloads": map[string]any{"payloads": payloads, "type": "list"},
+		"execution":       map[string]any{"concurrency": 2, "request_timeout_seconds": 30},
+	})
+	require.Equal(t, http.StatusOK, launch.StatusCode)
+	var launchResp PlaygroundFuzzResponse
+	require.NoError(t, json.NewDecoder(launch.Body).Decode(&launchResp))
+
+	// Let some requests in flight, then pause.
+	time.Sleep(120 * time.Millisecond)
+	pauseResp := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/fuzz/runs/%d/pause", launchResp.RunID), nil)
+	require.Equal(t, http.StatusNoContent, pauseResp.StatusCode)
+
+	// Verify DB status flipped.
+	r, err := db.Connection().GetPlaygroundFuzzRun(launchResp.RunID)
+	require.NoError(t, err)
+	require.Equal(t, db.FuzzRunPaused, r.Status)
+
+	// Idempotent pause → 200 already_paused.
+	pauseAgain := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/fuzz/runs/%d/pause", launchResp.RunID), nil)
+	require.Equal(t, http.StatusOK, pauseAgain.StatusCode)
+	var body map[string]string
+	require.NoError(t, json.NewDecoder(pauseAgain.Body).Decode(&body))
+	require.Equal(t, "already_paused", body["status"])
+
+	// Capture sent count while paused; give in-flight workers time to settle.
+	time.Sleep(300 * time.Millisecond)
+	rPaused, _ := db.Connection().GetPlaygroundFuzzRun(launchResp.RunID)
+	sentWhilePaused := rPaused.SentRequestCount
+
+	// Wait a bit longer; sent count must not grow.
+	time.Sleep(300 * time.Millisecond)
+	rStillPaused, _ := db.Connection().GetPlaygroundFuzzRun(launchResp.RunID)
+	require.Equal(t, sentWhilePaused, rStillPaused.SentRequestCount, "no new requests scheduled while paused")
+
+	// Resume and let it finish.
+	resumeResp := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/fuzz/runs/%d/resume", launchResp.RunID), nil)
+	require.Equal(t, http.StatusNoContent, resumeResp.StatusCode)
+
+	deadline := time.Now().Add(10 * time.Second)
+	var final *db.PlaygroundFuzzRun
+	for time.Now().Before(deadline) {
+		r, err := db.Connection().GetPlaygroundFuzzRun(launchResp.RunID)
+		require.NoError(t, err)
+		if r.Status.IsTerminal() {
+			final = r
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	require.NotNil(t, final, "expected run to terminate after resume")
+	require.Equal(t, db.FuzzRunSucceeded, final.Status)
+	require.Equal(t, 30, final.SentRequestCount, "all payloads should be sent after resume")
 }
 
 func TestFuzzLaunchRejectsInvalidConfig(t *testing.T) {

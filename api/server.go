@@ -170,6 +170,8 @@ func StartAPI(opts ...APIServerOptions) {
 	api.Post("/playground/fuzz/preview", JWTProtected(), FuzzPreview)
 	api.Get("/playground/fuzz/runs/:run_id", JWTProtected(), GetFuzzRun)
 	api.Delete("/playground/fuzz/runs/:run_id", JWTProtected(), CancelFuzzRun)
+	api.Post("/playground/fuzz/runs/:run_id/pause", JWTProtected(), PauseFuzzRun)
+	api.Post("/playground/fuzz/runs/:run_id/resume", JWTProtected(), ResumeFuzzRun)
 	api.Get("/playground/sessions/:id/fuzz-runs", JWTProtected(), ListFuzzRunsForSession)
 	api.Get("/playground/sessions/:id/fuzzer-config", JWTProtected(), GetFuzzerConfig)
 	api.Put("/playground/sessions/:id/fuzzer-config", JWTProtected(), PutFuzzerConfig)

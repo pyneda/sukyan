@@ -82,6 +82,17 @@ func (d *DatabaseConnection) UpdatePlaygroundFuzzRun(r *PlaygroundFuzzRun) error
 	return d.db.Save(r).Error
 }
 
+// UpdatePlaygroundFuzzRunProgress writes only the per-tick progress columns
+// for a run, leaving status/timestamps/etc untouched. Used by the engine's
+// progress hook so a concurrent pause/resume request that flips status is
+// not clobbered by the next progress flush.
+func (d *DatabaseConnection) UpdatePlaygroundFuzzRunProgress(runID uint, sent, errors int) error {
+	return d.db.Model(&PlaygroundFuzzRun{}).Where("id = ?", runID).Updates(map[string]any{
+		"sent_request_count": sent,
+		"error_count":        errors,
+	}).Error
+}
+
 // GetPlaygroundFuzzRun fetches a run by ID.
 func (d *DatabaseConnection) GetPlaygroundFuzzRun(id uint) (*PlaygroundFuzzRun, error) {
 	var r PlaygroundFuzzRun

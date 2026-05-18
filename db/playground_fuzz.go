@@ -7,16 +7,17 @@ import (
 
 // PlaygroundFuzzRunStatus is the lifecycle of one HTTP fuzz execution.
 //
-// pending → calibrating → running → (succeeded | failed | cancelled | stopped_error_rate | stopped_max_duration)
+// pending → calibrating → running ⇄ paused → (succeeded | failed | cancelled | stopped_error_rate | stopped_max_duration)
 //
 // aborted_server_restart is set by the boot-time recovery sweep on rows left
-// in pending/calibrating/running by a process that died.
+// in pending/calibrating/running/paused by a process that died.
 type PlaygroundFuzzRunStatus string
 
 const (
 	FuzzRunPending              PlaygroundFuzzRunStatus = "pending"
 	FuzzRunCalibrating          PlaygroundFuzzRunStatus = "calibrating"
 	FuzzRunRunning              PlaygroundFuzzRunStatus = "running"
+	FuzzRunPaused               PlaygroundFuzzRunStatus = "paused"
 	FuzzRunSucceeded            PlaygroundFuzzRunStatus = "succeeded"
 	FuzzRunFailed               PlaygroundFuzzRunStatus = "failed"
 	FuzzRunCancelled            PlaygroundFuzzRunStatus = "cancelled"
@@ -111,7 +112,7 @@ func (d *DatabaseConnection) MarkOrphanedFuzzRunsAborted() error {
 	now := time.Now()
 	reason := "server restarted while run was in progress"
 	return d.db.Model(&PlaygroundFuzzRun{}).
-		Where("status IN ?", []PlaygroundFuzzRunStatus{FuzzRunPending, FuzzRunCalibrating, FuzzRunRunning}).
+		Where("status IN ?", []PlaygroundFuzzRunStatus{FuzzRunPending, FuzzRunCalibrating, FuzzRunRunning, FuzzRunPaused}).
 		Updates(map[string]any{
 			"status":         FuzzRunAbortedServerRestart,
 			"finished_at":    &now,

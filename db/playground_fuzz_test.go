@@ -117,7 +117,7 @@ func TestMarkOrphanedFuzzRunsAborted(t *testing.T) {
 
 	startedAt := time.Now().Add(-2 * time.Minute)
 	// One in each "active" status — all should be swept.
-	for _, status := range []PlaygroundFuzzRunStatus{FuzzRunPending, FuzzRunCalibrating, FuzzRunRunning} {
+	for _, status := range []PlaygroundFuzzRunStatus{FuzzRunPending, FuzzRunCalibrating, FuzzRunRunning, FuzzRunPaused} {
 		run := &PlaygroundFuzzRun{
 			PlaygroundSessionID: sess.ID,
 			WorkspaceID:         ws.ID,
@@ -144,7 +144,7 @@ func TestMarkOrphanedFuzzRunsAborted(t *testing.T) {
 
 	runs, _, err := conn.ListPlaygroundFuzzRuns(sess.ID, 0, 0)
 	require.NoError(t, err)
-	require.Len(t, runs, 4)
+	require.Len(t, runs, 5)
 
 	aborted := 0
 	for _, r := range runs {
@@ -160,7 +160,7 @@ func TestMarkOrphanedFuzzRunsAborted(t *testing.T) {
 		require.Equal(t, "server restarted while run was in progress", *r.FailureReason)
 		aborted++
 	}
-	require.Equal(t, 3, aborted)
+	require.Equal(t, 4, aborted)
 }
 
 func TestPlaygroundFuzzRunStatusIsTerminal(t *testing.T) {
@@ -168,6 +168,7 @@ func TestPlaygroundFuzzRunStatusIsTerminal(t *testing.T) {
 		FuzzRunPending:              false,
 		FuzzRunCalibrating:          false,
 		FuzzRunRunning:              false,
+		FuzzRunPaused:               false,
 		FuzzRunSucceeded:            true,
 		FuzzRunFailed:               true,
 		FuzzRunCancelled:            true,

@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mfonda/simhash"
 	"github.com/projectdiscovery/rawhttp"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
@@ -63,7 +64,11 @@ type RunInput struct {
 	// Broadcaster the engine publishes results to. Nil disables streaming
 	// (useful in tests that only care about persistence).
 	Broadcaster *stream.Broadcaster
-	Hooks       Hooks
+	// Baseline, when set, drives FuzzResult.BaselineMatch on each result.
+	// Caller is expected to have run Calibrate before Run; the engine does
+	// not invoke calibration itself.
+	Baseline *RunBaseline
+	Hooks    Hooks
 }
 
 // RunOutcome is the terminal classification of a finished run. The engine
@@ -415,6 +420,24 @@ func doRequest(ctx context.Context, in doRequestInput) *FuzzResult {
 	if respHeaders != nil {
 		contentType = respHeaders.Get("Content-Type")
 	}
+
+	// Compute baseline match if the run has a baseline configured. We
+	// recompute simhash here rather than passing it from the response loop
+	// to keep doRequest's signature simple; the cost is negligible.
+	baselineMatch := false
+	if in.input.Baseline != nil && in.input.Baseline.Mode != AutoBaselineOff {
+		bodyOnly := extractBodyForFingerprint(body)
+		candidate := BaselineFingerprint{
+			StatusCode:       historyRow.StatusCode,
+			ResponseBodySize: historyRow.ResponseBodySize,
+			WordCount:        wc,
+			LineCount:        lc,
+			BodySimhash:      simhash.Simhash(simhash.NewWordFeatureSet(bodyOnly)),
+			ContentType:      contentType,
+		}
+		baselineMatch = IsBaselineMatch(in.input.Baseline, in.assignment.PositionIndex, candidate)
+	}
+
 	return &FuzzResult{
 		HistoryID:           historyRow.ID,
 		Index:               in.assignment.Index,
@@ -428,8 +451,21 @@ func doRequest(ctx context.Context, in doRequestInput) *FuzzResult {
 		WordCount:           wc,
 		LineCount:           lc,
 		RetryCount:          retryCount,
+		BaselineMatch:       baselineMatch,
 		Ts:                  time.Now(),
 	}
+}
+
+// extractBodyForFingerprint splits the body off a raw HTTP response. Mirrors
+// the heuristic used by countWordsLines but returns bytes instead of counts.
+func extractBodyForFingerprint(raw []byte) []byte {
+	if idx := bytes.Index(raw, []byte("\r\n\r\n")); idx >= 0 {
+		return raw[idx+4:]
+	}
+	if idx := bytes.Index(raw, []byte("\n\n")); idx >= 0 {
+		return raw[idx+2:]
+	}
+	return raw
 }
 
 func shouldRetryStatus(status int, retryOn []int) bool {

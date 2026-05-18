@@ -72,15 +72,18 @@ type FuzzerPosition struct {
 // retries, timeouts). Separate from RequestOptions, which controls how each
 // individual request is shaped.
 type FuzzerExecutionOptions struct {
-	Concurrency           int     `json:"concurrency" validate:"min=1,max=200"`
-	RPS                   int     `json:"rps" validate:"min=0,max=1000"`
-	PerHostConcurrency    int     `json:"per_host_concurrency" validate:"min=0,max=100"`
-	RequestTimeoutSeconds int     `json:"request_timeout_seconds" validate:"min=1,max=300"`
-	Retries               int     `json:"retries" validate:"min=0,max=10"`
-	RetryOn               []int   `json:"retry_on,omitempty"`
-	JitterMs              int     `json:"jitter_ms" validate:"min=0,max=10000"`
-	MaxDurationSeconds    int     `json:"max_duration_seconds" validate:"min=0"`
-	StopOnErrorRate       float64 `json:"stop_on_error_rate" validate:"min=0,max=1"`
+	Concurrency              int              `json:"concurrency" validate:"min=1,max=200"`
+	RPS                      int              `json:"rps" validate:"min=0,max=1000"`
+	PerHostConcurrency       int              `json:"per_host_concurrency" validate:"min=0,max=100"`
+	RequestTimeoutSeconds    int              `json:"request_timeout_seconds" validate:"min=1,max=300"`
+	Retries                  int              `json:"retries" validate:"min=0,max=10"`
+	RetryOn                  []int            `json:"retry_on,omitempty"`
+	JitterMs                 int              `json:"jitter_ms" validate:"min=0,max=10000"`
+	MaxDurationSeconds       int              `json:"max_duration_seconds" validate:"min=0"`
+	StopOnErrorRate          float64          `json:"stop_on_error_rate" validate:"min=0,max=1"`
+	AutoBaseline             AutoBaselineMode `json:"auto_baseline,omitempty" validate:"omitempty,oneof=off hide flag"`
+	BaselineProbeCount       int              `json:"baseline_probe_count,omitempty" validate:"omitempty,min=2,max=10"`
+	BaselineSimhashThreshold int              `json:"baseline_simhash_threshold,omitempty" validate:"omitempty,min=0,max=20"`
 }
 
 // DefaultExecutionOptions returns the engine defaults (matches current

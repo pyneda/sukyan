@@ -136,10 +136,57 @@ func runFuzzAsync(
 	defer fuzz.Default().Unregister(run.ID)
 	defer bcast.Close()
 
-	// Transition pending → running.
+	// Calibration phase — runs before the main fuzz when AutoBaseline isn't off.
+	var baseline *fuzz.RunBaseline
+	if input.Execution.AutoBaseline != fuzz.AutoBaselineOff {
+		now := time.Now()
+		run.Status = db.FuzzRunCalibrating
+		run.StartedAt = &now
+		if err := db.Connection().UpdatePlaygroundFuzzRun(run); err != nil {
+			log.Warn().Err(err).Uint("run_id", run.ID).Msg("api: update run to calibrating")
+		}
+		bcast.Publish(&fuzz.FuzzEvent{
+			Type:   fuzz.FuzzEventStatus,
+			RunID:  run.ID,
+			At:     time.Now(),
+			Status: &fuzz.FuzzStatusEv{From: string(db.FuzzRunPending), To: string(db.FuzzRunCalibrating)},
+		})
+		var err error
+		baseline, err = fuzz.Calibrate(ctx, fuzz.CalibrateInput{
+			TargetURL:             input.URL,
+			RawRequest:            input.RawRequest,
+			Mode:                  input.Mode,
+			Positions:             input.Positions,
+			ProbeCount:            input.Execution.BaselineProbeCount,
+			Threshold:             input.Execution.BaselineSimhashThreshold,
+			BaselineMode:          input.Execution.AutoBaseline,
+			RequestTimeoutSeconds: input.Execution.RequestTimeoutSeconds,
+		})
+		if err != nil {
+			log.Warn().Err(err).Uint("run_id", run.ID).Msg("api: calibration failed, continuing without baseline")
+			baseline = nil
+		} else {
+			raw, _ := json.Marshal(baseline)
+			run.Baseline = raw
+			bcast.Publish(&fuzz.FuzzEvent{
+				Type:  fuzz.FuzzEventBaseline,
+				RunID: run.ID,
+				At:    time.Now(),
+				Baseline: &fuzz.FuzzBaselineEv{
+					Fingerprints: baseline.Fingerprints,
+					Warnings:     baseline.Warnings,
+				},
+			})
+		}
+	}
+
+	// Transition pending/calibrating → running.
 	now := time.Now()
+	prevStatus := run.Status
 	run.Status = db.FuzzRunRunning
-	run.StartedAt = &now
+	if run.StartedAt == nil {
+		run.StartedAt = &now
+	}
 	if err := db.Connection().UpdatePlaygroundFuzzRun(run); err != nil {
 		log.Error().Err(err).Uint("run_id", run.ID).Msg("api: update run to running")
 	}
@@ -147,7 +194,7 @@ func runFuzzAsync(
 		Type:   fuzz.FuzzEventStatus,
 		RunID:  run.ID,
 		At:     time.Now(),
-		Status: &fuzz.FuzzStatusEv{From: string(db.FuzzRunPending), To: string(db.FuzzRunRunning)},
+		Status: &fuzz.FuzzStatusEv{From: string(prevStatus), To: string(db.FuzzRunRunning)},
 	})
 
 	hooks := fuzz.Hooks{
@@ -187,6 +234,7 @@ func runFuzzAsync(
 		Execution:           input.Execution,
 		Strategy:            strategy,
 		Broadcaster:         bcast,
+		Baseline:            baseline,
 		Hooks:               hooks,
 	})
 

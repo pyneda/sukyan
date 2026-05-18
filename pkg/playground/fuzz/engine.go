@@ -63,7 +63,11 @@ type RunInput struct {
 	// Caller is expected to have run Calibrate before Run; the engine does
 	// not invoke calibration itself.
 	Baseline *RunBaseline
-	Hooks    Hooks
+	// PauseGate, when set, is checked by workers before scheduling new work
+	// (and on retry backoff). Nil disables pause semantics entirely — useful
+	// in tests. The api layer wires this from fuzz.Registry.Gate(runID).
+	PauseGate *PauseGate
+	Hooks     Hooks
 }
 
 // RunOutcome is the terminal classification of a finished run. The engine
@@ -230,6 +234,14 @@ func Run(ctx context.Context, input RunInput) RunOutcome {
 				break // ctx cancelled
 			}
 		}
+		// Pause gate: block scheduling new work while paused. In-flight
+		// workers already past this point complete naturally — pause is
+		// "stop scheduling," not "instant freeze."
+		if input.PauseGate != nil {
+			if err := input.PauseGate.Wait(runCtx); err != nil {
+				break // ctx cancelled while waiting
+			}
+		}
 		workers.Go(func() {
 			// Per-host acquire/release. Released regardless of error path.
 			if hostSem != nil {
@@ -367,6 +379,12 @@ func doRequestInner(ctx context.Context, in doRequestInput) *FuzzResult {
 			}
 			if in.limiter != nil {
 				if err := in.limiter.Wait(ctx); err != nil {
+					return nil
+				}
+			}
+			// A long-paused run with a retry pending should respect the pause.
+			if in.input.PauseGate != nil {
+				if err := in.input.PauseGate.Wait(ctx); err != nil {
 					return nil
 				}
 			}

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -174,4 +175,67 @@ func TestEngineRunCancellation(t *testing.T) {
 	})
 	require.Equal(t, db.FuzzRunCancelled, outcome.Status)
 	require.Less(t, outcome.SentCount, 100, "expected cancellation before all requests completed")
+}
+
+func TestEngineRunPauseHaltsScheduling(t *testing.T) {
+	// Slow server so we can observe scheduling halt while paused.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(50 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	wsID, sessID := setupFuzzTestSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundFuzzRun{
+		PlaygroundSessionID: sessID,
+		WorkspaceID:         wsID,
+		ConfigSnapshot:      []byte(`{}`),
+		Status:              db.FuzzRunPending,
+	}
+	require.NoError(t, conn.CreatePlaygroundFuzzRun(run))
+
+	raw := fmt.Sprintf("GET /?q=Q HTTP/1.1\r\nHost: %s\r\n\r\n", strings.TrimPrefix(srv.URL, "http://"))
+	positions := []FuzzerPosition{
+		{Start: strings.Index(raw, "Q"), End: strings.Index(raw, "Q") + 1, OriginalValue: "Q"},
+	}
+	payloads := make([]string, 60)
+	for i := range payloads {
+		payloads[i] = fmt.Sprintf("p%d", i)
+	}
+
+	strategy, _ := StrategyFor(ModeSingle)
+	exec := DefaultExecutionOptions()
+	exec.Concurrency = 2
+
+	gate := NewPauseGate()
+	var sent atomic.Int64
+	hooks := Hooks{
+		Publish: func(r *FuzzResult) { sent.Add(1) },
+	}
+
+	// Pause shortly after start; verify sent count stays roughly stable; resume.
+	go func() {
+		time.Sleep(120 * time.Millisecond)
+		gate.Pause()
+		time.Sleep(400 * time.Millisecond)
+		gate.Resume()
+	}()
+
+	outcome := Run(context.Background(), RunInput{
+		RunID:               run.ID,
+		WorkspaceID:         wsID,
+		PlaygroundSessionID: sessID,
+		TargetURL:           srv.URL,
+		RawRequest:          raw,
+		Mode:                ModeSingle,
+		Positions:           positions,
+		Resolved:            ResolvedPayloads{Shared: payloads},
+		Strategy:            strategy,
+		Execution:           exec,
+		Hooks:               hooks,
+		PauseGate:           gate,
+	})
+	require.Equal(t, db.FuzzRunSucceeded, outcome.Status)
+	require.Equal(t, int64(60), sent.Load(), "all requests should eventually be sent after resume")
 }

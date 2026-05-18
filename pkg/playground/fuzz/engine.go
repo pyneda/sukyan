@@ -420,6 +420,16 @@ func doRequestInner(ctx context.Context, in doRequestInput) *FuzzResult {
 		URL:    reqURL,
 		Header: parsedReq.Headers,
 		Body:   io.NopCloser(bytes.NewReader([]byte(parsedReq.Body))),
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+	}
+	// rawhttp's pipeline client leaves resp.Proto blank; backfill so the
+	// persisted History row + UI detail panel show "HTTP/1.1" instead of "HTTP/0.0".
+	if resp.Proto == "" {
+		resp.Proto = "HTTP/1.1"
+		resp.ProtoMajor = 1
+		resp.ProtoMinor = 1
 	}
 	historyRow, err := http_utils.ReadHttpResponseAndCreateHistory(resp, in.historyOptions)
 	if err != nil {

@@ -198,11 +198,6 @@ func runFuzzAsync(
 	})
 
 	hooks := fuzz.Hooks{
-		AttachRunID: func(historyID, runID uint) {
-			if err := db.Connection().DB().Model(&db.History{}).Where("id = ?", historyID).Update("playground_fuzz_run_id", runID).Error; err != nil {
-				log.Warn().Err(err).Uint("history_id", historyID).Uint("run_id", runID).Msg("api: attach run id to history")
-			}
-		},
 		UpdateProgress: func(sent, errs int) {
 			run.SentRequestCount = sent
 			run.ErrorCount = errs

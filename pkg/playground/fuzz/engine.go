@@ -20,6 +20,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/manual"
 	"github.com/pyneda/sukyan/pkg/playground/stream"
+	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc/pool"
 	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
@@ -38,12 +39,6 @@ type Hooks struct {
 	// typically persist these onto PlaygroundFuzzRun for crash-recovery and
 	// post-run reporting; they MAY also republish over the stream.
 	UpdateProgress func(sent, errs int)
-
-	// AttachRunID is called once per persisted History row to tag it with the
-	// owning PlaygroundFuzzRun. Implementations typically issue a single
-	// UPDATE; leaving this nil disables tagging (useful in tests that only
-	// care about the result projection).
-	AttachRunID func(historyID uint, runID uint)
 }
 
 // RunInput is the immutable per-run input to Engine.Run. The engine takes
@@ -222,6 +217,7 @@ func Run(ctx context.Context, input RunInput) RunOutcome {
 		Source:              db.SourceFuzzer,
 		WorkspaceID:         input.WorkspaceID,
 		PlaygroundSessionID: input.PlaygroundSessionID,
+		PlaygroundFuzzRunID: input.RunID,
 		CreateNewBodyStream: true,
 	}
 
@@ -385,10 +381,18 @@ func doRequest(ctx context.Context, in doRequestInput) *FuzzResult {
 		}
 	}
 
-	// Persist History row, tag with the run id.
-	reqURL, err := url.Parse(parsedReq.URL + parsedReq.URI)
-	if err != nil {
-		reqURL = in.parsedURL
+	// Persist History row, tag with the run id. Compose the request URL from
+	// the parsed target's scheme+host and the URI from the fuzzed raw request
+	// — concatenating targetURL+URI would duplicate the path when targetURL
+	// already carries one.
+	reqURL := &url.URL{
+		Scheme: in.parsedURL.Scheme,
+		Host:   in.parsedURL.Host,
+	}
+	if parsed, err := url.Parse(parsedReq.URI); err == nil {
+		reqURL.Path = parsed.Path
+		reqURL.RawQuery = parsed.RawQuery
+		reqURL.Fragment = parsed.Fragment
 	}
 	resp.Request = &http.Request{
 		Method: parsedReq.Method,
@@ -398,6 +402,7 @@ func doRequest(ctx context.Context, in doRequestInput) *FuzzResult {
 	}
 	historyRow, err := http_utils.ReadHttpResponseAndCreateHistory(resp, in.historyOptions)
 	if err != nil {
+		log.Warn().Err(err).Str("url", reqURL.String()).Msg("fuzz: history persist failed")
 		errStr := fmt.Sprintf("history persist: %v", err)
 		return &FuzzResult{
 			Index:         in.assignment.Index,
@@ -408,11 +413,8 @@ func doRequest(ctx context.Context, in doRequestInput) *FuzzResult {
 			Ts:            time.Now(),
 		}
 	}
-	// Stamp the run id onto the just-created history row via the AttachRunID
-	// hook so the engine stays DB-free.
-	if in.input.RunID > 0 && in.input.Hooks.AttachRunID != nil {
-		in.input.Hooks.AttachRunID(historyRow.ID, in.input.RunID)
-	}
+	// Run id is set on the History row via in.historyOptions.PlaygroundFuzzRunID
+	// during persist — no separate attach step needed.
 
 	body := historyRow.RawResponse
 	wc, lc := countWordsLines(body)

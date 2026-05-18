@@ -110,6 +110,7 @@ type HistoryCreationOptions struct {
 	ScanJobID           uint
 	CreateNewBodyStream bool
 	PlaygroundSessionID uint
+	PlaygroundFuzzRunID uint
 	TaskJobID           uint
 	IsWebSocketUpgrade  bool
 	ProxyServiceID      *uuid.UUID
@@ -195,6 +196,16 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		scanJobID = &options.ScanJobID
 	}
 
+	var taskID *uint
+	if options.TaskID > 0 {
+		taskID = &options.TaskID
+	}
+
+	var playgroundFuzzRunID *uint
+	if options.PlaygroundFuzzRunID > 0 {
+		playgroundFuzzRunID = &options.PlaygroundFuzzRunID
+	}
+
 	record := db.History{
 		URL:                 response.Request.URL.String(),
 		Depth:               lib.CalculateURLDepth(response.Request.URL.String()),
@@ -209,11 +220,12 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 		RawRequest:          requestDump,
 		RawResponse:         responseData.Raw,
 		WorkspaceID:         &options.WorkspaceID,
-		TaskID:              &options.TaskID,
+		TaskID:              taskID,
 		ScanID:              scanID,
 		ScanJobID:           scanJobID,
 		// TaskJobID:           &options.TaskJobID,
 		PlaygroundSessionID: playgroundSessionID,
+		PlaygroundFuzzRunID: playgroundFuzzRunID,
 		Proto:               response.Proto,
 		IsWebSocketUpgrade:  options.IsWebSocketUpgrade || response.StatusCode == http.StatusSwitchingProtocols,
 		ProxyServiceID:      options.ProxyServiceID,
@@ -278,6 +290,15 @@ func CreateTimeoutHistory(req *http.Request, duration time.Duration, timeoutErr 
 
 	note := fmt.Sprintf("Request timed out after %s. Error: %v", duration, timeoutErr)
 
+	var taskID *uint
+	if options.TaskID > 0 {
+		taskID = &options.TaskID
+	}
+	var playgroundFuzzRunID *uint
+	if options.PlaygroundFuzzRunID > 0 {
+		playgroundFuzzRunID = &options.PlaygroundFuzzRunID
+	}
+
 	record := db.History{
 		URL:                 req.URL.String(),
 		Depth:               lib.CalculateURLDepth(req.URL.String()),
@@ -293,8 +314,9 @@ func CreateTimeoutHistory(req *http.Request, duration time.Duration, timeoutErr 
 		RawResponse:         nil,
 		Note:                note,
 		WorkspaceID:         &options.WorkspaceID,
-		TaskID:              &options.TaskID,
+		TaskID:              taskID,
 		PlaygroundSessionID: playgroundSessionID,
+		PlaygroundFuzzRunID: playgroundFuzzRunID,
 		Proto:               "HTTP/1.1",
 		IsWebSocketUpgrade:  options.IsWebSocketUpgrade,
 	}

@@ -90,9 +90,6 @@ func TestEngineRunSmokeCombinations(t *testing.T) {
 			results = append(results, r)
 			mu.Unlock()
 		},
-		AttachRunID: func(historyID, runID uint) {
-			_ = conn.DB().Model(&db.History{}).Where("id = ?", historyID).Update("playground_fuzz_run_id", runID).Error
-		},
 	}
 
 	outcome := Run(context.Background(), RunInput{
@@ -174,11 +171,6 @@ func TestEngineRunCancellation(t *testing.T) {
 		Resolved:            ResolvedPayloads{Shared: payloads},
 		Strategy:            strategy,
 		Execution:           exec,
-		Hooks: Hooks{
-			AttachRunID: func(h, r uint) {
-				_ = conn.DB().Model(&db.History{}).Where("id = ?", h).Update("playground_fuzz_run_id", r).Error
-			},
-		},
 	})
 	require.Equal(t, db.FuzzRunCancelled, outcome.Status)
 	require.Less(t, outcome.SentCount, 100, "expected cancellation before all requests completed")

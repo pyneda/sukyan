@@ -38,8 +38,10 @@ type History struct {
 	Scan                *Scan             `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	ScanJobID           *uint             `json:"scan_job_id" gorm:"index"`
 	ScanJob             *ScanJob          `json:"-" gorm:"foreignKey:ScanJobID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	PlaygroundSessionID *uint             `json:"playground_session_id" gorm:"index" `
-	PlaygroundSession   PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	PlaygroundSessionID *uint              `json:"playground_session_id" gorm:"index" `
+	PlaygroundSession   PlaygroundSession  `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	PlaygroundFuzzRunID *uint              `json:"playground_fuzz_run_id" gorm:"index"`
+	PlaygroundFuzzRun   *PlaygroundFuzzRun `json:"-" gorm:"foreignKey:PlaygroundFuzzRunID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	ResponseBodySize    int               `gorm:"index" json:"response_body_size"`
 	RequestBodySize     int               `gorm:"index" json:"request_body_size"`
 	RequestContentType  string            `gorm:"index" json:"request_content_type"`

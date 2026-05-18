@@ -21,6 +21,7 @@ func main() {
 		&db.PlaygroundSession{},
 		&db.PlaygroundWsSession{},
 		&db.PlaygroundWsRun{},
+		&db.PlaygroundFuzzRun{},
 		&db.Task{},
 		&db.TaskJob{},
 		&db.History{},

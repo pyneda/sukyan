@@ -12,6 +12,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/pyneda/sukyan/pkg/playground/stream"
+	"github.com/stretchr/testify/require"
 )
 
 // startEchoServer starts an in-process WS echo server. Used by session and run tests.
@@ -45,6 +46,7 @@ func wsURL(httpURL string) string { return "ws" + strings.TrimPrefix(httpURL, "h
 type fakePersister struct {
 	mu                sync.Mutex
 	connectionCreated uint
+	lastSource        string
 	messages          []PersistedMessage
 }
 
@@ -54,6 +56,7 @@ func (f *fakePersister) CreateConnection(url string, headers []HeaderSpec, statu
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.connectionCreated++
+	f.lastSource = source
 	return f.connectionCreated, nil
 }
 
@@ -219,3 +222,31 @@ func (f *flakyPersister) RecordMessage(uint, int, string, string) (uint, error) 
 	return 0, f.recordErr
 }
 func (f *flakyPersister) CloseConnection(uint) error { return nil }
+
+func TestDialSession_SourceFieldHonored(t *testing.T) {
+	echo := startEchoServer(t)
+	p := newFakePersister()
+	sess, err := DialSession(context.Background(), SessionConfig{
+		TargetURL: wsURL(echo.URL),
+		Instance:  InteractiveInstance(),
+		Persister: p,
+		Source:    "ws_fuzz",
+	})
+	require.NoError(t, err)
+	defer sess.Close()
+	require.Equal(t, "ws_fuzz", p.lastSource, "DialSession must pass cfg.Source to the persister")
+}
+
+func TestDialSession_SourceDefaultsToPlayground(t *testing.T) {
+	echo := startEchoServer(t)
+	p := newFakePersister()
+	sess, err := DialSession(context.Background(), SessionConfig{
+		TargetURL: wsURL(echo.URL),
+		Instance:  InteractiveInstance(),
+		Persister: p,
+		// Source omitted intentionally
+	})
+	require.NoError(t, err)
+	defer sess.Close()
+	require.Equal(t, "playground", p.lastSource, "DialSession must default Source to playground when unset")
+}

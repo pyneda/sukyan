@@ -2,6 +2,7 @@ package wsreplay
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -62,6 +63,13 @@ type SessionConfig struct {
 	// SendTimeout bounds the time a single Send waits for the writer to ack. Defaults to 5s if zero.
 	SendTimeout time.Duration
 	BufferSize  int // received-frames channel buffer; default 1000
+	// Source tags WebSocketConnection.Source on persistence. Defaults to
+	// "playground" if empty (back-compat with existing call sites). The
+	// dialer's source-injection accommodation: today it was hard-coded.
+	Source string
+	// TLSConfig is passed to the gorilla Dialer's TLSClientConfig. nil means
+	// use Go's default (which respects system roots and rejects invalid certs).
+	TLSConfig *tls.Config
 }
 
 // Session owns one upstream WS connection and its IO goroutines.
@@ -105,7 +113,11 @@ func DialSession(ctx context.Context, cfg SessionConfig) (*Session, error) {
 			hdr.Add(h.Key, h.Value)
 		}
 	}
-	dialer := websocket.Dialer{HandshakeTimeout: cfg.ConnectTimeout}
+	dialer := websocket.Dialer{
+		HandshakeTimeout:  cfg.ConnectTimeout,
+		TLSClientConfig:   cfg.TLSConfig,
+		EnableCompression: false, // v1: per-message-deflate disabled; see WS fuzzer spec §3
+	}
 	dialCtx, cancel := context.WithTimeout(ctx, cfg.ConnectTimeout)
 	defer cancel()
 	conn, resp, err := dialer.DialContext(dialCtx, cfg.TargetURL, hdr)
@@ -113,7 +125,11 @@ func DialSession(ctx context.Context, cfg SessionConfig) (*Session, error) {
 	if resp != nil {
 		statusCode = resp.StatusCode
 	}
-	connID, perr := cfg.Persister.CreateConnection(cfg.TargetURL, cfg.Headers, statusCode, "playground", cfg.PlaygroundSessionID)
+	source := cfg.Source
+	if source == "" {
+		source = "playground"
+	}
+	connID, perr := cfg.Persister.CreateConnection(cfg.TargetURL, cfg.Headers, statusCode, source, cfg.PlaygroundSessionID)
 	if perr != nil {
 		if conn != nil {
 			conn.Close()

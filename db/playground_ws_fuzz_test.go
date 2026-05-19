@@ -74,7 +74,7 @@ func TestPlaygroundWsFuzzIteration_CascadeDelete(t *testing.T) {
 	require.Equal(t, int64(0), count, "iterations must cascade-delete with their run")
 }
 
-func TestRecoverOrphanedWsFuzzRuns(t *testing.T) {
+func TestMarkOrphanedWsFuzzRunsAborted(t *testing.T) {
 	conn := Connection()
 	ensureWsFuzzTables(t)
 	_, sessionID := mkWsFuzzSession(t)
@@ -91,9 +91,7 @@ func TestRecoverOrphanedWsFuzzRuns(t *testing.T) {
 	var before int64
 	require.NoError(t, conn.DB().Model(&PlaygroundWsFuzzRun{}).Where("status = ?", "aborted_server_restart").Count(&before).Error)
 
-	n, err := conn.RecoverOrphanedWsFuzzRuns()
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, n, int64(5), "recovery sweep must mark at least our 5 non-terminal rows")
+	require.NoError(t, conn.MarkOrphanedWsFuzzRunsAborted())
 
 	got, err := conn.GetPlaygroundWsFuzzRun(doneRun.ID)
 	require.NoError(t, err)
@@ -101,5 +99,5 @@ func TestRecoverOrphanedWsFuzzRuns(t *testing.T) {
 
 	var afterAborted int64
 	require.NoError(t, conn.DB().Model(&PlaygroundWsFuzzRun{}).Where("status = ?", "aborted_server_restart").Count(&afterAborted).Error)
-	require.GreaterOrEqual(t, afterAborted-before, int64(5))
+	require.GreaterOrEqual(t, afterAborted-before, int64(5), "recovery sweep must mark at least our 5 non-terminal rows")
 }

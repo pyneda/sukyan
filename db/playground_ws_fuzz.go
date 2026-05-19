@@ -130,9 +130,12 @@ func (d *DatabaseConnection) ListPlaygroundWsFuzzIterations(f PlaygroundWsFuzzIt
 	return rows, total, err
 }
 
-// RecoverOrphanedWsFuzzRuns is called at boot to mark in-flight runs as aborted.
-// Returns the number of rows updated.
-func (d *DatabaseConnection) RecoverOrphanedWsFuzzRuns() (int64, error) {
+// MarkOrphanedWsFuzzRunsAborted is the recovery sweep run on backend boot.
+// Any run in a non-terminal status is flipped to "aborted_server_restart"
+// because its in-process state was lost when the previous process exited.
+// Mirrors the MarkOrphanedFuzzRunsAborted and MarkOrphanedWsRunsAborted
+// helpers in this package for naming + signature parity.
+func (d *DatabaseConnection) MarkOrphanedWsFuzzRunsAborted() error {
 	nonTerminal := []string{"pending", "calibrating", "running", "paused", "pausing"}
 	res := d.db.Model(&PlaygroundWsFuzzRun{}).
 		Where("status IN ?", nonTerminal).
@@ -141,10 +144,10 @@ func (d *DatabaseConnection) RecoverOrphanedWsFuzzRuns() (int64, error) {
 			"failure_reason": "server restarted while run in progress",
 		})
 	if res.Error != nil {
-		return 0, res.Error
+		return res.Error
 	}
 	if res.RowsAffected > 0 {
 		log.Info().Int64("count", res.RowsAffected).Msg("recovered orphaned ws_fuzz runs")
 	}
-	return res.RowsAffected, nil
+	return nil
 }

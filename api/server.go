@@ -98,6 +98,9 @@ func StartAPI(opts ...APIServerOptions) {
 	if err := db.Connection().MarkOrphanedFuzzRunsAborted(); err != nil {
 		apiLogger.Error().Err(err).Msg("fuzz recovery sweep: runs")
 	}
+	if err := db.Connection().MarkOrphanedWsFuzzRunsAborted(); err != nil {
+		apiLogger.Error().Err(err).Msg("ws_fuzz recovery sweep: runs")
+	}
 
 	app := fiber.New(fiber.Config{
 		// Prefork:       true,

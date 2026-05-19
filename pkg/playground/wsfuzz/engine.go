@@ -1,0 +1,260 @@
+package wsfuzz
+
+import (
+	"context"
+	"encoding/json"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/pyneda/sukyan/pkg/playground/fuzz"
+	"github.com/pyneda/sukyan/pkg/playground/stream"
+	"github.com/pyneda/sukyan/pkg/playground/wsreplay"
+	"github.com/rs/zerolog/log"
+	"github.com/sourcegraph/conc/pool"
+)
+
+// EngineDeps is everything Run needs from the outside.
+type EngineDeps struct {
+	Persister    RunPersister
+	Broadcaster  *stream.Broadcaster
+	Dial         func(ctx context.Context, cfg wsreplay.SessionConfig) (SessionHandle, error)
+	HTTPRespRef  *HTTPResponseRef  // optional; from PreSetup http_request kind
+	RunScopeVars map[string]string // optional; from PreSetup extractions
+}
+
+// Run executes a full wsfuzz run end-to-end. Blocks until terminal state.
+// Status transitions are persisted; events are published to the broadcaster.
+func Run(
+	ctx context.Context,
+	runID uint,
+	cfg WsFuzzerConfig,
+	deps EngineDeps,
+) error {
+	if deps.Dial == nil {
+		return wrapErr("EngineDeps.Dial is required")
+	}
+	if deps.Persister == nil {
+		return wrapErr("EngineDeps.Persister is required")
+	}
+
+	// Per-run context lets the registry's Cancel terminate us.
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	Registry().Register(runID, cancel, deps.Broadcaster)
+	defer Registry().Unregister(runID)
+	gate := Registry().Gate(runID)
+
+	startTime := time.Now()
+	_ = deps.Persister.UpdateRunStartedAt(runID, startTime)
+
+	publish := func(ev *WsFuzzEvent) {
+		ev.RunID = runID
+		ev.Ts = time.Now()
+		if deps.Broadcaster != nil {
+			deps.Broadcaster.Publish(ev)
+		}
+	}
+	setStatus := func(from, to, reason string) {
+		_ = deps.Persister.UpdateRunStatus(runID, to, reason)
+		publish(&WsFuzzEvent{Type: EventStatus, Status: &WsFuzzStatus{From: from, To: to, Reason: reason}})
+	}
+
+	// 1. Build position refs and resolve payloads (once per run).
+	refs := BuildPositionRefs(cfg.Script)
+	flat := FlatPositions(refs)
+	resolved := fuzz.Resolve(cfg.Mode, flat, cfg.SharedPayloads)
+	strategy, sErr := fuzz.StrategyFor(cfg.Mode)
+	if sErr != nil {
+		setStatus("pending", "failed", sErr.Error())
+		publish(&WsFuzzEvent{Type: EventDone, Done: &WsFuzzDone{Status: "failed", FailureReason: sErr.Error(), FinishedAt: time.Now()}})
+		if deps.Broadcaster != nil {
+			deps.Broadcaster.Close()
+		}
+		return sErr
+	}
+
+	plannedCount, _ := strategy.RequestCount(flat, resolved)
+
+	// 2. Calibrate baseline (if enabled). Probes use original payload values
+	// — each position's OriginalValue (already captured at insertion-point time).
+	var baseline *WsBaselineFingerprint
+	if cfg.AutoBaseline != fuzz.AutoBaselineOff && cfg.AutoBaseline != "" {
+		setStatus("pending", "calibrating", "")
+		publish(&WsFuzzEvent{Type: EventCalibrating})
+		probeCount := cfg.ExecutionOptions.BaselineProbeCount
+		if probeCount == 0 {
+			probeCount = 3
+		}
+		origPayloads := make([]string, len(refs))
+		for i, r := range refs {
+			origPayloads[i] = r.Position.OriginalValue
+		}
+		probes := make([]WsBaselineFingerprint, 0, probeCount)
+		for p := 0; p < probeCount; p++ {
+			if runCtx.Err() != nil {
+				break
+			}
+			res, _ := RunIteration(runCtx, cfg, -1-p, refs, origPayloads, deps.RunScopeVars, nil, IterationDeps{
+				Dial:        deps.Dial,
+				HTTPRespRef: deps.HTTPRespRef,
+			})
+			// We don't have access to the raw frame list from the iteration result
+			// (the per-iteration WsIterationResult only carries a summary). For v1
+			// we can only seed FrameCount=0 placeholder if the iteration succeeded;
+			// real baseline content fingerprinting requires future work to surface
+			// frames from RunIteration. See spec §3 "calibration".
+			probes = append(probes, WsBaselineFingerprint{
+				FrameCount:      0, // unknown without frame list
+				HandshakeStatus: res.HandshakeStatusCode,
+			})
+		}
+		fp, warns := CalibrateFromProbes(probes)
+		for _, w := range warns {
+			publish(&WsFuzzEvent{Type: EventWarning, Warning: &WsFuzzWarning{Code: w}})
+		}
+		if !contains(warns, "baseline_disabled_count_disagreement") {
+			baseline = &fp
+			b, _ := json.Marshal(fp)
+			_ = deps.Persister.UpdateRunBaseline(runID, b)
+			publish(&WsFuzzEvent{Type: EventBaseline, Baseline: &fp})
+		}
+	}
+
+	// 3. Transition to running.
+	setStatus("calibrating", "running", "")
+
+	// 4. Worker pool.
+	concurrency := cfg.ExecutionOptions.Concurrency
+	if concurrency <= 0 {
+		concurrency = 20
+	}
+	wp := pool.New().WithMaxGoroutines(concurrency)
+
+	var sent, errs, findings int64
+	var inFlight int64
+
+	// 5. Progress flusher.
+	stopProgress := make(chan struct{})
+	var flushWG sync.WaitGroup
+	flushWG.Add(1)
+	go func() {
+		defer flushWG.Done()
+		tick := time.NewTicker(1 * time.Second)
+		defer tick.Stop()
+		for {
+			select {
+			case <-stopProgress:
+				return
+			case <-tick.C:
+				s := atomic.LoadInt64(&sent)
+				e := atomic.LoadInt64(&errs)
+				f := atomic.LoadInt64(&findings)
+				inf := atomic.LoadInt64(&inFlight)
+				_ = deps.Persister.UpdateRunProgress(runID, int(s), int(e), int(f))
+				elapsed := time.Since(startTime).Seconds()
+				rate := float64(s) / max1(elapsed)
+				publish(&WsFuzzEvent{
+					Type: EventProgress,
+					Progress: &WsFuzzProgress{
+						Sent:              int(s),
+						Errors:            int(e),
+						Findings:          int(f),
+						InFlight:          int(inf),
+						PlannedIterations: plannedCount,
+						CurrentRate:       rate,
+						ElapsedSeconds:    int(elapsed),
+					},
+				})
+			}
+		}
+	}()
+
+	// 6. Iterate assignments through the pool.
+	assignments := strategy.Iterate(runCtx, flat, resolved)
+assignLoop:
+	for assignment := range assignments {
+		// Pause gate: block scheduling new iterations while paused.
+		if gate != nil {
+			if _, err := gate.Wait(runCtx); err != nil {
+				break assignLoop // ctx cancelled while waiting
+			}
+		}
+		if runCtx.Err() != nil {
+			break assignLoop
+		}
+		a := assignment // capture loop var for goroutine
+		atomic.AddInt64(&inFlight, 1)
+		wp.Go(func() {
+			defer atomic.AddInt64(&inFlight, -1)
+			res, _ := RunIteration(runCtx, cfg, a.Index, refs, a.Payloads, deps.RunScopeVars, baseline, IterationDeps{
+				Dial:        deps.Dial,
+				HTTPRespRef: deps.HTTPRespRef,
+			})
+			res.RunID = runID
+			if perr := deps.Persister.SaveIteration(res); perr != nil {
+				log.Warn().Err(perr).Uint("run_id", runID).Int("index", a.Index).Msg("wsfuzz: persist iteration")
+			}
+			atomic.AddInt64(&sent, 1)
+			if res.Status.CountsTowardErrorRate() {
+				atomic.AddInt64(&errs, 1)
+			}
+			if res.Status == StatusCheckFailed {
+				atomic.AddInt64(&findings, 1)
+			}
+			publish(&WsFuzzEvent{Type: EventResult, Result: &res})
+		})
+	}
+
+	wp.Wait()
+	close(stopProgress)
+	flushWG.Wait()
+
+	// 7. Terminal state.
+	finalStatus := "succeeded"
+	failureReason := ""
+	if runCtx.Err() != nil {
+		finalStatus = "cancelled"
+	}
+	finished := time.Now()
+	_ = deps.Persister.UpdateRunFinishedAt(runID, finished)
+	setStatus("running", finalStatus, failureReason)
+	publish(&WsFuzzEvent{
+		Type: EventDone,
+		Done: &WsFuzzDone{
+			Status:          finalStatus,
+			Sent:            int(atomic.LoadInt64(&sent)),
+			Errors:          int(atomic.LoadInt64(&errs)),
+			Findings:        int(atomic.LoadInt64(&findings)),
+			DurationSeconds: int(time.Since(startTime).Seconds()),
+			FailureReason:   failureReason,
+			FinishedAt:      finished,
+		},
+	})
+	if deps.Broadcaster != nil {
+		deps.Broadcaster.Close()
+	}
+	return nil
+}
+
+func max1(x float64) float64 {
+	if x < 1 {
+		return 1
+	}
+	return x
+}
+
+func contains(ss []string, s string) bool {
+	for _, x := range ss {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+type engineError string
+
+func (e engineError) Error() string { return string(e) }
+
+func wrapErr(s string) error { return engineError("wsfuzz: " + s) }

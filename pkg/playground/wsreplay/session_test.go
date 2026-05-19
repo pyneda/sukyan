@@ -2,6 +2,7 @@ package wsreplay
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -249,4 +250,36 @@ func TestDialSession_SourceDefaultsToPlayground(t *testing.T) {
 	require.NoError(t, err)
 	defer sess.Close()
 	require.Equal(t, "playground", p.lastSource, "DialSession must default Source to playground when unset")
+}
+
+func TestDialSession_TLSInsecureSkipVerify(t *testing.T) {
+	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		conn.Close()
+	}))
+	defer srv.Close()
+
+	wssURL := "wss" + strings.TrimPrefix(srv.URL, "https")
+
+	// Without InsecureSkipVerify: must fail (self-signed cert).
+	_, err := DialSession(context.Background(), SessionConfig{
+		TargetURL: wssURL,
+		Instance:  InteractiveInstance(),
+		Persister: newFakePersister(),
+	})
+	require.Error(t, err, "dial must fail without InsecureSkipVerify on self-signed cert")
+
+	// With InsecureSkipVerify: must succeed.
+	sess, err := DialSession(context.Background(), SessionConfig{
+		TargetURL: wssURL,
+		Instance:  InteractiveInstance(),
+		Persister: newFakePersister(),
+		TLSConfig: &tls.Config{InsecureSkipVerify: true},
+	})
+	require.NoError(t, err, "dial must succeed with InsecureSkipVerify on self-signed cert")
+	defer sess.Close()
 }

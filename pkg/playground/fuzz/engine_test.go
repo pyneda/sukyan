@@ -239,3 +239,157 @@ func TestEngineRunPauseHaltsScheduling(t *testing.T) {
 	require.Equal(t, db.FuzzRunSucceeded, outcome.Status)
 	require.Equal(t, int64(60), sent.Load(), "all requests should eventually be sent after resume")
 }
+
+// TestEngineRunPauseResumeViaRegistry mirrors the production wiring: the gate
+// lives in the global registry; engine fetches it via Default().Gate(runID);
+// pause/resume happen via Default().Pause/Resume(runID), not on the local gate
+// variable. Concurrency=1 + slow upstream + a long pause window — the
+// regression seen in QA was that workers never resumed scheduling after the
+// gate was released through the registry indirection.
+func TestEngineRunPauseResumeViaRegistry(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(50 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	wsID, sessID := setupFuzzTestSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundFuzzRun{
+		PlaygroundSessionID: sessID,
+		WorkspaceID:         wsID,
+		ConfigSnapshot:      []byte(`{}`),
+		Status:              db.FuzzRunPending,
+	}
+	require.NoError(t, conn.CreatePlaygroundFuzzRun(run))
+
+	raw := fmt.Sprintf("GET /?q=Q HTTP/1.1\r\nHost: %s\r\n\r\n", strings.TrimPrefix(srv.URL, "http://"))
+	positions := []FuzzerPosition{
+		{Start: strings.Index(raw, "Q"), End: strings.Index(raw, "Q") + 1, OriginalValue: "Q"},
+	}
+	payloads := make([]string, 40)
+	for i := range payloads {
+		payloads[i] = fmt.Sprintf("p%d", i)
+	}
+
+	strategy, _ := StrategyFor(ModeSingle)
+	exec := DefaultExecutionOptions()
+	exec.Concurrency = 1
+
+	// Production wiring: registry holds the gate; engine receives it via Gate(id).
+	runCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	Default().Register(run.ID, cancel, nil)
+	t.Cleanup(func() { Default().Unregister(run.ID) })
+
+	var sent atomic.Int64
+	hooks := Hooks{
+		Publish: func(r *FuzzResult) { sent.Add(1) },
+	}
+
+	// Pause shortly after start, wait longer than any in-flight request,
+	// resume via registry.
+	go func() {
+		time.Sleep(120 * time.Millisecond)
+		ok := Default().Pause(run.ID)
+		require.True(t, ok, "registry Pause should flip")
+		time.Sleep(500 * time.Millisecond)
+		ok = Default().Resume(run.ID)
+		require.True(t, ok, "registry Resume should flip")
+	}()
+
+	outcome := Run(runCtx, RunInput{
+		RunID:               run.ID,
+		WorkspaceID:         wsID,
+		PlaygroundSessionID: sessID,
+		TargetURL:           srv.URL,
+		RawRequest:          raw,
+		Mode:                ModeSingle,
+		Positions:           positions,
+		Resolved:            ResolvedPayloads{Shared: payloads},
+		Strategy:            strategy,
+		Execution:           exec,
+		Hooks:               hooks,
+		PauseGate:           Default().Gate(run.ID),
+	})
+	require.Equal(t, db.FuzzRunSucceeded, outcome.Status)
+	require.Equal(t, int64(40), sent.Load(), "all requests should eventually be sent after registry resume")
+}
+
+// TestEngineRunPauseLongerThanIdleConnTimeout exposes the production
+// regression: a pause that lasts longer than rawhttp's MaxIdleConnDuration
+// (10s default) causes the pipeline writer/reader goroutines to exit. When
+// workers resume, DoRaw can race with channel teardown and hang.
+func TestEngineRunPauseLongerThanIdleConnTimeout(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(50 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	wsID, sessID := setupFuzzTestSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundFuzzRun{
+		PlaygroundSessionID: sessID,
+		WorkspaceID:         wsID,
+		ConfigSnapshot:      []byte(`{}`),
+		Status:              db.FuzzRunPending,
+	}
+	require.NoError(t, conn.CreatePlaygroundFuzzRun(run))
+
+	raw := fmt.Sprintf("GET /?q=Q HTTP/1.1\r\nHost: %s\r\n\r\n", strings.TrimPrefix(srv.URL, "http://"))
+	positions := []FuzzerPosition{
+		{Start: strings.Index(raw, "Q"), End: strings.Index(raw, "Q") + 1, OriginalValue: "Q"},
+	}
+	payloads := make([]string, 30)
+	for i := range payloads {
+		payloads[i] = fmt.Sprintf("p%d", i)
+	}
+
+	strategy, _ := StrategyFor(ModeSingle)
+	exec := DefaultExecutionOptions()
+	exec.Concurrency = 1
+
+	gate := NewPauseGate()
+	var sent atomic.Int64
+	hooks := Hooks{
+		Publish: func(r *FuzzResult) { sent.Add(1) },
+	}
+
+	// Pause for 12s — exceeds rawhttp's 10s MaxIdleConnDuration so the
+	// pipeline tears down. Verify workers still recover after resume.
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		gate.Pause()
+		time.Sleep(12 * time.Second)
+		gate.Resume()
+	}()
+
+	done := make(chan struct{})
+	var outcome RunOutcome
+	go func() {
+		outcome = Run(context.Background(), RunInput{
+			RunID:               run.ID,
+			WorkspaceID:         wsID,
+			PlaygroundSessionID: sessID,
+			TargetURL:           srv.URL,
+			RawRequest:          raw,
+			Mode:                ModeSingle,
+			Positions:           positions,
+			Resolved:            ResolvedPayloads{Shared: payloads},
+			Strategy:            strategy,
+			Execution:           exec,
+			Hooks:               hooks,
+			PauseGate:           gate,
+		})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(60 * time.Second):
+		t.Fatalf("Run did not return after resume + 60s; sent=%d (pipeline hung after idle timeout)", sent.Load())
+	}
+	require.Equal(t, db.FuzzRunSucceeded, outcome.Status)
+	require.Equal(t, int64(30), sent.Load(), "all requests should eventually be sent after long-pause resume")
+}

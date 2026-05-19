@@ -61,20 +61,25 @@ func (g *PauseGate) IsPaused() bool {
 // Wait blocks while the gate is paused. Returns ctx.Err() if ctx is cancelled
 // while waiting; nil otherwise. Returns nil immediately if not paused.
 //
+// The waited return value reports whether the call actually blocked — true
+// means the gate was paused when Wait was entered and the caller should
+// assume long-lived resources (idle HTTP connections, pipelines) may have
+// timed out during the pause.
+//
 // Snapshot semantics: Wait reads the paused channel once and then selects.
 // If Resume runs between the snapshot and the select, the channel is already
 // closed and the select returns immediately — no lost wakeups.
-func (g *PauseGate) Wait(ctx context.Context) error {
+func (g *PauseGate) Wait(ctx context.Context) (waited bool, err error) {
 	g.mu.Lock()
 	ch := g.paused
 	g.mu.Unlock()
 	if ch == nil {
-		return nil
+		return false, nil
 	}
 	select {
 	case <-ch:
-		return nil
+		return true, nil
 	case <-ctx.Done():
-		return ctx.Err()
+		return true, ctx.Err()
 	}
 }

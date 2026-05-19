@@ -130,7 +130,14 @@ func Run(ctx context.Context, input RunInput) RunOutcome {
 		MaxPendingRequests:  exec.Concurrency * 4,
 		AutomaticHostHeader: input.Request.UpdateHostHeader,
 	}
-	pipeline := rawhttp.NewPipelineClient(pipeOpts)
+	// Pipeline is held via an atomic pointer so the scheduling goroutine can
+	// swap it for a fresh one after a pause. The underlying rawhttp client
+	// tears down its connection writer/reader goroutines after 10s of idle
+	// (MaxIdleConnDuration, not configurable from outside the lib). A subsequent
+	// request can race with that teardown and hang on the work channel; swapping
+	// in a fresh pipeline post-pause sidesteps the race entirely.
+	var pipelineHolder atomic.Pointer[rawhttp.PipelineClient]
+	pipelineHolder.Store(rawhttp.NewPipelineClient(pipeOpts))
 
 	// Rate limiter is a token bucket; nil means unlimited. Each retry
 	// attempt acquires a token so retries don't sneak past the cap.
@@ -236,10 +243,16 @@ func Run(ctx context.Context, input RunInput) RunOutcome {
 		}
 		// Pause gate: block scheduling new work while paused. In-flight
 		// workers already past this point complete naturally — pause is
-		// "stop scheduling," not "instant freeze."
+		// "stop scheduling," not "instant freeze." If we actually waited,
+		// rebuild the rawhttp pipeline because its keep-alive writer may have
+		// exited during the pause (see pipelineHolder comment above).
 		if input.PauseGate != nil {
-			if err := input.PauseGate.Wait(runCtx); err != nil {
+			waited, err := input.PauseGate.Wait(runCtx)
+			if err != nil {
 				break // ctx cancelled while waiting
+			}
+			if waited {
+				pipelineHolder.Store(rawhttp.NewPipelineClient(pipeOpts))
 			}
 		}
 		workers.Go(func() {
@@ -261,7 +274,7 @@ func Run(ctx context.Context, input RunInput) RunOutcome {
 			result := doRequest(runCtx, doRequestInput{
 				input:          input,
 				assignment:     assignment,
-				pipeline:       pipeline,
+				pipeline:       pipelineHolder.Load(),
 				parsedURL:      parsedURL,
 				historyOptions: historyOptions,
 				limiter:        limiter,
@@ -383,8 +396,13 @@ func doRequestInner(ctx context.Context, in doRequestInput) *FuzzResult {
 				}
 			}
 			// A long-paused run with a retry pending should respect the pause.
+			// The scheduler swaps the pipeline on wake; this retry inside the
+			// worker uses the same pipeline pointer it was given when scheduled,
+			// which is fine — its DoRaw call below either succeeds against the
+			// old connection (rare, only if the pause was short) or fails fast
+			// with an error and lets the next retry round try again.
 			if in.input.PauseGate != nil {
-				if err := in.input.PauseGate.Wait(ctx); err != nil {
+				if _, err := in.input.PauseGate.Wait(ctx); err != nil {
 					return nil
 				}
 			}

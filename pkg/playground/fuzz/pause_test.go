@@ -12,8 +12,12 @@ import (
 func TestPauseGate_NotPaused_WaitReturnsImmediately(t *testing.T) {
 	g := NewPauseGate()
 	start := time.Now()
-	if err := g.Wait(context.Background()); err != nil {
+	waited, err := g.Wait(context.Background())
+	if err != nil {
 		t.Fatalf("Wait should not error when not paused: %v", err)
+	}
+	if waited {
+		t.Fatal("waited should be false when not paused")
 	}
 	if d := time.Since(start); d > 50*time.Millisecond {
 		t.Fatalf("Wait blocked %v when not paused (expected immediate)", d)
@@ -34,13 +38,15 @@ func TestPauseGate_PauseThenWaitBlocksUntilResume(t *testing.T) {
 
 	var waitErr atomic.Value // error
 	var unblocked atomic.Bool
+	var didWait atomic.Bool
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		err := g.Wait(context.Background())
+		waited, err := g.Wait(context.Background())
 		if err != nil {
 			waitErr.Store(err)
 		}
+		didWait.Store(waited)
 		unblocked.Store(true)
 	}()
 
@@ -61,6 +67,9 @@ func TestPauseGate_PauseThenWaitBlocksUntilResume(t *testing.T) {
 	if v := waitErr.Load(); v != nil {
 		t.Fatalf("Wait returned unexpected error: %v", v)
 	}
+	if !didWait.Load() {
+		t.Fatal("waited should be true when Wait blocked on a paused gate")
+	}
 	if g.IsPaused() {
 		t.Fatal("IsPaused should be false after Resume")
 	}
@@ -72,7 +81,10 @@ func TestPauseGate_WaitReturnsCtxErrOnCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	errCh := make(chan error, 1)
-	go func() { errCh <- g.Wait(ctx) }()
+	go func() {
+		_, err := g.Wait(ctx)
+		errCh <- err
+	}()
 
 	time.Sleep(25 * time.Millisecond)
 	cancel()
@@ -113,7 +125,7 @@ func TestPauseGate_ManyWaitersUnblockedByOneResume(t *testing.T) {
 	for i := 0; i < n; i++ {
 		go func() {
 			defer wg.Done()
-			_ = g.Wait(context.Background())
+			_, _ = g.Wait(context.Background())
 		}()
 	}
 
@@ -142,7 +154,10 @@ func TestPauseGate_PauseAfterResumeReusable(t *testing.T) {
 	}
 
 	errCh := make(chan error, 1)
-	go func() { errCh <- g.Wait(context.Background()) }()
+	go func() {
+		_, err := g.Wait(context.Background())
+		errCh <- err
+	}()
 	time.Sleep(30 * time.Millisecond)
 	g.Resume()
 	select {

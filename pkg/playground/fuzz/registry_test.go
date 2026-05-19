@@ -79,7 +79,7 @@ func TestRegistry_UnregisterUnblocksWaiters(t *testing.T) {
 	gate := reg.Gate(1)
 	done := make(chan struct{})
 	go func() {
-		_ = gate.Wait(context.Background())
+		_, _ = gate.Wait(context.Background())
 		close(done)
 	}()
 	time.Sleep(30 * time.Millisecond)
@@ -100,7 +100,7 @@ func TestRegistry_CancelResumesGate(t *testing.T) {
 	gate := reg.Gate(5)
 	done := make(chan struct{})
 	go func() {
-		_ = gate.Wait(context.Background())
+		_, _ = gate.Wait(context.Background())
 		close(done)
 	}()
 	time.Sleep(30 * time.Millisecond)

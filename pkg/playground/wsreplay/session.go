@@ -83,6 +83,11 @@ type Session struct {
 	frames    chan Frame // received frames consumed by NextFrame
 	sendCh    chan sendReq
 	wg        sync.WaitGroup
+	// readErrCh carries the error returned by the last readLoop ReadMessage call.
+	// It is a buffered channel of size 1; readLoop sends at most once.
+	// NextFrame selects on it so callers see the real gorilla close error rather
+	// than a generic "timeout" when the peer sends a close frame.
+	readErrCh chan error
 }
 
 type sendReq struct {
@@ -141,12 +146,13 @@ func DialSession(ctx context.Context, cfg SessionConfig) (*Session, error) {
 		return nil, fmt.Errorf("dial: %w", err)
 	}
 	s := &Session{
-		cfg:    cfg,
-		conn:   conn,
-		connID: connID,
-		closed: make(chan struct{}),
-		frames: make(chan Frame, cfg.BufferSize),
-		sendCh: make(chan sendReq),
+		cfg:       cfg,
+		conn:      conn,
+		connID:    connID,
+		closed:    make(chan struct{}),
+		frames:    make(chan Frame, cfg.BufferSize),
+		sendCh:    make(chan sendReq),
+		readErrCh: make(chan error, 1),
 	}
 	s.state.Store(StateConnected)
 	s.publish("state_changed", map[string]any{"from": StateConnecting, "to": StateConnected})
@@ -192,6 +198,13 @@ func (s *Session) NextFrame(timeout time.Duration) (Frame, error) {
 	select {
 	case f := <-s.frames:
 		return f, nil
+	case err := <-s.readErrCh:
+		// Re-queue so subsequent NextFrame calls see the same error.
+		select {
+		case s.readErrCh <- err:
+		default:
+		}
+		return Frame{}, err
 	case <-time.After(timeout):
 		return Frame{}, errors.New("timeout")
 	case <-s.closed:
@@ -224,6 +237,12 @@ func (s *Session) readLoop() {
 			if s.State() == StateConnected {
 				s.state.Store(StateErrored)
 				s.publish("state_changed", map[string]any{"from": StateConnected, "to": StateErrored, "error": err.Error()})
+			}
+			// Non-blocking send: NextFrame may race to select on readErrCh.
+			// Buffer size 1 ensures this never blocks.
+			select {
+			case s.readErrCh <- err:
+			default:
 			}
 			return
 		}

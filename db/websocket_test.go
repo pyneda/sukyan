@@ -80,3 +80,35 @@ func TestWebSocketConnectionProxyServiceConstraints(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, fetched.ProxyServiceID, "ProxyServiceID should be NULL after proxy service deletion")
 }
+
+func TestListWebSocketConnections_ExcludeSources(t *testing.T) {
+	err := Connection().DB().AutoMigrate(&WebSocketConnection{})
+	require.NoError(t, err)
+	workspace := createTestWorkspace(t)
+
+	mkConn := func(source string) uint {
+		c := &WebSocketConnection{
+			URL:         "wss://example.com/ws",
+			Source:      source,
+			WorkspaceID: &workspace.ID,
+		}
+		require.NoError(t, Connection().CreateWebSocketConnection(c))
+		return c.ID
+	}
+
+	mkConn("Scanner")
+	mkConn(SourcePlayground)
+	mkConn(SourceWsFuzz)
+	mkConn("Proxy")
+
+	out, total, err := Connection().ListWebSocketConnections(WebSocketConnectionFilter{
+		WorkspaceID:    workspace.ID,
+		ExcludeSources: []string{SourcePlayground, SourceWsFuzz},
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(2), total)
+	for _, c := range out {
+		require.NotEqual(t, SourcePlayground, c.Source)
+		require.NotEqual(t, SourceWsFuzz, c.Source)
+	}
+}

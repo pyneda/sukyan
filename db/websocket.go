@@ -324,6 +324,7 @@ type WebSocketConnectionFilter struct {
 	ScanJobID      uint       `json:"scan_job_id"`
 	ProxyServiceID *uuid.UUID `json:"proxy_service_id,omitempty"`
 	Sources        []string   `json:"sources" validate:"omitempty,dive,ascii"`
+	ExcludeSources []string   `json:"exclude_sources" validate:"omitempty,dive,ascii"`
 }
 
 func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnectionFilter) ([]WebSocketConnection, int64, error) {
@@ -334,6 +335,9 @@ func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnection
 	}
 	if len(filter.Sources) > 0 {
 		query = query.Where("source IN ?", filter.Sources)
+	}
+	if len(filter.ExcludeSources) > 0 {
+		query = query.Where("source NOT IN ?", filter.ExcludeSources)
 	}
 	if filter.TaskID > 0 {
 		query = query.Where("task_id = ?", filter.TaskID)

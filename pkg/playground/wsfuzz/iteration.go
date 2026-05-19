@@ -286,12 +286,6 @@ type checkRuleOutcome struct {
 	Passed   bool   `json:"passed"`
 }
 
-// evaluateCheck is implemented in matcher_eval.go (Task 20). This placeholder
-// keeps the package compiling and always passes; the real evaluator replaces
-// it before the engine is wired up end-to-end.
-func evaluateCheck(ca CheckAssertion, frames []wsreplay.Frame, vars map[string]string) (bool, checkResultEntry) {
-	return true, checkResultEntry{Logic: ca.Logic, Passed: true}
-}
 
 func remainingBudget(ctx context.Context, stepTO time.Duration) time.Duration {
 	if dl, ok := ctx.Deadline(); ok {

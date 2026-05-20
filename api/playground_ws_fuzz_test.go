@@ -136,3 +136,57 @@ func TestPreviewWsFuzz_BadJSON(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
+
+func wsFuzzScheduleApp() *fiber.App {
+	app := fiber.New()
+	app.Post("/api/v1/playground/ws-fuzz/sessions/:id/runs", ScheduleWsFuzzRun)
+	return app
+}
+
+func TestScheduleWsFuzzRun_RejectsInvalidConfig(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	app := wsFuzzScheduleApp()
+	// Missing target URL + no positions → Validate returns errors.
+	cfg := wsfuzz.WsFuzzerConfig{Mode: fuzz.ModeSingle}
+	resp := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/ws-fuzz/sessions/%d/runs", sessionID), cfg)
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	var out map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+	require.NotEmpty(t, out["errors"])
+}
+
+func TestScheduleWsFuzzRun_CreatesRunAndReturnsID(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	app := wsFuzzScheduleApp()
+
+	// Use a non-routable URL so the engine's dial fails fast — we only want to
+	// verify the row was created and a run_id returned. The background goroutine
+	// will write status=failed eventually; the assertion looks at the
+	// scheduling response, not the engine outcome.
+	cfg := wsfuzz.WsFuzzerConfig{
+		TargetURL:         "ws://127.0.0.1:1/", // port 1 is reserved; dial fails
+		Mode:              fuzz.ModeSingle,
+		ConnectionTimeout: 200, // 200ms so dial fails quickly
+		Script: []wsfuzz.WsFuzzStep{{
+			Role:      wsfuzz.RoleFuzz,
+			Opcode:    1,
+			Content:   "x",
+			Positions: []fuzz.FuzzerPosition{{Start: 0, End: 1, OriginalValue: "x"}},
+		}},
+		SharedPayloads: &fuzz.FuzzerPayloadsGroup{Payloads: []string{"a", "b"}},
+	}
+
+	resp := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/ws-fuzz/sessions/%d/runs", sessionID), cfg)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var out scheduleWsFuzzResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+	require.NotZero(t, out.RunID)
+	require.Equal(t, 2, out.IterationCount)
+
+	// Verify the run row exists in the DB.
+	got, err := db.Connection().GetPlaygroundWsFuzzRun(out.RunID)
+	require.NoError(t, err)
+	require.Equal(t, uint(sessionID), got.SessionID)
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/playground/wsreplay"
 	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc/pool"
+	"golang.org/x/time/rate"
 )
 
 // EngineDeps is everything Run needs from the outside.
@@ -39,8 +40,15 @@ func Run(
 		return wrapErr("EngineDeps.Persister is required")
 	}
 
-	// Per-run context lets the registry's Cancel terminate us.
-	runCtx, cancel := context.WithCancel(ctx)
+	// Per-run context lets the registry's Cancel terminate us. If max_duration
+	// is set, also enforce that as a hard wall-clock cap.
+	var runCtx context.Context
+	var cancel context.CancelFunc
+	if md := cfg.ExecutionOptions.MaxDurationSeconds; md > 0 {
+		runCtx, cancel = context.WithTimeout(ctx, time.Duration(md)*time.Second)
+	} else {
+		runCtx, cancel = context.WithCancel(ctx)
+	}
 	defer cancel()
 	Registry().Register(runID, cancel, deps.Broadcaster)
 	defer Registry().Unregister(runID)
@@ -154,7 +162,7 @@ func Run(
 				inf := atomic.LoadInt64(&inFlight)
 				_ = deps.Persister.UpdateRunProgress(runID, int(s), int(e), int(f))
 				elapsed := time.Since(startTime).Seconds()
-				rate := float64(s) / max1(elapsed)
+				curRate := float64(s) / max1(elapsed)
 				publish(&WsFuzzEvent{
 					Type: EventProgress,
 					Progress: &WsFuzzProgress{
@@ -163,7 +171,7 @@ func Run(
 						Findings:          int(f),
 						InFlight:          int(inf),
 						PlannedIterations: plannedCount,
-						CurrentRate:       rate,
+						CurrentRate:       curRate,
 						ElapsedSeconds:    int(elapsed),
 					},
 				})
@@ -174,8 +182,17 @@ func Run(
 	// 6. Iterate assignments through the pool.
 	assignments := strategy.Iterate(runCtx, flat, resolved)
 	jitterMs := cfg.ExecutionOptions.JitterMs
+	var limiter *rate.Limiter
+	if rps := cfg.ExecutionOptions.RPS; rps > 0 {
+		limiter = rate.NewLimiter(rate.Limit(rps), rps)
+	}
 assignLoop:
 	for assignment := range assignments {
+		if limiter != nil {
+			if err := limiter.Wait(runCtx); err != nil {
+				break assignLoop
+			}
+		}
 		if jitterMs > 0 {
 			select {
 			case <-runCtx.Done():
@@ -212,6 +229,18 @@ assignLoop:
 				atomic.AddInt64(&findings, 1)
 			}
 			publish(&WsFuzzEvent{Type: EventResult, Result: &res})
+
+			// stop_on_error_rate: abort the run when the cumulative error
+			// rate exceeds the threshold AND we have enough samples to make
+			// the rate meaningful (≥10 sent so a single early error doesn't
+			// torpedo the run).
+			if er := cfg.ExecutionOptions.StopOnErrorRate; er > 0 {
+				s := atomic.LoadInt64(&sent)
+				e := atomic.LoadInt64(&errs)
+				if s >= 10 && float64(e)/float64(s) >= er {
+					cancel()
+				}
+			}
 		})
 	}
 

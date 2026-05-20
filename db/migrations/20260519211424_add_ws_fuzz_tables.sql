@@ -58,4 +58,4 @@ CREATE INDEX "idx_playground_ws_fuzz_iterations_run_id" ON "playground_ws_fuzz_i
 -- Create index "idx_playground_ws_fuzz_iterations_status" to table: "playground_ws_fuzz_iterations"
 CREATE INDEX "idx_playground_ws_fuzz_iterations_status" ON "playground_ws_fuzz_iterations" ("status");
 -- Create index "idx_ws_fuzz_run_iter" to table: "playground_ws_fuzz_iterations"
-CREATE UNIQUE INDEX "idx_ws_fuzz_run_iter" ON "playground_ws_fuzz_iterations" ("iteration_index");
+CREATE UNIQUE INDEX "idx_ws_fuzz_run_iter" ON "playground_ws_fuzz_iterations" ("run_id", "iteration_index");

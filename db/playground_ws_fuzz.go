@@ -28,9 +28,9 @@ type PlaygroundWsFuzzRun struct {
 // PlaygroundWsFuzzIteration is one iteration's per-row result.
 type PlaygroundWsFuzzIteration struct {
 	BaseModel
-	RunID                 uint                 `gorm:"index" json:"run_id"`
+	RunID                 uint                 `gorm:"index;index:idx_ws_fuzz_run_iter,unique,priority:1" json:"run_id"`
 	Run                   PlaygroundWsFuzzRun  `json:"-" gorm:"foreignKey:RunID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	IterationIndex        int                  `gorm:"index:idx_ws_fuzz_run_iter,unique;priority:2" json:"iteration_index"`
+	IterationIndex        int                  `gorm:"index:idx_ws_fuzz_run_iter,unique,priority:2" json:"iteration_index"`
 	Status                string               `gorm:"index" json:"status"`
 	PayloadValues         datatypes.JSON       `json:"payload_values" swaggerignore:"true"`
 	BaselineMatch         bool                 `gorm:"index" json:"baseline_match"`

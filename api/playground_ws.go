@@ -225,10 +225,11 @@ func DeletePlaygroundWsSession(c *fiber.Ctx) error {
 // ImportConnectionInput represents the input for importing an existing WebSocket connection
 // as a new playground WS replay session.
 type ImportConnectionInput struct {
-	ConnectionID uint   `json:"connection_id" validate:"required"`
-	CollectionID *uint  `json:"collection_id"`
-	WorkspaceID  uint   `json:"workspace_id" validate:"required"`
-	Name         string `json:"name"`
+	ConnectionID      uint   `json:"connection_id" validate:"required"`
+	CollectionID      *uint  `json:"collection_id"`
+	WorkspaceID       uint   `json:"workspace_id" validate:"required"`
+	Name              string `json:"name"`
+	TargetSessionType string `json:"target_session_type" validate:"omitempty,oneof=ws_manual ws_fuzz"`
 }
 
 // importMessageCap is the maximum number of WebSocket messages copied into a derived script.
@@ -378,9 +379,13 @@ func ImportConnectionToPlaygroundWs(c *fiber.Ctx) error {
 		name = deriveSessionName(conn.URL)
 	}
 
+	sessionType := db.WsManualType
+	if input.TargetSessionType == "ws_fuzz" {
+		sessionType = db.WsFuzzType
+	}
 	parent := &db.PlaygroundSession{
 		Name:         name,
-		Type:         db.WsManualType,
+		Type:         sessionType,
 		WorkspaceID:  input.WorkspaceID,
 		CollectionID: collectionID,
 	}

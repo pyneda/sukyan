@@ -204,6 +204,25 @@ func StartAPI(opts ...APIServerOptions) {
 	api.Get("/playground/ws/sessions/:id/runs", JWTProtected(), ListPlaygroundWsRuns)
 	api.Post("/playground/ws/sessions/:id/runs/:run_id/cancel", JWTProtected(), CancelPlaygroundWsRun)
 	api.Get("/playground/ws/sessions/:id/stream", PlaygroundWsStreamUpgrade, websocket.New(PlaygroundWsStream))
+
+	// WS Fuzzer routes.
+	api.Get("/playground/sessions/:id/ws-fuzzer-config", JWTProtected(), GetWsFuzzerConfig)
+	api.Put("/playground/sessions/:id/ws-fuzzer-config", JWTProtected(), PutWsFuzzerConfig)
+	api.Post("/playground/ws-fuzz/preview", JWTProtected(), PreviewWsFuzz)
+	api.Post("/playground/ws-fuzz/sessions/:id/runs", JWTProtected(), ScheduleWsFuzzRun)
+	api.Get("/playground/ws-fuzz/sessions/:id/runs", JWTProtected(), ListWsFuzzRunsForSession)
+	api.Get("/playground/ws-fuzz/runs/:run_id", JWTProtected(), GetWsFuzzRun)
+	api.Delete("/playground/ws-fuzz/runs/:run_id", JWTProtected(), CancelWsFuzzRun)
+	api.Post("/playground/ws-fuzz/runs/:run_id/pause", JWTProtected(), PauseWsFuzzRun)
+	api.Post("/playground/ws-fuzz/runs/:run_id/resume", JWTProtected(), ResumeWsFuzzRun)
+	api.Get("/playground/ws-fuzz/runs/:run_id/iterations", JWTProtected(), ListWsFuzzIterations)
+	api.Get("/playground/ws-fuzz/runs/:run_id/iterations/:index", JWTProtected(), GetWsFuzzIteration)
+	api.Get("/playground/ws-fuzz/runs/:run_id/iterations/:index/frames", JWTProtected(), GetWsFuzzIterationFrames)
+	api.Get("/playground/ws-fuzz/runs/:run_id/export.csv", JWTProtected(), ExportWsFuzzRunCSV)
+	api.Get("/playground/ws-fuzz/runs/:run_id/export.json", JWTProtected(), ExportWsFuzzRunJSON)
+	api.Get("/playground/ws-fuzz/matcher-fields", JWTProtected(), GetWsFuzzMatcherFields)
+	api.Get("/playground/ws-fuzz/runs/:run_id/stream", PlaygroundWsFuzzStreamUpgrade, websocket.New(PlaygroundWsFuzzStream))
+
 	api.Get("/playground/wordlists", JWTProtected(), ListAvailableWordlists)
 
 	api.Post("/playground/openapi/parse", JWTProtected(), ParseOpenAPISpec)

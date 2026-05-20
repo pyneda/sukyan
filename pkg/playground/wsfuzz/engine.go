@@ -210,6 +210,13 @@ assignLoop:
 	close(stopProgress)
 	flushWG.Wait()
 
+	// Final progress flush — short runs may complete before the ticker fires,
+	// leaving sent_count=0 in the DB.
+	finalSent := atomic.LoadInt64(&sent)
+	finalErrs := atomic.LoadInt64(&errs)
+	finalFindings := atomic.LoadInt64(&findings)
+	_ = deps.Persister.UpdateRunProgress(runID, int(finalSent), int(finalErrs), int(finalFindings))
+
 	// 7. Terminal state.
 	finalStatus := "succeeded"
 	failureReason := ""

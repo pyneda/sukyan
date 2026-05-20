@@ -3,6 +3,7 @@ package wsfuzz
 import (
 	"context"
 	"encoding/json"
+	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -172,8 +173,16 @@ func Run(
 
 	// 6. Iterate assignments through the pool.
 	assignments := strategy.Iterate(runCtx, flat, resolved)
+	jitterMs := cfg.ExecutionOptions.JitterMs
 assignLoop:
 	for assignment := range assignments {
+		if jitterMs > 0 {
+			select {
+			case <-runCtx.Done():
+				break assignLoop
+			case <-time.After(time.Duration(rand.Intn(jitterMs+1)) * time.Millisecond):
+			}
+		}
 		// Pause gate: block scheduling new iterations while paused.
 		if gate != nil {
 			if _, err := gate.Wait(runCtx); err != nil {

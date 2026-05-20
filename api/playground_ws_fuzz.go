@@ -66,6 +66,7 @@ func PutWsFuzzerConfig(c *fiber.Ctx) error {
 	if err := c.BodyParser(&cfg); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid body: " + err.Error()})
 	}
+	cfg.TargetURL = strings.TrimSpace(cfg.TargetURL)
 	conn := db.Connection()
 	ws, err := conn.GetPlaygroundWsSessionBySessionID(uint(sessionID))
 	if err != nil {
@@ -102,6 +103,7 @@ func PreviewWsFuzz(c *fiber.Ctx) error {
 	if err := c.BodyParser(&cfg); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid body: " + err.Error()})
 	}
+	cfg.TargetURL = strings.TrimSpace(cfg.TargetURL)
 	iters, pos, warns, errs := wsfuzz.Preview(cfg)
 	if warns == nil {
 		warns = []string{}
@@ -136,6 +138,7 @@ func ScheduleWsFuzzRun(c *fiber.Ctx) error {
 	if err := c.BodyParser(&cfg); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid body: " + err.Error()})
 	}
+	cfg.TargetURL = strings.TrimSpace(cfg.TargetURL)
 
 	// Block obvious misconfigs at launch time; preview validation already
 	// surfaces warnings — only hard errors should prevent launch.

@@ -75,10 +75,14 @@ func RunIteration(
 	}
 
 	// 1. Build the concrete script for this iteration.
+	// Fuzz step content is stored WITH § markers wrapping each insertion point
+	// for editor display; positions point at the PRE-wrap offsets. Strip the
+	// markers so ReplacePayloads operates on the original byte sequence.
 	concrete := make([]concreteStep, len(cfg.Script))
 	for i, s := range cfg.Script {
 		content := s.Content
 		if s.Role == RoleFuzz {
+			content = stripInsertionMarkers(content)
 			pos, pay := PositionsAndPayloadsForStep(i, positionRefs, payloadAssignment)
 			content = fuzz.ReplacePayloads(content, pos, pay)
 		}
@@ -326,6 +330,17 @@ func extractCloseCode(err error) int {
 		return code
 	}
 	return 0
+}
+
+// stripInsertionMarkers removes all '§' bytes from s. The editor wraps each
+// insertion point with § on each side to render the highlight overlay, but
+// positions are recorded against the pre-wrap byte offsets, so the engine
+// must strip the markers before substituting payloads.
+func stripInsertionMarkers(s string) string {
+	if !strings.Contains(s, "§") {
+		return s
+	}
+	return strings.ReplaceAll(s, "§", "")
 }
 
 func closeWithTimeout(sess SessionHandle, d time.Duration) {

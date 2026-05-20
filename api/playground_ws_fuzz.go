@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
@@ -296,4 +297,77 @@ func ResumeWsFuzzRun(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// ListWsFuzzRunsForSession returns recent runs for the given session, paginated.
+func ListWsFuzzRunsForSession(c *fiber.Ctx) error {
+	sessID, err := c.ParamsInt("id")
+	if err != nil || sessID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid session id"})
+	}
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	pageSize, _ := strconv.Atoi(c.Query("page_size", "20"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	runs, total, err := db.Connection().ListPlaygroundWsFuzzRunsForSession(uint(sessID), page, pageSize)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	return c.JSON(fiber.Map{
+		"runs":      runs,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+
+// ListWsFuzzIterations returns paginated iterations of a run with optional filters.
+// Query params: page, page_size, status (csv), baseline_match (bool), payload_contains, failed_step_index.
+func ListWsFuzzIterations(c *fiber.Ctx) error {
+	runID, err := c.ParamsInt("run_id")
+	if err != nil || runID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
+	}
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	pageSize, _ := strconv.Atoi(c.Query("page_size", "50"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 500 {
+		pageSize = 50
+	}
+	f := db.PlaygroundWsFuzzIterationFilter{
+		RunID:    uint(runID),
+		Page:     page,
+		PageSize: pageSize,
+	}
+	if s := c.Query("status"); s != "" {
+		f.Statuses = strings.Split(s, ",")
+	}
+	if bm := c.Query("baseline_match"); bm != "" {
+		v := bm == "true"
+		f.BaselineMatch = &v
+	}
+	if pc := c.Query("payload_contains"); pc != "" {
+		f.PayloadContains = pc
+	}
+	if fsi := c.Query("failed_step_index"); fsi != "" {
+		if n, err := strconv.Atoi(fsi); err == nil {
+			f.FailedStepIndex = &n
+		}
+	}
+	rows, total, err := db.Connection().ListPlaygroundWsFuzzIterations(f)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	return c.JSON(fiber.Map{
+		"iterations": rows,
+		"total":      total,
+		"page":       page,
+		"page_size":  pageSize,
+	})
 }

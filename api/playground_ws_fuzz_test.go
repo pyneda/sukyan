@@ -312,3 +312,75 @@ func TestResumeWsFuzzRun_PausedFlipsToRunning(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "running", got.Status)
 }
+
+func wsFuzzListApp() *fiber.App {
+	app := fiber.New()
+	app.Get("/api/v1/playground/ws-fuzz/sessions/:id/runs", ListWsFuzzRunsForSession)
+	app.Get("/api/v1/playground/ws-fuzz/runs/:run_id/iterations", ListWsFuzzIterations)
+	return app
+}
+
+func TestListWsFuzzRunsForSession(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	for i := 0; i < 3; i++ {
+		r := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "succeeded", IterationCount: 10}
+		require.NoError(t, conn.CreatePlaygroundWsFuzzRun(r))
+	}
+
+	app := wsFuzzListApp()
+	resp := doJSON(t, app, "GET", fmt.Sprintf("/api/v1/playground/ws-fuzz/sessions/%d/runs?page=1&page_size=10", sessionID), nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var out struct {
+		Runs  []db.PlaygroundWsFuzzRun `json:"runs"`
+		Total int64                    `json:"total"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+	require.Equal(t, int64(3), out.Total)
+	require.Len(t, out.Runs, 3)
+}
+
+func TestListWsFuzzIterations_WithStatusFilter(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "succeeded"}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzRun(run))
+	for i, st := range []string{"completed", "completed", "check_failed", "connection_error"} {
+		it := &db.PlaygroundWsFuzzIteration{RunID: run.ID, IterationIndex: i, Status: st}
+		require.NoError(t, conn.CreatePlaygroundWsFuzzIteration(it))
+	}
+
+	app := wsFuzzListApp()
+	resp := doJSON(t, app, "GET", fmt.Sprintf("/api/v1/playground/ws-fuzz/runs/%d/iterations?status=check_failed", run.ID), nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var out struct {
+		Iterations []db.PlaygroundWsFuzzIteration `json:"iterations"`
+		Total      int64                          `json:"total"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+	require.Equal(t, int64(1), out.Total)
+	require.Equal(t, "check_failed", out.Iterations[0].Status)
+}
+
+func TestListWsFuzzIterations_NoFilters(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "succeeded"}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzRun(run))
+	for i := 0; i < 4; i++ {
+		it := &db.PlaygroundWsFuzzIteration{RunID: run.ID, IterationIndex: i, Status: "completed"}
+		require.NoError(t, conn.CreatePlaygroundWsFuzzIteration(it))
+	}
+
+	app := wsFuzzListApp()
+	resp := doJSON(t, app, "GET", fmt.Sprintf("/api/v1/playground/ws-fuzz/runs/%d/iterations", run.ID), nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var out struct {
+		Total int64 `json:"total"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+	require.Equal(t, int64(4), out.Total)
+}

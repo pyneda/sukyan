@@ -130,6 +130,28 @@ func (d *DatabaseConnection) ListPlaygroundWsFuzzIterations(f PlaygroundWsFuzzIt
 	return rows, total, err
 }
 
+// ListPlaygroundWsFuzzRunsForSession returns a paginated slice of runs for the
+// given session, ordered most-recent-first. Mirrors ListPlaygroundFuzzRuns.
+func (d *DatabaseConnection) ListPlaygroundWsFuzzRunsForSession(sessionID uint, page, pageSize int) ([]PlaygroundWsFuzzRun, int64, error) {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	q := d.db.Model(&PlaygroundWsFuzzRun{}).Where("session_id = ?", sessionID)
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var runs []PlaygroundWsFuzzRun
+	err := q.Order("created_at desc").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&runs).Error
+	return runs, total, err
+}
+
 // MarkOrphanedWsFuzzRunsAborted is the recovery sweep run on backend boot.
 // Any run in a non-terminal status is flipped to "aborted_server_restart"
 // because its in-process state was lost when the previous process exited.

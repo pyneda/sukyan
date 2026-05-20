@@ -17,6 +17,7 @@ type CreateWsSessionInput struct {
 	CollectionID   uint            `json:"collection_id" validate:"required,min=1"`
 	WorkspaceID    uint            `json:"workspace_id" validate:"required,min=1"`
 	Name           string          `json:"name" validate:"required"`
+	Type           string          `json:"type" validate:"omitempty,oneof=ws_manual ws_fuzz"`
 	TargetURL      string          `json:"target_url"`
 	RequestHeaders json.RawMessage `json:"request_headers"`
 	Script         json.RawMessage `json:"script"`
@@ -69,9 +70,13 @@ func CreatePlaygroundWsSession(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid collection", Message: "The collection does not belong to the provided workspace"})
 	}
 
+	sessionType := db.WsManualType
+	if input.Type == string(db.WsFuzzType) {
+		sessionType = db.WsFuzzType
+	}
 	sess := &db.PlaygroundSession{
 		Name:         input.Name,
-		Type:         db.WsManualType,
+		Type:         sessionType,
 		WorkspaceID:  input.WorkspaceID,
 		CollectionID: input.CollectionID,
 	}

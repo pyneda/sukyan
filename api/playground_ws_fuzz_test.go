@@ -384,3 +384,92 @@ func TestListWsFuzzIterations_NoFilters(t *testing.T) {
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
 	require.Equal(t, int64(4), out.Total)
 }
+
+func wsFuzzDetailApp() *fiber.App {
+	app := fiber.New()
+	app.Get("/api/v1/playground/ws-fuzz/runs/:run_id/iterations/:index", GetWsFuzzIteration)
+	app.Get("/api/v1/playground/ws-fuzz/runs/:run_id/iterations/:index/frames", GetWsFuzzIterationFrames)
+	return app
+}
+
+func TestGetWsFuzzIteration_ReturnsRow(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "succeeded"}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzRun(run))
+	it := &db.PlaygroundWsFuzzIteration{RunID: run.ID, IterationIndex: 7, Status: "completed", DurationMs: 200}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzIteration(it))
+
+	app := wsFuzzDetailApp()
+	resp := doJSON(t, app, "GET", fmt.Sprintf("/api/v1/playground/ws-fuzz/runs/%d/iterations/7", run.ID), nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var got db.PlaygroundWsFuzzIteration
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+	require.Equal(t, 7, got.IterationIndex)
+	require.Equal(t, 200, got.DurationMs)
+}
+
+func TestGetWsFuzzIteration_404OnMissing(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	app := wsFuzzDetailApp()
+	resp := doJSON(t, app, "GET", "/api/v1/playground/ws-fuzz/runs/9999999/iterations/0", nil)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestGetWsFuzzIterationFrames_EmptyWhenNoConnection(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "succeeded"}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzRun(run))
+	it := &db.PlaygroundWsFuzzIteration{RunID: run.ID, IterationIndex: 0, Status: "completed"}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzIteration(it))
+
+	app := wsFuzzDetailApp()
+	resp := doJSON(t, app, "GET", fmt.Sprintf("/api/v1/playground/ws-fuzz/runs/%d/iterations/0/frames", run.ID), nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var out struct {
+		Frames []db.WebSocketMessage `json:"frames"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+	require.Empty(t, out.Frames)
+}
+
+func TestGetWsFuzzIterationFrames_ReturnsMessages(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	workspaceID, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+
+	// Create a WebSocketConnection + 3 messages.
+	wsConn := &db.WebSocketConnection{URL: "ws://x/", Source: db.SourceWsFuzz, WorkspaceID: &workspaceID}
+	require.NoError(t, conn.CreateWebSocketConnection(wsConn))
+	for i := 0; i < 3; i++ {
+		m := &db.WebSocketMessage{
+			ConnectionID: wsConn.ID,
+			Opcode:       1,
+			PayloadData:  fmt.Sprintf("msg-%d", i),
+			Direction:    db.MessageSent,
+		}
+		require.NoError(t, conn.CreateWebSocketMessage(m))
+	}
+
+	run := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "succeeded"}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzRun(run))
+	it := &db.PlaygroundWsFuzzIteration{
+		RunID:                 run.ID,
+		IterationIndex:        0,
+		Status:                "completed",
+		WebSocketConnectionID: &wsConn.ID,
+	}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzIteration(it))
+
+	app := wsFuzzDetailApp()
+	resp := doJSON(t, app, "GET", fmt.Sprintf("/api/v1/playground/ws-fuzz/runs/%d/iterations/0/frames", run.ID), nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var out struct {
+		Frames []db.WebSocketMessage `json:"frames"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+	require.Len(t, out.Frames, 3)
+}

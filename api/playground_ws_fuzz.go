@@ -371,3 +371,54 @@ func ListWsFuzzIterations(c *fiber.Ctx) error {
 		"page_size":  pageSize,
 	})
 }
+
+// GetWsFuzzIteration returns a single iteration row by (runID, iterationIndex).
+func GetWsFuzzIteration(c *fiber.Ctx) error {
+	runID, err := c.ParamsInt("run_id")
+	if err != nil || runID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
+	}
+	idx, err := c.ParamsInt("index")
+	if err != nil || idx < 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid iteration index"})
+	}
+	var it db.PlaygroundWsFuzzIteration
+	q := db.Connection().DB().Where("run_id = ? AND iteration_index = ?", uint(runID), idx)
+	if err := q.First(&it).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "iteration not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	return c.JSON(it)
+}
+
+// GetWsFuzzIterationFrames returns the WebSocketMessage rows persisted for an
+// iteration's connection. Returns 404 if the iteration doesn't exist, an empty
+// frames array if the iteration has no associated connection.
+func GetWsFuzzIterationFrames(c *fiber.Ctx) error {
+	runID, err := c.ParamsInt("run_id")
+	if err != nil || runID <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
+	}
+	idx, err := c.ParamsInt("index")
+	if err != nil || idx < 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid iteration index"})
+	}
+	conn := db.Connection()
+	var it db.PlaygroundWsFuzzIteration
+	if err := conn.DB().Where("run_id = ? AND iteration_index = ?", uint(runID), idx).First(&it).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "iteration not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	if it.WebSocketConnectionID == nil {
+		return c.JSON(fiber.Map{"frames": []db.WebSocketMessage{}})
+	}
+	var msgs []db.WebSocketMessage
+	if err := conn.DB().Where("connection_id = ?", *it.WebSocketConnectionID).Order("created_at asc").Find(&msgs).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	return c.JSON(fiber.Map{"frames": msgs})
+}

@@ -191,3 +191,109 @@ func startWsFuzzRun(runID uint, cfg wsfuzz.WsFuzzerConfig, conn *db.DatabaseConn
 		}
 	}()
 }
+
+// isTerminalWsFuzzStatus reports whether a status string represents an end
+// state that should reject pause/resume/cancel as 409.
+func isTerminalWsFuzzStatus(s string) bool {
+	switch s {
+	case "succeeded", "failed", "cancelled",
+		"stopped_error_rate", "stopped_max_duration", "aborted_server_restart":
+		return true
+	}
+	return false
+}
+
+// GetWsFuzzRun returns the persisted run row by ID.
+func GetWsFuzzRun(c *fiber.Ctx) error {
+	runID, err := strconv.ParseUint(c.Params("run_id"), 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
+	}
+	r, err := db.Connection().GetPlaygroundWsFuzzRun(uint(runID))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "run not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	return c.JSON(r)
+}
+
+// CancelWsFuzzRun cancels an in-flight run. Returns 204 on success, 200 with
+// {"status":"already_finished"} if the run is already terminal, 404 if missing.
+func CancelWsFuzzRun(c *fiber.Ctx) error {
+	runID, err := strconv.ParseUint(c.Params("run_id"), 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
+	}
+	r, err := db.Connection().GetPlaygroundWsFuzzRun(uint(runID))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "run not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	if isTerminalWsFuzzStatus(r.Status) {
+		return c.JSON(fiber.Map{"status": "already_finished"})
+	}
+	wsfuzz.Registry().Cancel(uint(runID))
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// PauseWsFuzzRun flips the run's gate to paused. Returns 204 on success,
+// 200 with {"status":"already_paused"} if already paused, 409 if terminal,
+// 404 if missing.
+func PauseWsFuzzRun(c *fiber.Ctx) error {
+	runID, err := strconv.ParseUint(c.Params("run_id"), 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
+	}
+	conn := db.Connection()
+	r, err := conn.GetPlaygroundWsFuzzRun(uint(runID))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "run not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	if isTerminalWsFuzzStatus(r.Status) {
+		return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Error: "run is in terminal state"})
+	}
+	if r.Status == "paused" {
+		return c.JSON(fiber.Map{"status": "already_paused"})
+	}
+	wsfuzz.Registry().Pause(uint(runID))
+	r.Status = "paused"
+	if err := conn.UpdatePlaygroundWsFuzzRun(r); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// ResumeWsFuzzRun flips the run's gate back to running. Mirror of PauseWsFuzzRun.
+func ResumeWsFuzzRun(c *fiber.Ctx) error {
+	runID, err := strconv.ParseUint(c.Params("run_id"), 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
+	}
+	conn := db.Connection()
+	r, err := conn.GetPlaygroundWsFuzzRun(uint(runID))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "run not found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	if isTerminalWsFuzzStatus(r.Status) {
+		return c.Status(fiber.StatusConflict).JSON(ErrorResponse{Error: "run is in terminal state"})
+	}
+	if r.Status != "paused" {
+		return c.JSON(fiber.Map{"status": "not_paused"})
+	}
+	wsfuzz.Registry().Resume(uint(runID))
+	r.Status = "running"
+	if err := conn.UpdatePlaygroundWsFuzzRun(r); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: err.Error()})
+	}
+	return c.SendStatus(fiber.StatusNoContent)
+}

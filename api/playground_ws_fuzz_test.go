@@ -190,3 +190,125 @@ func TestScheduleWsFuzzRun_CreatesRunAndReturnsID(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint(sessionID), got.SessionID)
 }
+
+func wsFuzzRunControlApp() *fiber.App {
+	app := fiber.New()
+	app.Get("/api/v1/playground/ws-fuzz/runs/:run_id", GetWsFuzzRun)
+	app.Delete("/api/v1/playground/ws-fuzz/runs/:run_id", CancelWsFuzzRun)
+	app.Post("/api/v1/playground/ws-fuzz/runs/:run_id/pause", PauseWsFuzzRun)
+	app.Post("/api/v1/playground/ws-fuzz/runs/:run_id/resume", ResumeWsFuzzRun)
+	return app
+}
+
+func TestGetWsFuzzRun_404OnMissing(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	app := wsFuzzRunControlApp()
+	resp := doJSON(t, app, "GET", "/api/v1/playground/ws-fuzz/runs/9999999", nil)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestGetWsFuzzRun_ReturnsRow(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "succeeded", IterationCount: 42}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzRun(run))
+
+	app := wsFuzzRunControlApp()
+	resp := doJSON(t, app, "GET", fmt.Sprintf("/api/v1/playground/ws-fuzz/runs/%d", run.ID), nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var got db.PlaygroundWsFuzzRun
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&got))
+	require.Equal(t, run.ID, got.ID)
+	require.Equal(t, "succeeded", got.Status)
+	require.Equal(t, 42, got.IterationCount)
+}
+
+func TestCancelWsFuzzRun_AlreadyFinished(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "succeeded"}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzRun(run))
+
+	app := wsFuzzRunControlApp()
+	resp := doJSON(t, app, "DELETE", fmt.Sprintf("/api/v1/playground/ws-fuzz/runs/%d", run.ID), nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var out map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+	require.Equal(t, "already_finished", out["status"])
+}
+
+func TestPauseWsFuzzRun_TerminalReturns409(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "succeeded"}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzRun(run))
+
+	app := wsFuzzRunControlApp()
+	resp := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/ws-fuzz/runs/%d/pause", run.ID), nil)
+	require.Equal(t, http.StatusConflict, resp.StatusCode)
+}
+
+func TestPauseWsFuzzRun_AlreadyPaused(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "paused"}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzRun(run))
+
+	app := wsFuzzRunControlApp()
+	resp := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/ws-fuzz/runs/%d/pause", run.ID), nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var out map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+	require.Equal(t, "already_paused", out["status"])
+}
+
+func TestPauseWsFuzzRun_RunningFlipsToPaused(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "running"}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzRun(run))
+
+	app := wsFuzzRunControlApp()
+	resp := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/ws-fuzz/runs/%d/pause", run.ID), nil)
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	got, err := conn.GetPlaygroundWsFuzzRun(run.ID)
+	require.NoError(t, err)
+	require.Equal(t, "paused", got.Status)
+}
+
+func TestResumeWsFuzzRun_NotPaused(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "running"}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzRun(run))
+
+	app := wsFuzzRunControlApp()
+	resp := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/ws-fuzz/runs/%d/resume", run.ID), nil)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var out map[string]any
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+	require.Equal(t, "not_paused", out["status"])
+}
+
+func TestResumeWsFuzzRun_PausedFlipsToRunning(t *testing.T) {
+	ensureWsFuzzTablesApi(t)
+	_, sessionID := createWsFuzzWorkspaceSession(t)
+	conn := db.Connection()
+	run := &db.PlaygroundWsFuzzRun{SessionID: sessionID, Status: "paused"}
+	require.NoError(t, conn.CreatePlaygroundWsFuzzRun(run))
+
+	app := wsFuzzRunControlApp()
+	resp := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/ws-fuzz/runs/%d/resume", run.ID), nil)
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+	got, err := conn.GetPlaygroundWsFuzzRun(run.ID)
+	require.NoError(t, err)
+	require.Equal(t, "running", got.Status)
+}

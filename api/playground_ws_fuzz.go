@@ -79,3 +79,35 @@ func PutWsFuzzerConfig(c *fiber.Ctx) error {
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
+
+// previewWsFuzzResponse is the JSON returned by POST /playground/ws-fuzz/preview.
+type previewWsFuzzResponse struct {
+	IterationCount int      `json:"iteration_count"`
+	PositionsCount int      `json:"positions_count"`
+	Warnings       []string `json:"warnings"`
+	Errors         []string `json:"errors"`
+}
+
+// PreviewWsFuzz computes the planned iteration count, position count, and
+// surfaces validator warnings/errors without launching anything. Always
+// returns 200 with a structured body — the caller inspects Errors to decide
+// whether to display them.
+func PreviewWsFuzz(c *fiber.Ctx) error {
+	var cfg wsfuzz.WsFuzzerConfig
+	if err := c.BodyParser(&cfg); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid body: " + err.Error()})
+	}
+	iters, pos, warns, errs := wsfuzz.Preview(cfg)
+	if warns == nil {
+		warns = []string{}
+	}
+	if errs == nil {
+		errs = []string{}
+	}
+	return c.JSON(previewWsFuzzResponse{
+		IterationCount: iters,
+		PositionsCount: pos,
+		Warnings:       warns,
+		Errors:         errs,
+	})
+}

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -89,4 +91,48 @@ func TestPutWsFuzzerConfig_404WhenNoSession(t *testing.T) {
 	cfg := wsfuzz.WsFuzzerConfig{TargetURL: "ws://x/", Mode: fuzz.ModeSingle}
 	put := doJSON(t, app, "PUT", "/api/v1/playground/sessions/9999999/ws-fuzzer-config", cfg)
 	require.Equal(t, http.StatusNotFound, put.StatusCode)
+}
+
+func wsFuzzPreviewApp() *fiber.App {
+	app := fiber.New()
+	app.Post("/api/v1/playground/ws-fuzz/preview", PreviewWsFuzz)
+	return app
+}
+
+func TestPreviewWsFuzz_ReturnsIterationCount(t *testing.T) {
+	cfg := wsfuzz.WsFuzzerConfig{
+		TargetURL: "ws://example.com/ws",
+		Mode:      fuzz.ModeSingle,
+		Script: []wsfuzz.WsFuzzStep{{
+			Role: wsfuzz.RoleFuzz, Opcode: 1, Content: "x",
+			Positions: []fuzz.FuzzerPosition{{Start: 0, End: 1, OriginalValue: "x"}},
+		}},
+		SharedPayloads: &fuzz.FuzzerPayloadsGroup{Payloads: []string{"a", "b", "c"}},
+	}
+	app := wsFuzzPreviewApp()
+	resp := doJSON(t, app, "POST", "/api/v1/playground/ws-fuzz/preview", cfg)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var out previewWsFuzzResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+	require.Equal(t, 3, out.IterationCount)
+	require.Equal(t, 1, out.PositionsCount)
+}
+
+func TestPreviewWsFuzz_ReportsErrors(t *testing.T) {
+	app := wsFuzzPreviewApp()
+	resp := doJSON(t, app, "POST", "/api/v1/playground/ws-fuzz/preview", wsfuzz.WsFuzzerConfig{Mode: fuzz.ModeSingle})
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var out previewWsFuzzResponse
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&out))
+	require.NotEmpty(t, out.Errors)
+}
+
+func TestPreviewWsFuzz_BadJSON(t *testing.T) {
+	app := wsFuzzPreviewApp()
+	// Send malformed JSON via direct httptest (doJSON marshals everything we hand it).
+	req := httptest.NewRequest("POST", "/api/v1/playground/ws-fuzz/preview", strings.NewReader("not-json"))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }

@@ -57,24 +57,6 @@ func Run(
 	startTime := time.Now()
 	_ = deps.Persister.UpdateRunStartedAt(runID, startTime)
 
-	// Run pre-iteration setup ONCE (e.g. http_request to obtain an auth token).
-	// Resulting variables become run-scope vars visible to every iteration.
-	if cfg.PreIterationSetup != nil && cfg.PreIterationSetup.Kind != SetupNone && cfg.PreIterationSetup.Kind != "" {
-		preVars, preResp, err := runPreSetup(runCtx, cfg.PreIterationSetup)
-		if err != nil {
-			log.Warn().Err(err).Uint("run_id", runID).Msg("wsfuzz: pre-iteration setup failed")
-		}
-		if deps.RunScopeVars == nil {
-			deps.RunScopeVars = map[string]string{}
-		}
-		for k, v := range preVars {
-			deps.RunScopeVars[k] = v
-		}
-		if preResp != nil && deps.HTTPRespRef == nil {
-			deps.HTTPRespRef = preResp
-		}
-	}
-
 	publish := func(ev *WsFuzzEvent) {
 		ev.RunID = runID
 		ev.Ts = time.Now()
@@ -85,6 +67,36 @@ func Run(
 	setStatus := func(from, to, reason string) {
 		_ = deps.Persister.UpdateRunStatus(runID, to, reason)
 		publish(&WsFuzzEvent{Type: EventStatus, Status: &WsFuzzStatus{From: from, To: to, Reason: reason}})
+	}
+
+	// Run pre-iteration setup ONCE (e.g. http_request to obtain an auth token).
+	// Resulting variables become run-scope vars visible to every iteration.
+	if cfg.PreIterationSetup != nil && cfg.PreIterationSetup.Kind != SetupNone && cfg.PreIterationSetup.Kind != "" {
+		preVars, preResp, err := runPreSetup(runCtx, cfg.PreIterationSetup)
+		if err != nil {
+			log.Warn().Err(err).Uint("run_id", runID).Msg("wsfuzz: pre-iteration setup failed")
+			// If any extraction has abort policy, the run can't proceed without its var.
+			for _, ext := range cfg.PreIterationSetup.Extract {
+				if ext.FallbackPolicy == FallbackAbort {
+					reason := "pre-iteration setup failed: " + err.Error()
+					setStatus("pending", "failed", reason)
+					publish(&WsFuzzEvent{Type: EventDone, Done: &WsFuzzDone{Status: "failed", FailureReason: reason, FinishedAt: time.Now()}})
+					if deps.Broadcaster != nil {
+						deps.Broadcaster.Close()
+					}
+					return wrapErr(reason)
+				}
+			}
+		}
+		if deps.RunScopeVars == nil {
+			deps.RunScopeVars = map[string]string{}
+		}
+		for k, v := range preVars {
+			deps.RunScopeVars[k] = v
+		}
+		if preResp != nil && deps.HTTPRespRef == nil {
+			deps.HTTPRespRef = preResp
+		}
 	}
 
 	// 1. Build position refs and resolve payloads (once per run).

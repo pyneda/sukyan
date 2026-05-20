@@ -74,7 +74,10 @@ func RunIteration(
 		vars[k] = v
 	}
 
-	// 1. Build the concrete script for this iteration.
+	// 1. Pre-compute payload-replaced content per step. Variable substitution
+	// is deferred to the step-execution loop so each step sees vars extracted
+	// by EARLIER steps in the same iteration.
+	//
 	// Fuzz step content is stored WITH § markers wrapping each insertion point
 	// for editor display; positions point at the PRE-wrap offsets. Strip the
 	// markers so ReplacePayloads operates on the original byte sequence.
@@ -86,8 +89,7 @@ func RunIteration(
 			pos, pay := PositionsAndPayloadsForStep(i, positionRefs, payloadAssignment)
 			content = fuzz.ReplacePayloads(content, pos, pay)
 		}
-		expanded, _ := SubstituteVars(content, vars)
-		concrete[i] = concreteStep{spec: s, content: expanded}
+		concrete[i] = concreteStep{spec: s, content: content}
 	}
 
 	// 2. Iteration-wide context with a wall-clock budget.
@@ -135,13 +137,17 @@ stepLoop:
 			}
 		}
 
+		// Expand ${var} refs against the live vars map. Deferred to here so
+		// each step sees variables extracted by EARLIER steps in this iteration.
+		expandedContent, _ := SubstituteVars(cs.content, vars)
+
 		// Send (setup + fuzz steps; check steps are assertion-only).
 		opcode := cs.spec.Opcode
 		if opcode == 0 {
 			opcode = 1
 		}
 		if cs.spec.Role == RoleSetup || cs.spec.Role == RoleFuzz {
-			if sendErr := sess.Send(opcode, cs.content); sendErr != nil {
+			if sendErr := sess.Send(opcode, expandedContent); sendErr != nil {
 				idx := i
 				failedStep = &idx
 				if iterCtx.Err() != nil {
@@ -151,10 +157,10 @@ stepLoop:
 					status = StatusConnectionError
 					failureReason = "send: " + sendErr.Error()
 				}
-				frames = append(frames, wsreplay.Frame{Opcode: opcode, Content: cs.content, Direction: "sent", Ts: time.Now()})
+				frames = append(frames, wsreplay.Frame{Opcode: opcode, Content: expandedContent, Direction: "sent", Ts: time.Now()})
 				break stepLoop
 			}
-			frames = append(frames, wsreplay.Frame{Opcode: opcode, Content: cs.content, Direction: "sent", Ts: time.Now()})
+			frames = append(frames, wsreplay.Frame{Opcode: opcode, Content: expandedContent, Direction: "sent", Ts: time.Now()})
 		}
 
 		// Wait for a matching response.

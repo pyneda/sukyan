@@ -70,6 +70,10 @@ type SessionConfig struct {
 	// TLSConfig is passed to the gorilla Dialer's TLSClientConfig. nil means
 	// use Go's default (which respects system roots and rejects invalid certs).
 	TLSConfig *tls.Config
+	// Subprotocols is the ordered list offered in Sec-WebSocket-Protocol. The
+	// server picks the first it supports; the negotiated value is available via
+	// Session.Subprotocol() after dial.
+	Subprotocols []string
 }
 
 // Session owns one upstream WS connection and its IO goroutines.
@@ -110,9 +114,6 @@ func DialSession(ctx context.Context, cfg SessionConfig) (*Session, error) {
 		cfg.SendTimeout = 5 * time.Second
 	}
 	hdr := http.Header{}
-	// TODO(v2): Sec-WebSocket-Protocol must be passed via dialer.Subprotocols, not headers,
-	// for proper subprotocol negotiation. For now, custom Sec-WebSocket-Protocol values are
-	// passed as raw headers and may be ignored by the server.
 	for _, h := range cfg.Headers {
 		if h.Enabled {
 			hdr.Add(h.Key, h.Value)
@@ -121,6 +122,7 @@ func DialSession(ctx context.Context, cfg SessionConfig) (*Session, error) {
 	dialer := websocket.Dialer{
 		HandshakeTimeout:  cfg.ConnectTimeout,
 		TLSClientConfig:   cfg.TLSConfig,
+		Subprotocols:      cfg.Subprotocols,
 		EnableCompression: false, // v1: per-message-deflate disabled; see WS fuzzer spec §3
 	}
 	dialCtx, cancel := context.WithTimeout(ctx, cfg.ConnectTimeout)
@@ -167,6 +169,15 @@ func (s *Session) State() SessionState { return s.state.Load().(SessionState) }
 
 // ConnectionID returns the persister-assigned websocket_connections.id.
 func (s *Session) ConnectionID() uint { return s.connID }
+
+// Subprotocol returns the negotiated WebSocket subprotocol, or "" when the
+// server did not pick any.
+func (s *Session) Subprotocol() string {
+	if s.conn == nil {
+		return ""
+	}
+	return s.conn.Subprotocol()
+}
 
 // Instance returns the session's instance descriptor (interactive vs run).
 func (s *Session) Instance() Instance { return s.cfg.Instance }

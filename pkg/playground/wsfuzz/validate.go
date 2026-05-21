@@ -46,8 +46,8 @@ func Validate(cfg WsFuzzerConfig) (warnings []string, errors []string) {
 		warnings = append(warnings, "pre-iteration setup has no extractions; consider removing it or capturing a variable")
 	}
 
-	if cfg.PreIterationSetup != nil && cfg.PreIterationSetup.Kind == SetupWsScript {
-		errors = append(errors, "pre-iteration ws_script setup is not yet supported in v1 (use http_request kind or move the ws steps into the main script as setup roles)")
+	if cfg.PreIterationSetup != nil && cfg.PreIterationSetup.Kind == SetupWsScript && len(cfg.PreIterationSetup.Steps) == 0 {
+		errors = append(errors, "pre-iteration ws_script setup has no steps")
 	}
 
 	if cfg.ExecutionOptions.RequestTimeoutSeconds > 0 {

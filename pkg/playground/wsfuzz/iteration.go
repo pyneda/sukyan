@@ -108,6 +108,7 @@ func RunIteration(
 		Instance:       wsreplay.RunInstance(0), // engine isn't tracking a Run ID here
 		Source:         "ws_fuzz",
 		TLSConfig:      BuildTLSConfig(cfg.TLSConfig),
+		Subprotocols:   cfg.Subprotocols,
 		ConnectTimeout: time.Duration(cfg.ConnectionTimeout) * time.Millisecond,
 	}
 	sess, err := deps.Dial(iterCtx, dialCfg)

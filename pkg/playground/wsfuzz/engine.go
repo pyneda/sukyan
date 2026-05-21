@@ -72,7 +72,7 @@ func Run(
 	// Run pre-iteration setup ONCE (e.g. http_request to obtain an auth token).
 	// Resulting variables become run-scope vars visible to every iteration.
 	if cfg.PreIterationSetup != nil && cfg.PreIterationSetup.Kind != SetupNone && cfg.PreIterationSetup.Kind != "" {
-		preVars, preResp, err := runPreSetup(runCtx, cfg.PreIterationSetup)
+		preVars, preResp, err := runPreSetup(runCtx, cfg.PreIterationSetup, cfg, deps.Dial)
 		if err != nil {
 			log.Warn().Err(err).Uint("run_id", runID).Msg("wsfuzz: pre-iteration setup failed")
 			// If any extraction has abort policy, the run can't proceed without its var.

@@ -243,6 +243,13 @@ assignLoop:
 		atomic.AddInt64(&inFlight, 1)
 		wp.Go(func() {
 			defer atomic.AddInt64(&inFlight, -1)
+			defer func() {
+				if rec := recover(); rec != nil {
+					log.Error().Interface("panic", rec).Uint("run_id", runID).Int("index", a.Index).Msg("wsfuzz: iteration panicked, isolating")
+					atomic.AddInt64(&sent, 1)
+					atomic.AddInt64(&errs, 1)
+				}
+			}()
 			res, _ := RunIteration(runCtx, cfg, a.Index, refs, a.Payloads, deps.RunScopeVars, baseline, IterationDeps{
 				Dial:        deps.Dial,
 				HTTPRespRef: deps.HTTPRespRef,

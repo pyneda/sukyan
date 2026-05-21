@@ -139,6 +139,9 @@ func ScheduleWsFuzzRun(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid body: " + err.Error()})
 	}
 	cfg.TargetURL = strings.TrimSpace(cfg.TargetURL)
+	if err := validate.Struct(cfg); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Validation failed", Message: err.Error()})
+	}
 
 	// Block obvious misconfigs at launch time; preview validation already
 	// surfaces warnings — only hard errors should prevent launch.

@@ -121,13 +121,14 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 	}
 	page := b.MustPage("")
 	defer browserPool.ReleaseBrowser(b)
-	ctx, cancel := context.WithCancel(context.Background())
+	timeout := 60 * time.Second
+	if input.Options.Timeout > 0 {
+		timeout = time.Duration(input.Options.Timeout) * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	pageWithCancel := page.Context(ctx)
 	defer pageWithCancel.Close()
-	go func() {
-		time.Sleep(20 * time.Second)
-		cancel()
-	}()
+	defer cancel()
 
 	eventStream := web.ListenForPageEvents(ctx, input.Request.URL, pageWithCancel, input.Session.WorkspaceID, 0, 0, 0, db.SourceRepeater)
 	events := []web.PageEvent{}
@@ -145,7 +146,6 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 			}
 		}
 	}()
-	defer cancel()
 
 	var browserActionsResults BrowserReplayActionsResults
 	if input.BrowserActions.PreRequestAction != nil {

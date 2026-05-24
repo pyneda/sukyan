@@ -157,7 +157,13 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 		preResults, err := actions.ExecuteActions(ctx, pageWithCancel, pre)
 		if err != nil {
 			log.Error().Err(err).Msg("Error replaying pre-request action in browser")
-			return ReplayResult{}, err
+			// Attribute deadline exceeded to the pre-action phase so users see
+			// "pre-request action ..." rather than a generic "failed to navigate"
+			// error that points at the wrong phase.
+			if ctxErr := ctx.Err(); ctxErr == context.DeadlineExceeded {
+				return ReplayResult{}, fmt.Errorf("pre-request action exceeded request timeout (%s): %w", timeout, err)
+			}
+			return ReplayResult{}, fmt.Errorf("pre-request action failed: %w", err)
 		}
 		browserActionsResults.PreRequest = preResults
 		log.Info().Int("actions_count", len(pre)).Msg("Pre-request action completed")
@@ -187,7 +193,10 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 		postResults, err := actions.ExecuteActions(ctx, pageWithCancel, post)
 		if err != nil {
 			log.Error().Err(err).Msg("Error replaying post-request action in browser")
-			return ReplayResult{}, err
+			if ctxErr := ctx.Err(); ctxErr == context.DeadlineExceeded {
+				return ReplayResult{}, fmt.Errorf("post-request action exceeded request timeout (%s): %w", timeout, err)
+			}
+			return ReplayResult{}, fmt.Errorf("post-request action failed: %w", err)
 		}
 		browserActionsResults.PostRequest = postResults
 		log.Info().Int("actions_count", len(post)).Msg("Post-request action completed")

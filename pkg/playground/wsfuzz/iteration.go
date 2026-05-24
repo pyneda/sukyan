@@ -113,7 +113,9 @@ func RunIteration(
 	}
 	sess, err := deps.Dial(iterCtx, dialCfg)
 	if err != nil {
-		return finalize(start, iterationIndex, payloadAssignment, StatusConnectionError, "dial: "+err.Error(), nil, 0, nil, vars), nil
+		// wsreplay.DialSession already wraps with "dial: "; pass through to
+		// avoid the "dial: dial: dial tcp ..." nesting in failure_reason.
+		return finalize(start, iterationIndex, payloadAssignment, StatusConnectionError, err.Error(), nil, 0, nil, vars), nil
 	}
 	defer closeWithTimeout(sess, 5*time.Second)
 

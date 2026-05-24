@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/rs/zerolog/log"
-	"gorm.io/gorm"
 )
 
 // PlaygroundCollection represents a collection of playground sessions.
@@ -215,7 +214,7 @@ func (d *DatabaseConnection) UpdatePlaygroundSessionReplayConfig(id uint, cfg js
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
+		return fmt.Errorf("session %d not found", id)
 	}
 	return nil
 }

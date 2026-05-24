@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/playground/wsfuzz"
@@ -139,14 +140,27 @@ func ScheduleWsFuzzRun(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid body: " + err.Error()})
 	}
 	cfg.TargetURL = strings.TrimSpace(cfg.TargetURL)
-	if err := validate.Struct(cfg); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Validation failed", Message: err.Error()})
-	}
 
-	// Block obvious misconfigs at launch time; preview validation already
-	// surfaces warnings — only hard errors should prevent launch.
+	// Response contract for 400: always {"errors": []string}. Both the
+	// struct-tag validator (exec-option bounds like concurrency 1..200) and
+	// the domain validator (target_url, positions, payloads) feed the same
+	// slice so callers don't have to branch on the failure source.
+	var problems []string
+	if err := validate.Struct(cfg); err != nil {
+		var vErrs validator.ValidationErrors
+		if errors.As(err, &vErrs) {
+			for _, fe := range vErrs {
+				problems = append(problems, fe.Error())
+			}
+		} else {
+			problems = append(problems, err.Error())
+		}
+	}
 	if _, errs := wsfuzz.Validate(cfg); len(errs) > 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"errors": errs})
+		problems = append(problems, errs...)
+	}
+	if len(problems) > 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"errors": problems})
 	}
 
 	iters, _, _, _ := wsfuzz.Preview(cfg)

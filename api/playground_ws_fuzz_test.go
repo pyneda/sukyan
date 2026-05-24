@@ -175,7 +175,8 @@ func TestScheduleWsFuzzRun_CreatesRunAndReturnsID(t *testing.T) {
 			Content:   "x",
 			Positions: []fuzz.FuzzerPosition{{Start: 0, End: 1, OriginalValue: "x"}},
 		}},
-		SharedPayloads: &fuzz.FuzzerPayloadsGroup{Payloads: []string{"a", "b"}},
+		SharedPayloads:   &fuzz.FuzzerPayloadsGroup{Payloads: []string{"a", "b"}},
+		ExecutionOptions: fuzz.FuzzerExecutionOptions{Concurrency: 1, RequestTimeoutSeconds: 5},
 	}
 
 	resp := doJSON(t, app, "POST", fmt.Sprintf("/api/v1/playground/ws-fuzz/sessions/%d/runs", sessionID), cfg)

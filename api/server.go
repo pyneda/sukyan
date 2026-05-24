@@ -48,6 +48,17 @@ func StartAPI(opts ...APIServerOptions) {
 	apiLogger := log.With().Str("type", "api").Logger()
 
 	apiLogger.Info().Msg("Initializing...")
+
+	if viper.GetBool("db.auto_migrate") {
+		apiLogger.Info().Msg("Applying pending database migrations")
+		if err := db.ApplyMigrations(db.MigrateApplyOptions{}); err != nil {
+			apiLogger.Error().Err(err).Msg("Failed to apply database migrations - refusing to start")
+			os.Exit(1)
+		}
+	} else {
+		apiLogger.Info().Msg("db.auto_migrate is disabled - skipping migration apply on startup")
+	}
+
 	generators, err := generation.LoadGenerators(viper.GetString("generators.directory"))
 	if err != nil {
 		apiLogger.Error().Err(err).Msg("Failed to load generators")

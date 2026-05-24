@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 
+	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -23,43 +25,21 @@ var migrateApplyCmd = &cobra.Command{
 This command uses Atlas to apply versioned migrations from the db/migrations directory.
 The database connection is read from the POSTGRES_DSN environment variable.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		dsn := os.Getenv("POSTGRES_DSN")
-		if dsn == "" {
-			fmt.Println("Error: POSTGRES_DSN environment variable not set")
-			os.Exit(1)
-		}
-
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		baseline, _ := cmd.Flags().GetString("baseline")
 		allowDirty, _ := cmd.Flags().GetBool("allow-dirty")
 
-		atlasArgs := []string{
-			"migrate", "apply",
-			"--url", dsn,
-			"--dir", "file://db/migrations",
-		}
-
-		if dryRun {
-			atlasArgs = append(atlasArgs, "--dry-run")
-		}
-		if baseline != "" {
-			atlasArgs = append(atlasArgs, "--baseline", baseline)
-		}
-		if allowDirty {
-			atlasArgs = append(atlasArgs, "--allow-dirty")
-		}
-
-		log.Info().Strs("args", atlasArgs).Msg("Running Atlas migrate apply")
-
-		atlasCmd := exec.Command("atlas", atlasArgs...)
-		atlasCmd.Stdout = os.Stdout
-		atlasCmd.Stderr = os.Stderr
-
-		if err := atlasCmd.Run(); err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
+		err := db.ApplyMigrations(db.MigrateApplyOptions{
+			DryRun:     dryRun,
+			Baseline:   baseline,
+			AllowDirty: allowDirty,
+		})
+		if err != nil {
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
 				os.Exit(exitErr.ExitCode())
 			}
-			fmt.Printf("Error running atlas: %v\n", err)
+			log.Error().Err(err).Msg("Atlas migrate apply failed")
 			os.Exit(1)
 		}
 

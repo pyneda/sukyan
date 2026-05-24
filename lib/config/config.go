@@ -34,6 +34,7 @@ func SetDefaultConfig() {
 	viper.SetDefault("db.max_idle_conns", 5)
 	viper.SetDefault("db.max_open_conns", 50)
 	viper.SetDefault("db.conn_max_lifetime", "1h")
+	viper.SetDefault("db.auto_migrate", true)
 
 	// Storage
 	viper.SetDefault("history.responses.ignored.max_size", 5*1024*1024)

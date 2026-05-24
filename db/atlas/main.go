@@ -48,6 +48,7 @@ func main() {
 		&db.APIScan{},
 		&db.ScanAPIDefinition{},
 		&db.ProxyService{},
+		&db.MatcherPreset{},
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)

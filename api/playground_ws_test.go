@@ -162,6 +162,19 @@ func TestPlaygroundWsCRUD(t *testing.T) {
 	assert.Equal(t, newURL, updated.TargetURL)
 	assert.JSONEq(t, string(newScript), string(updated.Script))
 
+	// --- Reject malformed script shapes (GAP3-02 regression). The old behavior
+	// was to silently store the bad shape and later run an empty script that
+	// reported "succeeded". ---
+	badScript := json.RawMessage(`{"steps":[{"opcode":"text","payload":"hi"}]}`)
+	badInput := UpdateWsSessionInput{Script: badScript}
+	badBody, err := json.Marshal(badInput)
+	require.NoError(t, err)
+	badReq := httptest.NewRequest(http.MethodPut, getURL, strings.NewReader(string(badBody)))
+	badReq.Header.Set("Content-Type", "application/json")
+	badResp, err := app.Test(badReq)
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusBadRequest, badResp.StatusCode, "wrong-shape script must 400, not silently store")
+
 	// --- Delete ---
 	deleteReq := httptest.NewRequest(http.MethodDelete, getURL, nil)
 	deleteResp, err := app.Test(deleteReq)

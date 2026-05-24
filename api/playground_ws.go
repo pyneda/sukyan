@@ -179,6 +179,17 @@ func UpdatePlaygroundWsSession(c *fiber.Ctx) error {
 		wsSess.RequestHeaders = input.RequestHeaders
 	}
 	if len(input.Script) > 0 {
+		// Validate ws_manual scripts on write so a malformed import or stale
+		// migration surfaces as a 400 rather than silently running an empty
+		// script and reporting "succeeded". ws_fuzz scripts live in Options
+		// and follow a different schema, so skip for that type.
+		parent, perr := db.Connection().GetPlaygroundSession(uint(id))
+		if perr == nil && parent.Type == db.WsManualType {
+			var entries []wsreplay.ScriptEntry
+			if err := json.Unmarshal(input.Script, &entries); err != nil {
+				return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid script", Message: "script must be a JSON array of ScriptEntry: " + err.Error()})
+			}
+		}
 		wsSess.Script = input.Script
 	}
 	if len(input.Options) > 0 {
@@ -579,10 +590,16 @@ func ConnectPlaygroundWs(c *fiber.Ctx) error {
 		sendTimeout = time.Duration(opts.SendTimeoutMs) * time.Millisecond
 	}
 	pid := wsSess.PlaygroundSessionID
+	var workspaceID *uint
+	if parent, perr := db.Connection().GetPlaygroundSession(pid); perr == nil && parent.WorkspaceID != 0 {
+		ws := parent.WorkspaceID
+		workspaceID = &ws
+	}
 	cfg := wsreplay.SessionConfig{
 		TargetURL:           wsSess.TargetURL,
 		Headers:             headers,
 		PlaygroundSessionID: &pid,
+		WorkspaceID:         workspaceID,
 		Instance:            wsreplay.InteractiveInstance(),
 		Persister:           wsreplay.NewDBPersister(db.Connection()),
 		Events:              mgr.BroadcasterFor(wsSess.ID),
@@ -729,6 +746,11 @@ func executeRun(wsSess *db.PlaygroundWsSession, run *db.PlaygroundWsRun) {
 		log.Warn().Err(err).Uint("session_id", wsSess.ID).Msg("could not unmarshal options; using defaults")
 	}
 	pid := wsSess.PlaygroundSessionID
+	var workspaceID *uint
+	if parent, perr := db.Connection().GetPlaygroundSession(pid); perr == nil && parent.WorkspaceID != 0 {
+		ws := parent.WorkspaceID
+		workspaceID = &ws
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -738,6 +760,7 @@ func executeRun(wsSess *db.PlaygroundWsSession, run *db.PlaygroundWsRun) {
 		TargetURL:           wsSess.TargetURL,
 		Headers:             headers,
 		PlaygroundSessionID: &pid,
+		WorkspaceID:         workspaceID,
 		Instance:            wsreplay.RunInstance(run.ID),
 		Persister:           wsreplay.NewDBPersister(db.Connection()),
 		Events:              bcast,

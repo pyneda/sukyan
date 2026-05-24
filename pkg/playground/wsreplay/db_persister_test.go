@@ -17,7 +17,7 @@ func TestDBPersisterCreatesAndCloses(t *testing.T) {
 	if pid != 0 {
 		pidPtr = &pid
 	}
-	id, err := p.CreateConnection("wss://example.com/ws", []HeaderSpec{{Key: "X", Value: "Y", Enabled: true}}, 101, "playground", pidPtr)
+	id, err := p.CreateConnection("wss://example.com/ws", []HeaderSpec{{Key: "X", Value: "Y", Enabled: true}}, 101, "playground", pidPtr, nil)
 	require.NoError(t, err)
 	require.NotZero(t, id)
 

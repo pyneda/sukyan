@@ -14,7 +14,7 @@ type DBPersister struct{ conn *db.DatabaseConnection }
 // NewDBPersister returns a Persister backed by the project's DB connection.
 func NewDBPersister(c *db.DatabaseConnection) *DBPersister { return &DBPersister{conn: c} }
 
-func (p *DBPersister) CreateConnection(url string, headers []HeaderSpec, statusCode int, source string, playgroundSessionID *uint) (uint, error) {
+func (p *DBPersister) CreateConnection(url string, headers []HeaderSpec, statusCode int, source string, playgroundSessionID *uint, workspaceID *uint) (uint, error) {
 	hdrJSON, _ := json.Marshal(headers)
 	rec := &db.WebSocketConnection{
 		URL:                 url,
@@ -23,6 +23,7 @@ func (p *DBPersister) CreateConnection(url string, headers []HeaderSpec, statusC
 		Source:              source,
 		PlaygroundSessionID: playgroundSessionID,
 	}
+	rec.WorkspaceID = workspaceID
 	if err := p.conn.CreateWebSocketConnection(rec); err != nil {
 		return 0, err
 	}

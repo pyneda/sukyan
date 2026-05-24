@@ -27,7 +27,7 @@ import (
 // Non-canonical values (case differences, typos) will be persisted as-is and
 // silently break recovery sweeps and history filters.
 type Persister interface {
-	CreateConnection(url string, headers []HeaderSpec, statusCode int, source string, playgroundSessionID *uint) (uint, error)
+	CreateConnection(url string, headers []HeaderSpec, statusCode int, source string, playgroundSessionID *uint, workspaceID *uint) (uint, error)
 	RecordMessage(connID uint, opcode int, content string, direction string) (uint, error)
 	CloseConnection(connID uint) error
 }
@@ -55,7 +55,12 @@ type SessionConfig struct {
 	TargetURL           string
 	Headers             []HeaderSpec
 	PlaygroundSessionID *uint
-	Instance            Instance
+	// WorkspaceID is set on the persisted WebSocketConnection so workspace-
+	// scoped history views surface playground WS traffic. Optional; nil means
+	// no workspace association (effectively orphaned). Playground call sites
+	// always set this from the parent PlaygroundSession.WorkspaceID.
+	WorkspaceID *uint
+	Instance    Instance
 	Persister           Persister
 	Events              *stream.Broadcaster
 	// ConnectTimeout bounds the dial+upgrade handshake. Defaults to 10s if zero.
@@ -136,7 +141,7 @@ func DialSession(ctx context.Context, cfg SessionConfig) (*Session, error) {
 	if source == "" {
 		source = "playground"
 	}
-	connID, perr := cfg.Persister.CreateConnection(cfg.TargetURL, cfg.Headers, statusCode, source, cfg.PlaygroundSessionID)
+	connID, perr := cfg.Persister.CreateConnection(cfg.TargetURL, cfg.Headers, statusCode, source, cfg.PlaygroundSessionID, cfg.WorkspaceID)
 	if perr != nil {
 		if conn != nil {
 			conn.Close()

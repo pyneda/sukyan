@@ -48,16 +48,20 @@ type fakePersister struct {
 	mu                sync.Mutex
 	connectionCreated uint
 	lastSource        string
+	lastWorkspaceID   uint
 	messages          []PersistedMessage
 }
 
 func newFakePersister() *fakePersister { return &fakePersister{} }
 
-func (f *fakePersister) CreateConnection(url string, headers []HeaderSpec, statusCode int, source string, playgroundSessionID *uint) (uint, error) {
+func (f *fakePersister) CreateConnection(url string, headers []HeaderSpec, statusCode int, source string, playgroundSessionID *uint, workspaceID *uint) (uint, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.connectionCreated++
 	f.lastSource = source
+	if workspaceID != nil {
+		f.lastWorkspaceID = *workspaceID
+	}
 	return f.connectionCreated, nil
 }
 
@@ -166,7 +170,7 @@ func TestSessionDialPersisterFails(t *testing.T) {
 // failingPersister always errors on CreateConnection.
 type failingPersister struct{ err error }
 
-func (f *failingPersister) CreateConnection(string, []HeaderSpec, int, string, *uint) (uint, error) {
+func (f *failingPersister) CreateConnection(string, []HeaderSpec, int, string, *uint, *uint) (uint, error) {
 	return 0, f.err
 }
 func (f *failingPersister) RecordMessage(uint, int, string, string) (uint, error) { return 0, nil }
@@ -213,7 +217,7 @@ type flakyPersister struct {
 	connID    uint
 }
 
-func (f *flakyPersister) CreateConnection(string, []HeaderSpec, int, string, *uint) (uint, error) {
+func (f *flakyPersister) CreateConnection(string, []HeaderSpec, int, string, *uint, *uint) (uint, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.connID++

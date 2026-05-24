@@ -48,7 +48,7 @@ func (f *fakeRunPersister) iterations() []WsIterationResult {
 // noopPersister implements wsreplay.Persister with no IO.
 type noopPersister struct{}
 
-func (noopPersister) CreateConnection(url string, headers []wsreplay.HeaderSpec, statusCode int, source string, sessID *uint) (uint, error) {
+func (noopPersister) CreateConnection(url string, headers []wsreplay.HeaderSpec, statusCode int, source string, sessID *uint, workspaceID *uint) (uint, error) {
 	return 1, nil
 }
 func (noopPersister) RecordMessage(connID uint, opcode int, content string, direction string) (uint, error) {

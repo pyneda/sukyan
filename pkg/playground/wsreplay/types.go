@@ -57,6 +57,19 @@ func (i Instance) IsInteractive() bool { return i.Kind == InstanceKindInteractiv
 func (i Instance) IsRun() bool { return i.Kind == InstanceKindRun }
 
 // ScriptEntry mirrors the frontend zod schema. JSON-encoded in DB.
+//
+// Variables: a step's Content may include `${name}` references. They are
+// expanded at send-time against the run's variables map (populated by the
+// Extract specs on earlier steps). Undefined references abort the run with
+// a clear failure_reason — see SubstituteVarsStrict — instead of silently
+// shipping the literal `${name}` to the peer.
+//
+// Extractions: after a wait_for match (or right after send when no wait_for
+// is set), each Extraction is applied to the last received frame and the
+// captured value is added to the run's variable map under Extraction.Name.
+// Extractions are run-scoped (visible to every later step), reflecting the
+// fact that WS Replay is single-execution; WS Fuzz uses an extended type
+// with explicit per-iteration vs per-run scoping.
 type ScriptEntry struct {
 	ID        string       `json:"id"`
 	Name      string       `json:"name"`
@@ -66,6 +79,7 @@ type ScriptEntry struct {
 	WaitFor   *WaitForSpec `json:"wait_for,omitempty"`
 	OnTimeout string       `json:"on_timeout"`  // "abort" | "continue"
 	OnNoMatch string       `json:"on_no_match"` // "abort" | "continue"
+	Extract   []Extraction `json:"extract,omitempty"`
 }
 
 type WaitForSpec struct {

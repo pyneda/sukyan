@@ -49,6 +49,12 @@ func WalkScript(ctx context.Context, sess *Session, script []ScriptEntry, opts S
 	}
 	runID := sess.Instance().RunID
 
+	// vars accumulates the run-scoped variables produced by Extract specs on
+	// earlier steps. Later steps can reference them via `${name}` in their
+	// Content. WS Replay is single-execution, so there's no per-iteration
+	// scope to worry about; vars live for the whole run.
+	vars := map[string]string{}
+
 	for i, step := range script {
 		res.CurrentStepIndex = i
 		publish("run_step_started", map[string]any{"run_id": runID, "step_index": i})
@@ -63,12 +69,27 @@ func WalkScript(ctx context.Context, sess *Session, script []ScriptEntry, opts S
 			}
 		}
 
-		if err := sess.Send(step.Opcode, step.Content); err != nil {
+		// Expand ${var} references in the step's content. A typo'd or
+		// out-of-order variable name fails the run immediately rather than
+		// shipping the literal `${name}` to the peer (which would silently
+		// confuse downstream protocols).
+		expandedContent, undefined, _ := SubstituteVarsStrict(step.Content, vars)
+		if len(undefined) > 0 {
+			res.Status = "failed"
+			res.FailureReason = formatUndefinedVarReason(undefined)
+			publish("run_step_failed", map[string]any{
+				"run_id": runID, "step_index": i, "reason": res.FailureReason,
+			})
+			return res
+		}
+
+		if err := sess.Send(step.Opcode, expandedContent); err != nil {
 			res.Status = "failed"
 			res.FailureReason = "send: " + err.Error()
 			return res
 		}
 
+		var matchedFrame *Frame
 		if step.WaitFor != nil {
 			publish("wait_started", map[string]any{
 				"run_id": runID, "step_index": i,
@@ -104,6 +125,8 @@ func WalkScript(ctx context.Context, sess *Session, script []ScriptEntry, opts S
 					break waitLoop
 				}
 				if Match(*step.WaitFor, frame.Content) {
+					matched := frame
+					matchedFrame = &matched
 					publish("wait_matched", map[string]any{"run_id": runID, "step_index": i, "message_id": frame.MessageID})
 					break waitLoop
 				}
@@ -116,7 +139,60 @@ func WalkScript(ctx context.Context, sess *Session, script []ScriptEntry, opts S
 				// continue policy: keep looping until deadline
 			}
 		}
+
+		// Apply Extract specs against the matched frame. We require a
+		// wait_for match to have a deterministic source frame — extracting
+		// from "whatever comes in" would be racy and lead to flaky scripts.
+		// Steps without a wait_for that nevertheless declare Extract specs
+		// fail the run with a clear reason rather than skipping silently.
+		if len(step.Extract) > 0 {
+			if matchedFrame == nil {
+				res.Status = "failed"
+				res.FailureReason = "extract requires wait_for: step has Extract specs but no matched frame"
+				publish("run_step_failed", map[string]any{
+					"run_id": runID, "step_index": i, "reason": res.FailureReason,
+				})
+				return res
+			}
+			for _, ext := range step.Extract {
+				value, ok := ext.Apply(*matchedFrame)
+				if !ok && ext.OnFailure != PolicyContinue {
+					res.Status = "failed"
+					res.FailureReason = "extract " + ext.Name + " failed: no value captured"
+					publish("run_step_failed", map[string]any{
+						"run_id": runID, "step_index": i, "reason": res.FailureReason,
+					})
+					return res
+				}
+				vars[ext.Name] = value
+				publish("extracted_variable", map[string]any{
+					"run_id": runID, "step_index": i, "name": ext.Name,
+				})
+			}
+		}
+
 		publish("run_step_completed", map[string]any{"run_id": runID, "step_index": i})
 	}
 	return res
+}
+
+// formatUndefinedVarReason builds a human-readable failure_reason for the
+// run row. Singular/plural variant + the names inline so the UI can show
+// the offending variable name(s) without parsing.
+func formatUndefinedVarReason(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	plural := ""
+	if len(names) > 1 {
+		plural = "s"
+	}
+	out := "undefined variable" + plural + " in step content: "
+	for i, n := range names {
+		if i > 0 {
+			out += ", "
+		}
+		out += "${" + n + "}"
+	}
+	return out
 }

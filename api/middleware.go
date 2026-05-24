@@ -10,12 +10,20 @@ import (
 
 // JWTProtected func for specify routes group with JWT authentication.
 // See: https://github.com/gofiber/contrib/jwt
+//
+// TokenLookup also accepts the JWT from the "auth" cookie so that
+// navigator.sendBeacon and similar unload-time helpers — which cannot set a
+// custom Authorization header — can still authenticate using the cookie the
+// UI already sets at sign-in. The header is checked first, preserving the
+// existing Bearer flow for normal API clients.
 func JWTProtected() func(*fiber.Ctx) error {
 	// Create config for JWT authentication middleware.
 	jwtSecret := viper.GetString("api.auth.jwt_secret_key")
 	config := jwtMiddleware.Config{
 		SigningKey:   jwtMiddleware.SigningKey{Key: []byte(jwtSecret)},
 		ContextKey:   "jwt", // used in private routes
+		TokenLookup:  "header:Authorization,cookie:auth",
+		AuthScheme:   "Bearer",
 		ErrorHandler: jwtError,
 	}
 

@@ -416,15 +416,7 @@ func StartAPI(opts ...APIServerOptions) {
 		apiLogger.Info().Msg("Interactions manager stopped")
 	}
 
-	// 5. Close all live WS playground sessions so their goroutines exit before
-	// the process does and don't keep FDs/connections half-open across restart.
-	if mgr := wsreplay.Default(); mgr != nil {
-		apiLogger.Info().Msg("Stopping ws playground manager...")
-		mgr.Shutdown()
-		apiLogger.Info().Msg("Ws playground manager stopped")
-	}
-
-	// 6. Cleanup database connections
+	// 5. Cleanup database connections
 	db.Cleanup()
 
 	apiLogger.Info().Msg("Graceful shutdown completed")

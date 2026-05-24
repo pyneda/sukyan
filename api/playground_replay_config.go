@@ -11,12 +11,12 @@ import (
 // ReplayConfig is the shape of the replay config blob stored in
 // PlaygroundSession.ReplayConfig and exchanged over the HTTP API.
 type ReplayConfig struct {
-	URL          string               `json:"url"`
-	RawRequest   string               `json:"raw_request"`
+	URL          string                `json:"url"`
+	RawRequest   string                `json:"raw_request"`
 	Options      manual.RequestOptions `json:"options"`
-	ReplayMode   string               `json:"replay_mode"`
-	PreActionID  *uint                `json:"pre_action_id,omitempty"`
-	PostActionID *uint                `json:"post_action_id,omitempty"`
+	ReplayMode   string                `json:"replay_mode"`
+	PreActionID  *uint                 `json:"pre_action_id,omitempty"`
+	PostActionID *uint                 `json:"post_action_id,omitempty"`
 }
 
 // GetReplayConfig godoc

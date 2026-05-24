@@ -90,6 +90,12 @@ type RunOutcome struct {
 // the run row itself. That separation makes the engine unit-testable.
 func Run(ctx context.Context, input RunInput) RunOutcome {
 	start := time.Now()
+	if err := manual.ValidateRequestURL(input.TargetURL); err != nil {
+		return RunOutcome{
+			Status:        db.FuzzRunFailed,
+			FailureReason: fmt.Sprintf("invalid target url: %v", err),
+		}
+	}
 	parsedURL, err := url.Parse(input.TargetURL)
 	if err != nil {
 		return RunOutcome{

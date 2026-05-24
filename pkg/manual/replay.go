@@ -45,6 +45,9 @@ type ReplayResult struct {
 
 func Replay(input RequestReplayOptions) (ReplayResult, error) {
 	log.Info().Str("mode", input.Mode).Msg("Replaying request")
+	if err := ValidateRequestURL(input.Request.URL); err != nil {
+		return ReplayResult{}, err
+	}
 	if input.Mode == "raw" {
 		return ReplayRaw(input)
 	}

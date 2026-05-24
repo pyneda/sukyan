@@ -21,6 +21,29 @@ type Request struct {
 	HTTPVersion string              `json:"http_version" validate:"omitempty"`
 }
 
+// ValidateRequestURL rejects URLs whose scheme is not http or https. The
+// playground accepts arbitrary raw bytes for fuzzing, but the target URL
+// still drives connection setup (raw mode) and browser navigation; allowing
+// schemes like file://, javascript: or gopher:// here would expose local
+// disclosure or in-tab script-execution paths to anyone with API access.
+func ValidateRequestURL(raw string) error {
+	if raw == "" {
+		return errors.New("url is required")
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("invalid url: %w", err)
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("unsupported url scheme %q: only http and https are allowed", u.Scheme)
+	}
+	if u.Host == "" {
+		return errors.New("url is missing host")
+	}
+	return nil
+}
+
 func (r *Request) toHTTPRequest() (*http.Request, error) {
 	url := r.URL
 	if r.URI != "" {

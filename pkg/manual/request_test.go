@@ -223,3 +223,31 @@ func TestInvalidParseRawRequest(t *testing.T) {
 
 }
 
+
+func TestValidateRequestURL(t *testing.T) {
+	cases := []struct {
+		name string
+		url  string
+		want bool // true = expect error
+	}{
+		{"http", "http://example.com/", false},
+		{"https", "https://example.com/path?q=1", false},
+		{"https uppercase", "HTTPS://example.com/", false},
+		{"empty", "", true},
+		{"file", "file:///etc/passwd", true},
+		{"javascript", "javascript:alert(1)", true},
+		{"gopher", "gopher://example.com/", true},
+		{"data", "data:text/html,<script>1</script>", true},
+		{"ftp", "ftp://example.com/", true},
+		{"no scheme", "example.com/path", true},
+		{"no host", "http://", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateRequestURL(tc.url)
+			if (err != nil) != tc.want {
+				t.Fatalf("ValidateRequestURL(%q) err=%v, want err=%v", tc.url, err, tc.want)
+			}
+		})
+	}
+}

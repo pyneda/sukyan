@@ -1,4 +1,4 @@
-h1:SrBlBglhoLYj0OlV60+tT5EJbiu6aTQ8BM21W/1NRiM=
+h1:zq61IObaOJ9WUeZbTlPXARQMFMZvQwls+ctiNuqXSO4=
 20251208012158_initial.sql h1:gwJqqGHQCjCbqlxba40IAPxNgWyj2LdQniyWHXO9vlc=
 20251208041927_add_scan_isolated.sql h1:dF6ne/760ggiHVjvqLh8HY/PqReOrDs6ugiexfmkvNM=
 20251209020515_add_browser_events_table.sql h1:J2lHVNkZ1RH4Mxp6MO6Pc4TtF5R5nlqX9j7OQ2XR+sQ=
@@ -27,3 +27,4 @@ h1:SrBlBglhoLYj0OlV60+tT5EJbiu6aTQ8BM21W/1NRiM=
 20260519010000_add_paused_to_fuzz_runs_active_index.sql h1:f1yPuZrDikf93zs8pMdmbLzouFuL6fE6LYfaHpKEC7Y=
 20260519211424_add_ws_fuzz_tables.sql h1:TVJpYuZZ7TWPJW5GVo8z1AgXrUxY9klCqIgv2FMlX0g=
 20260524042424_add_session_replay_config.sql h1:UfsNqlGtbl2T/6lbaH78DicV7lLSqHyn9h90iGw1Qmw=
+20260524110133_add_matcher_presets.sql h1:+lAbLVQf6R20BOEiHCLpphm+SaF4lIaiMG1az3oJ2T4=

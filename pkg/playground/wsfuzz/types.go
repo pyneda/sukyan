@@ -202,9 +202,14 @@ const (
 	StatusStepFailedTimeout    IterationStatus = "step_failed_timeout"
 	StatusStepFailedNoMatch    IterationStatus = "step_failed_no_match"
 	StatusStepFailedExtraction IterationStatus = "step_failed_extraction"
-	StatusPeerClosed           IterationStatus = "peer_closed"
-	StatusConnectionError      IterationStatus = "connection_error"
-	StatusIterationTimeout     IterationStatus = "iteration_timeout"
+	// StatusStepFailedVarRef indicates the step's content references a
+	// ${var} that wasn't defined by the time the step was reached. The
+	// iteration aborts before sending anything to the peer so a typo'd
+	// var name can't leak literal `${name}` into a captured frame.
+	StatusStepFailedVarRef IterationStatus = "step_failed_var_ref"
+	StatusPeerClosed       IterationStatus = "peer_closed"
+	StatusConnectionError  IterationStatus = "connection_error"
+	StatusIterationTimeout IterationStatus = "iteration_timeout"
 )
 
 // CountsTowardErrorRate reports whether this terminal status increments the

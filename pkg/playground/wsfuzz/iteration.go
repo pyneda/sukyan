@@ -142,7 +142,21 @@ stepLoop:
 
 		// Expand ${var} refs against the live vars map. Deferred to here so
 		// each step sees variables extracted by EARLIER steps in this iteration.
-		expandedContent, _ := SubstituteVars(cs.content, vars)
+		// Treat undefined references as fatal — silently sending the literal
+		// `${name}` to the peer when a user typo'd a var name has bitten
+		// real testing flows (auth-protected WS protocols in particular).
+		expandedContent, undefinedVars, _ := wsreplay.SubstituteVarsStrict(cs.content, vars)
+		if len(undefinedVars) > 0 {
+			idx := i
+			failedStep = &idx
+			status = StatusStepFailedVarRef
+			plural := ""
+			if len(undefinedVars) > 1 {
+				plural = "s"
+			}
+			failureReason = "undefined variable" + plural + " in step content: ${" + strings.Join(undefinedVars, "}, ${") + "}"
+			break stepLoop
+		}
 
 		// Send (setup + fuzz steps; check steps are assertion-only).
 		opcode := cs.spec.Opcode

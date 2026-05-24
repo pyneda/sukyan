@@ -83,7 +83,7 @@ func runPreSetup(ctx context.Context, p *PreSetup, runCfg WsFuzzerConfig, dial f
 		for i, step := range p.Steps {
 			// Expand ${vars} captured so far in case later steps depend on
 			// earlier ones (matches the per-iteration semantics).
-			content, _ := SubstituteVars(step.Content, vars)
+			content, _ := wsreplay.SubstituteVars(step.Content, vars)
 			opcode := step.Opcode
 			if opcode == 0 {
 				opcode = 1

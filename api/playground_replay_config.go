@@ -79,6 +79,10 @@ func upsertReplayConfig(c *fiber.Ctx) error {
 	if err != nil || sessID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid session id"})
 	}
+	// Verify the config is valid JSON before persisting. We do NOT enforce a
+	// strict schema here because autosave happens before the draft is complete
+	// — a half-edited replay (e.g. URL typed but raw body still empty) must
+	// still persist so the UI can restore it later.
 	var probe map[string]any
 	body := c.Body()
 	if err := json.Unmarshal(body, &probe); err != nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/rs/zerolog/log"
+	"gorm.io/gorm"
 )
 
 // PlaygroundCollection represents a collection of playground sessions.
@@ -47,6 +48,7 @@ type PlaygroundSession struct {
 	// persist a config on first save. Snapshotted into PlaygroundFuzzRun on
 	// each launch.
 	FuzzerConfig json.RawMessage `json:"fuzzer_config,omitempty" gorm:"type:jsonb"`
+	ReplayConfig json.RawMessage `json:"replay_config,omitempty" gorm:"type:jsonb"`
 }
 
 // PlaygroundCollectionFilters contains filters for listing PlaygroundCollections.
@@ -200,6 +202,20 @@ func (d *DatabaseConnection) UpdatePlaygroundSessionFuzzerConfig(id uint, cfg js
 	}
 	if res.RowsAffected == 0 {
 		return fmt.Errorf("session %d not found", id)
+	}
+	return nil
+}
+
+// UpdatePlaygroundSessionReplayConfig overwrites the replay_config JSONB blob
+// for a session. Used by the HTTP-replay autosave loop. The body is stored
+// verbatim; callers are responsible for ensuring it's valid JSON.
+func (d *DatabaseConnection) UpdatePlaygroundSessionReplayConfig(id uint, cfg json.RawMessage) error {
+	res := d.db.Model(&PlaygroundSession{}).Where("id = ?", id).Update("replay_config", cfg)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
 	}
 	return nil
 }

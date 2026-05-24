@@ -443,8 +443,18 @@ func GetWsFuzzIterationFrames(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"frames": msgs})
 }
 
-// FlushWsFuzzerConfig is the navigator.sendBeacon target for WS fuzz autosave.
-// Wraps PutWsFuzzerConfig with POST semantics.
+// FlushWsFuzzerConfig godoc
+// @Summary Flush (force-save) the WS fuzzer config for a session
+// @Description navigator.sendBeacon target — wraps PutWsFuzzerConfig with POST
+// semantics so the Beacon API can reach it on page-unload.
+// @Tags Playground
+// @Accept json
+// @Param id path int true "Playground Session ID"
+// @Param input body wsfuzz.WsFuzzerConfig true "WS fuzzer config"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/ws-fuzzer-config/flush [post]
 func FlushWsFuzzerConfig(c *fiber.Ctx) error {
 	return PutWsFuzzerConfig(c)

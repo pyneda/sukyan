@@ -567,9 +567,18 @@ func ListFuzzRunsForSession(c *fiber.Ctx) error {
 	})
 }
 
-// FlushFuzzerConfig is the navigator.sendBeacon target for HTTP fuzz autosave.
-// Identical semantics to PutFuzzerConfig but POST so the Beacon API can reach
-// it (Beacon is POST-only).
+// FlushFuzzerConfig godoc
+// @Summary Flush (force-save) the fuzzer config for a session
+// @Description navigator.sendBeacon target — accepts the same body as PUT but
+// over POST so the Beacon API can reach it on page-unload.
+// @Tags Playground
+// @Accept json
+// @Param id path int true "Playground Session ID"
+// @Param input body fuzz.FuzzerConfig true "Fuzzer config"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/fuzzer-config/flush [post]
 func FlushFuzzerConfig(c *fiber.Ctx) error {
 	return PutFuzzerConfig(c)

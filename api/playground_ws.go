@@ -870,8 +870,18 @@ func CancelPlaygroundWsRun(c *fiber.Ctx) error {
 	return c.SendStatus(fiber.StatusAccepted)
 }
 
-// FlushPlaygroundWsSession is the navigator.sendBeacon target for WS replay
-// autosave. Wraps UpdatePlaygroundWsSession with POST semantics.
+// FlushPlaygroundWsSession godoc
+// @Summary Flush (force-save) a WS playground session
+// @Description navigator.sendBeacon target — wraps UpdatePlaygroundWsSession
+// with POST semantics so the Beacon API can reach it on page-unload.
+// @Tags Playground
+// @Accept json
+// @Param id path int true "Playground Session ID"
+// @Param input body UpdateWsSessionInput true "Update fields"
+// @Success 200 {object} db.PlaygroundWsSession
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/flush [post]
 func FlushPlaygroundWsSession(c *fiber.Ctx) error {
 	return UpdatePlaygroundWsSession(c)

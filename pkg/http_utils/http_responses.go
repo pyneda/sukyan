@@ -23,6 +23,46 @@ type ResponseBodyData struct {
 	err     error
 }
 
+// dumpRequestPermissive serializes req exactly as it stands, byte-for-byte,
+// even when headers contain CRLF or other characters httputil.DumpRequestOut
+// refuses. The strict stdlib dumper returns (nil, err) for smuggling-style
+// payloads, which previously left raw_request as NULL in the DB and made
+// audit/repro impossible. This fallback preserves whatever the caller stuffed
+// into the request — that's the whole point of the raw playground surface.
+func dumpRequestPermissive(req *http.Request, body []byte) []byte {
+	if req == nil {
+		return nil
+	}
+	var buf bytes.Buffer
+	uri := req.RequestURI
+	if uri == "" && req.URL != nil {
+		uri = req.URL.RequestURI()
+	}
+	if uri == "" {
+		uri = "/"
+	}
+	proto := req.Proto
+	if proto == "" {
+		proto = "HTTP/1.1"
+	}
+	fmt.Fprintf(&buf, "%s %s %s\r\n", req.Method, uri, proto)
+	if req.Host != "" && req.Header.Get("Host") == "" {
+		fmt.Fprintf(&buf, "Host: %s\r\n", req.Host)
+	} else if req.URL != nil && req.URL.Host != "" && req.Header.Get("Host") == "" {
+		fmt.Fprintf(&buf, "Host: %s\r\n", req.URL.Host)
+	}
+	for name, values := range req.Header {
+		for _, v := range values {
+			fmt.Fprintf(&buf, "%s: %s\r\n", name, v)
+		}
+	}
+	buf.WriteString("\r\n")
+	if len(body) > 0 {
+		buf.Write(body)
+	}
+	return buf.Bytes()
+}
+
 // ReadResponseBodyData reads an http response body and returns it as string + its length as bytes
 func ReadResponseBodyData(response *http.Response) (body []byte, size int, err error) {
 	bodyBytes, err := io.ReadAll(response.Body)
@@ -174,7 +214,8 @@ func CreateHistoryFromHttpResponse(response *http.Response, responseData FullRes
 
 	requestDump, err := httputil.DumpRequestOut(requestForDump, true)
 	if err != nil {
-		logger.Error().Err(err).Msg("Error dumping request")
+		logger.Warn().Err(err).Msg("httputil.DumpRequestOut failed (likely CRLF in headers); falling back to permissive dump so raw_request is preserved")
+		requestDump = dumpRequestPermissive(requestForDump, requestBody)
 	}
 
 	if response.Request.Body != nil {
@@ -275,8 +316,8 @@ func CreateTimeoutHistory(req *http.Request, duration time.Duration, timeoutErr 
 
 	requestDump, err := httputil.DumpRequestOut(requestForDump, true)
 	if err != nil {
-		logger.Error().Err(err).Msg("Error dumping timeout request")
-		requestDump = []byte(fmt.Sprintf("Error dumping timeout request: %v", err))
+		logger.Warn().Err(err).Msg("httputil.DumpRequestOut failed for timeout request; falling back to permissive dump")
+		requestDump = dumpRequestPermissive(requestForDump, requestBody)
 	}
 
 	if req.Body != nil {

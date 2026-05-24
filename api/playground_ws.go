@@ -869,3 +869,10 @@ func CancelPlaygroundWsRun(c *fiber.Ctx) error {
 	wsreplay.Default().CancelRun(wsSess.ID, uint(rid))
 	return c.SendStatus(fiber.StatusAccepted)
 }
+
+// FlushPlaygroundWsSession is the navigator.sendBeacon target for WS replay
+// autosave. Wraps UpdatePlaygroundWsSession with POST semantics.
+// @Router /api/v1/playground/ws/sessions/{id}/flush [post]
+func FlushPlaygroundWsSession(c *fiber.Ctx) error {
+	return UpdatePlaygroundWsSession(c)
+}

@@ -178,6 +178,7 @@ func StartAPI(opts ...APIServerOptions) {
 	api.Get("/playground/sessions/:id/fuzz-runs", JWTProtected(), ListFuzzRunsForSession)
 	api.Get("/playground/sessions/:id/fuzzer-config", JWTProtected(), GetFuzzerConfig)
 	api.Put("/playground/sessions/:id/fuzzer-config", JWTProtected(), PutFuzzerConfig)
+	api.Post("/playground/sessions/:id/fuzzer-config/flush", JWTProtected(), FlushFuzzerConfig)
 	api.Get("/playground/sessions/:id/replay-config", JWTProtected(), GetReplayConfig)
 	api.Put("/playground/sessions/:id/replay-config", JWTProtected(), PutReplayConfig)
 	api.Post("/playground/sessions/:id/replay-config/flush", JWTProtected(), FlushReplayConfig)
@@ -197,6 +198,7 @@ func StartAPI(opts ...APIServerOptions) {
 	api.Post("/playground/ws/sessions", JWTProtected(), CreatePlaygroundWsSession)
 	api.Get("/playground/ws/sessions/:id", JWTProtected(), GetPlaygroundWsSession)
 	api.Put("/playground/ws/sessions/:id", JWTProtected(), UpdatePlaygroundWsSession)
+	api.Post("/playground/ws/sessions/:id/flush", JWTProtected(), FlushPlaygroundWsSession)
 	api.Delete("/playground/ws/sessions/:id", JWTProtected(), DeletePlaygroundWsSession)
 	api.Post("/playground/ws/sessions/import-connection", JWTProtected(), ImportConnectionToPlaygroundWs)
 	api.Post("/playground/ws/sessions/:id/messages-import", JWTProtected(), AppendMessagesToWsSession)
@@ -211,6 +213,7 @@ func StartAPI(opts ...APIServerOptions) {
 	// WS Fuzzer routes.
 	api.Get("/playground/sessions/:id/ws-fuzzer-config", JWTProtected(), GetWsFuzzerConfig)
 	api.Put("/playground/sessions/:id/ws-fuzzer-config", JWTProtected(), PutWsFuzzerConfig)
+	api.Post("/playground/sessions/:id/ws-fuzzer-config/flush", JWTProtected(), FlushWsFuzzerConfig)
 	api.Post("/playground/ws-fuzz/preview", JWTProtected(), PreviewWsFuzz)
 	api.Post("/playground/ws-fuzz/sessions/:id/runs", JWTProtected(), ScheduleWsFuzzRun)
 	api.Get("/playground/ws-fuzz/sessions/:id/runs", JWTProtected(), ListWsFuzzRunsForSession)

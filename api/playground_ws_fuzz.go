@@ -442,3 +442,10 @@ func GetWsFuzzIterationFrames(c *fiber.Ctx) error {
 	}
 	return c.JSON(fiber.Map{"frames": msgs})
 }
+
+// FlushWsFuzzerConfig is the navigator.sendBeacon target for WS fuzz autosave.
+// Wraps PutWsFuzzerConfig with POST semantics.
+// @Router /api/v1/playground/sessions/{id}/ws-fuzzer-config/flush [post]
+func FlushWsFuzzerConfig(c *fiber.Ctx) error {
+	return PutWsFuzzerConfig(c)
+}

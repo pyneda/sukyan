@@ -16,14 +16,14 @@ import (
 // PlaygroundFuzzInput is the launch payload for POST /api/v1/playground/fuzz.
 // The shape must match the engine spec's data-model section.
 type PlaygroundFuzzInput struct {
-	URL            string                       `json:"url" validate:"required" example:"https://example.com/"`
-	RawRequest     string                       `json:"raw_request" validate:"required"`
-	SessionID      uint                         `json:"session_id" validate:"required,min=1"`
-	Mode           fuzz.FuzzMode                `json:"mode" validate:"required,oneof=single all paired combinations"`
-	Positions      []fuzz.FuzzerPosition        `json:"positions" validate:"required,min=1"`
-	SharedPayloads *fuzz.FuzzerPayloadsGroup    `json:"shared_payloads,omitempty"`
-	Options        fuzz.RequestOptions          `json:"options"`
-	Execution      fuzz.FuzzerExecutionOptions  `json:"execution"`
+	URL            string                      `json:"url" validate:"required" example:"https://example.com/"`
+	RawRequest     string                      `json:"raw_request" validate:"required"`
+	SessionID      uint                        `json:"session_id" validate:"required,min=1"`
+	Mode           fuzz.FuzzMode               `json:"mode" validate:"required,oneof=single all paired combinations"`
+	Positions      []fuzz.FuzzerPosition       `json:"positions" validate:"required,min=1"`
+	SharedPayloads *fuzz.FuzzerPayloadsGroup   `json:"shared_payloads,omitempty"`
+	Options        fuzz.RequestOptions         `json:"options"`
+	Execution      fuzz.FuzzerExecutionOptions `json:"execution"`
 }
 
 // PlaygroundFuzzResponse is the launch response.
@@ -567,3 +567,10 @@ func ListFuzzRunsForSession(c *fiber.Ctx) error {
 	})
 }
 
+// FlushFuzzerConfig is the navigator.sendBeacon target for HTTP fuzz autosave.
+// Identical semantics to PutFuzzerConfig but POST so the Beacon API can reach
+// it (Beacon is POST-only).
+// @Router /api/v1/playground/sessions/{id}/fuzzer-config/flush [post]
+func FlushFuzzerConfig(c *fiber.Ctx) error {
+	return PutFuzzerConfig(c)
+}

@@ -33,6 +33,58 @@ func TestCreateRequestFromURLParameter(t *testing.T) {
 
 }
 
+func TestCreateRequestFromURLParameterEncodesSpecialChars(t *testing.T) {
+	history := &db.History{
+		URL: "http://example.com?param=orig",
+	}
+	builder := InsertionPointBuilder{
+		Point: InsertionPoint{
+			Type: InsertionPointTypeParameter,
+			Name: "param",
+		},
+		Payload: "beap<%= 891*395 %>ljse",
+	}
+	expectedURL := "http://example.com?param=beap%3C%25%3D%20891*395%20%25%3Eljse"
+
+	result, err := createRequestFromURLParameter(history, builder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != expectedURL {
+		t.Errorf("Expected URL: %s, Got: %s", expectedURL, result)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, result, nil)
+	if err != nil {
+		t.Fatalf("resulting URL must be a valid request target, got error: %v", err)
+	}
+	if got := req.URL.Query().Get("param"); got != "beap<%= 891*395 %>ljse" {
+		t.Errorf("param must round-trip to the raw payload on decode, got: %q", got)
+	}
+}
+
+func TestCreateRequestFromURLParameterPreservesPreEncoded(t *testing.T) {
+	history := &db.History{
+		URL: "http://example.com?h=x",
+	}
+	builder := InsertionPointBuilder{
+		Point: InsertionPoint{
+			Type: InsertionPointTypeParameter,
+			Name: "h",
+		},
+		Payload: "%0D%0AX-Injected: yes",
+	}
+	expectedURL := "http://example.com?h=%0D%0AX-Injected:%20yes"
+
+	result, err := createRequestFromURLParameter(history, builder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != expectedURL {
+		t.Errorf("Expected URL: %s, Got: %s", expectedURL, result)
+	}
+}
+
 func TestCreateRequestFromURLPath(t *testing.T) {
 	history := &db.History{
 		URL: "http://example.com/path1/path2",

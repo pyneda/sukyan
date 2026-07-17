@@ -5,11 +5,14 @@ import (
 	"math/rand"
 	"net/url"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/rs/zerolog/log"
 )
+
+var uuidPattern = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 // GetParametersToTest returns a list of parameters to test based on the provided path and params
 func GetParametersToTest(path string, params []string, testAllParams bool) (parametersToTest []string) {
@@ -36,6 +39,40 @@ func GetParametersToTest(path string, params []string, testAllParams bool) (para
 		}
 	}
 	return parametersToTest
+}
+
+func isHexDigit(b byte) bool {
+	return (b >= '0' && b <= '9') || (b >= 'a' && b <= 'f') || (b >= 'A' && b <= 'F')
+}
+
+// EncodeQueryValuePreservingPct percent-encodes a payload for safe placement in a
+// URL query-string value. It encodes every byte that is illegal or ambiguous in a
+// query component (space, control chars, <, >, ", ', &, =, ;, +, %, ...) so the
+// request line is valid and the target decodes back to the exact intended bytes.
+//
+// Injection metacharacters that are already legal in a query component
+// ({ } $ # * ( ) / | : etc.) are left raw to preserve payload fidelity, and an
+// existing valid %XX percent-triplet is passed through unchanged so payloads that
+// deliberately ship pre-encoded sequences (e.g. CRLF %0D%0A, null %00) are not
+// double-encoded.
+func EncodeQueryValuePreservingPct(payload string) string {
+	var sb strings.Builder
+	for i := 0; i < len(payload); i++ {
+		c := payload[i]
+		if c == '%' && i+2 < len(payload) && isHexDigit(payload[i+1]) && isHexDigit(payload[i+2]) {
+			sb.WriteString(payload[i : i+3])
+			i += 2
+			continue
+		}
+		if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+			strings.IndexByte("-._~", c) >= 0 ||
+			strings.IndexByte("{}$#*()!|:,/@", c) >= 0 {
+			sb.WriteByte(c)
+			continue
+		}
+		fmt.Fprintf(&sb, "%%%02X", c)
+	}
+	return sb.String()
 }
 
 // BuildURLWithParam builds a URL with the provided parameter and payload
@@ -314,12 +351,76 @@ func NormalizeURLPathWithProvidedString(urlStr string, providedString string) (s
 	}
 
 	segments := strings.Split(u.Path, "/")
-	if len(segments) > 1 && segments[len(segments)-1] != "" {
-		segments[len(segments)-1] = providedString
+	if len(segments) > 1 {
+		last := segments[len(segments)-1]
+		if last != "" && IsLikelyDynamicPathSegment(last) {
+			segments[len(segments)-1] = providedString
+		}
 	}
 	u.Path = strings.Join(segments, "/")
 
 	return u.String(), nil
+}
+
+// IsLikelyDynamicPathSegment reports whether a path segment looks like a variable
+// identifier (numeric id, UUID, or a long hash) rather than a fixed route name.
+// It is used to decide whether two URLs sharing the same path prefix are the same
+// logical endpoint for scan-scheduling dedup. Fixed route words such as "render",
+// "echo" or "safe-render" are treated as distinct endpoints and must not be merged.
+func IsLikelyDynamicPathSegment(segment string) bool {
+	if segment == "" {
+		return false
+	}
+
+	if _, err := strconv.Atoi(segment); err == nil {
+		return true
+	}
+
+	if uuidPattern.MatchString(segment) {
+		return true
+	}
+
+	// Long all-hex segments (>= 16 chars) are almost always hashes/opaque ids.
+	// Short hex-looking words (e.g. "cafe", "beef") are left as fixed route names.
+	if len(segment) >= 16 && isHexString(segment) {
+		return true
+	}
+
+	// A segment mixing letters, digits and separators where digits are present
+	// (e.g. "v1.2.3", "2024-01-30", "a1b2c3d4e5f6") is treated as dynamic.
+	if len(segment) >= 8 && containsDigit(segment) && isHexOrSeparators(segment) {
+		return true
+	}
+
+	return false
+}
+
+func isHexString(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if !isHexDigit(s[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func isHexOrSeparators(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !isHexDigit(c) && c != '.' && c != '-' && c != '_' {
+			return false
+		}
+	}
+	return true
+}
+
+func containsDigit(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= '0' && s[i] <= '9' {
+			return true
+		}
+	}
+	return false
 }
 
 // NormalizeURL normalizes the URL by adding an "X" to the last path segment and replacing the query parameter values with "X".

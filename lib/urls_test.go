@@ -394,7 +394,7 @@ func TestNormalizeURL(t *testing.T) {
 	}{
 		{
 			name:     "URL with path and single param",
-			urlStr:   "https://example.com/resource/id?param=value",
+			urlStr:   "https://example.com/resource/42?param=value",
 			expected: "https://example.com/resource/X?param=X",
 			wantErr:  false,
 		},
@@ -413,7 +413,7 @@ func TestNormalizeURL(t *testing.T) {
 		{
 			name:     "Complex URL with multiple query parameters",
 			urlStr:   "https://example.com/path/to/resource/page?query1=param1&query2=param2",
-			expected: "https://example.com/path/to/resource/X?query1=X&query2=X",
+			expected: "https://example.com/path/to/resource/page?query1=X&query2=X",
 			wantErr:  false,
 		},
 		{
@@ -444,15 +444,21 @@ func TestNormalizeURLPath(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name:     "URL with simple path",
+			name:     "fixed route name is not collapsed",
 			urlStr:   "https://example.com/resource",
-			expected: "https://example.com/X",
+			expected: "https://example.com/resource",
 			wantErr:  false,
 		},
 		{
-			name:     "URL with longer path",
-			urlStr:   "https://example.com/path/to/resource",
+			name:     "numeric id last segment is collapsed",
+			urlStr:   "https://example.com/path/to/12345",
 			expected: "https://example.com/path/to/X",
+			wantErr:  false,
+		},
+		{
+			name:     "fixed route name in longer path is not collapsed",
+			urlStr:   "https://example.com/path/to/resource",
+			expected: "https://example.com/path/to/resource",
 			wantErr:  false,
 		},
 		{
@@ -462,9 +468,9 @@ func TestNormalizeURLPath(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:     "URL with path and query",
+			name:     "fixed route name with query is not collapsed",
 			urlStr:   "https://example.com/path/resource?query=param",
-			expected: "https://example.com/path/X?query=param",
+			expected: "https://example.com/path/resource?query=param",
 			wantErr:  false,
 		},
 	}
@@ -519,6 +525,128 @@ func TestIsRelativeURL(t *testing.T) {
 	for _, url := range nonWebURLs {
 		if IsRelativeURL(url) {
 			t.Errorf("Expected '%s' to be a non-web URL, but it is considered as relative", url)
+		}
+	}
+}
+
+func TestEncodeQueryValuePreservingPct(t *testing.T) {
+	tests := []struct {
+		name     string
+		payload  string
+		expected string
+	}{
+		{
+			name:     "erb/ejs SSTI payload with spaces, angle brackets and percent is made deliverable",
+			payload:  "beap<%= 891*395 %>ljse",
+			expected: "beap%3C%25%3D%20891*395%20%25%3Eljse",
+		},
+		{
+			name:     "double-brace SSTI payload is left untouched",
+			payload:  "beap{{891*395}}ljse",
+			expected: "beap{{891*395}}ljse",
+		},
+		{
+			name:     "dollar-brace and hash-brace metachars are preserved raw",
+			payload:  "${7*7}#{7*7}*{7*7}@(7*7)",
+			expected: "${7*7}#{7*7}*{7*7}@(7*7)",
+		},
+		{
+			name:     "pre-encoded CRLF triplets are preserved, not double-encoded",
+			payload:  "%0D%0AX-Injected: yes",
+			expected: "%0D%0AX-Injected:%20yes",
+		},
+		{
+			name:     "pre-encoded newline command injection is preserved",
+			payload:  "%0A curl x.oast.live",
+			expected: "%0A%20curl%20x.oast.live",
+		},
+		{
+			name:     "pre-encoded nosqli payload with %20 %26 %00 is preserved",
+			payload:  "'%20%26%26%20this.password.match(/.*/)//+%00",
+			expected: "%27%20%26%26%20this.password.match(/.*/)//%2B%00",
+		},
+		{
+			name:     "shell operator ampersands are encoded so they reach the sink literally",
+			payload:  "&& curl x",
+			expected: "%26%26%20curl%20x",
+		},
+		{
+			name:     "sql like wildcard percent (not followed by two hex) is encoded",
+			payload:  "%' AND 1=1",
+			expected: "%25%27%20AND%201%3D1",
+		},
+		{
+			name:     "path traversal slashes are preserved",
+			payload:  "../../etc/passwd",
+			expected: "../../etc/passwd",
+		},
+		{
+			name:     "trailing lone percent is encoded",
+			payload:  "abc%",
+			expected: "abc%25",
+		},
+		{
+			name:     "percent followed by single hex then non-hex is encoded",
+			payload:  "x%2Gy",
+			expected: "x%252Gy",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := EncodeQueryValuePreservingPct(tt.payload)
+			if got != tt.expected {
+				t.Errorf("EncodeQueryValuePreservingPct(%q) = %q, want %q", tt.payload, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsLikelyDynamicPathSegment(t *testing.T) {
+	dynamic := []string{
+		"123", "0", "42", "9999999",
+		"550e8400-e29b-41d4-a716-446655440000",
+		"d41d8cd98f00b204e9800998ecf8427e", // md5 hex
+		"deadbeefcafebabe",                 // 16-char hex
+		"2024-01-30-a1b2c3d4",              // date+hash mix
+	}
+	fixed := []string{
+		"render", "echo", "safe-render", "header-sink", "cookie-sink",
+		"json-deep", "oracle", "info", "ua-sink", "referer-sink",
+		"ejs", "erb", "jinja", "handlebars", "users", "api", "v1",
+		"login", "graphql", "admin", "search", "cafe", // short word, some hex chars but not all
+	}
+	for _, s := range dynamic {
+		if !IsLikelyDynamicPathSegment(s) {
+			t.Errorf("IsLikelyDynamicPathSegment(%q) = false, want true (dynamic/ID-like)", s)
+		}
+	}
+	for _, s := range fixed {
+		if IsLikelyDynamicPathSegment(s) {
+			t.Errorf("IsLikelyDynamicPathSegment(%q) = true, want false (fixed route name)", s)
+		}
+	}
+}
+
+func TestNormalizeURLPathKeepsFixedRouteNames(t *testing.T) {
+	tests := []struct {
+		url      string
+		expected string
+	}{
+		{"http://x/engine/ejs/render", "http://x/engine/ejs/render"},
+		{"http://x/engine/ejs/echo", "http://x/engine/ejs/echo"},
+		{"http://x/engine/ejs/safe-render", "http://x/engine/ejs/safe-render"},
+		{"http://x/products/123", "http://x/products/X"},
+		{"http://x/users/550e8400-e29b-41d4-a716-446655440000", "http://x/users/X"},
+		{"http://x/api/v1/render", "http://x/api/v1/render"},
+	}
+	for _, tt := range tests {
+		got, err := NormalizeURLPath(tt.url)
+		if err != nil {
+			t.Fatalf("NormalizeURLPath(%q) error: %v", tt.url, err)
+		}
+		if got != tt.expected {
+			t.Errorf("NormalizeURLPath(%q) = %q, want %q", tt.url, got, tt.expected)
 		}
 	}
 }

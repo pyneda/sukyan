@@ -26,7 +26,8 @@ type InsertionPointBuilder struct {
 }
 
 func createRequestFromURLParameter(history *db.History, builder InsertionPointBuilder) (string, error) {
-	return lib.BuildURLWithParam(history.URL, builder.Point.Name, builder.Payload, false)
+	encodedPayload := lib.EncodeQueryValuePreservingPct(builder.Payload)
+	return lib.BuildURLWithParam(history.URL, builder.Point.Name, encodedPayload, false)
 }
 
 func createRequestFromURLPath(history *db.History, builder InsertionPointBuilder) (string, error) {

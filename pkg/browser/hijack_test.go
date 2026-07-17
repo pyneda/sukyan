@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/pyneda/sukyan/db"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/stretchr/testify/assert"
+	"github.com/ysmood/gson"
 )
 
 // setupHijackMockServer sets up a mock server with various endpoints
@@ -184,4 +186,30 @@ func TestHijack(t *testing.T) {
 	page.MustNavigate(server.URL + "/text")
 	page.MustNavigate(server.URL + "/redirect")
 	wg.Wait()
+}
+
+
+func TestContentTypeFromNetworkHeaders(t *testing.T) {
+	tests := []struct {
+		name     string
+		headers  map[string]string
+		expected string
+	}{
+		{"canonical key", map[string]string{"Content-Type": "application/json"}, "application/json"},
+		{"lowercase key (browser fetch over CDP)", map[string]string{"content-type": "application/xml"}, "application/xml"},
+		{"mixed case key", map[string]string{"CONTENT-TYPE": "text/xml"}, "text/xml"},
+		{"absent", map[string]string{"Accept": "*/*"}, ""},
+		{"empty map", map[string]string{}, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nh := proto.NetworkHeaders{}
+			for k, v := range tt.headers {
+				nh[k] = gson.New(v)
+			}
+			if got := contentTypeFromNetworkHeaders(nh); got != tt.expected {
+				t.Errorf("contentTypeFromNetworkHeaders(%v) = %q, want %q", tt.headers, got, tt.expected)
+			}
+		})
+	}
 }

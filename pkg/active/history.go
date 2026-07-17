@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
@@ -100,7 +101,10 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		switch options.Mode {
 		case scan_options.ScanModeSmart:
 			for _, insertionPoint := range insertionPoints {
-				if insertionPoint.Behaviour.IsDynamic || insertionPoint.Behaviour.IsReflected || insertionPoint.Type == scan.InsertionPointTypeBody || insertionPoint.Type == scan.InsertionPointTypeParameter {
+				// The XML whole-body point (TypeFullBody, TypeXML) carries the only XXE
+				// insertion surface, so keep it in smart mode alongside body/parameter points.
+				isXMLFullBody := insertionPoint.Type == scan.InsertionPointTypeFullBody && insertionPoint.ValueType == lib.TypeXML
+				if insertionPoint.Behaviour.IsDynamic || insertionPoint.Behaviour.IsReflected || insertionPoint.Type == scan.InsertionPointTypeBody || insertionPoint.Type == scan.InsertionPointTypeParameter || isXMLFullBody {
 					insertionPointsToAudit = append(insertionPointsToAudit, insertionPoint)
 					xssInsertionPoints = append(xssInsertionPoints, insertionPoint)
 				} else {

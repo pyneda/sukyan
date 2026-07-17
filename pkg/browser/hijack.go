@@ -295,6 +295,19 @@ func DumpHijackResponse(res *rod.HijackResponse) (rawResponse string, body strin
 	return dump.String(), body
 }
 
+// contentTypeFromNetworkHeaders reads the Content-Type from rod's raw request headers
+// case-insensitively. rod stores CDP request headers with their original casing, and
+// browser fetch() requests deliver "content-type" lowercase, so request.Req().Header.Get
+// (which canonicalizes to "Content-Type") misses them and returns empty.
+func contentTypeFromNetworkHeaders(headers proto.NetworkHeaders) string {
+	for key, value := range headers {
+		if strings.EqualFold(key, "Content-Type") {
+			return value.String()
+		}
+	}
+	return ""
+}
+
 // CreateHistoryFromHijack saves a history request from hijack request/response items.
 func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackResponse, source string, note string, workspaceID, taskID, scanID, scanJobID, playgroundSessionID uint) *db.History {
 	rawRequest, reqBody := DumpHijackRequest(request)
@@ -305,7 +318,7 @@ func CreateHistoryFromHijack(request *rod.HijackRequest, response *rod.HijackRes
 		URL:                 historyUrl,
 		Depth:               lib.CalculateURLDepth(historyUrl),
 		RequestBodySize:     len(reqBody),
-		RequestContentType:  request.Req().Header.Get("Content-Type"),
+		RequestContentType:  contentTypeFromNetworkHeaders(request.Headers()),
 		ResponseContentType: response.Headers().Get("Content-Type"),
 		Evaluated:           false,
 		Method:              request.Req().Method,
@@ -340,7 +353,7 @@ func CreateHistoryFromHijackWithBody(request *rod.HijackRequest, response *rod.H
 		URL:                 historyUrl,
 		Depth:               lib.CalculateURLDepth(historyUrl),
 		RequestBodySize:     len(reqBody),
-		RequestContentType:  request.Req().Header.Get("Content-Type"),
+		RequestContentType:  contentTypeFromNetworkHeaders(request.Headers()),
 		ResponseContentType: response.Headers().Get("Content-Type"),
 		Evaluated:           false,
 		Method:              request.Req().Method,

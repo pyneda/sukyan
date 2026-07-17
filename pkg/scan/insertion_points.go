@@ -2,7 +2,6 @@ package scan
 
 import (
 	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"mime"
@@ -467,6 +466,24 @@ func handleCookies(header map[string][]string) ([]InsertionPoint, error) {
 	return points, nil
 }
 
+func headerValueCaseInsensitive(headers map[string][]string, name string) string {
+	for key, values := range headers {
+		if strings.EqualFold(key, name) && len(values) > 0 {
+			return values[0]
+		}
+	}
+	return ""
+}
+
+func hasFullBodyPoint(points []InsertionPoint) bool {
+	for _, p := range points {
+		if p.Type == InsertionPointTypeFullBody {
+			return true
+		}
+	}
+	return false
+}
+
 // Handle Body parameters
 func handleBodyParameters(contentType string, body []byte) ([]InsertionPoint, error) {
 	var points []InsertionPoint
@@ -513,26 +530,18 @@ func handleBodyParameters(contentType string, body []byte) ([]InsertionPoint, er
 		}
 	}
 
-	// XML body
-	if strings.Contains(contentType, "application/xml") {
-		var xmlData map[string]interface{}
-		err := xml.Unmarshal(body, &xmlData)
-		if err != nil {
-			return nil, err
-		}
-
-		for name, value := range xmlData {
-			valueStr := fmt.Sprintf("%v", value)
-
-			points = append(points, InsertionPoint{
-				Type:      InsertionPointTypeBody,
-				Name:      name,
-				Value:     valueStr,
-				ValueType: lib.GuessDataType(valueStr),
-
-				OriginalData: string(body),
-			})
-		}
+	// XML body: encoding/xml cannot unmarshal into a map, and XXE payloads are full
+	// documents, so expose a single whole-body-replaceable point. It is named "xml" to
+	// satisfy xxe.yaml's insertion_point_name launch condition and typed TypeXML so the
+	// smart-mode filter keeps it (see pkg/active/history.go).
+	if strings.Contains(contentType, "application/xml") || strings.Contains(contentType, "text/xml") {
+		points = append(points, InsertionPoint{
+			Type:         InsertionPointTypeFullBody,
+			Name:         "xml",
+			Value:        string(body),
+			ValueType:    lib.TypeXML,
+			OriginalData: string(body),
+		})
 	}
 
 	// Multipart form body
@@ -621,12 +630,20 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 	body, _ := history.RequestBody()
 	bodyStr := string(body)
 
-	bodyPoints, err := handleBodyParameters(history.RequestContentType, body)
+	// The RequestContentType column is empty for crawler-discovered browser POSTs; the
+	// content type only survives in RawRequest, so fall back to the parsed headers when
+	// the column is empty (keeping populated cases byte-identical).
+	effectiveContentType := history.RequestContentType
+	if effectiveContentType == "" {
+		effectiveContentType = headerValueCaseInsensitive(headers, "Content-Type")
+	}
+
+	bodyPoints, err := handleBodyParameters(effectiveContentType, body)
 	if err != nil {
 		return nil, err
 	}
 	points = append(points, bodyPoints...)
-	if len(bodyPoints) > 0 {
+	if len(bodyPoints) > 0 && !hasFullBodyPoint(bodyPoints) {
 		points = append(points, InsertionPoint{
 			Type:         InsertionPointTypeFullBody,
 			Name:         "fullbody",

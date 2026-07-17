@@ -75,24 +75,27 @@ var predefinedNameValues = []InputNameValue{
 }
 
 func SubmitForm(form *rod.Element, page *rod.Page) bool {
-	submit, err := form.Element("[type=submit]")
-	// page.Timeout(200 * time.Millisecond).Activate()
-	if err == nil {
-		log.Info().Interface("submit", submit).Msg("Submit button found, clicking it")
-		serr := submit.Timeout(2*time.Second).Click(proto.InputMouseButtonLeft, 1)
-		if serr == nil {
+	// Prefer clicking the form's submit control: a real click fires the submit and
+	// click event listeners that modern apps rely on (e.g. e.preventDefault() + fetch()).
+	// Bare <button> elements default to type=submit but often lack the attribute, so
+	// match both the explicit selector and any button inside the form.
+	if submit, err := form.Element("[type=submit], button"); err == nil {
+		log.Info().Interface("submit", submit).Msg("Submit control found, clicking it")
+		if serr := submit.Timeout(2*time.Second).Click(proto.InputMouseButtonLeft, 1); serr == nil {
 			return true
 		}
 	}
-	_, serr := form.Timeout(2 * time.Second).Eval(`() => this.submit()`)
+	// requestSubmit() dispatches the submit event (running addEventListener('submit')
+	// handlers and honoring preventDefault), unlike the native submit() which bypasses
+	// them and would silently no-op JS-driven fetch/XHR forms. Fall back to submit()
+	// only when requestSubmit is unavailable.
+	_, serr := form.Timeout(2 * time.Second).Eval(`() => { if (this.requestSubmit) { this.requestSubmit(); } else { this.submit(); } }`)
 	if serr == nil {
 		log.Info().Interface("form", form).Msg("Form submitted using javascript")
 		return true
-	} else {
-		log.Error().Err(serr).Msg("Could not submit form")
 	}
+	log.Error().Err(serr).Msg("Could not submit form")
 	return false
-
 }
 
 func AutoFillForm(form *rod.Element, page *rod.Page) {

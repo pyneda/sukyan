@@ -734,6 +734,9 @@ func TestIntrospectionQueryIsValid(t *testing.T) {
 	assert.Contains(t, IntrospectionQuery, "subscriptionType")
 	assert.Contains(t, IntrospectionQuery, "types")
 	assert.Contains(t, IntrospectionQuery, "fields")
+	// args are required so the discovery path can build injectable operations;
+	// a truncated introspection query omitting them yields zero resolver args.
+	assert.Contains(t, IntrospectionQuery, "args")
 }
 
 func TestSchemaJSONSerialization(t *testing.T) {

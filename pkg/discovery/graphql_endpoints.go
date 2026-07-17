@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/pkg/graphql"
 )
 
 var GraphQLPaths = []string{
@@ -186,7 +187,11 @@ func containsGraphQLErrorPattern(text string) bool {
 }
 
 func DiscoverGraphQLEndpoints(options DiscoveryOptions) (DiscoverAndCreateIssueResults, error) {
-	introspectionQuery := `{"query": "query { __schema { queryType { name } types { name kind } } }"}`
+	// Use the full introspection query so the persisted schema carries operation
+	// fields and args. A truncated probe (queryType{name} types{name kind}) parses
+	// to zero operations, leaving nothing for the API scan to inject into.
+	introspectionBody, _ := json.Marshal(map[string]string{"query": graphql.IntrospectionQuery})
+	introspectionQuery := string(introspectionBody)
 
 	results, err := DiscoverAndCreateIssue(DiscoverAndCreateIssueInput{
 		DiscoveryInput: DiscoveryInput{

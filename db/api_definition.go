@@ -66,6 +66,17 @@ type APIDefinition struct {
 	AuthConfig      *APIAuthConfig                 `gorm:"foreignKey:AuthConfigID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"auth_config,omitempty"`
 }
 
+// RequestURL returns the URL that requests to this API should be sent to. For
+// GraphQL, SourceURL holds the actual endpoint path (e.g. /graphql) while BaseURL
+// is stripped to the host, so SourceURL must be preferred to avoid POSTing probes
+// to the server root.
+func (d APIDefinition) RequestURL() string {
+	if d.SourceURL != "" {
+		return d.SourceURL
+	}
+	return d.BaseURL
+}
+
 func (d APIDefinition) TableHeaders() []string {
 	return []string{"ID", "Name", "Type", "Status", "Endpoints", "Base URL", "Workspace"}
 }

@@ -66,10 +66,7 @@ func (a *DepthLimitAudit) Run() {
 		return
 	}
 
-	baseURL := a.Definition.BaseURL
-	if baseURL == "" {
-		baseURL = a.Definition.SourceURL
-	}
+	baseURL := a.Definition.RequestURL()
 
 	auditLog.Info().Str("url", baseURL).Msg("Starting GraphQL depth limit audit")
 

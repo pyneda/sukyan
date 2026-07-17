@@ -84,6 +84,15 @@ func SetDefaultConfig() {
 
 	viper.SetDefault("scan.avoid_repeated_issues", true)
 
+	// In-band SSRF detection via a destination-controlled canary. The operator must
+	// host an endpoint at <canary_url>/ssrf/<token> that returns a body containing
+	// "<canary_marker>:<token>:OK". The scanner injects the canary URL into url-like
+	// insertion points and reports SSRF only when the fixed marker (which the sink
+	// cannot produce by merely echoing the injected URL) is reflected in the response.
+	// Until the endpoint is hosted, detection is dormant: no false positives, no crash.
+	viper.SetDefault("scan.ssrf.canary_url", "https://sukyan.com")
+	viper.SetDefault("scan.ssrf.canary_marker", "SUKYAN_SSRF_CANARY")
+
 	// Crawl job timeout configuration
 	// Dynamic timeout formula: base_timeout + (num_sites * per_site_timeout)
 	viper.SetDefault("scan.crawl.base_timeout", 30)     // Base timeout in minutes for crawl jobs

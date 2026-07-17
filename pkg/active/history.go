@@ -242,6 +242,8 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		}
 		hostHeader.Run()
 
+		SSRFCanaryScan(item, activeOptions, insertionPoints)
+
 		// Audits below use sample-based testing when AuditSampler is provided.
 		// This ensures audits run on a subset of history items per host rather than every item.
 		// In Fuzz mode, sampling is bypassed to ensure comprehensive coverage.

@@ -90,3 +90,41 @@ func IsCommonOpenRedirectParameter(param string) bool {
 	}
 	return false
 }
+
+// GetCommonSSRFParameters returns a list of common parameters known to carry URLs
+// that back-end servers fetch, making them likely server-side request forgery sinks.
+func GetCommonSSRFParameters() []string {
+	return []string{
+		"url",
+		"uri",
+		"src",
+		"dest",
+		"destination",
+		"target",
+		"host",
+		"link",
+		"file",
+		"feed",
+		"webhook",
+		"callback",
+		"callback_url",
+		"proxy",
+		"image",
+		"imageurl",
+		"fetch",
+		"resource",
+		"domain",
+		"site",
+		"reference",
+		"ref",
+	}
+}
+
+func IsCommonSSRFParameter(param string) bool {
+	for _, p := range GetCommonSSRFParameters() {
+		if p == param {
+			return true
+		}
+	}
+	return false
+}

@@ -463,7 +463,11 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 
 	page := c.getBrowserPage(url)
 	defer c.browser.ReleasePage(page)
-	ctx, cancel := context.WithCancel(context.Background())
+	base := c.ctx
+	if base == nil {
+		base = context.Background()
+	}
+	ctx, cancel := context.WithCancel(base)
 	defer cancel()
 
 	// Build storage config for browser events (used when captureBrowserEvents is enabled)

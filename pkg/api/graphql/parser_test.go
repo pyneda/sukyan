@@ -997,16 +997,16 @@ func TestParse_BaseURLFallback(t *testing.T) {
 		expectedURL string
 	}{
 		{
-			name:        "uses base URL when set",
-			baseURL:     "https://api.example.com/graphql",
-			sourceURL:   "https://discovery.example.com/graphql",
+			name:        "prefers source URL when set (it holds the real endpoint path)",
+			baseURL:     "https://api.example.com",
+			sourceURL:   "https://api.example.com/graphql",
 			expectedURL: "https://api.example.com/graphql",
 		},
 		{
-			name:        "falls back to source URL when base URL is empty",
-			baseURL:     "",
-			sourceURL:   "https://discovery.example.com/graphql",
-			expectedURL: "https://discovery.example.com/graphql",
+			name:        "falls back to base URL when source URL is empty",
+			baseURL:     "https://api.example.com/graphql",
+			sourceURL:   "",
+			expectedURL: "https://api.example.com/graphql",
 		},
 	}
 
@@ -1028,6 +1028,30 @@ func TestParse_BaseURLFallback(t *testing.T) {
 				assert.Equal(t, tt.expectedURL, op.BaseURL)
 			}
 		})
+	}
+}
+
+// When discovery stores the definition's BaseURL stripped to the host (e.g.
+// "http://host:18000") but keeps the real endpoint in SourceURL ("http://host:18000/graphql"),
+// parsed operations must target the endpoint path, not the server root. Otherwise every
+// per-operation request POSTs to "/" and the server rejects it (405), so resolver-arg
+// injection never reaches the resolvers.
+func TestParse_OperationURLPrefersSourceURLOverStrippedBaseURL(t *testing.T) {
+	def := &db.APIDefinition{
+		Type:          db.APIDefinitionTypeGraphQL,
+		RawDefinition: []byte(minimalIntrospectionJSON),
+		BaseURL:       "http://127.0.0.1:18000",
+		SourceURL:     "http://127.0.0.1:18000/graphql",
+	}
+
+	parser := NewParser()
+	ops, _, err := parser.Parse(def)
+	require.NoError(t, err)
+	require.NotEmpty(t, ops)
+
+	for _, op := range ops {
+		assert.Equal(t, "http://127.0.0.1:18000/graphql", op.BaseURL,
+			"operation %s must target the /graphql endpoint, not the stripped host", op.Name)
 	}
 }
 

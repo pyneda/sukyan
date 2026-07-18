@@ -31,10 +31,9 @@ func (p *Parser) Parse(definition *db.APIDefinition) ([]core.Operation, *pkgGrap
 		return nil, nil, fmt.Errorf("failed to parse GraphQL schema: %w", err)
 	}
 
-	baseURL := definition.BaseURL
-	if baseURL == "" {
-		baseURL = definition.SourceURL
-	}
+	// Prefer SourceURL (the real endpoint, e.g. /graphql) over BaseURL, which discovery
+	// strips to the host — otherwise per-operation requests POST to the server root.
+	baseURL := definition.RequestURL()
 
 	var operations []core.Operation
 

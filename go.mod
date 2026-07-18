@@ -23,6 +23,7 @@ require (
 	github.com/gosimple/slug v1.14.0
 	github.com/jpillora/go-tld v1.2.1
 	github.com/mattn/go-colorable v0.1.14
+	github.com/mfonda/simhash v0.0.0-20151007195837-79f94a1100d6
 	github.com/mingrammer/commonregex v1.0.1
 	github.com/ohler55/ojg v1.28.0
 	github.com/olekukonko/tablewriter v0.0.5
@@ -42,6 +43,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/swag v1.16.4
 	github.com/ysmood/gson v0.7.3
+	go.uber.org/goleak v1.3.0
 	golang.org/x/crypto v0.47.0
 	golang.org/x/net v0.49.0
 	golang.org/x/sync v0.19.0
@@ -137,7 +139,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
-	github.com/mfonda/simhash v0.0.0-20151007195837-79f94a1100d6 // indirect
 	github.com/mholt/acmez v1.2.0 // indirect
 	github.com/mholt/archiver/v3 v3.5.1 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
@@ -222,7 +223,6 @@ require (
 	github.com/zmap/rc2 v0.0.0-20190804163417-abaa70531248 // indirect
 	github.com/zmap/zcrypto v0.0.0-20240803002437-3a861682ac77 // indirect
 	go.etcd.io/bbolt v1.3.11 // indirect
-	go.uber.org/goleak v1.3.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
 	goftp.io/server/v2 v2.0.1 // indirect

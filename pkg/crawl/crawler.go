@@ -517,11 +517,14 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 
 	if !urlData.IsError {
 		log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Msg("Starting to interact with page")
-		interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout"))
-		_, err := lib.DoWorkWithTimeout(c.interactWithPage, []interface{}{page}, interactionTimeout*time.Second)
-		if err != nil {
-			log.Warn().Err(err).Uint("workspace", c.workspaceID).Str("url", url).Msg("Timeout interacting with page")
+		interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout")) * time.Second
+		interactionCtx, interactionCancel := context.WithTimeout(ctx, interactionTimeout)
+		pageWithCtx := page.Context(interactionCtx)
+		c.interactWithPage(pageWithCtx)
+		if interactionCtx.Err() == context.DeadlineExceeded {
+			log.Warn().Uint("workspace", c.workspaceID).Str("url", url).Msg("Timeout interacting with page")
 		}
+		interactionCancel()
 		log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Msg("Finished interacting with page")
 	}
 

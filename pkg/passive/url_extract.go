@@ -26,6 +26,11 @@ func ExtractURLsFromHistoryItem(history *db.History) ExtractedURLS {
 
 	}
 	responseLinks := ExtractAndAnalyzeURLS(string(body), history.URL)
+	if isRobotsTxtURL(history.URL) {
+		if base, err := url.Parse(history.URL); err == nil {
+			responseLinks = mergeExtractedURLs(responseLinks, extractURLsFromRobotsTxt(string(body), base))
+		}
+	}
 	headers, err := history.GetResponseHeadersAsMap()
 	if err != nil {
 		return responseLinks

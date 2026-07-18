@@ -61,7 +61,6 @@ func (rt *RedirectTracker) IsRedirectLoop(url string) bool {
 
 func HijackWithContext(config HijackConfig, browser *rod.Browser, httpClient *http.Client, source string, resultsChannel chan HijackResult, ctx context.Context, workspaceID, taskID, scanID, scanJobID uint) *rod.HijackRouter {
 	router := browser.HijackRequests()
-	ignoreKeywords := []string{"google", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
 	redirectTracker := NewRedirectTracker()
 	if httpClient == nil {
 		httpClient = http_utils.CreateHttpClient()
@@ -103,10 +102,8 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, httpClient *ht
 			mustSkip = true
 		}
 
-		for _, skipWord := range ignoreKeywords {
-			if strings.Contains(hj.Request.URL().Host, skipWord) {
-				mustSkip = true
-			}
+		if shouldSkipHijackHost(hj.Request.URL().Host) {
+			mustSkip = true
 		}
 
 		if isRedirectLoop {
@@ -153,7 +150,6 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, httpClient *ht
 
 func Hijack(config HijackConfig, browser *rod.Browser, httpClient *http.Client, source string, resultsChannel chan HijackResult, workspaceID, taskID, scanID, scanJobID uint) {
 	router := browser.HijackRequests()
-	ignoreKeywords := []string{"google", "twitter", "pinterest", "facebook", "instagram", "tiktok", "hotjar", "doubleclick", "yandex", "127.0.0.2"}
 	if httpClient == nil {
 		httpClient = http_utils.CreateHttpClient()
 	}
@@ -187,10 +183,8 @@ func Hijack(config HijackConfig, browser *rod.Browser, httpClient *http.Client, 
 			mustSkip = true
 		}
 
-		for _, skipWord := range ignoreKeywords {
-			if strings.Contains(ctx.Request.URL().Host, skipWord) {
-				mustSkip = true
-			}
+		if shouldSkipHijackHost(ctx.Request.URL().Host) {
+			mustSkip = true
 		}
 
 		if isRedirectLoop {

@@ -635,6 +635,8 @@ func (c *Crawler) handleForms(page *rod.Page) (err error) {
 			if ok {
 				c.submittedForms.Store(e, true)
 				log.Info().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Submitted form")
+			} else if page.GetContext().Err() != nil {
+				log.Debug().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Form submission stopped due to interaction cancellation")
 			} else {
 				log.Warn().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Could not submit form")
 			}
@@ -670,7 +672,9 @@ func (c *Crawler) getAndClickElements(selector string, page *rod.Page) (err erro
 				}
 
 				err = btn.Click(proto.InputMouseButtonLeft, 1)
-				if err != nil {
+				if err != nil && page.GetContext().Err() != nil {
+					log.Debug().Err(err).Str("xpath", xpath).Str("selector", selector).Msg("Element click stopped due to interaction cancellation")
+				} else if err != nil {
 					log.Error().Err(err).Str("xpath", xpath).Str("selector", selector).Msg("Error clicking element")
 				} else {
 					log.Info().Uint("workspace", c.workspaceID).Str("xpath", xpath).Str("selector", selector).Msg("Clicked button")

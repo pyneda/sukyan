@@ -671,7 +671,7 @@ func (c *Crawler) getAndClickElements(selector string, page *rod.Page) (err erro
 					continue
 				}
 
-				err = btn.Click(proto.InputMouseButtonLeft, 1)
+				err = web.SafeClick(btn)
 				if err != nil && page.GetContext().Err() != nil {
 					log.Debug().Err(err).Str("xpath", xpath).Str("selector", selector).Msg("Element click stopped due to interaction cancellation")
 				} else if err != nil {

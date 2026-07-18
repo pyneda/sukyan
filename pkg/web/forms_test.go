@@ -143,3 +143,228 @@ func TestSubmitFormCancelledContextDoesNotPOST(t *testing.T) {
 		t.Errorf("expected zero POSTs under cancelled context, got %d", n)
 	}
 }
+
+// animatedFormHTML serves a form whose text input is perpetually animated, so its
+// bounding box never stabilizes. rod's Element.Input() calls Focus->ScrollIntoView->
+// WaitStableRAF, whose requestAnimationFrame loop runs on the deadline-less root page
+// and therefore never returns on such a page — hanging the whole crawl. AutoFillForm
+// must remain bounded regardless.
+const animatedFormHTML = `<!DOCTYPE html>
+<html><head><style>
+@keyframes drift { from { transform: translateX(0); } to { transform: translateX(40px); } }
+#q { position: relative; animation: drift 0.3s linear infinite alternate; }
+</style></head><body>
+<form id="f">
+  <input id="q" name="q" type="text">
+  <button type="submit">go</button>
+</form>
+</body></html>`
+
+// AutoFillForm must not hang on a page whose input is continuously animating (rod's
+// WaitStableRAF would otherwise loop forever ignoring the element timeout).
+func TestAutoFillFormDoesNotHangOnAnimatedInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping browser integration test in short mode")
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(animatedFormHTML))
+	}))
+	defer server.Close()
+
+	path, _ := launcher.LookPath()
+	u := launcher.New().Bin(path).Headless(true).MustLaunch()
+	browser := rod.New().ControlURL(u).MustConnect()
+	defer browser.MustClose()
+
+	page := browser.MustPage(server.URL)
+	page.MustWaitLoad()
+	form := page.MustElement("form")
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		AutoFillForm(form, page)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(15 * time.Second):
+		t.Fatal("AutoFillForm hung on an animated input (WaitStableRAF never returned)")
+	}
+
+	value, err := page.MustElement("#q").Property("value")
+	if err != nil {
+		t.Fatalf("could not read input value: %v", err)
+	}
+	if value.Str() == "" {
+		t.Errorf("expected the animated input to be filled, got empty value")
+	}
+}
+
+// animatedSubmitFormHTML: the submit button is perpetually animated. rod's Click()
+// calls Hover->ScrollIntoView->WaitStableRAF, which hangs on such a button. SubmitForm
+// must stay bounded AND still fire the JS submit handler (which POSTs).
+const animatedSubmitFormHTML = `<!DOCTYPE html>
+<html><head><style>
+@keyframes drift { from { transform: translateX(0); } to { transform: translateX(30px); } }
+button { position: relative; animation: drift 0.3s linear infinite alternate; }
+</style></head><body>
+<form id="f"><button type="submit">go</button></form>
+<script>
+document.getElementById('f').addEventListener('submit', function(e){
+  e.preventDefault();
+  fetch('/submitted', {method:'POST'});
+});
+</script>
+</body></html>`
+
+// SubmitForm must not hang when the submit control is continuously animating, and
+// must still trigger the form's submit handler.
+func TestSubmitFormDoesNotHangOnAnimatedButton(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping browser integration test in short mode")
+	}
+
+	var posts int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/submitted" {
+			atomic.AddInt32(&posts, 1)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(animatedSubmitFormHTML))
+	}))
+	defer server.Close()
+
+	path, _ := launcher.LookPath()
+	u := launcher.New().Bin(path).Headless(true).MustLaunch()
+	browser := rod.New().ControlURL(u).MustConnect()
+	defer browser.MustClose()
+
+	page := browser.MustPage(server.URL)
+	page.MustWaitLoad()
+	form := page.MustElement("form")
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		SubmitForm(form, page)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(15 * time.Second):
+		t.Fatal("SubmitForm hung on an animated submit button (Click->WaitStableRAF never returned)")
+	}
+
+	time.Sleep(3 * time.Second)
+	if atomic.LoadInt32(&posts) == 0 {
+		t.Errorf("expected the submit handler to POST, but it did not fire")
+	}
+}
+
+// reactControlledInputHTML mimics React's controlled-input value tracking: an
+// instance-level `value` setter is installed that records instance assignments
+// separately, while the framework only trusts values written through the native
+// prototype setter (which it captured before overriding). #state is updated on the
+// input event by reading the NATIVE value. A naive `this.value = v` writes only the
+// shadowed instance property, leaving the native value — and thus #state — empty.
+const reactControlledInputHTML = `<!DOCTYPE html>
+<html><body>
+<form id="f"><input id="q" name="q" type="text"><span id="state"></span></form>
+<script>
+var el = document.getElementById('q');
+var proto = Object.getPrototypeOf(el);
+var nativeGet = Object.getOwnPropertyDescriptor(proto, 'value').get;
+var nativeSet = Object.getOwnPropertyDescriptor(proto, 'value').set;
+var shadow = '';
+Object.defineProperty(el, 'value', {
+  get: function () { return nativeGet.call(this); },
+  set: function (v) { shadow = v; /* instance write is ignored by the "framework" */ }
+});
+el.addEventListener('input', function () {
+  document.getElementById('state').textContent = nativeGet.call(el);
+});
+</script>
+</body></html>`
+
+// setElementValue must update framework-controlled inputs by using the native
+// prototype value setter, so React-style onChange/state tracking fires.
+func TestSetElementValueUsesNativeSetterForControlledInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping browser integration test in short mode")
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(reactControlledInputHTML))
+	}))
+	defer server.Close()
+
+	path, _ := launcher.LookPath()
+	u := launcher.New().Bin(path).Headless(true).MustLaunch()
+	browser := rod.New().ControlURL(u).MustConnect()
+	defer browser.MustClose()
+
+	page := browser.MustPage(server.URL)
+	page.MustWaitLoad()
+
+	if err := setElementValue(page.MustElement("#q"), "filled"); err != nil {
+		t.Fatalf("setElementValue error: %v", err)
+	}
+
+	state := page.MustElement("#state").MustText()
+	if state != "filled" {
+		t.Errorf("expected framework state to reflect the native-setter fill, got %q", state)
+	}
+}
+
+// disabledSubmitFormHTML has a disabled submit button whose form would POST on submit.
+const disabledSubmitFormHTML = `<!DOCTYPE html>
+<html><body>
+<form id="f"><button type="submit" disabled>go</button></form>
+<script>
+document.getElementById('f').addEventListener('submit', function(e){ e.preventDefault(); fetch('/submitted', {method:'POST'}); });
+</script>
+</body></html>`
+
+// SubmitForm must still submit a form whose submit button is disabled: SafeClick on a
+// disabled button is a no-op, so SubmitForm must fall through to the requestSubmit()
+// path rather than falsely reporting success.
+func TestSubmitFormFallsBackWhenSubmitButtonDisabled(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping browser integration test in short mode")
+	}
+
+	var posts int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/submitted" {
+			atomic.AddInt32(&posts, 1)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(disabledSubmitFormHTML))
+	}))
+	defer server.Close()
+
+	path, _ := launcher.LookPath()
+	u := launcher.New().Bin(path).Headless(true).MustLaunch()
+	browser := rod.New().ControlURL(u).MustConnect()
+	defer browser.MustClose()
+
+	page := browser.MustPage(server.URL)
+	page.MustWaitLoad()
+
+	if ok := SubmitForm(page.MustElement("form"), page); !ok {
+		t.Fatal("SubmitForm returned false on a form with a disabled submit button")
+	}
+
+	time.Sleep(2 * time.Second)
+	if atomic.LoadInt32(&posts) == 0 {
+		t.Errorf("expected the form to be submitted via requestSubmit fallback, but no POST fired")
+	}
+}

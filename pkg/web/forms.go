@@ -1,12 +1,10 @@
 package web
 
 import (
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
-
-	// "github.com/pyneda/sukyan/lib"
+	"errors"
 	"time"
 
+	"github.com/go-rod/rod"
 	"github.com/rs/zerolog/log"
 )
 
@@ -79,9 +77,14 @@ func SubmitForm(form *rod.Element, page *rod.Page) bool {
 	// click event listeners that modern apps rely on (e.g. e.preventDefault() + fetch()).
 	// Bare <button> elements default to type=submit but often lack the attribute, so
 	// match both the explicit selector and any button inside the form.
+	// Dispatch the click via JS rather than rod's Click(), which drives
+	// Hover->ScrollIntoView->WaitStableRAF and hangs on a continuously-animating
+	// button (WaitStableRAF's requestAnimationFrame loop runs on the deadline-less
+	// root page). A JS-dispatched click still fires the button's click and the form's
+	// submit listeners, and Element.Eval honors the element timeout.
 	if submit, err := form.Element("[type=submit], button"); err == nil {
 		log.Info().Interface("submit", submit).Msg("Submit control found, clicking it")
-		if serr := submit.Timeout(2*time.Second).Click(proto.InputMouseButtonLeft, 1); serr == nil {
+		if serr := SafeClick(submit); serr == nil {
 			return true
 		}
 	}
@@ -179,13 +182,58 @@ func AutoFillInput(input *rod.Element, page *rod.Page) {
 
 	// If a predefined value was found, set the input value
 	if exists {
-		err := input.Timeout(2 * time.Second).Input(value)
-		if err != nil {
+		if err := setElementValue(input, value); err != nil {
 			log.Info().Err(err).Msg("Failed to input value into form input field")
 		} else {
 			log.Info().Str("value", value).Msg("Form input auto-filled")
 		}
 	}
+}
+
+// SafeClick clicks an element by dispatching the click via JS instead of rod's
+// Click(), which drives Hover->ScrollIntoView->WaitStableRAF and hangs on a
+// continuously-animating element (its requestAnimationFrame loop runs on the
+// deadline-less root page and never returns). A JS click still fires the element's
+// click listeners, and Element.Eval honors the element timeout so this can't hang.
+func SafeClick(el *rod.Element) error {
+	// A JS click() on a disabled control is a silent no-op, so report it as an error
+	// (mirroring rod's Click(), which fails on disabled elements). This lets callers
+	// like SubmitForm fall through to an alternative rather than assume success.
+	disabled, err := el.Timeout(2 * time.Second).Eval(`() => this.disabled === true`)
+	if err != nil {
+		return err
+	}
+	if disabled.Value.Bool() {
+		return errDisabledElement
+	}
+	_, err = el.Timeout(2 * time.Second).Eval(`() => this.click()`)
+	return err
+}
+
+var errDisabledElement = errors.New("element is disabled")
+
+// setElementValue sets an input/textarea value via JS instead of rod's Input(),
+// which drives Focus->ScrollIntoView->WaitStableRAF. WaitStableRAF's animation-frame
+// loop runs on the deadline-less root page, so on a continuously-animating element it
+// never returns and hangs the crawl. Setting .value directly and dispatching input/
+// change events fills the field (and fires JS handlers) while honoring the element
+// timeout, because Element.Eval runs under the element's own context.
+func setElementValue(el *rod.Element, value string) error {
+	// Use the element prototype's native value setter, not a direct `this.value = v`
+	// instance assignment: frameworks like React override the instance value property
+	// and track updates only through the native setter, so a plain assignment leaves
+	// their controlled state (and onChange) untouched.
+	_, err := el.Timeout(2*time.Second).Eval(
+		`(v) => {
+			const proto = Object.getPrototypeOf(this);
+			const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+			if (desc && desc.set) { desc.set.call(this, v); } else { this.value = v; }
+			this.dispatchEvent(new Event('input', {bubbles:true}));
+			this.dispatchEvent(new Event('change', {bubbles:true}));
+		}`,
+		value,
+	)
+	return err
 }
 
 const defaultTextareaValue = "This is a default textarea input."
@@ -238,8 +286,7 @@ func AutoFillTextarea(textarea *rod.Element, page *rod.Page) {
 		value = defaultTextareaValue
 	}
 
-	err = textarea.Timeout(2 * time.Second).Input(value)
-	if err != nil {
+	if err = setElementValue(textarea, value); err != nil {
 		log.Error().Err(err).Msg("Failed to input value into textarea")
 	} else {
 		log.Info().Str("value", value).Msg("Textarea auto-filled")

@@ -70,7 +70,9 @@ func ExtractURLsFromHeaders(headers map[string][]string, extractedFromURL string
 		}
 	}
 
-	return ExtractedURLS{Web: webURLs, NonWeb: nonWebURLs}
+	generic := ExtractedURLS{Web: webURLs, NonWeb: nonWebURLs}
+	known := extractURLsFromKnownHeaders(headers, base)
+	return mergeExtractedURLs(generic, known)
 }
 
 // ExtractAndAnalyzeURLS extracts urls from a response and analyzes them. It separates web and non web urls and if relative URLs are found, it makes them absolute based on the extractedFromURL parameter it also fixes other cases like //example.com
@@ -99,7 +101,9 @@ func ExtractAndAnalyzeURLS(response string, extractedFromURL string) ExtractedUR
 		}
 	}
 
-	return ExtractedURLS{Web: webURLs, NonWeb: nonWebURLs}
+	generic := ExtractedURLS{Web: webURLs, NonWeb: nonWebURLs}
+	meta := extractURLsFromMetaTags(response, base)
+	return mergeExtractedURLs(generic, meta)
 }
 
 func ExtractURLs(response string) []string {

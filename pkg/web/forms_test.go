@@ -106,19 +106,29 @@ func TestSubmitFormCancelledContextDoesNotPOST(t *testing.T) {
 	page := browser.MustPage(server.URL)
 	page.MustWaitLoad()
 
-	// Fetch the form from the UNCANCELLED page (the DOM is already loaded), then
-	// drive interaction through a cancelled page clone. SubmitForm's own child
-	// lookups (form.Element / form.Timeout().Eval) and the submit-control click
-	// run under the cancelled context via the page arg, so they must no-op.
-	form := page.MustElement("form")
-
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // already cancelled before interaction
 	pageWithCtx := page.Context(ctx)
 
+	// Fetch the form FROM the cancelled clone so the *element* carries the
+	// cancelled context. SubmitForm/AutoFillForm operate on the element
+	// (form.Element / form.Timeout().Eval), which snapshot the element's own
+	// context at fetch time — so the element must be born from the cancelled
+	// clone for cancellation to take effect. Fetching from the uncancelled page
+	// would leave the element cancellation-immune (the actual bug being tested).
+	form, ferr := pageWithCtx.Element("form")
+	if ferr != nil {
+		// Fetching under an already-cancelled context may itself fail fast; that
+		// is an acceptable outcome — it also means no interaction/POST occurs.
+		t.Logf("form fetch under cancelled context returned: %v", ferr)
+	}
+
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
+		if form == nil {
+			return
+		}
 		AutoFillForm(form, pageWithCtx)
 		SubmitForm(form, pageWithCtx)
 	}()

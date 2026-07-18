@@ -83,6 +83,21 @@ func CreateHttpClient() *http.Client {
 	return client
 }
 
+// WithoutRedirects returns a shallow copy of the client that stops before
+// following redirects, preserving the 3xx response and its Location header.
+// The underlying transport is shared, so connection pooling is unaffected.
+// A nil client yields a new non-redirecting client.
+func WithoutRedirects(client *http.Client) *http.Client {
+	if client == nil {
+		client = CreateHttpClient()
+	}
+	clone := *client
+	clone.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	return &clone
+}
+
 // CreateHttp2Client creates an HTTP/2 client.
 func CreateHttp2Client() *http.Client {
 	transport := CreateHttp2Transport()

@@ -66,6 +66,9 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, httpClient *ht
 	if httpClient == nil {
 		httpClient = http_utils.CreateHttpClient()
 	}
+	// Preserve 3xx responses so their Location target can be discovered and crawled;
+	// the browser still follows the redirect itself, re-triggering the hijack for the target.
+	httpClient = http_utils.WithoutRedirects(httpClient)
 	router.MustAdd("*", func(hj *rod.Hijack) {
 
 		if hj == nil || hj.Request == nil || hj.Request.URL() == nil {
@@ -154,6 +157,9 @@ func Hijack(config HijackConfig, browser *rod.Browser, httpClient *http.Client, 
 	if httpClient == nil {
 		httpClient = http_utils.CreateHttpClient()
 	}
+	// Preserve 3xx responses so their Location target can be discovered and crawled;
+	// the browser still follows the redirect itself, re-triggering the hijack for the target.
+	httpClient = http_utils.WithoutRedirects(httpClient)
 	redirectTracker := NewRedirectTracker()
 	router.MustAdd("*", func(ctx *rod.Hijack) {
 		if ctx == nil || ctx.Request == nil || ctx.Request.URL() == nil {

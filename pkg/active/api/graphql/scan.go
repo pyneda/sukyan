@@ -105,8 +105,5 @@ func ScanGraphQLOperation(definition *db.APIDefinition, operation *core.Operatio
 		Str("type", operation.GraphQL.OperationType).
 		Msg("Starting GraphQL operation-specific security scan")
 
-	// Operation-specific tests would go here
-	// For now, operations share the API-level tests since GraphQL
-	// queries are sent to a single endpoint
-
+	runResolverArgInjection(opts)
 }

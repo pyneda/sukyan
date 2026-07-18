@@ -2,13 +2,22 @@ package graphql
 
 import (
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/active"
+	"github.com/pyneda/sukyan/pkg/payloads/generation"
+	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 )
 
-// GraphQLAuditOptions embeds ActiveModuleOptions and adds GraphQL-specific options
+// GraphQLAuditOptions embeds ActiveModuleOptions and adds GraphQL-specific options.
+// BaseHistory, PayloadGenerators, InteractionsManager and AuditCategories are needed
+// for per-operation resolver-argument injection (ScanGraphQLOperation).
 type GraphQLAuditOptions struct {
 	active.ActiveModuleOptions
+	BaseHistory         *db.History
+	PayloadGenerators   []*generation.PayloadGenerator
+	InteractionsManager *integrations.InteractionsManager
+	AuditCategories     scan_options.AuditCategories
 }
 
 // reportIssue is a helper to report a GraphQL security issue

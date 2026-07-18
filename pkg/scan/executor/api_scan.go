@@ -555,6 +555,10 @@ func (e *APIScanExecutor) runAPISpecificTests(
 				ScanMode:    opts.ScanMode,
 				HTTPClient:  opts.HTTPClient,
 			},
+			BaseHistory:         opts.BaseHistory,
+			PayloadGenerators:   e.payloadGenerators,
+			InteractionsManager: e.interactionsManager,
+			AuditCategories:     jobData.AuditCategories,
 		}
 		activegraphql.ScanGraphQLOperation(opts.Definition, opts.Operation, graphqlOpts)
 

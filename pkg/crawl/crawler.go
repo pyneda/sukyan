@@ -52,6 +52,7 @@ type Crawler struct {
 	eventStore              sync.Map
 	maxPagesWithSameParams  int
 	captureBrowserEvents    bool
+	captureClientNavigation bool
 }
 
 type CrawlItem struct {
@@ -111,8 +112,9 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, ma
 		taskID:                 taskID,
 		scanID:                 scanID,
 		scanJobID:              scanJobID,
-		maxPagesWithSameParams: viper.GetInt("crawl.max_pages_with_same_params"),
-		captureBrowserEvents:   captureBrowserEvents,
+		maxPagesWithSameParams:  viper.GetInt("crawl.max_pages_with_same_params"),
+		captureBrowserEvents:    captureBrowserEvents,
+		captureClientNavigation: viper.GetBool("crawl.interaction.capture_client_navigation"),
 	}, nil
 }
 
@@ -400,6 +402,12 @@ func (c *Crawler) getBrowserPage(targetURL string) *rod.Page {
 		}
 	}
 
+	if c.captureClientNavigation {
+		if _, err := page.EvalOnNewDocument(web.ClientNavigationHookScript); err != nil {
+			log.Debug().Err(err).Msg("Failed to inject client navigation hook")
+		}
+	}
+
 	page = page.CancelTimeout()
 
 	return page
@@ -515,6 +523,13 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	}()
 	urlData := c.loadPageAndGetAnchors(url, page)
 
+	if c.captureClientNavigation && !urlData.IsError {
+		if captured := web.DrainClientNavigations(page); len(captured) > 0 {
+			urlData.DiscoveredURLs = mergeClientNavURLs(urlData.DiscoveredURLs, captured)
+			log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Int("count", len(captured)).Msg("Captured client navigations after load")
+		}
+	}
+
 	if value, ok := c.pages.Load(item.url); ok {
 		value.(*CrawlItem).visited = true
 	}
@@ -529,6 +544,12 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 			log.Warn().Uint("workspace", c.workspaceID).Str("url", url).Msg("Timeout interacting with page")
 		}
 		interactionCancel()
+		if c.captureClientNavigation {
+			if captured := web.DrainClientNavigations(page); len(captured) > 0 {
+				urlData.DiscoveredURLs = mergeClientNavURLs(urlData.DiscoveredURLs, captured)
+				log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Int("count", len(captured)).Msg("Captured client navigations after interaction")
+			}
+		}
 		log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Msg("Finished interacting with page")
 	}
 
@@ -691,4 +712,24 @@ func (c *Crawler) getAndClickElements(selector string, page *rod.Page) (err erro
 	}
 	log.Debug().Uint("workspace", c.workspaceID).Str("selector", selector).Msg("Finished clicking elements")
 	return err
+}
+
+func mergeClientNavURLs(existing, captured []string) []string {
+	seen := make(map[string]struct{}, len(existing)+len(captured))
+	out := make([]string, 0, len(existing)+len(captured))
+	for _, u := range existing {
+		if _, ok := seen[u]; ok {
+			continue
+		}
+		seen[u] = struct{}{}
+		out = append(out, u)
+	}
+	for _, u := range captured {
+		if _, ok := seen[u]; ok {
+			continue
+		}
+		seen[u] = struct{}{}
+		out = append(out, u)
+	}
+	return out
 }

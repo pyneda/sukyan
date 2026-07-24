@@ -400,9 +400,23 @@ func handleURLParameters(urlData *url.URL) ([]InsertionPoint, error) {
 func handleURLPaths(urlData *url.URL) ([]InsertionPoint, error) {
 	var points []InsertionPoint
 
-	// URL parameters
-	for _, pathPart := range strings.Split(urlData.Path, "/") {
+	segments := strings.Split(urlData.Path, "/")
+	lastIndex := -1
+	for i, segment := range segments {
+		if segment != "" {
+			lastIndex = i
+		}
+	}
+
+	for i, pathPart := range segments {
 		if pathPart == "" {
+			continue
+		}
+		// Fixed route names ("api", "engine", "render") are routing selectors,
+		// not user input: fuzzing them only produces 404s. Variable segments
+		// (ids, uuids, hashes) and the trailing segment — the realistic
+		// traversal/file target — are still tested.
+		if i != lastIndex && !lib.IsLikelyDynamicPathSegment(pathPart) {
 			continue
 		}
 		points = append(points, InsertionPoint{

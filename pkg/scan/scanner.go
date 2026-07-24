@@ -387,6 +387,21 @@ func (f *TemplateScanner) workerWithContext(ctx context.Context, wg *sync.WaitGr
 			}
 
 			if vulnerable {
+				// Workers race through the pre-request check above, so several
+				// payloads for the same insertion point can all reach this point.
+				// Claim the key atomically so only the first one reports.
+				if f.AvoidRepeatedIssues {
+					key := DetectedIssue{
+						code:           db.IssueCode(issueCode),
+						insertionPoint: task.insertionPoint,
+					}.String()
+					if _, loaded := f.issuesFound.LoadOrStore(key, true); loaded {
+						taskLog.Debug().Str("code", string(issueCode)).Msg("Skipping duplicate issue for this insertion point")
+						wg.Done()
+						continue
+					}
+				}
+
 				taskLog.Warn().Msg("Vulnerable")
 				// Should handle the additional details and confidence
 				var historyForIssue *db.History
@@ -409,13 +424,6 @@ func (f *TemplateScanner) workerWithContext(ctx context.Context, wg *sync.WaitGr
 					f.results.Store(createdIssue.Code, result)
 				}
 
-				// Avoid repeated issues: could also provide a issue type `variant` and handle the insertion point
-				if f.AvoidRepeatedIssues {
-					f.issuesFound.Store(DetectedIssue{
-						code:           db.IssueCode(issueCode),
-						insertionPoint: task.insertionPoint,
-					}.String(), true)
-				}
 			}
 
 		}

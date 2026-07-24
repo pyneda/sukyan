@@ -3,10 +3,15 @@ package web
 import (
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/rs/zerolog/log"
 )
+
+// clientNavDrainTimeout bounds the buffer-drain eval so an unresponsive page can
+// never stall the crawl worker while reading captured navigations.
+const clientNavDrainTimeout = 10 * time.Second
 
 // ResolveClientRoute normalizes a captured client-side navigation URL into a
 // fetchable absolute URL. rawURL is an already-absolute URL as observed in the
@@ -93,7 +98,7 @@ const ClientNavigationHookScript = `
 // fetchable absolute URLs. It never returns an error; on any page-eval failure it
 // logs at debug and returns nil.
 func DrainClientNavigations(page *rod.Page) []string {
-	result, err := page.Eval(`() => {
+	result, err := page.Timeout(clientNavDrainTimeout).Eval(`() => {
 		if (!window.__sukyanClientNav) return { urls: [], baseURI: document.baseURI };
 		var out = window.__sukyanClientNav.slice();
 		window.__sukyanClientNav = [];

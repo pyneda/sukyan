@@ -1,6 +1,6 @@
 id: "mongo"
 issue_code: nosql_injection
-detection_conditions: or
+detection_condition: or
 detection_methods:
   - response_condition:
       status_code: 500

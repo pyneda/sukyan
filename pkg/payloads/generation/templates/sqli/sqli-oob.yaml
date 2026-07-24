@@ -1,6 +1,6 @@
 id: "sqli-oob"
 issue_code: sql_injection
-detection_conditions: or
+detection_condition: or
 detection_methods:
   - oob_interaction:
       oob_address: "{{.oob_address}}"

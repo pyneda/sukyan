@@ -1,6 +1,6 @@
 id: php-code-injection
 issue_code: php_code_injection
-detection_conditions: or
+detection_condition: or
 detection_methods:
   - response_condition:
       contains: "sukyan-test"

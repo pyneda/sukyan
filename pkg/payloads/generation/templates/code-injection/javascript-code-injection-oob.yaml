@@ -1,6 +1,6 @@
 id: javascript-code-injection-oob
 issue_code: javascript_code_injection
-detection_conditions: or
+detection_condition: or
 detection_methods:
   - oob_interaction:
       oob_address: "{{.oob_address}}"

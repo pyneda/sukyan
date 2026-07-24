@@ -1,6 +1,6 @@
 id: sqli-time
 issue_code: sql_injection
-detection_conditions: or
+detection_condition: or
 detection_methods:
   - time_based:
       sleep: "{{.sleep_time}}"

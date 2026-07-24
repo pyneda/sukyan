@@ -1,6 +1,6 @@
 id: java-deserialization-commons-collections4.0
 issue_code: java_deserialization
-detection_conditions: or
+detection_condition: or
 detection_methods:
   - oob_interaction:
       oob_address: "{{.oob_address}}"

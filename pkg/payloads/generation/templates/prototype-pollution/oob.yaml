@@ -1,6 +1,6 @@
 id: server-side-prototype-pollution-oob
 issue_code: server_side_prototype_pollution
-detection_conditions: or
+detection_condition: or
 detection_methods:
   - oob_interaction:
       oob_address: "{{.oob_address}}"

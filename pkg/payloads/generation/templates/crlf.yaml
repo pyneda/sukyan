@@ -1,6 +1,6 @@
 id: crlf
 issue_code: crlf_injection
-detection_conditions: or
+detection_condition: or
 detection_methods:
   - response_condition:
       contains: "{{.header_key}}: {{.header_value}}"

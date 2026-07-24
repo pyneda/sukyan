@@ -1263,7 +1263,11 @@ func (s *WebSocketScanner) evaluateResponseCheck(result WebSocketScannerResult, 
 			if errorResult != nil {
 				description := fmt.Sprintf("Database error in response message #%d:\n - Database: %s\n - Error: %s",
 					i, errorResult.DatabaseName, errorResult.MatchStr)
-				return true, description, method.Confidence, method.IssueOverride, nil
+				override := method.IssueOverride
+				if corrected, ok := issueCodeForDatabaseFamily(db.IssueCode(result.Payload.IssueCode), override, errorResult); ok {
+					override = corrected
+				}
+				return true, description, method.Confidence, override, nil
 			}
 		} else if method.Check == generation.XPathErrorCondition {
 			errorResult := passive.SearchXPathErrors(msg.PayloadData)

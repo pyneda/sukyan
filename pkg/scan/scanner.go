@@ -686,23 +686,109 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 	case *generation.ResponseCheckDetectionMethod:
 		switch m.Check {
 		case generation.DatabaseErrorCondition:
-			result := passive.SearchDatabaseErrors(result.ResponseData.RawString)
-			if result != nil {
-				log.Info().Interface("database_error", result).Msg("Matched DatabaseErrorCondition")
-				description := fmt.Sprintf("Database error was returned in response:\n - Database: %s\n - Error: %s", result.DatabaseName, result.MatchStr)
-				return true, description, m.Confidence, m.IssueOverride, nil
+			dbErr := passive.SearchDatabaseErrors(result.ResponseData.RawString)
+			if dbErr == nil {
+				break
 			}
+			// An error the unmodified request already returned is a property of
+			// the endpoint, not evidence that our payload reached a query.
+			if baselineContainsDatabaseError(result.Original, dbErr) {
+				log.Debug().
+					Str("database", dbErr.DatabaseName).
+					Str("match", dbErr.MatchStr).
+					Msg("Ignoring DatabaseErrorCondition: error also present in baseline response")
+				return false, "", 0, m.IssueOverride, nil
+			}
+			log.Info().Interface("database_error", dbErr).Msg("Matched DatabaseErrorCondition")
+			description := fmt.Sprintf("Database error was returned in response:\n - Database: %s\n - Error: %s", dbErr.DatabaseName, dbErr.MatchStr)
+			override := m.IssueOverride
+			if corrected, ok := issueCodeForDatabaseFamily(db.IssueCode(result.Payload.IssueCode), override, dbErr); ok {
+				override = corrected
+			}
+			return true, description, m.Confidence, override, nil
 		case generation.XPathErrorCondition:
-			result := passive.SearchXPathErrors(result.ResponseData.RawString)
-			if result != "" {
-				log.Info().Str("xpath_error", result).Msg("Matched XPathErrorCondition")
-				description := fmt.Sprintf("XPath error was returned in response:\n - Error: %s", result)
-				return true, description, m.Confidence, m.IssueOverride, nil
+			xpathErr := passive.SearchXPathErrors(result.ResponseData.RawString)
+			if xpathErr == "" {
+				break
 			}
+			if baselineContainsXPathError(result.Original, xpathErr) {
+				log.Debug().
+					Str("match", xpathErr).
+					Msg("Ignoring XPathErrorCondition: error also present in baseline response")
+				return false, "", 0, m.IssueOverride, nil
+			}
+			log.Info().Str("xpath_error", xpathErr).Msg("Matched XPathErrorCondition")
+			description := fmt.Sprintf("XPath error was returned in response:\n - Error: %s", xpathErr)
+			return true, description, m.Confidence, m.IssueOverride, nil
 		}
 		return false, "", 0, m.IssueOverride, nil
 	}
 	return false, "", 0, "", nil
+}
+
+// issueCodeForDatabaseFamily corrects the reported issue code when the matched
+// engine contradicts the payload's claim: a SQL error cannot substantiate a
+// NoSQL injection, nor a NoSQL error a SQL injection. Returns false when no
+// correction applies.
+func issueCodeForDatabaseFamily(declared, override db.IssueCode, match *passive.DatabaseErrorMatch) (db.IssueCode, bool) {
+	effective := declared
+	if override != "" {
+		effective = override
+	}
+	switch effective {
+	case db.NosqlInjectionCode:
+		if match.IsRelational() {
+			return db.SqlInjectionCode, true
+		}
+	case db.SqlInjectionCode:
+		if !match.IsRelational() {
+			return db.NosqlInjectionCode, true
+		}
+	}
+	return "", false
+}
+
+// baselineContainsDatabaseError reports whether the unmodified request already
+// produced the same database error, which makes the match a pre-existing
+// endpoint property rather than evidence of injection.
+func baselineContainsDatabaseError(original *db.History, match *passive.DatabaseErrorMatch) bool {
+	baseline, ok := baselineResponseText(original)
+	if !ok {
+		return false
+	}
+	if strings.Contains(baseline, match.MatchStr) {
+		return true
+	}
+	baselineMatch := passive.SearchDatabaseErrors(baseline)
+	return baselineMatch != nil && baselineMatch.DatabaseName == match.DatabaseName
+}
+
+// baselineContainsXPathError reports whether the unmodified request already
+// produced the same XPath error.
+func baselineContainsXPathError(original *db.History, match string) bool {
+	baseline, ok := baselineResponseText(original)
+	if !ok {
+		return false
+	}
+	return strings.Contains(baseline, match) || passive.SearchXPathErrors(baseline) != ""
+}
+
+// baselineResponseText returns the unmodified response body. The second return
+// value is false when no baseline is available, in which case callers must not
+// suppress a match — absence of a baseline is not evidence of absence.
+func baselineResponseText(original *db.History) (string, bool) {
+	if original == nil {
+		return "", false
+	}
+	body, err := original.ResponseBody()
+	if err != nil {
+		log.Debug().Err(err).Uint("history", original.ID).Msg("Could not read baseline response body for error-condition comparison")
+		return "", false
+	}
+	if len(body) == 0 {
+		return "", false
+	}
+	return string(body), true
 }
 
 // isTimeBasedPayload checks if a payload contains time-based detection methods

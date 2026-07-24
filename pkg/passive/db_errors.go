@@ -132,15 +132,13 @@ var DBMS_ERRORS = map[string][]*regexp.Regexp{
 		`E11000 duplicate key error collection`,
 		`collection .* already exists`,
 		`\bdeadlock\b.*\bdetected\b`,
-		`unexpected token`,
-		`invalid .* syntax`,
 		`Failed to parse:.*'filter'.*`,
-		`unknown operator:.*`,
+		`unknown operator: \$\w+`,
 		`No array filter found for identifier.*in path.*`,
 		`Cannot use.*as a query operator`,
 		`Cannot do exclusion on path.*in inclusion projection`,
 		`Path.*intersects with a project inclusion`,
-		`Unrecognized expression.*`,
+		`Unrecognized expression '\$[^']*'`,
 		`is not a valid hex number`,
 		`Failed to parse document from.*: *unexpected character.*after document key`),
 	"CouchDB": compilePatterns(
@@ -151,17 +149,21 @@ var DBMS_ERRORS = map[string][]*regexp.Regexp{
 		`badmatch`),
 	"Cassandra": compilePatterns(
 		`Cassandra.*InvalidQueryException`,
-		`unterminated string`,
-		`line .* no viable alternative at input`,
-		`mismatched input .* expecting .*`),
+		// Cassandra shares ANTLR grammar errors with many non-DB parsers, so
+		// these require CQL-specific framing rather than the bare ANTLR text.
+		`SyntaxError: line \d+:\d+ (mismatched input|no viable alternative at input)`,
+		`InvalidRequestException`,
+		`code=2000 \[Syntax error in CQL query\]`),
 	"Redis": compilePatterns(
 		`redis.*WRONGTYPE`,
 		`redis.*syntax error`),
 	"Elasticsearch": compilePatterns(
 		`SearchPhaseExecutionException`,
 		`QueryParsingException`,
-		`unexpected token`,
-		`invalid .* syntax`),
+		`ElasticsearchParseException`,
+		`json_parse_exception`,
+		`parsing_exception`,
+		`x_content_parse_exception`),
 	"DynamoDB": compilePatterns(
 		`ValidationException`,
 		`com.amazonaws.services.dynamodbv2.model.AmazonDynamoDBException`,
@@ -264,6 +266,29 @@ var DBMS_ERRORS = map[string][]*regexp.Regexp{
 type DatabaseErrorMatch struct {
 	DatabaseName string
 	MatchStr     string
+}
+
+// nonRelationalEngines are the engines in DBMS_ERRORS that are not SQL
+// databases. Everything else is treated as relational.
+var nonRelationalEngines = map[string]bool{
+	"MongoDB":       true,
+	"CouchDB":       true,
+	"Cassandra":     true,
+	"Redis":         true,
+	"Elasticsearch": true,
+	"DynamoDB":      true,
+	"HBase":         true,
+	"Neo4j":         true,
+}
+
+// IsRelational reports whether the matched engine is a SQL database. It lets
+// callers avoid substantiating a NoSQL-injection claim with a SQL error (or the
+// reverse), which would mislabel the finding.
+func (m *DatabaseErrorMatch) IsRelational() bool {
+	if m == nil {
+		return false
+	}
+	return !nonRelationalEngines[m.DatabaseName]
 }
 
 func SearchDatabaseErrors(text string) *DatabaseErrorMatch {

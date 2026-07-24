@@ -62,6 +62,7 @@ func SetDefaultConfig() {
 	viper.SetDefault("crawl.interaction.submit_forms", true)
 	viper.SetDefault("crawl.interaction.skip_previously_submitted_forms", false)
 	viper.SetDefault("crawl.interaction.click_buttons", true)
+	viper.SetDefault("crawl.interaction.capture_client_navigation", true)
 	viper.SetDefault("crawl.common.files", []string{"/robots.txt", "/sitemap.xml"})
 	viper.SetDefault("crawl.ignored_extensions", []string{".jpg", ".woff2", ".png", ".gif", ".webp", ".ico", ".css", ".svg", ".tif", ".tiff", ".bmp", ".raw", ".indd", ".ai", ".eps", ".pdf", ".exe", ".dll", ".psd", ".fla", ".avi", ".flv", ".mov", ".mp4", ".mpg", ".mpeg", ".swf", ".mkv", ".wav", ".mp3", ".flac", ".m4a", ".wma", ".aac", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf", ".zip", ".rar", ".7z", ".tar.gz", ".iso", ".dmg"})
 	viper.SetDefault("crawl.max_pages_with_same_params", 20)

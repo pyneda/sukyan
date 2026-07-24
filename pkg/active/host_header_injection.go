@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
+	"strings"
+	"sync"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -30,6 +33,15 @@ type HostHeaderInjectionAudit struct {
 type hostHeaderInjectionAuditItem struct {
 	payload payloads.PayloadInterface
 	header  string // should be an injection point interface when implemented
+}
+
+// hostHeaderInjectionFinding is a single confirmed reflection. An endpoint that
+// echoes arbitrary headers reflects every one we try, so findings are collected
+// and reported as one issue instead of one issue per header.
+type hostHeaderInjectionFinding struct {
+	header  string
+	payload string
+	history *db.History
 }
 
 // GetDefaultHeadersToTest returns the default headers that are tested in this audit
@@ -86,6 +98,11 @@ func (a *HostHeaderInjectionAudit) Run() {
 
 	p := pool.New().WithMaxGoroutines(a.Options.Concurrency)
 
+	var (
+		mu       sync.Mutex
+		findings []hostHeaderInjectionFinding
+	)
+
 	log.Info().Str("url", a.URL).Msg("Starting to schedule Host header injection audit items")
 
 	// Add tests to the channel
@@ -112,7 +129,11 @@ schedulingLoop:
 					return
 				default:
 				}
-				a.testItem(ctx, item)
+				if finding := a.testItem(ctx, item); finding != nil {
+					mu.Lock()
+					findings = append(findings, *finding)
+					mu.Unlock()
+				}
 			})
 		}
 	}
@@ -120,10 +141,12 @@ schedulingLoop:
 	// Wait for all workers to complete
 	p.Wait()
 
-	log.Info().Str("url", a.URL).Msg("All host header injection audit items completed")
+	a.reportFindings(findings)
+
+	log.Info().Str("url", a.URL).Int("reflected_headers", len(findings)).Msg("All host header injection audit items completed")
 }
 
-func (a *HostHeaderInjectionAudit) testItem(ctx context.Context, item hostHeaderInjectionAuditItem) {
+func (a *HostHeaderInjectionAudit) testItem(ctx context.Context, item hostHeaderInjectionAuditItem) *hostHeaderInjectionFinding {
 	// Just basic implementation, by now just check if the payload appended in the host header appears in the response, still should:
 	// - Check if response differs when the header appears or not
 	// - Use the data gathered in previous steps to compare with the current implementation results
@@ -149,7 +172,7 @@ func (a *HostHeaderInjectionAudit) testItem(ctx context.Context, item hostHeader
 
 	if err != nil {
 		auditLog.Error().Err(err).Msg("Error creating request")
-		return
+		return nil
 	}
 
 	request.Header.Set(item.header, item.payload.GetValue())
@@ -169,14 +192,55 @@ func (a *HostHeaderInjectionAudit) testItem(ctx context.Context, item hostHeader
 
 	if executionResult.Err != nil {
 		auditLog.Error().Err(executionResult.Err).Msg("Error during request")
-		return
+		return nil
 	}
 
 	history := executionResult.History
 	isInResponse, _ := item.payload.MatchAgainstString(string(history.RawResponse))
 
-	if isInResponse {
-		details := fmt.Sprintf("A host header injection vulnerability has been detected in %s. The audit test send the following payload `%s` in `%s` header and it has been verified is included back in the response", a.URL, item.payload.GetValue(), item.header)
-		db.CreateIssueFromHistoryAndTemplate(history, db.HostHeaderInjectionCode, details, 75, "", &a.Options.WorkspaceID, &a.Options.TaskID, &a.Options.TaskJobID, &a.Options.ScanID, &a.Options.ScanJobID)
+	if !isInResponse {
+		return nil
+	}
+
+	return &hostHeaderInjectionFinding{
+		header:  item.header,
+		payload: item.payload.GetValue(),
+		history: history,
+	}
+}
+
+// reportFindings emits a single consolidated issue for the endpoint, listing
+// every header that was reflected and attaching each supporting request.
+func (a *HostHeaderInjectionAudit) reportFindings(findings []hostHeaderInjectionFinding) {
+	if len(findings) == 0 {
+		return
+	}
+
+	sort.Slice(findings, func(i, j int) bool { return findings[i].header < findings[j].header })
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "The following %d header(s) were reflected back in the response:\n\n", len(findings))
+	for _, f := range findings {
+		fmt.Fprintf(&sb, " - `%s`: payload `%s`\n", f.header, f.payload)
+	}
+
+	issue, err := db.CreateIssueFromHistoryAndTemplate(
+		findings[0].history, db.HostHeaderInjectionCode, sb.String(), 75, "",
+		&a.Options.WorkspaceID, &a.Options.TaskID, &a.Options.TaskJobID,
+		&a.Options.ScanID, &a.Options.ScanJobID,
+	)
+	if err != nil {
+		log.Error().Err(err).Str("url", a.URL).Msg("Failed to create host header injection issue")
+		return
+	}
+
+	if len(findings) > 1 {
+		extra := make([]*db.History, 0, len(findings)-1)
+		for _, f := range findings[1:] {
+			extra = append(extra, f.history)
+		}
+		if err := issue.AppendHistories(extra); err != nil {
+			log.Warn().Err(err).Uint("issue_id", issue.ID).Msg("Failed to link additional host header injection histories")
+		}
 	}
 }

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -207,6 +208,17 @@ var scanCmd = &cobra.Command{
 			interactionsManager.Restart()
 		}
 		interactionsManager.Start()
+
+		if viper.GetBool("scan.oob.enabled") {
+			oobCtx, oobCancel := context.WithTimeout(context.Background(), 25*time.Second)
+			healthy, domain := integrations.VerifyOOBChannel(oobCtx, viper.GetString("scan.oob.server_urls"), 15*time.Second)
+			oobCancel()
+			if healthy {
+				log.Info().Str("domain", domain).Msg("OOB interaction channel verified: blind SSRF/RCE/OOB detections are active")
+			} else {
+				log.Warn().Str("domain", domain).Msg("OOB interaction channel is DORMANT: the self-test callback was not received, so blind SSRF/command-execution/OOB findings will be missed this run. Verify outbound reachability to the interactsh servers (scan.oob.server_urls) and that the client protocol matches the server.")
+			}
+		}
 
 		// Create scan record FIRST (before starting manager) for proper isolation.
 		// This ensures workers are configured with the scan ID filter from the start,

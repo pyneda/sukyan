@@ -1,6 +1,9 @@
 package integrations
 
 import (
+	"context"
+	"io"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -194,4 +197,83 @@ func (i *InteractionsManager) Stop() {
 		log.Error().Err(err).Msg("Error closing interactsh client")
 	}
 	i.client = nil
+}
+
+// VerifyOOBChannel performs an isolated, end-to-end self-test of the out-of-band
+// interaction channel: it registers an ephemeral interactsh client, triggers an
+// HTTP callback to its own domain, and waits for that interaction to be polled
+// back and decrypted. It returns whether the round-trip succeeded and the domain
+// that was exercised.
+//
+// A false result means OOB-based detections (blind SSRF, blind command execution,
+// Log4Shell, blind XXE, etc.) are silently dormant for this run. This class of
+// failure is otherwise invisible: the scanner keeps emitting OOB payloads and
+// registering oob_tests, but no callback is ever matched — exactly what happened
+// when the public interactsh servers switched their AES mode (CFB -> CTR) and left
+// the pinned client unable to decrypt polled interactions. Callers should surface a
+// loud warning on false so the operator knows OOB coverage is unavailable.
+//
+// The probe is fully isolated from any production polling client: it uses its own
+// ephemeral correlation ID and its own callback, so it never writes stray
+// interaction/issue records to the database.
+func VerifyOOBChannel(ctx context.Context, serverURLs string, timeout time.Duration) (healthy bool, domain string) {
+	// Value-copy DefaultOptions: it is a shared package-level pointer, so mutating
+	// it in place would leak configuration into every other client.
+	opts := *client.DefaultOptions
+	if serverURLs != "" {
+		opts.ServerURL = serverURLs
+	}
+	opts.KeepAliveInterval = time.Minute
+
+	c, err := client.New(&opts)
+	if err != nil {
+		log.Warn().Err(err).Msg("OOB channel self-test could not create interactsh client")
+		return false, ""
+	}
+	defer func() { _ = c.Close() }()
+
+	url := c.URL()
+	if url == "" {
+		log.Warn().Msg("OOB channel self-test could not obtain an interaction domain")
+		return false, ""
+	}
+	label := url
+	if idx := strings.Index(url, "."); idx > 0 {
+		label = url[:idx]
+	}
+
+	seen := make(chan struct{}, 1)
+	if err := c.StartPolling(2*time.Second, func(interaction *server.Interaction) {
+		if strings.EqualFold(interaction.FullId, label) {
+			select {
+			case seen <- struct{}{}:
+			default:
+			}
+		}
+	}); err != nil {
+		log.Warn().Err(err).Msg("OOB channel self-test could not start polling")
+		return false, url
+	}
+	defer func() { _ = c.StopPolling() }()
+
+	go func() {
+		httpClient := &http.Client{Timeout: 10 * time.Second}
+		req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+url+"/oob-selftest", nil)
+		if reqErr != nil {
+			return
+		}
+		if resp, doErr := httpClient.Do(req); doErr == nil && resp != nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+		}
+	}()
+
+	select {
+	case <-seen:
+		return true, url
+	case <-ctx.Done():
+		return false, url
+	case <-time.After(timeout):
+		return false, url
+	}
 }

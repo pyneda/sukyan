@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -18,26 +19,26 @@ import (
 )
 
 var (
-	apidefsScanURL           string
-	apidefsScanFile          string
-	apidefsScanWorkspaceID   uint
-	apidefsScanName          string
-	apidefsScanAuthType      string
-	apidefsScanUsername      string
-	apidefsScanPassword      string
-	apidefsScanToken         string
-	apidefsScanAPIKeyName    string
-	apidefsScanAPIKeyValue   string
-	apidefsScanAPIKeyIn      string
-	apidefsScanBaseURL       string
-	apidefsScanEndpoints     []string
-	apidefsScanNoAPITests    bool
-	apidefsScanNoStandard    bool
-	apidefsScanMode          string
-	apidefsScanWorkers       int
-	apidefsScanServerSide    bool
-	apidefsScanClientSide    bool
-	apidefsScanPassive       bool
+	apidefsScanURL         string
+	apidefsScanFile        string
+	apidefsScanWorkspaceID uint
+	apidefsScanName        string
+	apidefsScanAuthType    string
+	apidefsScanUsername    string
+	apidefsScanPassword    string
+	apidefsScanToken       string
+	apidefsScanAPIKeyName  string
+	apidefsScanAPIKeyValue string
+	apidefsScanAPIKeyIn    string
+	apidefsScanBaseURL     string
+	apidefsScanEndpoints   []string
+	apidefsScanNoAPITests  bool
+	apidefsScanNoStandard  bool
+	apidefsScanMode        string
+	apidefsScanWorkers     int
+	apidefsScanServerSide  bool
+	apidefsScanClientSide  bool
+	apidefsScanPassive     bool
 )
 
 var apidefsScanCmd = &cobra.Command{
@@ -125,6 +126,12 @@ func runAPIDefsScan(cmd *cobra.Command, args []string) {
 	apiType := detectAPIDefinitionType(content, sourceURL)
 	logger.Info().Str("type", string(apiType)).Msg("Detected API type")
 
+	content, err = resolveGraphQLDefinitionContent(content, apiType, apidefsScanURL)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to retrieve GraphQL schema")
+		os.Exit(1)
+	}
+
 	var authConfig *db.APIAuthConfig
 	if apidefsScanAuthType != "none" {
 		authConfig, err = createAuthConfig(apidefsScanWorkspaceID, apiDefsAuthParams{
@@ -187,6 +194,17 @@ func runAPIDefsScan(cmd *cobra.Command, args []string) {
 		interactionsManager.Restart()
 	}
 	interactionsManager.Start()
+
+	if viper.GetBool("scan.oob.enabled") {
+		oobCtx, oobCancel := context.WithTimeout(context.Background(), 25*time.Second)
+		healthy, domain := integrations.VerifyOOBChannel(oobCtx, viper.GetString("scan.oob.server_urls"), 15*time.Second)
+		oobCancel()
+		if healthy {
+			logger.Info().Str("domain", domain).Msg("OOB interaction channel verified: blind SSRF/RCE/OOB detections are active")
+		} else {
+			logger.Warn().Str("domain", domain).Msg("OOB interaction channel is DORMANT: the self-test callback was not received, so blind SSRF/command-execution/OOB findings will be missed this run. Verify outbound reachability to the interactsh servers (scan.oob.server_urls) and that the client protocol matches the server.")
+		}
+	}
 
 	scanTitle := "API Scan - " + definition.Name
 	scanOptions := scan_options.FullScanOptions{
@@ -318,7 +336,3 @@ func runAPIDefsScan(cmd *cobra.Command, args []string) {
 	interactionsManager.Stop()
 	logger.Info().Msg("API scan finished")
 }
-
-
-
-

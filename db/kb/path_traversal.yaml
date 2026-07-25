@@ -1,0 +1,20 @@
+code: path_traversal
+title: Path Traversal Detected
+description:
+  The application uses user-supplied input to build a filesystem path without
+  properly neutralizing directory-traversal sequences. By supplying sequences
+  such as ../ an attacker can escape the intended base directory and read
+  arbitrary files on the server, potentially exposing credentials, configuration,
+  source code, or other sensitive data, and in some configurations write to or
+  execute unintended files.
+remediation:
+  Avoid passing user input to filesystem APIs. Where unavoidable, resolve the
+  requested path and verify the canonical result stays within an allow-listed
+  base directory before accessing it, reject any input containing traversal
+  sequences, absolute paths, or null bytes, and prefer opaque identifiers mapped
+  server-side to file names instead of accepting raw paths from the client.
+cwe: 22
+severity: High
+references:
+  - https://owasp.org/www-community/attacks/Path_Traversal
+  - https://cwe.mitre.org/data/definitions/22.html

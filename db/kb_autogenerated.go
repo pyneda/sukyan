@@ -133,6 +133,7 @@ var (
 	ParameterPollutionCode IssueCode = "parameter_pollution"
 	PasswordFieldAutocompleteEnabledCode IssueCode = "password_field_autocomplete_enabled"
 	PasswordInGetRequestCode IssueCode = "password_in_get_request"
+	PathTraversalCode IssueCode = "path_traversal"
 	PaymentTestEndpointDetectedCode IssueCode = "payment_test_endpoint_detected"
 	PerlCodeInjectionCode IssueCode = "perl_code_injection"
 	PhpCodeInjectionCode IssueCode = "php_code_injection"
@@ -1804,6 +1805,18 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://owasp.org/www-community/vulnerabilities/Information_exposure_through_query_strings_in_url",
 			"https://cheatsheetseries.owasp.org/cheatsheets/Query_Parameterization_Cheat_Sheet.html",
+		},
+	},
+	{
+		Code:        PathTraversalCode,
+		Title:       "Path Traversal Detected",
+		Description: "The application uses user-supplied input to build a filesystem path without properly neutralizing directory-traversal sequences. By supplying sequences such as ../ an attacker can escape the intended base directory and read arbitrary files on the server, potentially exposing credentials, configuration, source code, or other sensitive data, and in some configurations write to or execute unintended files.",
+		Remediation: "Avoid passing user input to filesystem APIs. Where unavoidable, resolve the requested path and verify the canonical result stays within an allow-listed base directory before accessing it, reject any input containing traversal sequences, absolute paths, or null bytes, and prefer opaque identifiers mapped server-side to file names instead of accepting raw paths from the client.",
+		Cwe:         22,
+		Severity:    "High",
+		References: []string{
+			"https://owasp.org/www-community/attacks/Path_Traversal",
+			"https://cwe.mitre.org/data/definitions/22.html",
 		},
 	},
 	{

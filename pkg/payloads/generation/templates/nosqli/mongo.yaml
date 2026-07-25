@@ -2,10 +2,6 @@ id: "mongo"
 issue_code: nosql_injection
 detection_condition: or
 detection_methods:
-  - response_condition:
-      status_code: 500
-      status_code_should_change: true
-      confidence: 40
   - response_check:
       check: database_error
       confidence: 90

@@ -1,0 +1,34 @@
+id: "ssti-handlebars"
+issue_code: "ssti"
+detection_condition: "or"
+# Handlebars is logic-less and cannot evaluate arithmetic, so this probe cannot
+# compute its marker the way the other engines' payloads do — it carries the
+# expected result as a literal and relies on a block-parameter rebind to emit it.
+# That makes the generic "response contains the result" fallback unusable here:
+# any endpoint that echoes the raw payload (a 404 page quoting the URL, a
+# validation error) would contain the literal and be reported as SSTI. Only the
+# full contiguous marker proves the block was actually executed, so this
+# generator deliberately keeps that single high-confidence condition.
+detection_methods:
+  - response_condition:
+      contains: "{{.prefix}}{{.result}}{{.suffix}}"
+      confidence: 100
+vars:
+  - name: value1
+    value: "{{randomInt 100000 999999}}"
+  - name: value2
+    value: "{{randomInt 100000 999999}}"
+  - name: prefix
+    value: "{{randomLowercaseString 4}}"
+  - name: suffix
+    value: "{{randomLowercaseString 4}}"
+  - name: result
+    value: "{{multiply .value1 .value2}}"
+templates:
+  - '{{.prefix}}{{"{{#with \""}}{{.result}}{{"\" as |v|}}{{v}}{{/with}}"}}{{.suffix}}'
+categories:
+  - ssti
+  - injection
+platforms:
+  - javascript
+  - nodejs

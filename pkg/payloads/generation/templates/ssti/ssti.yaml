@@ -8,14 +8,23 @@ detection_methods:
   - response_condition:
       contains: "{{.prefix}} {{.result}} {{.suffix}}"
       confidence: 100
+  # Last-resort method for engines that mangle the marker while still evaluating
+  # (smarty renders ${N*M} as "$<product>", pug as "<product></product>"), so the
+  # prefix/suffix are no longer adjacent to the product. It matches the bare
+  # product, which is weak evidence — hence body-only, so it cannot fire on a
+  # Content-Length/ETag/Date digit run, and hence the six-digit operands below.
   - response_condition:
       contains: "{{.result}}"
+      part: "body"
       confidence: 40
 vars:
+  # Six-digit operands make the product 10-12 digits. Three-digit operands
+  # produced a 3-4 digit product ~4% of the time, which collides with ordinary
+  # numbers in a page and false-fires the bare-product method above.
   - name: value1
-    value: "{{randomInt 10 999}}"
+    value: "{{randomInt 100000 999999}}"
   - name: value2
-    value: "{{randomInt 10 999}}"
+    value: "{{randomInt 100000 999999}}"
   - name: prefix
     value: "{{randomLowercaseString 4}}"
   - name: suffix
@@ -30,7 +39,20 @@ templates:
   - '{{.prefix}}{{"*{"}}{{.value1}}*{{.value2}}{{"}"}}{{.suffix}}'
   - "{{.prefix}}<%= {{.value1}}*{{.value2}} %>{{.suffix}}"
   - "{{.prefix}}@({{.value1}}*{{.value2}}){{.suffix}}"
-  - "{{.prefix}}#set($x={{.value1}}*{{.value2}}){{.suffix}}" 
+  - "{{.prefix}}#set($x={{.value1}}*{{.value2}}){{.suffix}}"
+  # Liquid has no infix arithmetic; multiplication is a filter.
+  - '{{.prefix}}{{"{{"}}{{.value1}}|times:{{.value2}}{{"}}"}}{{.suffix}}'
+  # Pug treats a bare line as a tag name, so the marker has to be piped text for
+  # the prefix/suffix to survive alongside the interpolated result.
+  - '|{{.prefix}}{{"#{"}}{{.value1}}*{{.value2}}{{"}"}}{{.suffix}}'
+  # Expression context: the sink already wraps input in the engine's delimiters
+  # (`Hello {{ <input> }}!`), so a delimited payload nests and is a syntax error.
+  # Here the payload must be a bare expression, and it concatenates the marker
+  # itself so a plain echo of the payload cannot satisfy the match.
+  - '"{{.prefix}}"+{{.value1}}*{{.value2}}+"{{.suffix}}"'
+  - "'{{.prefix}}'~{{.value1}}*{{.value2}}~'{{.suffix}}'"
+  - '"{{.prefix}}"+({{.value1}}*{{.value2}}).to_s+"{{.suffix}}"'
+  - '{{.value1}}|times:{{.value2}}|prepend:"{{.prefix}}"|append:"{{.suffix}}"'
 categories:
   - ssti
   - injection

@@ -5,6 +5,7 @@ import (
 	"github.com/projectdiscovery/dsl/deserialization"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"math"
 	"strconv"
 	"text/template"
 )
@@ -50,7 +51,13 @@ func toFloat64(i interface{}) (float64, error) {
 	}
 }
 
-func multiply(a, b interface{}) (float64, error) {
+// multiply returns an integer when both operands are integral. Arithmetic-oracle
+// payloads inject `N*M` into a target that does integer arithmetic and then match
+// the target's output as a string, but Go renders a float64 in scientific notation
+// once it exceeds ~1e6 ("9980010" becomes "9.98001e+06"). That marker can never
+// match what the target prints, so the whole detection silently stops working
+// above that magnitude.
+func multiply(a, b interface{}) (interface{}, error) {
 	af, err := toFloat64(a)
 	if err != nil {
 		return 0, err
@@ -59,8 +66,17 @@ func multiply(a, b interface{}) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return af * bf, nil
+
+	product := af * bf
+	if product == math.Trunc(product) && math.Abs(product) <= maxExactFloat64Int {
+		return int64(product), nil
+	}
+	return product, nil
 }
+
+// Beyond 2^53 a float64 can no longer represent every integer, so converting to
+// int64 would print a value the target never produced.
+const maxExactFloat64Int = 1 << 53
 
 func sum(a, b interface{}) (float64, error) {
 	af, err := toFloat64(a)

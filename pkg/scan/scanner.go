@@ -346,7 +346,14 @@ func (f *TemplateScanner) workerWithContext(ctx context.Context, wg *sync.WaitGr
 						Msg("Retrying request due to recoverable error")
 
 					task.retryCount++
-					time.Sleep(time.Duration(task.retryCount) * RetryDelayBase) // Progressive delay
+					// Progressive delay, but abort promptly if the scan is cancelled
+					// so a retrying worker does not outlive its job.
+					select {
+					case <-ctx.Done():
+						wg.Done()
+						continue
+					case <-time.After(time.Duration(task.retryCount) * RetryDelayBase):
+					}
 					select {
 					case pendingTasks <- task:
 						continue
@@ -373,7 +380,7 @@ func (f *TemplateScanner) workerWithContext(ctx context.Context, wg *sync.WaitGr
 			}
 
 			// Evaluate the result for vulnerabilities
-			vulnerable, details, confidence, issueOverride, err := f.EvaluateResult(result)
+			vulnerable, details, confidence, issueOverride, err := f.EvaluateResult(ctx, result)
 
 			if err != nil {
 				taskLog.Error().Err(err).Msg("Error evaluating result")
@@ -432,7 +439,7 @@ func (f *TemplateScanner) workerWithContext(ctx context.Context, wg *sync.WaitGr
 	}
 }
 
-func (f *TemplateScanner) EvaluateResult(result TemplateScannerResult) (bool, string, int, db.IssueCode, error) {
+func (f *TemplateScanner) EvaluateResult(ctx context.Context, result TemplateScannerResult) (bool, string, int, db.IssueCode, error) {
 	// Iterate through payload detection methods
 	vulnerable := false
 	condition := result.Payload.DetectionCondition
@@ -442,7 +449,7 @@ func (f *TemplateScanner) EvaluateResult(result TemplateScannerResult) (bool, st
 
 	for _, detectionMethod := range result.Payload.DetectionMethods {
 		// Evaluate the detection method
-		detectionMethodResult, description, conf, override, err := f.EvaluateDetectionMethod(result, detectionMethod)
+		detectionMethodResult, description, conf, override, err := f.EvaluateDetectionMethod(ctx, result, detectionMethod)
 		if conf > confidence {
 			confidence = conf
 		}
@@ -479,8 +486,8 @@ type repeatedHistoryItem struct {
 }
 
 // repeatHistoryItem repeats a history item and returns the new history item and the duration
-func (f *TemplateScanner) repeatHistoryItem(history *db.History, timeout time.Duration) (repeatedHistoryItem, error) {
-	request, err := http_utils.BuildRequestFromHistoryItem(history)
+func (f *TemplateScanner) repeatHistoryItem(ctx context.Context, history *db.History, timeout time.Duration) (repeatedHistoryItem, error) {
+	request, err := http_utils.BuildRequestFromHistoryItemWithContext(ctx, history)
 	if err != nil {
 		log.Error().Err(err).Msg("Error building original request from history item to revalidate time based issue")
 		return repeatedHistoryItem{}, err
@@ -516,7 +523,7 @@ func (f *TemplateScanner) repeatHistoryItem(history *db.History, timeout time.Du
 }
 
 // EvaluateDetectionMethod evaluates a detection method and returns a boolean indicating if it matched, a description of the match, the confidence and a possible error
-func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, method generation.DetectionMethod) (bool, string, int, db.IssueCode, error) {
+func (f *TemplateScanner) EvaluateDetectionMethod(ctx context.Context, result TemplateScannerResult, method generation.DetectionMethod) (bool, string, int, db.IssueCode, error) {
 	switch m := method.GetMethod().(type) {
 	case *generation.OOBInteractionDetectionMethod:
 		log.Debug().Msg("OOB Interaction detection method not implemented yet")
@@ -594,6 +601,24 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 			originalTrueCount := 0
 			payloadTrueCount := 0
 
+			// The revalidation loop below can span several minutes of requests and
+			// backoff sleeps. Both must yield to context cancellation so a cancelled
+			// or timed-out job frees its worker instead of stalling the scan.
+			// earlyReturn hands back the evidence accumulated so far rather than
+			// discarding it; the incomplete run is reported as not vulnerable so a
+			// half-finished revalidation never fabricates an issue.
+			earlyReturn := func() (bool, string, int, db.IssueCode, error) {
+				return false, sb.String(), finalConfidence, "", nil
+			}
+			interruptibleSleep := func(d time.Duration) bool {
+				select {
+				case <-ctx.Done():
+					return true
+				case <-time.After(d):
+					return false
+				}
+			}
+
 			if requestTimedOut {
 				sb.WriteString(fmt.Sprintf("Request timed out after %s, which may indicate the sleep payload of %s worked\n\n", result.Duration, m.Sleep))
 			} else {
@@ -606,6 +631,12 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 			sb.WriteString("=============================\n")
 
 			for i := 1; i < attempts; i++ {
+				select {
+				case <-ctx.Done():
+					log.Debug().Msg("Time-based revalidation cancelled; returning partial evidence")
+					return earlyReturn()
+				default:
+				}
 
 				delay := time.Duration(defaultDelay*i) * time.Second
 
@@ -618,7 +649,7 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 					revalidationTimeout = 5 * time.Minute
 				}
 
-				originalResult, err := f.repeatHistoryItem(result.Original, revalidationTimeout)
+				originalResult, err := f.repeatHistoryItem(ctx, result.Original, revalidationTimeout)
 				if err != nil {
 					if http_utils.IsTimeoutError(err) {
 						// NOTE: If original times out, it might indicate network issues, so we continue but note it
@@ -628,10 +659,12 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 						sb.WriteString(fmt.Sprintf("Attempt %d: Error making request for original history item: %s\n", i, err.Error()))
 					}
 					sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))
-					time.Sleep(delay)
+					if interruptibleSleep(delay) {
+						return earlyReturn()
+					}
 					continue
 				}
-				withPayloadResult, err := f.repeatHistoryItem(result.Result, revalidationTimeout)
+				withPayloadResult, err := f.repeatHistoryItem(ctx, result.Result, revalidationTimeout)
 				if err != nil {
 					if http_utils.IsTimeoutError(err) {
 						sb.WriteString(fmt.Sprintf("Attempt %d: Payload request timed out after %s (timeout: %s)\n", i, withPayloadResult.duration, revalidationTimeout))
@@ -644,7 +677,9 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 						sb.WriteString(fmt.Sprintf("Attempt %d: Error making request for history item with payload: %s\n", i, err.Error()))
 					}
 					sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))
-					time.Sleep(delay)
+					if interruptibleSleep(delay) {
+						return earlyReturn()
+					}
 					continue
 				}
 				originalIsHigher := m.CheckIfResultDurationIsHigher(originalResult.duration)
@@ -667,7 +702,9 @@ func (f *TemplateScanner) EvaluateDetectionMethod(result TemplateScannerResult, 
 				if originalIsHigher {
 					sb.WriteString(fmt.Sprintf(" * Sleeping for %s seconds.\n", delay))
 					log.Debug().Msg("While revalidating time based issue, both the original and the payload requests took longer than the sleep time. Sleeping for 30 seconds and trying again")
-					time.Sleep(delay)
+					if interruptibleSleep(delay) {
+						return earlyReturn()
+					}
 				}
 			}
 

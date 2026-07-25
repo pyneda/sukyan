@@ -2,6 +2,7 @@ package http_utils
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -9,6 +10,18 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 )
+
+// BuildRequestFromHistoryItemWithContext builds a request from a history item and
+// attaches ctx so an in-flight request is aborted when the scan is cancelled or
+// times out. ExecuteRequest derives its per-request timeout from req.Context(), so
+// a cancelled parent propagates all the way into client.Do.
+func BuildRequestFromHistoryItemWithContext(ctx context.Context, historyItem *db.History) (*http.Request, error) {
+	request, err := BuildRequestFromHistoryItem(historyItem)
+	if err != nil {
+		return nil, err
+	}
+	return request.WithContext(ctx), nil
+}
 
 // BuildRequestFromHistoryItem gets a history item and returns an http.Request with the same data
 func BuildRequestFromHistoryItem(historyItem *db.History) (*http.Request, error) {

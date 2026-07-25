@@ -8,7 +8,20 @@ import (
 	"github.com/pyneda/sukyan/lib"
 
 	"github.com/rs/zerolog/log"
+	"gorm.io/gorm"
 )
+
+// whereNullableUint adds an equality predicate for a nullable uint column, using
+// "IS NULL" when the value is nil. GORM binds a nil *uint as SQL NULL, and
+// "col = NULL" is never true, so a naive "col = ?" makes any lookup with a nil id
+// (e.g. HTTP issues, which have no websocket_connection_id/task_id/task_job_id)
+// never match — silently defeating issue deduplication.
+func whereNullableUint(query *gorm.DB, column string, value *uint) *gorm.DB {
+	if value == nil {
+		return query.Where(column + " IS NULL")
+	}
+	return query.Where(column+" = ?", *value)
+}
 
 // Issue holds table for storing issues found
 type Issue struct {
@@ -49,10 +62,10 @@ type Issue struct {
 	ScanJob               *ScanJob             `json:"-" gorm:"foreignKey:ScanJobID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	WebsocketConnectionID *uint                `json:"websocket_connection_id" gorm:"index;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	WebSocketConnection   *WebSocketConnection `json:"-" gorm:"foreignKey:WebsocketConnectionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	APIDefinitionID *uuid.UUID     `json:"api_definition_id,omitempty" gorm:"type:uuid;index"`
-	APIDefinition   *APIDefinition `json:"-" gorm:"foreignKey:APIDefinitionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	APIEndpointID   *uuid.UUID     `json:"api_endpoint_id,omitempty" gorm:"type:uuid;index"`
-	APIEndpoint     *APIEndpoint   `json:"-" gorm:"foreignKey:APIEndpointID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	APIDefinitionID       *uuid.UUID           `json:"api_definition_id,omitempty" gorm:"type:uuid;index"`
+	APIDefinition         *APIDefinition       `json:"-" gorm:"foreignKey:APIDefinitionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	APIEndpointID         *uuid.UUID           `json:"api_endpoint_id,omitempty" gorm:"type:uuid;index"`
+	APIEndpoint           *APIEndpoint         `json:"-" gorm:"foreignKey:APIEndpointID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 func (i Issue) TableHeaders() []string {
@@ -385,7 +398,7 @@ func (d *DatabaseConnection) CreateIssue(issue Issue) (Issue, error) {
 	}
 
 	var existingIssue Issue
-	query := d.db.Where("code = ? AND title = ? AND details = ? AND url = ? AND status_code = ? AND http_method = ? AND payload = ? AND confidence = ? AND severity = ? AND workspace_id = ? AND task_id = ? AND task_job_id = ? AND scan_id = ? AND websocket_connection_id = ?",
+	query := d.db.Where("code = ? AND title = ? AND details = ? AND url = ? AND status_code = ? AND http_method = ? AND payload = ? AND confidence = ? AND severity = ?",
 		issue.Code,
 		issue.Title,
 		issue.Details,
@@ -395,12 +408,12 @@ func (d *DatabaseConnection) CreateIssue(issue Issue) (Issue, error) {
 		issue.Payload,
 		issue.Confidence,
 		issue.Severity,
-		issue.WorkspaceID,
-		issue.TaskID,
-		issue.TaskJobID,
-		issue.ScanID,
-		issue.WebsocketConnectionID,
 	)
+	query = whereNullableUint(query, "workspace_id", issue.WorkspaceID)
+	query = whereNullableUint(query, "task_id", issue.TaskID)
+	query = whereNullableUint(query, "task_job_id", issue.TaskJobID)
+	query = whereNullableUint(query, "scan_id", issue.ScanID)
+	query = whereNullableUint(query, "websocket_connection_id", issue.WebsocketConnectionID)
 
 	result := query.First(&existingIssue)
 

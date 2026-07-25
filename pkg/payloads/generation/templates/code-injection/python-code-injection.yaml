@@ -1,0 +1,33 @@
+id: python-code-injection
+issue_code: python_code_injection
+detection_condition: or
+detection_methods:
+  - response_condition:
+      contains: "{{.prefix}}{{.result}}{{.suffix}}"
+      part: body
+      confidence: 100
+vars:
+  - name: value1
+    value: "{{randomInt 100 999}}"
+  - name: value2
+    value: "{{randomInt 100 999}}"
+  - name: prefix
+    value: "{{randomLowercaseString 5}}"
+  - name: suffix
+    value: "{{randomLowercaseString 5}}"
+  - name: result
+    value: "{{multiply .value1 .value2}}"
+launch:
+  operator: or
+  conditions:
+    - type: platform
+      value: python
+    - type: scan_mode
+      value: fuzz
+templates:
+  - "'{{.prefix}}'+str({{.value1}}*{{.value2}})+'{{.suffix}}'"
+  - '"{{.prefix}}"+str({{.value1}}*{{.value2}})+"{{.suffix}}"'
+categories:
+  - injection
+platforms:
+  - python

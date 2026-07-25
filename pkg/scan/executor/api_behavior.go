@@ -16,6 +16,7 @@ import (
 	activegraphql "github.com/pyneda/sukyan/pkg/active/api/graphql"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/scan/control"
+	scan_options "github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
 	"github.com/sourcegraph/conc/pool"
 )
@@ -150,7 +151,7 @@ func (e *APIBehaviorExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl
 		Int("malformed_patterns", len(malformedFPs)).
 		Msg("API behavior fingerprinting completed")
 
-	e.runAPILevelSecurityChecks(ctx, definition, httpClient, job, ctrl)
+	e.runAPILevelSecurityChecks(ctx, definition, httpClient, job, scan.Options.Mode, ctrl)
 
 	taskLog.Info().Msg("API behavior check completed")
 	return nil
@@ -161,6 +162,7 @@ func (e *APIBehaviorExecutor) runAPILevelSecurityChecks(
 	definition *db.APIDefinition,
 	httpClient *http.Client,
 	job *db.ScanJob,
+	mode scan_options.ScanMode,
 	ctrl *control.ScanControl,
 ) {
 	taskLog := log.With().
@@ -175,20 +177,28 @@ func (e *APIBehaviorExecutor) runAPILevelSecurityChecks(
 
 	switch definition.Type {
 	case db.APIDefinitionTypeGraphQL:
-		taskLog.Debug().Msg("Running API-level GraphQL security tests")
-		graphqlOpts := &activegraphql.GraphQLAuditOptions{
-			ActiveModuleOptions: active.ActiveModuleOptions{
-				Ctx:         ctx,
-				WorkspaceID: job.WorkspaceID,
-				ScanID:      job.ScanID,
-				ScanJobID:   job.ID,
-				HTTPClient:  httpClient,
-			},
-		}
-		activegraphql.ScanGraphQLAPI(definition, graphqlOpts)
+		taskLog.Debug().Str("scan_mode", mode.String()).Msg("Running API-level GraphQL security tests")
+		activegraphql.ScanGraphQLAPI(definition, newGraphQLAuditOptions(ctx, mode, job, httpClient))
 	}
 
 	taskLog.Debug().Msg("API-level security tests completed")
+}
+
+// newGraphQLAuditOptions builds the options for the API-level GraphQL audit. The
+// scan mode must be propagated here: batching.go (testBatchTiming) and depth.go
+// (circular-fragment cases) only run when ScanMode is "fuzz", so omitting it leaves
+// the zero value ("") and silently disables those checks in every mode.
+func newGraphQLAuditOptions(ctx context.Context, mode scan_options.ScanMode, job *db.ScanJob, httpClient *http.Client) *activegraphql.GraphQLAuditOptions {
+	return &activegraphql.GraphQLAuditOptions{
+		ActiveModuleOptions: active.ActiveModuleOptions{
+			Ctx:         ctx,
+			WorkspaceID: job.WorkspaceID,
+			ScanID:      job.ScanID,
+			ScanJobID:   job.ID,
+			ScanMode:    mode,
+			HTTPClient:  httpClient,
+		},
+	}
 }
 
 func (e *APIBehaviorExecutor) fingerprintNotFound(

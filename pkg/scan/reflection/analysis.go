@@ -18,6 +18,15 @@ type AnalysisOptions struct {
 
 // ReflectionAnalysis contains comprehensive reflection analysis results
 type ReflectionAnalysis struct {
+	// Measured reports whether the canary was actually injected into this
+	// insertion point. buildTestRequest can only place the canary in query
+	// parameters and form/JSON bodies; for every other type it sends the
+	// original request unchanged, which yields IsReflected=false for a reason
+	// that has nothing to do with the target. Callers that act on a negative
+	// result (skipping work) MUST check this first — "not reflected" and
+	// "never asked" are different answers.
+	Measured bool
+
 	// Core analysis
 	IsReflected      bool
 	ReflectionCount  int
@@ -61,6 +70,7 @@ func AnalyzeReflection(
 
 	result := &ReflectionAnalysis{
 		AttributeDetails: make(map[int]AttributeDetails),
+		Measured:         canInjectCanary(insertionPoint, originalItem.RequestContentType),
 	}
 
 	// Step 1: Send a request with a canary to detect reflection

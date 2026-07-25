@@ -213,6 +213,17 @@ func (x *AlertAudit) RunWithContextAwarePayloads(history *db.History, insertionP
 
 		var contextPayloads []payloads.PayloadInterface
 		if insertionPoint.Behaviour.ReflectionAnalysis != nil {
+			// Only skip when reflection was actually measurable here. For insertion
+			// point types the canary cannot be injected into, a non-reflected
+			// result is an artefact of the probe, not a property of the target.
+			if insertionPoint.Behaviour.ReflectionAnalysis.Measured &&
+				!insertionPoint.Behaviour.ReflectionAnalysis.IsReflected {
+				taskLog.Debug().
+					Str("insertionPoint", insertionPoint.Name).
+					Msg("Skipping browser XSS tests as the insertion point is not reflected")
+				continue
+			}
+
 			cspResult := payloads.GetCSPAwarePayloadsWithDetails(insertionPoint.Behaviour.ReflectionAnalysis, csp)
 			contextPayloads = cspResult.Payloads
 

@@ -49,8 +49,19 @@ func GetPayloadsForContext(analysis *reflection.ReflectionAnalysis) []PayloadInt
 
 // GetPayloadsForContextWithVariations returns XSS payloads with optional variation generation
 func GetPayloadsForContextWithVariations(analysis *reflection.ReflectionAnalysis, enableVariations bool) []PayloadInterface {
-	if analysis == nil || !analysis.IsReflected {
-		return GetXSSPayloads() // Fall back to all payloads
+	// Three distinct states, not two. A nil analysis means reflection was never
+	// measured, and an analysis with Measured=false means the canary could not be
+	// injected for this insertion point type at all (headers, cookies, URL path,
+	// XML bodies) — in both cases the negative says nothing about the target, so
+	// we cannot narrow and must test everything. Only a measured, non-reflected
+	// point is genuinely blind: the canary went in and never came back, so no
+	// reflected-XSS payload can fire. Each payload costs a browser navigation, so
+	// that case must cost nothing rather than the full set.
+	if analysis == nil || !analysis.Measured {
+		return GetXSSPayloads()
+	}
+	if !analysis.IsReflected {
+		return nil
 	}
 
 	var payloads []XSSPayload

@@ -166,6 +166,27 @@ func testCharacterEfficiency(
 	return result
 }
 
+// canInjectCanary reports whether buildTestRequest can actually place a payload
+// in this insertion point. Every other type falls through to "send the original
+// request unchanged", which produces a not-reflected result that says nothing
+// about the target. Callers use this to tell "not reflected" apart from
+// "never asked".
+//
+// It must stay in sync with buildTestRequest below;
+// TestCanInjectCanaryMatchesBuildTestRequest enforces that by checking whether
+// the canary actually appears in the request buildTestRequest produces.
+func canInjectCanary(insertionPoint InsertionPointInfo, contentType string) bool {
+	switch insertionPoint.Type {
+	case "parameter", "urlpath", "header", "cookie":
+		return true
+	case "body":
+		return strings.Contains(contentType, "application/x-www-form-urlencoded") ||
+			strings.Contains(contentType, "application/json")
+	default:
+		return false
+	}
+}
+
 // buildTestRequest creates an HTTP request with the test payload in the insertion point
 func buildTestRequest(originalItem *db.History, insertionPoint InsertionPointInfo, payload string) (*http.Request, error) {
 	newURL := originalItem.URL
@@ -179,6 +200,25 @@ func buildTestRequest(originalItem *db.History, insertionPoint InsertionPointInf
 		q := parsedURL.Query()
 		q.Set(insertionPoint.Name, payload)
 		parsedURL.RawQuery = q.Encode()
+		newURL = parsedURL.String()
+	}
+
+	// Handle URL path segments. Mirrors createRequestFromURLPath in
+	// pkg/scan/fill_insertion_points.go, which is what actually delivers payloads
+	// here — if the canary went somewhere else, reflection would be measured for a
+	// location the payload never reaches.
+	if insertionPoint.Type == "urlpath" {
+		parsedURL, err := url.Parse(newURL)
+		if err != nil {
+			return nil, err
+		}
+		segments := strings.Split(parsedURL.Path, "/")
+		for i, segment := range segments {
+			if segment == insertionPoint.Name {
+				segments[i] = payload
+			}
+		}
+		parsedURL.Path = strings.Join(segments, "/")
 		newURL = parsedURL.String()
 	}
 
@@ -232,6 +272,24 @@ func buildTestRequest(originalItem *db.History, insertionPoint InsertionPointInf
 
 	// Set headers from original request
 	http_utils.SetRequestHeadersFromHistoryItem(req, originalItem)
+
+	// Header and cookie points are injected after the original headers are
+	// applied, so the canary overrides the recorded value rather than being
+	// overwritten by it.
+	switch insertionPoint.Type {
+	case "header":
+		req.Header.Set(insertionPoint.Name, payload)
+	case "cookie":
+		if existing := req.Header.Get("Cookie"); existing != "" {
+			cookies := http_utils.ParseCookies(existing)
+			for _, cookie := range cookies {
+				if cookie.Name == insertionPoint.Name {
+					cookie.Value = payload
+				}
+			}
+			req.Header.Set("Cookie", http_utils.JoinCookies(cookies))
+		}
+	}
 
 	return req, nil
 }

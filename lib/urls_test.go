@@ -546,9 +546,11 @@ func TestEncodeQueryValuePreservingPct(t *testing.T) {
 			expected: "beap{{891*395}}ljse",
 		},
 		{
-			name:     "dollar-brace and hash-brace metachars are preserved raw",
+			// `#` must be encoded even though it is an injection metachar: raw, it
+			// opens the URL fragment and everything after it is dropped in transit.
+			name:     "injection metachars are preserved raw, except the fragment delimiter",
 			payload:  "${7*7}#{7*7}*{7*7}@(7*7)",
-			expected: "${7*7}#{7*7}*{7*7}@(7*7)",
+			expected: "${7*7}%23{7*7}*{7*7}@(7*7)",
 		},
 		{
 			name:     "pre-encoded CRLF triplets are preserved, not double-encoded",

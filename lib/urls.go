@@ -51,7 +51,10 @@ func isHexDigit(b byte) bool {
 // request line is valid and the target decodes back to the exact intended bytes.
 //
 // Injection metacharacters that are already legal in a query component
-// ({ } $ # * ( ) / | : etc.) are left raw to preserve payload fidelity, and an
+// ({ } $ * ( ) / | : etc.) are left raw to preserve payload fidelity. `#` is NOT
+// among them: it opens the URL fragment, which is never transmitted, so a raw `#`
+// truncates the payload in transit. It is percent-encoded, which delivers the same
+// byte to the application. An
 // existing valid %XX percent-triplet is passed through unchanged so payloads that
 // deliberately ship pre-encoded sequences (e.g. CRLF %0D%0A, null %00) are not
 // double-encoded.
@@ -64,9 +67,13 @@ func EncodeQueryValuePreservingPct(payload string) string {
 			i += 2
 			continue
 		}
+		// `#` is deliberately absent from the preserved set: it opens the URL
+		// fragment, which is never transmitted, so leaving it raw truncates the
+		// payload at the first `#` and the server sees only the prefix.
+		// Percent-encoding delivers the same byte to the application.
 		if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
 			strings.IndexByte("-._~", c) >= 0 ||
-			strings.IndexByte("{}$#*()!|:,/@", c) >= 0 {
+			strings.IndexByte("{}$*()!|:,/@", c) >= 0 {
 			sb.WriteByte(c)
 			continue
 		}

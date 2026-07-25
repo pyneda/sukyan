@@ -110,6 +110,11 @@ func (b *RequestBuilder) buildURL(op core.Operation, paramValues map[string]any)
 			if value == nil {
 				value = param.GetEffectiveValue()
 			}
+			// A path segment must never render as the literal "<nil>": that breaks
+			// routing and produces bogus URLs like /pet/%3Cnil%3E for value-less params.
+			if value == nil {
+				value = "1"
+			}
 			placeholder := "{" + param.Name + "}"
 			encoded := url.PathEscape(fmt.Sprintf("%v", value))
 			path = strings.ReplaceAll(path, placeholder, encoded)

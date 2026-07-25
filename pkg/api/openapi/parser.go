@@ -3,6 +3,8 @@ package openapi
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
@@ -10,6 +12,134 @@ import (
 	"github.com/pyneda/sukyan/pkg/api/core"
 	"github.com/rs/zerolog/log"
 )
+
+// selectBodyContentType deterministically picks one content type from an OpenAPI
+// request body. Go map iteration order is randomized, so ranging over Content and
+// taking the first entry made both the extracted body params and the Content-Type
+// header vary from run to run (and risked disagreeing with each other). Preference:
+// exact application/json, then any json-bearing type, then the lexicographically
+// smallest, so a given spec always yields the same request.
+func selectBodyContentType(content openapi3.Content) string {
+	if len(content) == 0 {
+		return ""
+	}
+	if _, ok := content["application/json"]; ok {
+		return "application/json"
+	}
+	best := ""
+	for ct := range content {
+		if strings.Contains(ct, "json") && (best == "" || ct < best) {
+			best = ct
+		}
+	}
+	if best != "" {
+		return best
+	}
+	for ct := range content {
+		if best == "" || ct < best {
+			best = ct
+		}
+	}
+	return best
+}
+
+// resolveServerURL turns a possibly-relative OpenAPI server URL (e.g. "/api/v3",
+// common in Petstore specs) into an absolute one by resolving it against the
+// definition's source URL. Without this, a relative server survives as the base URL
+// and requests build to "/api/v3/pet/..." with no scheme or host, so the endpoint is
+// unscannable. Absolute server URLs are returned unchanged.
+func resolveServerURL(serverURL, sourceURL string) string {
+	ref, err := url.Parse(serverURL)
+	if err != nil {
+		return serverURL
+	}
+	if ref.IsAbs() {
+		return serverURL
+	}
+	base, err := url.Parse(sourceURL)
+	if err != nil || !base.IsAbs() {
+		return serverURL
+	}
+	return base.ResolveReference(ref).String()
+}
+
+// effectiveObjectProperties resolves an object-like schema into its combined property
+// set and required list, following composition: allOf merges every subschema, while
+// oneOf/anyOf contribute the first object-like variant (deterministically, by spec
+// order). It returns isObject=true when the schema should be treated as a structured
+// body, so composed schemas no longer collapse into a single opaque "body" param with
+// a null value. A plain scalar/array body returns isObject=false so the caller keeps
+// its single-parameter fallback.
+func effectiveObjectProperties(schema *openapi3.Schema, depth int) (props openapi3.Schemas, required []string, isObject bool) {
+	if schema == nil || depth > maxSchemaDepth {
+		return nil, nil, false
+	}
+
+	props = openapi3.Schemas{}
+	seenRequired := map[string]bool{}
+	addRequired := func(names []string) {
+		for _, n := range names {
+			if !seenRequired[n] {
+				seenRequired[n] = true
+				required = append(required, n)
+			}
+		}
+	}
+
+	if schema.Type != nil {
+		for _, t := range schema.Type.Slice() {
+			if t == "object" {
+				isObject = true
+			}
+		}
+	}
+
+	if len(schema.Properties) > 0 {
+		for name, ref := range schema.Properties {
+			props[name] = ref
+		}
+		addRequired(schema.Required)
+		isObject = true
+	}
+
+	for _, sub := range schema.AllOf {
+		if sub == nil || sub.Value == nil {
+			continue
+		}
+		subProps, subRequired, ok := effectiveObjectProperties(sub.Value, depth+1)
+		if ok {
+			for name, ref := range subProps {
+				props[name] = ref
+			}
+			addRequired(subRequired)
+			isObject = true
+		}
+	}
+
+	if len(props) == 0 {
+		for _, group := range []openapi3.SchemaRefs{schema.OneOf, schema.AnyOf} {
+			for _, sub := range group {
+				if sub == nil || sub.Value == nil {
+					continue
+				}
+				subProps, subRequired, ok := effectiveObjectProperties(sub.Value, depth+1)
+				if ok {
+					for name, ref := range subProps {
+						props[name] = ref
+					}
+					addRequired(subRequired)
+					isObject = true
+					break
+				}
+			}
+			if len(props) > 0 {
+				break
+			}
+		}
+	}
+
+	return props, required, isObject
+}
 
 type Parser struct{}
 
@@ -36,7 +166,7 @@ func (p *Parser) Parse(definition *db.APIDefinition) ([]core.Operation, error) {
 
 	baseURL := definition.BaseURL
 	if baseURL == "" && len(doc.Servers) > 0 {
-		baseURL = doc.Servers[0].URL
+		baseURL = resolveServerURL(doc.Servers[0].URL, definition.SourceURL)
 	}
 
 	var operations []core.Operation
@@ -100,10 +230,7 @@ func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL, path, method st
 			Description: op.RequestBody.Value.Description,
 		}
 
-		for contentType := range op.RequestBody.Value.Content {
-			operation.OpenAPI.RequestBody.ContentType = contentType
-			break
-		}
+		operation.OpenAPI.RequestBody.ContentType = selectBodyContentType(op.RequestBody.Value.Content)
 	}
 
 	operation.Security = p.parseSecurityRequirements(op, doc)
@@ -137,42 +264,45 @@ func (p *Parser) parseParameter(param *openapi3.Parameter) core.Parameter {
 func (p *Parser) parseRequestBody(body *openapi3.RequestBody) []core.Parameter {
 	var params []core.Parameter
 
-	for contentType, mediaType := range body.Content {
-		if mediaType.Schema == nil || mediaType.Schema.Value == nil {
-			continue
-		}
+	contentType := selectBodyContentType(body.Content)
+	if contentType == "" {
+		return params
+	}
+	mediaType := body.Content[contentType]
+	if mediaType == nil || mediaType.Schema == nil || mediaType.Schema.Value == nil {
+		return params
+	}
 
-		schema := mediaType.Schema.Value
+	schema := mediaType.Schema.Value
+	props, required, isObject := effectiveObjectProperties(schema, 0)
 
-		if schema.Type != nil && len(schema.Type.Slice()) > 0 && schema.Type.Slice()[0] == "object" {
-			for propName, propRef := range schema.Properties {
-				if propRef.Value == nil {
-					continue
-				}
-
-				param := core.Parameter{
-					Name:        propName,
-					Location:    core.ParameterLocationBody,
-					Required:    p.isPropertyRequired(propName, schema.Required),
-					ContentType: contentType,
-				}
-
-				p.extractSchemaInfo(propRef.Value, &param)
-				params = append(params, param)
+	if isObject {
+		for propName, propRef := range props {
+			if propRef.Value == nil {
+				continue
 			}
-		} else {
+
 			param := core.Parameter{
-				Name:        "body",
+				Name:        propName,
 				Location:    core.ParameterLocationBody,
-				Required:    body.Required,
+				Required:    p.isPropertyRequired(propName, required),
 				ContentType: contentType,
 			}
-			p.extractSchemaInfo(schema, &param)
+
+			p.extractSchemaInfo(propRef.Value, &param)
 			params = append(params, param)
 		}
-
-		break
+		return params
 	}
+
+	param := core.Parameter{
+		Name:        "body",
+		Location:    core.ParameterLocationBody,
+		Required:    body.Required,
+		ContentType: contentType,
+	}
+	p.extractSchemaInfo(schema, &param)
+	params = append(params, param)
 
 	return params
 }

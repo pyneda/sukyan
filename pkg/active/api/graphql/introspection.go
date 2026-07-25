@@ -2,6 +2,7 @@ package graphql
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,6 +11,66 @@ import (
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
 )
+
+// introspectionSucceeded reports whether a response body is a successful GraphQL
+// introspection result. It keys on the introspection payload actually coming back
+// under a non-null "data" object (data.__schema / data.__type, or the same shape
+// under an alias) rather than the mere absence of the word "error". A real schema
+// routinely contains error-named types (UserError, ValidationError) or an `errors`
+// field, so a naive "no error" check produces false negatives and hides the finding.
+// When introspection is blocked the server returns `data: null` with an errors array,
+// which this correctly rejects.
+func introspectionSucceeded(body []byte) bool {
+	var envelope struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return false
+	}
+	data := bytes.TrimSpace(envelope.Data)
+	if len(data) == 0 || bytes.Equal(data, []byte("null")) {
+		return false
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return false
+	}
+	for name, raw := range fields {
+		// Direct introspection fields (basic/full/type/newline/whitespace/fragment variants).
+		if name == "__schema" || name == "__type" {
+			if isNonNullJSONObject(raw) {
+				return true
+			}
+		}
+		// Aliased introspection returns the schema under an arbitrary alias, so match on
+		// the tell-tale introspection sub-structure rather than the field name.
+		if jsonObjectHasAnyKey(raw, "types", "queryType", "directives") {
+			return true
+		}
+	}
+	return false
+}
+
+func isNonNullJSONObject(raw json.RawMessage) bool {
+	trimmed := bytes.TrimSpace(raw)
+	return len(trimmed) > 0 && trimmed[0] == '{'
+}
+
+func jsonObjectHasAnyKey(raw json.RawMessage, keys ...string) bool {
+	if !isNonNullJSONObject(raw) {
+		return false
+	}
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return false
+	}
+	for _, k := range keys {
+		if _, ok := obj[k]; ok {
+			return true
+		}
+	}
+	return false
+}
 
 // IntrospectionAudit tests for GraphQL introspection exposure
 type IntrospectionAudit struct {
@@ -142,12 +203,9 @@ func (a *IntrospectionAudit) Run() {
 		}
 
 		body, _ := result.History.ResponseBody()
-		bodyStr := string(body)
 
 		// Check for successful introspection
-		if (strings.Contains(bodyStr, "__schema") || strings.Contains(bodyStr, "__type")) &&
-			(strings.Contains(bodyStr, "types") || strings.Contains(bodyStr, "fields") || strings.Contains(bodyStr, "name")) &&
-			!strings.Contains(strings.ToLower(bodyStr), "error") {
+		if introspectionSucceeded(body) {
 
 			confidence := 95
 			if payload.name != "basic_schema" && payload.name != "full_introspection" {
@@ -208,9 +266,8 @@ func (a *IntrospectionAudit) testGETIntrospection(baseURL string, client *http.C
 	}
 
 	body, _ := result.History.ResponseBody()
-	bodyStr := string(body)
 
-	if strings.Contains(bodyStr, "__schema") && strings.Contains(bodyStr, "types") {
+	if introspectionSucceeded(body) {
 		details := fmt.Sprintf(`Introspection query variant: GET method with query parameter
 
 The endpoint accepts introspection queries via GET method, which may bypass WAF rules that only inspect POST bodies.

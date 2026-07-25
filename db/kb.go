@@ -58,6 +58,9 @@ func FillIssueFromHistoryAndTemplate(history *History, code IssueCode, details s
 		issue.StatusCode = history.StatusCode
 		issue.HTTPMethod = history.Method
 		issue.Requests = []History{*history}
+		// Inherit the API endpoint linkage so per-endpoint issue counts work
+		// (MarkAPIEndpointScanned counts issues by api_endpoint_id).
+		issue.APIEndpointID = history.APIEndpointID
 	} else {
 		log.Warn().Str("code", string(code)).Msg("No history provided for issue creation")
 	}

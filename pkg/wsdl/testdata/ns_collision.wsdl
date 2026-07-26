@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:ord="urn:orders"
+             xmlns:shp="urn:shipping"
+             xmlns:svc="urn:portal"
+             targetNamespace="urn:portal">
+  <types>
+    <xsd:schema targetNamespace="urn:orders" elementFormDefault="qualified">
+      <xsd:complexType name="Item">
+        <xsd:sequence>
+          <xsd:element name="sku" type="xsd:string"/>
+          <xsd:element name="quantity" type="xsd:int"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:schema>
+    <xsd:schema targetNamespace="urn:shipping" elementFormDefault="qualified">
+      <xsd:complexType name="Item">
+        <xsd:sequence>
+          <xsd:element name="trackingNumber" type="xsd:string"/>
+          <xsd:element name="carrier" type="xsd:string"/>
+          <xsd:element name="weightKg" type="xsd:decimal"/>
+        </xsd:sequence>
+      </xsd:complexType>
+    </xsd:schema>
+    <xsd:schema targetNamespace="urn:portal" elementFormDefault="qualified">
+      <xsd:element name="PlaceOrder">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="orderItem" type="ord:Item"/>
+            <xsd:element name="shipItem" type="shp:Item"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:schema>
+  </types>
+  <message name="PlaceOrderIn">
+    <part name="parameters" element="svc:PlaceOrder"/>
+  </message>
+  <portType name="PortalPort">
+    <operation name="PlaceOrder">
+      <input message="svc:PlaceOrderIn"/>
+    </operation>
+  </portType>
+  <binding name="PortalBinding" type="svc:PortalPort">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="PlaceOrder">
+      <soap:operation soapAction="urn:portal/PlaceOrder"/>
+      <input><soap:body use="literal"/></input>
+    </operation>
+  </binding>
+  <service name="PortalService">
+    <port name="PortalPort" binding="svc:PortalBinding">
+      <soap:address location="http://example.com/portal"/>
+    </port>
+  </service>
+</definitions>

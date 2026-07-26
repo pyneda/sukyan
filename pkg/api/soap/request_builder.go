@@ -137,13 +137,25 @@ func (b *RequestBuilder) buildSOAPEnvelopeXML(op core.Operation, paramValues map
 func (b *RequestBuilder) buildBodyContent(op core.Operation, paramValues map[string]any) string {
 	var sb strings.Builder
 
+	// The body child is the part's element when the WSDL declares one; the
+	// operation name only coincides with it by convention.
+	wrapper := op.Name
 	targetNS := ""
-	if op.SOAP != nil && op.SOAP.TargetNS != "" {
+	unqualifyChildren := false
+
+	if op.SOAP != nil {
+		if op.SOAP.InputElement != "" {
+			wrapper = op.SOAP.InputElement
+		}
 		targetNS = op.SOAP.TargetNS
+		if op.SOAP.InputElementNS != "" {
+			targetNS = op.SOAP.InputElementNS
+		}
+		unqualifyChildren = targetNS != "" && op.SOAP.ElementForm == "unqualified"
 	}
 
 	sb.WriteString("\n    <")
-	sb.WriteString(op.Name)
+	sb.WriteString(wrapper)
 	if targetNS != "" {
 		sb.WriteString(` xmlns="`)
 		sb.WriteString(targetNS)
@@ -157,19 +169,30 @@ func (b *RequestBuilder) buildBodyContent(op core.Operation, paramValues map[str
 			value = param.GetEffectiveValue()
 		}
 
+		// Under elementFormDefault="unqualified" the wrapper's children live in
+		// no namespace, so the inherited default has to be switched off.
+		attrs := ""
+		if unqualifyChildren {
+			attrs = ` xmlns=""`
+		}
+
 		sb.WriteString("      ")
-		sb.WriteString(b.buildElement(param.Name, value, param.NestedParams, 3))
+		sb.WriteString(b.buildElementWithAttrs(param.Name, attrs, value, param.NestedParams, 3))
 		sb.WriteString("\n")
 	}
 
 	sb.WriteString("    </")
-	sb.WriteString(op.Name)
+	sb.WriteString(wrapper)
 	sb.WriteString(">\n  ")
 
 	return sb.String()
 }
 
 func (b *RequestBuilder) buildElement(name string, value any, nestedParams []core.Parameter, depth int) string {
+	return b.buildElementWithAttrs(name, "", value, nestedParams, depth)
+}
+
+func (b *RequestBuilder) buildElementWithAttrs(name, attrs string, value any, nestedParams []core.Parameter, depth int) string {
 	if depth > 10 {
 		return ""
 	}
@@ -177,13 +200,13 @@ func (b *RequestBuilder) buildElement(name string, value any, nestedParams []cor
 	indent := strings.Repeat("  ", depth)
 
 	if value == nil {
-		return fmt.Sprintf("<%s/>", name)
+		return fmt.Sprintf("<%s%s/>", name, attrs)
 	}
 
 	switch v := value.(type) {
 	case map[string]any:
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("<%s>\n", name))
+		sb.WriteString(fmt.Sprintf("<%s%s>\n", name, attrs))
 		for k, val := range v {
 			var nestedParam []core.Parameter
 			for _, np := range nestedParams {
@@ -203,12 +226,12 @@ func (b *RequestBuilder) buildElement(name string, value any, nestedParams []cor
 	case []any:
 		var sb strings.Builder
 		for _, item := range v {
-			sb.WriteString(b.buildElement(name, item, nestedParams, depth))
+			sb.WriteString(b.buildElementWithAttrs(name, attrs, item, nestedParams, depth))
 		}
 		return sb.String()
 	default:
 		escapedValue := escapeXML(fmt.Sprintf("%v", v))
-		return fmt.Sprintf("<%s>%s</%s>", name, escapedValue, name)
+		return fmt.Sprintf("<%s%s>%s</%s>", name, attrs, escapedValue, name)
 	}
 }
 

@@ -8,10 +8,12 @@ import (
 
 // ParseWSDLInput represents the input for parsing a WSDL specification.
 type ParseWSDLInput struct {
-	URL             string            `json:"url" validate:"required,url"`
-	Headers         map[string]string `json:"headers,omitempty"`
-	IncludeOptional bool              `json:"include_optional"`
-	PreferSOAP12    bool              `json:"prefer_soap_12"`
+	URL     string            `json:"url" validate:"required,url"`
+	Headers map[string]string `json:"headers,omitempty"`
+	// IncludeOptional is a pointer so an omitted field keeps optional
+	// parameters, which is what a caller exploring an unknown service wants.
+	IncludeOptional *bool `json:"include_optional"`
+	PreferSOAP12    bool  `json:"prefer_soap_12"`
 }
 
 // ParseWSDLResponse represents the response from parsing a WSDL specification.
@@ -39,8 +41,15 @@ type ParseWSDLFromBytesInput struct {
 	Content         string            `json:"content" validate:"required"`
 	BaseURL         string            `json:"base_url" validate:"required,url"`
 	Headers         map[string]string `json:"headers,omitempty"`
-	IncludeOptional bool              `json:"include_optional"`
+	IncludeOptional *bool             `json:"include_optional"`
 	PreferSOAP12    bool              `json:"prefer_soap_12"`
+}
+
+func includeOptionalOrDefault(value *bool) bool {
+	if value == nil {
+		return true
+	}
+	return *value
 }
 
 // ParseWSDL godoc
@@ -73,8 +82,8 @@ func ParseWSDL(c *fiber.Ctx) error {
 	}
 
 	// Create parser with custom headers
-	parser := wsdl.NewParser()
-	if input.Headers != nil && len(input.Headers) > 0 {
+	parser := wsdl.NewParser().WithContext(c.UserContext())
+	if len(input.Headers) > 0 {
 		parser.WithHeaders(input.Headers)
 	}
 
@@ -90,7 +99,7 @@ func ParseWSDL(c *fiber.Ctx) error {
 
 	// Configure request generation
 	config := wsdl.GenerationConfig{
-		IncludeOptionalParams: input.IncludeOptional,
+		IncludeOptionalParams: includeOptionalOrDefault(input.IncludeOptional),
 		Headers:               input.Headers,
 		PreferSOAP12:          input.PreferSOAP12,
 	}
@@ -172,8 +181,8 @@ func ParseWSDLFromBytes(c *fiber.Ctx) error {
 	}
 
 	// Create parser with custom headers (for resolving imports)
-	parser := wsdl.NewParser()
-	if input.Headers != nil && len(input.Headers) > 0 {
+	parser := wsdl.NewParser().WithContext(c.UserContext())
+	if len(input.Headers) > 0 {
 		parser.WithHeaders(input.Headers)
 	}
 
@@ -190,7 +199,7 @@ func ParseWSDLFromBytes(c *fiber.Ctx) error {
 	// Configure request generation
 	config := wsdl.GenerationConfig{
 		BaseURL:               input.BaseURL,
-		IncludeOptionalParams: input.IncludeOptional,
+		IncludeOptionalParams: includeOptionalOrDefault(input.IncludeOptional),
 		Headers:               input.Headers,
 		PreferSOAP12:          input.PreferSOAP12,
 	}

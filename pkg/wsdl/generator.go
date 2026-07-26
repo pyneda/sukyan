@@ -2,6 +2,7 @@ package wsdl
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -17,7 +18,7 @@ func NewGenerator(doc *WSDLDocument, config GenerationConfig) *Generator {
 	return &Generator{
 		document: doc,
 		config:   config,
-		strategy: NewDefaultValueStrategy(),
+		strategy: &DefaultValueStrategy{IncludeOptional: config.IncludeOptionalParams},
 	}
 }
 
@@ -34,6 +35,12 @@ func (g *Generator) GenerateRequests() ([]ServiceEndpoint, error) {
 			}
 			endpoints = append(endpoints, endpoint)
 		}
+	}
+
+	if g.config.PreferSOAP12 {
+		sort.SliceStable(endpoints, func(i, j int) bool {
+			return endpoints[i].SOAPVersion == "1.2" && endpoints[j].SOAPVersion != "1.2"
+		})
 	}
 
 	return endpoints, nil
@@ -294,48 +301,19 @@ func (g *Generator) extractComplexTypeMetadata(ct *XSDComplexType, depth int) []
 	}
 
 	var fields []PartMetadata
-
-	// Handle sequence
-	if ct.Sequence != nil {
-		for _, elem := range ct.Sequence.Elements {
-			field := g.createFieldMetadata(&elem, depth)
-			fields = append(fields, field)
+	for _, elem := range CollectElements(ct, g.document.TypeRegistry) {
+		if !g.config.IncludeOptionalParams && elem.MinOccurs == "0" {
+			continue
 		}
-	}
-
-	// Handle all
-	if ct.All != nil {
-		for _, elem := range ct.All.Elements {
-			field := g.createFieldMetadata(&elem, depth)
-			fields = append(fields, field)
-		}
-	}
-
-	// Handle choice
-	if ct.Choice != nil {
-		for _, elem := range ct.Choice.Elements {
-			field := g.createFieldMetadata(&elem, depth)
-			field.Required = false // Choice elements are optional
-			fields = append(fields, field)
-		}
-	}
-
-	// Handle complexContent extension
-	if ct.ComplexContent != nil && ct.ComplexContent.Extension != nil {
-		// Get base type fields
-		baseName := ExtractLocalName(ct.ComplexContent.Extension.Base)
-		if baseCT, ok := g.document.TypeRegistry.ComplexTypes[baseName]; ok {
-			baseFields := g.extractComplexTypeMetadata(baseCT, depth+1)
-			fields = append(baseFields, fields...)
-		}
-
-		// Add extension fields
-		if ct.ComplexContent.Extension.Sequence != nil {
-			for _, elem := range ct.ComplexContent.Extension.Sequence.Elements {
-				field := g.createFieldMetadata(&elem, depth)
-				fields = append(fields, field)
+		field := g.createFieldMetadata(&elem, depth)
+		if ct.Choice != nil {
+			for _, alternative := range ct.Choice.Elements {
+				if alternative.Name == elem.Name {
+					field.Required = false
+				}
 			}
 		}
+		fields = append(fields, field)
 	}
 
 	return fields

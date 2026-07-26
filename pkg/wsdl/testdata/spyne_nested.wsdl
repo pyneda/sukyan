@@ -1,0 +1,56 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<wsdl:definitions xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:plink="http://schemas.xmlsoap.org/ws/2003/05/partner-link/" xmlns:wsdlsoap11="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:wsdlsoap12="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:soap11enc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:soap11env="http://schemas.xmlsoap.org/soap/envelope/" xmlns:soap12env="http://www.w3.org/2003/05/soap-envelope" xmlns:soap12enc="http://www.w3.org/2003/05/soap-encoding" xmlns:wsa="http://schemas.xmlsoap.org/ws/2003/03/addressing" xmlns:xop="http://www.w3.org/2004/08/xop/include" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:tns="http://testbed.local/soap/wss" targetNamespace="http://testbed.local/soap/wss" name="WsSecurityService"><wsdl:types><xs:schema targetNamespace="http://testbed.local/soap/wss" elementFormDefault="qualified"><xs:complexType name="GetSecureData"><xs:sequence><xs:element name="request_data" type="xs:string" minOccurs="0" nillable="true"/></xs:sequence></xs:complexType><xs:complexType name="GetSecureDataResponse"><xs:sequence><xs:element name="GetSecureDataResult" type="xs:string" minOccurs="0" nillable="true"/></xs:sequence></xs:complexType><xs:complexType name="GetTimeSensitiveData"><xs:sequence><xs:element name="request_data" type="xs:string" minOccurs="0" nillable="true"/><xs:element name="wsse_timestamp" type="xs:string" minOccurs="0" nillable="true"/></xs:sequence></xs:complexType><xs:complexType name="GetTimeSensitiveDataResponse"><xs:sequence><xs:element name="GetTimeSensitiveDataResult" type="xs:string" minOccurs="0" nillable="true"/></xs:sequence></xs:complexType><xs:complexType name="LoginUser"><xs:sequence><xs:element name="username" type="xs:string" minOccurs="0" nillable="true"/><xs:element name="password" type="xs:string" minOccurs="0" nillable="true"/></xs:sequence></xs:complexType><xs:complexType name="LoginUserResponse"><xs:sequence><xs:element name="LoginUserResult" type="xs:string" minOccurs="0" nillable="true"/></xs:sequence></xs:complexType><xs:complexType name="ProcessPayment"><xs:sequence><xs:element name="amount" type="xs:string" minOccurs="0" nillable="true"/><xs:element name="card_number" type="xs:string" minOccurs="0" nillable="true"/><xs:element name="wsse_token" type="xs:string" minOccurs="0" nillable="true"/></xs:sequence></xs:complexType><xs:complexType name="ProcessPaymentResponse"><xs:sequence><xs:element name="ProcessPaymentResult" type="xs:string" minOccurs="0" nillable="true"/></xs:sequence></xs:complexType><xs:element name="GetSecureData" type="tns:GetSecureData"/><xs:element name="GetSecureDataResponse" type="tns:GetSecureDataResponse"/><xs:element name="GetTimeSensitiveData" type="tns:GetTimeSensitiveData"/><xs:element name="GetTimeSensitiveDataResponse" type="tns:GetTimeSensitiveDataResponse"/><xs:element name="LoginUser" type="tns:LoginUser"/><xs:element name="LoginUserResponse" type="tns:LoginUserResponse"/><xs:element name="ProcessPayment" type="tns:ProcessPayment"/><xs:element name="ProcessPaymentResponse" type="tns:ProcessPaymentResponse"/></xs:schema></wsdl:types><wsdl:message name="GetSecureData"><wsdl:part name="GetSecureData" element="tns:GetSecureData"/></wsdl:message><wsdl:message name="GetSecureDataResponse"><wsdl:part name="GetSecureDataResponse" element="tns:GetSecureDataResponse"/></wsdl:message><wsdl:message name="GetTimeSensitiveData"><wsdl:part name="GetTimeSensitiveData" element="tns:GetTimeSensitiveData"/></wsdl:message><wsdl:message name="GetTimeSensitiveDataResponse"><wsdl:part name="GetTimeSensitiveDataResponse" element="tns:GetTimeSensitiveDataResponse"/></wsdl:message><wsdl:message name="ProcessPayment"><wsdl:part name="ProcessPayment" element="tns:ProcessPayment"/></wsdl:message><wsdl:message name="ProcessPaymentResponse"><wsdl:part name="ProcessPaymentResponse" element="tns:ProcessPaymentResponse"/></wsdl:message><wsdl:message name="LoginUser"><wsdl:part name="LoginUser" element="tns:LoginUser"/></wsdl:message><wsdl:message name="LoginUserResponse"><wsdl:part name="LoginUserResponse" element="tns:LoginUserResponse"/></wsdl:message><wsdl:service name="WsSecurityService"><wsdl:port name="WsSecurityService" binding="tns:WsSecurityService"><wsdlsoap11:address location="http://127.0.0.1:9094/soap/wss"/></wsdl:port></wsdl:service><wsdl:portType name="WsSecurityService"><wsdl:operation name="GetSecureData" parameterOrder="GetSecureData"><wsdl:documentation>Returns sensitive data if a wsse:Security header is present.
+
+        DELIBERATELY VULNERABLE: Accepts a WS-Security header containing a
+        ds:Signature element but NEVER validates the signature. The service
+        only checks for the *presence* of the &lt;wsse:Security&gt; element in the
+        request_data XML. The signature value, signing algorithm, key info,
+        and digest are completely ignored. An attacker can supply any
+        arbitrary or empty Signature element and gain access to sensitive data.
+
+        Expected input in request_data: raw XML containing a wsse:Security
+        element, e.g.:
+            &lt;wsse:Security xmlns:wsse="..."&gt;
+              &lt;ds:Signature xmlns:ds="..."&gt;
+                &lt;ds:SignatureValue&gt;anything&lt;/ds:SignatureValue&gt;
+              &lt;/ds:Signature&gt;
+            &lt;/wsse:Security&gt;
+        </wsdl:documentation><wsdl:input name="GetSecureData" message="tns:GetSecureData"/><wsdl:output name="GetSecureDataResponse" message="tns:GetSecureDataResponse"/></wsdl:operation><wsdl:operation name="GetTimeSensitiveData" parameterOrder="GetTimeSensitiveData"><wsdl:documentation>Returns data if a WS-Security Timestamp is present.
+
+        DELIBERATELY VULNERABLE: Accepts a wsu:Timestamp element but NEVER
+        checks whether the wsu:Expires value is in the past. The timestamp
+        is parsed and acknowledged but expiration is not enforced. This allows
+        indefinite replay of captured SOAP requests even if they contain
+        timestamps that expired long ago.
+
+        Expected wsse_timestamp format (or embedded in request_data):
+            &lt;wsu:Timestamp xmlns:wsu="..."&gt;
+              &lt;wsu:Created&gt;2020-01-01T00:00:00Z&lt;/wsu:Created&gt;
+              &lt;wsu:Expires&gt;2020-01-01T00:05:00Z&lt;/wsu:Expires&gt;
+            &lt;/wsu:Timestamp&gt;
+        </wsdl:documentation><wsdl:input name="GetTimeSensitiveData" message="tns:GetTimeSensitiveData"/><wsdl:output name="GetTimeSensitiveDataResponse" message="tns:GetTimeSensitiveDataResponse"/></wsdl:operation><wsdl:operation name="ProcessPayment" parameterOrder="ProcessPayment"><wsdl:documentation>Processes a payment with HMAC token verification.
+
+        DELIBERATELY VULNERABLE: Uses a weak, hardcoded signing key
+        ("secret123") for HMAC-SHA256 token verification. The token is
+        either the raw key itself or an HMAC-SHA256 digest computed with
+        this trivially guessable key. An attacker who discovers or brute-forces
+        the key can forge valid tokens for arbitrary payment amounts.
+
+        Additionally, the full card number is returned in the response,
+        exposing sensitive payment card data.
+        </wsdl:documentation><wsdl:input name="ProcessPayment" message="tns:ProcessPayment"/><wsdl:output name="ProcessPaymentResponse" message="tns:ProcessPaymentResponse"/></wsdl:operation><wsdl:operation name="LoginUser" parameterOrder="LoginUser"><wsdl:documentation>Authenticates a user with plaintext credentials.
+
+        DELIBERATELY VULNERABLE: Accepts username and password as plaintext
+        UsernameToken parameters with PasswordText type. No WS-Security
+        protection mechanisms are applied:
+          - No PasswordDigest (password is not hashed with nonce + timestamp)
+          - No nonce to prevent replay attacks
+          - No wsu:Created timestamp for freshness
+          - No encryption of the UsernameToken element
+          - No signature over the credentials
+
+        This means credentials are transmitted in clear text and are trivially
+        interceptable by any network observer. A secure implementation would
+        use at minimum PasswordDigest with a nonce and created timestamp, or
+        better yet, X.509 certificate-based authentication.
+        </wsdl:documentation><wsdl:input name="LoginUser" message="tns:LoginUser"/><wsdl:output name="LoginUserResponse" message="tns:LoginUserResponse"/></wsdl:operation></wsdl:portType><wsdl:binding name="WsSecurityService" type="tns:WsSecurityService"><wsdlsoap11:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/><wsdl:operation name="GetSecureData"><wsdlsoap11:operation soapAction="GetSecureData" style="document"/><wsdl:input name="GetSecureData"><wsdlsoap11:body use="literal"/></wsdl:input><wsdl:output name="GetSecureDataResponse"><wsdlsoap11:body use="literal"/></wsdl:output></wsdl:operation><wsdl:operation name="GetTimeSensitiveData"><wsdlsoap11:operation soapAction="GetTimeSensitiveData" style="document"/><wsdl:input name="GetTimeSensitiveData"><wsdlsoap11:body use="literal"/></wsdl:input><wsdl:output name="GetTimeSensitiveDataResponse"><wsdlsoap11:body use="literal"/></wsdl:output></wsdl:operation><wsdl:operation name="ProcessPayment"><wsdlsoap11:operation soapAction="ProcessPayment" style="document"/><wsdl:input name="ProcessPayment"><wsdlsoap11:body use="literal"/></wsdl:input><wsdl:output name="ProcessPaymentResponse"><wsdlsoap11:body use="literal"/></wsdl:output></wsdl:operation><wsdl:operation name="LoginUser"><wsdlsoap11:operation soapAction="LoginUser" style="document"/><wsdl:input name="LoginUser"><wsdlsoap11:body use="literal"/></wsdl:input><wsdl:output name="LoginUserResponse"><wsdlsoap11:body use="literal"/></wsdl:output></wsdl:operation></wsdl:binding></wsdl:definitions>

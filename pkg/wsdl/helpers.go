@@ -157,11 +157,16 @@ func ExtractDirectoryURL(fullURL string) string {
 		return fullURL
 	}
 
-	// Get directory of path
-	parsed.Path = path.Dir(parsed.Path)
-	if parsed.Path == "." {
-		parsed.Path = ""
+	// The trailing slash matters: url.ResolveReference treats a path without one
+	// as a file and replaces its last segment, which would resolve relative
+	// imports against the parent directory.
+	dir := path.Dir(parsed.Path)
+	if dir == "." || dir == "/" {
+		dir = "/"
+	} else {
+		dir += "/"
 	}
+	parsed.Path = dir
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	return parsed.String()

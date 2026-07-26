@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:wsdlsoap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             xmlns:impl="urn:AccountService"
+             xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/"
+             targetNamespace="urn:AccountService"
+             name="AccountServiceDefinitions">
+  <types>
+    <xsd:schema targetNamespace="urn:AccountService" elementFormDefault="unqualified">
+      <xsd:complexType name="Credentials">
+        <xsd:sequence>
+          <xsd:element name="username" type="xsd:string"/>
+          <xsd:element name="password" type="xsd:string"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:complexType name="TransferRequest">
+        <xsd:sequence>
+          <xsd:element name="fromAccount" type="xsd:string"/>
+          <xsd:element name="toAccount" type="xsd:string"/>
+          <xsd:choice>
+            <xsd:element name="amount" type="xsd:decimal"/>
+            <xsd:sequence>
+              <xsd:element name="currency" type="xsd:string"/>
+              <xsd:element name="minorUnits" type="xsd:long"/>
+            </xsd:sequence>
+          </xsd:choice>
+          <xsd:element name="memo" type="impl:Memo" minOccurs="0"/>
+        </xsd:sequence>
+      </xsd:complexType>
+      <xsd:simpleType name="Memo">
+        <xsd:restriction base="xsd:string">
+          <xsd:maxLength value="140"/>
+        </xsd:restriction>
+      </xsd:simpleType>
+    </xsd:schema>
+  </types>
+  <message name="transferRequest">
+    <part name="creds" type="impl:Credentials"/>
+    <part name="request" type="impl:TransferRequest"/>
+    <part name="idempotencyKey" type="xsd:string"/>
+  </message>
+  <message name="transferResponse">
+    <part name="transferReturn" type="xsd:string"/>
+  </message>
+  <message name="AccountFault">
+    <part name="fault" type="xsd:string"/>
+  </message>
+  <portType name="AccountService">
+    <operation name="transfer" parameterOrder="creds request idempotencyKey">
+      <input message="impl:transferRequest" name="transferRequest"/>
+      <output message="impl:transferResponse" name="transferResponse"/>
+      <fault message="impl:AccountFault" name="AccountFault"/>
+    </operation>
+  </portType>
+  <binding name="AccountServiceSoapBinding" type="impl:AccountService">
+    <wsdlsoap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="transfer">
+      <wsdlsoap:operation soapAction="urn:AccountService#transfer"/>
+      <input name="transferRequest">
+        <wsdlsoap:body use="encoded"
+                       encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"
+                       namespace="urn:AccountService"/>
+      </input>
+      <output name="transferResponse">
+        <wsdlsoap:body use="encoded"
+                       encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"
+                       namespace="urn:AccountService"/>
+      </output>
+      <fault name="AccountFault">
+        <wsdlsoap:fault name="AccountFault" use="encoded"
+                        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"
+                        namespace="urn:AccountService"/>
+      </fault>
+    </operation>
+  </binding>
+  <service name="AccountServiceService">
+    <port binding="impl:AccountServiceSoapBinding" name="AccountService">
+      <wsdlsoap:address location="http://example.com/axis/services/AccountService"/>
+    </port>
+  </service>
+</definitions>

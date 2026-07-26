@@ -394,28 +394,21 @@ func TestParse_SimpleWSDLParameters(t *testing.T) {
 
 	op := ops[0]
 
-	if len(op.Parameters) != 1 {
-		t.Fatalf("expected 1 top-level parameter (the message part), got %d", len(op.Parameters))
+	// Document/literal wrapped: the part's element is the SOAP body child, so
+	// its children are the operation's arguments and must surface as top-level
+	// parameters rather than being nested under the message-part name.
+	if len(op.Parameters) != 2 {
+		t.Fatalf("expected 2 top-level parameters (userId, includeDetails), got %d", len(op.Parameters))
 	}
-
-	param := op.Parameters[0]
-	if param.Name != "parameters" {
-		t.Errorf("expected parameter name 'parameters', got %q", param.Name)
-	}
-	if param.Location != core.ParameterLocationBody {
-		t.Errorf("expected body location, got %q", param.Location)
-	}
-	if param.DataType != core.DataTypeObject {
-		t.Errorf("expected object data type, got %q", param.DataType)
-	}
-
-	nested := param.NestedParams
-	if len(nested) < 2 {
-		t.Fatalf("expected at least 2 nested params (userId, includeDetails), got %d", len(nested))
+	if op.SOAP.InputElement != "GetUserRequest" {
+		t.Errorf("expected wrapper element GetUserRequest, got %q", op.SOAP.InputElement)
 	}
 
 	nestedByName := make(map[string]core.Parameter)
-	for _, np := range nested {
+	for _, np := range op.Parameters {
+		if np.Location != core.ParameterLocationBody {
+			t.Errorf("%s: expected body location, got %q", np.Name, np.Location)
+		}
 		nestedByName[np.Name] = np
 	}
 
@@ -506,17 +499,9 @@ func TestParse_NestedComplexTypes(t *testing.T) {
 	}
 
 	op := ops[0]
-	if len(op.Parameters) != 1 {
-		t.Fatalf("expected 1 top-level parameter, got %d", len(op.Parameters))
-	}
-
-	rootParam := op.Parameters[0]
-	if rootParam.DataType != core.DataTypeObject {
-		t.Fatalf("expected root param to be object, got %q", rootParam.DataType)
-	}
 
 	nestedByName := make(map[string]core.Parameter)
-	for _, np := range rootParam.NestedParams {
+	for _, np := range op.Parameters {
 		nestedByName[np.Name] = np
 	}
 
@@ -1213,9 +1198,8 @@ func TestParse_ComplexContentExtension(t *testing.T) {
 		t.Fatalf("expected 1 operation, got %d", len(ops))
 	}
 
-	rootParam := ops[0].Parameters[0]
 	nestedByName := make(map[string]core.Parameter)
-	for _, np := range rootParam.NestedParams {
+	for _, np := range ops[0].Parameters {
 		nestedByName[np.Name] = np
 	}
 
@@ -1310,9 +1294,8 @@ func TestParse_NillableAndDefault(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	rootParam := ops[0].Parameters[0]
 	nestedByName := make(map[string]core.Parameter)
-	for _, np := range rootParam.NestedParams {
+	for _, np := range ops[0].Parameters {
 		nestedByName[np.Name] = np
 	}
 
@@ -1401,16 +1384,12 @@ func TestParse_ChoiceElements(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	rootParam := ops[0].Parameters[0]
-	if rootParam.DataType != core.DataTypeObject {
-		t.Fatalf("expected object type, got %q", rootParam.DataType)
+	choiceParams := ops[0].Parameters
+	if len(choiceParams) != 3 {
+		t.Fatalf("expected 3 choice elements, got %d", len(choiceParams))
 	}
 
-	if len(rootParam.NestedParams) != 3 {
-		t.Fatalf("expected 3 choice elements, got %d", len(rootParam.NestedParams))
-	}
-
-	for _, np := range rootParam.NestedParams {
+	for _, np := range choiceParams {
 		if np.Required {
 			t.Errorf("choice element %q should not be required", np.Name)
 		}

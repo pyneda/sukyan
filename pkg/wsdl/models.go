@@ -62,9 +62,21 @@ type BindingOperation struct {
 
 // BindingIO describes the encoding for input/output messages
 type BindingIO struct {
-	Use           string `json:"use,omitempty"`            // "literal" or "encoded"
-	Namespace     string `json:"namespace,omitempty"`      // Namespace for encoded messages
-	EncodingStyle string `json:"encoding_style,omitempty"` // SOAP encoding style URI
+	Use           string        `json:"use,omitempty"`            // "literal" or "encoded"
+	Namespace     string        `json:"namespace,omitempty"`      // Namespace for encoded messages
+	EncodingStyle string        `json:"encoding_style,omitempty"` // SOAP encoding style URI
+	Parts         string        `json:"parts,omitempty"`          // Subset of message parts carried in the body
+	Headers       []BindingHeader `json:"headers,omitempty"`
+}
+
+// BindingHeader represents a soap:header entry. SOAP headers carry
+// authentication and routing data and are a fuzzable input surface.
+type BindingHeader struct {
+	Message       string `json:"message,omitempty"` // QName reference to the message
+	Part          string `json:"part,omitempty"`
+	Use           string `json:"use,omitempty"`
+	Namespace     string `json:"namespace,omitempty"`
+	EncodingStyle string `json:"encoding_style,omitempty"`
 }
 
 // BindingFault describes the encoding for fault messages

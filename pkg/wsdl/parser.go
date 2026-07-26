@@ -2,21 +2,50 @@ package wsdl
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
-// Parser handles WSDL document parsing with import resolution
+const (
+	DefaultMaxDocumentSize = 16 << 20
+	DefaultMaxDocuments    = 50
+	DefaultMaxDepth        = 10
+	// DefaultMaxTotalDuration bounds a whole parse, imports included. Callers
+	// that have no context to pass still get a worker that cannot be pinned
+	// open by a target that stalls every import.
+	DefaultMaxTotalDuration = 2 * time.Minute
+)
+
+// Parser handles WSDL document parsing with import resolution.
+//
+// A WSDL is fetched from a target under test, so its import and schemaLocation
+// values are attacker-controlled. Traversal is therefore bounded in depth,
+// document count and body size, restricted to http(s), and confined to the
+// origin the document came from unless the caller opts out. Credentials
+// supplied via WithHeaders are only ever sent to that same origin.
 type Parser struct {
-	client   *http.Client
-	headers  map[string]string
-	maxDepth int             // Max import recursion depth
-	imported map[string]bool // Track imported URLs to prevent cycles
+	client           *http.Client
+	headers          map[string]string
+	maxDepth         int
+	maxDocuments     int
+	maxDocumentSize  int64
+	allowCrossOrigin bool
+	maxTotalDuration time.Duration
+	ctx              context.Context
+	parseCtx         context.Context
+	origin           string
+	imported         map[string]bool
+	documentsFetched int
 }
 
 // NewParser creates a new WSDL parser
@@ -27,11 +56,88 @@ func NewParser() *Parser {
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			},
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= 5 {
+					return fmt.Errorf("too many redirects")
+				}
+				return nil
+			},
 		},
-		headers:  make(map[string]string),
-		maxDepth: 10,
-		imported: make(map[string]bool),
+		headers:          make(map[string]string),
+		maxDepth:         DefaultMaxDepth,
+		maxDocuments:     DefaultMaxDocuments,
+		maxDocumentSize:  DefaultMaxDocumentSize,
+		maxTotalDuration: DefaultMaxTotalDuration,
+		imported:         make(map[string]bool),
 	}
+}
+
+// WithContext ties the parse, including every import fetch, to a caller's
+// context so a cancelled scan job stops the work immediately. A parse is
+// bounded by DefaultMaxTotalDuration even without one.
+func (p *Parser) WithContext(ctx context.Context) *Parser {
+	p.ctx = ctx
+	return p
+}
+
+// WithMaxTotalDuration bounds the wall-clock time of an entire parse.
+func (p *Parser) WithMaxTotalDuration(d time.Duration) *Parser {
+	p.maxTotalDuration = d
+	return p
+}
+
+// WithMaxDocuments caps how many documents a single parse may fetch.
+func (p *Parser) WithMaxDocuments(n int) *Parser {
+	p.maxDocuments = n
+	return p
+}
+
+// WithMaxDocumentSize caps the accepted size of any single fetched document.
+func (p *Parser) WithMaxDocumentSize(n int64) *Parser {
+	p.maxDocumentSize = n
+	return p
+}
+
+// WithCrossOriginImports allows imports pointing at hosts other than the one
+// the WSDL came from. Off by default because those locations are chosen by the
+// document, not by us.
+func (p *Parser) WithCrossOriginImports(allow bool) *Parser {
+	p.allowCrossOrigin = allow
+	return p
+}
+
+func sameOrigin(a, b string) bool {
+	ua, err := url.Parse(a)
+	if err != nil {
+		return false
+	}
+	ub, err := url.Parse(b)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(ua.Scheme, ub.Scheme) && strings.EqualFold(ua.Host, ub.Host)
+}
+
+// allowImport reports whether an import location may be fetched.
+func (p *Parser) allowImport(rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid import URL %q: %w", rawURL, err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("refusing non-http import scheme %q", parsed.Scheme)
+	}
+	if !p.allowCrossOrigin {
+		// Without a source URL there is no origin to compare against, so the
+		// only safe reading of a document-chosen location is to refuse it.
+		if p.origin == "" {
+			return fmt.Errorf("refusing import %q: source document has no origin", rawURL)
+		}
+		if !sameOrigin(p.origin, rawURL) {
+			return fmt.Errorf("refusing cross-origin import %q", rawURL)
+		}
+	}
+	return nil
 }
 
 // WithHeaders sets custom headers for the parser
@@ -53,21 +159,49 @@ func (p *Parser) WithMaxDepth(depth int) *Parser {
 }
 
 // ParseFromURL fetches and parses a WSDL from a URL
-func (p *Parser) ParseFromURL(url string) (*WSDLDocument, error) {
-	// Reset imported tracker for new parse
-	p.imported = make(map[string]bool)
-	p.imported[url] = true
+func (p *Parser) ParseFromURL(target string) (*WSDLDocument, error) {
+	cancel := p.resetTraversal(target)
+	defer cancel()
+	p.imported[target] = true
 
-	data, err := p.fetchDocument(url)
+	data, err := p.fetchDocument(target)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch WSDL: %w", err)
 	}
 
-	return p.ParseFromBytes(data, url)
+	return p.parseDocument(data, target)
 }
 
 // ParseFromBytes parses WSDL from byte array
 func (p *Parser) ParseFromBytes(data []byte, sourceURL string) (*WSDLDocument, error) {
+	cancel := p.resetTraversal(sourceURL)
+	defer cancel()
+	return p.parseDocument(data, sourceURL)
+}
+
+// resetTraversal clears per-parse state and derives the deadline that bounds
+// every fetch this parse makes. The returned func must be called when the
+// parse finishes.
+func (p *Parser) resetTraversal(sourceURL string) context.CancelFunc {
+	p.imported = make(map[string]bool)
+	p.documentsFetched = 0
+	p.origin = sourceURL
+
+	parent := p.ctx
+	if parent == nil {
+		parent = context.Background()
+	}
+	if p.maxTotalDuration <= 0 {
+		p.parseCtx = parent
+		return func() {}
+	}
+
+	ctx, cancel := context.WithTimeout(parent, p.maxTotalDuration)
+	p.parseCtx = ctx
+	return cancel
+}
+
+func (p *Parser) parseDocument(data []byte, sourceURL string) (*WSDLDocument, error) {
 	// Parse raw XML
 	var rawWSDL rawDefinitions
 	if err := xml.Unmarshal(data, &rawWSDL); err != nil {
@@ -94,9 +228,20 @@ func (p *Parser) ParseFromBytes(data []byte, sourceURL string) (*WSDLDocument, e
 	return doc, nil
 }
 
-// fetchDocument retrieves a document from URL
-func (p *Parser) fetchDocument(url string) ([]byte, error) {
-	req, err := http.NewRequest("GET", url, nil)
+// fetchDocument retrieves a document from URL, bounded by the parser's
+// document budget, size cap and context.
+func (p *Parser) fetchDocument(target string) ([]byte, error) {
+	if p.maxDocuments > 0 && p.documentsFetched >= p.maxDocuments {
+		return nil, fmt.Errorf("document budget of %d exhausted", p.maxDocuments)
+	}
+	p.documentsFetched++
+
+	ctx := p.parseCtx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", target, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -104,8 +249,12 @@ func (p *Parser) fetchDocument(url string) ([]byte, error) {
 	req.Header.Set("Accept", "text/xml, application/xml, application/wsdl+xml")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
 
-	for key, value := range p.headers {
-		req.Header.Set(key, value)
+	// Caller-supplied headers may carry scan credentials; never replay them to
+	// a host the document merely pointed us at.
+	if p.origin != "" && sameOrigin(p.origin, target) {
+		for key, value := range p.headers {
+			req.Header.Set(key, value)
+		}
 	}
 
 	resp, err := p.client.Do(req)
@@ -114,12 +263,28 @@ func (p *Parser) fetchDocument(url string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
+	limit := p.maxDocumentSize
+	if limit <= 0 {
+		limit = DefaultMaxDocumentSize
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
+		bodyBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		if readErr != nil {
+			return nil, fmt.Errorf("unexpected status %d (response unreadable: %v)", resp.StatusCode, readErr)
+		}
 		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	return io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
+	if err != nil {
+		return nil, fmt.Errorf("reading document: %w", err)
+	}
+	if int64(len(body)) > limit {
+		return nil, fmt.Errorf("document exceeds maximum size of %d bytes", limit)
+	}
+
+	return body, nil
 }
 
 // extractNamespaces parses XML to extract namespace declarations
@@ -240,11 +405,11 @@ func (p *Parser) convertRawSchema(raw *rawSchema, namespaces *NamespaceMap) XSDS
 	}
 
 	for _, ct := range raw.ComplexTypes {
-		schema.ComplexTypes = append(schema.ComplexTypes, p.convertRawComplexType(&ct))
+		schema.ComplexTypes = append(schema.ComplexTypes, p.convertRawComplexType(&ct, schema.TargetNamespace))
 	}
 
 	for _, st := range raw.SimpleTypes {
-		schema.SimpleTypes = append(schema.SimpleTypes, p.convertRawSimpleType(&st))
+		schema.SimpleTypes = append(schema.SimpleTypes, p.convertRawSimpleType(&st, schema.TargetNamespace))
 	}
 
 	return schema
@@ -265,12 +430,12 @@ func (p *Parser) convertRawElement(raw *rawElement, targetNS string) XSDElement 
 	}
 
 	if raw.ComplexType != nil {
-		ct := p.convertRawComplexType(raw.ComplexType)
+		ct := p.convertRawComplexType(raw.ComplexType, targetNS)
 		elem.ComplexType = &ct
 	}
 
 	if raw.SimpleType != nil {
-		st := p.convertRawSimpleType(raw.SimpleType)
+		st := p.convertRawSimpleType(raw.SimpleType, targetNS)
 		elem.SimpleType = &st
 	}
 
@@ -278,7 +443,7 @@ func (p *Parser) convertRawElement(raw *rawElement, targetNS string) XSDElement 
 }
 
 // convertRawComplexType converts raw XSD complex type to domain model
-func (p *Parser) convertRawComplexType(raw *rawComplexType) XSDComplexType {
+func (p *Parser) convertRawComplexType(raw *rawComplexType, targetNS string) XSDComplexType {
 	ct := XSDComplexType{
 		Name:     raw.Name,
 		Abstract: raw.Abstract,
@@ -286,27 +451,27 @@ func (p *Parser) convertRawComplexType(raw *rawComplexType) XSDComplexType {
 	}
 
 	if raw.Sequence != nil {
-		seq := p.convertRawSequence(raw.Sequence)
+		seq := p.convertRawSequence(raw.Sequence, targetNS)
 		ct.Sequence = &seq
 	}
 
 	if raw.All != nil {
-		all := p.convertRawAll(raw.All)
+		all := p.convertRawAll(raw.All, targetNS)
 		ct.All = &all
 	}
 
 	if raw.Choice != nil {
-		choice := p.convertRawChoice(raw.Choice)
+		choice := p.convertRawChoice(raw.Choice, targetNS)
 		ct.Choice = &choice
 	}
 
 	if raw.ComplexContent != nil {
-		cc := p.convertRawComplexContent(raw.ComplexContent)
+		cc := p.convertRawComplexContent(raw.ComplexContent, targetNS)
 		ct.ComplexContent = &cc
 	}
 
 	if raw.SimpleContent != nil {
-		sc := p.convertRawSimpleContent(raw.SimpleContent)
+		sc := p.convertRawSimpleContent(raw.SimpleContent, targetNS)
 		ct.SimpleContent = &sc
 	}
 
@@ -318,7 +483,7 @@ func (p *Parser) convertRawComplexType(raw *rawComplexType) XSDComplexType {
 }
 
 // convertRawSequence converts raw XSD sequence to domain model
-func (p *Parser) convertRawSequence(raw *rawSequence) XSDSequence {
+func (p *Parser) convertRawSequence(raw *rawSequence, targetNS string) XSDSequence {
 	seq := XSDSequence{
 		MinOccurs: raw.MinOccurs,
 		MaxOccurs: raw.MaxOccurs,
@@ -326,19 +491,31 @@ func (p *Parser) convertRawSequence(raw *rawSequence) XSDSequence {
 	}
 
 	for _, elem := range raw.Elements {
-		seq.Elements = append(seq.Elements, p.convertRawElement(&elem, ""))
+		seq.Elements = append(seq.Elements, p.convertRawElement(&elem, targetNS))
 	}
 
 	for _, choice := range raw.Choices {
-		c := p.convertRawChoice(&choice)
-		seq.Choices = append(seq.Choices, c)
+		seq.Choices = append(seq.Choices, p.convertRawChoice(&choice, targetNS))
+	}
+
+	for _, nested := range raw.Sequences {
+		seq.Sequences = append(seq.Sequences, p.convertRawSequence(&nested, targetNS))
+	}
+
+	for _, any := range raw.Any {
+		seq.Any = append(seq.Any, XSDAny{
+			Namespace:       any.Namespace,
+			ProcessContents: any.ProcessContents,
+			MinOccurs:       any.MinOccurs,
+			MaxOccurs:       any.MaxOccurs,
+		})
 	}
 
 	return seq
 }
 
 // convertRawAll converts raw XSD all to domain model
-func (p *Parser) convertRawAll(raw *rawAll) XSDAll {
+func (p *Parser) convertRawAll(raw *rawAll, targetNS string) XSDAll {
 	all := XSDAll{
 		MinOccurs: raw.MinOccurs,
 		MaxOccurs: raw.MaxOccurs,
@@ -346,14 +523,14 @@ func (p *Parser) convertRawAll(raw *rawAll) XSDAll {
 	}
 
 	for _, elem := range raw.Elements {
-		all.Elements = append(all.Elements, p.convertRawElement(&elem, ""))
+		all.Elements = append(all.Elements, p.convertRawElement(&elem, targetNS))
 	}
 
 	return all
 }
 
 // convertRawChoice converts raw XSD choice to domain model
-func (p *Parser) convertRawChoice(raw *rawChoice) XSDChoice {
+func (p *Parser) convertRawChoice(raw *rawChoice, targetNS string) XSDChoice {
 	choice := XSDChoice{
 		MinOccurs: raw.MinOccurs,
 		MaxOccurs: raw.MaxOccurs,
@@ -361,25 +538,42 @@ func (p *Parser) convertRawChoice(raw *rawChoice) XSDChoice {
 	}
 
 	for _, elem := range raw.Elements {
-		choice.Elements = append(choice.Elements, p.convertRawElement(&elem, ""))
+		choice.Elements = append(choice.Elements, p.convertRawElement(&elem, targetNS))
+	}
+
+	for _, nested := range raw.Sequences {
+		choice.Sequences = append(choice.Sequences, p.convertRawSequence(&nested, targetNS))
+	}
+
+	for _, nested := range raw.Choices {
+		choice.Choices = append(choice.Choices, p.convertRawChoice(&nested, targetNS))
+	}
+
+	for _, any := range raw.Any {
+		choice.Any = append(choice.Any, XSDAny{
+			Namespace:       any.Namespace,
+			ProcessContents: any.ProcessContents,
+			MinOccurs:       any.MinOccurs,
+			MaxOccurs:       any.MaxOccurs,
+		})
 	}
 
 	return choice
 }
 
 // convertRawComplexContent converts raw complex content to domain model
-func (p *Parser) convertRawComplexContent(raw *rawComplexContent) XSDComplexContent {
+func (p *Parser) convertRawComplexContent(raw *rawComplexContent, targetNS string) XSDComplexContent {
 	cc := XSDComplexContent{
 		Mixed: raw.Mixed,
 	}
 
 	if raw.Extension != nil {
-		ext := p.convertRawExtension(raw.Extension)
+		ext := p.convertRawExtension(raw.Extension, targetNS)
 		cc.Extension = &ext
 	}
 
 	if raw.Restriction != nil {
-		rest := p.convertRawRestriction(raw.Restriction)
+		rest := p.convertRawRestriction(raw.Restriction, targetNS)
 		cc.Restriction = &rest
 	}
 
@@ -387,16 +581,16 @@ func (p *Parser) convertRawComplexContent(raw *rawComplexContent) XSDComplexCont
 }
 
 // convertRawSimpleContent converts raw simple content to domain model
-func (p *Parser) convertRawSimpleContent(raw *rawSimpleContent) XSDSimpleContent {
+func (p *Parser) convertRawSimpleContent(raw *rawSimpleContent, targetNS string) XSDSimpleContent {
 	sc := XSDSimpleContent{}
 
 	if raw.Extension != nil {
-		ext := p.convertRawExtension(raw.Extension)
+		ext := p.convertRawExtension(raw.Extension, targetNS)
 		sc.Extension = &ext
 	}
 
 	if raw.Restriction != nil {
-		rest := p.convertRawRestriction(raw.Restriction)
+		rest := p.convertRawRestriction(raw.Restriction, targetNS)
 		sc.Restriction = &rest
 	}
 
@@ -404,23 +598,23 @@ func (p *Parser) convertRawSimpleContent(raw *rawSimpleContent) XSDSimpleContent
 }
 
 // convertRawExtension converts raw extension to domain model
-func (p *Parser) convertRawExtension(raw *rawExtension) XSDExtension {
+func (p *Parser) convertRawExtension(raw *rawExtension, targetNS string) XSDExtension {
 	ext := XSDExtension{
 		Base: raw.Base,
 	}
 
 	if raw.Sequence != nil {
-		seq := p.convertRawSequence(raw.Sequence)
+		seq := p.convertRawSequence(raw.Sequence, targetNS)
 		ext.Sequence = &seq
 	}
 
 	if raw.All != nil {
-		all := p.convertRawAll(raw.All)
+		all := p.convertRawAll(raw.All, targetNS)
 		ext.All = &all
 	}
 
 	if raw.Choice != nil {
-		choice := p.convertRawChoice(raw.Choice)
+		choice := p.convertRawChoice(raw.Choice, targetNS)
 		ext.Choice = &choice
 	}
 
@@ -432,40 +626,43 @@ func (p *Parser) convertRawExtension(raw *rawExtension) XSDExtension {
 }
 
 // convertRawRestriction converts raw restriction to domain model
-func (p *Parser) convertRawRestriction(raw *rawRestriction) XSDRestriction {
+func (p *Parser) convertRawRestriction(raw *rawRestriction, targetNS string) XSDRestriction {
 	rest := XSDRestriction{
 		Base:         raw.Base,
-		Pattern:      raw.Pattern,
-		WhiteSpace:   raw.WhiteSpace,
-		MinInclusive: raw.MinInclusive,
-		MaxInclusive: raw.MaxInclusive,
-		MinExclusive: raw.MinExclusive,
-		MaxExclusive: raw.MaxExclusive,
+		WhiteSpace:   facetString(raw.WhiteSpace),
+		MinInclusive: facetString(raw.MinInclusive),
+		MaxInclusive: facetString(raw.MaxInclusive),
+		MinExclusive: facetString(raw.MinExclusive),
+		MaxExclusive: facetString(raw.MaxExclusive),
+	}
+
+	if len(raw.Pattern) > 0 {
+		rest.Pattern = raw.Pattern[0].Value
 	}
 
 	for _, enum := range raw.Enumeration {
 		rest.Enumeration = append(rest.Enumeration, enum.Value)
 	}
 
-	if raw.MinLength != nil {
-		rest.MinLength = raw.MinLength
-	}
-	if raw.MaxLength != nil {
-		rest.MaxLength = raw.MaxLength
-	}
-	if raw.Length != nil {
-		rest.Length = raw.Length
-	}
-	if raw.TotalDigits != nil {
-		rest.TotalDigits = raw.TotalDigits
-	}
-	if raw.FractionDigits != nil {
-		rest.FractionDigits = raw.FractionDigits
-	}
+	rest.MinLength = facetInt(raw.MinLength)
+	rest.MaxLength = facetInt(raw.MaxLength)
+	rest.Length = facetInt(raw.Length)
+	rest.TotalDigits = facetInt(raw.TotalDigits)
+	rest.FractionDigits = facetInt(raw.FractionDigits)
 
 	if raw.Sequence != nil {
-		seq := p.convertRawSequence(raw.Sequence)
+		seq := p.convertRawSequence(raw.Sequence, targetNS)
 		rest.Sequence = &seq
+	}
+
+	if raw.All != nil {
+		all := p.convertRawAll(raw.All, targetNS)
+		rest.All = &all
+	}
+
+	if raw.Choice != nil {
+		choice := p.convertRawChoice(raw.Choice, targetNS)
+		rest.Choice = &choice
 	}
 
 	for _, attr := range raw.Attributes {
@@ -476,13 +673,13 @@ func (p *Parser) convertRawRestriction(raw *rawRestriction) XSDRestriction {
 }
 
 // convertRawSimpleType converts raw simple type to domain model
-func (p *Parser) convertRawSimpleType(raw *rawSimpleType) XSDSimpleType {
+func (p *Parser) convertRawSimpleType(raw *rawSimpleType, targetNS string) XSDSimpleType {
 	st := XSDSimpleType{
 		Name: raw.Name,
 	}
 
 	if raw.Restriction != nil {
-		rest := p.convertRawRestriction(raw.Restriction)
+		rest := p.convertRawRestriction(raw.Restriction, targetNS)
 		st.Restriction = &rest
 	}
 
@@ -622,35 +819,55 @@ func (p *Parser) convertRawBindingOperation(raw *rawBindingOperation) BindingOpe
 		op.Style = raw.SOAP12Operation.Style
 	}
 
-	if raw.Input != nil {
-		op.Input = &BindingIO{}
-		if raw.Input.SOAPBody != nil {
-			op.Input.Use = raw.Input.SOAPBody.Use
-			op.Input.Namespace = raw.Input.SOAPBody.Namespace
-			op.Input.EncodingStyle = raw.Input.SOAPBody.EncodingStyle
-		}
-		if raw.Input.SOAP12Body != nil {
-			op.Input.Use = raw.Input.SOAP12Body.Use
-			op.Input.Namespace = raw.Input.SOAP12Body.Namespace
-			op.Input.EncodingStyle = raw.Input.SOAP12Body.EncodingStyle
-		}
-	}
+	op.Input = convertRawBindingIO(raw.Input)
+	op.Output = convertRawBindingIO(raw.Output)
 
-	if raw.Output != nil {
-		op.Output = &BindingIO{}
-		if raw.Output.SOAPBody != nil {
-			op.Output.Use = raw.Output.SOAPBody.Use
-			op.Output.Namespace = raw.Output.SOAPBody.Namespace
-			op.Output.EncodingStyle = raw.Output.SOAPBody.EncodingStyle
+	for _, fault := range raw.Faults {
+		converted := BindingFault{Name: fault.Name}
+		if soapFault := fault.SOAPFault; soapFault != nil {
+			converted.Use = soapFault.Use
+			converted.Namespace = soapFault.Namespace
+			converted.EncodingStyle = soapFault.EncodingStyle
 		}
-		if raw.Output.SOAP12Body != nil {
-			op.Output.Use = raw.Output.SOAP12Body.Use
-			op.Output.Namespace = raw.Output.SOAP12Body.Namespace
-			op.Output.EncodingStyle = raw.Output.SOAP12Body.EncodingStyle
+		if soapFault := fault.SOAP12Fault; soapFault != nil {
+			converted.Use = soapFault.Use
+			converted.Namespace = soapFault.Namespace
+			converted.EncodingStyle = soapFault.EncodingStyle
 		}
+		op.Faults = append(op.Faults, converted)
 	}
 
 	return op
+}
+
+func convertRawBindingIO(raw *rawBindingIO) *BindingIO {
+	if raw == nil {
+		return nil
+	}
+
+	io := &BindingIO{}
+	for _, body := range []*rawSOAPBody{raw.SOAPBody, raw.SOAP12Body} {
+		if body == nil {
+			continue
+		}
+		io.Use = body.Use
+		io.Namespace = body.Namespace
+		io.EncodingStyle = body.EncodingStyle
+		io.Parts = body.Parts
+	}
+
+	headers := append(append([]rawSOAPHeader{}, raw.SOAPHeaders...), raw.SOAP12Headers...)
+	for _, header := range headers {
+		io.Headers = append(io.Headers, BindingHeader{
+			Message:       header.Message,
+			Part:          header.Part,
+			Use:           header.Use,
+			Namespace:     header.Namespace,
+			EncodingStyle: header.EncodingStyle,
+		})
+	}
+
+	return io
 }
 
 // convertRawService converts raw service to domain model
@@ -702,16 +919,21 @@ func (p *Parser) resolveImports(doc *WSDLDocument, sourceURL string, depth int, 
 		if p.imported[resolvedURL] {
 			continue // Already imported
 		}
+		if err := p.allowImport(resolvedURL); err != nil {
+			log.Debug().Err(err).Str("location", location).Msg("Skipping WSDL import")
+			continue
+		}
 		p.imported[resolvedURL] = true
 
 		importedData, err := p.fetchDocument(resolvedURL)
 		if err != nil {
-			// Log warning but continue - some imports may be optional
+			log.Debug().Err(err).Str("url", resolvedURL).Msg("Failed to fetch WSDL import")
 			continue
 		}
 
-		importedDoc, err := p.ParseFromBytes(importedData, resolvedURL)
+		importedDoc, err := p.parseImportedWSDL(importedData, resolvedURL, depth+1)
 		if err != nil {
+			log.Debug().Err(err).Str("url", resolvedURL).Msg("Failed to parse WSDL import")
 			continue
 		}
 
@@ -732,6 +954,32 @@ func (p *Parser) resolveImports(doc *WSDLDocument, sourceURL string, depth int, 
 	return nil
 }
 
+// parseImportedWSDL parses a document reached through wsdl:import, preserving
+// the traversal budget and depth of the parse in progress.
+func (p *Parser) parseImportedWSDL(data []byte, sourceURL string, depth int) (*WSDLDocument, error) {
+	if depth > p.maxDepth {
+		return nil, fmt.Errorf("max import depth exceeded (%d)", p.maxDepth)
+	}
+
+	var rawWSDL rawDefinitions
+	if err := xml.Unmarshal(data, &rawWSDL); err != nil {
+		return nil, fmt.Errorf("failed to parse imported WSDL: %w", err)
+	}
+
+	namespaces := p.extractNamespaces(data)
+
+	doc, err := p.convertRawWSDL(&rawWSDL, namespaces)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert imported WSDL %s: %w", sourceURL, err)
+	}
+
+	if err := p.resolveImports(doc, sourceURL, depth, namespaces); err != nil {
+		return nil, fmt.Errorf("failed to resolve imports of %s: %w", sourceURL, err)
+	}
+
+	return doc, nil
+}
+
 // resolveXSDImports handles xsd:import and xsd:include
 func (p *Parser) resolveXSDImports(schema *XSDSchema, baseURL string, depth int) error {
 	if depth > p.maxDepth {
@@ -748,10 +996,15 @@ func (p *Parser) resolveXSDImports(schema *XSDSchema, baseURL string, depth int)
 		if p.imported[resolvedURL] {
 			continue
 		}
+		if err := p.allowImport(resolvedURL); err != nil {
+			log.Debug().Err(err).Str("location", imp.SchemaLocation).Msg("Skipping XSD import")
+			continue
+		}
 		p.imported[resolvedURL] = true
 
 		xsdData, err := p.fetchDocument(resolvedURL)
 		if err != nil {
+			log.Debug().Err(err).Str("url", resolvedURL).Msg("Failed to fetch XSD import")
 			continue
 		}
 
@@ -780,10 +1033,15 @@ func (p *Parser) resolveXSDImports(schema *XSDSchema, baseURL string, depth int)
 		if p.imported[resolvedURL] {
 			continue
 		}
+		if err := p.allowImport(resolvedURL); err != nil {
+			log.Debug().Err(err).Str("location", inc.SchemaLocation).Msg("Skipping XSD include")
+			continue
+		}
 		p.imported[resolvedURL] = true
 
 		xsdData, err := p.fetchDocument(resolvedURL)
 		if err != nil {
+			log.Debug().Err(err).Str("url", resolvedURL).Msg("Failed to fetch XSD include")
 			continue
 		}
 
@@ -838,53 +1096,83 @@ func (p *Parser) mergeXSDSchema(target, source *XSDSchema) {
 	target.SimpleTypes = append(target.SimpleTypes, source.SimpleTypes...)
 }
 
-// buildTypeRegistry builds a registry for quick type lookup
+// buildTypeRegistry builds a registry for quick type lookup.
+// Entries are keyed both by "{namespace}local" and by bare local name. The bare
+// key is a convenience for lookups that have lost namespace context; when two
+// schemas define the same local name the first one wins, so that a later import
+// cannot silently replace a type the document already resolved.
 func (p *Parser) buildTypeRegistry(doc *WSDLDocument) *TypeRegistry {
 	registry := NewTypeRegistry()
 
-	// Register messages
 	for i := range doc.Messages {
 		msg := &doc.Messages[i]
-		key := MakeTypeKey(doc.TargetNamespace, msg.Name)
-		registry.Messages[key] = msg
-		// Also register without namespace for simple lookup
-		registry.Messages[msg.Name] = msg
+		registry.Messages[MakeTypeKey(doc.TargetNamespace, msg.Name)] = msg
+		if _, exists := registry.Messages[msg.Name]; !exists {
+			registry.Messages[msg.Name] = msg
+		}
 	}
 
-	// Register types from schemas
-	if doc.Types != nil {
-		for i := range doc.Types.Schemas {
-			schema := &doc.Types.Schemas[i]
-			ns := schema.TargetNamespace
+	if doc.Types == nil {
+		return registry
+	}
 
-			for j := range schema.Elements {
-				elem := &schema.Elements[j]
-				key := MakeTypeKey(ns, elem.Name)
-				registry.Elements[key] = elem
+	for i := range doc.Types.Schemas {
+		schema := &doc.Types.Schemas[i]
+		ns := schema.TargetNamespace
+
+		for j := range schema.Elements {
+			elem := &schema.Elements[j]
+			if elem.Name == "" {
+				continue
+			}
+			registry.Elements[MakeTypeKey(ns, elem.Name)] = elem
+			if _, exists := registry.Elements[elem.Name]; !exists {
 				registry.Elements[elem.Name] = elem
 			}
+		}
 
-			for j := range schema.ComplexTypes {
-				ct := &schema.ComplexTypes[j]
-				if ct.Name != "" {
-					key := MakeTypeKey(ns, ct.Name)
-					registry.ComplexTypes[key] = ct
-					registry.ComplexTypes[ct.Name] = ct
-				}
+		for j := range schema.ComplexTypes {
+			ct := &schema.ComplexTypes[j]
+			if ct.Name == "" {
+				continue
 			}
+			registry.ComplexTypes[MakeTypeKey(ns, ct.Name)] = ct
+			if _, exists := registry.ComplexTypes[ct.Name]; !exists {
+				registry.ComplexTypes[ct.Name] = ct
+			}
+		}
 
-			for j := range schema.SimpleTypes {
-				st := &schema.SimpleTypes[j]
-				if st.Name != "" {
-					key := MakeTypeKey(ns, st.Name)
-					registry.SimpleTypes[key] = st
-					registry.SimpleTypes[st.Name] = st
-				}
+		for j := range schema.SimpleTypes {
+			st := &schema.SimpleTypes[j]
+			if st.Name == "" {
+				continue
+			}
+			registry.SimpleTypes[MakeTypeKey(ns, st.Name)] = st
+			if _, exists := registry.SimpleTypes[st.Name]; !exists {
+				registry.SimpleTypes[st.Name] = st
 			}
 		}
 	}
 
 	return registry
+}
+
+func facetString(f *rawFacet) string {
+	if f == nil {
+		return ""
+	}
+	return f.Value
+}
+
+func facetInt(f *rawFacet) *int {
+	if f == nil {
+		return nil
+	}
+	v, err := strconv.Atoi(strings.TrimSpace(f.Value))
+	if err != nil {
+		return nil
+	}
+	return &v
 }
 
 // extractDocumentation extracts text from documentation element

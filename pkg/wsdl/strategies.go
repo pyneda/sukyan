@@ -6,11 +6,13 @@ import (
 )
 
 // DefaultValueStrategy generates sensible default values for XSD types
-type DefaultValueStrategy struct{}
+type DefaultValueStrategy struct {
+	IncludeOptional bool
+}
 
 // NewDefaultValueStrategy creates a new default value strategy
 func NewDefaultValueStrategy() *DefaultValueStrategy {
-	return &DefaultValueStrategy{}
+	return &DefaultValueStrategy{IncludeOptional: true}
 }
 
 // GenerateForType generates a default value for an XSD type name
@@ -251,6 +253,18 @@ func (s *DefaultValueStrategy) GenerateXMLForElement(elem *XSDElement, registry 
 		elemName = refName
 	}
 
+	if elem.SimpleType != nil {
+		builder.WriteString(indent)
+		builder.WriteString("<")
+		builder.WriteString(elemName)
+		builder.WriteString(">")
+		builder.WriteString(XMLEscape(s.generateSimpleTypeValue(elem.SimpleType)))
+		builder.WriteString("</")
+		builder.WriteString(elemName)
+		builder.WriteString(">\n")
+		return builder.String()
+	}
+
 	// Handle inline complex type
 	if elem.ComplexType != nil {
 		builder.WriteString(indent)
@@ -295,8 +309,9 @@ func (s *DefaultValueStrategy) GenerateXMLForElement(elem *XSDElement, registry 
 			return builder.String()
 		}
 
-		// Simple type or built-in
-		value := s.GenerateForType(localType)
+		// A restricted simple type has a closed value space; ignoring its
+		// facets produces requests that validating stacks reject outright.
+		value := s.valueForTypeRef(elem.Type, registry)
 		builder.WriteString(indent)
 		builder.WriteString("<")
 		builder.WriteString(elemName)
@@ -321,6 +336,23 @@ func (s *DefaultValueStrategy) GenerateXMLForElement(elem *XSDElement, registry 
 	return builder.String()
 }
 
+// valueForTypeRef resolves a type QName to a value, honouring the facets of a
+// user-defined simple type before falling back to the built-in default.
+func (s *DefaultValueStrategy) valueForTypeRef(typeRef string, registry *TypeRegistry) string {
+	localType := ExtractLocalName(typeRef)
+
+	if registry != nil && !IsXSDBuiltinType(localType) {
+		if st, ok := registry.SimpleTypes[localType]; ok {
+			return s.generateSimpleTypeValue(st)
+		}
+		if st, ok := registry.SimpleTypes[typeRef]; ok {
+			return s.generateSimpleTypeValue(st)
+		}
+	}
+
+	return s.GenerateForType(localType)
+}
+
 // generateComplexTypeXML generates XML for a complex type
 func (s *DefaultValueStrategy) generateComplexTypeXML(ct *XSDComplexType, registry *TypeRegistry, indent string, targetNS string, depth int) string {
 	if ct == nil || depth > 10 {
@@ -329,51 +361,17 @@ func (s *DefaultValueStrategy) generateComplexTypeXML(ct *XSDComplexType, regist
 
 	var builder strings.Builder
 
-	// Handle sequence
-	if ct.Sequence != nil {
-		for _, elem := range ct.Sequence.Elements {
-			builder.WriteString(s.GenerateXMLForElement(&elem, registry, indent, targetNS, depth))
+	for _, elem := range CollectElements(ct, registry) {
+		if !s.IncludeOptional && elem.MinOccurs == "0" {
+			continue
 		}
-	}
-
-	// Handle all
-	if ct.All != nil {
-		for _, elem := range ct.All.Elements {
-			builder.WriteString(s.GenerateXMLForElement(&elem, registry, indent, targetNS, depth))
-		}
-	}
-
-	// Handle choice (use first element)
-	if ct.Choice != nil && len(ct.Choice.Elements) > 0 {
-		elem := ct.Choice.Elements[0]
 		builder.WriteString(s.GenerateXMLForElement(&elem, registry, indent, targetNS, depth))
 	}
 
-	// Handle complexContent extension
-	if ct.ComplexContent != nil && ct.ComplexContent.Extension != nil {
-		// Add base type content first
-		if base := ct.ComplexContent.Extension.Base; base != "" {
-			baseName := ExtractLocalName(base)
-			if baseCT, ok := registry.ComplexTypes[baseName]; ok {
-				builder.WriteString(s.generateComplexTypeXML(baseCT, registry, indent, targetNS, depth+1))
-			}
-		}
-		// Add extension content
-		if ct.ComplexContent.Extension.Sequence != nil {
-			for _, elem := range ct.ComplexContent.Extension.Sequence.Elements {
-				builder.WriteString(s.GenerateXMLForElement(&elem, registry, indent, targetNS, depth))
-			}
-		}
-	}
-
-	// Handle simpleContent
-	if ct.SimpleContent != nil {
-		if ct.SimpleContent.Extension != nil {
-			value := s.GenerateForType(ct.SimpleContent.Extension.Base)
-			builder.WriteString(indent)
-			builder.WriteString(XMLEscape(value))
-			builder.WriteString("\n")
-		}
+	if ct.SimpleContent != nil && ct.SimpleContent.Extension != nil {
+		builder.WriteString(indent)
+		builder.WriteString(XMLEscape(s.valueForTypeRef(ct.SimpleContent.Extension.Base, registry)))
+		builder.WriteString("\n")
 	}
 
 	return builder.String()
@@ -418,7 +416,7 @@ func (s *DefaultValueStrategy) GenerateXMLForMessagePart(part *MessagePart, regi
 		}
 
 		// Simple type
-		value := s.GenerateForType(localType)
+		value := s.valueForTypeRef(part.Type, registry)
 		return indent + "<" + part.Name + ">" + XMLEscape(value) + "</" + part.Name + ">\n"
 	}
 

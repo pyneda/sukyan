@@ -104,9 +104,10 @@ type rawSOAPOperation struct {
 
 // rawBindingIO represents input/output in binding operation
 type rawBindingIO struct {
-	SOAPBody   *rawSOAPBody   `xml:"http://schemas.xmlsoap.org/wsdl/soap/ body"`
-	SOAP12Body *rawSOAPBody   `xml:"http://schemas.xmlsoap.org/wsdl/soap12/ body"`
-	SOAPHeader *rawSOAPHeader `xml:"http://schemas.xmlsoap.org/wsdl/soap/ header"`
+	SOAPBody      *rawSOAPBody    `xml:"http://schemas.xmlsoap.org/wsdl/soap/ body"`
+	SOAP12Body    *rawSOAPBody    `xml:"http://schemas.xmlsoap.org/wsdl/soap12/ body"`
+	SOAPHeaders   []rawSOAPHeader `xml:"http://schemas.xmlsoap.org/wsdl/soap/ header"`
+	SOAP12Headers []rawSOAPHeader `xml:"http://schemas.xmlsoap.org/wsdl/soap12/ header"`
 }
 
 // rawSOAPBody represents soap:body
@@ -128,8 +129,9 @@ type rawSOAPHeader struct {
 
 // rawBindingFault represents fault in binding operation
 type rawBindingFault struct {
-	Name      string        `xml:"name,attr"`
-	SOAPFault *rawSOAPFault `xml:"http://schemas.xmlsoap.org/wsdl/soap/ fault"`
+	Name        string        `xml:"name,attr"`
+	SOAPFault   *rawSOAPFault `xml:"http://schemas.xmlsoap.org/wsdl/soap/ fault"`
+	SOAP12Fault *rawSOAPFault `xml:"http://schemas.xmlsoap.org/wsdl/soap12/ fault"`
 }
 
 // rawSOAPFault represents soap:fault
@@ -214,11 +216,12 @@ type rawComplexType struct {
 
 // rawSequence represents xsd:sequence
 type rawSequence struct {
-	MinOccurs string       `xml:"minOccurs,attr"`
-	MaxOccurs string       `xml:"maxOccurs,attr"`
-	Elements  []rawElement `xml:"element"`
-	Choices   []rawChoice  `xml:"choice"`
-	Any       []rawAny     `xml:"any"`
+	MinOccurs string        `xml:"minOccurs,attr"`
+	MaxOccurs string        `xml:"maxOccurs,attr"`
+	Elements  []rawElement  `xml:"element"`
+	Choices   []rawChoice   `xml:"choice"`
+	Sequences []rawSequence `xml:"sequence"`
+	Any       []rawAny      `xml:"any"`
 }
 
 // rawAll represents xsd:all
@@ -234,6 +237,7 @@ type rawChoice struct {
 	MaxOccurs string        `xml:"maxOccurs,attr"`
 	Elements  []rawElement  `xml:"element"`
 	Sequences []rawSequence `xml:"sequence"`
+	Choices   []rawChoice   `xml:"choice"`
 	Any       []rawAny      `xml:"any"`
 }
 
@@ -267,21 +271,28 @@ type rawExtension struct {
 	Attributes []rawAttribute `xml:"attribute"`
 }
 
+// rawFacet represents an XSD facet such as <xsd:maxLength value="5"/>.
+// encoding/xml rejects a ">" path combined with the attr flag, so each facet
+// must be decoded as its own element rather than as a nested attribute.
+type rawFacet struct {
+	Value string `xml:"value,attr"`
+}
+
 // rawRestriction represents xsd:restriction
 type rawRestriction struct {
 	Base           string           `xml:"base,attr"`
 	Enumeration    []rawEnumeration `xml:"enumeration"`
-	MinLength      *int             `xml:"minLength>value,attr"`
-	MaxLength      *int             `xml:"maxLength>value,attr"`
-	Length         *int             `xml:"length>value,attr"`
-	Pattern        string           `xml:"pattern>value,attr"`
-	WhiteSpace     string           `xml:"whiteSpace>value,attr"`
-	MinInclusive   string           `xml:"minInclusive>value,attr"`
-	MaxInclusive   string           `xml:"maxInclusive>value,attr"`
-	MinExclusive   string           `xml:"minExclusive>value,attr"`
-	MaxExclusive   string           `xml:"maxExclusive>value,attr"`
-	TotalDigits    *int             `xml:"totalDigits>value,attr"`
-	FractionDigits *int             `xml:"fractionDigits>value,attr"`
+	MinLength      *rawFacet        `xml:"minLength"`
+	MaxLength      *rawFacet        `xml:"maxLength"`
+	Length         *rawFacet        `xml:"length"`
+	Pattern        []rawFacet       `xml:"pattern"`
+	WhiteSpace     *rawFacet        `xml:"whiteSpace"`
+	MinInclusive   *rawFacet        `xml:"minInclusive"`
+	MaxInclusive   *rawFacet        `xml:"maxInclusive"`
+	MinExclusive   *rawFacet        `xml:"minExclusive"`
+	MaxExclusive   *rawFacet        `xml:"maxExclusive"`
+	TotalDigits    *rawFacet        `xml:"totalDigits"`
+	FractionDigits *rawFacet        `xml:"fractionDigits"`
 	Sequence       *rawSequence     `xml:"sequence"`
 	All            *rawAll          `xml:"all"`
 	Choice         *rawChoice       `xml:"choice"`

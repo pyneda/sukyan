@@ -69,6 +69,9 @@ type SOAPMetadata struct {
 	SOAPVersion    string `json:"soap_version,omitempty"`
 	TargetNS       string `json:"target_ns,omitempty"`
 	InputMessage   string `json:"input_message,omitempty"`
+	InputElement   string `json:"input_element,omitempty"`
+	InputElementNS string `json:"input_element_ns,omitempty"`
+	ElementForm    string `json:"element_form,omitempty"`
 	OutputMessage  string `json:"output_message,omitempty"`
 }
 

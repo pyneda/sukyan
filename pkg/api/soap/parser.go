@@ -108,7 +108,10 @@ func (p *Parser) convertOperation(
 
 	if portTypeOp.Input != nil {
 		operation.SOAP.InputMessage = portTypeOp.Input.Message
-		params := p.extractMessageParams(portTypeOp.Input.Message, doc)
+		params, wrapper, wrapperNS := p.extractInputParams(portTypeOp.Input.Message, doc, operation.SOAP.BindingStyle)
+		operation.SOAP.InputElement = wrapper
+		operation.SOAP.InputElementNS = wrapperNS
+		operation.SOAP.ElementForm = elementFormFor(doc, wrapperNS)
 		operation.Parameters = append(operation.Parameters, params...)
 	}
 
@@ -117,6 +120,74 @@ func (p *Parser) convertOperation(
 	}
 
 	return operation
+}
+
+// extractInputParams resolves an input message into fuzzable parameters.
+//
+// In the document/literal "wrapped" convention the message has a single part
+// referencing a global element whose complex type wraps the real arguments.
+// That element is the SOAP body child, so the arguments must be lifted out of
+// it: emitting the message-part name as an element instead nests the arguments
+// one level too deep and the server binds nothing.
+func (p *Parser) extractInputParams(messageName string, doc *pkgWsdl.WSDLDocument, style string) (params []core.Parameter, wrapperElement, wrapperNamespace string) {
+	message := p.findMessage(doc, messageName)
+	if message == nil {
+		return nil, "", ""
+	}
+
+	if style != "rpc" && len(message.Parts) == 1 && message.Parts[0].Element != "" {
+		if elem := p.findElement(doc, message.Parts[0].Element); elem != nil {
+			// A simpleContent wrapper carries a scalar value rather than child
+			// elements; flattening it would yield no parameters and an empty body.
+			if ct := p.resolveComplexType(elem, doc); ct != nil && ct.SimpleContent == nil {
+				return p.extractComplexTypeParams(ct, doc), elem.Name, elem.TargetNamespace
+			}
+		}
+	}
+
+	return p.extractMessageParams(messageName, doc), "", ""
+}
+
+// An absent elementFormDefault means "unqualified" per XSD, so children must
+// not inherit the wrapper's default namespace.
+const elementFormUnqualified = "unqualified"
+
+// elementFormFor reports the elementFormDefault of the schema owning a
+// namespace. Children of the body wrapper are namespace-qualified only when the
+// schema declares "qualified"; sending them qualified otherwise is rejected by
+// strict stacks.
+func elementFormFor(doc *pkgWsdl.WSDLDocument, namespace string) string {
+	if doc.Types == nil {
+		return elementFormUnqualified
+	}
+	for i := range doc.Types.Schemas {
+		if doc.Types.Schemas[i].TargetNamespace == namespace {
+			if form := doc.Types.Schemas[i].ElementFormDefault; form != "" {
+				return form
+			}
+			return elementFormUnqualified
+		}
+	}
+	return elementFormUnqualified
+}
+
+// resolveComplexType returns the complex type backing an element, whether it is
+// declared inline or referenced by name.
+func (p *Parser) resolveComplexType(elem *pkgWsdl.XSDElement, doc *pkgWsdl.WSDLDocument) *pkgWsdl.XSDComplexType {
+	if elem.ComplexType != nil {
+		return elem.ComplexType
+	}
+	if elem.Type == "" || doc.TypeRegistry == nil {
+		return nil
+	}
+	localName := p.extractLocalName(elem.Type)
+	if ct, ok := doc.TypeRegistry.ComplexTypes[localName]; ok {
+		return ct
+	}
+	if ct, ok := doc.TypeRegistry.ComplexTypes[elem.Type]; ok {
+		return ct
+	}
+	return nil
 }
 
 func (p *Parser) extractMessageParams(messageName string, doc *pkgWsdl.WSDLDocument) []core.Parameter {
@@ -194,42 +265,28 @@ func (p *Parser) extractComplexTypeParams(ct *pkgWsdl.XSDComplexType, doc *pkgWs
 }
 
 func (p *Parser) extractComplexTypeParamsWithDepth(ct *pkgWsdl.XSDComplexType, doc *pkgWsdl.WSDLDocument, visited map[string]bool, depth int) []core.Parameter {
-	var params []core.Parameter
-
-	if depth > maxSOAPDepth {
-		return params
+	if ct == nil || depth > maxSOAPDepth {
+		return nil
 	}
 
-	extractElems := func(elems []pkgWsdl.XSDElement, required bool) {
-		for _, elem := range elems {
-			param := core.Parameter{
-				Name:     elem.Name,
-				Location: core.ParameterLocationBody,
-			}
-			if required {
-				param.Required = p.isElementRequired(&elem)
-			}
-			p.extractElementInfoWithDepth(&elem, doc, &param, visited, depth+1)
-			params = append(params, param)
-		}
-	}
-
-	if ct.Sequence != nil {
-		extractElems(ct.Sequence.Elements, true)
-	}
-
-	if ct.All != nil {
-		extractElems(ct.All.Elements, true)
-	}
-
+	optional := map[string]bool{}
 	if ct.Choice != nil {
-		extractElems(ct.Choice.Elements, false)
+		for _, elem := range ct.Choice.Elements {
+			optional[elem.Name] = true
+		}
 	}
 
-	if ct.ComplexContent != nil && ct.ComplexContent.Extension != nil {
-		if ct.ComplexContent.Extension.Sequence != nil {
-			extractElems(ct.ComplexContent.Extension.Sequence.Elements, true)
+	var params []core.Parameter
+	for _, elem := range pkgWsdl.CollectElements(ct, doc.TypeRegistry) {
+		param := core.Parameter{
+			Name:     elem.Name,
+			Location: core.ParameterLocationBody,
 		}
+		if !optional[elem.Name] {
+			param.Required = p.isElementRequired(&elem)
+		}
+		p.extractElementInfoWithDepth(&elem, doc, &param, visited, depth+1)
+		params = append(params, param)
 	}
 
 	return params

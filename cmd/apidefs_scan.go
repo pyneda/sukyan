@@ -166,6 +166,18 @@ func runAPIDefsScan(cmd *cobra.Command, args []string) {
 		db.Connection().UpdateAPIDefinition(definition)
 	}
 
+	// A definition with no base URL yields a scan whose only start URL is the empty
+	// string: it is accepted, runs to completion and sends nothing. Specs loaded from
+	// a file with no `servers` entry have no origin to borrow, so say what is missing
+	// instead of producing an empty report.
+	if definition.BaseURL == "" {
+		logger.Error().
+			Str("definition_id", definition.ID.String()).
+			Str("source", sourceURL).
+			Msg("Definition declares no servers and its source has no host to fall back on; pass --base-url to say where the API is served")
+		os.Exit(1)
+	}
+
 	logger.Info().
 		Str("definition_id", definition.ID.String()).
 		Str("name", definition.Name).

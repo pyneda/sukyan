@@ -99,6 +99,9 @@ func (a *ClientSidePrototypePollutionAudit) evaluateWithContext(parentCtx contex
 		log.Warn().Err(err).Uint("history", a.HistoryItem.ID).Msg("Failed to create incognito browser context")
 		return
 	}
+	// The browser comes from a pool and outlives this audit, so the context and the
+	// page inside it have to be disposed here or they accumulate for the whole scan.
+	defer incognito.Close()
 	page, err := incognito.Page(proto.TargetCreateTarget{URL: ""})
 	if err != nil {
 		log.Warn().Err(err).Uint("history", a.HistoryItem.ID).Msg("Failed to create browser page")

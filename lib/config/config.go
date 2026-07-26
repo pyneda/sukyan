@@ -84,6 +84,7 @@ func SetDefaultConfig() {
 	viper.SetDefault("scan.oob.server_urls", "oast.pro,oast.live,oast.site,oast.online,oast.fun,oast.me")
 
 	viper.SetDefault("scan.avoid_repeated_issues", true)
+	viper.SetDefault("scan.insertion_points.max_xml_points", 25)
 
 	// In-band SSRF detection via a destination-controlled canary. The operator must
 	// host an endpoint at <canary_url>/ssrf/<token> that returns a body containing

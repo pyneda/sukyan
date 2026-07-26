@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -75,6 +76,52 @@ func createRequestFromCookie(history *db.History, builder InsertionPointBuilder)
 
 	headers["Cookie"] = updatedCookies
 	return headers, nil
+}
+
+// createRequestFromXMLPoints splices each payload into its own byte span. Spans are
+// applied last-first so that rewriting one does not shift the offsets of the others.
+func createRequestFromXMLPoints(history *db.History, builders []InsertionPointBuilder) (string, error) {
+	body, err := history.RequestBody()
+	if err != nil {
+		return "", err
+	}
+
+	ordered := make([]InsertionPointBuilder, len(builders))
+	copy(ordered, builders)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		return ordered[i].Point.Span.Start > ordered[j].Point.Span.Start
+	})
+
+	document := string(body)
+	applied := make([]InsertionPointSpan, 0, len(ordered))
+	for _, builder := range ordered {
+		if overlapsAppliedSpan(applied, builder.Point.Span) {
+			// Spans are offsets into the original body, so a second write into bytes an
+			// earlier one already replaced would land inside that payload.
+			log.Debug().Str("point", builder.Point.Name).Msg("Skipping XML insertion point overlapping an earlier one")
+			continue
+		}
+		document, err = ApplyXMLPointPayload(document, builder.Point, builder.Payload)
+		if err != nil {
+			return "", err
+		}
+		applied = append(applied, builder.Point.Span)
+	}
+	return document, nil
+}
+
+func overlapsAppliedSpan(applied []InsertionPointSpan, span InsertionPointSpan) bool {
+	for _, done := range applied {
+		if span.Start < done.End && done.Start < span.End {
+			return true
+		}
+		// Empty elements have a zero-length span, which the interval test above never
+		// reports as overlapping itself.
+		if span.Start == done.Start && span.End == done.End {
+			return true
+		}
+	}
+	return false
 }
 
 func createRequestFromBody(history *db.History, builders []InsertionPointBuilder) (io.Reader, string, error) {
@@ -212,6 +259,7 @@ func createRequestFromInsertionPointsInternal(history *db.History, builders []In
 	var contentType string
 	var err error
 	var bodyBuilders []InsertionPointBuilder
+	var xmlBuilders []InsertionPointBuilder
 
 	for _, builder := range builders {
 		switch builder.Point.Type {
@@ -245,8 +293,10 @@ func createRequestFromInsertionPointsInternal(history *db.History, builders []In
 			}
 		case InsertionPointTypeBody, InsertionPointTypeGraphQLVariable, InsertionPointTypeGraphQLInlineArg:
 			bodyBuilders = append(bodyBuilders, builder)
-		// case InsertionPointTypeFullBody:
-		// 	requestBody = strings.NewReader(builder.Payload)
+
+		case InsertionPointTypeXMLElement, InsertionPointTypeXMLAttribute:
+			xmlBuilders = append(xmlBuilders, builder)
+
 		case InsertionPointTypeFullBody:
 			requestBody = strings.NewReader(builder.Payload)
 
@@ -255,8 +305,31 @@ func createRequestFromInsertionPointsInternal(history *db.History, builders []In
 		}
 	}
 
+	if requestBody == nil && len(xmlBuilders) > 0 {
+		body, err := createRequestFromXMLPoints(history, xmlBuilders)
+		if err != nil {
+			return nil, err
+		}
+		requestBody = strings.NewReader(body)
+	}
+
 	if requestBody == nil {
-		requestBody, contentType, _ = createRequestFromBody(history, bodyBuilders)
+		if len(bodyBuilders) == 0 {
+			// No body point is being fuzzed, so send the body verbatim. Rebuilding it
+			// would drop it entirely for content types createRequestFromBody does not
+			// know, which is every XML request.
+			original, err := history.RequestBody()
+			if err != nil {
+				return nil, err
+			}
+			requestBody = bytes.NewReader(original)
+		} else {
+			var err error
+			requestBody, contentType, err = createRequestFromBody(history, bodyBuilders)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// if err != nil {

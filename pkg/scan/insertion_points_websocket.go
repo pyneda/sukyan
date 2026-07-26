@@ -267,106 +267,28 @@ func extractJSONArrayPoints(path string, array []interface{}, originalData strin
 	return points
 }
 
-// extractXMLInsertionPoints extracts insertion points from XML data
-func extractXMLInsertionPoints(data string) ([]InsertionPoint, error) {
-	var points []InsertionPoint
+// wsXMLDocumentPointName is the whole-message point xxe.yaml gates on.
+const wsXMLDocumentPointName = "document"
 
-	// Add the entire XML document as an insertion point
-	points = append(points, InsertionPoint{
+// extractXMLInsertionPoints exposes the whole document (the XXE surface) plus the
+// per-value points produced by the shared XML codec, which is the same extraction the
+// HTTP body path uses.
+func extractXMLInsertionPoints(data string) ([]InsertionPoint, error) {
+	points := []InsertionPoint{{
 		Type:         InsertionPointTypeWSXMLElement,
-		Name:         "document",
+		Name:         wsXMLDocumentPointName,
 		Value:        data,
 		ValueType:    lib.TypeXML,
 		OriginalData: data,
-	})
+	}}
 
-	// Extract tag names
-	tagPattern := regexp.MustCompile(`<([a-zA-Z0-9_:-]+)(\s+[^>]*)?[>/]`)
-	tagMatches := tagPattern.FindAllStringSubmatch(data, -1)
-	tagNames := make(map[string]bool)
-
-	for _, match := range tagMatches {
-		if len(match) > 1 {
-			tagName := match[1]
-			if !tagNames[tagName] {
-				tagNames[tagName] = true
-				points = append(points, InsertionPoint{
-					Type:         InsertionPointTypeWSXMLTag,
-					Name:         tagName,
-					Value:        tagName,
-					ValueType:    lib.TypeString,
-					OriginalData: data,
-				})
-			}
-		}
-	}
-
-	// Extract attributes
-	attrPattern := regexp.MustCompile(`([a-zA-Z0-9_:-]+)=["']([^"']*)["']`)
-	attrMatches := attrPattern.FindAllStringSubmatch(data, -1)
-
-	for _, match := range attrMatches {
-		if len(match) > 2 {
-			attrName := match[1]
-			attrValue := match[2]
-			points = append(points, InsertionPoint{
-				Type:         InsertionPointTypeWSXMLAttribute,
-				Name:         attrName,
-				Value:        attrValue,
-				ValueType:    lib.GuessDataType(attrValue),
-				OriginalData: data,
-			})
-		}
-	}
-
-	// Extract namespaces
-	nsPattern := regexp.MustCompile(`xmlns:([a-zA-Z0-9_-]+)=["']([^"']*)["']`)
-	nsMatches := nsPattern.FindAllStringSubmatch(data, -1)
-
-	for _, match := range nsMatches {
-		if len(match) > 2 {
-			nsPrefix := match[1]
-			nsValue := match[2]
-
-			// Add namespace prefix
-			points = append(points, InsertionPoint{
-				Type:         InsertionPointTypeWSXMLNSPrefix,
-				Name:         nsPrefix,
-				Value:        nsPrefix,
-				ValueType:    lib.TypeString,
-				OriginalData: data,
-			})
-
-			// Add namespace value
-			points = append(points, InsertionPoint{
-				Type:         InsertionPointTypeWSXMLNamespace,
-				Name:         nsPrefix,
-				Value:        nsValue,
-				ValueType:    lib.TypeString,
-				OriginalData: data,
-			})
-		}
-	}
-
-	// Extract processing instructions
-	piPattern := regexp.MustCompile(`<\?([a-zA-Z0-9_-]+)([^?]*)\?>`)
-	piMatches := piPattern.FindAllStringSubmatch(data, -1)
-
-	for _, match := range piMatches {
-		if len(match) > 2 {
-			piTarget := match[1]
-			piData := strings.TrimSpace(match[2])
-			points = append(points, InsertionPoint{
-				Type:         InsertionPointTypeWSXMLProcessing,
-				Name:         piTarget,
-				Value:        piData,
-				ValueType:    lib.TypeString,
-				OriginalData: data,
-			})
-		}
-	}
-
-	return points, nil
+	return append(points, ExtractXMLPoints(data, XMLPointOptions{
+		ElementType:       InsertionPointTypeWSXMLElement,
+		AttributeType:     InsertionPointTypeWSXMLAttribute,
+		IncludeAttributes: true,
+		MaxPoints:         maxXMLInsertionPoints(),
+		ReservedNames:     []string{wsXMLDocumentPointName},
+	})...), nil
 }
 
 // CreateModifiedWebSocketMessage applies a payload to a specific insertion point in a WebSocket message
@@ -399,9 +321,7 @@ func CreateModifiedWebSocketMessage(original *db.WebSocketMessage, insertionPoin
 		modified.PayloadData = newPayload
 		return &modified, nil
 
-	case InsertionPointTypeWSXMLElement, InsertionPointTypeWSXMLTag,
-		InsertionPointTypeWSXMLAttribute, InsertionPointTypeWSXMLNamespace,
-		InsertionPointTypeWSXMLNSPrefix, InsertionPointTypeWSXMLProcessing:
+	case InsertionPointTypeWSXMLElement, InsertionPointTypeWSXMLAttribute:
 		// Modify XML structure
 		newPayload, err := modifyXMLWithPayload(original.PayloadData, insertionPoint, payload)
 		if err != nil {
@@ -698,75 +618,11 @@ func parseArrayAccess(path string) (int, string, bool) {
 }
 
 // modifyXMLWithPayload applies a payload to an XML structure at the specified insertion point
+// modifyXMLWithPayload rewrites a single value in place. The whole-document point is
+// the one without a span, and it replaces the entire message.
 func modifyXMLWithPayload(xmlStr string, point InsertionPoint, payload string) (string, error) {
-	switch point.Type {
-	case InsertionPointTypeWSXMLElement:
-		if point.Name == "document" {
-			// Replace entire document
-			return payload, nil
-		}
-
-		// For named elements, find and replace
-		pattern := fmt.Sprintf(`(<%s[^>]*>)(.*?)(</%s>)`, regexp.QuoteMeta(point.Name), regexp.QuoteMeta(point.Name))
-		re := regexp.MustCompile(pattern)
-		return re.ReplaceAllString(xmlStr, "${1}"+payload+"${3}"), nil
-
-	case InsertionPointTypeWSXMLTag:
-		// Replace tag name
-		oldTag := point.Value
-		pattern := fmt.Sprintf(`<%s([^>]*)>`, regexp.QuoteMeta(oldTag))
-		re := regexp.MustCompile(pattern)
-		result := re.ReplaceAllString(xmlStr, "<"+payload+"${1}>")
-
-		// Also replace closing tag
-		closingPattern := fmt.Sprintf(`</%s>`, regexp.QuoteMeta(oldTag))
-		closingRe := regexp.MustCompile(closingPattern)
-		return closingRe.ReplaceAllString(result, "</"+payload+">"), nil
-
-	case InsertionPointTypeWSXMLAttribute:
-		// Replace attribute value
-		attrName := point.Name
-		pattern := fmt.Sprintf(`(%s=)["']([^"']*)["']`, regexp.QuoteMeta(attrName))
-		re := regexp.MustCompile(pattern)
-		return re.ReplaceAllString(xmlStr, "${1}\""+payload+"\""), nil
-
-	case InsertionPointTypeWSXMLNamespace:
-		// Replace namespace URI
-		nsPrefix := point.Name
-		pattern := fmt.Sprintf(`(xmlns:%s=)["']([^"']*)["']`, regexp.QuoteMeta(nsPrefix))
-		re := regexp.MustCompile(pattern)
-		return re.ReplaceAllString(xmlStr, "${1}\""+payload+"\""), nil
-
-	case InsertionPointTypeWSXMLNSPrefix:
-		// Replace namespace prefix - this is complex and might break XML
-		oldPrefix := point.Value
-		newXML := xmlStr
-
-		// Replace in xmlns declaration
-		nsPattern := fmt.Sprintf(`xmlns:%s=`, regexp.QuoteMeta(oldPrefix))
-		nsReplacement := fmt.Sprintf(`xmlns:%s=`, payload)
-		newXML = strings.Replace(newXML, nsPattern, nsReplacement, -1)
-
-		// Replace in element usage
-		tagPattern := fmt.Sprintf(`(</?)%s:`, regexp.QuoteMeta(oldPrefix))
-		tagRe := regexp.MustCompile(tagPattern)
-		newXML = tagRe.ReplaceAllString(newXML, "${1}"+payload+":")
-
-		// Replace in attribute usage
-		attrPattern := fmt.Sprintf(`%s:([a-zA-Z0-9_-]+)=`, regexp.QuoteMeta(oldPrefix))
-		attrRe := regexp.MustCompile(attrPattern)
-		newXML = attrRe.ReplaceAllString(newXML, payload+":${1}=")
-
-		return newXML, nil
-
-	case InsertionPointTypeWSXMLProcessing:
-		// Replace processing instruction content
-		piName := point.Name
-		pattern := fmt.Sprintf(`(<\?%s)([^?]*)\?>`, regexp.QuoteMeta(piName))
-		re := regexp.MustCompile(pattern)
-		return re.ReplaceAllString(xmlStr, "${1} "+payload+"?>"), nil
-
-	default:
-		return "", fmt.Errorf("unsupported XML insertion point type: %s", point.Type)
+	if !point.Span.Valid {
+		return payload, nil
 	}
+	return ApplyXMLPointPayload(xmlStr, point, payload)
 }

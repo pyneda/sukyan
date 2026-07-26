@@ -82,7 +82,16 @@ func (f *TemplateScanner) checkConfig() {
 
 // shouldLaunch checks if the generator should be launched according to the launch conditions
 func (f *TemplateScanner) shouldLaunch(history *db.History, generator *generation.PayloadGenerator, insertionPoint InsertionPoint, options options.HistoryItemScanOptions) bool {
-	if generator == nil || len(generator.Launch.Conditions) == 0 {
+	if generator == nil {
+		return true
+	}
+	// Replacing a whole XML document with a bare value-injection payload only ever
+	// produces a parse fault, so this surface is opt-in: a generator reaches it only by
+	// naming it or declaring its type. Whole-document payloads (XXE) declare both.
+	if isXMLWholeBodyPoint(insertionPoint) && !generatorTargetsInsertionPoint(generator, insertionPoint) {
+		return false
+	}
+	if len(generator.Launch.Conditions) == 0 {
 		return true
 	}
 	conditionsMet := 0
@@ -121,6 +130,11 @@ func (f *TemplateScanner) shouldLaunch(history *db.History, generator *generatio
 				conditionsMet++
 			}
 
+		case generation.InsertionPointTypeCondition:
+			if condition.Value == string(insertionPoint.Type) {
+				conditionsMet++
+			}
+
 		case generation.ResponseCondition:
 			if condition.ResponseCondition.Check(history) {
 				conditionsMet++
@@ -133,6 +147,33 @@ func (f *TemplateScanner) shouldLaunch(history *db.History, generator *generatio
 	}
 
 	return conditionsMet == len(generator.Launch.Conditions)
+}
+
+// isXMLWholeBodyPoint identifies the point handleBodyParameters creates for an XML
+// body. The name is what distinguishes it: a non-XML body whose content merely looks
+// like XML gets the generic "fullbody" point, which must keep full template coverage.
+func isXMLWholeBodyPoint(point InsertionPoint) bool {
+	return point.Type == InsertionPointTypeFullBody &&
+		point.Name == xmlBodyInsertionPointName &&
+		point.ValueType == lib.TypeXML
+}
+
+// generatorTargetsInsertionPoint reports whether a generator explicitly opts in to a
+// point, either by naming it or by declaring its type.
+func generatorTargetsInsertionPoint(generator *generation.PayloadGenerator, point InsertionPoint) bool {
+	for _, condition := range generator.Launch.Conditions {
+		switch condition.Type {
+		case generation.ParameterName:
+			if lib.SliceContains(condition.ParameterNames, point.Name) {
+				return true
+			}
+		case generation.InsertionPointTypeCondition:
+			if condition.Value == string(point.Type) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type FuzzItemOptions struct {

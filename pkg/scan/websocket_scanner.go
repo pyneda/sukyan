@@ -188,6 +188,12 @@ func (s *WebSocketScanner) shouldLaunch(conn *db.WebSocketConnection, generator 
 			if lib.SliceContains(condition.ParameterNames, insertionPoint.Name) {
 				conditionsMet++
 			}
+
+		case generation.InsertionPointTypeCondition:
+			if condition.Value == string(insertionPoint.Type) {
+				conditionsMet++
+			}
+
 		case generation.ResponseCondition:
 			if condition.ResponseCondition.Part == generation.Headers {
 				if generator.Launch.Operator == generation.And || len(generator.Launch.Conditions) == 1 {

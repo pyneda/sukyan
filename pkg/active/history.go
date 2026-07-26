@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads"
@@ -96,35 +95,13 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	}
 
 	if len(insertionPoints) > 0 {
-		var insertionPointsToAudit []scan.InsertionPoint
-		var xssInsertionPoints []scan.InsertionPoint
-		switch options.Mode {
-		case scan_options.ScanModeSmart:
-			for _, insertionPoint := range insertionPoints {
-				// The XML whole-body point (TypeFullBody, TypeXML) carries the only XXE
-				// insertion surface, so keep it in smart mode alongside body/parameter points.
-				isXMLFullBody := insertionPoint.Type == scan.InsertionPointTypeFullBody && insertionPoint.ValueType == lib.TypeXML
-				if insertionPoint.Behaviour.IsDynamic || insertionPoint.Behaviour.IsReflected || insertionPoint.Type == scan.InsertionPointTypeBody || insertionPoint.Type == scan.InsertionPointTypeParameter || isXMLFullBody {
-					insertionPointsToAudit = append(insertionPointsToAudit, insertionPoint)
-					xssInsertionPoints = append(xssInsertionPoints, insertionPoint)
-				} else {
-					taskLog.Debug().Str("insertionPoint", insertionPoint.Name).Msg("Skipping insertion point")
-				}
-			}
-		case scan_options.ScanModeFast:
-			for _, insertionPoint := range insertionPoints {
-				if insertionPoint.Behaviour.IsDynamic || insertionPoint.Behaviour.IsReflected {
-					insertionPointsToAudit = append(insertionPointsToAudit, insertionPoint)
-					xssInsertionPoints = append(xssInsertionPoints, insertionPoint)
-				} else {
-					taskLog.Debug().Str("insertionPoint", insertionPoint.Name).Msg("Skipping insertion point")
-				}
-			}
-
-		case scan_options.ScanModeFuzz:
-			insertionPointsToAudit = insertionPoints
-			xssInsertionPoints = insertionPoints
-		}
+		insertionPointsToAudit := insertionPointsForMode(options.Mode, insertionPoints)
+		xssInsertionPoints := insertionPointsToAudit
+		taskLog.Debug().
+			Int("extracted", len(insertionPoints)).
+			Int("selected", len(insertionPointsToAudit)).
+			Str("mode", options.Mode.String()).
+			Msg("Selected insertion points to audit")
 
 		if options.AuditCategories.ServerSide {
 			// Check context before server-side audits

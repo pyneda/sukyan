@@ -14,6 +14,9 @@ const (
 	ScanMode               LaunchConditionType = "scan_mode"
 	ParameterValueDataType LaunchConditionType = "parameter_value_data_type"
 	ParameterName          LaunchConditionType = "insertion_point_name"
+	// InsertionPointTypeCondition matches the insertion point's kind rather than its
+	// name, which is how a template declares that its payload is a whole document.
+	InsertionPointTypeCondition LaunchConditionType = "insertion_point_type"
 	ResponseCondition      LaunchConditionType = "response_condition"
 	AvoidWebSocketMessages LaunchConditionType = "avoid_websocket_messages"
 )

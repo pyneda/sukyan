@@ -13,6 +13,7 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/scan/reflection"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 )
 
 type InsertionPointType string
@@ -25,6 +26,12 @@ const (
 	InsertionPointTypeCookie    InsertionPointType = "cookie"
 	InsertionPointTypeURLPath   InsertionPointType = "urlpath"
 	InsertionPointTypeFullBody  InsertionPointType = "fullbody"
+)
+
+// HTTP XML insertion point types (per-element addressing inside an XML body)
+const (
+	InsertionPointTypeXMLElement   InsertionPointType = "xml_element"
+	InsertionPointTypeXMLAttribute InsertionPointType = "xml_attribute"
 )
 
 // GraphQL insertion point types
@@ -55,14 +62,12 @@ const (
 	InsertionPointTypeWSJSONArray      InsertionPointType = "ws_json_array"      // Entire array
 )
 
-// WebSocket XML insertion point types
+// WebSocket XML insertion point types. Tag names, namespaces and processing
+// instructions were dropped: they addressed no message parameter and their global
+// regex rewrites corrupted unrelated parts of the document.
 const (
-	InsertionPointTypeWSXMLElement    InsertionPointType = "ws_xml_element"    // Element value/content
-	InsertionPointTypeWSXMLTag        InsertionPointType = "ws_xml_tag"        // Tag name itself
-	InsertionPointTypeWSXMLAttribute  InsertionPointType = "ws_xml_attribute"  // XML attribute value
-	InsertionPointTypeWSXMLNamespace  InsertionPointType = "ws_xml_namespace"  // Namespace value
-	InsertionPointTypeWSXMLNSPrefix   InsertionPointType = "ws_xml_ns_prefix"  // Namespace prefix
-	InsertionPointTypeWSXMLProcessing InsertionPointType = "ws_xml_processing" // Processing instruction
+	InsertionPointTypeWSXMLElement   InsertionPointType = "ws_xml_element"   // Element value/content
+	InsertionPointTypeWSXMLAttribute InsertionPointType = "ws_xml_attribute" // XML attribute value
 )
 
 // String provides a string representation of the insertion point type
@@ -85,6 +90,10 @@ func (ipt InsertionPointType) HumanReadableName() string {
 		return "URL Path Component"
 	case InsertionPointTypeFullBody:
 		return "Full Request Body"
+	case InsertionPointTypeXMLElement:
+		return "XML Element Value"
+	case InsertionPointTypeXMLAttribute:
+		return "XML Attribute Value"
 
 	// GraphQL types
 	case InsertionPointTypeGraphQLVariable:
@@ -111,16 +120,8 @@ func (ipt InsertionPointType) HumanReadableName() string {
 	// WebSocket XML types
 	case InsertionPointTypeWSXMLElement:
 		return "WebSocket XML Element Value"
-	case InsertionPointTypeWSXMLTag:
-		return "WebSocket XML Tag Name"
 	case InsertionPointTypeWSXMLAttribute:
 		return "WebSocket XML Attribute"
-	case InsertionPointTypeWSXMLNamespace:
-		return "WebSocket XML Namespace"
-	case InsertionPointTypeWSXMLNSPrefix:
-		return "WebSocket XML Namespace Prefix"
-	case InsertionPointTypeWSXMLProcessing:
-		return "WebSocket XML Processing Instruction"
 	case InsertionPointTypeWSRawMessage:
 		return "WebSocket Raw Message"
 
@@ -144,6 +145,8 @@ func AllInsertionPointTypes() []InsertionPointType {
 		InsertionPointTypeCookie,
 		InsertionPointTypeURLPath,
 		InsertionPointTypeFullBody,
+		InsertionPointTypeXMLElement,
+		InsertionPointTypeXMLAttribute,
 
 		// GraphQL types
 		InsertionPointTypeGraphQLVariable,
@@ -160,11 +163,7 @@ func AllInsertionPointTypes() []InsertionPointType {
 
 		// WebSocket XML types
 		InsertionPointTypeWSXMLElement,
-		InsertionPointTypeWSXMLTag,
 		InsertionPointTypeWSXMLAttribute,
-		InsertionPointTypeWSXMLNamespace,
-		InsertionPointTypeWSXMLNSPrefix,
-		InsertionPointTypeWSXMLProcessing,
 
 		// WebSocket general types
 		InsertionPointTypeWSRawMessage,
@@ -184,6 +183,8 @@ func HTTPInsertionPointTypes() []InsertionPointType {
 		InsertionPointTypeCookie,
 		InsertionPointTypeURLPath,
 		InsertionPointTypeFullBody,
+		InsertionPointTypeXMLElement,
+		InsertionPointTypeXMLAttribute,
 		InsertionPointTypeGraphQLVariable,
 		InsertionPointTypeGraphQLInlineArg,
 	}
@@ -201,11 +202,7 @@ func WebSocketInsertionPointTypes() []InsertionPointType {
 		InsertionPointTypeWSJSONArray,
 
 		InsertionPointTypeWSXMLElement,
-		InsertionPointTypeWSXMLTag,
 		InsertionPointTypeWSXMLAttribute,
-		InsertionPointTypeWSXMLNamespace,
-		InsertionPointTypeWSXMLNSPrefix,
-		InsertionPointTypeWSXMLProcessing,
 
 		InsertionPointTypeWSRawMessage,
 
@@ -218,11 +215,7 @@ func WebSocketInsertionPointTypes() []InsertionPointType {
 func WebSocketXMLInsertionPointTypes() []InsertionPointType {
 	return []InsertionPointType{
 		InsertionPointTypeWSXMLElement,
-		InsertionPointTypeWSXMLTag,
 		InsertionPointTypeWSXMLAttribute,
-		InsertionPointTypeWSXMLNamespace,
-		InsertionPointTypeWSXMLNSPrefix,
-		InsertionPointTypeWSXMLProcessing,
 	}
 }
 
@@ -239,11 +232,7 @@ func (ipt InsertionPointType) IsWebSocketType() bool {
 		return true
 
 	case InsertionPointTypeWSXMLElement,
-		InsertionPointTypeWSXMLTag,
-		InsertionPointTypeWSXMLAttribute,
-		InsertionPointTypeWSXMLNamespace,
-		InsertionPointTypeWSXMLNSPrefix,
-		InsertionPointTypeWSXMLProcessing:
+		InsertionPointTypeWSXMLAttribute:
 		return true
 
 	case InsertionPointTypeWSRawMessage:
@@ -262,6 +251,7 @@ func (ipt InsertionPointType) IsHTTPType() bool {
 	switch ipt {
 	case InsertionPointTypeParameter, InsertionPointTypeHeader, InsertionPointTypeBody,
 		InsertionPointTypeCookie, InsertionPointTypeURLPath, InsertionPointTypeFullBody,
+		InsertionPointTypeXMLElement, InsertionPointTypeXMLAttribute,
 		InsertionPointTypeGraphQLVariable, InsertionPointTypeGraphQLInlineArg:
 		return true
 	default:
@@ -272,12 +262,12 @@ func (ipt InsertionPointType) IsHTTPType() bool {
 // IsXMLType returns true if the insertion point type is XML-specific
 func (ipt InsertionPointType) IsXMLType() bool {
 	switch ipt {
+	case InsertionPointTypeXMLElement,
+		InsertionPointTypeXMLAttribute:
+		return true
+
 	case InsertionPointTypeWSXMLElement,
-		InsertionPointTypeWSXMLTag,
-		InsertionPointTypeWSXMLAttribute,
-		InsertionPointTypeWSXMLNamespace,
-		InsertionPointTypeWSXMLNSPrefix,
-		InsertionPointTypeWSXMLProcessing:
+		InsertionPointTypeWSXMLAttribute:
 		return true
 	default:
 		return false
@@ -300,12 +290,22 @@ func (ipt InsertionPointType) IsJSONType() bool {
 	}
 }
 
+// InsertionPointSpan is the byte range of an insertion point's value inside
+// OriginalData. Points addressed by span can be rewritten without re-parsing and
+// without the name ambiguity that makes repeated siblings indistinguishable.
+type InsertionPointSpan struct {
+	Start int
+	End   int
+	Valid bool
+}
+
 type InsertionPoint struct {
 	Type         InsertionPointType
 	Name         string       // the name of the parameter/header/cookie
 	Value        string       // the current value
 	ValueType    lib.DataType // the type of the value (string, int, float, etc.)
 	OriginalData string       // the original data (URL, header string, body, cookie string) in which this insertion point was found
+	Span         InsertionPointSpan
 	Behaviour    InsertionPointBehaviour
 }
 
@@ -512,6 +512,30 @@ func headerValueCaseInsensitive(headers map[string][]string, name string) string
 	return ""
 }
 
+// defaultMaxXMLInsertionPoints bounds how many per-element points a single XML body
+// contributes. Every point costs a full payload sweep, so an unbounded document would
+// otherwise multiply that item's traffic without bound.
+const defaultMaxXMLInsertionPoints = 25
+
+// xmlBodyInsertionPointName is the name of the whole-document XML point. xxe.yaml's
+// insertion_point_name launch condition matches on it.
+const xmlBodyInsertionPointName = "xml"
+
+func maxXMLInsertionPoints() int {
+	if configured := viper.GetInt("scan.insertion_points.max_xml_points"); configured > 0 {
+		return configured
+	}
+	return defaultMaxXMLInsertionPoints
+}
+
+// isXMLContentType also matches application/soap+xml, which SOAP 1.2 endpoints use and
+// which contains neither of the two generic XML media types.
+func isXMLContentType(contentType string) bool {
+	return strings.Contains(contentType, "application/xml") ||
+		strings.Contains(contentType, "text/xml") ||
+		strings.Contains(contentType, "application/soap+xml")
+}
+
 func hasFullBodyPoint(points []InsertionPoint) bool {
 	for _, p := range points {
 		if p.Type == InsertionPointTypeFullBody {
@@ -571,10 +595,10 @@ func handleBodyParameters(contentType string, body []byte) ([]InsertionPoint, er
 	// documents, so expose a single whole-body-replaceable point. It is named "xml" to
 	// satisfy xxe.yaml's insertion_point_name launch condition and typed TypeXML so the
 	// smart-mode filter keeps it (see pkg/active/history.go).
-	if strings.Contains(contentType, "application/xml") || strings.Contains(contentType, "text/xml") {
+	if isXMLContentType(contentType) {
 		points = append(points, InsertionPoint{
 			Type:         InsertionPointTypeFullBody,
-			Name:         "xml",
+			Name:         xmlBodyInsertionPointName,
 			Value:        string(body),
 			ValueType:    lib.TypeXML,
 			OriginalData: string(body),
@@ -616,6 +640,15 @@ func handleBodyParameters(contentType string, body []byte) ([]InsertionPoint, er
 	return points, nil
 }
 
+// isScoped reports whether an insertion point kind should be extracted. An empty
+// scope means the caller configured no restriction, which is the same meaning
+// HistoryItemScanOptions.IsScopedInsertionPoint gives it — treating it as "none"
+// here would silently reduce callers that omit the option (the API scan executor
+// among them) to body-only fuzzing.
+func isScoped(scoped []string, kind string) bool {
+	return len(scoped) == 0 || lib.SliceContains(scoped, kind)
+}
+
 func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint, error) {
 	var points []InsertionPoint
 
@@ -624,7 +657,7 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 	if err != nil {
 		return nil, err
 	}
-	if lib.SliceContains(scoped, "parameters") {
+	if isScoped(scoped, "parameters") {
 		urlPoints, err := handleURLParameters(urlData)
 		if err != nil {
 			return nil, err
@@ -632,7 +665,7 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 		points = append(points, urlPoints...)
 	}
 
-	if lib.SliceContains(scoped, "urlpath") {
+	if isScoped(scoped, "urlpath") {
 		urlPathPoints, err := handleURLPaths(urlData)
 		if err != nil {
 			return nil, err
@@ -644,7 +677,7 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 	if err != nil {
 		log.Error().Err(err).Str("headers", "failed to parse").Msg("Error getting request headers as map")
 	} else {
-		if lib.SliceContains(scoped, "headers") {
+		if isScoped(scoped, "headers") {
 			// Headers
 			headerPoints, err := handleHeaders(headers)
 			if err != nil {
@@ -653,7 +686,7 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 			points = append(points, headerPoints...)
 		}
 
-		if lib.SliceContains(scoped, "cookies") {
+		if isScoped(scoped, "cookies") {
 			// Cookies
 			cookiePoints, err := handleCookies(headers)
 			if err != nil {
@@ -680,6 +713,17 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 		return nil, err
 	}
 	points = append(points, bodyPoints...)
+
+	// Per-element XML points make individual SOAP/XML parameters addressable. The
+	// whole-body point above stays as the XXE surface; these carry the value-injection
+	// surface it cannot reach.
+	if isScoped(scoped, "xml") && isXMLContentType(effectiveContentType) {
+		points = append(points, ExtractXMLPoints(bodyStr, XMLPointOptions{
+			ElementType: InsertionPointTypeXMLElement,
+			MaxPoints:   maxXMLInsertionPoints(),
+		})...)
+	}
+
 	if len(bodyPoints) > 0 && !hasFullBodyPoint(bodyPoints) {
 		points = append(points, InsertionPoint{
 			Type:         InsertionPointTypeFullBody,
@@ -690,9 +734,12 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 		})
 	}
 
-	// GraphQL-specific insertion points (variables + inline args)
-	if (len(scoped) == 0 || lib.SliceContains(scoped, "graphql")) &&
-		strings.Contains(history.RequestContentType, "application/json") && len(body) > 0 {
+	// GraphQL-specific insertion points (variables + inline args). Use the same
+	// header-fallback content type as the body points above: crawler/proxy-captured
+	// GraphQL POSTs leave RequestContentType empty and would otherwise get no
+	// GraphQL insertion points at all.
+	if isScoped(scoped, "graphql") &&
+		strings.Contains(effectiveContentType, "application/json") && len(body) > 0 {
 		var jsonData map[string]any
 		if err := json.Unmarshal(body, &jsonData); err == nil && isGraphQLBody(jsonData) {
 			if vars, ok := jsonData["variables"].(map[string]any); ok && len(vars) > 0 {

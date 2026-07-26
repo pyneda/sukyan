@@ -52,11 +52,11 @@ func TestGetWebSocketMessageInsertionPoints(t *testing.T) {
 		{
 			name: "XML",
 			message: &db.WebSocketMessage{
-				PayloadData: `<user name="john" role="admin"><auth token="abc123"/></user>`,
+				PayloadData: `<user name="john"><auth token="abc123"/><role>admin</role></user>`,
 			},
 			scoped:         []string{"ws_xml"},
-			expectedCount:  6, // 1 document + 2 tags (user, auth) + 3 attributes (name, role, token)
-			expectTypes:    []InsertionPointType{InsertionPointTypeWSXMLElement, InsertionPointTypeWSXMLTag, InsertionPointTypeWSXMLAttribute},
+			expectedCount:  4, // 1 document + 1 leaf value (role) + 2 attributes (name, token)
+			expectTypes:    []InsertionPointType{InsertionPointTypeWSXMLElement, InsertionPointTypeWSXMLAttribute},
 			shouldNotError: true,
 		},
 		{
@@ -191,24 +191,26 @@ func TestCreateModifiedWebSocketMessage(t *testing.T) {
 				Name:      "name",
 				Value:     "john",
 				ValueType: lib.TypeString,
+				Span:      InsertionPointSpan{Start: 12, End: 16, Valid: true},
 			},
 			payload:        "jane",
 			expectedResult: `<user name="jane" role="admin" />`,
 			shouldNotError: true,
 		},
 		{
-			name: "Modify XML tag",
+			name: "Modify XML element value",
 			message: &db.WebSocketMessage{
 				PayloadData: `<user>John</user>`,
 			},
 			insertionPoint: InsertionPoint{
-				Type:      InsertionPointTypeWSXMLTag,
+				Type:      InsertionPointTypeWSXMLElement,
 				Name:      "user",
-				Value:     "user",
+				Value:     "John",
 				ValueType: lib.TypeString,
+				Span:      InsertionPointSpan{Start: 6, End: 10, Valid: true},
 			},
-			payload:        "person",
-			expectedResult: `<person>John</person>`,
+			payload:        "Jane",
+			expectedResult: `<user>Jane</user>`,
 			shouldNotError: true,
 		},
 	}

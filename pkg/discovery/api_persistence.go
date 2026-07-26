@@ -174,26 +174,16 @@ func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (
 			}
 		}
 
-		if len(endpoints) > 0 {
-			if err := tx.Create(endpoints).Error; err != nil {
-				return fmt.Errorf("creating endpoints: %w", err)
-			}
-
-			var count int64
-			if err := tx.Model(&db.APIEndpoint{}).Where("definition_id = ?", definition.ID).Count(&count).Error; err != nil {
-				return fmt.Errorf("counting endpoints: %w", err)
-			}
-			if err := tx.Model(&db.APIDefinition{}).Where("id = ?", definition.ID).Update("endpoint_count", count).Error; err != nil {
-				return fmt.Errorf("updating endpoint count: %w", err)
-			}
+		persisted, err := persistEndpoints(tx, definition.ID, endpoints)
+		if err != nil {
+			return err
 		}
+		definition.EndpointCount = persisted
 
 		return nil
 	})
 	if txErr != nil {
-		log.Warn().Err(txErr).Str("definition_id", definition.ID.String()).Msg("Failed to persist OpenAPI definition child records")
-	} else {
-		definition.EndpointCount = len(endpoints)
+		return nil, failDefinition(definition, txErr, "OpenAPI")
 	}
 
 	log.Info().
@@ -204,6 +194,88 @@ func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (
 		Msg("Persisted discovered OpenAPI definition")
 
 	return definition, nil
+}
+
+// failDefinition records that a definition's child records could not be stored. The
+// definition row is created before the transaction, so without this it survives in
+// status "parsed" with no endpoints — indistinguishable from an API that genuinely has
+// none, and the scan built from it runs to completion having sent nothing.
+func failDefinition(definition *db.APIDefinition, txErr error, kind string) error {
+	definition.EndpointCount = 0
+	definition.Status = db.APIDefinitionStatusFailed
+	if _, err := db.Connection().UpdateAPIDefinition(definition); err != nil {
+		log.Warn().Err(err).Str("definition_id", definition.ID.String()).Msg("Failed to mark API definition as failed")
+	}
+	log.Warn().Err(txErr).
+		Str("definition_id", definition.ID.String()).
+		Str("type", kind).
+		Msg("Failed to persist API definition child records")
+	return fmt.Errorf("persisting %s definition child records: %w", kind, txErr)
+}
+
+// persistEndpoints stores a definition's endpoints and returns how many survived,
+// updating the definition's endpoint count to match.
+//
+// The batch is retried one statement at a time when the database rejects it. A single
+// endpoint a hostile or merely sloppy definition makes unstorable — an operationId
+// longer than its column, say — would otherwise take every other endpoint with it,
+// leaving a definition the scanner reports as parsed and never sends a request for.
+// Each retry runs inside its own savepoint because PostgreSQL aborts the enclosing
+// transaction on a failed statement.
+func persistEndpoints(tx *gorm.DB, definitionID uuid.UUID, endpoints []*db.APIEndpoint) (int, error) {
+	if len(endpoints) == 0 {
+		return 0, nil
+	}
+
+	const batchSavepoint = "api_endpoints_batch"
+	if err := tx.SavePoint(batchSavepoint).Error; err != nil {
+		if createErr := tx.Create(endpoints).Error; createErr != nil {
+			return 0, fmt.Errorf("creating endpoints: %w", createErr)
+		}
+	} else if createErr := tx.Create(endpoints).Error; createErr != nil {
+		if rollbackErr := tx.RollbackTo(batchSavepoint).Error; rollbackErr != nil {
+			return 0, fmt.Errorf("rolling back endpoint batch: %w", rollbackErr)
+		}
+		log.Warn().Err(createErr).
+			Str("definition_id", definitionID.String()).
+			Int("endpoints", len(endpoints)).
+			Msg("Endpoint batch rejected, retrying one at a time")
+		if err := createEndpointsIndividually(tx, definitionID, endpoints); err != nil {
+			return 0, err
+		}
+	}
+
+	var count int64
+	if err := tx.Model(&db.APIEndpoint{}).Where("definition_id = ?", definitionID).Count(&count).Error; err != nil {
+		return 0, fmt.Errorf("counting endpoints: %w", err)
+	}
+	if err := tx.Model(&db.APIDefinition{}).Where("id = ?", definitionID).Update("endpoint_count", count).Error; err != nil {
+		return 0, fmt.Errorf("updating endpoint count: %w", err)
+	}
+	return int(count), nil
+}
+
+func createEndpointsIndividually(tx *gorm.DB, definitionID uuid.UUID, endpoints []*db.APIEndpoint) error {
+	for i, endpoint := range endpoints {
+		savepoint := fmt.Sprintf("api_endpoint_%d", i)
+		if err := tx.SavePoint(savepoint).Error; err != nil {
+			return fmt.Errorf("creating savepoint for endpoint %d: %w", i, err)
+		}
+		if err := tx.Create(endpoint).Error; err == nil {
+			continue
+		} else {
+			log.Warn().Err(err).
+				Str("definition_id", definitionID.String()).
+				Str("method", endpoint.Method).
+				Str("path", endpoint.Path).
+				Int("operation_id_length", len([]rune(endpoint.OperationID))).
+				Msg("Dropping API endpoint the database rejected")
+		}
+		if err := tx.RollbackTo(savepoint).Error; err != nil {
+			return fmt.Errorf("rolling back endpoint %d: %w", i, err)
+		}
+	}
+	return nil
 }
 
 func getOperationName(op interface{}, method, path string) string {
@@ -332,27 +404,17 @@ func PersistGraphQLDefinition(history *db.History, opts APIPersistenceOptions) (
 	}
 
 	txErr := db.Connection().DB().Transaction(func(tx *gorm.DB) error {
-		if len(endpoints) > 0 {
-			if err := tx.Create(endpoints).Error; err != nil {
-				return fmt.Errorf("creating endpoints: %w", err)
-			}
-
-			var count int64
-			if err := tx.Model(&db.APIEndpoint{}).Where("definition_id = ?", definition.ID).Count(&count).Error; err != nil {
-				return fmt.Errorf("counting endpoints: %w", err)
-			}
-			if err := tx.Model(&db.APIDefinition{}).Where("id = ?", definition.ID).Update("endpoint_count", count).Error; err != nil {
-				return fmt.Errorf("updating endpoint count: %w", err)
-			}
+		persisted, err := persistEndpoints(tx, definition.ID, endpoints)
+		if err != nil {
+			return err
 		}
+		definition.EndpointCount = persisted
 
 		return nil
 	})
 	if txErr != nil {
-		log.Warn().Err(txErr).Str("definition_id", definition.ID.String()).Msg("Failed to persist GraphQL definition child records")
+		return nil, failDefinition(definition, txErr, "GraphQL")
 	}
-
-	definition.EndpointCount = len(endpoints)
 
 	log.Info().
 		Str("definition_id", definition.ID.String()).
@@ -484,27 +546,17 @@ func PersistWSDLDefinition(history *db.History, opts APIPersistenceOptions) (*db
 	}
 
 	txErr := db.Connection().DB().Transaction(func(tx *gorm.DB) error {
-		if len(endpoints) > 0 {
-			if err := tx.Create(endpoints).Error; err != nil {
-				return fmt.Errorf("creating endpoints: %w", err)
-			}
-
-			var count int64
-			if err := tx.Model(&db.APIEndpoint{}).Where("definition_id = ?", definition.ID).Count(&count).Error; err != nil {
-				return fmt.Errorf("counting endpoints: %w", err)
-			}
-			if err := tx.Model(&db.APIDefinition{}).Where("id = ?", definition.ID).Update("endpoint_count", count).Error; err != nil {
-				return fmt.Errorf("updating endpoint count: %w", err)
-			}
+		persisted, err := persistEndpoints(tx, definition.ID, endpoints)
+		if err != nil {
+			return err
 		}
+		definition.EndpointCount = persisted
 
 		return nil
 	})
 	if txErr != nil {
-		log.Warn().Err(txErr).Str("definition_id", definition.ID.String()).Msg("Failed to persist WSDL definition child records")
+		return nil, failDefinition(definition, txErr, "WSDL")
 	}
-
-	definition.EndpointCount = len(endpoints)
 
 	log.Info().
 		Str("definition_id", definition.ID.String()).

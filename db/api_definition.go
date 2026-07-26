@@ -66,6 +66,26 @@ type APIDefinition struct {
 	AuthConfig      *APIAuthConfig                 `gorm:"foreignKey:AuthConfigID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"auth_config,omitempty"`
 }
 
+// BeforeSave truncates the fields backed by bounded columns. Name, OpenAPITitle and
+// OpenAPIVersion are copied straight out of a scan target's definition document, so an
+// over-long info.title or a long pre-release version string would otherwise fail the
+// insert and discard the whole definition — every endpoint and security scheme with it.
+func (d *APIDefinition) BeforeSave(*gorm.DB) error {
+	d.Name = truncateRunes(d.Name, 255)
+	d.Type = APIDefinitionType(truncateRunes(string(d.Type), 50))
+	d.Status = APIDefinitionStatus(truncateRunes(string(d.Status), 50))
+	truncatePointer(d.OpenAPIVersion, 20)
+	truncatePointer(d.OpenAPITitle, 255)
+	truncatePointer(d.WSDLSOAPVersion, 10)
+	return nil
+}
+
+func truncatePointer(value *string, limit int) {
+	if value != nil {
+		*value = truncateRunes(*value, limit)
+	}
+}
+
 // RequestURL returns the URL that requests to this API should be sent to. For
 // GraphQL, SourceURL holds the actual endpoint path (e.g. /graphql) while BaseURL
 // is stripped to the host, so SourceURL must be preferred to avoid POSTing probes

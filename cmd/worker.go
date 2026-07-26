@@ -8,6 +8,7 @@ import (
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/browser"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/pyneda/sukyan/pkg/scan/manager"
@@ -201,6 +202,7 @@ func runWorkerStart(cmd *cobra.Command, args []string) {
 	if interactionsManager != nil {
 		interactionsManager.Stop()
 	}
+	browser.ShutdownBrowserPools()
 
 	logger.Info().Msg("Workers stopped successfully")
 }

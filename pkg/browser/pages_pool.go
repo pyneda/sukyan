@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -18,6 +19,7 @@ type PagePoolManagerConfig struct {
 
 type PagePoolManager struct {
 	browser              *rod.Browser
+	launcher             *launcher.Launcher
 	pool                 rod.Pool[rod.Page]
 	config               PagePoolManagerConfig
 	httpClient           *http.Client
@@ -57,11 +59,13 @@ func NewHijackedPagePoolManager(config PagePoolManagerConfig, source string, hij
 }
 
 func (b *PagePoolManager) Start(hijack bool, source string) error {
+	sweepStaleProfilesOnce()
 	l := GetBrowserLauncher()
 	controlURL, err := l.Launch()
 	if err != nil {
 		return fmt.Errorf("launching browser: %w", err)
 	}
+	b.launcher = l
 	b.browser = rod.New().
 		ControlURL(controlURL).
 		MustConnect()
@@ -108,5 +112,9 @@ func (b *PagePoolManager) createPage() (*rod.Page, error) {
 
 func (b *PagePoolManager) Close() {
 	b.pool.Cleanup(func(p *rod.Page) { p.Close() })
-	b.browser.Close()
+	if err := b.browser.Close(); err != nil {
+		log.Debug().Err(err).Msg("Failed to close page pool browser")
+	}
+	discardLauncher(b.launcher)
+	b.launcher = nil
 }

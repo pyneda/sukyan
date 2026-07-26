@@ -11,6 +11,7 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
+	"github.com/pyneda/sukyan/pkg/browser"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan"
 	"github.com/pyneda/sukyan/pkg/scan/manager"
@@ -334,6 +335,7 @@ var scanCmd = &cobra.Command{
 		// Cleanup
 		scanManager.Stop()
 		interactionsManager.Stop()
+		browser.ShutdownBrowserPools()
 		log.Info().Msg("Scan finished")
 	},
 }

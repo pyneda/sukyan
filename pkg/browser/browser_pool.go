@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
@@ -39,7 +40,6 @@ type BrowserPoolManagerConfig struct {
 }
 
 type BrowserPoolManager struct {
-	// launcher             *launcher.Launcher
 	pool                 rod.Pool[rod.Browser]
 	config               BrowserPoolManagerConfig
 	HijackResultsChannel chan HijackResult
@@ -48,6 +48,8 @@ type BrowserPoolManager struct {
 	taskID               uint
 	scanID               uint
 	scanJobID            uint
+	// Each browser owns a profile directory that only its launcher can remove.
+	launchers sync.Map
 }
 
 func NewBrowserPoolManager(config BrowserPoolManagerConfig, workspaceID, taskID uint) *BrowserPoolManager {
@@ -79,6 +81,7 @@ func (b *BrowserPoolManager) Start() {
 		poolSize = b.config.PoolSize
 	}
 
+	sweepStaleProfilesOnce()
 	b.pool = rod.NewBrowserPool(poolSize)
 }
 
@@ -101,6 +104,7 @@ func (b *BrowserPoolManager) createBrowser() (*rod.Browser, error) {
 		return nil, fmt.Errorf("launching browser: %w", err)
 	}
 	browser := rod.New().ControlURL(controlURL).MustConnect()
+	b.launchers.Store(browser, l)
 	// browser.IgnoreCertErrors(true)
 	go browser.HandleAuth(viper.GetString("navigation.auth.basic.username"), viper.GetString("navigation.auth.basic.password"))()
 	if b.hijack {
@@ -110,7 +114,14 @@ func (b *BrowserPoolManager) createBrowser() (*rod.Browser, error) {
 }
 
 func (b *BrowserPoolManager) Cleanup() {
-	b.pool.Cleanup(func(p *rod.Browser) { p.Close() })
+	b.pool.Cleanup(func(p *rod.Browser) {
+		if err := p.Close(); err != nil {
+			log.Debug().Err(err).Msg("Failed to close pooled browser")
+		}
+		if l, ok := b.launchers.LoadAndDelete(p); ok {
+			discardLauncher(l.(*launcher.Launcher))
+		}
+	})
 }
 
 // ShutdownBrowserPools gracefully shuts down all singleton browser pools,

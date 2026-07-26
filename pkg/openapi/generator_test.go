@@ -106,6 +106,23 @@ func TestServerURLResolution(t *testing.T) {
 			servers:  `[]`,
 			wantBase: "",
 		},
+		{
+			name:     "non-http scheme does not shadow a usable server",
+			servers:  `[{"url": "ftp://files.example.com"}, {"url": "https://api.example.com"}]`,
+			wantBase: "https://api.example.com",
+		},
+		{
+			name:      "no servers falls back to the source origin",
+			servers:   `[]`,
+			sourceURL: "https://target.example.com/v3/openapi.json",
+			wantBase:  "https://target.example.com",
+		},
+		{
+			name:      "unusable servers fall back to the source origin",
+			servers:   `[{"url": "ws://stream.example.com"}]`,
+			sourceURL: "https://target.example.com/openapi.json",
+			wantBase:  "https://target.example.com",
+		},
 	}
 
 	for _, tt := range tests {
@@ -268,6 +285,50 @@ func TestComposedRequestBody(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestNestedObjectsKeepTheirProperties guards the schema walk against marking a
+// schema as on-path before asking for its own properties: that makes every nested
+// object collapse to {} and drops deepObject query parameters entirely, so the
+// generated requests exercise none of the fields the spec declares.
+func TestNestedObjectsKeepTheirProperties(t *testing.T) {
+	spec := `{"openapi":"3.0.3","info":{"title":"x","version":"1"},"paths":{"/p":{"post":{
+	  "parameters":[{"name":"filter","in":"query","required":true,"style":"deepObject","explode":true,
+	    "schema":{"type":"object","properties":{"a":{"type":"string"}}}}],
+	  "requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","properties":{
+	    "top":{"type":"string"},
+	    "nested":{"type":"object","properties":{"inner":{"type":"string"}}},
+	    "arr":{"type":"array","items":{"type":"object","properties":{"z":{"type":"string"}}}}}}}}},
+	  "responses":{"200":{"description":"ok"}}}}}}`
+
+	doc := mustParse(t, spec)
+	endpoints, err := GenerateRequests(doc, GenerationConfig{BaseURL: "http://target"})
+	if err != nil {
+		t.Fatalf("GenerateRequests: %v", err)
+	}
+
+	request := endpoints[0].Requests[0]
+
+	var body struct {
+		Nested map[string]interface{}   `json:"nested"`
+		Arr    []map[string]interface{} `json:"arr"`
+	}
+	if err := json.Unmarshal(request.Body, &body); err != nil {
+		t.Fatalf("body is not a JSON object: %v", err)
+	}
+	if _, ok := body.Nested["inner"]; !ok {
+		t.Errorf("body %s lost the nested object's property", request.Body)
+	}
+	if len(body.Arr) == 0 {
+		t.Fatalf("body %s lost the array items", request.Body)
+	}
+	if _, ok := body.Arr[0]["z"]; !ok {
+		t.Errorf("body %s lost the array item's property", request.Body)
+	}
+
+	if !strings.Contains(request.URL, "filter") {
+		t.Errorf("URL = %q, want the deepObject parameter expanded", request.URL)
 	}
 }
 

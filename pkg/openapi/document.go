@@ -130,17 +130,48 @@ func (d *Document) Servers() []string {
 	return servers
 }
 
-// BaseURL returns the first absolute server URL, or an empty string when the
-// document declares none. Server variables are substituted with their defaults and
-// relative URLs (such as "/api/v3") are resolved against the source URL, so callers
-// never receive a value that cannot be requested.
+// BaseURL returns the first requestable server URL, or an empty string when nothing
+// in the document or its source yields one. Server variables are substituted with
+// their defaults and relative URLs (such as "/api/v3") are resolved against the
+// source URL, so callers never receive a value that cannot be requested.
+//
+// Servers on a scheme the scanner cannot speak (ftp, ws, file, ...) are skipped
+// rather than returned: taking one would shadow a usable server declared after it
+// and point every generated request at an address no HTTP client can reach. When no
+// server survives, the source URL's origin stands in for the "/" server OpenAPI
+// defaults to when the servers array is absent or empty.
 func (d *Document) BaseURL() string {
 	for _, server := range d.Servers() {
-		if parsed, err := url.Parse(server); err == nil && parsed.IsAbs() && parsed.Host != "" {
+		if isRequestableURL(server) {
 			return server
 		}
 	}
+	if origin := d.sourceOrigin(); origin != "" {
+		return origin
+	}
 	return ""
+}
+
+func isRequestableURL(raw string) bool {
+	parsed, err := url.Parse(raw)
+	if err != nil || !parsed.IsAbs() || parsed.Host == "" {
+		return false
+	}
+	return parsed.Scheme == "http" || parsed.Scheme == "https"
+}
+
+func (d *Document) sourceOrigin() string {
+	if d == nil || d.sourceURL == "" {
+		return ""
+	}
+	parsed, err := url.Parse(d.sourceURL)
+	if err != nil || parsed.Host == "" {
+		return ""
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return ""
+	}
+	return parsed.Scheme + "://" + parsed.Host
 }
 
 // SourceURL returns the location the document was retrieved from, if provided.

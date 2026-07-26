@@ -325,8 +325,11 @@ func (b *RequestBuilder) buildBody(op core.Operation, paramValues map[string]any
 	}
 
 	// A non-object body has no fields to name, so the field-based encodings send the
-	// raw value rather than inventing a field called "body".
-	if isWholeBody && !strings.Contains(contentType, "json") {
+	// raw value rather than inventing a field called "body". XML and multipart are
+	// excluded: they carry an envelope a bare scalar cannot satisfy, and a server
+	// rejects the request before the operation is ever exercised.
+	if isWholeBody && !strings.Contains(contentType, "json") &&
+		!strings.Contains(contentType, "xml") && !strings.HasPrefix(contentType, "multipart/") {
 		return []byte(serializeValue(payload)), contentType, nil
 	}
 
@@ -357,7 +360,11 @@ func (b *RequestBuilder) buildBody(op core.Operation, paramValues map[string]any
 		body = buf.Bytes()
 		contentType = writer.FormDataContentType()
 	case strings.Contains(contentType, "xml"):
-		body, err = encodeXMLBody(bodyParams)
+		if isWholeBody {
+			body, err = encodeXMLScalarBody(serializeValue(payload))
+		} else {
+			body, err = encodeXMLBody(bodyParams)
+		}
 		if err != nil {
 			return nil, "", fmt.Errorf("encoding xml body: %w", err)
 		}
@@ -380,6 +387,19 @@ const multipartBoundary = "sukyanAPIBoundary"
 // wholeBodyParamName is the name the parser gives the single parameter that carries
 // a non-object request body.
 const wholeBodyParamName = "body"
+
+// encodeXMLScalarBody wraps a whole-body scalar in the same <root> envelope a
+// structured body gets. The schema names no element for it and a bare scalar is not
+// a document, so without the envelope the payload is unparseable XML.
+func encodeXMLScalarBody(value string) ([]byte, error) {
+	var buffer bytes.Buffer
+	buffer.WriteString("<root>")
+	if err := xml.EscapeText(&buffer, []byte(value)); err != nil {
+		return nil, err
+	}
+	buffer.WriteString("</root>")
+	return buffer.Bytes(), nil
+}
 
 func encodeXMLBody(fields map[string]any) ([]byte, error) {
 	var buffer bytes.Buffer

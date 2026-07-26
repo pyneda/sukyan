@@ -50,14 +50,42 @@ func selectBodyContentType(content openapi3.Content) string {
 // consume gigabytes.
 type schemaBudget struct {
 	remaining int
+	document  *documentBudget
 	onPath    map[*openapi3.Schema]bool
 }
 
-func newSchemaBudget() *schemaBudget {
-	return &schemaBudget{remaining: maxSchemaNodes, onPath: make(map[*openapi3.Schema]bool)}
+func newSchemaBudget(document *documentBudget) *schemaBudget {
+	return &schemaBudget{remaining: maxSchemaNodes, document: document, onPath: make(map[*openapi3.Schema]bool)}
 }
 
 func (b *schemaBudget) spend() bool {
+	if b.remaining <= 0 {
+		return false
+	}
+	if !b.document.spend() {
+		return false
+	}
+	b.remaining--
+	return true
+}
+
+// documentBudget bounds every traversal made while parsing one document. Bounding
+// each traversal on its own does not bound the document: hundreds of parameters
+// pointing at the same wide $ref graph each get a full traversal, so the per-walk
+// limits multiply and tens of kilobytes of spec cost gigabytes. Real specs stay far
+// below the ceiling — the largest in this repo expands to ~500 nodes in total.
+type documentBudget struct {
+	remaining int
+}
+
+func newDocumentBudget() *documentBudget {
+	return &documentBudget{remaining: maxDocumentSchemaNodes}
+}
+
+func (b *documentBudget) spend() bool {
+	if b == nil {
+		return true
+	}
 	if b.remaining <= 0 {
 		return false
 	}
@@ -72,8 +100,8 @@ func (b *schemaBudget) spend() bool {
 // body, so composed schemas no longer collapse into a single opaque "body" param with
 // a null value. A plain scalar/array body returns isObject=false so the caller keeps
 // its single-parameter fallback.
-func effectiveObjectProperties(schema *openapi3.Schema, depth int) (openapi3.Schemas, []string, bool) {
-	return effectiveObjectPropertiesBounded(schema, depth, newSchemaBudget())
+func effectiveObjectProperties(schema *openapi3.Schema, depth int, document *documentBudget) (openapi3.Schemas, []string, bool) {
+	return effectiveObjectPropertiesBounded(schema, depth, newSchemaBudget(document))
 }
 
 func effectiveObjectPropertiesBounded(schema *openapi3.Schema, depth int, budget *schemaBudget) (props openapi3.Schemas, required []string, isObject bool) {
@@ -130,15 +158,19 @@ func effectiveObjectPropertiesBounded(schema *openapi3.Schema, depth int, budget
 				if sub == nil || sub.Value == nil {
 					continue
 				}
+				// A variant that contributes nothing is skipped rather than accepted:
+				// taking it marks the body structured with no fields, so the request
+				// goes out empty while the next variant held every property.
 				subProps, subRequired, ok := effectiveObjectPropertiesBounded(sub.Value, depth+1, budget)
-				if ok {
-					for name, ref := range subProps {
-						props[name] = ref
-					}
-					addRequired(subRequired)
-					isObject = true
-					break
+				if !ok || len(subProps) == 0 {
+					continue
 				}
+				for name, ref := range subProps {
+					props[name] = ref
+				}
+				addRequired(subRequired)
+				isObject = true
+				break
 			}
 			if len(props) > 0 {
 				break
@@ -190,8 +222,9 @@ func (p *Parser) Parse(definition *db.APIDefinition) ([]core.Operation, error) {
 
 	entries := document.Operations()
 	operations := make([]core.Operation, 0, len(entries))
+	budget := newDocumentBudget()
 	for _, entry := range entries {
-		operations = append(operations, p.parseOperation(definition.ID, baseURL, entry, servers, doc))
+		operations = append(operations, p.parseOperation(definition.ID, baseURL, entry, servers, doc, budget))
 	}
 
 	log.Debug().
@@ -202,7 +235,7 @@ func (p *Parser) Parse(definition *db.APIDefinition) ([]core.Operation, error) {
 	return operations, nil
 }
 
-func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL string, entry pkgopenapi.OperationEntry, servers []string, doc *openapi3.T) core.Operation {
+func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL string, entry pkgopenapi.OperationEntry, servers []string, doc *openapi3.T, budget *documentBudget) core.Operation {
 	op := entry.Operation
 	operation := core.Operation{
 		ID:           uuid.New(),
@@ -229,11 +262,11 @@ func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL string, entry pk
 	// entry.Parameters merges the path item's shared parameters with the operation's
 	// own; without them a path template is never substituted.
 	for _, param := range entry.Parameters {
-		operation.Parameters = append(operation.Parameters, p.parseParameter(param))
+		operation.Parameters = append(operation.Parameters, p.parseParameter(param, budget))
 	}
 
 	if op.RequestBody != nil && op.RequestBody.Value != nil {
-		bodyParams := p.parseRequestBody(op.RequestBody.Value)
+		bodyParams := p.parseRequestBody(op.RequestBody.Value, budget)
 		operation.Parameters = append(operation.Parameters, bodyParams...)
 
 		operation.OpenAPI.RequestBody = &core.RequestBodyInfo{
@@ -242,7 +275,7 @@ func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL string, entry pk
 		}
 
 		operation.OpenAPI.RequestBody.ContentType = selectBodyContentType(op.RequestBody.Value.Content)
-		operation.OpenAPI.RequestBody.Structured = isStructuredBody(op.RequestBody.Value)
+		operation.OpenAPI.RequestBody.Structured = isStructuredBody(op.RequestBody.Value, budget)
 	}
 
 	operation.Security = p.parseSecurityRequirements(op, doc)
@@ -251,7 +284,7 @@ func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL string, entry pk
 	return operation
 }
 
-func (p *Parser) parseParameter(param *openapi3.Parameter) core.Parameter {
+func (p *Parser) parseParameter(param *openapi3.Parameter, budget *documentBudget) core.Parameter {
 	coreParam := core.Parameter{
 		Name:        param.Name,
 		Location:    p.mapLocation(param.In),
@@ -267,7 +300,7 @@ func (p *Parser) parseParameter(param *openapi3.Parameter) core.Parameter {
 	}
 
 	if param.Schema != nil && param.Schema.Value != nil {
-		p.extractSchemaInfo(param.Schema.Value, &coreParam)
+		p.extractSchemaInfo(param.Schema.Value, &coreParam, budget)
 	}
 
 	return coreParam
@@ -275,7 +308,7 @@ func (p *Parser) parseParameter(param *openapi3.Parameter) core.Parameter {
 
 // isStructuredBody reports whether the body decomposes into named properties. A
 // scalar or array body yields a single "body" parameter that holds the whole payload.
-func isStructuredBody(body *openapi3.RequestBody) bool {
+func isStructuredBody(body *openapi3.RequestBody, budget *documentBudget) bool {
 	contentType := selectBodyContentType(body.Content)
 	if contentType == "" {
 		return false
@@ -284,11 +317,11 @@ func isStructuredBody(body *openapi3.RequestBody) bool {
 	if mediaType == nil || mediaType.Schema == nil || mediaType.Schema.Value == nil {
 		return false
 	}
-	_, _, isObject := effectiveObjectProperties(mediaType.Schema.Value, 0)
+	_, _, isObject := effectiveObjectProperties(mediaType.Schema.Value, 0, budget)
 	return isObject
 }
 
-func (p *Parser) parseRequestBody(body *openapi3.RequestBody) []core.Parameter {
+func (p *Parser) parseRequestBody(body *openapi3.RequestBody, budget *documentBudget) []core.Parameter {
 	var params []core.Parameter
 
 	contentType := selectBodyContentType(body.Content)
@@ -301,7 +334,7 @@ func (p *Parser) parseRequestBody(body *openapi3.RequestBody) []core.Parameter {
 	}
 
 	schema := mediaType.Schema.Value
-	props, required, isObject := effectiveObjectProperties(schema, 0)
+	props, required, isObject := effectiveObjectProperties(schema, 0, budget)
 
 	if isObject {
 		// Sorted: ranging the property map would reorder the parameters, and therefore
@@ -330,7 +363,7 @@ func (p *Parser) parseRequestBody(body *openapi3.RequestBody) []core.Parameter {
 				ContentType: contentType,
 			}
 
-			p.extractSchemaInfo(propRef.Value, &param)
+			p.extractSchemaInfo(propRef.Value, &param, budget)
 			params = append(params, param)
 		}
 		return params
@@ -342,7 +375,7 @@ func (p *Parser) parseRequestBody(body *openapi3.RequestBody) []core.Parameter {
 		Required:    body.Required,
 		ContentType: contentType,
 	}
-	p.extractSchemaInfo(schema, &param)
+	p.extractSchemaInfo(schema, &param, budget)
 	params = append(params, param)
 
 	return params
@@ -352,6 +385,9 @@ const (
 	maxSchemaDepth = 10
 	// maxSchemaNodes bounds how many schema nodes one traversal expands.
 	maxSchemaNodes = 2000
+	// maxDocumentSchemaNodes bounds how many schema nodes one document expands in
+	// total, across every parameter and body of every operation.
+	maxDocumentSchemaNodes = 50000
 )
 
 func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core.Parameter, onPath map[string]bool, depth int, budget *schemaBudget) {
@@ -359,8 +395,8 @@ func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core
 		return
 	}
 
-	if schema.Type != nil && len(schema.Type.Slice()) > 0 {
-		param.DataType = p.mapDataType(schema.Type.Slice()[0])
+	if declared := pkgopenapi.SchemaType(schema); declared != "" {
+		param.DataType = p.mapDataType(declared)
 	}
 
 	param.Constraints.Format = schema.Format
@@ -446,8 +482,8 @@ func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core
 	}
 }
 
-func (p *Parser) extractSchemaInfo(schema *openapi3.Schema, param *core.Parameter) {
-	p.extractSchemaInfoWithDepth(schema, param, make(map[string]bool), 0, newSchemaBudget())
+func (p *Parser) extractSchemaInfo(schema *openapi3.Schema, param *core.Parameter, document *documentBudget) {
+	p.extractSchemaInfoWithDepth(schema, param, make(map[string]bool), 0, newSchemaBudget(document))
 }
 
 func (p *Parser) mapLocation(in string) core.ParameterLocation {

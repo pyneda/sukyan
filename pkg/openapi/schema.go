@@ -42,7 +42,7 @@ func (w *schemaWalk) mapSchema(ref *openapi3.SchemaRef, depth int) map[string]in
 	schema := ref.Value
 
 	result := make(map[string]interface{})
-	if declared := schemaType(schema); declared != "" {
+	if declared := SchemaType(schema); declared != "" {
 		result["type"] = declared
 	}
 	if schema.Format != "" {
@@ -79,10 +79,15 @@ func (w *schemaWalk) mapSchema(ref *openapi3.SchemaRef, depth int) map[string]in
 	if w.onPath[schema] {
 		return result
 	}
+
+	// objectSchema tracks this schema itself, so it has to run before the mark below
+	// is set: marking first makes its own cycle guard reject the schema being mapped
+	// and every object collapses to a property-less {}.
+	properties, required, isObject := w.objectSchema(schema, depth)
+
 	w.onPath[schema] = true
 	defer delete(w.onPath, schema)
 
-	properties, required, isObject := w.objectSchema(schema, depth)
 	if len(properties) > 0 {
 		mapped := make(map[string]interface{}, len(properties))
 		for _, name := range sortedSchemaNames(properties) {
@@ -122,9 +127,9 @@ func sortedSchemaNames(schemas openapi3.Schemas) []string {
 	return names
 }
 
-// schemaType returns the schema's primary type. OpenAPI 3.1 allows a list of types
+// SchemaType returns the schema's primary type. OpenAPI 3.1 allows a list of types
 // such as ["string", "null"]; the meaningful one is the first non-null entry.
-func schemaType(schema *openapi3.Schema) string {
+func SchemaType(schema *openapi3.Schema) string {
 	if schema == nil || schema.Type == nil {
 		return ""
 	}
@@ -167,7 +172,7 @@ func (w *schemaWalk) objectSchema(schema *openapi3.Schema, depth int) (openapi3.
 		}
 	}
 
-	isObject := schemaType(schema) == "object"
+	isObject := SchemaType(schema) == "object"
 
 	if len(schema.Properties) > 0 {
 		for name, ref := range schema.Properties {

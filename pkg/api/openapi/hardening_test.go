@@ -3,6 +3,7 @@ package openapi
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
@@ -342,6 +343,78 @@ func TestBuild_ObjectPropertyNamedBodyStaysStructured(t *testing.T) {
 	}
 	if _, ok := decoded["body"]; !ok {
 		t.Errorf("body %s should keep the property named \"body\"", body)
+	}
+}
+
+// TestBuild_ScalarXMLBodyIsWellFormed covers the shape FastAPI emits for a raw XML
+// body: content application/xml with a bare "type":"string" schema. Sending the
+// generated scalar as-is produces a body no XML parser accepts, so the endpoint
+// answers 400 and every XML-bodied operation goes untested.
+func TestBuild_ScalarXMLBodyIsWellFormed(t *testing.T) {
+	spec := `{"openapi":"3.1.0","info":{"title":"t","version":"1"},"paths":{"/p":{"post":{
+	  "requestBody":{"required":true,"content":{"application/xml":{"schema":{"type":"string"}}}},
+	  "responses":{"200":{"description":"OK"}}}}}}`
+
+	req := buildFirst(t, spec, "http://target", "", "/p")
+	if got := req.Header.Get("Content-Type"); got != "application/xml" {
+		t.Errorf("Content-Type = %q, want application/xml", got)
+	}
+
+	body := requestBody(t, req)
+	if err := xml.Unmarshal([]byte(body), new(any)); err != nil {
+		t.Errorf("xml body %q is not well-formed XML: %v", body, err)
+	}
+}
+
+// TestBuild_NullFirstTypeArrayUsesTheRealType covers the OpenAPI 3.1 union pydantic
+// emits for optional fields. Taking the first entry of ["null","integer"] types the
+// field as null, which falls through to a string, so every optional field is sent as
+// "test" and a typed API rejects the request.
+func TestBuild_NullFirstTypeArrayUsesTheRealType(t *testing.T) {
+	spec := `{"openapi":"3.1.0","info":{"title":"t","version":"1"},"paths":{"/p":{"post":{
+	  "parameters":[{"name":"page","in":"query","required":true,"schema":{"type":["null","integer"]}}],
+	  "requestBody":{"required":true,"content":{"application/json":{"schema":{"type":"object","properties":{
+	    "count":{"type":["null","integer"]},
+	    "flag":{"type":["null","boolean"]}}}}}},
+	  "responses":{"200":{"description":"OK"}}}}}}`
+
+	req := buildFirst(t, spec, "http://target", "", "/p")
+
+	var body map[string]any
+	if err := json.Unmarshal([]byte(requestBody(t, req)), &body); err != nil {
+		t.Fatalf("body is not JSON: %v", err)
+	}
+	if _, ok := body["count"].(float64); !ok {
+		t.Errorf("count = %#v, want a number", body["count"])
+	}
+	if _, ok := body["flag"].(bool); !ok {
+		t.Errorf("flag = %#v, want a boolean", body["flag"])
+	}
+	if got := req.URL.Query().Get("page"); got == "test" {
+		t.Errorf("page = %q, want an integer value", got)
+	}
+}
+
+// TestParse_EmptyCompositionVariantIsSkipped covers a oneOf whose first variant is
+// object-typed but carries no properties. Accepting it marks the body structured with
+// zero fields, so the request goes out with no body at all.
+func TestParse_EmptyCompositionVariantIsSkipped(t *testing.T) {
+	spec := `{"openapi":"3.0.0","info":{"title":"t","version":"1"},"paths":{"/p":{"post":{
+	  "requestBody":{"required":true,"content":{"application/json":{"schema":{"oneOf":[
+	    {"type":"object"},
+	    {"type":"object","required":["user","pass"],"properties":{"user":{"type":"string"},"pass":{"type":"string"}}}]}}}},
+	  "responses":{"200":{"description":"OK"}}}}}}`
+
+	req := buildFirst(t, spec, "http://target", "", "/p")
+
+	var body map[string]any
+	if err := json.Unmarshal([]byte(requestBody(t, req)), &body); err != nil {
+		t.Fatalf("body is not JSON: %v", err)
+	}
+	for _, name := range []string{"user", "pass"} {
+		if _, ok := body[name]; !ok {
+			t.Errorf("body %v is missing %q from the populated oneOf variant", body, name)
+		}
 	}
 }
 
@@ -803,6 +876,92 @@ func TestParse_BoundsNestedParameterExpansion(t *testing.T) {
 	case <-time.After(15 * time.Second):
 		t.Fatal("Parse did not finish: nested parameter expansion is unbounded")
 	}
+}
+
+// TestParse_BoundsExpansionAcrossTheWholeDocument covers the multiplication the
+// per-traversal budget cannot see: every parameter gets its own full budget, so a
+// spec that points hundreds of parameters at one wide $ref graph costs the product
+// of the two. Only a document-wide ceiling bounds the parse.
+func TestParse_BoundsExpansionAcrossTheWholeDocument(t *testing.T) {
+	var schemas strings.Builder
+	schemas.WriteString(`"L0":{"type":"string"}`)
+	const levels, fanout = 9, 6
+	for level := 1; level <= levels; level++ {
+		fmt.Fprintf(&schemas, `,"L%d":{"type":"object","properties":{`, level)
+		for f := 0; f < fanout; f++ {
+			if f > 0 {
+				schemas.WriteString(",")
+			}
+			fmt.Fprintf(&schemas, `"p%d":{"$ref":"#/components/schemas/L%d"}`, f, level-1)
+		}
+		schemas.WriteString("}}")
+	}
+
+	var params strings.Builder
+	const paramCount = 300
+	for i := 0; i < paramCount; i++ {
+		if i > 0 {
+			params.WriteString(",")
+		}
+		fmt.Fprintf(&params, `{"name":"q%d","in":"query","schema":{"$ref":"#/components/schemas/L%d"}}`, i, levels)
+	}
+
+	var paths strings.Builder
+	const pathCount = 20
+	for i := 0; i < pathCount; i++ {
+		if i > 0 {
+			paths.WriteString(",")
+		}
+		fmt.Fprintf(&paths, `"/p%d":{"get":{"parameters":[%s],"responses":{"200":{"description":"ok"}}}}`, i, params.String())
+	}
+
+	spec := fmt.Sprintf(`{
+	  "openapi":"3.0.0","info":{"title":"fanout","version":"1"},
+	  "servers":[{"url":"https://api.example.com"}],
+	  "paths":{%s},
+	  "components":{"schemas":{%s}}}`, paths.String(), schemas.String())
+
+	done := make(chan struct {
+		operations []core.Operation
+		err        error
+	}, 1)
+	go func() {
+		operations, err := ParseFromRawDefinition([]byte(spec))
+		done <- struct {
+			operations []core.Operation
+			err        error
+		}{operations, err}
+	}()
+
+	select {
+	case result := <-done:
+		if result.err != nil {
+			t.Fatalf("parse error: %v", result.err)
+		}
+		total := 0
+		for i := range result.operations {
+			total += countParameterNodes(result.operations[i].Parameters)
+		}
+		// Without a document-wide ceiling this spec expands to pathCount * paramCount
+		// * maxSchemaNodes nodes. The slack over the ceiling covers the parameters
+		// materialised at each call site before the budget is consulted.
+		if unbounded := pathCount * paramCount * maxSchemaNodes; total >= unbounded {
+			t.Errorf("parse expanded %d parameter nodes, the unbounded product is %d", total, unbounded)
+		}
+		if total > 2*maxDocumentSchemaNodes {
+			t.Errorf("parse expanded %d parameter nodes, want within the document budget of %d", total, maxDocumentSchemaNodes)
+		}
+	case <-time.After(60 * time.Second):
+		t.Fatal("Parse did not finish: expansion is unbounded across the document")
+	}
+}
+
+func countParameterNodes(params []core.Parameter) int {
+	total := 0
+	for i := range params {
+		total += 1 + countParameterNodes(params[i].NestedParams)
+	}
+	return total
 }
 
 func TestParse_SecurityRequirementOrderIsStable(t *testing.T) {

@@ -141,6 +141,55 @@ func SchemaType(schema *openapi3.Schema) string {
 	return ""
 }
 
+// TypedVariant resolves the OpenAPI 3.1 spelling of an optional value —
+// anyOf/oneOf carrying a "null" branch beside a typed one — to its typed branch,
+// reporting whether a null branch was present. Generators emit every optional
+// field this way, and the wrapper declares no type of its own, so a consumer that
+// only reads schema.Type ends up with no type at all. Returns nil when the schema
+// already declares a type or has nothing to resolve.
+func TypedVariant(schema *openapi3.Schema) (*openapi3.Schema, bool) {
+	if schema == nil || SchemaType(schema) != "" || len(schema.Properties) > 0 {
+		return nil, false
+	}
+
+	nullable := false
+	for _, group := range []openapi3.SchemaRefs{schema.AnyOf, schema.OneOf} {
+		var typed *openapi3.Schema
+		for _, ref := range group {
+			if ref == nil || ref.Value == nil {
+				continue
+			}
+			if isNullSchema(ref.Value) {
+				nullable = true
+				continue
+			}
+			if typed == nil && SchemaType(ref.Value) != "" {
+				typed = ref.Value
+			}
+		}
+		if typed != nil {
+			return typed, nullable
+		}
+	}
+	return nil, false
+}
+
+func isNullSchema(schema *openapi3.Schema) bool {
+	if schema == nil || schema.Type == nil {
+		return false
+	}
+	declared := schema.Type.Slice()
+	if len(declared) == 0 {
+		return false
+	}
+	for _, t := range declared {
+		if t != "null" {
+			return false
+		}
+	}
+	return true
+}
+
 // effectiveObjectSchema resolves an object-like schema into its combined property
 // set and required list, following composition: allOf merges every subschema while
 // oneOf/anyOf contribute the first object-like variant. Without this, a composed

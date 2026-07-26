@@ -395,6 +395,23 @@ func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core
 		return
 	}
 
+	// An optional field in OpenAPI 3.1 is anyOf:[{type:X},{type:null}], and the
+	// wrapper declares no type. Walking it as-is leaves the parameter untyped, so the
+	// request carries null where the endpoint wants a value and the type-driven
+	// payload sets never reach the field. The typed branch resolves to a real type
+	// exactly once — it declares one, so it cannot match here again.
+	if variant, nullable := pkgopenapi.TypedVariant(schema); variant != nil {
+		p.extractSchemaInfoWithDepth(variant, param, onPath, depth, budget)
+		param.Nullable = param.Nullable || nullable
+		if schema.Default != nil {
+			param.DefaultValue = schema.Default
+		}
+		if schema.Example != nil {
+			param.ExampleValue = schema.Example
+		}
+		return
+	}
+
 	if declared := pkgopenapi.SchemaType(schema); declared != "" {
 		param.DataType = p.mapDataType(declared)
 	}

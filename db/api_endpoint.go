@@ -36,6 +36,24 @@ type APIEndpoint struct {
 
 }
 
+// BeforeSave truncates the fields backed by bounded columns. They are copied out of
+// a scan target's API definition, and endpoints are inserted as one batch: a single
+// over-long operationId would otherwise fail the statement and take every other
+// endpoint of the definition down with it, leaving a definition the scanner reports
+// as parsed but never tests.
+func (e *APIEndpoint) BeforeSave(*gorm.DB) error {
+	e.OperationID = truncateRunes(e.OperationID, 255)
+	e.Name = truncateRunes(e.Name, 255)
+	e.Summary = truncateRunes(e.Summary, 500)
+	e.OperationType = truncateRunes(e.OperationType, 50)
+	e.ReturnType = truncateRunes(e.ReturnType, 255)
+	e.ServiceName = truncateRunes(e.ServiceName, 255)
+	e.PortName = truncateRunes(e.PortName, 255)
+	e.SOAPAction = truncateRunes(e.SOAPAction, 500)
+	e.BindingStyle = truncateRunes(e.BindingStyle, 50)
+	return nil
+}
+
 func (e APIEndpoint) TableHeaders() []string {
 	return []string{"ID", "Method", "Path/Operation", "Name", "Enabled", "Issues", "Last Scanned"}
 }

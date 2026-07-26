@@ -199,7 +199,7 @@ func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (
 	log.Info().
 		Str("definition_id", definition.ID.String()).
 		Str("name", definition.Name).
-		Int("endpoints", len(endpoints)).
+		Int("endpoints", definition.EndpointCount).
 		Str("source_url", history.URL).
 		Msg("Persisted discovered OpenAPI definition")
 

@@ -12,13 +12,21 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// wsScopeIncludes reports whether the given insertion-point kind is in scope.
+// An empty scope means "all kinds", mirroring the HTTP insertion-point behaviour
+// so that a caller which forgets to populate the scope still gets points rather
+// than silently getting none.
+func wsScopeIncludes(scoped []string, kind string) bool {
+	return len(scoped) == 0 || lib.SliceContainsSubstring(scoped, kind)
+}
+
 // GetWebSocketMessageInsertionPoints analyzes a WebSocket message and identifies insertion points
 // based on content type (JSON, XML, plain text)
 func GetWebSocketMessageInsertionPoints(message *db.WebSocketMessage, scoped []string) ([]InsertionPoint, error) {
 	var points []InsertionPoint
 
 	// Always add the raw message as an insertion point
-	if lib.SliceContainsSubstring(scoped, "ws_raw") {
+	if wsScopeIncludes(scoped, "ws_raw") {
 		points = append(points, InsertionPoint{
 			Type:         InsertionPointTypeWSRawMessage,
 			Name:         "message",
@@ -29,7 +37,7 @@ func GetWebSocketMessageInsertionPoints(message *db.WebSocketMessage, scoped []s
 	}
 
 	// Try to determine if the message is JSON and extract JSON insertion points
-	if lib.SliceContainsSubstring(scoped, "ws_json") && isLikelyJSON(message.PayloadData) {
+	if wsScopeIncludes(scoped, "ws_json") && isLikelyJSON(message.PayloadData) {
 		jsonPoints, err := extractJSONInsertionPoints(message.PayloadData)
 		if err != nil {
 			log.Debug().Err(err).Str("payload", message.PayloadData).Msg("Failed to extract JSON insertion points")
@@ -39,13 +47,17 @@ func GetWebSocketMessageInsertionPoints(message *db.WebSocketMessage, scoped []s
 	}
 
 	// Try to determine if the message is XML and extract XML insertion points
-	if lib.SliceContainsSubstring(scoped, "ws_xml") && isLikelyXML(message.PayloadData) {
+	if wsScopeIncludes(scoped, "ws_xml") && isLikelyXML(message.PayloadData) {
 		xmlPoints, err := extractXMLInsertionPoints(message.PayloadData)
 		if err != nil {
 			log.Debug().Err(err).Str("payload", message.PayloadData).Msg("Failed to extract XML insertion points")
 		} else {
 			points = append(points, xmlPoints...)
 		}
+	}
+
+	if wsScopeIncludes(scoped, "ws_graphql") && isLikelyJSON(message.PayloadData) {
+		points = append(points, extractGraphQLTransportWSInsertionPoints(message.PayloadData)...)
 	}
 
 	return points, nil
@@ -392,6 +404,14 @@ func CreateModifiedWebSocketMessage(original *db.WebSocketMessage, insertionPoin
 		InsertionPointTypeWSXMLNSPrefix, InsertionPointTypeWSXMLProcessing:
 		// Modify XML structure
 		newPayload, err := modifyXMLWithPayload(original.PayloadData, insertionPoint, payload)
+		if err != nil {
+			return nil, err
+		}
+		modified.PayloadData = newPayload
+		return &modified, nil
+
+	case InsertionPointTypeWSGraphQLInlineArg, InsertionPointTypeWSGraphQLVariable:
+		newPayload, err := modifyGraphQLTransportWSFrame(original.PayloadData, insertionPoint, payload)
 		if err != nil {
 			return nil, err
 		}

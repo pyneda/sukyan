@@ -776,7 +776,7 @@ func ScanWebSocketConnectionWithDeduplication(connection *db.WebSocketConnection
 	skippedMessages := 0
 
 	for _, message := range messages {
-		if deduplicationManager != nil && !deduplicationManager.ShouldScanMessage(connection.ID, &message) {
+		if deduplicationManager != nil && !deduplicationManager.ShouldScanMessage(connection.ID, connection.URL, &message) {
 			skippedMessages++
 			log.Debug().
 				Uint("connection_id", connection.ID).
@@ -789,7 +789,7 @@ func ScanWebSocketConnectionWithDeduplication(connection *db.WebSocketConnection
 		result.Issues = append(result.Issues, messageIssues...)
 
 		if deduplicationManager != nil {
-			deduplicationManager.MarkMessageAsScanned(connection.ID, &message)
+			deduplicationManager.MarkMessageAsScanned(connection.ID, connection.URL, &message)
 		}
 		scannedMessages++
 	}

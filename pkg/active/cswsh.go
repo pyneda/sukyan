@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -33,8 +35,23 @@ type CSWSHOriginTest struct {
 	Duration           time.Duration
 }
 
+// CSWSHVerdict grades a cross-origin acceptance result by exploitability. Cross-
+// origin handshake acceptance is only a session-hijack (CSWSH) when the socket
+// authenticates via ambient credentials the browser attaches automatically. When
+// there is no such evidence it is a permissive-origin hardening gap, not an
+// exploitable vulnerability; when the socket is authenticated by a non-ambient
+// token an attacker cannot forge, it is not a finding at all.
+type CSWSHVerdict string
+
+const (
+	CSWSHVerdictNone             CSWSHVerdict = "none"
+	CSWSHVerdictPermissiveOrigin CSWSHVerdict = "permissive_origin"
+	CSWSHVerdictVulnerable       CSWSHVerdict = "vulnerable"
+)
+
 type CSWSHScanResult struct {
 	Vulnerable       bool
+	Verdict          CSWSHVerdict
 	BaselineResult   CSWSHOriginTest
 	CrossOriginTests []CSWSHOriginTest
 	Confidence       int
@@ -50,6 +67,13 @@ type CSWSHScanOptions struct {
 	TestSubdomains    bool
 	MessageTimeout    time.Duration
 	ConnectionTimeout time.Duration
+
+	// PermissiveOriginGate, when set, is consulted before raising the low-severity
+	// permissive-origin finding; it receives the target host and returns true if
+	// the finding should be raised. Callers use it to deduplicate the note to once
+	// per host per scan. Nil means always raise. It never gates the high-severity
+	// CSWSH finding, which is always reported when detected.
+	PermissiveOriginGate func(host string) bool
 }
 
 type originToTest struct {
@@ -338,7 +362,211 @@ func exchangeMessagesWithTracking(conn *websocket.Conn, messagesToSend []db.WebS
 	return sent, received, data
 }
 
-func analyzeResults(baseline CSWSHOriginTest, tests []CSWSHOriginTest) (vulnerable bool, confidence int, details string) {
+// sessionCookieKeywords are substrings whose presence in a cookie NAME marks it
+// as a likely session/authentication credential (as opposed to an incidental
+// analytics/consent/load-balancer cookie such as _ga, cookieconsent, or AWSALB).
+var sessionCookieKeywords = []string{"sess", "sid", "auth", "token", "jwt", "sso", "login", "credential", "identity"}
+
+// looksLikeSessionCookie reports whether a cookie name suggests a session or auth
+// credential. It is deliberately a heuristic: distinguishing an authenticated
+// session from an incidental cookie is not possible with certainty, but this
+// filters the common non-session cookies that would otherwise be misread as
+// hijackable ambient auth.
+//
+// The name is tokenized on non-alphanumeric boundaries so a short keyword like
+// "sid" is matched only as a whole token, not mid-word - otherwise the common
+// Imperva/Incapsula "visid_incap_*" tracking cookie (which contains "sid") would
+// be misread as a session. Longer keywords ("sess", "auth", ...) still match as
+// substrings; the whole name is also treated as a token for delimiterless names
+// like "phpsessid".
+// nonSessionCookieSubstrings mark anti-CSRF / anti-forgery cookies (Django
+// csrftoken, Angular XSRF-TOKEN, ASP.NET __RequestVerificationToken): they carry
+// a session-like keyword but are set for anonymous visitors and can't hijack a
+// session, so they must not count as ambient auth.
+var nonSessionCookieSubstrings = []string{"csrf", "xsrf", "requestverificationtoken", "antiforgery"}
+
+func looksLikeSessionCookie(name string) bool {
+	n := strings.ToLower(strings.TrimSpace(name))
+	if n == "" {
+		return false
+	}
+	for _, marker := range nonSessionCookieSubstrings {
+		if strings.Contains(n, marker) {
+			return false
+		}
+	}
+	tokens := strings.FieldsFunc(n, func(r rune) bool {
+		return !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9')
+	})
+	tokens = append(tokens, n)
+	for _, tok := range tokens {
+		for _, kw := range sessionCookieKeywords {
+			if len(kw) <= 3 {
+				if tok == kw {
+					return true
+				}
+			} else if strings.Contains(tok, kw) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// cookieNamesFromRequestHeaders extracts cookie names from a Cookie request
+// header (name1=v1; name2=v2).
+func cookieNamesFromRequestHeaders(headers map[string][]string) []string {
+	var names []string
+	for key, values := range headers {
+		if !strings.EqualFold(key, "Cookie") {
+			continue
+		}
+		for _, v := range values {
+			for _, pair := range strings.Split(v, ";") {
+				if eq := strings.Index(pair, "="); eq > 0 {
+					names = append(names, strings.TrimSpace(pair[:eq]))
+				}
+			}
+		}
+	}
+	return names
+}
+
+// cookieNamesFromResponseHeaders extracts cookie names from Set-Cookie response
+// headers (name=value; attributes...).
+func cookieNamesFromResponseHeaders(headers map[string][]string) []string {
+	var names []string
+	for key, values := range headers {
+		if !strings.EqualFold(key, "Set-Cookie") {
+			continue
+		}
+		for _, v := range values {
+			seg := v
+			if semi := strings.Index(seg, ";"); semi >= 0 {
+				seg = seg[:semi]
+			}
+			if eq := strings.Index(seg, "="); eq > 0 {
+				names = append(names, strings.TrimSpace(seg[:eq]))
+			}
+		}
+	}
+	return names
+}
+
+// connectionHasAmbientAuth reports whether the captured handshake shows evidence
+// of ambient (cookie-based) credentials — the precondition for CSWSH to be
+// exploitable. It requires a SESSION-looking cookie (by name) on the upgrade
+// request or a Set-Cookie on the response; a merely-present incidental cookie
+// (analytics, consent, load-balancer affinity) is not treated as ambient auth,
+// since there is no session to hijack. Authorization and bearer tokens are
+// excluded entirely: they are not auto-attached cross-origin.
+func connectionHasAmbientAuth(conn *db.WebSocketConnection) bool {
+	if conn == nil {
+		return false
+	}
+	if reqHeaders, err := conn.GetRequestHeadersAsMap(); err == nil {
+		for _, name := range cookieNamesFromRequestHeaders(reqHeaders) {
+			if looksLikeSessionCookie(name) {
+				return true
+			}
+		}
+	}
+	if respHeaders, err := conn.GetResponseHeadersAsMap(); err == nil {
+		for _, name := range cookieNamesFromResponseHeaders(respHeaders) {
+			if looksLikeSessionCookie(name) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// tokenQueryParamNames are URL query parameter names specific enough to indicate
+// a non-ambient bearer token in the connection URL. Deliberately excludes generic
+// names like "sid" (Engine.IO/Socket.IO transport id), "key", and "auth", which
+// match benign parameters and would wrongly suppress genuine findings.
+var tokenQueryParamNames = map[string]bool{
+	"token":         true,
+	"access_token":  true,
+	"accesstoken":   true,
+	"auth_token":    true,
+	"authtoken":     true,
+	"authorization": true,
+	"jwt":           true,
+	"api_key":       true,
+	"apikey":        true,
+	"api-key":       true,
+	"sessionid":     true,
+	"session_id":    true,
+	"session_token": true,
+	"sessiontoken":  true,
+}
+
+var jwtLikeRegex = regexp.MustCompile(`eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}`)
+
+// connectionUsesTokenAuth reports whether the connection authenticates via a
+// non-ambient bearer token carried in the URL query or the first client frame.
+// Such a token cannot be forged by a cross-origin attacker page, so acceptance of
+// a cross-origin handshake is not exploitable and is suppressed entirely.
+func connectionUsesTokenAuth(conn *db.WebSocketConnection) bool {
+	if conn == nil {
+		return false
+	}
+	if u, err := url.Parse(conn.URL); err == nil {
+		for name, values := range u.Query() {
+			if !tokenQueryParamNames[strings.ToLower(name)] {
+				continue
+			}
+			for _, v := range values {
+				if len(strings.TrimSpace(v)) >= 8 {
+					return true
+				}
+			}
+		}
+	}
+	for _, msg := range conn.Messages {
+		if msg.Direction != db.MessageSent {
+			continue
+		}
+		return jwtLikeRegex.MatchString(msg.PayloadData)
+	}
+	return false
+}
+
+// classifyCSWSH grades a cross-origin acceptance result. Ambient-auth evidence
+// takes precedence (a hijackable cookie session is exploitable even when a token
+// is also present); an unauthenticated permissive origin is a hardening gap; a
+// token-authenticated socket is not a finding.
+func classifyCSWSH(conn *db.WebSocketConnection, crossOriginAccepted bool) CSWSHVerdict {
+	if !crossOriginAccepted {
+		return CSWSHVerdictNone
+	}
+	if connectionHasAmbientAuth(conn) {
+		return CSWSHVerdictVulnerable
+	}
+	if connectionUsesTokenAuth(conn) {
+		return CSWSHVerdictNone
+	}
+	return CSWSHVerdictPermissiveOrigin
+}
+
+// acceptedCrossOrigins returns the browser-reachable cross-origin types whose
+// handshake was accepted (attacker, null, subdomain). The missing-Origin arm is
+// excluded because a real browser always sends an Origin header.
+func acceptedCrossOrigins(tests []CSWSHOriginTest) []string {
+	var accepted []string
+	for _, test := range tests {
+		if test.OriginType == "same_origin" || test.OriginType == "missing" {
+			continue
+		}
+		if test.HandshakeSuccess {
+			accepted = append(accepted, test.OriginType)
+		}
+	}
+	return accepted
+}
+
+func analyzeResults(baseline CSWSHOriginTest, tests []CSWSHOriginTest) (crossOriginAccepted bool, confidence int, details string) {
 	var sb strings.Builder
 
 	if !baseline.HandshakeSuccess {
@@ -365,9 +593,6 @@ func analyzeResults(baseline CSWSHOriginTest, tests []CSWSHOriginTest) (vulnerab
 	sb.WriteString("Cross-Origin Tests\n")
 	sb.WriteString("------------------\n\n")
 
-	var acceptedOrigins []string
-	messageExchangeConfirmed := false
-
 	for _, test := range tests {
 		if test.OriginType == "same_origin" {
 			continue
@@ -389,15 +614,19 @@ func analyzeResults(baseline CSWSHOriginTest, tests []CSWSHOriginTest) (vulnerab
 		sb.WriteString(fmt.Sprintf("  Origin: %s\n", test.Origin))
 
 		if test.HandshakeSuccess {
-			vulnerable = true
+			// A real browser always sends an Origin header, so acceptance of a
+			// missing Origin is not reachable as a browser-driven attack. Record
+			// it for completeness but do not treat it as cross-origin acceptance.
+			if test.OriginType == "missing" {
+				sb.WriteString("  Result: ACCEPTED (informational; not browser-reachable, ignored)\n\n")
+				continue
+			}
+
+			crossOriginAccepted = true
 			sb.WriteString(fmt.Sprintf("  Result: ACCEPTED (Status %d)\n", test.ResponseStatusCode))
 			if test.MessagesSent > 0 || test.MessagesReceived > 0 {
 				sb.WriteString(fmt.Sprintf("  Messages: %d sent, %d received\n", test.MessagesSent, test.MessagesReceived))
-				if test.MessagesReceived > 0 {
-					messageExchangeConfirmed = true
-				}
 			}
-			acceptedOrigins = append(acceptedOrigins, test.OriginType)
 
 			typeConfidence := 0
 			switch test.OriginType {
@@ -405,8 +634,6 @@ func analyzeResults(baseline CSWSHOriginTest, tests []CSWSHOriginTest) (vulnerab
 				typeConfidence = 90
 			case "null":
 				typeConfidence = 85
-			case "missing":
-				typeConfidence = 80
 			case "subdomain":
 				typeConfidence = 75
 			}
@@ -424,47 +651,60 @@ func analyzeResults(baseline CSWSHOriginTest, tests []CSWSHOriginTest) (vulnerab
 		sb.WriteString("\n")
 	}
 
-	if vulnerable {
-		sb.WriteString("FINDING\n")
-		sb.WriteString("=======\n\n")
-		sb.WriteString(fmt.Sprintf("The WebSocket endpoint accepted connections from cross-origin sources: %s.\n\n",
-			strings.Join(acceptedOrigins, ", ")))
-
-		if messageExchangeConfirmed {
-			sb.WriteString("The scanner successfully connected and exchanged messages from a cross-origin context, ")
-			sb.WriteString("confirming the WebSocket connection is fully functional.\n\n")
-		} else {
-			sb.WriteString("The handshake was accepted but no messages were exchanged during testing.\n\n")
-		}
-
-		sb.WriteString("ATTACK SCENARIO\n")
-		sb.WriteString("---------------\n\n")
-		sb.WriteString("An attacker can host a malicious webpage that establishes a WebSocket connection to this endpoint. ")
-		sb.WriteString("If the application relies on cookie-based session authentication, the victim's browser will ")
-		sb.WriteString("automatically include session cookies with the cross-origin WebSocket request, allowing the ")
-		sb.WriteString("attacker to:\n\n")
-		sb.WriteString("  1. Read sensitive data transmitted over the WebSocket\n")
-		sb.WriteString("  2. Send messages on behalf of the authenticated user\n")
-		sb.WriteString("  3. Perform actions the user is authorized to do\n\n")
-
-		sb.WriteString("VERIFICATION NOTES\n")
-		sb.WriteString("------------------\n\n")
-		sb.WriteString("This detection is based on the WebSocket handshake being accepted from untrusted origins. ")
-		sb.WriteString("Manual verification is recommended to confirm:\n\n")
-		sb.WriteString("  - The endpoint uses cookie-based authentication (not token in URL or message)\n")
-		sb.WriteString("  - Sensitive or user-specific data is accessible through this WebSocket\n")
-		sb.WriteString("  - Session cookies do not have SameSite=Strict attribute which would block the attack\n\n")
-
-		sb.WriteString("If the WebSocket uses token-based authentication passed in the connection URL or initial ")
-		sb.WriteString("message rather than cookies, practical exploitability may be limited as the attacker ")
-		sb.WriteString("would need to obtain a valid token through other means.\n")
-	}
-
 	if confidence > 100 {
 		confidence = 100
 	}
 
-	return vulnerable, confidence, sb.String()
+	return crossOriginAccepted, confidence, sb.String()
+}
+
+// buildVulnerableConclusion returns the interpretive section for a confirmed
+// CSWSH finding: the socket carries ambient credentials and accepts cross-origin
+// handshakes, so an attacker page can hijack the authenticated session.
+func buildVulnerableConclusion(acceptedOrigins []string) string {
+	var sb strings.Builder
+	sb.WriteString("\nFINDING\n")
+	sb.WriteString("=======\n\n")
+	sb.WriteString(fmt.Sprintf("The WebSocket endpoint accepted connections from cross-origin sources: %s.\n",
+		strings.Join(acceptedOrigins, ", ")))
+	sb.WriteString("The captured handshake carries ambient (cookie-based) credentials, so a victim's ")
+	sb.WriteString("browser would attach the session automatically on a cross-origin connection.\n\n")
+
+	sb.WriteString("ATTACK SCENARIO\n")
+	sb.WriteString("---------------\n\n")
+	sb.WriteString("An attacker hosts a malicious webpage that opens a WebSocket to this endpoint. ")
+	sb.WriteString("The victim's browser auto-includes the session cookie, letting the attacker:\n\n")
+	sb.WriteString("  1. Read sensitive data transmitted over the WebSocket\n")
+	sb.WriteString("  2. Send messages on behalf of the authenticated user\n")
+	sb.WriteString("  3. Perform actions the user is authorized to do\n\n")
+
+	sb.WriteString("VERIFICATION NOTES\n")
+	sb.WriteString("------------------\n\n")
+	sb.WriteString("Manual verification is recommended to confirm:\n\n")
+	sb.WriteString("  - Sensitive or user-specific data is accessible through this WebSocket\n")
+	sb.WriteString("  - Session cookies do not have SameSite=Strict/Lax, which would block the attack\n")
+	return sb.String()
+}
+
+// buildPermissiveConclusion returns the interpretive section for the low-severity
+// permissive-origin note: cross-origin handshakes are accepted but no ambient
+// credentials were observed, so it is a hardening gap rather than an exploitable
+// hijack.
+func buildPermissiveConclusion(acceptedOrigins []string) string {
+	var sb strings.Builder
+	sb.WriteString("\nFINDING\n")
+	sb.WriteString("=======\n\n")
+	sb.WriteString(fmt.Sprintf("The WebSocket endpoint accepted connections from cross-origin sources: %s.\n",
+		strings.Join(acceptedOrigins, ", ")))
+	sb.WriteString("No ambient (cookie-based) authentication was observed on the captured connection, so this ")
+	sb.WriteString("is reported as a hardening gap rather than an exploitable session hijack. It becomes ")
+	sb.WriteString("CSWSH-exploitable if the endpoint relies on cookie-based session authentication.\n\n")
+
+	sb.WriteString("VERIFICATION NOTES\n")
+	sb.WriteString("------------------\n\n")
+	sb.WriteString("Confirm whether this socket carries or will carry session-authenticated, user-specific ")
+	sb.WriteString("data over cookies; if so, treat it as CSWSH.\n")
+	return sb.String()
 }
 
 func generateCSWSHPOC(targetURL string, messages []db.WebSocketMessage) string {
@@ -514,7 +754,7 @@ function log(msg) {
 </html>`, targetURL, targetURL, msgJS.String())
 }
 
-func reportCSWSHIssue(conn *db.WebSocketConnection, result *CSWSHScanResult, opts CSWSHScanOptions) {
+func reportCSWSHIssue(conn *db.WebSocketConnection, result *CSWSHScanResult, opts CSWSHScanOptions, code db.IssueCode) {
 	var workspaceID, taskID, taskJobID, scanID, scanJobID *uint
 
 	if opts.WorkspaceID > 0 {
@@ -535,7 +775,7 @@ func reportCSWSHIssue(conn *db.WebSocketConnection, result *CSWSHScanResult, opt
 
 	_, err := db.CreateWebSocketIssue(db.WebSocketIssueOptions{
 		Connection:  conn,
-		Code:        db.WebsocketCswshCode,
+		Code:        code,
 		Details:     result.Details,
 		Confidence:  result.Confidence,
 		WorkspaceID: workspaceID,
@@ -626,11 +866,22 @@ func ScanForCSWSH(
 		}
 	}
 
-	vulnerable, confidence, details := analyzeResults(baseline, allTests)
+	crossOriginAccepted, confidence, details := analyzeResults(baseline, allTests)
 	poc := generateCSWSHPOC(conn.URL, messagesToReplay)
 
+	verdict := classifyCSWSH(conn, crossOriginAccepted)
+	acceptedOrigins := acceptedCrossOrigins(allTests)
+
+	switch verdict {
+	case CSWSHVerdictVulnerable:
+		details += buildVulnerableConclusion(acceptedOrigins)
+	case CSWSHVerdictPermissiveOrigin:
+		details += buildPermissiveConclusion(acceptedOrigins)
+	}
+
 	result := &CSWSHScanResult{
-		Vulnerable:       vulnerable,
+		Vulnerable:       verdict == CSWSHVerdictVulnerable,
+		Verdict:          verdict,
 		BaselineResult:   baseline,
 		CrossOriginTests: allTests,
 		Confidence:       confidence,
@@ -638,12 +889,19 @@ func ScanForCSWSH(
 		POC:              poc,
 	}
 
-	if vulnerable {
-		taskLog.Warn().
-			Int("confidence", confidence).
-			Msg("CSWSH vulnerability detected")
-		reportCSWSHIssue(conn, result, opts)
-	} else {
+	switch verdict {
+	case CSWSHVerdictVulnerable:
+		taskLog.Warn().Int("confidence", confidence).Msg("CSWSH vulnerability detected (ambient auth present)")
+		reportCSWSHIssue(conn, result, opts, db.WebsocketCswshCode)
+	case CSWSHVerdictPermissiveOrigin:
+		host, _ := lib.GetHostFromURL(conn.URL)
+		if opts.PermissiveOriginGate == nil || opts.PermissiveOriginGate(host) {
+			taskLog.Info().Int("confidence", confidence).Str("host", host).Msg("Permissive WebSocket origin (no ambient auth) - reporting low-severity note")
+			reportCSWSHIssue(conn, result, opts, db.WebsocketPermissiveOriginCode)
+		} else {
+			taskLog.Debug().Str("host", host).Msg("Permissive origin already reported for host, skipping duplicate note")
+		}
+	default:
 		taskLog.Info().Msg("No CSWSH vulnerability detected")
 	}
 

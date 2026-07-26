@@ -12,11 +12,18 @@ import (
 func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, opts options.WebSocketScanOptions, deduplicationManager *http_utils.WebSocketDeduplicationManager) {
 	log.Info().Uint("connection", item.ID).Msg("Active scanning websocket connection")
 
+	// Scope graphql-ws handling to connections that negotiated the subprotocol so
+	// a non-GraphQL app with a "query"-looking field is never reinterpreted.
+	isGraphQLWSConn := connectionUsesGraphQLWSSubprotocol(item)
+
 	scopedInsertionPoints := []string{}
 	for _, t := range WebSocketInsertionPointTypes() {
+		if !isGraphQLWSConn && (t == InsertionPointTypeWSGraphQLInlineArg || t == InsertionPointTypeWSGraphQLVariable) {
+			continue
+		}
 		scopedInsertionPoints = append(scopedInsertionPoints, t.String())
 	}
-	log.Info().Uint("connection", item.ID).Strs("scopedInsertionPoints", scopedInsertionPoints).Msg("Using insertion points")
+	log.Info().Uint("connection", item.ID).Bool("graphql_ws", isGraphQLWSConn).Strs("scopedInsertionPoints", scopedInsertionPoints).Msg("Using insertion points")
 	messages := item.Messages
 	if len(messages) == 0 {
 		log.Warn().Uint("connection", item.ID).Msg("No messages to replay received, trying to fetch them")
@@ -50,7 +57,17 @@ func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsMan
 			continue
 		}
 
-		if deduplicationManager != nil && !deduplicationManager.ShouldScanMessage(item.ID, &msg) {
+		if isGraphQLWSConn && isGraphQLWSControlFrame(msg.PayloadData) {
+			skippedMessages++
+			log.Debug().
+				Uint("connection", item.ID).
+				Uint("message", msg.ID).
+				Int("index", i).
+				Msg("Skipping graphql-ws control frame (no injectable data)")
+			continue
+		}
+
+		if deduplicationManager != nil && !deduplicationManager.ShouldScanMessage(item.ID, item.URL, &msg) {
 			skippedMessages++
 			log.Debug().
 				Uint("connection", item.ID).
@@ -88,7 +105,7 @@ func ActiveScanWebSocketConnection(item *db.WebSocketConnection, interactionsMan
 			Msg("Found insertion points for WebSocket message")
 
 		if deduplicationManager != nil {
-			deduplicationManager.MarkMessageAsScanned(item.ID, &msg)
+			deduplicationManager.MarkMessageAsScanned(item.ID, item.URL, &msg)
 		}
 		scannedMessages++
 		// Run scan for this message and its insertion points

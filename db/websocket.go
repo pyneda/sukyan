@@ -381,6 +381,30 @@ type WebSocketMessageFilter struct {
 	IsBinary            *bool // Pointer to allow distinguishing between false and not-set
 }
 
+// GetSentWebSocketMessagesForConnections loads the client->server messages for
+// the given connections in a single query, grouped by connection ID. It is used
+// to deduplicate connections by frame shape before scheduling scan jobs.
+func (d *DatabaseConnection) GetSentWebSocketMessagesForConnections(connectionIDs []uint) (map[uint][]WebSocketMessage, error) {
+	result := make(map[uint][]WebSocketMessage)
+	if len(connectionIDs) == 0 {
+		return result, nil
+	}
+
+	var messages []WebSocketMessage
+	err := d.db.Where("connection_id IN ? AND direction = ?", connectionIDs, MessageSent).
+		Order("id asc").
+		Find(&messages).Error
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to load sent WebSocket messages for connections")
+		return nil, err
+	}
+
+	for _, m := range messages {
+		result[m.ConnectionID] = append(result[m.ConnectionID], m)
+	}
+	return result, nil
+}
+
 func (d *DatabaseConnection) ListWebSocketMessages(filter WebSocketMessageFilter) ([]WebSocketMessage, int64, error) {
 	query := d.db.Model(&WebSocketMessage{})
 

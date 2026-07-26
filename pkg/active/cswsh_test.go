@@ -98,6 +98,153 @@ func createTestWebSocketConnection(t *testing.T, wsURL string, workspace *db.Wor
 	return conn
 }
 
+// createTestWebSocketConnectionCustom builds a captured connection with arbitrary
+// request headers so tests can control the ambient-auth signal (Cookie present or
+// absent) that drives the CSWSH verdict.
+func createTestWebSocketConnectionCustom(t *testing.T, wsURL, reqHeadersJSON string, workspace *db.Workspace) *db.WebSocketConnection {
+	conn := &db.WebSocketConnection{
+		URL:             wsURL,
+		RequestHeaders:  datatypes.JSON(reqHeadersJSON),
+		ResponseHeaders: datatypes.JSON(`{}`),
+		StatusCode:      101,
+		StatusText:      "Switching Protocols",
+		WorkspaceID:     &workspace.ID,
+		Source:          "test",
+	}
+	require.NoError(t, db.Connection().CreateWebSocketConnection(conn))
+
+	msg := &db.WebSocketMessage{
+		ConnectionID: conn.ID,
+		Opcode:       1,
+		PayloadData:  `{"action": "ping"}`,
+		Timestamp:    time.Now(),
+		Direction:    db.MessageSent,
+	}
+	require.NoError(t, db.Connection().CreateWebSocketMessage(msg))
+	conn.Messages = []db.WebSocketMessage{*msg}
+	return conn
+}
+
+func permissiveOriginScanOptions(workspaceID uint) CSWSHScanOptions {
+	return CSWSHScanOptions{
+		WebSocketScanOptions: options.WebSocketScanOptions{
+			WorkspaceID:    workspaceID,
+			ReplayMessages: true,
+		},
+		TestNullOrigin:    true,
+		TestMissingOrigin: false,
+		TestSubdomains:    false,
+		MessageTimeout:    2 * time.Second,
+		ConnectionTimeout: 5 * time.Second,
+	}
+}
+
+// TestScanForCSWSH_PermissiveOriginNoAuth: an accept-all server with NO ambient
+// auth on the captured connection must be graded as a low-severity permissive
+// origin, never as High CSWSH.
+func TestScanForCSWSH_PermissiveOriginNoAuth(t *testing.T) {
+	server := createVulnerableWebSocketServer(t)
+	defer server.Close()
+	wsURL := httpToWsURL(server.URL)
+
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
+		Title: "TestCSWSH_Permissive",
+		Code:  "test-cswsh-permissive",
+	})
+	require.NoError(t, err)
+
+	conn := createTestWebSocketConnectionCustom(t, wsURL, `{"Host": "localhost"}`, workspace)
+
+	result, err := ScanForCSWSH(conn, permissiveOriginScanOptions(workspace.ID), nil)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	assert.False(t, result.Vulnerable, "no ambient auth must not be High CSWSH")
+	assert.Equal(t, CSWSHVerdictPermissiveOrigin, result.Verdict)
+	assert.Contains(t, result.Details, "hardening gap")
+
+	cswshIssues, _, err := db.Connection().ListIssues(db.IssueFilter{
+		WorkspaceID: workspace.ID,
+		Codes:       []string{string(db.WebsocketCswshCode)},
+		URL:         wsURL,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(cswshIssues), "must not raise High CSWSH")
+
+	permIssues, _, err := db.Connection().ListIssues(db.IssueFilter{
+		WorkspaceID: workspace.ID,
+		Codes:       []string{string(db.WebsocketPermissiveOriginCode)},
+		URL:         wsURL,
+	})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(permIssues), 1, "must raise low-severity permissive-origin note")
+}
+
+// TestScanForCSWSH_PermissiveOriginGateSuppresses: when the per-host gate returns
+// false, the permissive-origin note is not raised (dedup across connections).
+func TestScanForCSWSH_PermissiveOriginGateSuppresses(t *testing.T) {
+	server := createVulnerableWebSocketServer(t)
+	defer server.Close()
+	wsURL := httpToWsURL(server.URL)
+
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
+		Title: "TestCSWSH_PermissiveGate",
+		Code:  "test-cswsh-permissive-gate",
+	})
+	require.NoError(t, err)
+
+	conn := createTestWebSocketConnectionCustom(t, wsURL, `{"Host": "localhost"}`, workspace)
+
+	opts := permissiveOriginScanOptions(workspace.ID)
+	opts.PermissiveOriginGate = func(host string) bool { return false }
+
+	result, err := ScanForCSWSH(conn, opts, nil)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, CSWSHVerdictPermissiveOrigin, result.Verdict)
+
+	permIssues, _, err := db.Connection().ListIssues(db.IssueFilter{
+		WorkspaceID: workspace.ID,
+		Codes:       []string{string(db.WebsocketPermissiveOriginCode)},
+		URL:         wsURL,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(permIssues), "gate=false must suppress the note")
+}
+
+// TestScanForCSWSH_TokenAuthSuppressed: an accept-all server whose captured
+// connection authenticates via a URL token (non-ambient) must produce no finding.
+func TestScanForCSWSH_TokenAuthSuppressed(t *testing.T) {
+	server := createVulnerableWebSocketServer(t)
+	defer server.Close()
+	wsURL := httpToWsURL(server.URL) + "?token=supersecrettoken123"
+
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
+		Title: "TestCSWSH_TokenAuth",
+		Code:  "test-cswsh-token-auth",
+	})
+	require.NoError(t, err)
+
+	conn := createTestWebSocketConnectionCustom(t, wsURL, `{"Host": "localhost"}`, workspace)
+
+	result, err := ScanForCSWSH(conn, permissiveOriginScanOptions(workspace.ID), nil)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	assert.False(t, result.Vulnerable)
+	assert.Equal(t, CSWSHVerdictNone, result.Verdict, "token auth must suppress the finding entirely")
+
+	for _, code := range []string{string(db.WebsocketCswshCode), string(db.WebsocketPermissiveOriginCode)} {
+		issues, _, err := db.Connection().ListIssues(db.IssueFilter{
+			WorkspaceID: workspace.ID,
+			Codes:       []string{code},
+			URL:         wsURL,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 0, len(issues), "token auth must not raise %s", code)
+	}
+}
+
 func TestScanForCSWSH_VulnerableServer(t *testing.T) {
 	server := createVulnerableWebSocketServer(t)
 	defer server.Close()
@@ -483,12 +630,12 @@ func TestGenerateSubdomainVariations(t *testing.T) {
 
 func TestAnalyzeResults(t *testing.T) {
 	tests := []struct {
-		name               string
-		baseline           CSWSHOriginTest
-		tests              []CSWSHOriginTest
-		expectedVulnerable bool
-		minConfidence      int
-		maxConfidence      int
+		name             string
+		baseline         CSWSHOriginTest
+		tests            []CSWSHOriginTest
+		expectedAccepted bool
+		minConfidence    int
+		maxConfidence    int
 	}{
 		{
 			name: "baseline failed",
@@ -497,10 +644,10 @@ func TestAnalyzeResults(t *testing.T) {
 				HandshakeSuccess: false,
 				ErrorMessage:     "connection refused",
 			},
-			tests:              []CSWSHOriginTest{},
-			expectedVulnerable: false,
-			minConfidence:      0,
-			maxConfidence:      0,
+			tests:            []CSWSHOriginTest{},
+			expectedAccepted: false,
+			minConfidence:    0,
+			maxConfidence:    0,
 		},
 		{
 			name: "only baseline succeeds - secure",
@@ -512,9 +659,9 @@ func TestAnalyzeResults(t *testing.T) {
 				{OriginType: "attacker", HandshakeSuccess: false, ErrorMessage: "forbidden"},
 				{OriginType: "null", HandshakeSuccess: false, ErrorMessage: "forbidden"},
 			},
-			expectedVulnerable: false,
-			minConfidence:      0,
-			maxConfidence:      0,
+			expectedAccepted: false,
+			minConfidence:    0,
+			maxConfidence:    0,
 		},
 		{
 			name: "attacker origin succeeds - critical",
@@ -525,9 +672,9 @@ func TestAnalyzeResults(t *testing.T) {
 			tests: []CSWSHOriginTest{
 				{OriginType: "attacker", HandshakeSuccess: true, MessagesReceived: 1},
 			},
-			expectedVulnerable: true,
-			minConfidence:      95,
-			maxConfidence:      100,
+			expectedAccepted: true,
+			minConfidence:    95,
+			maxConfidence:    100,
 		},
 		{
 			name: "null origin succeeds - high",
@@ -539,22 +686,124 @@ func TestAnalyzeResults(t *testing.T) {
 				{OriginType: "attacker", HandshakeSuccess: false},
 				{OriginType: "null", HandshakeSuccess: true},
 			},
-			expectedVulnerable: true,
-			minConfidence:      85,
-			maxConfidence:      90,
+			expectedAccepted: true,
+			minConfidence:    85,
+			maxConfidence:    90,
+		},
+		{
+			name: "only missing origin accepted - not browser-reachable",
+			baseline: CSWSHOriginTest{
+				OriginType:       "same_origin",
+				HandshakeSuccess: true,
+			},
+			tests: []CSWSHOriginTest{
+				{OriginType: "attacker", HandshakeSuccess: false},
+				{OriginType: "missing", HandshakeSuccess: true},
+			},
+			expectedAccepted: false,
+			minConfidence:    0,
+			maxConfidence:    0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vulnerable, confidence, details := analyzeResults(tt.baseline, tt.tests)
+			accepted, confidence, details := analyzeResults(tt.baseline, tt.tests)
 
-			assert.Equal(t, tt.expectedVulnerable, vulnerable)
+			assert.Equal(t, tt.expectedAccepted, accepted)
 			assert.GreaterOrEqual(t, confidence, tt.minConfidence)
 			assert.LessOrEqual(t, confidence, tt.maxConfidence)
 			assert.NotEmpty(t, details)
 		})
 	}
+}
+
+func TestConnectionHasAmbientAuth(t *testing.T) {
+	tests := []struct {
+		name        string
+		reqHeaders  string
+		respHeaders string
+		expected    bool
+	}{
+		{"session cookie in request", `{"Cookie": "session=abc123"}`, `{}`, true},
+		{"lowercase cookie header", `{"cookie": "sessionid=abc123"}`, `{}`, true},
+		{"phpsessid is session", `{"Cookie": "PHPSESSID=abcdef"}`, `{}`, true},
+		{"auth_token cookie is session", `{"Cookie": "auth_token=xyz123"}`, `{}`, true},
+		{"session set-cookie in response", `{"Host": "example.com"}`, `{"Set-Cookie": "JSESSIONID=abc; HttpOnly"}`, true},
+		{"mixed incidental and session", `{"Cookie": "_ga=GA1.2; sessionid=abc"}`, `{}`, true},
+		{"connect.sid is session", `{"Cookie": "connect.sid=s%3Aabc"}`, `{}`, true},
+		{"analytics cookie only is not ambient", `{"Cookie": "_ga=GA1.2.3.4"}`, `{}`, false},
+		{"incapsula visid tracking cookie is not ambient", `{"Cookie": "visid_incap_2087301=abcdef"}`, `{}`, false},
+		{"consent cookie only is not ambient", `{"Cookie": "cookieconsent_status=allow"}`, `{}`, false},
+		{"load-balancer set-cookie only is not ambient", `{"Host": "example.com"}`, `{"Set-Cookie": "AWSALB=xyz; Path=/; HttpOnly"}`, false},
+		{"authorization only is not ambient", `{"Authorization": "Bearer eyJxyz"}`, `{}`, false},
+		{"no auth headers", `{"Host": "example.com", "User-Agent": "x"}`, `{}`, false},
+		{"empty cookie value", `{"Cookie": ""}`, `{}`, false},
+		// Anti-CSRF / anti-forgery cookies carry a session-like keyword ("token")
+		// but are set for anonymous visitors and are not session authenticators;
+		// treating them as ambient auth would re-introduce a High CSWSH FP.
+		{"django csrftoken is not ambient", `{"Cookie": "csrftoken=abcdef123456"}`, `{}`, false},
+		{"angular xsrf-token is not ambient", `{"Cookie": "XSRF-TOKEN=abcdef123456"}`, `{}`, false},
+		{"aspnet antiforgery is not ambient", `{"Cookie": "__RequestVerificationToken=abcdef"}`, `{}`, false},
+		{"csrftoken set-cookie is not ambient", `{"Host": "example.com"}`, `{"Set-Cookie": "csrftoken=abc; Path=/"}`, false},
+		{"csrftoken alongside real session is still ambient", `{"Cookie": "csrftoken=abc; sessionid=xyz789"}`, `{}`, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conn := &db.WebSocketConnection{
+				URL:             "ws://example.com/ws",
+				RequestHeaders:  datatypes.JSON(tt.reqHeaders),
+				ResponseHeaders: datatypes.JSON(tt.respHeaders),
+			}
+			assert.Equal(t, tt.expected, connectionHasAmbientAuth(conn))
+		})
+	}
+}
+
+func TestConnectionUsesTokenAuth(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		firstMsg string
+		expected bool
+	}{
+		{"token in url", "ws://example.com/ws?token=abcdef123456", "", true},
+		{"access_token in url", "ws://example.com/ws?access_token=abcdef123456", "", true},
+		{"short token value ignored", "ws://example.com/ws?token=x", "", false},
+		{"unrelated query param", "ws://example.com/ws?room=lobby", "", false},
+		{"socket.io sid is not a token", "ws://app/socket.io/?EIO=4&transport=websocket&sid=abcdef123456", "", false},
+		{"generic key param is not a token", "ws://example.com/ws?key=abcdef123456", "", false},
+		{"generic auth param is not a token", "ws://example.com/ws?auth=abcdef123456", "", false},
+		{"no query", "ws://example.com/ws", "", false},
+		{"jwt in first frame", "ws://example.com/ws", `{"type":"auth","token":"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.dozjgNryP4J3jVmNHl0w5N"}`, true},
+		{"plain first frame", "ws://example.com/ws", `{"action":"ping"}`, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conn := &db.WebSocketConnection{URL: tt.url}
+			if tt.firstMsg != "" {
+				conn.Messages = []db.WebSocketMessage{{Direction: db.MessageSent, PayloadData: tt.firstMsg}}
+			}
+			assert.Equal(t, tt.expected, connectionUsesTokenAuth(conn))
+		})
+	}
+}
+
+func TestClassifyCSWSH(t *testing.T) {
+	cookieConn := &db.WebSocketConnection{URL: "ws://example.com/ws", RequestHeaders: datatypes.JSON(`{"Cookie":"sessionid=1"}`), ResponseHeaders: datatypes.JSON(`{}`)}
+	incidentalCookieConn := &db.WebSocketConnection{URL: "ws://example.com/ws", RequestHeaders: datatypes.JSON(`{"Cookie":"_ga=GA1.2.3"}`), ResponseHeaders: datatypes.JSON(`{}`)}
+	noAuthConn := &db.WebSocketConnection{URL: "ws://example.com/ws", RequestHeaders: datatypes.JSON(`{}`), ResponseHeaders: datatypes.JSON(`{}`)}
+	tokenConn := &db.WebSocketConnection{URL: "ws://example.com/ws?token=abcdef123456", RequestHeaders: datatypes.JSON(`{}`), ResponseHeaders: datatypes.JSON(`{}`)}
+	cookieAndTokenConn := &db.WebSocketConnection{URL: "ws://example.com/ws?token=abcdef123456", RequestHeaders: datatypes.JSON(`{"Cookie":"sessionid=1"}`), ResponseHeaders: datatypes.JSON(`{}`)}
+
+	assert.Equal(t, CSWSHVerdictNone, classifyCSWSH(cookieConn, false), "not accepted -> none")
+	assert.Equal(t, CSWSHVerdictVulnerable, classifyCSWSH(cookieConn, true), "session cookie + accepted -> vulnerable")
+	assert.Equal(t, CSWSHVerdictPermissiveOrigin, classifyCSWSH(incidentalCookieConn, true), "incidental cookie only + accepted -> permissive, not High")
+	assert.Equal(t, CSWSHVerdictPermissiveOrigin, classifyCSWSH(noAuthConn, true), "no auth + accepted -> permissive")
+	assert.Equal(t, CSWSHVerdictNone, classifyCSWSH(tokenConn, true), "token auth + accepted -> suppressed")
+	assert.Equal(t, CSWSHVerdictVulnerable, classifyCSWSH(cookieAndTokenConn, true), "session cookie wins over token")
 }
 
 func TestIsWebSocketProtocolHeader(t *testing.T) {

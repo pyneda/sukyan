@@ -117,7 +117,17 @@ var DBMS_ERRORS = map[string][]*regexp.Regexp{
 		`SQLite3::SQLException`,
 		`org\.sqlite\.JDBC`,
 		`Pdo[./_\\]Sqlite`,
-		`SQLiteException`),
+		`SQLiteException`,
+		// Raw error text from the Go SQLite drivers (modernc.org/sqlite,
+		// mattn/go-sqlite3). The generic phrases are anchored to the trailing colon
+		// SQLite always emits so bare prose in a non-SQLite response cannot false-fire.
+		`SQL logic error`,
+		`unrecognized token:`,
+		`no such column:`,
+		`no such table:`,
+		`no such function:`,
+		`misuse of aggregate`,
+		`near "[^"]*": syntax error`),
 	"Sybase": compilePatterns(
 		`(?i)Warning.*sybase.*`,
 		`Sybase message`,

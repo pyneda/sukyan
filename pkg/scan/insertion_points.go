@@ -38,6 +38,12 @@ const (
 	InsertionPointTypeWSRawMessage InsertionPointType = "ws_raw_message"
 )
 
+// WebSocket GraphQL insertion point types (arguments/variables inside a graphql-ws payload.query).
+const (
+	InsertionPointTypeWSGraphQLInlineArg InsertionPointType = "ws_graphql_inline_arg"
+	InsertionPointTypeWSGraphQLVariable  InsertionPointType = "ws_graphql_variable"
+)
+
 // WebSocket JSON insertion point types
 const (
 	InsertionPointTypeWSJSONField      InsertionPointType = "ws_json_field"      // Any JSON field
@@ -117,6 +123,12 @@ func (ipt InsertionPointType) HumanReadableName() string {
 		return "WebSocket XML Processing Instruction"
 	case InsertionPointTypeWSRawMessage:
 		return "WebSocket Raw Message"
+
+	// WebSocket GraphQL types
+	case InsertionPointTypeWSGraphQLInlineArg:
+		return "WebSocket GraphQL Inline Argument"
+	case InsertionPointTypeWSGraphQLVariable:
+		return "WebSocket GraphQL Variable"
 	default:
 		return fmt.Sprintf("Unknown (%s)", string(ipt))
 	}
@@ -156,6 +168,10 @@ func AllInsertionPointTypes() []InsertionPointType {
 
 		// WebSocket general types
 		InsertionPointTypeWSRawMessage,
+
+		// WebSocket GraphQL types
+		InsertionPointTypeWSGraphQLInlineArg,
+		InsertionPointTypeWSGraphQLVariable,
 	}
 }
 
@@ -192,6 +208,9 @@ func WebSocketInsertionPointTypes() []InsertionPointType {
 		InsertionPointTypeWSXMLProcessing,
 
 		InsertionPointTypeWSRawMessage,
+
+		InsertionPointTypeWSGraphQLInlineArg,
+		InsertionPointTypeWSGraphQLVariable,
 	}
 }
 
@@ -228,6 +247,10 @@ func (ipt InsertionPointType) IsWebSocketType() bool {
 		return true
 
 	case InsertionPointTypeWSRawMessage:
+		return true
+
+	case InsertionPointTypeWSGraphQLInlineArg,
+		InsertionPointTypeWSGraphQLVariable:
 		return true
 	default:
 		return false

@@ -17,6 +17,7 @@ import (
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/passive"
+	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/pyneda/sukyan/pkg/scope"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -774,7 +775,7 @@ func (o *Orchestrator) startWebSocketPhase(scanEntity *db.Scan) error {
 	}
 
 	// Filter to in-scope connections and detect cleartext WebSocket
-	var inScopeConnectionIDs []uint
+	var inScopeConnections []db.WebSocketConnection
 	cleartextHostsReported := make(map[string]bool)
 
 	for _, conn := range connections {
@@ -783,7 +784,7 @@ func (o *Orchestrator) startWebSocketPhase(scanEntity *db.Scan) error {
 			continue
 		}
 
-		inScopeConnectionIDs = append(inScopeConnectionIDs, conn.ID)
+		inScopeConnections = append(inScopeConnections, conn)
 
 		// Check for cleartext WebSocket connections (ws:// instead of wss://)
 		u, err := url.Parse(conn.URL)
@@ -807,10 +808,10 @@ func (o *Orchestrator) startWebSocketPhase(scanEntity *db.Scan) error {
 		}
 	}
 
-	if originalCount > int64(len(inScopeConnectionIDs)) {
+	if originalCount > int64(len(inScopeConnections)) {
 		scanLog.Warn().
 			Int64("original_count", originalCount).
-			Int("in_scope_count", len(inScopeConnectionIDs)).
+			Int("in_scope_count", len(inScopeConnections)).
 			Msg("Some WebSocket connections discovered during crawl are out of scope, skipping scan for them")
 	}
 
@@ -820,14 +821,43 @@ func (o *Orchestrator) startWebSocketPhase(scanEntity *db.Scan) error {
 			Msg("Cleartext WebSocket connections detected")
 	}
 
-	if len(inScopeConnectionIDs) == 0 {
+	if len(inScopeConnections) == 0 {
 		scanLog.Info().Msg("No in-scope websocket connections for scanning")
 		return nil
 	}
 
-	scanLog.Info().Int("count", len(inScopeConnectionIDs)).Msg("Scheduling WebSocket connection scans")
+	// Deduplicate at scheduling time: schedule one job per (endpoint, client-frame
+	// shape) rather than one per captured connection. A crawl records the same
+	// socket once per page visit, so most connections are redundant and would only
+	// re-run passive + CSWSH + message dedup for work that is ultimately skipped.
+	scheduledConnectionIDs := inScopeConnectionIDsForScheduling(scanLog, inScopeConnections, scanEntity.Options.Mode)
 
-	return o.scheduler.ScheduleWebSocketScan(o.ctx, scanEntity.ID, inScopeConnectionIDs)
+	scanLog.Info().
+		Int("in_scope", len(inScopeConnections)).
+		Int("scheduled", len(scheduledConnectionIDs)).
+		Int("deduplicated", len(inScopeConnections)-len(scheduledConnectionIDs)).
+		Msg("Scheduling WebSocket connection scans")
+
+	return o.scheduler.ScheduleWebSocketScan(o.ctx, scanEntity.ID, scheduledConnectionIDs)
+}
+
+// inScopeConnectionIDsForScheduling deduplicates the in-scope connections by
+// (endpoint, client-frame shape) so redundant captures of the same socket are not
+// scheduled. On any failure loading frames it falls back to scheduling every
+// connection, trading extra work for no recall loss.
+func inScopeConnectionIDsForScheduling(scanLog zerolog.Logger, inScopeConnections []db.WebSocketConnection, mode options.ScanMode) []uint {
+	allIDs := make([]uint, 0, len(inScopeConnections))
+	for i := range inScopeConnections {
+		allIDs = append(allIDs, inScopeConnections[i].ID)
+	}
+
+	messagesByConn, err := db.Connection().GetSentWebSocketMessagesForConnections(allIDs)
+	if err != nil {
+		scanLog.Warn().Err(err).Msg("Failed to load frames for scheduling dedup, scheduling all in-scope connections")
+		return allIDs
+	}
+
+	return http_utils.DeduplicateWebSocketConnectionsForScheduling(inScopeConnections, messagesByConn, mode)
 }
 
 // completeScan marks a scan as complete

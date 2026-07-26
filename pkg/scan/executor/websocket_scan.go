@@ -37,6 +37,19 @@ type WebSocketScanExecutor struct {
 	payloadGenerators     []*generation.PayloadGenerator
 	deduplicationManagers map[uint]*http_utils.WebSocketDeduplicationManager // per-scan dedup managers
 	deduplicationMu       sync.RWMutex
+
+	// cswshTestedEndpoints tracks, per scan, the endpoints already probed for
+	// CSWSH. A crawl records one connection per page visit, so the same socket
+	// is captured many times; without this the handshake matrix is re-run - and
+	// an issue re-reported - once per connection instead of once per endpoint.
+	cswshTestedEndpoints map[uint]map[string]bool
+
+	// permissiveOriginHosts tracks, per scan, the hosts for which the low-severity
+	// permissive-origin note has already been raised. That finding is a host-level
+	// hardening observation, so it is deduplicated per host rather than per
+	// endpoint to avoid one low-value row per endpoint on the same server.
+	permissiveOriginHosts map[uint]map[string]bool
+	cswshMu               sync.Mutex
 }
 
 // NewWebSocketScanExecutor creates a new WebSocket scan executor
@@ -48,7 +61,49 @@ func NewWebSocketScanExecutor(
 		interactionsManager:   interactionsManager,
 		payloadGenerators:     payloadGenerators,
 		deduplicationManagers: make(map[uint]*http_utils.WebSocketDeduplicationManager),
+		cswshTestedEndpoints:  make(map[uint]map[string]bool),
+		permissiveOriginHosts: make(map[uint]map[string]bool),
 	}
+}
+
+// claimCSWSHEndpoint reports whether CSWSH still needs probing for this scan and
+// endpoint, claiming it atomically so concurrent jobs for connections to the
+// same socket probe it exactly once.
+func (e *WebSocketScanExecutor) claimCSWSHEndpoint(scanID uint, connectionURL string) bool {
+	key := http_utils.EndpointKey(connectionURL)
+
+	e.cswshMu.Lock()
+	defer e.cswshMu.Unlock()
+
+	if e.cswshTestedEndpoints[scanID] == nil {
+		e.cswshTestedEndpoints[scanID] = make(map[string]bool)
+	}
+	if e.cswshTestedEndpoints[scanID][key] {
+		return false
+	}
+	e.cswshTestedEndpoints[scanID][key] = true
+	return true
+}
+
+// claimPermissiveOriginHost reports whether the low-severity permissive-origin
+// note still needs raising for this scan and host, claiming it atomically so the
+// note is raised once per host rather than once per endpoint.
+func (e *WebSocketScanExecutor) claimPermissiveOriginHost(scanID uint, host string) bool {
+	if host == "" {
+		return true
+	}
+
+	e.cswshMu.Lock()
+	defer e.cswshMu.Unlock()
+
+	if e.permissiveOriginHosts[scanID] == nil {
+		e.permissiveOriginHosts[scanID] = make(map[string]bool)
+	}
+	if e.permissiveOriginHosts[scanID][host] {
+		return false
+	}
+	e.permissiveOriginHosts[scanID][host] = true
+	return true
 }
 
 // getOrCreateDeduplicationManager gets or creates a deduplication manager for a scan
@@ -79,6 +134,11 @@ func (e *WebSocketScanExecutor) CleanupDeduplicationManager(scanID uint) {
 			Msg("WebSocket deduplication statistics before cleanup")
 	}
 	delete(e.deduplicationManagers, scanID)
+
+	e.cswshMu.Lock()
+	delete(e.cswshTestedEndpoints, scanID)
+	delete(e.permissiveOriginHosts, scanID)
+	e.cswshMu.Unlock()
 }
 
 // JobType returns the job type this executor handles
@@ -155,23 +215,33 @@ func (e *WebSocketScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ct
 		return context.Canceled
 	}
 
-	taskLog.Info().Msg("Running CSWSH detection")
-	cswshOpts := active.CSWSHScanOptions{
-		WebSocketScanOptions: opts,
-		TestNullOrigin:       true,
-		TestMissingOrigin:    true,
-		TestSubdomains:       true,
-		MessageTimeout:       5 * time.Second,
-		ConnectionTimeout:    30 * time.Second,
-	}
-	cswshResult, err := active.ScanForCSWSH(wsConnection, cswshOpts, e.interactionsManager)
-	if err != nil {
-		taskLog.Warn().Err(err).Msg("CSWSH check failed")
-	} else if cswshResult != nil && cswshResult.Vulnerable {
-		taskLog.Warn().
-			Int("confidence", cswshResult.Confidence).
-			Int("origins_tested", len(cswshResult.CrossOriginTests)).
-			Msg("CSWSH vulnerability detected")
+	// CSWSH is a property of the endpoint, not of an individual connection, so
+	// probe each endpoint once per scan rather than once per captured connection.
+	if e.claimCSWSHEndpoint(job.ScanID, wsConnection.URL) {
+		taskLog.Info().Msg("Running CSWSH detection")
+		cswshOpts := active.CSWSHScanOptions{
+			WebSocketScanOptions: opts,
+			TestNullOrigin:       true,
+			TestMissingOrigin:    false, // a real browser always sends Origin; testing it is a pointless request
+			TestSubdomains:       true,
+			MessageTimeout:       5 * time.Second,
+			ConnectionTimeout:    30 * time.Second,
+			PermissiveOriginGate: func(host string) bool {
+				return e.claimPermissiveOriginHost(job.ScanID, host)
+			},
+		}
+		cswshResult, err := active.ScanForCSWSH(wsConnection, cswshOpts, e.interactionsManager)
+		if err != nil {
+			taskLog.Warn().Err(err).Msg("CSWSH check failed")
+		} else if cswshResult != nil {
+			taskLog.Info().
+				Str("verdict", string(cswshResult.Verdict)).
+				Int("confidence", cswshResult.Confidence).
+				Int("origins_tested", len(cswshResult.CrossOriginTests)).
+				Msg("CSWSH check completed")
+		}
+	} else {
+		taskLog.Debug().Str("url", wsConnection.URL).Msg("Skipping CSWSH, endpoint already probed in this scan")
 	}
 
 	// Checkpoint: check before message scanning

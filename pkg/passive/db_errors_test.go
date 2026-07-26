@@ -18,8 +18,22 @@ func TestSearchDatabaseErrors(t *testing.T) {
 		{"Oracle", "error received ORA-00090 when querying the database", "Oracle", "ORA-00090"},
 		{"IBM DB2", "CLI Driver for DB2 SQL error", "IBM DB2", "CLI Driver for DB2"},
 		{"SQLite", "[SQLITE_ERROR] SQL error", "SQLite", "[SQLITE_ERROR]"},
+		// Raw engine error text emitted by Go SQLite drivers (modernc.org/sqlite,
+		// mattn/go-sqlite3) that the framework-wrapper patterns above do not catch.
+		{"SQLite logic error", `{"error":"SQL logic error: unrecognized token: \"'\" (1)","found":false}`, "SQLite", "SQL logic error"},
+		{"SQLite near syntax", `SQL logic error: near "x": syntax error`, "SQLite", "SQL logic error"},
+		{"SQLite near syntax no prefix", `near "x": syntax error`, "SQLite", `near "x": syntax error`},
+		{"SQLite unrecognized token", `unrecognized token: "@"`, "SQLite", "unrecognized token:"},
+		{"SQLite no such column", "no such column: password", "SQLite", "no such column:"},
+		{"SQLite no such table", "no such table: agents", "SQLite", "no such table:"},
 		{"Sybase", "Sybase message: Server is not responding", "Sybase", "Sybase message"},
 		{"Non-matching", "This is a non-matching error message", "", ""},
+		// The generic SQLite phrases are anchored to the trailing colon SQLite
+		// always emits, so bare English prose in a non-SQLite response must NOT
+		// false-fire (regression guard for the FIX1 precision fix).
+		{"Auth token error (no colon)", `{"error":"unrecognized token"}`, "", ""},
+		{"Prose no such table", "Sorry, there is no such table available tonight", "", ""},
+		{"Prose no such column in UI", "The report has no such column configured", "", ""},
 	}
 
 	for _, tt := range tests {

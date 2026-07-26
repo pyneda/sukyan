@@ -190,6 +190,7 @@ var (
 	WebserverControlFileExposedCode IssueCode = "webserver_control_file_exposed"
 	WebsocketCswshCode IssueCode = "websocket_cswsh"
 	WebsocketDetectedCode IssueCode = "websocket_detected"
+	WebsocketPermissiveOriginCode IssueCode = "websocket_permissive_origin"
 	WordpressDetectedCode IssueCode = "wordpress_detected"
 	WsdlDefinitionDetectedCode IssueCode = "wsdl_definition_detected"
 	WsdlExposureCode IssueCode = "wsdl_exposure"
@@ -2503,6 +2504,19 @@ var issueTemplates = []IssueTemplate{
 		Cwe:         749,
 		Severity:    "Info",
 		References: []string{
+		},
+	},
+	{
+		Code:        WebsocketPermissiveOriginCode,
+		Title:       "Permissive WebSocket Origin Policy",
+		Description: "The WebSocket endpoint completed a handshake initiated from an untrusted cross-origin context, indicating that the server does not validate the Origin header. No evidence of ambient (cookie-based) authentication was observed on the captured connection, so this is reported as a hardening gap rather than an exploitable session hijack. Without Origin validation, any website a victim visits can open a WebSocket to this endpoint from the victim's browser. If the endpoint relies on, or later adopts, cookie-based session authentication, this weakness becomes exploitable as Cross-Site WebSocket Hijacking (CSWSH), allowing an attacker page to read data or perform actions on behalf of the authenticated user.",
+		Remediation: "Validate the Origin header during the WebSocket handshake against an allow-list of trusted origins and reject connections from untrusted sources. Do not rely on Origin validation alone for security-sensitive sockets; combine it with per-session CSRF-style tokens and authentication performed at the message level rather than via ambient cookies.",
+		Cwe:         346,
+		Severity:    "Low",
+		References: []string{
+			"https://portswigger.net/web-security/websockets/cross-site-websocket-hijacking",
+			"https://cwe.mitre.org/data/definitions/1385.html",
+			"https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/10-Testing_WebSockets",
 		},
 	},
 	{

@@ -351,3 +351,43 @@ func TestIsLikelyXML(t *testing.T) {
 		})
 	}
 }
+
+// TestGetWebSocketMessageInsertionPointsEmptyScope verifies that an empty scope
+// is treated as "all kinds" rather than silently producing zero insertion
+// points (mirrors the HTTP insertion-point behaviour).
+func TestGetWebSocketMessageInsertionPointsEmptyScope(t *testing.T) {
+	message := &db.WebSocketMessage{PayloadData: `{"id":"1"}`}
+
+	points, err := GetWebSocketMessageInsertionPoints(message, []string{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(points) == 0 {
+		t.Fatal("empty scope produced no insertion points; expected all kinds")
+	}
+
+	var hasRaw, hasJSON bool
+	for _, p := range points {
+		if p.Type == InsertionPointTypeWSRawMessage {
+			hasRaw = true
+		}
+		if p.Type == InsertionPointTypeWSJSONValue || p.Type == InsertionPointTypeWSJSONField {
+			hasJSON = true
+		}
+	}
+	if !hasRaw {
+		t.Error("empty scope did not include the raw-message insertion point")
+	}
+	if !hasJSON {
+		t.Error("empty scope did not include JSON field insertion points for a JSON message")
+	}
+
+	// nil scope must behave the same as an empty slice.
+	nilPoints, err := GetWebSocketMessageInsertionPoints(message, nil)
+	if err != nil {
+		t.Fatalf("unexpected error for nil scope: %v", err)
+	}
+	if len(nilPoints) != len(points) {
+		t.Errorf("nil scope produced %d points, empty slice produced %d; want equal", len(nilPoints), len(points))
+	}
+}

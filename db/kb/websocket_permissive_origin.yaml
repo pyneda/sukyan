@@ -1,0 +1,12 @@
+code: websocket_permissive_origin
+title: Permissive WebSocket Origin Policy
+description:
+  The WebSocket endpoint completed a handshake initiated from an untrusted cross-origin context, indicating that the server does not validate the Origin header. No evidence of ambient (cookie-based) authentication was observed on the captured connection, so this is reported as a hardening gap rather than an exploitable session hijack. Without Origin validation, any website a victim visits can open a WebSocket to this endpoint from the victim's browser. If the endpoint relies on, or later adopts, cookie-based session authentication, this weakness becomes exploitable as Cross-Site WebSocket Hijacking (CSWSH), allowing an attacker page to read data or perform actions on behalf of the authenticated user.
+remediation:
+  Validate the Origin header during the WebSocket handshake against an allow-list of trusted origins and reject connections from untrusted sources. Do not rely on Origin validation alone for security-sensitive sockets; combine it with per-session CSRF-style tokens and authentication performed at the message level rather than via ambient cookies.
+cwe: 346
+severity: Low
+references:
+  - https://portswigger.net/web-security/websockets/cross-site-websocket-hijacking
+  - https://cwe.mitre.org/data/definitions/1385.html
+  - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/10-Testing_WebSockets

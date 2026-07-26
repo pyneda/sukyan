@@ -48,6 +48,12 @@ type WebSocketScannerResult struct {
 	ModifiedMessage  *db.WebSocketMessage  // The message we sent with payload
 	ResponseMessages []db.WebSocketMessage // Messages received after sending modified message
 
+	// BaselineResponses holds the responses to the ORIGINAL (unmodified) target
+	// message. They let the evaluator suppress signals that are constant for the
+	// endpoint (e.g. a server that echoes a SQL error on every reply) rather than
+	// a reaction to the injected payload, avoiding false positives.
+	BaselineResponses []db.WebSocketMessage
+
 	// Evaluation data
 	Payload           generation.Payload
 	InsertionPoint    InsertionPoint
@@ -70,6 +76,33 @@ type WebSocketScanner struct {
 	results             sync.Map
 }
 
+// wsIssueRecord holds the single issue created for one (endpoint, code, insertion
+// point, message) identity. Later matching payloads attach their request as
+// evidence to this issue rather than creating a duplicate row. The mutex guards
+// the lazily-populated issue pointer and serialises the evidence appends.
+type wsIssueRecord struct {
+	mu    sync.Mutex
+	issue *db.Issue
+}
+
+// baselineFuture carries the per-message baseline responses, collected once in a
+// background goroutine so its full-window wait overlaps the payload probes (which
+// wait a full window each anyway) instead of serialising in front of them. Tasks
+// resolve it lazily, right before evaluation, by which point it is almost always
+// already done.
+type baselineFuture struct {
+	done      chan struct{}
+	responses []db.WebSocketMessage
+}
+
+func (b *baselineFuture) get() []db.WebSocketMessage {
+	if b == nil {
+		return nil
+	}
+	<-b.done
+	return b.responses
+}
+
 // WebSocketScannerTask represents a single fuzzing task
 type WebSocketScannerTask struct {
 	connection         *db.WebSocketConnection
@@ -77,6 +110,18 @@ type WebSocketScannerTask struct {
 	insertionPoint     InsertionPoint
 	payload            generation.Payload
 	options            options.WebSocketScanOptions
+	baseline           *baselineFuture
+}
+
+// shouldReplayPriorFrames replays the prior client frames for the probe and the
+// symmetric baseline. Beyond opt-in global replay, a graphql-ws subscribe needs
+// its preceding connection_init handshake or a real server rejects it; that
+// branch is gated on the subprotocol so non-GraphQL connections are unaffected.
+func shouldReplayPriorFrames(opts options.WebSocketScanOptions, conn *db.WebSocketConnection, target db.WebSocketMessage) bool {
+	if opts.ReplayMessages {
+		return true
+	}
+	return connectionUsesGraphQLWSSubprotocol(conn) && isGraphQLTransportWSSubscribeFrame(target.PayloadData)
 }
 
 // MessageBuilder represents how to build a WebSocket message with a payload
@@ -202,9 +247,31 @@ func (s *WebSocketScanner) Run(
 	// Create a task pool using conc
 	p := pool.New().WithMaxGoroutines(concurrency)
 
+	// The evaluator needs the responses to the unmodified target message to
+	// distinguish a payload-triggered signal from one the endpoint emits
+	// unconditionally (constant DB errors, always-reflected input, etc.).
+	baseline := &baselineFuture{done: make(chan struct{})}
+
 	// Generate all tasks first
 	tasks := s.generateTasks(connection, originalMessages, targetMessageIndex,
-		payloadGenerators, insertionPoints, opts)
+		payloadGenerators, insertionPoints, opts, baseline)
+
+	// Collect the baseline concurrently with the probes (it waits a full
+	// observation window, so overlapping it avoids serialising a full window per
+	// message in front of the probes; tasks resolve it lazily before evaluation).
+	// Only start it when there is something to scan - otherwise no task would
+	// resolve it and it would send pointless target traffic after Run returns.
+	if len(tasks) > 0 {
+		go func() {
+			defer close(baseline.done)
+			defer func() {
+				if r := recover(); r != nil {
+					log.Error().Interface("panic", r).Str("connection", connection.URL).Msg("Recovered panic while collecting WebSocket baseline; suppression disabled for this message")
+				}
+			}()
+			baseline.responses = s.collectBaselineResponses(connection, originalMessages, targetMessageIndex, opts)
+		}()
+	}
 
 	// Process all tasks with the pool
 	for _, task := range tasks {
@@ -252,7 +319,8 @@ func (s *WebSocketScanner) generateTasks(
 	targetMessageIndex int,
 	payloadGenerators []*generation.PayloadGenerator,
 	insertionPoints []InsertionPoint,
-	opts options.WebSocketScanOptions) []WebSocketScannerTask {
+	opts options.WebSocketScanOptions,
+	baseline *baselineFuture) []WebSocketScannerTask {
 
 	tasks := make([]WebSocketScannerTask, 0)
 
@@ -279,6 +347,7 @@ func (s *WebSocketScanner) generateTasks(
 						payload:            payload,
 						insertionPoint:     insertionPoint,
 						options:            opts,
+						baseline:           baseline,
 					})
 				}
 			} else {
@@ -330,6 +399,9 @@ func (s *WebSocketScanner) processTask(task WebSocketScannerTask) {
 	result.Payload = task.payload
 	result.InsertionPoint = task.insertionPoint
 	result.ObservationWindow = task.options.ObservationWindow
+	// BaselineResponses is resolved lazily just before evaluation (see
+	// executeWebSocketTest) so this probe does not block on the background
+	// baseline collection before doing its own work.
 
 	// Load original messages
 	originalMessages, _, err := db.Connection().ListWebSocketMessages(db.WebSocketMessageFilter{
@@ -359,9 +431,9 @@ func (s *WebSocketScanner) processTask(task WebSocketScannerTask) {
 
 // executeWebSocketTest performs the actual WebSocket connection and testing
 func (s *WebSocketScanner) executeWebSocketTest(ctx context.Context, result *WebSocketScannerResult, task WebSocketScannerTask, taskLog zerolog.Logger) {
-	dialer, err := createWebSocketDialer(task.connection)
+	dialer, httpHeaders, err := dialerAndHeadersForConnection(task.connection)
 	if err != nil {
-		taskLog.Error().Err(err).Msg("Failed to create WebSocket dialer")
+		taskLog.Error().Err(err).Msg("Failed to prepare WebSocket dialer")
 		result.Err = err
 		return
 	}
@@ -371,29 +443,6 @@ func (s *WebSocketScanner) executeWebSocketTest(ctx context.Context, result *Web
 		taskLog.Error().Err(err).Str("url", task.connection.URL).Msg("Failed to parse WebSocket URL")
 		result.Err = err
 		return
-	}
-
-	headers, err := task.connection.GetRequestHeadersAsMap()
-	if err != nil {
-		taskLog.Error().Err(err).Msg("Failed to get request headers")
-		result.Err = err
-		return
-	}
-
-	httpHeaders := http.Header{}
-	for key, values := range headers {
-		// Skip WebSocket-specific headers that the client will set automatically
-		if strings.EqualFold(key, "Connection") ||
-			strings.EqualFold(key, "Sec-WebSocket-Key") ||
-			strings.EqualFold(key, "Sec-WebSocket-Version") ||
-			strings.EqualFold(key, "Sec-WebSocket-Protocol") ||
-			strings.EqualFold(key, "Sec-WebSocket-Extensions") ||
-			strings.EqualFold(key, "Upgrade") {
-			continue
-		}
-		for _, value := range values {
-			httpHeaders.Set(key, value)
-		}
 	}
 
 	startTime := time.Now()
@@ -467,7 +516,7 @@ func (s *WebSocketScanner) executeWebSocketTest(ctx context.Context, result *Web
 	}()
 
 	// Replay previous messages if needed to establish context
-	if task.options.ReplayMessages && task.targetMessageIndex > 0 {
+	if task.targetMessageIndex > 0 && shouldReplayPriorFrames(task.options, task.connection, result.OriginalMessages[task.targetMessageIndex]) {
 		sentMessages, err := replayPreviousMessages(client, newConnection.ID, result.OriginalMessages, task.targetMessageIndex)
 		if err != nil {
 			taskLog.Error().Err(err).Msg("Failed to replay previous websocket messages")
@@ -554,6 +603,10 @@ func (s *WebSocketScanner) executeWebSocketTest(ctx context.Context, result *Web
 	if err != nil {
 		taskLog.Error().Err(err).Msg("Failed to update WebSocket connection close time")
 	}
+
+	// Resolve the baseline now (it was collected concurrently while this probe ran
+	// its observation window, so it is almost always already available).
+	result.BaselineResponses = task.baseline.get()
 
 	// Evaluate result
 	vulnerable, details, confidence, issueOverride, err := s.EvaluateResult(*result)
@@ -711,47 +764,191 @@ func (s *WebSocketScanner) handleVulnerability(result *WebSocketScannerResult, t
 		task.payload.Value,
 		details)
 
-	createdIssue, err := db.CreateIssueFromWebSocketMessage(
-		result.ModifiedMessage,
-		issueCode,
-		fullDetails,
-		confidence,
-		"",
-		&task.options.WorkspaceID,
-		&task.options.TaskID,
-		&task.options.TaskJobID,
-		&task.options.ScanID,
-		&task.options.ScanJobID,
-		&newConnection.ID,
-		&upgradeHistory.ID,
-	)
-
-	if err != nil {
-		taskLog.Error().Str("code", string(issueCode)).Err(err).Msg("Error creating issue")
-	} else if createdIssue.ID != 0 {
+	create := func() (db.Issue, error) {
+		return db.CreateIssueFromWebSocketMessage(
+			result.ModifiedMessage,
+			issueCode,
+			fullDetails,
+			confidence,
+			"",
+			&task.options.WorkspaceID,
+			&task.options.TaskID,
+			&task.options.TaskJobID,
+			&task.options.ScanID,
+			&task.options.ScanJobID,
+			&newConnection.ID,
+			&upgradeHistory.ID,
+		)
+	}
+	storeCreated := func(createdIssue db.Issue) {
 		result.Issue = &createdIssue
 		s.results.Store(string(createdIssue.Code), *result)
 	}
 
-	// Store issue key to avoid duplicates
-	if s.AvoidRepeatedIssues {
-		issueKey := WebSocketDetectedIssue{
-			code:           issueCode,
-			insertionPoint: task.insertionPoint,
-			connectionID:   task.connection.ID,
-			messageIndex:   task.targetMessageIndex,
+	if !s.AvoidRepeatedIssues {
+		createdIssue, err := create()
+		if err != nil {
+			taskLog.Error().Str("code", string(issueCode)).Err(err).Msg("Error creating issue")
+			return
 		}
-		s.issuesFound.Store(issueKey.String(), true)
-
-		// Store broader issue key
-		broadIssueKey := WebSocketDetectedIssue{
-			code:           issueCode,
-			insertionPoint: task.insertionPoint,
-			connectionID:   task.connection.ID,
-			messageIndex:   task.targetMessageIndex,
+		if createdIssue.ID != 0 {
+			storeCreated(createdIssue)
 		}
-		s.issuesFound.Store(broadIssueKey.String(), true)
+		return
 	}
+
+	// Deduplicate on the finding identity: (code, insertion point, connection,
+	// message). The first matching payload creates the issue; later ones attach
+	// their upgrade request as evidence instead of creating a duplicate row.
+	// LoadOrStore claims the identity atomically so concurrent payloads cannot
+	// each create an issue (the check-then-act race fixed for the HTTP path).
+	issueKey := WebSocketDetectedIssue{
+		code:           issueCode,
+		insertionPoint: task.insertionPoint,
+		connectionID:   task.connection.ID,
+		messageIndex:   task.targetMessageIndex,
+	}.String()
+
+	actual, _ := s.issuesFound.LoadOrStore(issueKey, &wsIssueRecord{})
+	rec := actual.(*wsIssueRecord)
+
+	// First payload to hold the lock with no issue yet creates it; later ones
+	// attach evidence. Holding the lock across create() serialises appends and
+	// lets a later payload recover if an earlier create() failed.
+	rec.mu.Lock()
+	defer rec.mu.Unlock()
+
+	if rec.issue != nil && rec.issue.ID != 0 {
+		if err := rec.issue.AppendHistories([]*db.History{&upgradeHistory}); err != nil {
+			taskLog.Warn().Err(err).Uint("issue_id", rec.issue.ID).Msg("Failed to attach additional WebSocket evidence to existing issue")
+		}
+		return
+	}
+
+	createdIssue, err := create()
+	if err != nil {
+		taskLog.Error().Str("code", string(issueCode)).Err(err).Msg("Error creating issue")
+		return
+	}
+	if createdIssue.ID != 0 {
+		rec.issue = &createdIssue
+		storeCreated(createdIssue)
+	}
+}
+
+// collectBaselineResponses opens a throwaway connection, optionally replays the
+// prior client->server messages, sends the ORIGINAL unmodified target message,
+// and returns the responses. They form a per-message baseline the evaluator uses
+// to suppress signals the endpoint emits regardless of the payload (e.g. a server
+// that returns a fixed SQL error on every reply). Best-effort: any failure
+// returns nil, which disables suppression (fail open) for that message.
+func (s *WebSocketScanner) collectBaselineResponses(conn *db.WebSocketConnection, messages []db.WebSocketMessage, targetIndex int, opts options.WebSocketScanOptions) []db.WebSocketMessage {
+	if targetIndex < 0 || targetIndex >= len(messages) {
+		return nil
+	}
+
+	dialer, httpHeaders, err := dialerAndHeadersForConnection(conn)
+	if err != nil {
+		return nil
+	}
+	u, err := url.Parse(conn.URL)
+	if err != nil {
+		return nil
+	}
+
+	client, _, err := dialer.Dial(u.String(), httpHeaders)
+	if err != nil {
+		return nil
+	}
+	defer client.Close()
+
+	// Replay prior sent messages to re-establish context, symmetric with the probe
+	// (see shouldReplayPriorFrames) so the baseline reaches the same sink. These
+	// are not persisted; this is a disposable baseline connection.
+	if targetIndex > 0 && shouldReplayPriorFrames(opts, conn, messages[targetIndex]) {
+		for i := 0; i < targetIndex; i++ {
+			prev := messages[i]
+			if prev.Direction != db.MessageSent {
+				continue
+			}
+			if err := client.WriteMessage(webSocketMessageType(prev.Opcode), []byte(prev.PayloadData)); err != nil {
+				return nil
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	target := messages[targetIndex]
+	if err := client.WriteMessage(webSocketMessageType(target.Opcode), []byte(target.PayloadData)); err != nil {
+		return nil
+	}
+
+	// Observe the same full window and every frame as the probe (also uncapped):
+	// a signal a chatty endpoint emits after many heartbeats must appear in the
+	// baseline too, or it is misattributed to the payload as a false positive.
+	window := opts.ObservationWindow
+	if window <= 0 {
+		window = 10 * time.Second
+	}
+
+	var responses []db.WebSocketMessage
+	deadline := time.Now().Add(window)
+	for {
+		if err := client.SetReadDeadline(deadline); err != nil {
+			break
+		}
+		_, data, err := client.ReadMessage()
+		if err != nil {
+			break
+		}
+		responses = append(responses, db.WebSocketMessage{
+			PayloadData: string(data),
+			Direction:   db.MessageReceived,
+		})
+	}
+
+	return responses
+}
+
+// webSocketMessageType maps a stored opcode to a gorilla message type.
+func webSocketMessageType(opcode float64) int {
+	if opcode == 1 {
+		return websocket.TextMessage
+	}
+	return websocket.BinaryMessage
+}
+
+// baselineHasDatabaseError reports whether the baseline responses already contain
+// a database error of the given family, meaning the error is constant for the
+// endpoint rather than a reaction to the injected payload.
+func baselineHasDatabaseError(baseline []db.WebSocketMessage, databaseName string) bool {
+	for _, msg := range baseline {
+		if match := passive.SearchDatabaseErrors(msg.PayloadData); match != nil && match.DatabaseName == databaseName {
+			return true
+		}
+	}
+	return false
+}
+
+// baselineHasXPathError reports whether the baseline responses already contain an
+// XPath error, meaning the error is not payload-triggered.
+func baselineHasXPathError(baseline []db.WebSocketMessage) bool {
+	for _, msg := range baseline {
+		if passive.SearchXPathErrors(msg.PayloadData) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// baselineContains reports whether any baseline response already contains substr.
+func baselineContains(baseline []db.WebSocketMessage, substr string) bool {
+	for _, msg := range baseline {
+		if strings.Contains(msg.PayloadData, substr) {
+			return true
+		}
+	}
+	return false
 }
 
 // EvaluateResult evaluates all detection methods for a WebSocket scan result
@@ -837,6 +1034,11 @@ func (s *WebSocketScanner) evaluateResponseCondition(result WebSocketScannerResu
 	for i, msg := range result.ResponseMessages {
 		if method.Contains != "" {
 			if strings.Contains(msg.PayloadData, method.Contains) {
+				if baselineContains(result.BaselineResponses, method.Contains) {
+					// The value is present in the baseline response too, so it is
+					// constant for the endpoint rather than payload-triggered.
+					continue
+				}
 				sb.WriteString(fmt.Sprintf("Response message #%d contains the value: %s\n",
 					i, method.Contains))
 				return true, sb.String(), method.Confidence, method.IssueOverride, nil
@@ -878,8 +1080,10 @@ func (s *WebSocketScanner) collectWebSocketBaseline(originalConnection *db.WebSo
 	targetMessage := originalMessages[targetMessageIndex]
 
 	for i := 0; i < attempts; i++ {
-		// Create new WebSocket connection for baseline measurement
-		dialer, err := createWebSocketDialer(originalConnection)
+		// Create new WebSocket connection for baseline measurement. Reproduce the
+		// captured handshake (subprotocol + Origin) so subprotocol-gated servers
+		// (e.g. graphql-transport-ws) accept the timing dial, matching the probe.
+		dialer, httpHeaders, err := dialerAndHeadersForConnection(originalConnection)
 		if err != nil {
 			baselineResults = append(baselineResults, BaselineResult{
 				duration: 0,
@@ -889,7 +1093,7 @@ func (s *WebSocketScanner) collectWebSocketBaseline(originalConnection *db.WebSo
 			continue
 		}
 
-		client, _, err := dialer.Dial(originalConnection.URL, nil)
+		client, _, err := dialer.Dial(originalConnection.URL, httpHeaders)
 		if err != nil {
 			baselineResults = append(baselineResults, BaselineResult{
 				duration: 0,
@@ -990,7 +1194,7 @@ func (s *WebSocketScanner) collectWebSocketBaseline(originalConnection *db.WebSo
 
 // sendPayloadAndMeasureTiming creates a new WebSocket connection and measures the timing of sending the payload
 func (s *WebSocketScanner) sendPayloadAndMeasureTiming(result WebSocketScannerResult, method *generation.TimeBasedDetectionMethod) (BaselineResult, error) {
-	dialer, err := createWebSocketDialer(result.OriginalConnection)
+	dialer, httpHeaders, err := dialerAndHeadersForConnection(result.OriginalConnection)
 	if err != nil {
 		return BaselineResult{
 			duration: 0,
@@ -999,7 +1203,7 @@ func (s *WebSocketScanner) sendPayloadAndMeasureTiming(result WebSocketScannerRe
 		}, err
 	}
 
-	client, _, err := dialer.Dial(result.OriginalConnection.URL, nil)
+	client, _, err := dialer.Dial(result.OriginalConnection.URL, httpHeaders)
 	if err != nil {
 		return BaselineResult{
 			duration: 0,
@@ -1261,6 +1465,11 @@ func (s *WebSocketScanner) evaluateResponseCheck(result WebSocketScannerResult, 
 		if method.Check == generation.DatabaseErrorCondition {
 			errorResult := passive.SearchDatabaseErrors(msg.PayloadData)
 			if errorResult != nil {
+				if baselineHasDatabaseError(result.BaselineResponses, errorResult.DatabaseName) {
+					// The same DB error is present in the baseline response, so it
+					// is constant for the endpoint, not triggered by the payload.
+					continue
+				}
 				description := fmt.Sprintf("Database error in response message #%d:\n - Database: %s\n - Error: %s",
 					i, errorResult.DatabaseName, errorResult.MatchStr)
 				override := method.IssueOverride
@@ -1272,6 +1481,9 @@ func (s *WebSocketScanner) evaluateResponseCheck(result WebSocketScannerResult, 
 		} else if method.Check == generation.XPathErrorCondition {
 			errorResult := passive.SearchXPathErrors(msg.PayloadData)
 			if errorResult != "" {
+				if baselineHasXPathError(result.BaselineResponses) {
+					continue
+				}
 				description := fmt.Sprintf("XPath error in response message #%d:\n - Error: %s",
 					i, errorResult)
 				return true, description, method.Confidence, method.IssueOverride, nil

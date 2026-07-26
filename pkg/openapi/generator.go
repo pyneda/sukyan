@@ -1,275 +1,246 @@
 package openapi
 
 import (
+	"bytes"
 	"encoding/json"
+	"encoding/xml"
+	"errors"
 	"fmt"
+	"math"
+	"mime/multipart"
 	"net/url"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
+const (
+	defaultBaseURL = "http://localhost"
+	// defaultPathSegment fills a path placeholder the spec never declares a
+	// parameter for. Sending a literal "{id}" reaches a 404 instead of the handler.
+	defaultPathSegment = "1"
+	// defaultMaxRequestsPerEndpoint bounds fuzz expansion so a large spec cannot
+	// produce an unbounded number of variations.
+	defaultMaxRequestsPerEndpoint = 250
+	multipartBoundary             = "sukyanOpenAPIBoundary"
+)
+
+var pathPlaceholder = regexp.MustCompile(`\{[^{}/]*\}`)
+
 // GenerateRequests generates endpoints and their request variations
 func GenerateRequests(doc *Document, config GenerationConfig) ([]Endpoint, error) {
-	var endpoints []Endpoint
+	if doc == nil {
+		return nil, errors.New("nil openapi document")
+	}
 
-	// Extract security schemes for auth header generation (legacy format for internal use)
+	base, err := parseBaseURL(config.BaseURL)
+	if err != nil {
+		return nil, err
+	}
+
 	securitySchemes := doc.GetSecuritySchemesLegacy()
-	globalSecurity := doc.GetGlobalSecurity()
 	globalSecurityRequirements := doc.GetGlobalSecurityRequirements()
 
-	ops := doc.GetOperations()
-	for path, methods := range ops {
-		for method, op := range methods {
-			endpoint := Endpoint{
-				Method:      method,
-				Path:        path,
-				OperationID: op.OperationID,
-				Summary:     op.Summary,
-				Description: op.Description,
-				Requests:    []RequestVariation{},
-			}
+	maxRequests := config.MaxRequestsPerEndpoint
+	if maxRequests <= 0 {
+		maxRequests = defaultMaxRequestsPerEndpoint
+	}
 
-			// Extract parameters metadata
-			for _, paramRef := range op.Parameters {
-				if paramRef.Value == nil {
-					continue
-				}
-				param := paramRef.Value
-				endpoint.Parameters = append(endpoint.Parameters, ParameterMetadata{
-					Name:     param.Name,
-					In:       param.In,
-					Required: param.Required,
-					Schema:   schemaToMap(param.Schema),
-				})
-			}
+	entries := doc.Operations()
+	endpoints := make([]Endpoint, 0, len(entries))
 
-			// Determine security requirements for this endpoint
-			opSecurityReqs, hasOverride := doc.GetOperationSecurityRequirements(op)
-			if hasOverride {
-				endpoint.Security = opSecurityReqs
-			} else {
-				endpoint.Security = globalSecurityRequirements
-			}
-
-			// Determine which security schemes apply to this operation (legacy flat list for header generation)
-			opSecurity := globalSecurity
-			if op.Security != nil && len(*op.Security) > 0 {
-				opSecurity = nil
-				for _, req := range *op.Security {
-					for name := range req {
-						opSecurity = append(opSecurity, name)
-					}
-				}
-			}
-
-			// Generate variations
-			seenRequests := make(map[string]bool)
-			var uniqueRequests []RequestVariation
-
-			addRequest := func(req RequestVariation) {
-				sig := getRequestSignature(req)
-				if !seenRequests[sig] {
-					seenRequests[sig] = true
-					uniqueRequests = append(uniqueRequests, req)
-				}
-			}
-
-			// 1. Happy Path (Default values for everything)
-			happyRequest := generateRequest(path, method, op, config, nil, securitySchemes, opSecurity)
-			happyRequest.Label = "Happy Path"
-			addRequest(happyRequest)
-
-			// 2. Fuzzing (if enabled)
-			if config.FuzzingEnabled {
-				fuzzRequests := generateFuzzRequests(path, method, op, config, securitySchemes, opSecurity)
-				for _, req := range fuzzRequests {
-					addRequest(req)
-				}
-			}
-
-			endpoint.Requests = uniqueRequests
-			endpoints = append(endpoints, endpoint)
+	for _, entry := range entries {
+		endpoint := Endpoint{
+			Method:      entry.Method,
+			Path:        entry.Path,
+			OperationID: entry.Operation.OperationID,
+			Summary:     entry.Operation.Summary,
+			Description: entry.Operation.Description,
+			Requests:    []RequestVariation{},
 		}
+		for _, param := range entry.Parameters {
+			endpoint.Parameters = append(endpoint.Parameters, ParameterMetadata{
+				Name:     param.Name,
+				In:       param.In,
+				Required: param.Required,
+				Schema:   schemaToMap(param.Schema),
+			})
+		}
+
+		requirements := globalSecurityRequirements
+		if operationRequirements, overridden := doc.GetOperationSecurityRequirements(entry.Operation); overridden {
+			requirements = operationRequirements
+		}
+		endpoint.Security = requirements
+		endpoint.RequiresAuth = requiresAuth(requirements)
+
+		ctx := &generationContext{
+			entry:      entry,
+			params:     entry.Parameters,
+			baseline:   baselineParameters(entry.Parameters, config),
+			config:     config,
+			base:       base,
+			schemes:    securitySchemes,
+			opSecurity: firstAlternativeSchemes(requirements),
+		}
+
+		seen := make(map[string]bool)
+		var requests []RequestVariation
+		add := func(req RequestVariation) bool {
+			if len(requests) >= maxRequests {
+				return false
+			}
+			signature := getRequestSignature(req)
+			if seen[signature] {
+				return true
+			}
+			seen[signature] = true
+			requests = append(requests, req)
+			return true
+		}
+
+		happy := ctx.build(nil)
+		happy.Label = "Happy Path"
+		add(happy)
+
+		// A minimal baseline is what IncludeOptionalParams asks for, but optional
+		// parameters are still attack surface, so a full-parameter variation is always
+		// emitted. It deduplicates away when there is nothing optional to add.
+		if full := ctx.buildWithAllParameters(); full != nil {
+			full.Label = "Happy Path (all parameters)"
+			add(*full)
+		}
+
+		if config.FuzzingEnabled {
+			for _, req := range ctx.fuzz() {
+				if !add(req) {
+					break
+				}
+			}
+		}
+
+		endpoint.Requests = requests
+		endpoints = append(endpoints, endpoint)
 	}
 
 	return endpoints, nil
 }
 
-func getRequestSignature(req RequestVariation) string {
-	// Create a unique signature based on URL, Headers, and Body
-	// Headers need to be sorted to ensure consistency
-	var headerKeys []string
-	for k := range req.Headers {
-		headerKeys = append(headerKeys, k)
+func parseBaseURL(raw string) (*url.URL, error) {
+	if raw == "" {
+		raw = defaultBaseURL
 	}
-	// Simple bubble sort for small number of headers is fine
-	for i := 0; i < len(headerKeys)-1; i++ {
-		for j := 0; j < len(headerKeys)-i-1; j++ {
-			if headerKeys[j] > headerKeys[j+1] {
-				headerKeys[j], headerKeys[j+1] = headerKeys[j+1], headerKeys[j]
-			}
+	base, err := url.Parse(raw)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base url %q: %w", raw, err)
+	}
+	if base.Scheme == "" || base.Host == "" {
+		return nil, fmt.Errorf("invalid base url %q: expected an absolute url", raw)
+	}
+	return base, nil
+}
+
+// baselineParameters selects the parameters carried by every request. Without
+// IncludeOptionalParams only required ones are sent, keeping the baseline request
+// minimal; path parameters are always kept because the URL does not resolve without
+// them. Fuzzing still reaches optional parameters — see generationContext.includes —
+// so narrowing the baseline never narrows the tested attack surface.
+func baselineParameters(params []*openapi3.Parameter, config GenerationConfig) map[*openapi3.Parameter]bool {
+	baseline := make(map[*openapi3.Parameter]bool, len(params))
+	for _, param := range params {
+		if config.IncludeOptionalParams || param.Required || param.In == openapi3.ParameterInPath {
+			baseline[param] = true
 		}
 	}
+	return baseline
+}
+
+// firstAlternativeSchemes returns the schemes of the first authentication
+// alternative. Alternatives are an OR: attaching credentials from all of them at
+// once would send a request no real client would make.
+func firstAlternativeSchemes(requirements []SecurityRequirement) []string {
+	for _, requirement := range requirements {
+		if len(requirement.Schemes) == 0 {
+			continue
+		}
+		names := make([]string, 0, len(requirement.Schemes))
+		for _, scheme := range requirement.Schemes {
+			names = append(names, scheme.Name)
+		}
+		return names
+	}
+	return nil
+}
+
+func requiresAuth(requirements []SecurityRequirement) bool {
+	if len(requirements) == 0 {
+		return false
+	}
+	for _, requirement := range requirements {
+		if len(requirement.Schemes) == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func getRequestSignature(req RequestVariation) string {
+	headerKeys := make([]string, 0, len(req.Headers))
+	for key := range req.Headers {
+		headerKeys = append(headerKeys, key)
+	}
+	sort.Strings(headerKeys)
 
 	var headerSig strings.Builder
-	for _, k := range headerKeys {
-		headerSig.WriteString(k)
+	for _, key := range headerKeys {
+		headerSig.WriteString(key)
 		headerSig.WriteString(":")
-		headerSig.WriteString(req.Headers[k])
+		headerSig.WriteString(req.Headers[key])
 		headerSig.WriteString(";")
 	}
 
 	return fmt.Sprintf("%s|%s|%s", req.URL, headerSig.String(), string(req.Body))
 }
 
-func generateRequest(path, method string, op *openapi3.Operation, config GenerationConfig, fuzzParam *FuzzTarget, securitySchemes []SecuritySchemeInfo, opSecurity []string) RequestVariation {
-	req := RequestVariation{
-		Headers: make(map[string]string),
+type generationContext struct {
+	entry      OperationEntry
+	params     []*openapi3.Parameter
+	baseline   map[*openapi3.Parameter]bool
+	config     GenerationConfig
+	base       *url.URL
+	schemes    []SecuritySchemeInfo
+	opSecurity []string
+}
+
+// includes reports whether a parameter belongs in this request: everything in the
+// baseline, plus whichever parameter is currently being fuzzed.
+func (c *generationContext) includes(param *openapi3.Parameter, fuzz *FuzzTarget) bool {
+	if c.baseline[param] {
+		return true
 	}
+	return fuzz != nil && fuzz.Name == param.Name && fuzz.In == param.In
+}
 
-	// Base URL
-	baseURL := config.BaseURL
-	if baseURL == "" {
-		baseURL = "http://localhost"
+// buildWithAllParameters returns a request carrying every declared parameter, or nil
+// when the baseline already covers them all.
+func (c *generationContext) buildWithAllParameters() *RequestVariation {
+	if len(c.baseline) == len(c.params) {
+		return nil
 	}
-
-	// Parse URL to handle query params
-	u, _ := url.Parse(baseURL)
-	u.Path = joinPath(u.Path, path)
-
-	queryParams := u.Query()
-
-	// Create a map for security query params (will be merged later)
-	securityQueryParams := make(map[string]string)
-
-	// Apply authentication based on security schemes
-	applySecurityHeaders(req.Headers, securityQueryParams, securitySchemes, opSecurity)
-
-	// Merge security query params into the main query params
-	for key, value := range securityQueryParams {
-		queryParams.Set(key, value)
+	full := &generationContext{
+		entry:      c.entry,
+		params:     c.params,
+		baseline:   baselineParameters(c.params, GenerationConfig{IncludeOptionalParams: true}),
+		config:     c.config,
+		base:       c.base,
+		schemes:    c.schemes,
+		opSecurity: c.opSecurity,
 	}
-
-	// Handle Parameters
-	for _, paramRef := range op.Parameters {
-		if paramRef.Value == nil {
-			continue
-		}
-		param := paramRef.Value
-
-		// Determine value
-		var value interface{}
-		if fuzzParam != nil && fuzzParam.Name == param.Name && fuzzParam.In == param.In {
-			value = fuzzParam.Value
-		} else {
-			// Use default strategy
-			strat := &DefaultValueStrategy{}
-			vals := strat.Generate(schemaToMap(param.Schema))
-			if len(vals) > 0 {
-				value = vals[0].Value
-			}
-		}
-
-		strVal := fmt.Sprintf("%v", value)
-
-		switch param.In {
-		case "path":
-			u.Path = strings.ReplaceAll(u.Path, "{"+param.Name+"}", strVal)
-		case "query":
-			queryParams.Set(param.Name, strVal)
-		case "header":
-			req.Headers[param.Name] = strVal
-		case "cookie":
-			existingCookies := req.Headers["Cookie"]
-			newCookie := fmt.Sprintf("%s=%s", param.Name, strVal)
-			if existingCookies != "" {
-				req.Headers["Cookie"] = existingCookies + "; " + newCookie
-			} else {
-				req.Headers["Cookie"] = newCookie
-			}
-		case "body":
-			// Handle Swagger 2.0 style body parameter
-			// If it's an object, we might need to construct it
-			if param.Schema != nil && param.Schema.Value != nil {
-				s := param.Schema.Value
-				// If we have a fuzz target for a property of this body
-				if fuzzParam != nil && fuzzParam.In == "body" && fuzzParam.Name != param.Name {
-					// This implies we are fuzzing a property inside this body object
-					// We need to reconstruct the object with defaults + fuzz value
-					bodyMap := make(map[string]interface{})
-					for propName, propSchemaRef := range s.Properties {
-						if propSchemaRef.Value == nil {
-							continue
-						}
-						var val interface{}
-						if fuzzParam.Name == propName {
-							val = fuzzParam.Value
-						} else {
-							strat := &DefaultValueStrategy{}
-							vals := strat.Generate(schemaToMap(propSchemaRef))
-							if len(vals) > 0 {
-								val = vals[0].Value
-							}
-						}
-						bodyMap[propName] = val
-					}
-					jsonBody, _ := json.Marshal(bodyMap)
-					req.Body = jsonBody
-				} else {
-					// Just use the value (which might be the object itself if we generated it that way,
-					// but generateDefaultValue for object returns empty map currently)
-					// If value is a map, marshal it.
-					if _, ok := value.(map[string]interface{}); ok {
-						jsonBody, _ := json.Marshal(value)
-						req.Body = jsonBody
-					} else {
-						req.Body = []byte(strVal)
-					}
-				}
-				req.Headers["Content-Type"] = "application/json"
-			}
-		}
-	}
-
-	u.RawQuery = queryParams.Encode()
-	req.URL = u.String()
-
-	// Handle Body
-	if op.RequestBody != nil && op.RequestBody.Value != nil {
-		content := op.RequestBody.Value.Content
-		// Prioritize JSON
-		if mediaType, ok := content["application/json"]; ok {
-			req.Headers["Content-Type"] = "application/json"
-			bodyMap := make(map[string]interface{})
-
-			if mediaType.Schema != nil && mediaType.Schema.Value != nil {
-				schema := mediaType.Schema.Value
-				for propName, propSchemaRef := range schema.Properties {
-					if propSchemaRef.Value == nil {
-						continue
-					}
-
-					var val interface{}
-					// Check if we are fuzzing this body property
-					if fuzzParam != nil && fuzzParam.In == "body" && fuzzParam.Name == propName {
-						val = fuzzParam.Value
-					} else {
-						strat := &DefaultValueStrategy{}
-						vals := strat.Generate(schemaToMap(propSchemaRef))
-						if len(vals) > 0 {
-							val = vals[0].Value
-						}
-					}
-					bodyMap[propName] = val
-				}
-			}
-			jsonBody, _ := json.Marshal(bodyMap)
-			req.Body = jsonBody
-		}
-	}
-
-	return req
+	request := full.build(nil)
+	return &request
 }
 
 type FuzzTarget struct {
@@ -278,88 +249,438 @@ type FuzzTarget struct {
 	Value interface{}
 }
 
-func generateFuzzRequests(path, method string, op *openapi3.Operation, config GenerationConfig, securitySchemes []SecuritySchemeInfo, opSecurity []string) []RequestVariation {
-	var requests []RequestVariation
+func (c *generationContext) build(fuzz *FuzzTarget) RequestVariation {
+	req := RequestVariation{Headers: make(map[string]string)}
 
-	// Use default strategies
-	strategies := []ValueStrategy{&InterestingValuesStrategy{}}
+	target := *c.base
+	queryParams := target.Query()
+	securityQueryParams := make(map[string]string)
+	applySecurityHeaders(req.Headers, securityQueryParams, c.schemes, c.opSecurity)
 
-	// Fuzz Parameters
-	for _, paramRef := range op.Parameters {
-		if paramRef.Value == nil {
+	securityKeys := make([]string, 0, len(securityQueryParams))
+	for key := range securityQueryParams {
+		securityKeys = append(securityKeys, key)
+	}
+	sort.Strings(securityKeys)
+	for _, key := range securityKeys {
+		queryParams.Set(key, securityQueryParams[key])
+	}
+
+	pathValues := make(map[string]string)
+	var cookies []string
+
+	for _, param := range c.params {
+		if !c.includes(param, fuzz) {
 			continue
 		}
-		param := paramRef.Value
-		schema := schemaToMap(param.Schema)
+		value := c.valueFor(param, fuzz)
 
-		for _, strategy := range strategies {
-			// Special handling for body objects to fuzz their properties
-			if param.In == "body" {
-				if props, ok := schema["properties"].(map[string]interface{}); ok {
-					for propName, propSchema := range props {
-						if propMap, ok := propSchema.(map[string]interface{}); ok {
-							propValues := strategy.Generate(propMap)
-							for _, val := range propValues {
-								target := &FuzzTarget{
-									Name:  propName, // Target the property name
-									In:    "body",
-									Value: val.Value,
-								}
-								req := generateRequest(path, method, op, config, target, securitySchemes, opSecurity)
-								req.Label = fmt.Sprintf("Fuzz body '%s': %s", propName, val.Description)
-								requests = append(requests, req)
-							}
-						}
-					}
-					continue // Skip fuzzing the object itself as a whole for now
-				}
+		switch param.In {
+		case openapi3.ParameterInPath:
+			pathValues[param.Name] = serializeScalar(value)
+		case openapi3.ParameterInQuery:
+			applyQueryParam(queryParams, param, value)
+		case openapi3.ParameterInHeader:
+			if name := sanitizeHeaderToken(param.Name); name != "" {
+				req.Headers[name] = sanitizeHeaderToken(serializeScalar(value))
 			}
+		case openapi3.ParameterInCookie:
+			cookies = append(cookies, fmt.Sprintf("%s=%s", sanitizeHeaderToken(param.Name), sanitizeHeaderToken(serializeScalar(value))))
+		}
+	}
 
-			values := strategy.Generate(schema)
-			for _, val := range values {
-				// Skip default values in fuzzing to avoid duplicates with Happy Path if desired,
-				// but InterestingStrategy includes default as baseline, so maybe keep it or filter.
-				// For now, we include everything.
+	if len(cookies) > 0 {
+		existing := req.Headers["Cookie"]
+		joined := strings.Join(cookies, "; ")
+		if existing != "" {
+			req.Headers["Cookie"] = existing + "; " + joined
+		} else {
+			req.Headers["Cookie"] = joined
+		}
+	}
 
-				target := &FuzzTarget{
-					Name:  param.Name,
-					In:    param.In,
-					Value: val.Value,
-				}
+	setPath(&target, c.base, c.entry.Path, pathValues)
+	target.RawQuery = queryParams.Encode()
+	req.URL = target.String()
 
-				req := generateRequest(path, method, op, config, target, securitySchemes, opSecurity)
-				req.Label = fmt.Sprintf("Fuzz %s '%s': %s", param.In, param.Name, val.Description)
+	if contentType, body, ok := c.buildBody(fuzz); ok {
+		req.Headers["Content-Type"] = contentType
+		req.Body = body
+	}
+
+	return req
+}
+
+func (c *generationContext) valueFor(param *openapi3.Parameter, fuzz *FuzzTarget) interface{} {
+	if fuzz != nil && fuzz.Name == param.Name && fuzz.In == param.In {
+		return fuzz.Value
+	}
+	// A spec-provided example is a value the API is known to accept, so it beats a
+	// synthesised placeholder at reaching real handler code.
+	if example := parameterExample(param); example != nil {
+		return example
+	}
+	return defaultValueFor(param.Schema)
+}
+
+func parameterExample(param *openapi3.Parameter) interface{} {
+	if param.Example != nil {
+		return param.Example
+	}
+	for _, name := range sortedExampleNames(param.Examples) {
+		if ref := param.Examples[name]; ref != nil && ref.Value != nil && ref.Value.Value != nil {
+			return ref.Value.Value
+		}
+	}
+	return nil
+}
+
+func sortedExampleNames(examples openapi3.Examples) []string {
+	names := make([]string, 0, len(examples))
+	for name := range examples {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func defaultValueFor(schema *openapi3.SchemaRef) interface{} {
+	values := (&DefaultValueStrategy{}).Generate(schemaToMap(schema))
+	if len(values) == 0 {
+		return nil
+	}
+	return values[0].Value
+}
+
+// setPath substitutes the declared path parameters and escapes their values so a
+// value containing "/" or "?" cannot change which route is addressed.
+func setPath(target *url.URL, base *url.URL, template string, values map[string]string) {
+	resolved := template
+	for name, value := range values {
+		resolved = strings.ReplaceAll(resolved, "{"+name+"}", url.PathEscape(value))
+	}
+	resolved = pathPlaceholder.ReplaceAllString(resolved, defaultPathSegment)
+
+	escaped := joinPath(base.EscapedPath(), resolved)
+	decoded, err := url.PathUnescape(escaped)
+	if err != nil {
+		target.Path = escaped
+		target.RawPath = ""
+		return
+	}
+	target.Path = decoded
+	target.RawPath = escaped
+}
+
+func applyQueryParam(queryParams url.Values, param *openapi3.Parameter, value interface{}) {
+	switch typed := value.(type) {
+	case []interface{}:
+		if explodeParam(param) {
+			queryParams.Del(param.Name)
+			for _, item := range typed {
+				queryParams.Add(param.Name, serializeScalar(item))
+			}
+			return
+		}
+		parts := make([]string, 0, len(typed))
+		for _, item := range typed {
+			parts = append(parts, serializeScalar(item))
+		}
+		queryParams.Set(param.Name, strings.Join(parts, ","))
+	case map[string]interface{}:
+		if param.Style == "deepObject" {
+			keys := make([]string, 0, len(typed))
+			for key := range typed {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				queryParams.Set(fmt.Sprintf("%s[%s]", param.Name, key), serializeScalar(typed[key]))
+			}
+			return
+		}
+		queryParams.Set(param.Name, serializeScalar(typed))
+	default:
+		queryParams.Set(param.Name, serializeScalar(value))
+	}
+}
+
+// explodeParam reports the effective explode value; the OpenAPI default is true for
+// the form style used by query parameters and false everywhere else.
+func explodeParam(param *openapi3.Parameter) bool {
+	if param.Explode != nil {
+		return *param.Explode
+	}
+	return param.Style == "" || param.Style == "form"
+}
+
+// serializeScalar renders a value for a URL or header. Floats use plain decimal
+// notation because scientific notation is rejected by most numeric parsers.
+func serializeScalar(value interface{}) string {
+	switch typed := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return typed
+	case bool:
+		return strconv.FormatBool(typed)
+	case int:
+		return strconv.Itoa(typed)
+	case int32:
+		return strconv.FormatInt(int64(typed), 10)
+	case int64:
+		return strconv.FormatInt(typed, 10)
+	case uint64:
+		return strconv.FormatUint(typed, 10)
+	case float32:
+		return formatFloat(float64(typed), 32)
+	case float64:
+		return formatFloat(typed, 64)
+	case json.Number:
+		return typed.String()
+	case []interface{}, map[string]interface{}:
+		encoded, err := json.Marshal(typed)
+		if err != nil {
+			return fmt.Sprintf("%v", typed)
+		}
+		return string(encoded)
+	default:
+		return fmt.Sprintf("%v", typed)
+	}
+}
+
+// sanitizeHeaderToken strips the control characters a spec-supplied header name or
+// value could otherwise smuggle into a request.
+func sanitizeHeaderToken(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, value)
+}
+
+// formatFloat keeps ordinary magnitudes in plain decimal, since scientific notation
+// is rejected by many numeric parsers, and only falls back to exponent form for
+// values that would otherwise expand into hundreds of digits.
+func formatFloat(value float64, bits int) string {
+	abs := math.Abs(value)
+	if math.IsInf(value, 0) || math.IsNaN(value) || (abs != 0 && (abs < 1e-6 || abs >= 1e21)) {
+		return strconv.FormatFloat(value, 'g', -1, bits)
+	}
+	return strconv.FormatFloat(value, 'f', -1, bits)
+}
+
+func (c *generationContext) buildBody(fuzz *FuzzTarget) (string, []byte, bool) {
+	body := c.entry.Operation.RequestBody
+	if body == nil || body.Value == nil || len(body.Value.Content) == 0 {
+		return c.buildLegacyBody(fuzz)
+	}
+
+	contentType := selectContentType(body.Value.Content)
+	if contentType == "" {
+		return "", nil, false
+	}
+
+	schema := bodySchema(body.Value, contentType)
+	value := c.bodyValue(schema, fuzz)
+	encoded, effectiveType, err := encodeBody(contentType, value)
+	if err != nil {
+		return "", nil, false
+	}
+	return effectiveType, encoded, true
+}
+
+// buildLegacyBody handles a Swagger 2.0 "in: body" parameter that survived when
+// conversion to OpenAPI 3 was not possible.
+func (c *generationContext) buildLegacyBody(fuzz *FuzzTarget) (string, []byte, bool) {
+	for _, param := range c.entry.Parameters {
+		if param.In != "body" || param.Schema == nil {
+			continue
+		}
+		value := c.bodyValue(param.Schema, fuzz)
+		encoded, effectiveType, err := encodeBody("application/json", value)
+		if err != nil {
+			return "", nil, false
+		}
+		return effectiveType, encoded, true
+	}
+	return "", nil, false
+}
+
+// bodyValue builds the body payload, substituting a fuzz value for one property
+// when the fuzz target names a body property.
+func (c *generationContext) bodyValue(schema *openapi3.SchemaRef, fuzz *FuzzTarget) interface{} {
+	if schema == nil || schema.Value == nil {
+		return map[string]interface{}{}
+	}
+
+	properties, _, isObject := effectiveObjectSchema(schema.Value, 0)
+	if !isObject && len(properties) == 0 {
+		if fuzz != nil && fuzz.In == "body" && fuzz.Name == "" {
+			return fuzz.Value
+		}
+		return defaultValueFor(schema)
+	}
+
+	value := make(map[string]interface{}, len(properties))
+	for name, propRef := range properties {
+		// A readOnly property is response-only; sending it makes many APIs reject the
+		// whole request.
+		if propRef != nil && propRef.Value != nil && propRef.Value.ReadOnly {
+			continue
+		}
+		if fuzz != nil && fuzz.In == "body" && fuzz.Name == name {
+			value[name] = fuzz.Value
+			continue
+		}
+		value[name] = defaultValueFor(propRef)
+	}
+	return value
+}
+
+// selectContentType picks one media type deterministically. Ranging a Go map would
+// make both the body and its Content-Type vary between runs on the same spec.
+func selectContentType(content openapi3.Content) string {
+	if len(content) == 0 {
+		return ""
+	}
+	if _, ok := content["application/json"]; ok {
+		return "application/json"
+	}
+
+	types := make([]string, 0, len(content))
+	for contentType := range content {
+		types = append(types, contentType)
+	}
+	sort.Strings(types)
+
+	for _, group := range []func(string) bool{
+		func(t string) bool { return strings.Contains(t, "json") },
+		func(t string) bool { return t == "application/x-www-form-urlencoded" },
+		func(t string) bool { return strings.HasPrefix(t, "multipart/") },
+		func(t string) bool { return strings.Contains(t, "xml") },
+		func(t string) bool { return strings.HasPrefix(t, "text/") },
+	} {
+		for _, contentType := range types {
+			if group(contentType) {
+				return contentType
+			}
+		}
+	}
+	return types[0]
+}
+
+// encodeBody returns the encoded body and the content type to send with it. The two
+// can differ: a multipart body is only parseable if the header carries the boundary
+// the writer used.
+func encodeBody(contentType string, value interface{}) ([]byte, string, error) {
+	switch {
+	case strings.Contains(contentType, "json"):
+		body, err := json.Marshal(value)
+		return body, contentType, err
+	case contentType == "application/x-www-form-urlencoded":
+		return []byte(encodeForm(value).Encode()), contentType, nil
+	case strings.HasPrefix(contentType, "multipart/"):
+		return encodeMultipart(value)
+	case strings.Contains(contentType, "xml"):
+		body, err := encodeXML(value)
+		return body, contentType, err
+	case strings.HasPrefix(contentType, "text/"):
+		return []byte(serializeScalar(value)), contentType, nil
+	default:
+		body, err := json.Marshal(value)
+		return body, contentType, err
+	}
+}
+
+func encodeForm(value interface{}) url.Values {
+	form := url.Values{}
+	fields, ok := value.(map[string]interface{})
+	if !ok {
+		return form
+	}
+	for _, name := range sortedKeys(fields) {
+		form.Set(name, serializeScalar(fields[name]))
+	}
+	return form
+}
+
+func encodeMultipart(value interface{}) ([]byte, string, error) {
+	var buffer bytes.Buffer
+	writer := multipart.NewWriter(&buffer)
+	if err := writer.SetBoundary(multipartBoundary); err != nil {
+		return nil, "", err
+	}
+
+	if fields, ok := value.(map[string]interface{}); ok {
+		for _, name := range sortedKeys(fields) {
+			if err := writer.WriteField(name, serializeScalar(fields[name])); err != nil {
+				return nil, "", err
+			}
+		}
+	}
+	if err := writer.Close(); err != nil {
+		return nil, "", err
+	}
+	return buffer.Bytes(), writer.FormDataContentType(), nil
+}
+
+func encodeXML(value interface{}) ([]byte, error) {
+	var buffer bytes.Buffer
+	buffer.WriteString("<root>")
+
+	if fields, ok := value.(map[string]interface{}); ok {
+		for _, name := range sortedKeys(fields) {
+			element := xml.Name{Local: name}
+			if err := xml.NewEncoder(&buffer).EncodeElement(serializeScalar(fields[name]), xml.StartElement{Name: element}); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		if err := xml.EscapeText(&buffer, []byte(serializeScalar(value))); err != nil {
+			return nil, err
+		}
+	}
+
+	buffer.WriteString("</root>")
+	return buffer.Bytes(), nil
+}
+
+func sortedKeys(fields map[string]interface{}) []string {
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func (c *generationContext) fuzz() []RequestVariation {
+	strategies := []ValueStrategy{&InterestingValuesStrategy{}}
+	var requests []RequestVariation
+
+	for _, param := range c.params {
+		schema := schemaToMap(param.Schema)
+		for _, strategy := range strategies {
+			for _, value := range strategy.Generate(schema) {
+				req := c.build(&FuzzTarget{Name: param.Name, In: param.In, Value: value.Value})
+				req.Label = fmt.Sprintf("Fuzz %s '%s': %s", param.In, param.Name, value.Description)
 				requests = append(requests, req)
 			}
 		}
 	}
 
-	// Fuzz Body Properties (JSON only for now)
-	if op.RequestBody != nil && op.RequestBody.Value != nil {
-		content := op.RequestBody.Value.Content
-		if mediaType, ok := content["application/json"]; ok {
-			if mediaType.Schema != nil && mediaType.Schema.Value != nil {
-				schema := mediaType.Schema.Value
-				for propName, propSchemaRef := range schema.Properties {
-					if propSchemaRef.Value == nil {
-						continue
-					}
-					propSchema := schemaToMap(propSchemaRef)
-
-					for _, strategy := range strategies {
-						values := strategy.Generate(propSchema)
-						for _, val := range values {
-							target := &FuzzTarget{
-								Name:  propName,
-								In:    "body",
-								Value: val.Value,
-							}
-							req := generateRequest(path, method, op, config, target, securitySchemes, opSecurity)
-							req.Label = fmt.Sprintf("Fuzz body '%s': %s", propName, val.Description)
-							requests = append(requests, req)
-						}
-					}
+	for _, target := range c.bodyFuzzTargets() {
+		for _, strategy := range strategies {
+			for _, value := range strategy.Generate(target.schema) {
+				req := c.build(&FuzzTarget{Name: target.name, In: "body", Value: value.Value})
+				if target.name == "" {
+					req.Label = fmt.Sprintf("Fuzz body: %s", value.Description)
+				} else {
+					req.Label = fmt.Sprintf("Fuzz body '%s': %s", target.name, value.Description)
 				}
+				requests = append(requests, req)
 			}
 		}
 	}
@@ -367,35 +688,46 @@ func generateFuzzRequests(path, method string, op *openapi3.Operation, config Ge
 	return requests
 }
 
-func schemaToMap(schemaRef *openapi3.SchemaRef) map[string]interface{} {
-	if schemaRef == nil || schemaRef.Value == nil {
+type bodyFuzzTarget struct {
+	name   string
+	schema map[string]interface{}
+}
+
+func (c *generationContext) bodyFuzzTargets() []bodyFuzzTarget {
+	schema := c.bodyFuzzSchema()
+	if schema == nil || schema.Value == nil {
 		return nil
 	}
-	s := schemaRef.Value
-	m := make(map[string]interface{})
-	if s.Type != nil {
-		types := s.Type.Slice()
-		if len(types) > 0 {
-			m["type"] = types[0]
+
+	properties, _, isObject := effectiveObjectSchema(schema.Value, 0)
+	if !isObject && len(properties) == 0 {
+		return []bodyFuzzTarget{{name: "", schema: schemaToMap(schema)}}
+	}
+
+	names := make([]string, 0, len(properties))
+	for name := range properties {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	targets := make([]bodyFuzzTarget, 0, len(names))
+	for _, name := range names {
+		targets = append(targets, bodyFuzzTarget{name: name, schema: schemaToMap(properties[name])})
+	}
+	return targets
+}
+
+func (c *generationContext) bodyFuzzSchema() *openapi3.SchemaRef {
+	body := c.entry.Operation.RequestBody
+	if body != nil && body.Value != nil && len(body.Value.Content) > 0 {
+		return bodySchema(body.Value, selectContentType(body.Value.Content))
+	}
+	for _, param := range c.entry.Parameters {
+		if param.In == "body" && param.Schema != nil {
+			return param.Schema
 		}
 	}
-	m["format"] = s.Format
-	m["example"] = s.Example
-	m["default"] = s.Default
-
-	if len(s.Properties) > 0 {
-		props := make(map[string]interface{})
-		for k, v := range s.Properties {
-			props[k] = schemaToMap(v)
-		}
-		m["properties"] = props
-	}
-
-	if s.Items != nil {
-		m["items"] = schemaToMap(s.Items)
-	}
-
-	return m
+	return nil
 }
 
 func joinPath(base, path string) string {
@@ -409,72 +741,75 @@ type SecurityApplication struct {
 	Cookies     map[string]string
 }
 
-// applySecurityHeaders adds authentication headers based on security schemes
-// Returns headers, query params, and cookies that should be applied
+// applySecurityHeaders adds placeholder authentication material for the schemes an
+// operation declares. Scheme names are processed in sorted order so that two
+// schemes writing the same header produce a stable result.
 func applySecurityHeaders(headers map[string]string, queryParams map[string]string, schemes []SecuritySchemeInfo, opSecurity []string) {
-	for _, schemeName := range opSecurity {
-		for _, scheme := range schemes {
-			if scheme.Name != schemeName {
+	byName := make(map[string]SecuritySchemeInfo, len(schemes))
+	for _, scheme := range schemes {
+		byName[scheme.Name] = scheme
+	}
+
+	names := append([]string(nil), opSecurity...)
+	sort.Strings(names)
+
+	for _, name := range names {
+		scheme, ok := byName[name]
+		if !ok {
+			continue
+		}
+		switch scheme.Type {
+		case "http":
+			switch scheme.Scheme {
+			case "bearer":
+				headers["Authorization"] = "Bearer <TOKEN>"
+			case "basic":
+				headers["Authorization"] = "Basic <BASE64_CREDENTIALS>"
+			case "digest":
+				headers["Authorization"] = "Digest <DIGEST_CREDENTIALS>"
+			case "hoba":
+				headers["Authorization"] = "HOBA <HOBA_CREDENTIALS>"
+			case "mutual":
+				headers["Authorization"] = "Mutual <MUTUAL_CREDENTIALS>"
+			case "negotiate":
+				headers["Authorization"] = "Negotiate <NEGOTIATE_CREDENTIALS>"
+			case "oauth":
+				headers["Authorization"] = "OAuth <OAUTH_CREDENTIALS>"
+			case "scram-sha-1":
+				headers["Authorization"] = "SCRAM-SHA-1 <SCRAM_CREDENTIALS>"
+			case "scram-sha-256":
+				headers["Authorization"] = "SCRAM-SHA-256 <SCRAM_CREDENTIALS>"
+			case "vapid":
+				headers["Authorization"] = "vapid <VAPID_CREDENTIALS>"
+			default:
+				if scheme.Scheme != "" {
+					headers["Authorization"] = scheme.Scheme + " <CREDENTIALS>"
+				}
+			}
+		case "apiKey":
+			// A scheme without a parameter name is malformed; inventing one would send a
+			// credential the API never reads and mislabel where auth lives.
+			keyName := sanitizeHeaderToken(scheme.Header)
+			if keyName == "" {
 				continue
 			}
-			switch scheme.Type {
-			case "http":
-				switch scheme.Scheme {
-				case "bearer":
-					headers["Authorization"] = "Bearer <TOKEN>"
-				case "basic":
-					headers["Authorization"] = "Basic <BASE64_CREDENTIALS>"
-				case "digest":
-					headers["Authorization"] = "Digest <DIGEST_CREDENTIALS>"
-				case "hoba":
-					headers["Authorization"] = "HOBA <HOBA_CREDENTIALS>"
-				case "mutual":
-					headers["Authorization"] = "Mutual <MUTUAL_CREDENTIALS>"
-				case "negotiate":
-					headers["Authorization"] = "Negotiate <NEGOTIATE_CREDENTIALS>"
-				case "oauth":
-					headers["Authorization"] = "OAuth <OAUTH_CREDENTIALS>"
-				case "scram-sha-1":
-					headers["Authorization"] = "SCRAM-SHA-1 <SCRAM_CREDENTIALS>"
-				case "scram-sha-256":
-					headers["Authorization"] = "SCRAM-SHA-256 <SCRAM_CREDENTIALS>"
-				case "vapid":
-					headers["Authorization"] = "vapid <VAPID_CREDENTIALS>"
-				default:
-					// For any other HTTP auth scheme, use a generic format
-					if scheme.Scheme != "" {
-						headers["Authorization"] = scheme.Scheme + " <CREDENTIALS>"
-					}
+			switch strings.ToLower(scheme.In) {
+			case "header":
+				headers[keyName] = "<API_KEY>"
+			case "query":
+				if queryParams != nil {
+					queryParams[keyName] = "<API_KEY>"
 				}
-			case "apiKey":
-				keyName := scheme.Header
-				if keyName == "" {
-					keyName = "X-API-Key"
+			case "cookie":
+				existingCookies := headers["Cookie"]
+				if existingCookies != "" {
+					headers["Cookie"] = existingCookies + "; " + keyName + "=<API_KEY>"
+				} else {
+					headers["Cookie"] = keyName + "=<API_KEY>"
 				}
-				switch scheme.In {
-				case "header":
-					headers[keyName] = "<API_KEY>"
-				case "query":
-					if queryParams != nil {
-						queryParams[keyName] = "<API_KEY>"
-					}
-				case "cookie":
-					// For cookies, we add a Cookie header
-					// Note: Multiple cookies would need more sophisticated handling
-					existingCookies := headers["Cookie"]
-					if existingCookies != "" {
-						headers["Cookie"] = existingCookies + "; " + keyName + "=<API_KEY>"
-					} else {
-						headers["Cookie"] = keyName + "=<API_KEY>"
-					}
-				}
-			case "oauth2", "openIdConnect":
-				headers["Authorization"] = "Bearer <ACCESS_TOKEN>"
-			case "mutualTLS":
-				// mutualTLS requires client certificate, not a header
-				// We can add a comment header to indicate this
-				headers["X-Auth-Note"] = "Requires mutual TLS client certificate"
 			}
+		case "oauth2", "openIdConnect":
+			headers["Authorization"] = "Bearer <ACCESS_TOKEN>"
 		}
 	}
 }

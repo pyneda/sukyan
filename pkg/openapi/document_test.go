@@ -1,7 +1,6 @@
 package openapi
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -85,44 +84,23 @@ const openapi3Spec = `{
   }
 }`
 
-func TestGetSecuritySchemes_Swagger2(t *testing.T) {
-	doc, err := Parse([]byte(openapi3SpecWithApiKey))
-	if err != nil {
-		t.Fatalf("Failed to parse OpenAPI 3.0 spec: %v", err)
-	}
-
-	// Debug: check what's in the spec
-	fmt.Printf("Debug - Components: %+v\n", doc.spec.Components)
-	if doc.spec.Components != nil {
-		fmt.Printf("Debug - SecuritySchemes: %+v\n", doc.spec.Components.SecuritySchemes)
-	}
-	fmt.Printf("Debug - Extensions: %+v\n", doc.spec.Extensions)
+func TestGetSecuritySchemes_APIKey(t *testing.T) {
+	doc := mustParse(t, openapi3SpecWithApiKey)
 
 	schemes := doc.GetSecuritySchemes()
-	fmt.Printf("Swagger 2.0 - Found %d security schemes\n", len(schemes))
-	for _, scheme := range schemes {
-		fmt.Printf("  - Name: %s, Type: %s, Scheme: %s, In: %s, ParameterName: %s\n",
-			scheme.Name, scheme.Type, scheme.Scheme, scheme.In, scheme.ParameterName)
+	if len(schemes) != 1 {
+		t.Fatalf("Expected 1 security scheme, got %d", len(schemes))
 	}
-
-	if len(schemes) == 0 {
-		t.Error("Expected security schemes to be extracted from Swagger 2.0 spec, got none")
+	if schemes[0].Name != "ApiKeyAuth" || schemes[0].Type != "apiKey" ||
+		schemes[0].In != "header" || schemes[0].ParameterName != "Authorization" {
+		t.Errorf("Unexpected scheme: %+v", schemes[0])
 	}
 }
 
 func TestGetSecuritySchemes_OpenAPI3(t *testing.T) {
-	doc, err := Parse([]byte(openapi3Spec))
-	if err != nil {
-		t.Fatalf("Failed to parse OpenAPI 3.0 spec: %v", err)
-	}
+	doc := mustParse(t, openapi3Spec)
 
 	schemes := doc.GetSecuritySchemes()
-	fmt.Printf("OpenAPI 3.0 - Found %d security schemes\n", len(schemes))
-	for _, scheme := range schemes {
-		fmt.Printf("  - Name: %s, Type: %s, Scheme: %s, In: %s, ParameterName: %s\n",
-			scheme.Name, scheme.Type, scheme.Scheme, scheme.In, scheme.ParameterName)
-	}
-
 	if len(schemes) != 2 {
 		t.Errorf("Expected 2 security schemes from OpenAPI 3.0 spec, got %d", len(schemes))
 	}
@@ -144,29 +122,27 @@ func TestGenerateRequests_WithAuth(t *testing.T) {
 		t.Fatalf("Failed to generate requests: %v", err)
 	}
 
-	for _, ep := range endpoints {
-		fmt.Printf("\n%s %s:\n", ep.Method, ep.Path)
-		for _, req := range ep.Requests {
-			fmt.Printf("  - %s: %s\n", req.Label, req.URL)
-			if len(req.Headers) > 0 {
-				fmt.Printf("    Headers:\n")
-				for k, v := range req.Headers {
-					fmt.Printf("      %s: %s\n", k, v)
-				}
-			} else {
-				fmt.Printf("    Headers: (none)\n")
-			}
+	byPath := endpointsByPath(endpoints)
+	if len(byPath) != 2 {
+		t.Fatalf("Expected 2 endpoints, got %d", len(byPath))
+	}
+
+	secured := requireEndpoint(t, byPath, "/issues")
+	for _, req := range secured.Requests {
+		if _, ok := req.Headers["Authorization"]; !ok {
+			t.Error("Expected Authorization header on /issues endpoint")
 		}
 	}
 
-	// Check that /issues has Authorization header
-	for _, ep := range endpoints {
-		if ep.Path == "/issues" {
-			for _, req := range ep.Requests {
-				if _, ok := req.Headers["Authorization"]; !ok {
-					t.Error("Expected Authorization header on /issues endpoint")
-				}
-			}
+	// The counterpart assertion: an operation with no security requirement must not
+	// be given credentials.
+	public := requireEndpoint(t, byPath, "/public")
+	if public.RequiresAuth {
+		t.Error("/public declares no security and must not require auth")
+	}
+	for _, req := range public.Requests {
+		if _, ok := req.Headers["Authorization"]; ok {
+			t.Errorf("Unexpected Authorization header on /public: %v", req.Headers)
 		}
 	}
 }
@@ -289,19 +265,18 @@ func TestAllAuthTypes(t *testing.T) {
 		"/openid":        {headerKey: "Authorization", headerValue: "Bearer <ACCESS_TOKEN>"},
 	}
 
-	for _, ep := range endpoints {
-		fmt.Printf("\n%s %s:\n", ep.Method, ep.Path)
-		for _, req := range ep.Requests {
-			fmt.Printf("  URL: %s\n", req.URL)
-			if len(req.Headers) > 0 {
-				for k, v := range req.Headers {
-					fmt.Printf("  Header: %s: %s\n", k, v)
-				}
-			}
-		}
+	if len(endpoints) != len(expectations) {
+		t.Fatalf("Expected %d endpoints, got %d", len(expectations), len(endpoints))
+	}
 
+	for _, ep := range endpoints {
 		exp, ok := expectations[ep.Path]
 		if !ok {
+			t.Errorf("Unexpected endpoint %s", ep.Path)
+			continue
+		}
+		if len(ep.Requests) == 0 {
+			t.Errorf("No requests generated for %s", ep.Path)
 			continue
 		}
 
@@ -438,8 +413,14 @@ func TestGenerateRequests_CookieParams(t *testing.T) {
 		t.Fatalf("Expected 1 endpoint, got %d", len(endpoints))
 	}
 
-	req := endpoints[0].Requests[0]
-	cookieHeader := req.Headers["Cookie"]
+	// Optional parameters land in the full-parameter variation rather than the
+	// minimal happy path, so look for the request that carries them.
+	var cookieHeader string
+	for _, req := range endpoints[0].Requests {
+		if strings.Count(req.Headers["Cookie"], "=") > strings.Count(cookieHeader, "=") {
+			cookieHeader = req.Headers["Cookie"]
+		}
+	}
 
 	// Expected cookies: auth_token=<API_KEY>, session_id=sess_123, theme=dark
 	// Order might vary, so check for presence

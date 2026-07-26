@@ -37,15 +37,12 @@ func generateJSONReport(endpoints []Endpoint, w io.Writer) error {
 	return encoder.Encode(endpoints)
 }
 
+// generateHTMLReport renders the endpoints into the report template. The endpoint
+// data is emitted through html/template's script context rather than a template.JS
+// helper, so spec-controlled values such as a path or summary containing "</script>"
+// cannot break out of the script block.
 func generateHTMLReport(endpoints []Endpoint, w io.Writer) error {
-	funcMap := template.FuncMap{
-		"toJSON": func(v interface{}) template.JS {
-			b, _ := json.Marshal(v)
-			return template.JS(b)
-		},
-	}
-
-	tmpl, err := template.New("openapi_report.tmpl").Funcs(funcMap).ParseFS(templates, "templates/openapi_report.tmpl")
+	tmpl, err := template.New("openapi_report.tmpl").ParseFS(templates, "templates/openapi_report.tmpl")
 	if err != nil {
 		return fmt.Errorf("failed to parse template: %w", err)
 	}

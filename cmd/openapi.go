@@ -27,7 +27,10 @@ var openapiCmd = &cobra.Command{
 			return fmt.Errorf("failed to fetch OpenAPI spec: %w", err)
 		}
 
-		doc, err := openapi.Parse(bodyBytes)
+		doc, err := openapi.ParseWithOptions(bodyBytes, openapi.ParseOptions{
+			SourceURL:       url,
+			AllowRemoteRefs: true,
+		})
 		if err != nil {
 			return fmt.Errorf("failed to parse OpenAPI spec: %w", err)
 		}

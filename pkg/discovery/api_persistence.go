@@ -31,7 +31,7 @@ func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (
 		return nil, err
 	}
 
-	doc, err := openapi.Parse(body)
+	doc, err := openapi.ParseWithOptions(body, openapi.ParseOptions{SourceURL: history.URL})
 	if err != nil {
 		log.Debug().Err(err).Str("url", history.URL).Msg("Failed to parse OpenAPI document for persistence")
 		return nil, err
@@ -144,8 +144,18 @@ func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (
 					OpenIDConnectURL: s.OpenIDConnectURL,
 				})
 			}
-			if err := tx.Create(dbSchemes).Error; err != nil {
-				return fmt.Errorf("creating security schemes: %w", err)
+			// The endpoints are what the scanner needs, so a rejected security scheme
+			// must not take them down with it. Logging the error is not enough:
+			// PostgreSQL aborts the whole transaction on a failed statement, so the
+			// insert runs inside a savepoint that can be rolled back on its own.
+			savepoint := "api_definition_security_schemes"
+			if err := tx.SavePoint(savepoint).Error; err != nil {
+				log.Warn().Err(err).Str("definition_id", definition.ID.String()).Msg("Failed to create savepoint for OpenAPI security schemes")
+			} else if err := tx.Create(dbSchemes).Error; err != nil {
+				log.Warn().Err(err).Str("definition_id", definition.ID.String()).Msg("Failed to persist OpenAPI security schemes")
+				if rollbackErr := tx.RollbackTo(savepoint).Error; rollbackErr != nil {
+					return fmt.Errorf("rolling back security schemes: %w", rollbackErr)
+				}
 			}
 		}
 
@@ -177,9 +187,9 @@ func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (
 	})
 	if txErr != nil {
 		log.Warn().Err(txErr).Str("definition_id", definition.ID.String()).Msg("Failed to persist OpenAPI definition child records")
+	} else {
+		definition.EndpointCount = len(endpoints)
 	}
-
-	definition.EndpointCount = len(endpoints)
 
 	log.Info().
 		Str("definition_id", definition.ID.String()).

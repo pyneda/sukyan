@@ -35,9 +35,11 @@ func (s *InterestingValuesStrategy) Generate(schema map[string]interface{}) []Ge
 			GeneratedValue{Value: math.MinInt32, Description: "Integer: MinInt32"},
 		)
 		if format == "int64" {
+			// Explicitly int64: an untyped constant stored in an interface defaults to
+			// int, which does not hold these values on a 32-bit build.
 			values = append(values,
-				GeneratedValue{Value: math.MaxInt64, Description: "Integer: MaxInt64"},
-				GeneratedValue{Value: math.MinInt64, Description: "Integer: MinInt64"},
+				GeneratedValue{Value: int64(math.MaxInt64), Description: "Integer: MaxInt64"},
+				GeneratedValue{Value: int64(math.MinInt64), Description: "Integer: MinInt64"},
 			)
 		}
 	case "number":
@@ -68,7 +70,11 @@ func (s *InterestingValuesStrategy) Generate(schema map[string]interface{}) []Ge
 }
 
 func generateDefaultValue(schema map[string]interface{}) interface{} {
-	if schema == nil {
+	return generateDefaultValueAtDepth(schema, 0)
+}
+
+func generateDefaultValueAtDepth(schema map[string]interface{}, depth int) interface{} {
+	if schema == nil || depth > maxSchemaDepth {
 		return "test" // Fallback for nil schema
 	}
 	if example, ok := schema["example"]; ok && example != nil {
@@ -76,6 +82,9 @@ func generateDefaultValue(schema map[string]interface{}) interface{} {
 	}
 	if def, ok := schema["default"]; ok && def != nil {
 		return def
+	}
+	if enum, ok := schema["enum"].([]interface{}); ok && len(enum) > 0 && enum[0] != nil {
+		return enum[0]
 	}
 
 	typ, _ := schema["type"].(string)
@@ -91,7 +100,7 @@ func generateDefaultValue(schema map[string]interface{}) interface{} {
 	case "array":
 		if items, ok := schema["items"].(map[string]interface{}); ok {
 			// Generate a single item for the array to show structure
-			return []interface{}{generateDefaultValue(items)}
+			return []interface{}{generateDefaultValueAtDepth(items, depth+1)}
 		}
 		return []interface{}{}
 	case "object":
@@ -99,7 +108,7 @@ func generateDefaultValue(schema map[string]interface{}) interface{} {
 		if props, ok := schema["properties"].(map[string]interface{}); ok {
 			for k, v := range props {
 				if propSchema, ok := v.(map[string]interface{}); ok {
-					res[k] = generateDefaultValue(propSchema)
+					res[k] = generateDefaultValueAtDepth(propSchema, depth+1)
 				}
 			}
 		}

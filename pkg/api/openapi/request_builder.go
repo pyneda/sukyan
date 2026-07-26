@@ -4,10 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/pyneda/sukyan/pkg/api/core"
@@ -97,8 +102,17 @@ func (b *RequestBuilder) GetDefaultParamValues(op core.Operation) map[string]any
 	return values
 }
 
+// pathPlaceholder matches a path template segment such as "{petId}".
+var pathPlaceholder = regexp.MustCompile(`\{[^{}/]*\}`)
+
 func (b *RequestBuilder) buildURL(op core.Operation, paramValues map[string]any) (string, error) {
-	baseURL := strings.TrimSuffix(op.BaseURL, "/")
+	base, err := url.Parse(strings.TrimSuffix(op.BaseURL, "/"))
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		// A base URL without a scheme and host produces a request that cannot be sent
+		// at all; failing here names the endpoint instead of emitting "/pet/1".
+		return "", fmt.Errorf("operation %s %s has no usable base URL (%q)", op.Method, op.Path, op.BaseURL)
+	}
+
 	path := op.Path
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
@@ -116,12 +130,16 @@ func (b *RequestBuilder) buildURL(op core.Operation, paramValues map[string]any)
 				value = "1"
 			}
 			placeholder := "{" + param.Name + "}"
-			encoded := url.PathEscape(fmt.Sprintf("%v", value))
+			encoded := url.PathEscape(serializeValue(value))
 			path = strings.ReplaceAll(path, placeholder, encoded)
 		}
 	}
 
-	fullURL := baseURL + path
+	// A template the spec never declares a parameter for would otherwise be requested
+	// literally as "/users/%7Bid%7D", which only ever reaches a 404.
+	path = pathPlaceholder.ReplaceAllString(path, "1")
+
+	fullURL := strings.TrimSuffix(base.String(), "/") + path
 
 	queryParams := url.Values{}
 	for _, param := range op.Parameters {
@@ -134,18 +152,7 @@ func (b *RequestBuilder) buildURL(op core.Operation, paramValues map[string]any)
 				value = param.GetEffectiveValue()
 			}
 
-			switch v := value.(type) {
-			case []any:
-				for _, item := range v {
-					queryParams.Add(param.Name, fmt.Sprintf("%v", item))
-				}
-			case []string:
-				for _, item := range v {
-					queryParams.Add(param.Name, item)
-				}
-			default:
-				queryParams.Set(param.Name, fmt.Sprintf("%v", value))
-			}
+			addQueryParam(queryParams, param, value)
 		}
 	}
 
@@ -154,6 +161,125 @@ func (b *RequestBuilder) buildURL(op core.Operation, paramValues map[string]any)
 	}
 
 	return fullURL, nil
+}
+
+// addQueryParam serialises a value according to the parameter's style and explode
+// settings. Emitting repeated keys for a non-exploded array, or a JSON blob for a
+// deepObject, sends values the API parses differently from what the spec declares.
+func addQueryParam(queryParams url.Values, param core.Parameter, value any) {
+	items, isList := listValues(value)
+	if isList {
+		if explodeParam(param) {
+			for _, item := range items {
+				queryParams.Add(param.Name, item)
+			}
+			return
+		}
+		queryParams.Set(param.Name, strings.Join(items, listSeparator(param.Style)))
+		return
+	}
+
+	if fields, ok := value.(map[string]any); ok && param.Style == "deepObject" {
+		for _, name := range sortedKeys(fields) {
+			queryParams.Set(fmt.Sprintf("%s[%s]", param.Name, name), serializeValue(fields[name]))
+		}
+		return
+	}
+
+	queryParams.Set(param.Name, serializeValue(value))
+}
+
+func listValues(value any) ([]string, bool) {
+	switch typed := value.(type) {
+	case []any:
+		items := make([]string, 0, len(typed))
+		for _, item := range typed {
+			items = append(items, serializeValue(item))
+		}
+		return items, true
+	case []string:
+		return typed, true
+	default:
+		return nil, false
+	}
+}
+
+func listSeparator(style string) string {
+	switch style {
+	case "spaceDelimited":
+		return " "
+	case "pipeDelimited":
+		return "|"
+	default:
+		return ","
+	}
+}
+
+// explodeParam reports the effective explode value; the OpenAPI default is true for
+// the form style used by query parameters and false for every other style.
+func explodeParam(param core.Parameter) bool {
+	if param.Explode != nil {
+		return *param.Explode
+	}
+	return param.Style == "" || param.Style == "form"
+}
+
+// serializeValue renders a parameter value for a URL, header or form field. Go's
+// "%v" turns floats into scientific notation and maps into "map[k:v]", neither of
+// which any API accepts.
+func serializeValue(value any) string {
+	switch typed := value.(type) {
+	case nil:
+		return ""
+	case string:
+		return typed
+	case bool:
+		return strconv.FormatBool(typed)
+	case int:
+		return strconv.Itoa(typed)
+	case int32:
+		return strconv.FormatInt(int64(typed), 10)
+	case int64:
+		return strconv.FormatInt(typed, 10)
+	case uint64:
+		return strconv.FormatUint(typed, 10)
+	case float32:
+		return formatFloat(float64(typed), 32)
+	case float64:
+		return formatFloat(typed, 64)
+	case json.Number:
+		return typed.String()
+	case []any, []string, map[string]any:
+		encoded, err := json.Marshal(typed)
+		if err != nil {
+			return fmt.Sprintf("%v", typed)
+		}
+		return string(encoded)
+	default:
+		return fmt.Sprintf("%v", typed)
+	}
+}
+
+// formatFloat keeps ordinary magnitudes in plain decimal, since scientific notation
+// is rejected by many numeric parsers, and only uses exponent form for values that
+// would otherwise expand into hundreds of digits.
+func formatFloat(value float64, bits int) string {
+	abs := math.Abs(value)
+	if math.IsInf(value, 0) || math.IsNaN(value) || (abs != 0 && (abs < 1e-6 || abs >= 1e21)) {
+		return strconv.FormatFloat(value, 'g', -1, bits)
+	}
+	return strconv.FormatFloat(value, 'f', -1, bits)
+}
+
+// sanitizeHeaderToken strips the control characters a spec-supplied header or cookie
+// name could otherwise smuggle into a request; Go's Header.Set does not filter them.
+func sanitizeHeaderToken(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, value)
 }
 
 func (b *RequestBuilder) buildBody(op core.Operation, paramValues map[string]any) ([]byte, string, error) {
@@ -178,22 +304,51 @@ func (b *RequestBuilder) buildBody(op core.Operation, paramValues map[string]any
 		contentType = op.OpenAPI.RequestBody.ContentType
 	}
 
+	// A scalar or array body is carried whole by a single parameter. Wrapping it in
+	// an object would send {"body": [...]} where the API expects [...].
+	structured := true
+	if op.OpenAPI != nil && op.OpenAPI.RequestBody != nil {
+		structured = op.OpenAPI.RequestBody.Structured
+	}
+
+	// The whole payload is carried by one parameter only when the parser said the body
+	// is unstructured AND that single "body" parameter is all there is. Operations
+	// built by hand, or stored before Structured existed, leave the flag false while
+	// still holding real named fields, so the shape check has to agree.
+	var payload any = bodyParams
+	isWholeBody := false
+	if !structured && len(bodyParams) == 1 {
+		if value, ok := bodyParams[wholeBodyParamName]; ok {
+			payload = value
+			isWholeBody = true
+		}
+	}
+
+	// A non-object body has no fields to name, so the field-based encodings send the
+	// raw value rather than inventing a field called "body".
+	if isWholeBody && !strings.Contains(contentType, "json") {
+		return []byte(serializeValue(payload)), contentType, nil
+	}
+
 	var body []byte
 	var err error
 
-	switch contentType {
-	case "application/x-www-form-urlencoded":
+	switch {
+	case contentType == "application/x-www-form-urlencoded":
 		formValues := url.Values{}
-		for k, v := range bodyParams {
-			formValues.Set(k, fmt.Sprintf("%v", v))
+		for _, name := range sortedKeys(bodyParams) {
+			formValues.Set(name, serializeValue(bodyParams[name]))
 		}
 		body = []byte(formValues.Encode())
-	case "multipart/form-data":
+	case strings.HasPrefix(contentType, "multipart/"):
 		buf := new(bytes.Buffer)
 		writer := multipart.NewWriter(buf)
-		for k, v := range bodyParams {
-			if err := writer.WriteField(k, fmt.Sprintf("%v", v)); err != nil {
-				return nil, "", fmt.Errorf("writing multipart field %s: %w", k, err)
+		if err := writer.SetBoundary(multipartBoundary); err != nil {
+			return nil, "", fmt.Errorf("setting multipart boundary: %w", err)
+		}
+		for _, name := range sortedKeys(bodyParams) {
+			if err := writer.WriteField(name, serializeValue(bodyParams[name])); err != nil {
+				return nil, "", fmt.Errorf("writing multipart field %s: %w", name, err)
 			}
 		}
 		if err := writer.Close(); err != nil {
@@ -201,14 +356,51 @@ func (b *RequestBuilder) buildBody(op core.Operation, paramValues map[string]any
 		}
 		body = buf.Bytes()
 		contentType = writer.FormDataContentType()
+	case strings.Contains(contentType, "xml"):
+		body, err = encodeXMLBody(bodyParams)
+		if err != nil {
+			return nil, "", fmt.Errorf("encoding xml body: %w", err)
+		}
+	case strings.HasPrefix(contentType, "text/"):
+		body = []byte(serializeValue(payload))
 	default:
-		body, err = json.Marshal(bodyParams)
+		body, err = json.Marshal(payload)
 		if err != nil {
 			return nil, "", fmt.Errorf("marshaling body: %w", err)
 		}
 	}
 
 	return body, contentType, nil
+}
+
+// multipartBoundary is fixed so that two runs over the same operation produce
+// byte-identical requests; the default writer boundary is random.
+const multipartBoundary = "sukyanAPIBoundary"
+
+// wholeBodyParamName is the name the parser gives the single parameter that carries
+// a non-object request body.
+const wholeBodyParamName = "body"
+
+func encodeXMLBody(fields map[string]any) ([]byte, error) {
+	var buffer bytes.Buffer
+	buffer.WriteString("<root>")
+	for _, name := range sortedKeys(fields) {
+		element := xml.StartElement{Name: xml.Name{Local: name}}
+		if err := xml.NewEncoder(&buffer).EncodeElement(serializeValue(fields[name]), element); err != nil {
+			return nil, err
+		}
+	}
+	buffer.WriteString("</root>")
+	return buffer.Bytes(), nil
+}
+
+func sortedKeys(fields map[string]any) []string {
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func (b *RequestBuilder) addHeaderParams(req *http.Request, op core.Operation, paramValues map[string]any) {
@@ -221,7 +413,11 @@ func (b *RequestBuilder) addHeaderParams(req *http.Request, op core.Operation, p
 			if value == nil {
 				value = param.GetEffectiveValue()
 			}
-			req.Header.Set(param.Name, fmt.Sprintf("%v", value))
+			name := sanitizeHeaderToken(param.Name)
+			if name == "" {
+				continue
+			}
+			req.Header.Set(name, sanitizeHeaderToken(serializeValue(value)))
 		}
 	}
 }
@@ -236,9 +432,13 @@ func (b *RequestBuilder) addCookieParams(req *http.Request, op core.Operation, p
 			if value == nil {
 				value = param.GetEffectiveValue()
 			}
+			name := sanitizeHeaderToken(param.Name)
+			if name == "" {
+				continue
+			}
 			req.AddCookie(&http.Cookie{
-				Name:  param.Name,
-				Value: fmt.Sprintf("%v", value),
+				Name:  name,
+				Value: sanitizeHeaderToken(serializeValue(value)),
 			})
 		}
 	}

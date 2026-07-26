@@ -99,7 +99,9 @@ func TestParse_RelativeServerURLResolvedAgainstSource(t *testing.T) {
 	}{
 		{"relative resolved against source", "/api/v3", "http://petstore.example.com/openapi.json", "http://petstore.example.com/api/v3"},
 		{"absolute passes through", "https://api.example.com/v2", "http://petstore.example.com/openapi.json", "https://api.example.com/v2"},
-		{"relative with no usable source kept as-is", "/api/v3", "", "/api/v3"},
+		// A scheme-less base URL cannot be requested, so it is reported as absent
+		// rather than carried forward; callers then fall back to a usable origin.
+		{"relative with no usable source yields no base url", "/api/v3", "", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -9,7 +9,12 @@ type Endpoint struct {
 	Description string                `json:"description,omitempty"`
 	Parameters  []ParameterMetadata   `json:"parameters,omitempty"`
 	Security    []SecurityRequirement `json:"security,omitempty"` // Security requirements for this endpoint
-	Requests    []RequestVariation    `json:"requests"`
+	// RequiresAuth reports whether every authentication alternative demands at least
+	// one scheme. It is false when the operation declares "security: []" (explicitly
+	// public) or offers an empty alternative (authentication optional), both of which
+	// are indistinguishable from an inherited requirement by looking at Security alone.
+	RequiresAuth bool               `json:"requires_auth"`
+	Requests     []RequestVariation `json:"requests"`
 }
 
 // SecurityRequirement represents one valid authentication option.
@@ -56,11 +61,14 @@ type RequestVariation struct {
 
 // GenerationConfig controls how requests are generated
 type GenerationConfig struct {
-	BaseURL               string
+	BaseURL string
+	// IncludeOptionalParams includes parameters the spec does not mark as required.
+	// Path parameters are always included regardless.
 	IncludeOptionalParams bool
 	FuzzingEnabled        bool
-	// Strategies can be passed here if we want to allow custom ones,
-	// but for serialization purposes we might want to keep this simple or use a functional option pattern elsewhere.
+	// MaxRequestsPerEndpoint bounds the variations generated for a single endpoint.
+	// Defaults to defaultMaxRequestsPerEndpoint when zero.
+	MaxRequestsPerEndpoint int
 }
 
 // ValueStrategy defines how to generate values for parameters

@@ -1,31 +1,200 @@
 package openapi
 
-import "github.com/getkin/kin-openapi/openapi3"
+import (
+	"net/url"
+	"sort"
+	"strings"
+
+	"github.com/getkin/kin-openapi/openapi3"
+)
 
 // Document wraps the openapi3.T struct
 type Document struct {
-	spec *openapi3.T
+	spec      *openapi3.T
+	sourceURL string
 }
 
-// GetOperations returns all operations in the document
+// OperationEntry is a single path/method pair together with the parameters that
+// actually apply to it.
+type OperationEntry struct {
+	Path      string
+	Method    string
+	Operation *openapi3.Operation
+	PathItem  *openapi3.PathItem
+	// Parameters merges the path item's shared parameters with the operation's own.
+	// The spec says an operation-level parameter overrides a path-level one with the
+	// same name and location.
+	Parameters []*openapi3.Parameter
+}
+
+// Operations returns every operation in the document, ordered by path then method
+// so that repeated runs over the same spec produce identical output.
+func (d *Document) Operations() []OperationEntry {
+	if d == nil || d.spec == nil || d.spec.Paths == nil {
+		return nil
+	}
+
+	paths := d.spec.Paths.Map()
+	sortedPaths := make([]string, 0, len(paths))
+	for path := range paths {
+		sortedPaths = append(sortedPaths, path)
+	}
+	sort.Strings(sortedPaths)
+
+	var entries []OperationEntry
+	for _, path := range sortedPaths {
+		pathItem := paths[path]
+		if pathItem == nil {
+			continue
+		}
+		operations := pathItem.Operations()
+		methods := make([]string, 0, len(operations))
+		for method := range operations {
+			methods = append(methods, method)
+		}
+		sort.Strings(methods)
+
+		for _, method := range methods {
+			op := operations[method]
+			if op == nil {
+				continue
+			}
+			entries = append(entries, OperationEntry{
+				Path:       path,
+				Method:     method,
+				Operation:  op,
+				PathItem:   pathItem,
+				Parameters: effectiveParameters(pathItem, op),
+			})
+		}
+	}
+	return entries
+}
+
+// GetOperations returns all operations in the document keyed by path and method.
 func (d *Document) GetOperations() map[string]map[string]*openapi3.Operation {
 	ops := make(map[string]map[string]*openapi3.Operation)
-
-	for path, pathItem := range d.spec.Paths.Map() {
-		ops[path] = make(map[string]*openapi3.Operation)
-		for method, op := range pathItem.Operations() {
-			ops[path][method] = op
+	for _, entry := range d.Operations() {
+		if ops[entry.Path] == nil {
+			ops[entry.Path] = make(map[string]*openapi3.Operation)
 		}
+		ops[entry.Path][entry.Method] = entry.Operation
 	}
 	return ops
 }
 
-// BaseURL attempts to determine the base URL from the servers list
+func effectiveParameters(pathItem *openapi3.PathItem, op *openapi3.Operation) []*openapi3.Parameter {
+	type key struct{ name, in string }
+
+	index := make(map[key]int)
+	var params []*openapi3.Parameter
+
+	add := func(refs openapi3.Parameters) {
+		for _, ref := range refs {
+			if ref == nil || ref.Value == nil || ref.Value.Name == "" {
+				continue
+			}
+			k := key{ref.Value.Name, ref.Value.In}
+			if position, ok := index[k]; ok {
+				params[position] = ref.Value
+				continue
+			}
+			index[k] = len(params)
+			params = append(params, ref.Value)
+		}
+	}
+
+	if pathItem != nil {
+		add(pathItem.Parameters)
+	}
+	if op != nil {
+		add(op.Parameters)
+	}
+	return params
+}
+
+// Servers returns every declared server URL with its variables substituted and
+// relative URLs resolved against the document source when it is known.
+func (d *Document) Servers() []string {
+	if d == nil || d.spec == nil {
+		return nil
+	}
+	servers := make([]string, 0, len(d.spec.Servers))
+	for _, server := range d.spec.Servers {
+		expanded := expandServerURL(server)
+		if expanded == "" {
+			continue
+		}
+		servers = append(servers, d.resolveURL(expanded))
+	}
+	return servers
+}
+
+// BaseURL returns the first absolute server URL, or an empty string when the
+// document declares none. Server variables are substituted with their defaults and
+// relative URLs (such as "/api/v3") are resolved against the source URL, so callers
+// never receive a value that cannot be requested.
 func (d *Document) BaseURL() string {
-	if len(d.spec.Servers) > 0 {
-		return d.spec.Servers[0].URL
+	for _, server := range d.Servers() {
+		if parsed, err := url.Parse(server); err == nil && parsed.IsAbs() && parsed.Host != "" {
+			return server
+		}
 	}
 	return ""
+}
+
+// SourceURL returns the location the document was retrieved from, if provided.
+func (d *Document) SourceURL() string {
+	if d == nil {
+		return ""
+	}
+	return d.sourceURL
+}
+
+// Spec exposes the loaded document for packages that build their own model from it,
+// so that Swagger 2.0 conversion, OpenAPI 3.1 normalisation and the external
+// reference policy are applied in one place rather than reimplemented per consumer.
+func (d *Document) Spec() *openapi3.T {
+	if d == nil {
+		return nil
+	}
+	return d.spec
+}
+
+func expandServerURL(server *openapi3.Server) string {
+	if server == nil {
+		return ""
+	}
+	expanded := server.URL
+	for name, variable := range server.Variables {
+		if variable == nil {
+			continue
+		}
+		value := variable.Default
+		if value == "" && len(variable.Enum) > 0 {
+			value = variable.Enum[0]
+		}
+		if value == "" {
+			continue
+		}
+		expanded = strings.ReplaceAll(expanded, "{"+name+"}", value)
+	}
+	return expanded
+}
+
+func (d *Document) resolveURL(raw string) string {
+	ref, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	if ref.IsAbs() {
+		return raw
+	}
+	base, err := url.Parse(d.sourceURL)
+	if err != nil || !base.IsAbs() {
+		return raw
+	}
+	return base.ResolveReference(ref).String()
 }
 
 // SecuritySchemeInfo contains extracted security scheme information (internal use)
@@ -37,68 +206,74 @@ type SecuritySchemeInfo struct {
 	Header string // Header name (for apiKey type)
 }
 
-// GetSecuritySchemes returns the security schemes defined in the spec as SecurityScheme structs
-// Supports both OpenAPI 3.0 (components.securitySchemes) and Swagger 2.0 (securityDefinitions)
+// GetSecuritySchemes returns the security schemes defined in the spec, ordered by
+// name. Swagger 2.0 documents are converted on load, so securityDefinitions
+// normally arrive as components.securitySchemes; the extension fallback covers
+// documents whose conversion failed.
 func (d *Document) GetSecuritySchemes() []SecurityScheme {
+	if d == nil || d.spec == nil {
+		return nil
+	}
+
 	var schemes []SecurityScheme
 
-	// Try OpenAPI 3.0 format first (components.securitySchemes)
 	if d.spec.Components != nil && d.spec.Components.SecuritySchemes != nil {
 		for name, schemeRef := range d.spec.Components.SecuritySchemes {
-			if schemeRef.Value == nil {
+			if schemeRef == nil || schemeRef.Value == nil {
 				continue
 			}
 			scheme := schemeRef.Value
-			info := SecurityScheme{
-				Name:          name,
-				Type:          scheme.Type,
-				Scheme:        scheme.Scheme,
-				In:            scheme.In,
-				ParameterName: scheme.Name,
-				BearerFormat:  scheme.BearerFormat,
-				Description:   scheme.Description,
-			}
-			if scheme.OpenIdConnectUrl != "" {
-				info.OpenIDConnectURL = scheme.OpenIdConnectUrl
-			}
-			schemes = append(schemes, info)
+			schemes = append(schemes, SecurityScheme{
+				Name:             name,
+				Type:             scheme.Type,
+				Scheme:           scheme.Scheme,
+				In:               scheme.In,
+				ParameterName:    scheme.Name,
+				BearerFormat:     scheme.BearerFormat,
+				Description:      scheme.Description,
+				OpenIDConnectURL: scheme.OpenIdConnectUrl,
+			})
 		}
 	}
 
-	// If no schemes found, try Swagger 2.0 format (securityDefinitions in Extensions)
 	if len(schemes) == 0 && d.spec.Extensions != nil {
-		if secDefs, ok := d.spec.Extensions["securityDefinitions"]; ok {
-			// secDefs is typically a map[string]interface{}
-			if secDefsMap, ok := secDefs.(map[string]interface{}); ok {
-				for name, def := range secDefsMap {
-					if defMap, ok := def.(map[string]interface{}); ok {
-						info := SecurityScheme{
-							Name: name,
-						}
-
-						if t, ok := defMap["type"].(string); ok {
-							info.Type = t
-						}
-						if s, ok := defMap["scheme"].(string); ok {
-							info.Scheme = s
-						}
-						if in, ok := defMap["in"].(string); ok {
-							info.In = in
-						}
-						if n, ok := defMap["name"].(string); ok {
-							info.ParameterName = n
-						}
-						if desc, ok := defMap["description"].(string); ok {
-							info.Description = desc
-						}
-
-						schemes = append(schemes, info)
-					}
-				}
-			}
-		}
+		schemes = append(schemes, securitySchemesFromExtensions(d.spec.Extensions)...)
 	}
 
+	sort.Slice(schemes, func(i, j int) bool { return schemes[i].Name < schemes[j].Name })
+	return schemes
+}
+
+func securitySchemesFromExtensions(extensions map[string]interface{}) []SecurityScheme {
+	definitions, ok := extensions["securityDefinitions"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	var schemes []SecurityScheme
+	for name, definition := range definitions {
+		fields, ok := definition.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		scheme := SecurityScheme{Name: name}
+		if value, ok := fields["type"].(string); ok {
+			scheme.Type = value
+		}
+		if value, ok := fields["scheme"].(string); ok {
+			scheme.Scheme = value
+		}
+		if value, ok := fields["in"].(string); ok {
+			scheme.In = value
+		}
+		if value, ok := fields["name"].(string); ok {
+			scheme.ParameterName = value
+		}
+		if value, ok := fields["description"].(string); ok {
+			scheme.Description = value
+		}
+		schemes = append(schemes, scheme)
+	}
 	return schemes
 }
 
@@ -121,58 +296,71 @@ func (d *Document) GetSecuritySchemesLegacy() []SecuritySchemeInfo {
 // Each SecurityRequirement in the returned slice is an alternative (OR relationship)
 // Each SecuritySchemeRef within a SecurityRequirement must all be satisfied (AND relationship)
 func (d *Document) GetGlobalSecurityRequirements() []SecurityRequirement {
+	if d == nil || d.spec == nil {
+		return nil
+	}
 	return convertSecurityRequirements(d.spec.Security)
 }
 
-// GetOperationSecurityRequirements returns security requirements for a specific operation
-// If the operation has its own security defined, it overrides global security
-// If operation security is empty array, it means no auth required (overrides global)
-// If operation security is nil, global security applies
+// GetOperationSecurityRequirements returns the security requirements for an
+// operation. The second return value reports whether the operation overrides the
+// document-level requirements; an operation declaring "security: []" overrides them
+// with no requirement at all, which is how a spec marks an endpoint as public.
 func (d *Document) GetOperationSecurityRequirements(op *openapi3.Operation) ([]SecurityRequirement, bool) {
-	if op.Security == nil {
-		// No override, use global
+	if op == nil || op.Security == nil {
 		return nil, false
 	}
-
-	// Operation has its own security (even if empty - which means no auth required)
 	return convertSecurityRequirements(*op.Security), true
 }
 
-// convertSecurityRequirements converts OpenAPI security requirements to our model
+// convertSecurityRequirements converts OpenAPI security requirements to our model.
+// An empty requirement object ({}) is preserved as an alternative with no schemes,
+// which is how a spec says authentication is optional.
 func convertSecurityRequirements(reqs openapi3.SecurityRequirements) []SecurityRequirement {
-	var result []SecurityRequirement
+	result := make([]SecurityRequirement, 0, len(reqs))
 
 	for _, req := range reqs {
-		// Each req is a map[string][]string where:
-		// - key is the security scheme name
-		// - value is the list of scopes (for OAuth2)
-		// All entries in one req must be satisfied together (AND)
-		secReq := SecurityRequirement{
-			Schemes: make([]SecuritySchemeRef, 0, len(req)),
+		names := make([]string, 0, len(req))
+		for schemeName := range req {
+			names = append(names, schemeName)
 		}
+		sort.Strings(names)
 
-		for schemeName, scopes := range req {
+		secReq := SecurityRequirement{Schemes: make([]SecuritySchemeRef, 0, len(names))}
+		for _, schemeName := range names {
 			secReq.Schemes = append(secReq.Schemes, SecuritySchemeRef{
 				Name:   schemeName,
-				Scopes: scopes,
+				Scopes: req[schemeName],
 			})
 		}
-
-		if len(secReq.Schemes) > 0 {
-			result = append(result, secReq)
-		}
+		result = append(result, secReq)
 	}
 
+	if len(result) == 0 {
+		return nil
+	}
 	return result
 }
 
-// GetGlobalSecurity returns the global security requirements as flat list (legacy, for backward compat)
+// GetGlobalSecurity returns the global security scheme names as a flat, sorted list.
 func (d *Document) GetGlobalSecurity() []string {
-	var securityNames []string
-	for _, req := range d.spec.Security {
+	if d == nil || d.spec == nil {
+		return nil
+	}
+	return flattenSecurityNames(d.spec.Security)
+}
+
+func flattenSecurityNames(reqs openapi3.SecurityRequirements) []string {
+	seen := make(map[string]bool)
+	var names []string
+	for _, req := range reqs {
 		for name := range req {
-			securityNames = append(securityNames, name)
+			if !seen[name] {
+				seen[name] = true
+				names = append(names, name)
+			}
 		}
 	}
-	return securityNames
+	sort.Strings(names)
+	return names
 }

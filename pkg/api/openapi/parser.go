@@ -3,13 +3,14 @@ package openapi
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/api/core"
+	pkgopenapi "github.com/pyneda/sukyan/pkg/openapi"
 	"github.com/rs/zerolog/log"
 )
 
@@ -43,24 +44,25 @@ func selectBodyContentType(content openapi3.Content) string {
 	return best
 }
 
-// resolveServerURL turns a possibly-relative OpenAPI server URL (e.g. "/api/v3",
-// common in Petstore specs) into an absolute one by resolving it against the
-// definition's source URL. Without this, a relative server survives as the base URL
-// and requests build to "/api/v3/pet/..." with no scheme or host, so the endpoint is
-// unscannable. Absolute server URLs are returned unchanged.
-func resolveServerURL(serverURL, sourceURL string) string {
-	ref, err := url.Parse(serverURL)
-	if err != nil {
-		return serverURL
+// schemaBudget bounds one traversal. Depth alone is not enough: a schema whose allOf
+// or properties reference the previous level several times expands combinatorially
+// even though nothing is its own ancestor, so a few kilobytes of spec can otherwise
+// consume gigabytes.
+type schemaBudget struct {
+	remaining int
+	onPath    map[*openapi3.Schema]bool
+}
+
+func newSchemaBudget() *schemaBudget {
+	return &schemaBudget{remaining: maxSchemaNodes, onPath: make(map[*openapi3.Schema]bool)}
+}
+
+func (b *schemaBudget) spend() bool {
+	if b.remaining <= 0 {
+		return false
 	}
-	if ref.IsAbs() {
-		return serverURL
-	}
-	base, err := url.Parse(sourceURL)
-	if err != nil || !base.IsAbs() {
-		return serverURL
-	}
-	return base.ResolveReference(ref).String()
+	b.remaining--
+	return true
 }
 
 // effectiveObjectProperties resolves an object-like schema into its combined property
@@ -70,10 +72,16 @@ func resolveServerURL(serverURL, sourceURL string) string {
 // body, so composed schemas no longer collapse into a single opaque "body" param with
 // a null value. A plain scalar/array body returns isObject=false so the caller keeps
 // its single-parameter fallback.
-func effectiveObjectProperties(schema *openapi3.Schema, depth int) (props openapi3.Schemas, required []string, isObject bool) {
-	if schema == nil || depth > maxSchemaDepth {
+func effectiveObjectProperties(schema *openapi3.Schema, depth int) (openapi3.Schemas, []string, bool) {
+	return effectiveObjectPropertiesBounded(schema, depth, newSchemaBudget())
+}
+
+func effectiveObjectPropertiesBounded(schema *openapi3.Schema, depth int, budget *schemaBudget) (props openapi3.Schemas, required []string, isObject bool) {
+	if schema == nil || depth > maxSchemaDepth || !budget.spend() || budget.onPath[schema] {
 		return nil, nil, false
 	}
+	budget.onPath[schema] = true
+	defer delete(budget.onPath, schema)
 
 	props = openapi3.Schemas{}
 	seenRequired := map[string]bool{}
@@ -106,7 +114,7 @@ func effectiveObjectProperties(schema *openapi3.Schema, depth int) (props openap
 		if sub == nil || sub.Value == nil {
 			continue
 		}
-		subProps, subRequired, ok := effectiveObjectProperties(sub.Value, depth+1)
+		subProps, subRequired, ok := effectiveObjectPropertiesBounded(sub.Value, depth+1, budget)
 		if ok {
 			for name, ref := range subProps {
 				props[name] = ref
@@ -122,7 +130,7 @@ func effectiveObjectProperties(schema *openapi3.Schema, depth int) (props openap
 				if sub == nil || sub.Value == nil {
 					continue
 				}
-				subProps, subRequired, ok := effectiveObjectProperties(sub.Value, depth+1)
+				subProps, subRequired, ok := effectiveObjectPropertiesBounded(sub.Value, depth+1, budget)
 				if ok {
 					for name, ref := range subProps {
 						props[name] = ref
@@ -148,6 +156,9 @@ func NewParser() *Parser {
 }
 
 func (p *Parser) Parse(definition *db.APIDefinition) ([]core.Operation, error) {
+	if definition == nil {
+		return nil, fmt.Errorf("nil API definition")
+	}
 	if definition.Type != db.APIDefinitionTypeOpenAPI {
 		return nil, fmt.Errorf("expected OpenAPI definition, got %s", definition.Type)
 	}
@@ -156,30 +167,31 @@ func (p *Parser) Parse(definition *db.APIDefinition) ([]core.Operation, error) {
 		return nil, fmt.Errorf("empty raw definition")
 	}
 
-	loader := openapi3.NewLoader()
-	loader.IsExternalRefsAllowed = true
-
-	doc, err := loader.LoadFromData(definition.RawDefinition)
+	// Loading goes through pkg/openapi so that this parser and the discovery
+	// persistence that created the definition see exactly the same document:
+	// Swagger 2.0 conversion, OpenAPI 3.1 normalisation, size limits and the
+	// no-external-references policy all live there.
+	document, err := pkgopenapi.ParseWithOptions(definition.RawDefinition, pkgopenapi.ParseOptions{
+		SourceURL: definition.SourceURL,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse OpenAPI spec: %w", err)
 	}
+	doc := document.Spec()
 
 	baseURL := definition.BaseURL
-	if baseURL == "" && len(doc.Servers) > 0 {
-		baseURL = resolveServerURL(doc.Servers[0].URL, definition.SourceURL)
+	if baseURL == "" {
+		baseURL = document.BaseURL()
 	}
 
-	var operations []core.Operation
+	// Servers come from the document so that variables are substituted and relative
+	// URLs resolved, rather than reporting a template nothing can request.
+	servers := document.Servers()
 
-	if doc.Paths == nil {
-		return operations, nil
-	}
-
-	for path, pathItem := range doc.Paths.Map() {
-		for method, op := range pathItem.Operations() {
-			operation := p.parseOperation(definition.ID, baseURL, path, method, op, doc)
-			operations = append(operations, operation)
-		}
+	entries := document.Operations()
+	operations := make([]core.Operation, 0, len(entries))
+	for _, entry := range entries {
+		operations = append(operations, p.parseOperation(definition.ID, baseURL, entry, servers, doc))
 	}
 
 	log.Debug().
@@ -190,14 +202,15 @@ func (p *Parser) Parse(definition *db.APIDefinition) ([]core.Operation, error) {
 	return operations, nil
 }
 
-func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL, path, method string, op *openapi3.Operation, doc *openapi3.T) core.Operation {
+func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL string, entry pkgopenapi.OperationEntry, servers []string, doc *openapi3.T) core.Operation {
+	op := entry.Operation
 	operation := core.Operation{
 		ID:           uuid.New(),
 		DefinitionID: definitionID,
 		APIType:      core.APITypeOpenAPI,
 		Name:         op.OperationID,
-		Method:       method,
-		Path:         path,
+		Method:       entry.Method,
+		Path:         entry.Path,
 		BaseURL:      baseURL,
 		OperationID:  op.OperationID,
 		Summary:      op.Summary,
@@ -205,7 +218,7 @@ func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL, path, method st
 		Deprecated:   op.Deprecated,
 		Tags:         op.Tags,
 		OpenAPI: &core.OpenAPIMetadata{
-			Servers: p.extractServerURLs(doc.Servers),
+			Servers: servers,
 		},
 	}
 
@@ -213,12 +226,10 @@ func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL, path, method st
 		operation.OpenAPI.Version = doc.OpenAPI
 	}
 
-	for _, paramRef := range op.Parameters {
-		if paramRef.Value == nil {
-			continue
-		}
-		param := p.parseParameter(paramRef.Value)
-		operation.Parameters = append(operation.Parameters, param)
+	// entry.Parameters merges the path item's shared parameters with the operation's
+	// own; without them a path template is never substituted.
+	for _, param := range entry.Parameters {
+		operation.Parameters = append(operation.Parameters, p.parseParameter(param))
 	}
 
 	if op.RequestBody != nil && op.RequestBody.Value != nil {
@@ -231,6 +242,7 @@ func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL, path, method st
 		}
 
 		operation.OpenAPI.RequestBody.ContentType = selectBodyContentType(op.RequestBody.Value.Content)
+		operation.OpenAPI.RequestBody.Structured = isStructuredBody(op.RequestBody.Value)
 	}
 
 	operation.Security = p.parseSecurityRequirements(op, doc)
@@ -261,6 +273,21 @@ func (p *Parser) parseParameter(param *openapi3.Parameter) core.Parameter {
 	return coreParam
 }
 
+// isStructuredBody reports whether the body decomposes into named properties. A
+// scalar or array body yields a single "body" parameter that holds the whole payload.
+func isStructuredBody(body *openapi3.RequestBody) bool {
+	contentType := selectBodyContentType(body.Content)
+	if contentType == "" {
+		return false
+	}
+	mediaType := body.Content[contentType]
+	if mediaType == nil || mediaType.Schema == nil || mediaType.Schema.Value == nil {
+		return false
+	}
+	_, _, isObject := effectiveObjectProperties(mediaType.Schema.Value, 0)
+	return isObject
+}
+
 func (p *Parser) parseRequestBody(body *openapi3.RequestBody) []core.Parameter {
 	var params []core.Parameter
 
@@ -277,8 +304,22 @@ func (p *Parser) parseRequestBody(body *openapi3.RequestBody) []core.Parameter {
 	props, required, isObject := effectiveObjectProperties(schema, 0)
 
 	if isObject {
-		for propName, propRef := range props {
-			if propRef.Value == nil {
+		// Sorted: ranging the property map would reorder the parameters, and therefore
+		// the generated body, between runs on an identical spec.
+		names := make([]string, 0, len(props))
+		for propName := range props {
+			names = append(names, propName)
+		}
+		sort.Strings(names)
+
+		for _, propName := range names {
+			propRef := props[propName]
+			if propRef == nil || propRef.Value == nil {
+				continue
+			}
+			// A readOnly property is response-only; sending it makes many APIs reject
+			// the whole request, so the endpoint would never be exercised.
+			if propRef.Value.ReadOnly {
 				continue
 			}
 
@@ -307,10 +348,14 @@ func (p *Parser) parseRequestBody(body *openapi3.RequestBody) []core.Parameter {
 	return params
 }
 
-const maxSchemaDepth = 10
+const (
+	maxSchemaDepth = 10
+	// maxSchemaNodes bounds how many schema nodes one traversal expands.
+	maxSchemaNodes = 2000
+)
 
-func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core.Parameter, visited map[string]bool, depth int) {
-	if depth > maxSchemaDepth {
+func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core.Parameter, onPath map[string]bool, depth int, budget *schemaBudget) {
+	if depth > maxSchemaDepth || !budget.spend() {
 		return
 	}
 
@@ -359,37 +404,50 @@ func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core
 
 	if schema.Items != nil && schema.Items.Value != nil {
 		nestedParam := core.Parameter{Name: "items"}
-		p.extractSchemaInfoWithDepth(schema.Items.Value, &nestedParam, visited, depth+1)
+		p.extractSchemaInfoWithDepth(schema.Items.Value, &nestedParam, onPath, depth+1, budget)
 		param.NestedParams = append(param.NestedParams, nestedParam)
 	}
 
-	for propName, propRef := range schema.Properties {
-		if propRef.Value == nil {
+	// Sorted: ranging the property map would reorder NestedParams between runs on an
+	// identical spec.
+	propNames := make([]string, 0, len(schema.Properties))
+	for propName := range schema.Properties {
+		propNames = append(propNames, propName)
+	}
+	sort.Strings(propNames)
+
+	for _, propName := range propNames {
+		propRef := schema.Properties[propName]
+		if propRef == nil || propRef.Value == nil {
 			continue
 		}
 
-		schemaRef := ""
-		if propRef.Ref != "" {
-			schemaRef = propRef.Ref
-		}
-		if schemaRef != "" && visited[schemaRef] {
-			continue
-		}
+		// onPath tracks the ancestors of the current node, not every schema ever seen,
+		// so a cycle still terminates while a type legitimately used twice in sibling
+		// branches keeps its nested parameters in both.
+		schemaRef := propRef.Ref
 		if schemaRef != "" {
-			visited[schemaRef] = true
+			if onPath[schemaRef] {
+				continue
+			}
+			onPath[schemaRef] = true
 		}
 
 		nestedParam := core.Parameter{
 			Name:     propName,
 			Required: p.isPropertyRequired(propName, schema.Required),
 		}
-		p.extractSchemaInfoWithDepth(propRef.Value, &nestedParam, visited, depth+1)
+		p.extractSchemaInfoWithDepth(propRef.Value, &nestedParam, onPath, depth+1, budget)
 		param.NestedParams = append(param.NestedParams, nestedParam)
+
+		if schemaRef != "" {
+			delete(onPath, schemaRef)
+		}
 	}
 }
 
 func (p *Parser) extractSchemaInfo(schema *openapi3.Schema, param *core.Parameter) {
-	p.extractSchemaInfoWithDepth(schema, param, make(map[string]bool), 0)
+	p.extractSchemaInfoWithDepth(schema, param, make(map[string]bool), 0, newSchemaBudget())
 }
 
 func (p *Parser) mapLocation(in string) core.ParameterLocation {
@@ -439,13 +497,6 @@ func (p *Parser) isPropertyRequired(propName string, required []string) bool {
 	return false
 }
 
-func (p *Parser) extractServerURLs(servers openapi3.Servers) []string {
-	var urls []string
-	for _, s := range servers {
-		urls = append(urls, s.URL)
-	}
-	return urls
-}
 
 func (p *Parser) parseSecurityRequirements(op *openapi3.Operation, doc *openapi3.T) []core.SecurityRequirement {
 	var reqs []core.SecurityRequirement
@@ -456,10 +507,18 @@ func (p *Parser) parseSecurityRequirements(op *openapi3.Operation, doc *openapi3
 	}
 
 	for _, req := range securityReqs {
-		for schemeName, scopes := range req {
+		// Sorted: ranging the requirement map would reorder the schemes of an AND
+		// requirement between parses of an identical document.
+		schemeNames := make([]string, 0, len(req))
+		for schemeName := range req {
+			schemeNames = append(schemeNames, schemeName)
+		}
+		sort.Strings(schemeNames)
+
+		for _, schemeName := range schemeNames {
 			secReq := core.SecurityRequirement{
 				Name:   schemeName,
-				Scopes: scopes,
+				Scopes: req[schemeName],
 			}
 
 			if doc.Components != nil && doc.Components.SecuritySchemes != nil {
@@ -484,14 +543,24 @@ func (p *Parser) parseContentTypes(op *openapi3.Operation) core.RequestContentTy
 		}
 	}
 
+	seenResponse := make(map[string]bool)
 	for _, responseRef := range op.Responses.Map() {
-		if responseRef.Value == nil {
+		if responseRef == nil || responseRef.Value == nil {
 			continue
 		}
 		for contentType := range responseRef.Value.Content {
+			if seenResponse[contentType] {
+				continue
+			}
+			seenResponse[contentType] = true
 			ct.Response = append(ct.Response, contentType)
 		}
 	}
+
+	// Sorted: both lists are built by ranging maps, which reorders them on every parse
+	// of an identical document.
+	sort.Strings(ct.Request)
+	sort.Strings(ct.Response)
 
 	return ct
 }

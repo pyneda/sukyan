@@ -48,10 +48,15 @@ type OpenAPIMetadata struct {
 }
 
 type RequestBodyInfo struct {
-	Required    bool     `json:"required,omitempty"`
-	Description string   `json:"description,omitempty"`
-	ContentType string   `json:"content_type,omitempty"`
-	Schema      any      `json:"schema,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+	Description string `json:"description,omitempty"`
+	ContentType string `json:"content_type,omitempty"`
+	Schema      any    `json:"schema,omitempty"`
+	// Structured reports whether the body parameters are named properties of an
+	// object. When false the body is a scalar or array and the single body parameter
+	// carries the entire payload, so wrapping it in an object would send a document
+	// the API rejects.
+	Structured bool `json:"structured,omitempty"`
 }
 
 type GraphQLMetadata struct {

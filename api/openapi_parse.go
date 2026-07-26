@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/gofiber/fiber/v2"
+	pkgapi "github.com/pyneda/sukyan/pkg/api"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/openapi"
 	"github.com/rs/zerolog/log"
@@ -63,8 +64,12 @@ func ParseOpenAPISpec(c *fiber.Ctx) error {
 		})
 	}
 
-	// Parse the OpenAPI specification
-	doc, err := openapi.Parse(bodyBytes)
+	// Parse the OpenAPI specification. The spec URL scopes which external
+	// references may be resolved, so a hostile spec cannot pivot to another host.
+	doc, err := openapi.ParseWithOptions(bodyBytes, openapi.ParseOptions{
+		SourceURL:       input.URL,
+		AllowRemoteRefs: true,
+	})
 	if err != nil {
 		log.Error().Err(err).Str("url", input.URL).Msg("Failed to parse OpenAPI spec")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -83,6 +88,9 @@ func ParseOpenAPISpec(c *fiber.Ctx) error {
 	// Override base URL if provided
 	if input.BaseURL != "" {
 		config.BaseURL = input.BaseURL
+	}
+	if config.BaseURL == "" {
+		config.BaseURL = pkgapi.DeriveBaseURLFromSpecURL(input.URL)
 	}
 
 	// Generate requests from the parsed specification
@@ -146,7 +154,7 @@ func ParseOpenAPISpecFromContent(c *fiber.Ctx) error {
 		})
 	}
 
-	doc, err := openapi.Parse([]byte(input.Content))
+	doc, err := openapi.ParseWithOptions([]byte(input.Content), openapi.ParseOptions{SourceURL: input.BaseURL})
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to parse OpenAPI content")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

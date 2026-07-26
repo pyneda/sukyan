@@ -736,7 +736,7 @@ func GetAPIDefinitionSecuritySchemes(c *fiber.Ctx) error {
 
 	// Lazy backfill: if no schemes in DB but we have the raw spec, parse and populate
 	if len(schemes) == 0 && definition.Type == db.APIDefinitionTypeOpenAPI && len(definition.RawDefinition) > 0 {
-		doc, parseErr := openapi.Parse(definition.RawDefinition)
+		doc, parseErr := openapi.ParseWithOptions(definition.RawDefinition, openapi.ParseOptions{SourceURL: definition.SourceURL})
 		if parseErr == nil {
 			specSchemes := doc.GetSecuritySchemes()
 			if len(specSchemes) > 0 {

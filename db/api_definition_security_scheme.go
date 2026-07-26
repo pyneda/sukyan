@@ -3,6 +3,7 @@ package db
 import (
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"gorm.io/gorm"
 )
 
 type APIDefinitionSecurityScheme struct {
@@ -17,6 +18,28 @@ type APIDefinitionSecurityScheme struct {
 	BearerFormat     string        `gorm:"size:50" json:"bearer_format"`
 	Description      string        `gorm:"type:text" json:"description"`
 	OpenIDConnectURL string        `gorm:"type:text" json:"openid_connect_url"`
+}
+
+// BeforeSave truncates the fields backed by bounded columns. These values come
+// straight out of a scan target's OpenAPI document, and an over-long one would fail
+// the insert and roll back the surrounding transaction, discarding the endpoints
+// persisted alongside it.
+func (s *APIDefinitionSecurityScheme) BeforeSave(*gorm.DB) error {
+	s.Name = truncateRunes(s.Name, 255)
+	s.Type = truncateRunes(s.Type, 50)
+	s.Scheme = truncateRunes(s.Scheme, 50)
+	s.In = truncateRunes(s.In, 50)
+	s.ParameterName = truncateRunes(s.ParameterName, 255)
+	s.BearerFormat = truncateRunes(s.BearerFormat, 50)
+	return nil
+}
+
+func truncateRunes(value string, limit int) string {
+	runes := []rune(value)
+	if len(runes) <= limit {
+		return value
+	}
+	return string(runes[:limit])
 }
 
 func (d *DatabaseConnection) CreateAPIDefinitionSecuritySchemes(schemes []*APIDefinitionSecurityScheme) error {

@@ -41,6 +41,26 @@ func (w *schemaWalk) mapSchema(ref *openapi3.SchemaRef, depth int) map[string]in
 	w.budget--
 	schema := ref.Value
 
+	// A 3.1 optional is anyOf:[{type:X},{type:null}]. Resolving it here rather than
+	// only in the scan-time parser keeps both consumers of this package agreeing on
+	// the same document: without it the generator emits "test" for an integer field
+	// and drops its format and enum, so the playground, CLI and report describe a
+	// request the scanner would never send.
+	if variant, nullable := TypedVariant(schema); variant != nil && !w.onPath[schema] {
+		w.onPath[schema] = true
+		resolved := w.mapSchema(variant, depth)
+		delete(w.onPath, schema)
+		if resolved != nil {
+			if nullable {
+				resolved["nullable"] = true
+			}
+			for key, value := range mapSchemaOwnKeywords(schema) {
+				resolved[key] = value
+			}
+			return resolved
+		}
+	}
+
 	result := make(map[string]interface{})
 	if declared := SchemaType(schema); declared != "" {
 		result["type"] = declared
@@ -118,6 +138,41 @@ func (w *schemaWalk) mapSchema(ref *openapi3.SchemaRef, depth int) map[string]in
 	return result
 }
 
+// mapSchemaOwnKeywords returns the validation keywords a schema declares directly.
+// JSON Schema allows them beside anyOf/oneOf, where they constrain whichever branch
+// applies, so they have to survive the resolution of that wrapper.
+func mapSchemaOwnKeywords(schema *openapi3.Schema) map[string]interface{} {
+	own := make(map[string]interface{})
+	if schema.Format != "" {
+		own["format"] = schema.Format
+	}
+	if schema.Example != nil {
+		own["example"] = schema.Example
+	}
+	if schema.Default != nil {
+		own["default"] = schema.Default
+	}
+	if len(schema.Enum) > 0 {
+		own["enum"] = schema.Enum
+	}
+	if schema.Min != nil {
+		own["minimum"] = *schema.Min
+	}
+	if schema.Max != nil {
+		own["maximum"] = *schema.Max
+	}
+	if schema.MinLength > 0 {
+		own["minLength"] = schema.MinLength
+	}
+	if schema.MaxLength != nil {
+		own["maxLength"] = *schema.MaxLength
+	}
+	if schema.Pattern != "" {
+		own["pattern"] = schema.Pattern
+	}
+	return own
+}
+
 func sortedSchemaNames(schemas openapi3.Schemas) []string {
 	names := make([]string, 0, len(schemas))
 	for name := range schemas {
@@ -141,20 +196,28 @@ func SchemaType(schema *openapi3.Schema) string {
 	return ""
 }
 
-// TypedVariant resolves the OpenAPI 3.1 spelling of an optional value —
-// anyOf/oneOf carrying a "null" branch beside a typed one — to its typed branch,
-// reporting whether a null branch was present. Generators emit every optional
-// field this way, and the wrapper declares no type of its own, so a consumer that
-// only reads schema.Type ends up with no type at all. Returns nil when the schema
-// already declares a type or has nothing to resolve.
-func TypedVariant(schema *openapi3.Schema) (*openapi3.Schema, bool) {
+// TypedVariant resolves a wrapper that describes its value only through
+// anyOf/oneOf to the first branch that carries one, reporting whether a "null"
+// branch stood beside it. OpenAPI 3.1 spells every optional value this way —
+// anyOf:[{type:X},{type:null}] — and the wrapper declares no type of its own, so
+// a consumer that reads schema.Type alone ends up with no type at all. A union
+// with no null branch resolves the same way: one concrete member is a request the
+// endpoint can accept, where an unresolved wrapper is not.
+//
+// The whole SchemaRef is returned, not just its value: the branch is usually a
+// $ref, and callers guard against recursive models by tracking reference strings.
+// Handing back the value alone would strip the only thing that identifies a cycle.
+//
+// Returns nil when the schema declares a type or properties of its own, since
+// then there is nothing to resolve.
+func TypedVariant(schema *openapi3.Schema) (*openapi3.SchemaRef, bool) {
 	if schema == nil || SchemaType(schema) != "" || len(schema.Properties) > 0 {
 		return nil, false
 	}
 
 	nullable := false
 	for _, group := range []openapi3.SchemaRefs{schema.AnyOf, schema.OneOf} {
-		var typed *openapi3.Schema
+		var typed *openapi3.SchemaRef
 		for _, ref := range group {
 			if ref == nil || ref.Value == nil {
 				continue
@@ -163,8 +226,12 @@ func TypedVariant(schema *openapi3.Schema) (*openapi3.Schema, bool) {
 				nullable = true
 				continue
 			}
-			if typed == nil && SchemaType(ref.Value) != "" {
-				typed = ref.Value
+			// A branch carrying properties describes an object even when it omits
+			// "type": object, which is how several generators emit one. Rejecting it
+			// would leave the field untyped here while the body-root resolver in
+			// effectiveObjectSchema expands the very same schema.
+			if typed == nil && (SchemaType(ref.Value) != "" || len(ref.Value.Properties) > 0) {
+				typed = ref
 			}
 		}
 		if typed != nil {

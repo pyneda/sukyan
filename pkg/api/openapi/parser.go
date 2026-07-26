@@ -398,25 +398,32 @@ func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core
 	// An optional field in OpenAPI 3.1 is anyOf:[{type:X},{type:null}], and the
 	// wrapper declares no type. Walking it as-is leaves the parameter untyped, so the
 	// request carries null where the endpoint wants a value and the type-driven
-	// payload sets never reach the field. The typed branch resolves to a real type
-	// exactly once — it declares one, so it cannot match here again.
+	// payload sets never reach the field.
+	//
+	// The branch is walked under the same onPath guard as a property $ref: a
+	// recursive model reached through such a wrapper (parent: Optional["Node"]) is a
+	// cycle like any other, and expanding it once per depth level costs the shared
+	// document budget every later operation still needs. Walking the branch first and
+	// falling through — rather than returning — lets the keywords JSON Schema allows
+	// beside anyOf (enum, pattern, maxLength) override what the branch declared.
 	if variant, nullable := pkgopenapi.TypedVariant(schema); variant != nil {
-		p.extractSchemaInfoWithDepth(variant, param, onPath, depth, budget)
+		if variant.Ref == "" || !onPath[variant.Ref] {
+			if variant.Ref != "" {
+				onPath[variant.Ref] = true
+				defer delete(onPath, variant.Ref)
+			}
+			p.extractSchemaInfoWithDepth(variant.Value, param, onPath, depth, budget)
+		}
 		param.Nullable = param.Nullable || nullable
-		if schema.Default != nil {
-			param.DefaultValue = schema.Default
-		}
-		if schema.Example != nil {
-			param.ExampleValue = schema.Example
-		}
-		return
 	}
 
 	if declared := pkgopenapi.SchemaType(schema); declared != "" {
 		param.DataType = p.mapDataType(declared)
 	}
 
-	param.Constraints.Format = schema.Format
+	if schema.Format != "" {
+		param.Constraints.Format = schema.Format
+	}
 
 	if schema.Min != nil {
 		param.Constraints.Minimum = schema.Min
@@ -424,8 +431,12 @@ func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core
 	if schema.Max != nil {
 		param.Constraints.Maximum = schema.Max
 	}
-	param.Constraints.ExclusiveMin = schema.ExclusiveMin
-	param.Constraints.ExclusiveMax = schema.ExclusiveMax
+	if schema.ExclusiveMin {
+		param.Constraints.ExclusiveMin = true
+	}
+	if schema.ExclusiveMax {
+		param.Constraints.ExclusiveMax = true
+	}
 
 	if schema.MinLength != 0 {
 		minLen := int(schema.MinLength)
@@ -436,7 +447,9 @@ func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core
 		param.Constraints.MaxLength = &maxLen
 	}
 
-	param.Constraints.Pattern = schema.Pattern
+	if schema.Pattern != "" {
+		param.Constraints.Pattern = schema.Pattern
+	}
 
 	if len(schema.Enum) > 0 {
 		param.Constraints.Enum = schema.Enum
@@ -451,14 +464,29 @@ func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core
 		param.Constraints.MaxItems = &maxItems
 	}
 
-	param.DefaultValue = schema.Default
-	param.ExampleValue = schema.Example
-	param.Nullable = schema.Nullable
+	if schema.Default != nil {
+		param.DefaultValue = schema.Default
+	}
+	if schema.Example != nil {
+		param.ExampleValue = schema.Example
+	}
+	if schema.Nullable {
+		param.Nullable = true
+	}
 
-	if schema.Items != nil && schema.Items.Value != nil {
+	// The item schema is guarded like a property: an array of a self-referential type
+	// (children: [Node]) is as much a cycle as a direct reference, and without the
+	// mark it re-expands at every level until the depth limit stops it.
+	if schema.Items != nil && schema.Items.Value != nil && !onPath[schema.Items.Ref] {
+		if schema.Items.Ref != "" {
+			onPath[schema.Items.Ref] = true
+		}
 		nestedParam := core.Parameter{Name: "items"}
 		p.extractSchemaInfoWithDepth(schema.Items.Value, &nestedParam, onPath, depth+1, budget)
 		param.NestedParams = append(param.NestedParams, nestedParam)
+		if schema.Items.Ref != "" {
+			delete(onPath, schema.Items.Ref)
+		}
 	}
 
 	// Sorted: ranging the property map would reorder NestedParams between runs on an
@@ -496,6 +524,13 @@ func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core
 		if schemaRef != "" {
 			delete(onPath, schemaRef)
 		}
+	}
+
+	// A schema that carries properties but omits "type": object is still an object;
+	// leaving the type blank sends the whole field as null and discards every nested
+	// parameter just collected.
+	if param.DataType == "" && len(schema.Properties) > 0 {
+		param.DataType = core.DataTypeObject
 	}
 }
 

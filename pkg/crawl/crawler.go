@@ -326,6 +326,18 @@ func (c *Crawler) getSitePageCount(urlStr string) int {
 	return countVal.(int)
 }
 
+// shouldExtract reports whether URLs should be extracted from this response body.
+// It peeks at processedResponseHashes and deliberately does not claim the hash: the
+// listener claims it when it schedules, and claiming here would strand the hash if
+// extraction panicked before the hijack goroutine reached the channel send.
+func (c *Crawler) shouldExtract(history *db.History) bool {
+	if history == nil {
+		return false
+	}
+	_, seen := c.processedResponseHashes.Load(history.ResponseHash())
+	return !seen
+}
+
 func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
 	// Check if the url is in an excluded pattern from c.excludePatterns
 	for _, pattern := range c.excludePatterns {

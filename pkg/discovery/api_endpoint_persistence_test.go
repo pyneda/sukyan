@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -84,4 +85,34 @@ func TestPersistOpenAPIDefinitionSurvivesOverlongDefinitionFields(t *testing.T) 
 
 	assert.LessOrEqual(t, len([]rune(definition.Name)), 255)
 	assert.Equal(t, 1, definition.EndpointCount)
+}
+
+// A definition whose child records cannot be stored must not be left looking parsed:
+// the definition row is created before the transaction, so without this it survives
+// with zero endpoints, indistinguishable from an API that genuinely has none, and the
+// scan built from it runs to completion having sent nothing.
+func TestFailDefinitionMarksTheDefinitionFailed(t *testing.T) {
+	workspace := setupTestWorkspace(t)
+
+	definition, err := db.Connection().CreateAPIDefinition(&db.APIDefinition{
+		WorkspaceID:   workspace.ID,
+		Name:          "Doomed",
+		Type:          db.APIDefinitionTypeOpenAPI,
+		Status:        db.APIDefinitionStatusParsed,
+		SourceURL:     "http://api.test/" + uuid.NewString() + ".json",
+		BaseURL:       "http://api.test",
+		EndpointCount: 7,
+	})
+	require.NoError(t, err)
+
+	returned := failDefinition(definition, errors.New("endpoint insert exploded"), "OpenAPI")
+
+	require.Error(t, returned, "the caller must learn the definition is unusable")
+	assert.Contains(t, returned.Error(), "endpoint insert exploded", "the cause must survive wrapping")
+	assert.Equal(t, 0, definition.EndpointCount)
+
+	stored, err := db.Connection().GetAPIDefinitionByID(definition.ID)
+	require.NoError(t, err)
+	assert.Equal(t, db.APIDefinitionStatusFailed, stored.Status)
+	assert.Equal(t, 0, stored.EndpointCount)
 }

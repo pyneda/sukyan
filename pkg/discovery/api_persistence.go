@@ -75,14 +75,19 @@ func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (
 		serverCount = len(servers)
 	}
 
+	// Document.BaseURL already falls back to the source URL's origin and refuses a
+	// scheme no HTTP client can request, so a second fallback here only reinstates
+	// what it rejected: a spec read from disk yields "file://", which every request
+	// build then rejects as unusable. Leaving it empty keeps the definition honest.
 	baseURL := doc.BaseURL()
-	if baseURL == "" {
-		baseURL, _ = lib.GetBaseURL(history.URL)
-	}
 
 	name := openapiTitle
 	if name == "" {
-		name = "OpenAPI - " + baseURL
+		source := baseURL
+		if source == "" {
+			source = history.URL
+		}
+		name = "OpenAPI - " + source
 	}
 
 	historyID := history.ID

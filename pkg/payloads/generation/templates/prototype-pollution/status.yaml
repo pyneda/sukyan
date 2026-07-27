@@ -1,0 +1,33 @@
+id: server-side-prototype-pollution-status
+issue_code: server_side_prototype_pollution
+detection_condition: or
+detection_methods:
+  - response_condition:
+      status_code: 510
+      status_code_should_change: true
+      confidence: 85
+  - response_condition:
+      contains: "Not Extended"
+      confidence: 80
+vars: []
+launch:
+  operator: or
+  conditions:
+    - type: platform
+      value: node
+    - type: platform
+      value: javascript
+    - type: scan_mode
+      value: fuzz
+templates:
+  - '{"__proto__":{"status":510}}'
+  - '{"constructor":{"prototype":{"status":510}}}'
+  - '{"__proto__":{"statusCode":510}}'
+categories:
+  - prototype_pollution
+  - detection
+platforms:
+  - node
+  - javascript
+credits:
+  - https://portswigger.net/research/server-side-prototype-pollution

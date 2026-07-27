@@ -1,0 +1,55 @@
+id: "sqli-error-sqlite"
+issue_code: "sql_injection"
+detection_condition: "or"
+detection_methods:
+  - response_condition:
+      contains: "SQLite"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "sqlite3"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "SQLITE_ERROR"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "near \""
+      part: body
+      confidence: 80
+  - response_condition:
+      contains: "unrecognized token"
+      part: body
+      confidence: 85
+  - response_condition:
+      contains: "no such column"
+      part: body
+      confidence: 80
+  # Generic database error fallback
+  - response_check:
+      check: "database_error"
+      confidence: 75
+launch:
+  operator: or
+  conditions:
+    - type: platform
+      value: sqlite
+    - type: platform
+      value: python
+    - type: platform
+      value: php
+    - type: platform
+      value: mobile
+    - type: scan_mode
+      value: fuzz
+templates:
+  - "' AND CAST(sqlite_version() AS INTEGER)--"
+  - "1' AND CAST(sqlite_version() AS INTEGER)--"
+  - "') AND CAST(sqlite_version() AS INTEGER)--"
+categories:
+  - sql_injection
+  - error_based
+  - sqlite
+platforms:
+  - sqlite

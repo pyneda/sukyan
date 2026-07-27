@@ -1,0 +1,76 @@
+id: "sqli-error-postgresql"
+issue_code: "sql_injection"
+detection_condition: "or"
+detection_methods:
+  # PostgreSQL-specific error patterns
+  - response_condition:
+      contains: "PostgreSQL"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "pg_query"
+      part: body
+      confidence: 90
+  - response_condition:
+      contains: "pg_exec"
+      part: body
+      confidence: 90
+  - response_condition:
+      contains: "PSQLException"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "unterminated quoted string"
+      part: body
+      confidence: 90
+  - response_condition:
+      contains: "invalid input syntax"
+      part: body
+      confidence: 85
+  # Version extraction detection
+  - response_condition:
+      contains: "PostgreSQL 1"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "PostgreSQL 9"
+      part: body
+      confidence: 95
+  - response_condition:
+      contains: "on x86_64"
+      part: body
+      confidence: 75
+  - response_condition:
+      contains: "compiled by"
+      part: body
+      confidence: 70
+  # Generic database error fallback
+  - response_check:
+      check: "database_error"
+      confidence: 75
+launch:
+  operator: or
+  conditions:
+    - type: platform
+      value: postgresql
+    - type: platform
+      value: python
+    - type: platform
+      value: ruby
+    - type: platform
+      value: django
+    - type: platform
+      value: rails
+    - type: scan_mode
+      value: fuzz
+templates:
+  - "' AND 1=CAST(version() AS int)--"
+  - "1' AND 1=CAST(version() AS int)--"
+  - "') AND 1=CAST(version() AS int)--"
+  - "' AND 1=CAST(current_user AS int)--"
+categories:
+  - sql_injection
+  - error_based
+  - postgresql
+platforms:
+  - postgresql

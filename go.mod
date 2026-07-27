@@ -42,6 +42,7 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/swag v1.16.4
+	github.com/vektah/gqlparser/v2 v2.5.36
 	github.com/ysmood/gson v0.7.3
 	go.uber.org/goleak v1.3.0
 	golang.org/x/crypto v0.47.0
@@ -69,6 +70,7 @@ require (
 	github.com/PaesslerAG/gval v1.0.0 // indirect
 	github.com/STARRY-S/zip v0.2.3 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
+	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/akrylysov/pogreb v0.10.2 // indirect
 	github.com/alecthomas/chroma/v2 v2.20.0 // indirect
 	github.com/alecthomas/repr v0.5.2 // indirect

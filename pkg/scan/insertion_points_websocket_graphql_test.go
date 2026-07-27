@@ -208,7 +208,7 @@ func TestIsGraphQLWSControlFrame(t *testing.T) {
 		want bool
 	}{
 		{`{"type":"connection_init"}`, true},
-		{`{"type":"connection_init","payload":{}}`, true},  // empty payload is still pure control
+		{`{"type":"connection_init","payload":{}}`, true},   // empty payload is still pure control
 		{`{"type":"connection_init","payload":null}`, true}, // null payload is pure control
 		{`{"type":"ping"}`, true},
 		{`{"id":"1","type":"complete"}`, true},

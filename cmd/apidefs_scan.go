@@ -331,12 +331,15 @@ func runAPIDefsScan(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	finalScan, _ := db.Connection().GetScanByID(scanEntity.ID)
-	if finalScan != nil {
+	// Count the jobs directly rather than trusting the scan row's cached counters,
+	// which are only refreshed at particular points in the scan lifecycle.
+	finalStats, _ := db.Connection().GetScanJobStats(scanEntity.ID)
+	if finalStats != nil {
 		scanLog.Info().
-			Int("pending_jobs", finalScan.PendingJobsCount).
-			Int("completed_jobs", finalScan.CompletedJobsCount).
-			Int("failed_jobs", finalScan.FailedJobsCount).
+			Int64("pending_jobs", finalStats[db.ScanJobStatusPending]).
+			Int64("running_jobs", finalStats[db.ScanJobStatusRunning]).
+			Int64("completed_jobs", finalStats[db.ScanJobStatusCompleted]).
+			Int64("failed_jobs", finalStats[db.ScanJobStatusFailed]).
 			Msg("Final scan statistics")
 	}
 

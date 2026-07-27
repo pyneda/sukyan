@@ -865,6 +865,13 @@ func (o *Orchestrator) completeScan(scanEntity *db.Scan) error {
 	scanLog := log.With().Uint("scan_id", scanEntity.ID).Logger()
 	scanLog.Info().Msg("Completing scan")
 
+	// Refresh the counts before publishing the terminal status: UpdateScan persists the
+	// whole struct, so anything watching for the scan to finish would otherwise read the
+	// counts this orchestrator happened to be holding and see a truncated scan.
+	if err := db.Connection().RefreshScanJobCounts(scanEntity); err != nil {
+		scanLog.Error().Err(err).Msg("Failed to refresh scan job counts before completing scan")
+	}
+
 	now := time.Now()
 	scanEntity.Status = db.ScanStatusCompleted
 	scanEntity.CompletedAt = &now

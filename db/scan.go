@@ -461,6 +461,30 @@ func (d *DatabaseConnection) UpdateScanJobCounts(scanID uint) error {
 	}).Error
 }
 
+// RefreshScanJobCounts recounts the scan's jobs and updates both the row and the given
+// struct. Callers that persist a scan with UpdateScan write the whole struct, so
+// recounting without refreshing the struct would publish the stale in-memory counts
+// again — which is how a finished scan ends up reporting jobs still pending.
+func (d *DatabaseConnection) RefreshScanJobCounts(scan *Scan) error {
+	if scan == nil {
+		return fmt.Errorf("cannot refresh job counts for a nil scan")
+	}
+	if err := d.UpdateScanJobCounts(scan.ID); err != nil {
+		return err
+	}
+
+	stored, err := d.GetScanByID(scan.ID)
+	if err != nil {
+		return err
+	}
+	scan.TotalJobsCount = stored.TotalJobsCount
+	scan.PendingJobsCount = stored.PendingJobsCount
+	scan.RunningJobsCount = stored.RunningJobsCount
+	scan.CompletedJobsCount = stored.CompletedJobsCount
+	scan.FailedJobsCount = stored.FailedJobsCount
+	return nil
+}
+
 // SetScanPhase updates the scan phase
 func (d *DatabaseConnection) SetScanPhase(scanID uint, phase ScanPhase) error {
 	return d.db.Model(&Scan{}).Where("id = ?", scanID).Update("phase", phase).Error

@@ -160,7 +160,7 @@ func (c *Crawler) RunWithContext(ctx context.Context) []*db.History {
 				if !ok {
 					return
 				}
-				taskLog.Info().Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Int("response_body_size", hijackResult.History.ResponseBodySize).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Msg("Received crawl response")
+				taskLog.Info().Str("url", hijackResult.History.URL).Int("status_code", hijackResult.History.StatusCode).Int("response_body_size", hijackResult.History.ResponseBodySize).Str("method", hijackResult.History.Method).Int("discovered_urls", len(hijackResult.DiscoveredURLs)).Bool("urls_extracted", hijackResult.Extracted).Msg("Received crawl response")
 				if hijackResult.History.Method != "GET" {
 					item := &CrawlItem{url: hijackResult.History.URL, depth: lib.CalculateURLDepth(hijackResult.History.URL), visited: true, isError: false}
 					c.pages.Store(item.url, item)

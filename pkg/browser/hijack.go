@@ -30,6 +30,9 @@ type HijackConfig struct {
 type HijackResult struct {
 	History        *db.History
 	DiscoveredURLs []string
+	// Extracted reports whether URL extraction ran, so that an empty
+	// DiscoveredURLs can be told apart from extraction having been skipped.
+	Extracted bool
 }
 
 type RedirectTracker struct {
@@ -126,13 +129,16 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, httpClient *ht
 				// Additional check for context cancellation
 				history := CreateHistoryFromHijack(hj.Request, hj.Response, source, "Create history from hijack", workspaceID, taskID, scanID, scanJobID, 0)
 				linksFound := passive.ExtractedURLS{}
+				extracted := false
 				if hj.Request.Type() != "Image" && hj.Request.Type() != "Font" && hj.Request.Type() != "Media" &&
 					config.ShouldExtract != nil && config.ShouldExtract(history) {
 					linksFound = passive.ExtractURLsFromHistoryItem(history)
+					extracted = true
 				}
 				hijackResult := HijackResult{
 					History:        history,
 					DiscoveredURLs: linksFound.Web,
+					Extracted:      extracted,
 				}
 
 				select {
@@ -207,13 +213,16 @@ func Hijack(config HijackConfig, browser *rod.Browser, httpClient *http.Client, 
 				}()
 				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack", workspaceID, taskID, scanID, scanJobID, 0)
 				linksFound := passive.ExtractedURLS{}
+				extracted := false
 				if ctx.Request.Type() != "Image" && ctx.Request.Type() != "Font" && ctx.Request.Type() != "Media" &&
 					config.ShouldExtract != nil && config.ShouldExtract(history) {
 					linksFound = passive.ExtractURLsFromHistoryItem(history)
+					extracted = true
 				}
 				hijackResult := HijackResult{
 					History:        history,
 					DiscoveredURLs: linksFound.Web,
+					Extracted:      extracted,
 				}
 				if resultsChannel != nil {
 					resultsChannel <- hijackResult

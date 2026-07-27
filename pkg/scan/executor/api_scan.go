@@ -51,6 +51,7 @@ type APIScanJobData struct {
 	SchemeAuthMap       map[string]uuid.UUID         `json:"scheme_auth_map,omitempty"`
 	FingerprintTags     []string                     `json:"fingerprint_tags,omitempty"`
 	MaxRetries          int                          `json:"max_retries,omitempty"`
+	InsertionPoints     []string                     `json:"insertion_points,omitempty"`
 }
 
 type APIScanExecutor struct {
@@ -200,6 +201,7 @@ func (e *APIScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *co
 			ScanJobID:       job.ID,
 			Mode:            jobData.Mode,
 			AuditCategories: auditCategories,
+			InsertionPoints: jobData.InsertionPoints,
 			FingerprintTags: jobData.FingerprintTags,
 			MaxRetries:      jobData.MaxRetries,
 			HTTPClient:      httpClient,

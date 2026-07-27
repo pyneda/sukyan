@@ -1476,6 +1476,7 @@ func (sm *ScanManager) scheduleAPIScanForEndpointWithAuth(
 		SchemeAuthMap:       schemeAuthMap,
 		FingerprintTags:     fingerprintTags,
 		MaxRetries:          scanEntity.Options.MaxRetries,
+		InsertionPoints:     scanEntity.Options.InsertionPoints,
 	}
 	payload, _ := json.Marshal(jobData)
 

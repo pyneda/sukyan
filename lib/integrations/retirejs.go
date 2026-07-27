@@ -4,9 +4,11 @@ import (
 	"crypto/sha1"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pyneda/sukyan/db"
@@ -84,13 +86,36 @@ func fixPattern(pattern string) string {
 	return pattern
 }
 
+// compiledPatterns memoizes the retire.js extractor patterns. The repository
+// holds thousands of them and every JS response re-derives the same set, so
+// compiling per call dominated the scan's allocation profile.
+var compiledPatterns sync.Map
+
+func compilePattern(pattern string) (*regexp.Regexp, error) {
+	if cached, ok := compiledPatterns.Load(pattern); ok {
+		if re, ok := cached.(*regexp.Regexp); ok {
+			return re, nil
+		}
+		return nil, errUncompilablePattern
+	}
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		compiledPatterns.Store(pattern, err)
+		return nil, err
+	}
+	compiledPatterns.Store(pattern, re)
+	return re, nil
+}
+
+var errUncompilablePattern = errors.New("pattern previously failed to compile")
+
 func extractVersionFromMatch(pattern, content string) string {
 	regexPattern := strings.ReplaceAll(pattern, "§§version§§", `([0-9]+(?:\.[0-9]+)*(?:[-_][a-zA-Z0-9.]+)*(?:\+[a-zA-Z0-9.-]+)?)`)
 
 	regexPattern = fixRepeats.ReplaceAllString(regexPattern, "{0,1000}")
 	regexPattern = fixRepeats2.ReplaceAllString(regexPattern, "{1,1000}")
 
-	regex, err := regexp.Compile(regexPattern)
+	regex, err := compilePattern(regexPattern)
 	if err != nil {
 		log.Debug().Err(err).Str("pattern", regexPattern).Msg("Failed to compile regex for version extraction")
 		return ""
@@ -122,7 +147,7 @@ func extractVersionFromReplace(pattern, content string) string {
 	searchPattern := matches[1]
 	replacement := matches[2]
 
-	regex, err := regexp.Compile(searchPattern)
+	regex, err := compilePattern(searchPattern)
 	if err != nil {
 		log.Debug().Err(err).Str("pattern", searchPattern).Msg("Failed to compile replacement regex")
 		return ""

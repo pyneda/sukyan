@@ -308,9 +308,12 @@ func (x *AlertAudit) testPayloadForSingleInsertionPoint(browserPool *browser.Bro
 		parentCtx = context.Background()
 	}
 	hijackContext, hijackCancel := context.WithCancel(parentCtx)
-	browser.HijackWithContext(browser.HijackConfig{}, b, nil, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
+	hijackRouter := browser.HijackWithContext(browser.HijackConfig{}, b, nil, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
 	defer browserPool.ReleaseBrowser(b)
 	defer hijackCancel()
+	// Stop while this audit still holds the pooled browser: a router left subscribed disables
+	// interception browser-wide the first time it fires for whichever audit reuses the browser.
+	defer hijackRouter.Stop()
 
 	go func() {
 		for {
@@ -365,9 +368,12 @@ func (x *AlertAudit) testPayload(browserPool *browser.BrowserPoolManager, histor
 		parentCtx = context.Background()
 	}
 	hijackContext, hijackCancel := context.WithCancel(parentCtx)
-	browser.HijackWithContext(browser.HijackConfig{}, b, nil, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
+	hijackRouter := browser.HijackWithContext(browser.HijackConfig{}, b, nil, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
 	defer browserPool.ReleaseBrowser(b)
 	defer hijackCancel()
+	// Stop while this audit still holds the pooled browser: a router left subscribed disables
+	// interception browser-wide the first time it fires for whichever audit reuses the browser.
+	defer hijackRouter.Stop()
 	go func() {
 		for {
 			select {

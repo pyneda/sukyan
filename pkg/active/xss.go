@@ -79,7 +79,7 @@ func (x *XSSAudit) Run(targetUrl string, params []string, wordlistPath string, u
 			taskLog.Debug().Msg("Got scan browser from the pool")
 			hijackResultsChannel := make(chan browser.HijackResult)
 			hijackContext, hijackCancel := context.WithCancel(context.Background())
-			browser.HijackWithContext(browser.HijackConfig{}, b, nil, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
+			hijackRouter := browser.HijackWithContext(browser.HijackConfig{}, b, nil, db.SourceScanner, hijackResultsChannel, hijackContext, x.WorkspaceID, x.TaskID, x.ScanID, x.ScanJobID)
 
 			go func() {
 				for {
@@ -96,8 +96,12 @@ func (x *XSSAudit) Run(targetUrl string, params []string, wordlistPath string, u
 			}()
 			x.testPayload(targetUrl, testQueryParams, payload, urlEncode, b)
 			taskLog.Debug().Msg("Scan browser released")
-			browserPool.ReleaseBrowser(b)
+			// Stop and cancel before the browser goes back to the pool: a router left
+			// subscribed disables interception browser-wide for the next audit to reuse it,
+			// and one still live would attribute that audit's traffic to this scan job.
+			hijackRouter.Stop()
 			hijackCancel()
+			browserPool.ReleaseBrowser(b)
 			// close(hijackResultsChannel)
 
 		})

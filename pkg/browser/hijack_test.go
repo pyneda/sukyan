@@ -192,6 +192,24 @@ func TestHijack(t *testing.T) {
 	wg.Wait()
 }
 
+// hijackExtractGatingCase is the shared table for pinning the ShouldExtract contract. It is run
+// against both HijackWithContext (TestHijackShouldExtractGating) and Hijack
+// (TestHijackShouldExtractGatingNonContext), since the two functions carry independent copies
+// of the same gating conditional.
+type hijackExtractGatingCase struct {
+	name          string
+	shouldExtract func(history *db.History) bool
+	expectExtract bool
+}
+
+func hijackExtractGatingCases() []hijackExtractGatingCase {
+	return []hijackExtractGatingCase{
+		{"nil predicate skips extraction", nil, false},
+		{"predicate returning true extracts", func(*db.History) bool { return true }, true},
+		{"predicate returning false skips extraction", func(*db.History) bool { return false }, false},
+	}
+}
+
 // TestHijackShouldExtractGating pins the ShouldExtract contract on HijackWithContext: a nil
 // predicate (the zero value used by every browser-audit caller) must never run URL extraction,
 // while a supplied predicate gates it per response based on its return value.
@@ -208,17 +226,7 @@ func TestHijackShouldExtractGating(t *testing.T) {
 
 	targetURL := server.URL + "/html-with-link"
 
-	tests := []struct {
-		name          string
-		shouldExtract func(history *db.History) bool
-		expectExtract bool
-	}{
-		{"nil predicate skips extraction", nil, false},
-		{"predicate returning true extracts", func(*db.History) bool { return true }, true},
-		{"predicate returning false skips extraction", func(*db.History) bool { return false }, false},
-	}
-
-	for _, tt := range tests {
+	for _, tt := range hijackExtractGatingCases() {
 		t.Run(tt.name, func(t *testing.T) {
 			browser := setupRodBrowser(t, true)
 			defer browser.MustClose()
@@ -249,6 +257,60 @@ func TestHijackShouldExtractGating(t *testing.T) {
 					}
 					return
 				case <-ctx.Done():
+					t.Fatal("timed out waiting for hijack result for " + targetURL)
+				}
+			}
+		})
+	}
+}
+
+// TestHijackShouldExtractGatingNonContext pins the same ShouldExtract contract on Hijack — the
+// router pages_pool.go actually drives (via browser_pool.go:111) and the one the crawler's
+// extraction depends on in production. Hijack carries its own copy of the gating conditional
+// independent of HijackWithContext, so it needs its own coverage rather than inheriting
+// TestHijackShouldExtractGating's.
+func TestHijackShouldExtractGatingNonContext(t *testing.T) {
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
+		Code:        "test-hijack-extract-gating-nonctx",
+		Title:       "test-hijack-extract-gating-nonctx",
+		Description: "test-hijack-extract-gating-nonctx",
+	})
+	assert.NoError(t, err)
+
+	server := setupHijackMockServer()
+	defer server.Close()
+
+	targetURL := server.URL + "/html-with-link"
+
+	for _, tt := range hijackExtractGatingCases() {
+		t.Run(tt.name, func(t *testing.T) {
+			browser := setupRodBrowser(t, true)
+			defer browser.MustClose()
+
+			// Buffered so a stray hijacked request (e.g. a browser-initiated favicon
+			// fetch) that arrives after the target response doesn't block its sending
+			// goroutine forever — Hijack's send has no context/select escape hatch.
+			resultsChannel := make(chan HijackResult, 8)
+
+			config := HijackConfig{ShouldExtract: tt.shouldExtract}
+			Hijack(config, browser, nil, server.URL, resultsChannel, workspace.ID, 0, 0, 0)
+
+			browser.MustPage(targetURL)
+
+			deadline := time.After(10 * time.Second)
+			for {
+				select {
+				case res := <-resultsChannel:
+					if res.History.URL != targetURL {
+						continue
+					}
+					if tt.expectExtract {
+						assert.NotEmpty(t, res.DiscoveredURLs, "expected DiscoveredURLs to be populated")
+					} else {
+						assert.Empty(t, res.DiscoveredURLs, "expected DiscoveredURLs to stay empty")
+					}
+					return
+				case <-deadline:
 					t.Fatal("timed out waiting for hijack result for " + targetURL)
 				}
 			}

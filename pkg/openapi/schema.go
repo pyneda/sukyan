@@ -41,26 +41,6 @@ func (w *schemaWalk) mapSchema(ref *openapi3.SchemaRef, depth int) map[string]in
 	w.budget--
 	schema := ref.Value
 
-	// A 3.1 optional is anyOf:[{type:X},{type:null}]. Resolving it here rather than
-	// only in the scan-time parser keeps both consumers of this package agreeing on
-	// the same document: without it the generator emits "test" for an integer field
-	// and drops its format and enum, so the playground, CLI and report describe a
-	// request the scanner would never send.
-	if variant, nullable := TypedVariant(schema); variant != nil && !w.onPath[schema] {
-		w.onPath[schema] = true
-		resolved := w.mapSchema(variant, depth)
-		delete(w.onPath, schema)
-		if resolved != nil {
-			if nullable {
-				resolved["nullable"] = true
-			}
-			for key, value := range mapSchemaOwnKeywords(schema) {
-				resolved[key] = value
-			}
-			return resolved
-		}
-	}
-
 	result := make(map[string]interface{})
 	if declared := SchemaType(schema); declared != "" {
 		result["type"] = declared
@@ -104,6 +84,32 @@ func (w *schemaWalk) mapSchema(ref *openapi3.SchemaRef, depth int) map[string]in
 	// is set: marking first makes its own cycle guard reject the schema being mapped
 	// and every object collapses to a property-less {}.
 	properties, required, isObject := w.objectSchema(schema, depth)
+
+	// A 3.1 optional is anyOf:[{type:X},{type:null}], which objectSchema cannot
+	// resolve because neither branch is an object. Resolving it here keeps both
+	// consumers of this package agreeing on the same document: otherwise the
+	// generator emits "test" for an integer field and drops its format and enum, so
+	// the playground, CLI and report describe a request the scanner would never send.
+	//
+	// It runs only once objectSchema has come up empty. objectSchema merges allOf
+	// before considering a oneOf/anyOf branch, so resolving the union first would
+	// discard the allOf-contributed properties of a base-plus-variant schema.
+	if len(properties) == 0 && !isObject {
+		if variant, nullable := TypedVariant(schema); variant != nil {
+			w.onPath[schema] = true
+			resolved := w.mapSchema(variant, depth)
+			delete(w.onPath, schema)
+			if resolved != nil {
+				if nullable {
+					resolved["nullable"] = true
+				}
+				for key, value := range mapSchemaOwnKeywords(schema) {
+					resolved[key] = value
+				}
+				return resolved
+			}
+		}
+	}
 
 	w.onPath[schema] = true
 	defer delete(w.onPath, schema)

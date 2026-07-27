@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -166,15 +167,17 @@ func runAPIDefsScan(cmd *cobra.Command, args []string) {
 		db.Connection().UpdateAPIDefinition(definition)
 	}
 
-	// A definition with no base URL yields a scan whose only start URL is the empty
-	// string: it is accepted, runs to completion and sends nothing. Specs loaded from
-	// a file with no `servers` entry have no origin to borrow, so say what is missing
-	// instead of producing an empty report.
-	if definition.BaseURL == "" {
+	// A base URL no HTTP client can request yields a scan that is accepted, runs to
+	// completion and sends nothing. A definition loaded from a file inherits either ""
+	// (OpenAPI, whose loader refuses non-HTTP schemes) or "file://" (GraphQL and WSDL,
+	// which take the source URL's origin verbatim), so both shapes have to be rejected
+	// rather than just the empty one.
+	if !isRequestableBaseURL(definition.BaseURL) {
 		logger.Error().
 			Str("definition_id", definition.ID.String()).
+			Str("base_url", definition.BaseURL).
 			Str("source", sourceURL).
-			Msg("Definition declares no servers and its source has no host to fall back on; pass --base-url to say where the API is served")
+			Msg("Definition has no requestable base URL; pass --base-url to say where the API is served")
 		os.Exit(1)
 	}
 
@@ -350,4 +353,15 @@ func runAPIDefsScan(cmd *cobra.Command, args []string) {
 	scanManager.Stop()
 	interactionsManager.Stop()
 	logger.Info().Msg("API scan finished")
+}
+
+// isRequestableBaseURL reports whether requests built against this base URL can
+// actually be sent. A definition may carry "" or a scheme with no host ("file://")
+// depending on which parser derived it, and both produce a scan that sends nothing.
+func isRequestableBaseURL(raw string) bool {
+	parsed, err := url.Parse(raw)
+	if err != nil || !parsed.IsAbs() || parsed.Host == "" {
+		return false
+	}
+	return parsed.Scheme == "http" || parsed.Scheme == "https"
 }

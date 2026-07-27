@@ -1,12 +1,35 @@
 package api
 
 import (
+	"strings"
+
+	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/basicauth"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 
 	jwtMiddleware "github.com/gofiber/contrib/jwt"
 )
+
+// registerBaseMiddleware installs the middleware every request passes through.
+// Order matters: fiberzerolog logs after c.Next() returns rather than in a
+// defer, so recover must sit inside it for a recovered panic to be logged.
+func registerBaseMiddleware(app *fiber.App, logger *zerolog.Logger) {
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:  strings.Join(viper.GetStringSlice("api.cors.origins"), ","),
+		AllowHeaders:  "Origin, Content-Type, Accept, Authorization",
+		ExposeHeaders: "Content-Disposition",
+	}))
+
+	app.Use(fiberzerolog.New(fiberzerolog.Config{
+		Logger: logger,
+	}))
+
+	app.Use(recover.New(recover.Config{EnableStackTrace: true}))
+}
 
 // JWTProtected func for specify routes group with JWT authentication.
 // See: https://github.com/gofiber/contrib/jwt

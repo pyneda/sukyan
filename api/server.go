@@ -5,14 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
-	"github.com/gofiber/contrib/fiberzerolog"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
@@ -121,18 +118,7 @@ func StartAPI(opts ...APIServerOptions) {
 		AppName:      "Sukyan API",
 	})
 
-	// This allows all cors, should probably allow configure it via config and provide strict default
-	// app.Use(cors.Default())
-	// app.LoadHTMLGlob("templates/*")
-	app.Use(cors.New(cors.Config{
-		AllowOrigins:  strings.Join(viper.GetStringSlice("api.cors.origins"), ","),
-		AllowHeaders:  "Origin, Content-Type, Accept, Authorization",
-		ExposeHeaders: "Content-Disposition",
-	}))
-
-	app.Use(fiberzerolog.New(fiberzerolog.Config{
-		Logger: &apiLogger,
-	}))
+	registerBaseMiddleware(app, &apiLogger)
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("API Running")

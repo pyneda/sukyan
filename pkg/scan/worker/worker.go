@@ -3,6 +3,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -162,7 +163,7 @@ func (w *Worker) executeJob(job *db.ScanJob) {
 	}
 
 	// Check if this specific job was cancelled before starting
-	if w.isJobCancelled(job.ID) {
+	if w.isJobNoLongerOurs(job.ID) {
 		log.Debug().Msg("Job is cancelled, skipping")
 		return
 	}
@@ -181,8 +182,14 @@ func (w *Worker) executeJob(job *db.ScanJob) {
 		return
 	}
 
-	// Create job context that combines worker context and scan control context
+	// Create job context that combines worker context and scan control context.
+	// The job's MaxDuration bounds it so a run-away executor actually stops:
+	// ResetTimedOutJobs only rewrites the row, it cannot interrupt this goroutine,
+	// so without the deadline a timed-out job would occupy its worker forever.
 	jobCtx, jobCancel := context.WithCancel(w.ctx)
+	if job.MaxDuration > 0 {
+		jobCtx, jobCancel = context.WithTimeout(w.ctx, job.MaxDuration)
+	}
 	defer jobCancel()
 
 	// Watch scan control context for cancellation
@@ -204,7 +211,7 @@ func (w *Worker) executeJob(job *db.ScanJob) {
 			case <-jobCtx.Done():
 				return
 			case <-ticker.C:
-				if w.isJobCancelled(job.ID) {
+				if w.isJobNoLongerOurs(job.ID) {
 					log.Debug().Msg("Job cancelled via DB poll, cancelling context")
 					jobCancel()
 					return
@@ -220,8 +227,14 @@ func (w *Worker) executeJob(job *db.ScanJob) {
 
 	duration := time.Since(startTime)
 
+	if errors.Is(jobCtx.Err(), context.DeadlineExceeded) {
+		log.Warn().Dur("duration", duration).Dur("max_duration", job.MaxDuration).Msg("Job exceeded its maximum duration")
+		_ = w.queue.Fail(w.ctx, job.ID, "timeout", "Job exceeded maximum duration (timeouts are not retried)")
+		return
+	}
+
 	// Check if we were cancelled during execution (scan-level or job-level)
-	if ctrl.IsCancelled() || jobCtx.Err() != nil || w.isJobCancelled(job.ID) {
+	if ctrl.IsCancelled() || jobCtx.Err() != nil || w.isJobNoLongerOurs(job.ID) {
 		log.Debug().Dur("duration", duration).Msg("Job cancelled during execution")
 		_ = w.queue.Cancel(w.ctx, job.ID)
 		return
@@ -243,12 +256,15 @@ func (w *Worker) executeJob(job *db.ScanJob) {
 	}
 }
 
-// isJobCancelled checks if a specific job has been cancelled in the database
-func (w *Worker) isJobCancelled(jobID uint) bool {
+// isJobNoLongerOurs reports whether the queue has written this job off while the
+// worker was still executing it. Failed counts as well as Cancelled: the
+// timed-out-job sweep marks rows failed, and continuing to run one keeps a worker
+// busy on work the queue has already given up on.
+func (w *Worker) isJobNoLongerOurs(jobID uint) bool {
 	job, err := db.Connection().GetScanJobByID(jobID)
 	if err != nil {
 		log.Warn().Err(err).Uint("job_id", jobID).Msg("Failed to check job cancellation status")
 		return false
 	}
-	return job.Status == db.ScanJobStatusCancelled
+	return job.Status == db.ScanJobStatusCancelled || job.Status == db.ScanJobStatusFailed
 }

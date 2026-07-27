@@ -105,6 +105,52 @@ func TestCompositionEmitsNoNullLeaves(t *testing.T) {
 	}
 }
 
+// Node budgets bound how many nodes a walk expands, not how large the request built
+// from them serialises. A body root that does not claim its own model's reference
+// unrolls a mutually recursive graph one full level further than the same model nested
+// under a property, and the extra level costs an order of magnitude: this spec is 3 KB
+// and produced a 100 KB body per operation before the root claimed its own references.
+func TestCompositionBoundsDenselyRecursiveBodies(t *testing.T) {
+	names := []string{"A", "B", "C", "D"}
+
+	schemas := map[string]any{}
+	paths := map[string]any{}
+	for _, name := range names {
+		properties := map[string]any{"id": map[string]any{"type": "integer"}}
+		for _, other := range names {
+			ref := map[string]any{"$ref": "#/components/schemas/" + other}
+			properties["one_"+other] = ref
+			properties["many_"+other] = map[string]any{"type": "array", "items": ref}
+		}
+		schemas[name] = map[string]any{"type": "object", "properties": properties}
+		paths["/"+strings.ToLower(name)] = map[string]any{"post": map[string]any{
+			"operationId": name,
+			"requestBody": map[string]any{"content": map[string]any{"application/json": map[string]any{
+				"schema": map[string]any{"$ref": "#/components/schemas/" + name}}}},
+			"responses": map[string]any{"200": map[string]any{"description": "ok"}},
+		}}
+	}
+
+	spec, err := json.Marshal(map[string]any{
+		"openapi":    "3.0.3",
+		"info":       map[string]any{"title": "dense", "version": "1"},
+		"servers":    []any{map[string]any{"url": "http://api.test"}},
+		"paths":      paths,
+		"components": map[string]any{"schemas": schemas},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range names {
+		path := "/" + strings.ToLower(name)
+		body := requestBody(t, buildFirst(t, string(spec), "http://api.test", "", path))
+		if len(body) > 30000 {
+			t.Errorf("%s body is %d bytes from a %d byte spec — the recursion is unrolling too far", path, len(body), len(spec))
+		}
+	}
+}
+
 // A mutually recursive union is cut by the on-path guard partway down. The cut used to
 // leave the parameter with no data type at all, so a field the spec marks required
 // went on the wire as JSON null and the endpoint rejected the request before the

@@ -1,6 +1,12 @@
 package passive
 
-import "regexp"
+import (
+	"regexp"
+	"regexp/syntax"
+	"sort"
+	"strings"
+	"unicode"
+)
 
 // Patterns taken from:
 // https://github.com/stamparm/DSSS/blob/master/dsss.py
@@ -301,14 +307,128 @@ func (m *DatabaseErrorMatch) IsRelational() bool {
 	return !nonRelationalEngines[m.DatabaseName]
 }
 
+// gatedPattern pairs an error pattern with a literal substring every match of it
+// must contain. Patterns starting with a class or assertion (\b, (?i), (\W|\A))
+// get no literal-prefix skip from the regexp package and re-scan the whole
+// response; a Contains check rejects those in one pass. Empty gate = always run.
+type gatedPattern struct {
+	dbms string
+	re   *regexp.Regexp
+	gate string
+	fold bool
+}
+
+var gatedDBMSErrors = buildGatedPatterns()
+
+func buildGatedPatterns() []gatedPattern {
+	names := make([]string, 0, len(DBMS_ERRORS))
+	for name := range DBMS_ERRORS {
+		names = append(names, name)
+	}
+	// Deterministic order: map iteration made the reported engine vary between
+	// runs for a response matching more than one vendor's patterns.
+	sort.Strings(names)
+
+	out := make([]gatedPattern, 0, 256)
+	for _, name := range names {
+		for _, re := range DBMS_ERRORS[name] {
+			gate, fold := requiredLiteral(re.String())
+			out = append(out, gatedPattern{dbms: name, re: re, gate: gate, fold: fold})
+		}
+	}
+	return out
+}
+
 func SearchDatabaseErrors(text string) *DatabaseErrorMatch {
-	for db, patterns := range DBMS_ERRORS {
-		for _, pattern := range patterns {
-			matchStr := pattern.FindString(text)
-			if matchStr != "" {
-				return &DatabaseErrorMatch{DatabaseName: db, MatchStr: matchStr}
+	folded := ""
+	foldedBuilt := false
+	for _, p := range gatedDBMSErrors {
+		if p.gate != "" {
+			haystack := text
+			if p.fold {
+				if !foldedBuilt {
+					folded, foldedBuilt = caseFold(text), true
+				}
+				haystack = folded
 			}
+			if !strings.Contains(haystack, p.gate) {
+				continue
+			}
+		}
+		if matchStr := p.re.FindString(text); matchStr != "" {
+			return &DatabaseErrorMatch{DatabaseName: p.dbms, MatchStr: matchStr}
 		}
 	}
 	return nil
+}
+
+// caseFold lowercases text so that containment of an ASCII lowercase gate is
+// implied by any case-insensitive regexp match. ToLower alone is not enough: the
+// regexp package folds via unicode.SimpleFold, whose orbits for 's' and 'k'
+// include U+017F and U+212A, and ToLower leaves U+017F unchanged.
+func caseFold(text string) string {
+	return strings.Map(func(r rune) rune {
+		switch r {
+		case 'ſ':
+			return 's'
+		case 'K':
+			return 'k'
+		}
+		return unicode.ToLower(r)
+	}, text)
+}
+
+// requiredLiteral returns a substring that every match of the pattern must
+// contain, together with whether the comparison has to be case-insensitive. It
+// returns "" whenever no such substring can be proven, so a wrong answer here
+// can only cost time, never a missed match.
+func requiredLiteral(pattern string) (string, bool) {
+	re, err := syntax.Parse(pattern, syntax.Perl)
+	if err != nil {
+		return "", false
+	}
+	lit, fold := mandatoryLiteral(re.Simplify())
+	if len(lit) < 3 || !isASCII(lit) {
+		return "", false
+	}
+	if fold {
+		return strings.ToLower(lit), true
+	}
+	return lit, false
+}
+
+// mandatoryLiteral walks only the constructs that guarantee the literal appears
+// in every match; anything optional or alternated yields "".
+func mandatoryLiteral(re *syntax.Regexp) (string, bool) {
+	switch re.Op {
+	case syntax.OpLiteral:
+		return string(re.Rune), re.Flags&syntax.FoldCase != 0
+	case syntax.OpCapture:
+		return mandatoryLiteral(re.Sub[0])
+	case syntax.OpPlus, syntax.OpRepeat:
+		if re.Op == syntax.OpRepeat && re.Min == 0 {
+			return "", false
+		}
+		return mandatoryLiteral(re.Sub[0])
+	case syntax.OpConcat:
+		best, bestFold := "", false
+		for _, sub := range re.Sub {
+			lit, fold := mandatoryLiteral(sub)
+			if len(lit) > len(best) {
+				best, bestFold = lit, fold
+			}
+		}
+		return best, bestFold
+	default:
+		return "", false
+	}
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
 }

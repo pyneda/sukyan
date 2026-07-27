@@ -334,6 +334,19 @@ func (c *Crawler) getSitePageCount(urlStr string) int {
 // It peeks at processedResponseHashes and deliberately does not claim the hash: the
 // listener claims it when it schedules, and claiming here would strand the hash if
 // extraction panicked before the hijack goroutine reached the channel send.
+//
+// Every bodiless response hashes to sha256("") and therefore shares a single entry,
+// so only the first of them is ever extracted or scheduled. Redirects land in that
+// class whenever their body is empty, which hides their Location. This is tolerated:
+// replayed over 4955 stored crawler responses from four crawls, it cost no in-scope
+// URL that was not requested anyway, because the hijack passes 3xx through to the
+// browser (e90f828) and the browser then fetches every Location target itself.
+// Exempting empty bodies also reinstates the trailing-slash double crawl, which
+// accounts for 29% of casino's distinct in-scope URLs.
+//
+// Revisit if a crawl path that does not drive a browser is added, or if the hijack
+// client stops using http_utils.WithoutRedirects: either turns this into a live
+// recall bug. TestBodilessResponsesDeliberatelyShareOneDedupKey pins the collision.
 func (c *Crawler) shouldExtract(history *db.History) bool {
 	if history == nil {
 		return false

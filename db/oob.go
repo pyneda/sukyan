@@ -312,6 +312,13 @@ func (d *DatabaseConnection) MatchInteractionWithOOBTest(interaction OOBInteract
 		}
 
 		issue := GetIssueTemplateByCode(oobTest.Code)
+		if issue == nil {
+			// A payload template referenced an issue code with no KB entry (e.g. a
+			// hyphen/underscore mismatch). Dereferencing here would panic inside the
+			// poller transaction and drop the callback, so skip it with a loud error.
+			log.Error().Str("code", string(oobTest.Code)).Uint("oob_test_id", oobTest.ID).Msg("No issue template for OOB test code; cannot create issue")
+			return fmt.Errorf("no issue template for code %q", oobTest.Code)
+		}
 		issue.Payload = oobTest.Payload
 		issue.URL = oobTest.Target
 		issue.WorkspaceID = oobTest.WorkspaceID

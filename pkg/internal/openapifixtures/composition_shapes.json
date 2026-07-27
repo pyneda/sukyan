@@ -1,0 +1,65 @@
+[
+  {
+    "name": "recursive optional",
+    "schema": {"anyOf": [{"$ref": "#/components/schemas/Node"}, {"type": "null"}]},
+    "components": {
+      "Node": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": {"type": "integer"},
+          "parent": {"anyOf": [{"$ref": "#/components/schemas/Node"}, {"type": "null"}]}
+        }
+      }
+    }
+  },
+  {
+    "name": "recursive optional array",
+    "schema": {"anyOf": [{"$ref": "#/components/schemas/Tree"}, {"type": "null"}]},
+    "components": {
+      "Tree": {
+        "type": "object",
+        "properties": {
+          "label": {"type": "string"},
+          "children": {"anyOf": [{"type": "array", "items": {"$ref": "#/components/schemas/Tree"}}, {"type": "null"}]}
+        }
+      }
+    }
+  },
+  {
+    "name": "recursive array",
+    "schema": {"$ref": "#/components/schemas/Chain"},
+    "components": {
+      "Chain": {"type": "array", "items": {"$ref": "#/components/schemas/Chain"}}
+    }
+  },
+  {
+    "name": "base plus variant",
+    "schema": {
+      "allOf": [{"type": "object", "required": ["kind"], "properties": {"kind": {"type": "string"}, "id": {"type": "integer"}}}],
+      "oneOf": [{"type": "object", "properties": {"bark": {"type": "string"}}}, {"type": "object", "properties": {"meow": {"type": "string"}}}]
+    }
+  },
+  {
+    "name": "annotated ref",
+    "schema": {"allOf": [{"$ref": "#/components/schemas/Address"}], "description": "where to ship"},
+    "components": {
+      "Address": {"type": "object", "required": ["street"], "properties": {"street": {"type": "string"}, "zip": {"type": "string"}}}
+    }
+  },
+  {
+    "name": "property-less branch first",
+    "schema": {"anyOf": [{"type": "object"}, {"$ref": "#/components/schemas/Card"}]},
+    "components": {
+      "Card": {"type": "object", "required": ["pan"], "properties": {"kind": {"type": "string"}, "pan": {"type": "string"}}}
+    }
+  },
+  {
+    "name": "scalar union",
+    "schema": {"oneOf": [{"type": "string"}, {"type": "integer"}]}
+  },
+  {
+    "name": "constraints beside anyOf",
+    "schema": {"anyOf": [{"type": "string"}, {"type": "null"}], "enum": ["admin", "user"], "maxLength": 8, "pattern": "^[a-z]+$"}
+  }
+]

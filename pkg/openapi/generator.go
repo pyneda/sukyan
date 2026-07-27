@@ -345,7 +345,11 @@ func sortedExampleNames(examples openapi3.Examples) []string {
 }
 
 func defaultValueFor(schema *openapi3.SchemaRef) interface{} {
-	values := (&DefaultValueStrategy{}).Generate(schemaToMap(schema))
+	return defaultValueFromMap(schemaToMap(schema))
+}
+
+func defaultValueFromMap(schema map[string]interface{}) interface{} {
+	values := (&DefaultValueStrategy{}).Generate(schema)
 	if len(values) == 0 {
 		return nil
 	}
@@ -515,16 +519,16 @@ func (c *generationContext) bodyValue(schema *openapi3.SchemaRef, fuzz *FuzzTarg
 		return map[string]interface{}{}
 	}
 
-	properties, _, isObject := effectiveObjectSchema(schema.Value, 0)
-	if !isObject && len(properties) == 0 {
+	view := ResolveSchema(schema.Value, NewNodeBudget())
+	if !view.IsObject() && len(view.Properties) == 0 {
 		if fuzz != nil && fuzz.In == "body" && fuzz.Name == "" {
 			return fuzz.Value
 		}
 		return defaultValueFor(schema)
 	}
 
-	value := make(map[string]interface{}, len(properties))
-	for name, propRef := range properties {
+	value := make(map[string]interface{}, len(view.Properties))
+	for name, propRef := range view.Properties {
 		// A readOnly property is response-only; sending it makes many APIs reject the
 		// whole request.
 		if propRef != nil && propRef.Value != nil && propRef.Value.ReadOnly {
@@ -534,7 +538,7 @@ func (c *generationContext) bodyValue(schema *openapi3.SchemaRef, fuzz *FuzzTarg
 			value[name] = fuzz.Value
 			continue
 		}
-		value[name] = defaultValueFor(propRef)
+		value[name] = defaultValueFromMap(schemaToMapBelow(propRef, view.Sources))
 	}
 	return value
 }
@@ -699,20 +703,15 @@ func (c *generationContext) bodyFuzzTargets() []bodyFuzzTarget {
 		return nil
 	}
 
-	properties, _, isObject := effectiveObjectSchema(schema.Value, 0)
-	if !isObject && len(properties) == 0 {
+	view := ResolveSchema(schema.Value, NewNodeBudget())
+	if !view.IsObject() && len(view.Properties) == 0 {
 		return []bodyFuzzTarget{{name: "", schema: schemaToMap(schema)}}
 	}
 
-	names := make([]string, 0, len(properties))
-	for name := range properties {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
+	names := sortedSchemaNames(view.Properties)
 	targets := make([]bodyFuzzTarget, 0, len(names))
 	for _, name := range names {
-		targets = append(targets, bodyFuzzTarget{name: name, schema: schemaToMap(properties[name])})
+		targets = append(targets, bodyFuzzTarget{name: name, schema: schemaToMapBelow(view.Properties[name], view.Sources)})
 	}
 	return targets
 }

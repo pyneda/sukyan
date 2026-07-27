@@ -58,7 +58,7 @@ func newSchemaBudget(document *documentBudget) *schemaBudget {
 	return &schemaBudget{remaining: maxSchemaNodes, document: document, onPath: make(map[*openapi3.Schema]bool)}
 }
 
-func (b *schemaBudget) spend() bool {
+func (b *schemaBudget) Spend() bool {
 	if b.remaining <= 0 {
 		return false
 	}
@@ -93,92 +93,13 @@ func (b *documentBudget) spend() bool {
 	return true
 }
 
-// effectiveObjectProperties resolves an object-like schema into its combined property
-// set and required list, following composition: allOf merges every subschema, while
-// oneOf/anyOf contribute the first object-like variant (deterministically, by spec
-// order). It returns isObject=true when the schema should be treated as a structured
-// body, so composed schemas no longer collapse into a single opaque "body" param with
-// a null value. A plain scalar/array body returns isObject=false so the caller keeps
-// its single-parameter fallback.
-func effectiveObjectProperties(schema *openapi3.Schema, depth int, document *documentBudget) (openapi3.Schemas, []string, bool) {
-	return effectiveObjectPropertiesBounded(schema, depth, newSchemaBudget(document))
-}
-
-func effectiveObjectPropertiesBounded(schema *openapi3.Schema, depth int, budget *schemaBudget) (props openapi3.Schemas, required []string, isObject bool) {
-	if schema == nil || depth > maxSchemaDepth || !budget.spend() || budget.onPath[schema] {
-		return nil, nil, false
-	}
-	budget.onPath[schema] = true
-	defer delete(budget.onPath, schema)
-
-	props = openapi3.Schemas{}
-	seenRequired := map[string]bool{}
-	addRequired := func(names []string) {
-		for _, n := range names {
-			if !seenRequired[n] {
-				seenRequired[n] = true
-				required = append(required, n)
-			}
-		}
-	}
-
-	if schema.Type != nil {
-		for _, t := range schema.Type.Slice() {
-			if t == "object" {
-				isObject = true
-			}
-		}
-	}
-
-	if len(schema.Properties) > 0 {
-		for name, ref := range schema.Properties {
-			props[name] = ref
-		}
-		addRequired(schema.Required)
-		isObject = true
-	}
-
-	for _, sub := range schema.AllOf {
-		if sub == nil || sub.Value == nil {
-			continue
-		}
-		subProps, subRequired, ok := effectiveObjectPropertiesBounded(sub.Value, depth+1, budget)
-		if ok {
-			for name, ref := range subProps {
-				props[name] = ref
-			}
-			addRequired(subRequired)
-			isObject = true
-		}
-	}
-
-	if len(props) == 0 {
-		for _, group := range []openapi3.SchemaRefs{schema.OneOf, schema.AnyOf} {
-			for _, sub := range group {
-				if sub == nil || sub.Value == nil {
-					continue
-				}
-				// A variant that contributes nothing is skipped rather than accepted:
-				// taking it marks the body structured with no fields, so the request
-				// goes out empty while the next variant held every property.
-				subProps, subRequired, ok := effectiveObjectPropertiesBounded(sub.Value, depth+1, budget)
-				if !ok || len(subProps) == 0 {
-					continue
-				}
-				for name, ref := range subProps {
-					props[name] = ref
-				}
-				addRequired(subRequired)
-				isObject = true
-				break
-			}
-			if len(props) > 0 {
-				break
-			}
-		}
-	}
-
-	return props, required, isObject
+// resolveBody returns the effective view of a request body schema. Composition is
+// resolved by pkg/openapi so that a body root, a nested property and an array item all
+// describe the same value — the divergence between a body-root resolver and a nested
+// walk that understood no composition is what made the same schema yield different
+// requests depending on its depth.
+func resolveBody(schema *openapi3.Schema, document *documentBudget) pkgopenapi.SchemaView {
+	return pkgopenapi.ResolveSchema(schema, newSchemaBudget(document))
 }
 
 type Parser struct{}
@@ -317,8 +238,7 @@ func isStructuredBody(body *openapi3.RequestBody, budget *documentBudget) bool {
 	if mediaType == nil || mediaType.Schema == nil || mediaType.Schema.Value == nil {
 		return false
 	}
-	_, _, isObject := effectiveObjectProperties(mediaType.Schema.Value, 0, budget)
-	return isObject
+	return resolveBody(mediaType.Schema.Value, budget).IsObject()
 }
 
 func (p *Parser) parseRequestBody(body *openapi3.RequestBody, budget *documentBudget) []core.Parameter {
@@ -334,19 +254,25 @@ func (p *Parser) parseRequestBody(body *openapi3.RequestBody, budget *documentBu
 	}
 
 	schema := mediaType.Schema.Value
-	props, required, isObject := effectiveObjectProperties(schema, 0, budget)
+	view := resolveBody(schema, budget)
 
-	if isObject {
+	// The body root's own identity has to be on the cycle path before its properties
+	// are walked, exactly as a nested property's reference is. Without it a recursive
+	// model unrolls one level deeper at a body root than the same model nested under a
+	// property, so what a schema describes would still depend on where it sits.
+	rootRefs := append([]string{mediaType.Schema.Ref}, view.Refs...)
+
+	if view.IsObject() {
 		// Sorted: ranging the property map would reorder the parameters, and therefore
 		// the generated body, between runs on an identical spec.
-		names := make([]string, 0, len(props))
-		for propName := range props {
+		names := make([]string, 0, len(view.Properties))
+		for propName := range view.Properties {
 			names = append(names, propName)
 		}
 		sort.Strings(names)
 
 		for _, propName := range names {
-			propRef := props[propName]
+			propRef := view.Properties[propName]
 			if propRef == nil || propRef.Value == nil {
 				continue
 			}
@@ -359,11 +285,11 @@ func (p *Parser) parseRequestBody(body *openapi3.RequestBody, budget *documentBu
 			param := core.Parameter{
 				Name:        propName,
 				Location:    core.ParameterLocationBody,
-				Required:    p.isPropertyRequired(propName, required),
+				Required:    p.isPropertyRequired(propName, view.Required),
 				ContentType: contentType,
 			}
 
-			p.extractSchemaInfo(propRef.Value, &param, budget)
+			p.extractSchemaInfoBelow(propRef.Value, &param, budget, rootRefs, []string{propRef.Ref})
 			params = append(params, param)
 		}
 		return params
@@ -375,7 +301,7 @@ func (p *Parser) parseRequestBody(body *openapi3.RequestBody, budget *documentBu
 		Required:    body.Required,
 		ContentType: contentType,
 	}
-	p.extractSchemaInfo(schema, &param, budget)
+	p.extractSchemaInfoBelow(schema, &param, budget, rootRefs)
 	params = append(params, param)
 
 	return params
@@ -391,36 +317,122 @@ const (
 )
 
 func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core.Parameter, onPath map[string]bool, depth int, budget *schemaBudget) {
-	if depth > maxSchemaDepth || !budget.spend() {
+	if depth > maxSchemaDepth {
 		return
 	}
 
-	// An optional field in OpenAPI 3.1 is anyOf:[{type:X},{type:null}], and the
-	// wrapper declares no type. Walking it as-is leaves the parameter untyped, so the
-	// request carries null where the endpoint wants a value and the type-driven
-	// payload sets never reach the field.
+	// Composition is resolved before anything is read off the schema. An optional field
+	// in OpenAPI 3.1 is anyOf:[{type:X},{type:null}] and an annotated reference is
+	// allOf:[{$ref:X}] — in both the wrapper declares no type and no properties, so a
+	// walk that reads schema.Type and schema.Properties directly leaves the parameter
+	// untyped and the request carries null where the endpoint wants a value.
 	//
-	// The branch is walked under the same onPath guard as a property $ref: a
-	// recursive model reached through such a wrapper (parent: Optional["Node"]) is a
-	// cycle like any other, and expanding it once per depth level costs the shared
-	// document budget every later operation still needs. Walking the branch first and
-	// falling through — rather than returning — lets the keywords JSON Schema allows
-	// beside anyOf (enum, pattern, maxLength) override what the branch declared.
-	if variant, nullable := pkgopenapi.TypedVariant(schema); variant != nil {
-		if variant.Ref == "" || !onPath[variant.Ref] {
-			if variant.Ref != "" {
-				onPath[variant.Ref] = true
-				defer delete(onPath, variant.Ref)
-			}
-			p.extractSchemaInfoWithDepth(variant.Value, param, onPath, depth, budget)
+	// The view also spends the node budget, so an exhausted budget yields an empty view
+	// and the walk stops here.
+	view := pkgopenapi.ResolveSchema(schema, budget)
+
+	// Least specific first: a branch keeps its own format and enum, while the keywords
+	// JSON Schema allows beside anyOf (enum, pattern, maxLength) constrain whatever the
+	// branch resolved to and therefore come last.
+	for _, source := range view.Sources {
+		applyConstraints(source, param)
+	}
+
+	if view.Type != "" {
+		param.DataType = p.mapDataType(view.Type)
+	}
+	if view.Nullable {
+		param.Nullable = true
+	}
+
+	// The composition may have resolved through a model already being expanded further
+	// up. What it describes is still known — a cut that left the type blank serialised
+	// the whole field as JSON null — but descending into it again re-expands the cycle
+	// at every level and drains the document budget every later operation needs.
+	if !markRefs(onPath, view.Refs) {
+		return
+	}
+	defer unmarkRefs(onPath, view.Refs)
+
+	// The item schema is guarded like a property: an array of a self-referential type
+	// (children: [Node]) is as much a cycle as a direct reference, and without the
+	// mark it re-expands at every level until the depth limit stops it.
+	if view.Items != nil && view.Items.Value != nil && !onPath[view.Items.Ref] {
+		if view.Items.Ref != "" {
+			onPath[view.Items.Ref] = true
 		}
-		param.Nullable = param.Nullable || nullable
+		nestedParam := core.Parameter{Name: "items"}
+		p.extractSchemaInfoWithDepth(view.Items.Value, &nestedParam, onPath, depth+1, budget)
+		param.NestedParams = append(param.NestedParams, nestedParam)
+		if view.Items.Ref != "" {
+			delete(onPath, view.Items.Ref)
+		}
 	}
 
-	if declared := pkgopenapi.SchemaType(schema); declared != "" {
-		param.DataType = p.mapDataType(declared)
+	// Sorted: ranging the property map would reorder NestedParams between runs on an
+	// identical spec.
+	propNames := make([]string, 0, len(view.Properties))
+	for propName := range view.Properties {
+		propNames = append(propNames, propName)
 	}
+	sort.Strings(propNames)
 
+	for _, propName := range propNames {
+		propRef := view.Properties[propName]
+		if propRef == nil || propRef.Value == nil {
+			continue
+		}
+
+		// onPath tracks the ancestors of the current node, not every schema ever seen,
+		// so a cycle still terminates while a type legitimately used twice in sibling
+		// branches keeps its nested parameters in both.
+		schemaRef := propRef.Ref
+		if schemaRef != "" {
+			if onPath[schemaRef] {
+				continue
+			}
+			onPath[schemaRef] = true
+		}
+
+		nestedParam := core.Parameter{
+			Name:     propName,
+			Required: p.isPropertyRequired(propName, view.Required),
+		}
+		p.extractSchemaInfoWithDepth(propRef.Value, &nestedParam, onPath, depth+1, budget)
+		param.NestedParams = append(param.NestedParams, nestedParam)
+
+		if schemaRef != "" {
+			delete(onPath, schemaRef)
+		}
+	}
+}
+
+// markRefs claims every reference a composition passed through, reporting false when
+// one of them is already being expanded.
+func markRefs(onPath map[string]bool, refs []string) bool {
+	for _, ref := range refs {
+		if ref != "" && onPath[ref] {
+			return false
+		}
+	}
+	for _, ref := range refs {
+		if ref != "" {
+			onPath[ref] = true
+		}
+	}
+	return true
+}
+
+func unmarkRefs(onPath map[string]bool, refs []string) {
+	for _, ref := range refs {
+		delete(onPath, ref)
+	}
+}
+
+// applyConstraints copies the validation keywords one schema declares onto the
+// parameter, leaving what it does not declare untouched so later, more specific
+// sources layer over earlier ones instead of clobbering them.
+func applyConstraints(schema *openapi3.Schema, param *core.Parameter) {
 	if schema.Format != "" {
 		param.Constraints.Format = schema.Format
 	}
@@ -470,72 +482,22 @@ func (p *Parser) extractSchemaInfoWithDepth(schema *openapi3.Schema, param *core
 	if schema.Example != nil {
 		param.ExampleValue = schema.Example
 	}
-	if schema.Nullable {
-		param.Nullable = true
-	}
-
-	// The item schema is guarded like a property: an array of a self-referential type
-	// (children: [Node]) is as much a cycle as a direct reference, and without the
-	// mark it re-expands at every level until the depth limit stops it.
-	if schema.Items != nil && schema.Items.Value != nil && !onPath[schema.Items.Ref] {
-		if schema.Items.Ref != "" {
-			onPath[schema.Items.Ref] = true
-		}
-		nestedParam := core.Parameter{Name: "items"}
-		p.extractSchemaInfoWithDepth(schema.Items.Value, &nestedParam, onPath, depth+1, budget)
-		param.NestedParams = append(param.NestedParams, nestedParam)
-		if schema.Items.Ref != "" {
-			delete(onPath, schema.Items.Ref)
-		}
-	}
-
-	// Sorted: ranging the property map would reorder NestedParams between runs on an
-	// identical spec.
-	propNames := make([]string, 0, len(schema.Properties))
-	for propName := range schema.Properties {
-		propNames = append(propNames, propName)
-	}
-	sort.Strings(propNames)
-
-	for _, propName := range propNames {
-		propRef := schema.Properties[propName]
-		if propRef == nil || propRef.Value == nil {
-			continue
-		}
-
-		// onPath tracks the ancestors of the current node, not every schema ever seen,
-		// so a cycle still terminates while a type legitimately used twice in sibling
-		// branches keeps its nested parameters in both.
-		schemaRef := propRef.Ref
-		if schemaRef != "" {
-			if onPath[schemaRef] {
-				continue
-			}
-			onPath[schemaRef] = true
-		}
-
-		nestedParam := core.Parameter{
-			Name:     propName,
-			Required: p.isPropertyRequired(propName, schema.Required),
-		}
-		p.extractSchemaInfoWithDepth(propRef.Value, &nestedParam, onPath, depth+1, budget)
-		param.NestedParams = append(param.NestedParams, nestedParam)
-
-		if schemaRef != "" {
-			delete(onPath, schemaRef)
-		}
-	}
-
-	// A schema that carries properties but omits "type": object is still an object;
-	// leaving the type blank sends the whole field as null and discards every nested
-	// parameter just collected.
-	if param.DataType == "" && len(schema.Properties) > 0 {
-		param.DataType = core.DataTypeObject
-	}
 }
 
 func (p *Parser) extractSchemaInfo(schema *openapi3.Schema, param *core.Parameter, document *documentBudget) {
-	p.extractSchemaInfoWithDepth(schema, param, make(map[string]bool), 0, newSchemaBudget(document))
+	p.extractSchemaInfoBelow(schema, param, document)
+}
+
+// extractSchemaInfoBelow walks a schema with the given references already claimed, so
+// a model does not re-expand itself. The nested walk claims a property's reference
+// before descending into it; a body root has to claim the same references by hand,
+// otherwise a recursive model unrolls one level deeper there than anywhere else.
+func (p *Parser) extractSchemaInfoBelow(schema *openapi3.Schema, param *core.Parameter, document *documentBudget, claimed ...[]string) {
+	onPath := make(map[string]bool)
+	for _, refs := range claimed {
+		markRefs(onPath, refs)
+	}
+	p.extractSchemaInfoWithDepth(schema, param, onPath, 0, newSchemaBudget(document))
 }
 
 func (p *Parser) mapLocation(in string) core.ParameterLocation {

@@ -27,6 +27,36 @@ func newSchemaWalk() *schemaWalk {
 	return &schemaWalk{onPath: make(map[*openapi3.Schema]bool), budget: maxSchemaNodes}
 }
 
+func (w *schemaWalk) Spend() bool {
+	if w.budget <= 0 {
+		return false
+	}
+	w.budget--
+	return true
+}
+
+// enter marks every schema a view was composed from, reporting false when one of them
+// is already being walked. Guarding the wrapper alone is not enough: a recursive model
+// reached through anyOf or allOf is a different node from the model itself, so the
+// cycle would only be caught one level deeper each time.
+func (w *schemaWalk) enter(sources []*openapi3.Schema) bool {
+	for _, source := range sources {
+		if w.onPath[source] {
+			return false
+		}
+	}
+	for _, source := range sources {
+		w.onPath[source] = true
+	}
+	return true
+}
+
+func (w *schemaWalk) leave(sources []*openapi3.Schema) {
+	for _, source := range sources {
+		delete(w.onPath, source)
+	}
+}
+
 // schemaToMap flattens a schema into the simplified representation the value
 // strategies consume. Cycles are broken by tracking the schemas on the current
 // path, so a self-referential type yields a finite map instead of crashing.
@@ -34,106 +64,60 @@ func schemaToMap(ref *openapi3.SchemaRef) map[string]interface{} {
 	return newSchemaWalk().mapSchema(ref, 0)
 }
 
+// schemaToMapBelow flattens a schema with the model containing it already on the cycle
+// path. A body root walks its properties one at a time, and giving each a clean path
+// would unroll a recursive model one level deeper there than under any other property.
+func schemaToMapBelow(ref *openapi3.SchemaRef, roots []*openapi3.Schema) map[string]interface{} {
+	walk := newSchemaWalk()
+	walk.enter(roots)
+	return walk.mapSchema(ref, 0)
+}
+
 func (w *schemaWalk) mapSchema(ref *openapi3.SchemaRef, depth int) map[string]interface{} {
-	if ref == nil || ref.Value == nil || depth > maxSchemaDepth || w.budget <= 0 {
+	if ref == nil || ref.Value == nil || depth > maxSchemaDepth || !w.Spend() {
 		return nil
 	}
-	w.budget--
-	schema := ref.Value
+
+	// Composition is resolved before anything is read off the schema, so a property
+	// spelled through allOf or anyOf describes the same value here as it does at a body
+	// root. Reading Type and Properties directly is what made the two disagree.
+	view := ResolveSchema(ref.Value, w)
 
 	result := make(map[string]interface{})
-	if declared := SchemaType(schema); declared != "" {
-		result["type"] = declared
-	}
-	if schema.Format != "" {
-		result["format"] = schema.Format
-	}
-	if schema.Example != nil {
-		result["example"] = schema.Example
-	}
-	if schema.Default != nil {
-		result["default"] = schema.Default
-	}
-	if len(schema.Enum) > 0 {
-		result["enum"] = schema.Enum
-	}
-	if schema.Nullable {
-		result["nullable"] = true
-	}
-	if schema.Min != nil {
-		result["minimum"] = *schema.Min
-	}
-	if schema.Max != nil {
-		result["maximum"] = *schema.Max
-	}
-	if schema.MinLength > 0 {
-		result["minLength"] = schema.MinLength
-	}
-	if schema.MaxLength != nil {
-		result["maxLength"] = *schema.MaxLength
-	}
-	if schema.Pattern != "" {
-		result["pattern"] = schema.Pattern
-	}
-
-	if w.onPath[schema] {
-		return result
-	}
-
-	// objectSchema tracks this schema itself, so it has to run before the mark below
-	// is set: marking first makes its own cycle guard reject the schema being mapped
-	// and every object collapses to a property-less {}.
-	properties, required, isObject := w.objectSchema(schema, depth)
-
-	// A 3.1 optional is anyOf:[{type:X},{type:null}], which objectSchema cannot
-	// resolve because neither branch is an object. Resolving it here keeps both
-	// consumers of this package agreeing on the same document: otherwise the
-	// generator emits "test" for an integer field and drops its format and enum, so
-	// the playground, CLI and report describe a request the scanner would never send.
-	//
-	// It runs only once objectSchema has come up empty. objectSchema merges allOf
-	// before considering a oneOf/anyOf branch, so resolving the union first would
-	// discard the allOf-contributed properties of a base-plus-variant schema.
-	if len(properties) == 0 && !isObject {
-		if variant, nullable := TypedVariant(schema); variant != nil {
-			w.onPath[schema] = true
-			resolved := w.mapSchema(variant, depth)
-			delete(w.onPath, schema)
-			if resolved != nil {
-				if nullable {
-					resolved["nullable"] = true
-				}
-				for key, value := range mapSchemaOwnKeywords(schema) {
-					resolved[key] = value
-				}
-				return resolved
-			}
+	for _, source := range view.Sources {
+		for key, value := range schemaKeywords(source) {
+			result[key] = value
 		}
 	}
+	if view.Type != "" {
+		result["type"] = view.Type
+	}
+	if view.Nullable {
+		result["nullable"] = true
+	}
+	if len(view.Required) > 0 {
+		result["required"] = view.Required
+	}
 
-	w.onPath[schema] = true
-	defer delete(w.onPath, schema)
+	if !w.enter(view.Sources) {
+		return result
+	}
+	defer w.leave(view.Sources)
 
-	if len(properties) > 0 {
-		mapped := make(map[string]interface{}, len(properties))
-		for _, name := range sortedSchemaNames(properties) {
-			if propMap := w.mapSchema(properties[name], depth+1); propMap != nil {
+	if len(view.Properties) > 0 {
+		mapped := make(map[string]interface{}, len(view.Properties))
+		for _, name := range sortedSchemaNames(view.Properties) {
+			if propMap := w.mapSchema(view.Properties[name], depth+1); propMap != nil {
 				mapped[name] = propMap
 			}
 		}
 		if len(mapped) > 0 {
 			result["properties"] = mapped
-			result["type"] = "object"
 		}
-	} else if isObject {
-		result["type"] = "object"
-	}
-	if len(required) > 0 {
-		result["required"] = required
 	}
 
-	if schema.Items != nil {
-		if items := w.mapSchema(schema.Items, depth+1); items != nil {
+	if view.Items != nil {
+		if items := w.mapSchema(view.Items, depth+1); items != nil {
 			result["items"] = items
 			if _, ok := result["type"]; !ok {
 				result["type"] = "array"
@@ -144,10 +128,11 @@ func (w *schemaWalk) mapSchema(ref *openapi3.SchemaRef, depth int) map[string]in
 	return result
 }
 
-// mapSchemaOwnKeywords returns the validation keywords a schema declares directly.
-// JSON Schema allows them beside anyOf/oneOf, where they constrain whichever branch
-// applies, so they have to survive the resolution of that wrapper.
-func mapSchemaOwnKeywords(schema *openapi3.Schema) map[string]interface{} {
+// schemaKeywords returns the validation keywords a schema declares directly. They are
+// applied per contributing schema rather than once for the wrapper, so a branch keeps
+// its own format and enum while the keywords JSON Schema allows beside anyOf still
+// constrain whatever the branch resolved to.
+func schemaKeywords(schema *openapi3.Schema) map[string]interface{} {
 	own := make(map[string]interface{})
 	if schema.Format != "" {
 		own["format"] = schema.Format
@@ -202,51 +187,6 @@ func SchemaType(schema *openapi3.Schema) string {
 	return ""
 }
 
-// TypedVariant resolves a wrapper that describes its value only through
-// anyOf/oneOf to the first branch that carries one, reporting whether a "null"
-// branch stood beside it. OpenAPI 3.1 spells every optional value this way —
-// anyOf:[{type:X},{type:null}] — and the wrapper declares no type of its own, so
-// a consumer that reads schema.Type alone ends up with no type at all. A union
-// with no null branch resolves the same way: one concrete member is a request the
-// endpoint can accept, where an unresolved wrapper is not.
-//
-// The whole SchemaRef is returned, not just its value: the branch is usually a
-// $ref, and callers guard against recursive models by tracking reference strings.
-// Handing back the value alone would strip the only thing that identifies a cycle.
-//
-// Returns nil when the schema declares a type or properties of its own, since
-// then there is nothing to resolve.
-func TypedVariant(schema *openapi3.Schema) (*openapi3.SchemaRef, bool) {
-	if schema == nil || SchemaType(schema) != "" || len(schema.Properties) > 0 {
-		return nil, false
-	}
-
-	nullable := false
-	for _, group := range []openapi3.SchemaRefs{schema.AnyOf, schema.OneOf} {
-		var typed *openapi3.SchemaRef
-		for _, ref := range group {
-			if ref == nil || ref.Value == nil {
-				continue
-			}
-			if isNullSchema(ref.Value) {
-				nullable = true
-				continue
-			}
-			// A branch carrying properties describes an object even when it omits
-			// "type": object, which is how several generators emit one. Rejecting it
-			// would leave the field untyped here while the body-root resolver in
-			// effectiveObjectSchema expands the very same schema.
-			if typed == nil && (SchemaType(ref.Value) != "" || len(ref.Value.Properties) > 0) {
-				typed = ref
-			}
-		}
-		if typed != nil {
-			return typed, nullable
-		}
-	}
-	return nil, false
-}
-
 func isNullSchema(schema *openapi3.Schema) bool {
 	if schema == nil || schema.Type == nil {
 		return false
@@ -261,89 +201,6 @@ func isNullSchema(schema *openapi3.Schema) bool {
 		}
 	}
 	return true
-}
-
-// effectiveObjectSchema resolves an object-like schema into its combined property
-// set and required list, following composition: allOf merges every subschema while
-// oneOf/anyOf contribute the first object-like variant. Without this, a composed
-// request body has no direct properties and serialises to an empty object.
-func effectiveObjectSchema(schema *openapi3.Schema, depth int) (openapi3.Schemas, []string, bool) {
-	return newSchemaWalk().objectSchema(schema, depth)
-}
-
-// objectSchema shares the walk's node budget. A cycle set alone does not bound
-// composition: a schema whose allOf references the previous level several times
-// expands combinatorially even though nothing is its own ancestor.
-func (w *schemaWalk) objectSchema(schema *openapi3.Schema, depth int) (openapi3.Schemas, []string, bool) {
-	if schema == nil || depth > maxSchemaDepth || w.budget <= 0 || w.onPath[schema] {
-		return nil, nil, false
-	}
-	w.budget--
-	w.onPath[schema] = true
-	defer delete(w.onPath, schema)
-
-	properties := openapi3.Schemas{}
-	var required []string
-	seenRequired := make(map[string]bool)
-	addRequired := func(names []string) {
-		for _, name := range names {
-			if !seenRequired[name] {
-				seenRequired[name] = true
-				required = append(required, name)
-			}
-		}
-	}
-
-	isObject := SchemaType(schema) == "object"
-
-	if len(schema.Properties) > 0 {
-		for name, ref := range schema.Properties {
-			properties[name] = ref
-		}
-		addRequired(schema.Required)
-		isObject = true
-	}
-
-	for _, sub := range schema.AllOf {
-		if sub == nil || sub.Value == nil {
-			continue
-		}
-		subProperties, subRequired, ok := w.objectSchema(sub.Value, depth+1)
-		if !ok {
-			continue
-		}
-		for name, ref := range subProperties {
-			properties[name] = ref
-		}
-		addRequired(subRequired)
-		isObject = true
-	}
-
-	if len(properties) == 0 {
-		for _, group := range []openapi3.SchemaRefs{schema.OneOf, schema.AnyOf} {
-			for _, sub := range group {
-				if sub == nil || sub.Value == nil {
-					continue
-				}
-				subProperties, subRequired, ok := w.objectSchema(sub.Value, depth+1)
-				if !ok || len(subProperties) == 0 {
-					continue
-				}
-				for name, ref := range subProperties {
-					properties[name] = ref
-				}
-				addRequired(subRequired)
-				isObject = true
-				break
-			}
-			if len(properties) > 0 {
-				break
-			}
-		}
-	}
-
-	sort.Strings(required)
-	return properties, required, isObject
 }
 
 // bodySchema returns the schema describing a request body's chosen media type.

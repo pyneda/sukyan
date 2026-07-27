@@ -33,6 +33,10 @@ func setupHijackMockServer() *httptest.Server {
 		case "/final":
 			w.WriteHeader(http.StatusOK)
 			io.WriteString(w, "Final destination")
+		case "/html-with-link":
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusOK)
+			io.WriteString(w, `<html><body><a href="http://example.com/discovered-link">Link</a></body></html>`)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -188,6 +192,69 @@ func TestHijack(t *testing.T) {
 	wg.Wait()
 }
 
+// TestHijackShouldExtractGating pins the ShouldExtract contract on HijackWithContext: a nil
+// predicate (the zero value used by every browser-audit caller) must never run URL extraction,
+// while a supplied predicate gates it per response based on its return value.
+func TestHijackShouldExtractGating(t *testing.T) {
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
+		Code:        "test-hijack-extract-gating",
+		Title:       "test-hijack-extract-gating",
+		Description: "test-hijack-extract-gating",
+	})
+	assert.NoError(t, err)
+
+	server := setupHijackMockServer()
+	defer server.Close()
+
+	targetURL := server.URL + "/html-with-link"
+
+	tests := []struct {
+		name          string
+		shouldExtract func(history *db.History) bool
+		expectExtract bool
+	}{
+		{"nil predicate skips extraction", nil, false},
+		{"predicate returning true extracts", func(*db.History) bool { return true }, true},
+		{"predicate returning false skips extraction", func(*db.History) bool { return false }, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			browser := setupRodBrowser(t, true)
+			defer browser.MustClose()
+
+			resultsChannel := make(chan HijackResult)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			config := HijackConfig{ShouldExtract: tt.shouldExtract}
+			router := HijackWithContext(config, browser, nil, server.URL, resultsChannel, ctx, workspace.ID, 0, 0, 0)
+			defer router.Stop()
+
+			browser.MustPage(targetURL)
+
+			for {
+				select {
+				case res, ok := <-resultsChannel:
+					if !ok {
+						t.Fatal("results channel closed before the target response was observed")
+					}
+					if res.History.URL != targetURL {
+						continue
+					}
+					if tt.expectExtract {
+						assert.NotEmpty(t, res.DiscoveredURLs, "expected DiscoveredURLs to be populated")
+					} else {
+						assert.Empty(t, res.DiscoveredURLs, "expected DiscoveredURLs to stay empty")
+					}
+					return
+				case <-ctx.Done():
+					t.Fatal("timed out waiting for hijack result for " + targetURL)
+				}
+			}
+		})
+	}
+}
 
 func TestContentTypeFromNetworkHeaders(t *testing.T) {
 	tests := []struct {

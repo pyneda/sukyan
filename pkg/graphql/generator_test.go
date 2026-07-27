@@ -370,7 +370,7 @@ func TestDeduplication(t *testing.T) {
 	}
 }
 
-func TestFormatTypeRef(t *testing.T) {
+func TestTypeRefSignature(t *testing.T) {
 	tests := []struct {
 		name     string
 		ref      TypeRef
@@ -427,7 +427,7 @@ func TestFormatTypeRef(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := formatTypeRef(tt.ref)
+			result := tt.ref.Signature()
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -443,13 +443,12 @@ func TestSelectionSetGeneration(t *testing.T) {
 
 	generator := NewGenerator(schema, config)
 
-	// Test selection set for User type
 	userTypeRef := TypeRef{
 		Kind: TypeKindObject,
 		Name: "User",
 	}
 
-	selectionSet := generator.buildSelectionSet(userTypeRef, 0)
+	selectionSet := generator.schema.BuildSelectionSet(userTypeRef, generator.selection)
 
 	// Should contain scalar fields
 	assert.Contains(t, selectionSet, "id")
@@ -476,7 +475,7 @@ func TestMaxDepthRespected(t *testing.T) {
 		Name: "User",
 	}
 
-	selectionSet := generator.buildSelectionSet(userTypeRef, 1)
+	selectionSet := generator.schema.BuildSelectionSet(userTypeRef, generator.selection)
 
 	// At max depth, should only have __typename fallback or simple fields
 	assert.NotEmpty(t, selectionSet)

@@ -528,7 +528,7 @@ func TestConvertTypeRef(t *testing.T) {
 	}
 }
 
-func TestFormatTypeSignature(t *testing.T) {
+func TestSignatureAfterConversion(t *testing.T) {
 	tests := []struct {
 		name     string
 		ref      IntrospectionTypeRef
@@ -585,7 +585,7 @@ func TestFormatTypeSignature(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := formatTypeSignature(tt.ref)
+			result := convertTypeRef(tt.ref).Signature()
 			assert.Equal(t, tt.expected, result)
 		})
 	}

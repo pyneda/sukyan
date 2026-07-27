@@ -3,7 +3,6 @@ package graphql
 import (
 	"fmt"
 	"math"
-	"math/rand"
 	"strings"
 	"time"
 )
@@ -18,6 +17,11 @@ type ValueStrategy interface {
 	GenerateInputObject(inputDef InputTypeDef, schema *GraphQLSchema, depth int) []GeneratedValue
 }
 
+var (
+	_ ValueStrategy = (*DefaultValueStrategy)(nil)
+	_ ValueStrategy = (*InterestingValuesStrategy)(nil)
+)
+
 // GeneratedValue represents a generated value with description
 type GeneratedValue struct {
 	Value       interface{} `json:"value"`
@@ -26,16 +30,30 @@ type GeneratedValue struct {
 
 // DefaultValueStrategy generates single sensible default values
 type DefaultValueStrategy struct {
-	schema   *GraphQLSchema
-	maxDepth int
+	schema       *GraphQLSchema
+	maxDepth     int
+	maxListItems int
 }
 
 // NewDefaultValueStrategy creates a new default value strategy
 func NewDefaultValueStrategy(schema *GraphQLSchema) *DefaultValueStrategy {
 	return &DefaultValueStrategy{
-		schema:   schema,
-		maxDepth: 3,
+		schema:       schema,
+		maxDepth:     defaultMaxSelectionDepth,
+		maxListItems: 1,
 	}
+}
+
+// WithLimits bounds how deeply nested input objects are populated and how many
+// elements a generated list may hold.
+func (s *DefaultValueStrategy) WithLimits(maxDepth, maxListItems int) *DefaultValueStrategy {
+	if maxDepth > 0 {
+		s.maxDepth = maxDepth
+	}
+	if maxListItems >= 0 {
+		s.maxListItems = maxListItems
+	}
+	return s
 }
 
 // GenerateScalar generates a single default value for a scalar type
@@ -141,19 +159,29 @@ func (s *DefaultValueStrategy) GenerateInputObject(inputDef InputTypeDef, schema
 	}}
 }
 
-// generateValueForType generates a value for any type reference
+// generateValueForType generates a value for any type reference. Wrappers are
+// peeled one at a time rather than all at once: [[String]] has to produce a list
+// of lists, and collapsing to the base type would send a flat list the server
+// refuses to coerce.
 func (s *DefaultValueStrategy) generateValueForType(typeRef TypeRef, schema *GraphQLSchema, depth int) interface{} {
-	// Handle list types
-	if typeRef.IsList {
-		innerType := unwrapType(typeRef)
-		innerValue := s.generateValueForType(innerType, schema, depth)
-		if innerValue == nil {
+	switch typeRef.Kind {
+	case TypeKindNonNull:
+		if typeRef.OfType == nil {
+			return nil
+		}
+		return s.generateValueForType(*typeRef.OfType, schema, depth)
+
+	case TypeKindList:
+		if typeRef.OfType == nil || s.maxListItems <= 0 {
 			return []interface{}{}
 		}
-		return []interface{}{innerValue}
+		item := s.generateValueForType(*typeRef.OfType, schema, depth)
+		if item == nil {
+			return []interface{}{}
+		}
+		return []interface{}{item}
 	}
 
-	// Get base type name
 	baseName := getBaseTypeNameFromRef(typeRef)
 
 	// Check if it's an enum
@@ -410,34 +438,16 @@ func (s *InterestingValuesStrategy) generateCompleteInputObject(inputDef InputTy
 
 // Helper functions
 
-// unwrapType removes NON_NULL and LIST wrappers to get the inner type
-func unwrapType(ref TypeRef) TypeRef {
-	if ref.OfType == nil {
-		return ref
-	}
-	if ref.Kind == TypeKindNonNull || ref.Kind == TypeKindList {
-		return unwrapType(*ref.OfType)
-	}
-	return ref
-}
-
 // getBaseTypeNameFromRef extracts the base type name from a TypeRef
 func getBaseTypeNameFromRef(ref TypeRef) string {
-	if ref.Name != "" {
-		return ref.Name
-	}
-	if ref.OfType != nil {
-		return getBaseTypeNameFromRef(*ref.OfType)
+	for depth := 0; depth <= maxTypeRefDepth; depth++ {
+		if ref.Name != "" {
+			return ref.Name
+		}
+		if ref.OfType == nil {
+			return ""
+		}
+		ref = *ref.OfType
 	}
 	return ""
-}
-
-// RandomString generates a random string of specified length
-func RandomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
-	}
-	return string(b)
 }

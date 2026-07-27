@@ -189,66 +189,68 @@ type IntrospectionDirective struct {
 	Args        []IntrospectionInputValue `json:"args"`
 }
 
+// maxTypeRefDepth bounds how many wrappers a type reference may nest. The
+// introspection query itself only reaches seven levels, but ParseFromJSON also
+// accepts stored and third-party documents, and an arbitrarily deep chain there
+// would exhaust the stack in every routine that walks a TypeRef.
+const maxTypeRefDepth = 64
+
 // convertTypeRef converts an introspection type reference to our TypeRef model
 func convertTypeRef(ref IntrospectionTypeRef) TypeRef {
+	return convertTypeRefAtDepth(ref, 0)
+}
+
+// A reference nested past the limit converts to the zero TypeRef, whose empty
+// signature makes every caller treat it as unusable rather than emit a truncated
+// type that no longer describes the argument.
+func convertTypeRefAtDepth(ref IntrospectionTypeRef, depth int) TypeRef {
+	if depth > maxTypeRefDepth {
+		return TypeRef{}
+	}
+
 	tr := TypeRef{
 		Kind: TypeKind(ref.Kind),
 		Name: ref.Name,
 	}
 
 	if ref.OfType != nil {
-		inner := convertTypeRef(*ref.OfType)
+		inner := convertTypeRefAtDepth(*ref.OfType, depth+1)
+		if inner.Kind == "" && inner.Name == "" {
+			return TypeRef{}
+		}
 		tr.OfType = &inner
 	}
 
-	// Calculate convenience flags
-	tr.Required = isRequired(ref)
-	tr.IsList = isList(ref)
+	tr.Required = ref.Kind == "NON_NULL"
+	tr.IsList = isList(ref, 0)
 
 	return tr
 }
 
-// isRequired checks if the type is non-null at the outermost level
-func isRequired(ref IntrospectionTypeRef) bool {
-	return ref.Kind == "NON_NULL"
-}
-
 // isList checks if the type is a list at any level
-func isList(ref IntrospectionTypeRef) bool {
+func isList(ref IntrospectionTypeRef, depth int) bool {
+	if depth > maxTypeRefDepth {
+		return false
+	}
 	if ref.Kind == "LIST" {
 		return true
 	}
 	if ref.OfType != nil {
-		return isList(*ref.OfType)
+		return isList(*ref.OfType, depth+1)
 	}
 	return false
 }
 
 // getBaseTypeName extracts the base type name from a nested type ref
 func getBaseTypeName(ref IntrospectionTypeRef) string {
-	if ref.Name != "" {
-		return ref.Name
-	}
-	if ref.OfType != nil {
-		return getBaseTypeName(*ref.OfType)
+	for depth := 0; depth <= maxTypeRefDepth; depth++ {
+		if ref.Name != "" {
+			return ref.Name
+		}
+		if ref.OfType == nil {
+			return ""
+		}
+		ref = *ref.OfType
 	}
 	return ""
-}
-
-// formatTypeSignature formats the full type signature (e.g., "[String!]!")
-func formatTypeSignature(ref IntrospectionTypeRef) string {
-	switch ref.Kind {
-	case "NON_NULL":
-		if ref.OfType != nil {
-			return formatTypeSignature(*ref.OfType) + "!"
-		}
-		return "!"
-	case "LIST":
-		if ref.OfType != nil {
-			return "[" + formatTypeSignature(*ref.OfType) + "]"
-		}
-		return "[]"
-	default:
-		return ref.Name
-	}
 }

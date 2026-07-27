@@ -5,28 +5,48 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
+
+// labelHappyPath marks the baseline request for an operation: schema-valid
+// values throughout, so a rejection points at the scanner rather than the target.
+const labelHappyPath = "Happy Path"
 
 // Generator creates GraphQL requests from parsed schemas
 type Generator struct {
-	schema  *GraphQLSchema
-	config  GenerationConfig
-	seenOps map[string]bool
+	schema    *GraphQLSchema
+	config    GenerationConfig
+	selection SelectionOptions
 }
 
 // NewGenerator creates a new request generator
 func NewGenerator(schema *GraphQLSchema, config GenerationConfig) *Generator {
-	if config.MaxDepth == 0 {
-		config.MaxDepth = 3
+	if config.MaxDepth <= 0 {
+		config.MaxDepth = defaultMaxSelectionDepth
 	}
-	if config.MaxListItems == 0 {
+	if config.MaxListItems <= 0 {
 		config.MaxListItems = 2
+	}
+	if config.MaxFieldsPerSelection <= 0 {
+		config.MaxFieldsPerSelection = defaultMaxFieldsPerSelection
+	}
+	if config.MaxTotalFields <= 0 {
+		config.MaxTotalFields = defaultMaxTotalFields
+	}
+	if schema == nil {
+		schema = &GraphQLSchema{}
 	}
 
 	return &Generator{
-		schema:  schema,
-		config:  config,
-		seenOps: make(map[string]bool),
+		schema: schema,
+		config: config,
+		selection: SelectionOptions{
+			MaxDepth:          config.MaxDepth,
+			MaxFieldsPerLevel: config.MaxFieldsPerSelection,
+			MaxTotalFields:    config.MaxTotalFields,
+			IncludeDeprecated: true,
+		},
 	}
 }
 
@@ -34,22 +54,26 @@ func NewGenerator(schema *GraphQLSchema, config GenerationConfig) *Generator {
 func (g *Generator) GenerateRequests() []OperationEndpoint {
 	var endpoints []OperationEndpoint
 
-	// Generate query endpoints
-	for _, op := range g.schema.Queries {
-		endpoint := g.generateOperationEndpoint("query", op)
-		endpoints = append(endpoints, endpoint)
-	}
-
-	// Generate mutation endpoints
-	for _, op := range g.schema.Mutations {
-		endpoint := g.generateOperationEndpoint("mutation", op)
-		endpoints = append(endpoints, endpoint)
-	}
-
-	// Generate subscription endpoints (for documentation, subscriptions work differently)
-	for _, op := range g.schema.Subscriptions {
-		endpoint := g.generateOperationEndpoint("subscription", op)
-		endpoints = append(endpoints, endpoint)
+	// Kept in a fixed order rather than a map so repeated runs against the same
+	// schema queue the same requests in the same sequence.
+	for _, group := range []struct {
+		opType     string
+		operations []Operation
+	}{
+		{"query", g.schema.Queries},
+		{"mutation", g.schema.Mutations},
+		{"subscription", g.schema.Subscriptions},
+	} {
+		for _, op := range group.operations {
+			// A name that is not a legal GraphQL name cannot be written into a
+			// document at all; a hostile schema supplying one would otherwise
+			// splice arbitrary text into every request built from it.
+			if !IsValidName(op.Name) {
+				log.Warn().Str("operation", op.Name).Str("type", group.opType).Msg("Skipping GraphQL operation with an invalid name")
+				continue
+			}
+			endpoints = append(endpoints, g.generateOperationEndpoint(group.opType, op))
+		}
 	}
 
 	return endpoints
@@ -61,23 +85,29 @@ func (g *Generator) generateOperationEndpoint(opType string, op Operation) Opera
 		OperationType: opType,
 		Name:          op.Name,
 		Description:   op.Description,
-		ReturnType:    formatTypeRef(op.ReturnType),
+		ReturnType:    op.ReturnType.Signature(),
 		Arguments:     g.buildArgumentMetadata(op.Arguments),
 		Requests:      make([]RequestVariation, 0),
 	}
 
-	// Generate happy path request
-	happyPath := g.generateHappyPathRequest(opType, op)
-	endpoint.Requests = append(endpoint.Requests, happyPath)
+	endpoint.Requests = append(endpoint.Requests, g.generateHappyPathRequest(opType, op))
 
-	// Generate fuzzing variations if enabled
 	if g.config.FuzzingEnabled {
-		fuzzRequests := g.generateFuzzRequests(opType, op)
-		endpoint.Requests = append(endpoint.Requests, fuzzRequests...)
+		endpoint.Requests = append(endpoint.Requests, g.generateFuzzRequests(opType, op)...)
 	}
 
-	// Deduplicate requests
 	endpoint.Requests = g.deduplicateRequests(endpoint.Requests)
+
+	// Variations multiply with argument count, so a handful of wide operations
+	// can otherwise dominate a scan's whole request budget.
+	if limit := g.config.MaxRequestsPerOperation; limit > 0 && len(endpoint.Requests) > limit {
+		log.Debug().
+			Str("operation", op.Name).
+			Int("generated", len(endpoint.Requests)).
+			Int("limit", limit).
+			Msg("Truncating GraphQL request variations")
+		endpoint.Requests = endpoint.Requests[:limit]
+	}
 
 	return endpoint
 }
@@ -90,7 +120,7 @@ func (g *Generator) buildArgumentMetadata(args []Argument) []ArgumentMetadata {
 		meta := ArgumentMetadata{
 			Name:          arg.Name,
 			TypeName:      getBaseTypeNameFromRef(arg.Type),
-			FullType:      formatTypeRef(arg.Type),
+			FullType:      arg.Type.Signature(),
 			Required:      arg.Type.Required,
 			IsList:        arg.Type.IsList,
 			DefaultValue:  arg.DefaultValue,
@@ -127,7 +157,7 @@ func (g *Generator) buildNestedFieldMetadata(typeRef TypeRef, depth int) []Argum
 		meta := ArgumentMetadata{
 			Name:          field.Name,
 			TypeName:      getBaseTypeNameFromRef(field.Type),
-			FullType:      formatTypeRef(field.Type),
+			FullType:      field.Type.Signature(),
 			Required:      field.Type.Required,
 			IsList:        field.Type.IsList,
 			DefaultValue:  field.DefaultValue,
@@ -154,17 +184,25 @@ func (g *Generator) isInputObjectType(typeRef TypeRef) bool {
 
 // generateHappyPathRequest creates a baseline working request
 func (g *Generator) generateHappyPathRequest(opType string, op Operation) RequestVariation {
-	strategy := NewDefaultValueStrategy(g.schema)
+	strategy := g.defaultStrategy()
 	variables := make(map[string]interface{})
 
-	// Generate values for all arguments
 	for _, arg := range op.Arguments {
-		// Include required arguments, and optional if configured
-		if arg.Type.Required || g.config.IncludeOptionalParams {
-			value := g.generateArgumentValue(arg, strategy)
-			if value != nil {
-				variables[arg.Name] = value
-			}
+		if !arg.Type.Required && !g.config.IncludeOptionalParams {
+			continue
+		}
+
+		value := g.generateArgumentValue(arg, strategy)
+		if arg.Type.Required && value == nil {
+			// A non-null argument must be both present and non-null. Some scalars
+			// have no sensible client-side value at all (Upload without a
+			// multipart body), and for those a placeholder still reaches the
+			// server's coercion step, whereas null or omission is rejected during
+			// validation along with the rest of the document.
+			value = g.placeholderForRequired(arg.Type)
+		}
+		if value != nil {
+			variables[arg.Name] = value
 		}
 	}
 
@@ -172,7 +210,7 @@ func (g *Generator) generateHappyPathRequest(opType string, op Operation) Reques
 	query := g.buildQueryString(opType, op, variables)
 
 	return RequestVariation{
-		Label:         "Happy Path",
+		Label:         labelHappyPath,
 		Query:         query,
 		Variables:     variables,
 		OperationName: op.Name,
@@ -185,7 +223,7 @@ func (g *Generator) generateHappyPathRequest(opType string, op Operation) Reques
 func (g *Generator) generateFuzzRequests(opType string, op Operation) []RequestVariation {
 	var requests []RequestVariation
 	strategy := NewInterestingValuesStrategy(g.schema)
-	defaultStrategy := NewDefaultValueStrategy(g.schema)
+	defaultStrategy := g.defaultStrategy()
 
 	// For each argument, generate fuzz variations
 	for _, targetArg := range op.Arguments {
@@ -215,7 +253,7 @@ func (g *Generator) generateFuzzRequests(opType string, op Operation) []RequestV
 				Variables:     variables,
 				OperationName: op.Name,
 				Headers:       g.buildHeaders(),
-				Description:   fmt.Sprintf("Fuzzing argument '%s' (%s) with: %s", targetArg.Name, formatTypeRef(targetArg.Type), gv.Description),
+				Description:   fmt.Sprintf("Fuzzing argument '%s' (%s) with: %s", targetArg.Name, targetArg.Type.Signature(), gv.Description),
 			})
 		}
 
@@ -324,59 +362,48 @@ func (g *Generator) generateArgumentValue(arg Argument, strategy *DefaultValueSt
 	return strategy.generateValueForType(arg.Type, g.schema, 0)
 }
 
-// buildQueryString constructs the GraphQL query string
+// buildQueryString constructs the GraphQL query string. Only arguments that are
+// present in variables and carry a renderable type are declared, so a malformed
+// entry in the schema costs that one argument rather than the whole document.
 func (g *Generator) buildQueryString(opType string, op Operation, variables map[string]interface{}) string {
-	var sb strings.Builder
+	declared := g.declarableArguments(op.Arguments, variables)
 
-	// Operation type and name
+	var sb strings.Builder
 	sb.WriteString(opType)
 	sb.WriteString(" ")
 	sb.WriteString(op.Name)
 
-	// Build variable definitions if there are any
-	if len(variables) > 0 {
+	if len(declared) > 0 {
 		sb.WriteString("(")
-		first := true
-		for _, arg := range op.Arguments {
-			if _, ok := variables[arg.Name]; ok {
-				if !first {
-					sb.WriteString(", ")
-				}
-				sb.WriteString("$")
-				sb.WriteString(arg.Name)
-				sb.WriteString(": ")
-				sb.WriteString(formatTypeRef(arg.Type))
-				first = false
+		for i, arg := range declared {
+			if i > 0 {
+				sb.WriteString(", ")
 			}
+			sb.WriteString("$")
+			sb.WriteString(arg.Name)
+			sb.WriteString(": ")
+			sb.WriteString(arg.Type.Signature())
 		}
 		sb.WriteString(")")
 	}
 
-	// Opening brace for selection set
 	sb.WriteString(" {\n  ")
 	sb.WriteString(op.Name)
 
-	// Arguments using variables
-	if len(variables) > 0 {
+	if len(declared) > 0 {
 		sb.WriteString("(")
-		first := true
-		for _, arg := range op.Arguments {
-			if _, ok := variables[arg.Name]; ok {
-				if !first {
-					sb.WriteString(", ")
-				}
-				sb.WriteString(arg.Name)
-				sb.WriteString(": $")
-				sb.WriteString(arg.Name)
-				first = false
+		for i, arg := range declared {
+			if i > 0 {
+				sb.WriteString(", ")
 			}
+			sb.WriteString(arg.Name)
+			sb.WriteString(": $")
+			sb.WriteString(arg.Name)
 		}
 		sb.WriteString(")")
 	}
 
-	// Selection set for return type
-	selectionSet := g.buildSelectionSet(op.ReturnType, 0)
-	if selectionSet != "" {
+	if selectionSet := g.schema.BuildSelectionSet(op.ReturnType, g.selection); selectionSet != "" {
 		sb.WriteString(" ")
 		sb.WriteString(selectionSet)
 	}
@@ -386,70 +413,26 @@ func (g *Generator) buildQueryString(opType string, op Operation, variables map[
 	return sb.String()
 }
 
-// buildSelectionSet builds a selection set for a return type
-func (g *Generator) buildSelectionSet(typeRef TypeRef, depth int) string {
-	if depth > g.config.MaxDepth {
-		return ""
-	}
+// declarableArguments returns the arguments that can be written into a document,
+// and prunes any variable that cannot be from the map so the two stay in step:
+// a variable supplied but never declared is itself a validation error.
+func (g *Generator) declarableArguments(args []Argument, variables map[string]interface{}) []Argument {
+	declared := make([]Argument, 0, len(variables))
 
-	baseName := getBaseTypeNameFromRef(typeRef)
-
-	// Check if it's an object type
-	typeDef, ok := g.schema.Types[baseName]
-	if !ok {
-		// Scalar or enum, no selection set needed
-		return ""
-	}
-
-	// Build selection set with all scalar fields
-	var fields []string
-	for _, field := range typeDef.Fields {
-		fieldBaseName := getBaseTypeNameFromRef(field.Type)
-
-		// Add scalar and enum fields directly
-		if g.isScalarOrEnum(fieldBaseName) {
-			fields = append(fields, field.Name)
-		} else if depth < g.config.MaxDepth {
-			// For object types, recurse
-			nestedSelection := g.buildSelectionSet(field.Type, depth+1)
-			if nestedSelection != "" {
-				fields = append(fields, field.Name+" "+nestedSelection)
-			}
+	for _, arg := range args {
+		if _, ok := variables[arg.Name]; !ok {
+			continue
 		}
-	}
-
-	if len(fields) == 0 {
-		// Add __typename as fallback
-		fields = append(fields, "__typename")
-	}
-
-	return "{\n    " + strings.Join(fields, "\n    ") + "\n  }"
-}
-
-// isScalarOrEnum checks if a type name is a scalar or enum
-func (g *Generator) isScalarOrEnum(typeName string) bool {
-	// Built-in scalars
-	builtinScalars := map[string]bool{
-		"String": true, "Int": true, "Float": true, "Boolean": true, "ID": true,
-	}
-
-	if builtinScalars[typeName] {
-		return true
-	}
-
-	// Custom scalars
-	for _, s := range g.schema.Scalars {
-		if s == typeName {
-			return true
+		if IsValidName(arg.Name) && arg.Type.Signature() != "" {
+			declared = append(declared, arg)
+			continue
 		}
+
+		log.Debug().Str("argument", arg.Name).Msg("Dropping GraphQL argument that cannot be rendered")
+		delete(variables, arg.Name)
 	}
 
-	// Enums
-	if _, ok := g.schema.Enums[typeName]; ok {
-		return true
-	}
-
-	return false
+	return declared
 }
 
 // buildHeaders builds the request headers
@@ -468,8 +451,8 @@ func (g *Generator) buildHeaders() map[string]string {
 
 // deduplicateRequests removes duplicate requests based on query + variables
 func (g *Generator) deduplicateRequests(requests []RequestVariation) []RequestVariation {
-	seen := make(map[string]bool)
-	var unique []RequestVariation
+	seen := make(map[string]bool, len(requests))
+	unique := make([]RequestVariation, 0, len(requests))
 
 	for _, req := range requests {
 		sig := g.getRequestSignature(req)
@@ -494,24 +477,6 @@ func (g *Generator) getRequestSignature(req RequestVariation) string {
 	sort.Strings(headerParts)
 
 	return req.Query + "|" + string(varsJSON) + "|" + strings.Join(headerParts, "&")
-}
-
-// formatTypeRef formats a TypeRef as a GraphQL type string
-func formatTypeRef(ref TypeRef) string {
-	switch ref.Kind {
-	case TypeKindNonNull:
-		if ref.OfType != nil {
-			return formatTypeRef(*ref.OfType) + "!"
-		}
-		return "!"
-	case TypeKindList:
-		if ref.OfType != nil {
-			return "[" + formatTypeRef(*ref.OfType) + "]"
-		}
-		return "[]"
-	default:
-		return ref.Name
-	}
 }
 
 // HTTPRequest represents the HTTP request to be sent
@@ -545,4 +510,29 @@ func (rv *RequestVariation) ToHTTPRequest(baseURL string) (*HTTPRequest, error) 
 		Headers: rv.Headers,
 		Body:    bodyBytes,
 	}, nil
+}
+
+// defaultStrategy builds a value strategy bound to this generator's limits, so
+// the configured depth and list bounds apply to variables and not only to the
+// selection sets built alongside them.
+func (g *Generator) defaultStrategy() *DefaultValueStrategy {
+	return NewDefaultValueStrategy(g.schema).WithLimits(g.config.MaxDepth, g.config.MaxListItems)
+}
+
+// placeholderForRequired produces a value for a non-null argument the value
+// strategies had nothing for. It reuses the schema's own literal renderer so the
+// placeholder is the same shape the document would carry inline, and decodes it
+// back into the Go value a variables map needs.
+func (g *Generator) placeholderForRequired(ref TypeRef) interface{} {
+	literal, ok := g.schema.DefaultLiteral(ref)
+	if !ok {
+		return nil
+	}
+
+	value, err := ParseLiteral(literal)
+	if err != nil {
+		log.Debug().Err(err).Str("literal", literal).Msg("Could not decode GraphQL placeholder literal")
+		return nil
+	}
+	return value
 }

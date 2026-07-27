@@ -2,6 +2,7 @@ package graphql
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -9,24 +10,39 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
+)
+
+const (
+	defaultIntrospectionTimeout = 30 * time.Second
+	// defaultMaxResponseBytes bounds the introspection response read into memory.
+	// The endpoint is an untrusted target, and an unbounded io.ReadAll against one
+	// that streams indefinitely takes the whole scanner down with it.
+	defaultMaxResponseBytes = 32 << 20
+	// errorBodyPreview bounds how much of a failed response is quoted back in an
+	// error, which is logged and persisted.
+	errorBodyPreview = 512
 )
 
 // Parser handles GraphQL schema parsing
 type Parser struct {
-	client  *http.Client
-	headers map[string]string
+	client           *http.Client
+	headers          map[string]string
+	maxResponseBytes int64
 }
 
 // NewParser creates a new GraphQL parser
 func NewParser() *Parser {
 	return &Parser{
 		client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: defaultIntrospectionTimeout,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			},
 		},
-		headers: make(map[string]string),
+		headers:          make(map[string]string),
+		maxResponseBytes: defaultMaxResponseBytes,
 	}
 }
 
@@ -42,135 +58,141 @@ func (p *Parser) WithClient(client *http.Client) *Parser {
 	return p
 }
 
+// WithMaxResponseSize caps how many bytes of an introspection response are read.
+func (p *Parser) WithMaxResponseSize(limit int64) *Parser {
+	if limit > 0 {
+		p.maxResponseBytes = limit
+	}
+	return p
+}
+
 // ParseFromURL fetches and parses a GraphQL schema from an endpoint via introspection
 func (p *Parser) ParseFromURL(url string) (*GraphQLSchema, error) {
-	response, err := p.executeIntrospection(url)
+	return p.ParseFromURLContext(context.Background(), url)
+}
+
+// ParseFromURLContext is ParseFromURL bound to a context, so a cancelled scan
+// stops introspecting instead of holding the request open to its own timeout.
+func (p *Parser) ParseFromURLContext(ctx context.Context, url string) (*GraphQLSchema, error) {
+	body, err := p.FetchIntrospectionRawContext(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("introspection failed: %w", err)
 	}
-
-	if response.Data == nil || response.Data.Schema == nil {
-		if len(response.Errors) > 0 {
-			return nil, fmt.Errorf("introspection returned errors: %s", response.Errors[0].Message)
-		}
-		return nil, fmt.Errorf("introspection returned no schema data")
-	}
-
-	return p.convertSchema(response.Data.Schema)
+	return p.ParseFromJSON(body)
 }
 
 // ParseFromJSON parses a GraphQL schema from an introspection JSON response
 func (p *Parser) ParseFromJSON(data []byte) (*GraphQLSchema, error) {
-	// Try parsing as full response { "data": { "__schema": ... } }
+	response, err := decodeIntrospection(data)
+	if err != nil {
+		return nil, err
+	}
+	return p.convertSchema(response.Data.Schema)
+}
+
+// FetchIntrospectionRaw performs introspection and returns the raw response bytes
+func (p *Parser) FetchIntrospectionRaw(url string) ([]byte, error) {
+	return p.FetchIntrospectionRawContext(context.Background(), url)
+}
+
+// FetchIntrospectionRawContext is FetchIntrospectionRaw bound to a context.
+func (p *Parser) FetchIntrospectionRawContext(ctx context.Context, url string) ([]byte, error) {
+	body, status, err := p.postIntrospection(ctx, url)
+	if err != nil {
+		return nil, err
+	}
+
+	// A non-2xx status is not conclusive: servers routinely answer introspection
+	// with 400 or 500 while still returning a usable schema document, so the body
+	// decides and the status only shapes the error when it does not.
+	if _, decodeErr := decodeIntrospection(body); decodeErr == nil {
+		return body, nil
+	} else if status != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", status, preview(body))
+	} else {
+		return nil, decodeErr
+	}
+}
+
+// decodeIntrospection accepts either a full GraphQL response or a bare data
+// object, which is the shape schemas are stored in once captured.
+func decodeIntrospection(data []byte) (*IntrospectionResponse, error) {
 	var response IntrospectionResponse
 	if err := json.Unmarshal(data, &response); err != nil {
 		return nil, fmt.Errorf("failed to parse introspection response: %w", err)
 	}
 
-	// If we got data with schema, use it
 	if response.Data != nil && response.Data.Schema != nil {
-		return p.convertSchema(response.Data.Schema)
+		return &response, nil
 	}
 
-	// Try parsing as just the data portion { "__schema": ... }
 	var dataOnly IntrospectionData
 	if err := json.Unmarshal(data, &dataOnly); err == nil && dataOnly.Schema != nil {
-		return p.convertSchema(dataOnly.Schema)
+		return &IntrospectionResponse{Data: &dataOnly}, nil
 	}
 
+	if len(response.Errors) > 0 {
+		return nil, fmt.Errorf("introspection returned errors: %s", response.Errors[0].Message)
+	}
 	return nil, fmt.Errorf("invalid introspection data: schema is nil")
 }
 
-// FetchIntrospectionRaw performs introspection and returns the raw response bytes
-func (p *Parser) FetchIntrospectionRaw(url string) ([]byte, error) {
-	query := struct {
+func (p *Parser) postIntrospection(ctx context.Context, url string) ([]byte, int, error) {
+	payload, err := json.Marshal(struct {
 		Query string `json:"query"`
-	}{
-		Query: IntrospectionQuery,
+	}{Query: IntrospectionQuery})
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to marshal query: %w", err)
 	}
 
-	body, err := json.Marshal(query)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal query: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, 0, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-
 	for key, value := range p.headers {
 		req.Header.Set(key, value)
 	}
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, 0, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
+	limit := p.maxResponseBytes
+	if limit <= 0 {
+		limit = defaultMaxResponseBytes
 	}
 
-	return io.ReadAll(resp.Body)
+	// Read one byte past the limit so an oversized response is reported rather
+	// than silently truncated into an unparseable document.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
+	if err != nil {
+		return nil, resp.StatusCode, fmt.Errorf("failed to read response: %w", err)
+	}
+	if int64(len(body)) > limit {
+		return nil, resp.StatusCode, fmt.Errorf("introspection response exceeds %d bytes", limit)
+	}
+
+	return body, resp.StatusCode, nil
 }
 
-// executeIntrospection sends the introspection query to the endpoint
-func (p *Parser) executeIntrospection(url string) (*IntrospectionResponse, error) {
-	query := struct {
-		Query string `json:"query"`
-	}{
-		Query: IntrospectionQuery,
+func preview(body []byte) string {
+	if len(body) <= errorBodyPreview {
+		return string(body)
 	}
-
-	body, err := json.Marshal(query)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal query: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	for key, value := range p.headers {
-		req.Header.Set(key, value)
-	}
-
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(bodyBytes))
-	}
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	var introspectionResp IntrospectionResponse
-	if err := json.Unmarshal(respBody, &introspectionResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return &introspectionResp, nil
+	return string(body[:errorBodyPreview]) + "... (truncated)"
 }
 
 // convertSchema converts introspection data to our schema model
 func (p *Parser) convertSchema(schema *IntrospectionSchema) (*GraphQLSchema, error) {
+	if schema == nil {
+		return nil, fmt.Errorf("invalid introspection data: schema is nil")
+	}
+
 	result := &GraphQLSchema{
 		Queries:       make([]Operation, 0),
 		Mutations:     make([]Operation, 0),
@@ -182,66 +204,56 @@ func (p *Parser) convertSchema(schema *IntrospectionSchema) (*GraphQLSchema, err
 		Directives:    make([]DirectiveDef, 0),
 	}
 
-	// Build type maps first for reference
-	typeMap := make(map[string]*IntrospectionType)
+	typeMap := make(map[string]*IntrospectionType, len(schema.Types))
 	for i := range schema.Types {
-		t := &schema.Types[i]
-		typeMap[t.Name] = t
+		typeMap[schema.Types[i].Name] = &schema.Types[i]
 	}
 
-	// Process all types
 	for _, t := range schema.Types {
-		// Skip built-in types
-		if strings.HasPrefix(t.Name, "__") {
+		if strings.HasPrefix(t.Name, "__") || t.Name == "" {
 			continue
 		}
 
 		switch t.Kind {
 		case "SCALAR":
 			result.Scalars = append(result.Scalars, t.Name)
-
 		case "ENUM":
 			result.Enums[t.Name] = p.convertEnum(t)
-
 		case "INPUT_OBJECT":
 			result.InputTypes[t.Name] = p.convertInputType(t)
-
-		case "OBJECT":
-			if t.Name != schema.QueryType.Name &&
-				(schema.MutationType == nil || t.Name != schema.MutationType.Name) &&
-				(schema.SubscriptionType == nil || t.Name != schema.SubscriptionType.Name) {
-				result.Types[t.Name] = p.convertType(t)
-			}
+		case "OBJECT", "INTERFACE", "UNION":
+			// Root operation types are kept here too: a schema may expose one as
+			// an ordinary field (`viewer: Query`), and omitting it would leave
+			// that field looking like a scalar and break the document.
+			result.Types[t.Name] = p.convertType(t)
+		default:
+			log.Debug().Str("type", t.Name).Str("kind", t.Kind).Msg("Skipping GraphQL type of unknown kind")
 		}
 	}
 
-	// Extract Query operations
-	if schema.QueryType != nil {
-		if queryType, ok := typeMap[schema.QueryType.Name]; ok {
-			result.Queries = p.extractOperations(queryType)
-		}
-	}
+	result.Queries = p.rootOperations(schema.QueryType, typeMap)
+	result.Mutations = p.rootOperations(schema.MutationType, typeMap)
+	result.Subscriptions = p.rootOperations(schema.SubscriptionType, typeMap)
 
-	// Extract Mutation operations
-	if schema.MutationType != nil {
-		if mutationType, ok := typeMap[schema.MutationType.Name]; ok {
-			result.Mutations = p.extractOperations(mutationType)
-		}
-	}
-
-	// Extract Subscription operations
-	if schema.SubscriptionType != nil {
-		if subscriptionType, ok := typeMap[schema.SubscriptionType.Name]; ok {
-			result.Subscriptions = p.extractOperations(subscriptionType)
-		}
-	}
-
-	// Convert directives
 	for _, d := range schema.Directives {
 		result.Directives = append(result.Directives, p.convertDirective(d))
 	}
 
 	return result, nil
+}
+
+func (p *Parser) rootOperations(root *TypeName, typeMap map[string]*IntrospectionType) []Operation {
+	if root == nil || root.Name == "" {
+		return []Operation{}
+	}
+
+	rootType, ok := typeMap[root.Name]
+	if !ok {
+		log.Warn().Str("type", root.Name).Msg("GraphQL schema names a root type it does not define")
+		return []Operation{}
+	}
+
+	return p.extractOperations(rootType)
 }
 
 // extractOperations extracts operations from a root type (Query/Mutation/Subscription)
@@ -255,17 +267,21 @@ func (p *Parser) extractOperations(t *IntrospectionType) []Operation {
 			ReturnType:   convertTypeRef(field.Type),
 			IsDeprecated: field.IsDeprecated,
 			Deprecation:  field.DeprecationReason,
-			Arguments:    make([]Argument, 0, len(field.Args)),
-		}
-
-		for _, arg := range field.Args {
-			op.Arguments = append(op.Arguments, p.convertArgument(arg))
+			Arguments:    p.convertArguments(field.Args),
 		}
 
 		operations = append(operations, op)
 	}
 
 	return operations
+}
+
+func (p *Parser) convertArguments(args []IntrospectionInputValue) []Argument {
+	converted := make([]Argument, 0, len(args))
+	for _, arg := range args {
+		converted = append(converted, p.convertArgument(arg))
+	}
+	return converted
 }
 
 // convertArgument converts an introspection input value to an Argument
@@ -276,12 +292,24 @@ func (p *Parser) convertArgument(iv IntrospectionInputValue) Argument {
 		Type:        convertTypeRef(iv.Type),
 	}
 
-	if iv.DefaultValue != nil {
-		// Default value is a JSON string representation
-		arg.DefaultValue = *iv.DefaultValue
+	arg.DefaultLiteral, arg.DefaultValue = decodeDefault(iv.Name, iv.DefaultValue)
+	return arg
+}
+
+// decodeDefault turns an introspected default into both forms the generator
+// needs. A literal that cannot be decoded is dropped rather than passed through
+// as text, which would be sent as a string of whatever type it actually is.
+func decodeDefault(name string, literal *string) (string, interface{}) {
+	if literal == nil || *literal == "" {
+		return "", nil
 	}
 
-	return arg
+	value, err := ParseLiteral(*literal)
+	if err != nil {
+		log.Debug().Err(err).Str("argument", name).Str("literal", *literal).Msg("Ignoring unparseable GraphQL default value")
+		return "", nil
+	}
+	return *literal, value
 }
 
 // convertEnum converts an introspection enum type
@@ -318,20 +346,19 @@ func (p *Parser) convertInputType(t IntrospectionType) InputTypeDef {
 			Description: f.Description,
 			Type:        convertTypeRef(f.Type),
 		}
-		if f.DefaultValue != nil {
-			field.DefaultValue = *f.DefaultValue
-		}
+		field.DefaultLiteral, field.DefaultValue = decodeDefault(f.Name, f.DefaultValue)
 		inputDef.Fields = append(inputDef.Fields, field)
 	}
 
 	return inputDef
 }
 
-// convertType converts an introspection object type
+// convertType converts an introspection object, interface or union type
 func (p *Parser) convertType(t IntrospectionType) TypeDef {
 	typeDef := TypeDef{
 		Name:        t.Name,
 		Description: t.Description,
+		Kind:        TypeKind(t.Kind),
 		Fields:      make([]Field, 0, len(t.Fields)),
 		Interfaces:  make([]string, 0, len(t.Interfaces)),
 	}
@@ -343,18 +370,22 @@ func (p *Parser) convertType(t IntrospectionType) TypeDef {
 			Type:         convertTypeRef(f.Type),
 			IsDeprecated: f.IsDeprecated,
 			Deprecation:  f.DeprecationReason,
-			Arguments:    make([]Argument, 0, len(f.Args)),
-		}
-
-		for _, arg := range f.Args {
-			field.Arguments = append(field.Arguments, p.convertArgument(arg))
+			Arguments:    p.convertArguments(f.Args),
 		}
 
 		typeDef.Fields = append(typeDef.Fields, field)
 	}
 
 	for _, iface := range t.Interfaces {
-		typeDef.Interfaces = append(typeDef.Interfaces, getBaseTypeName(iface))
+		if name := getBaseTypeName(iface); name != "" {
+			typeDef.Interfaces = append(typeDef.Interfaces, name)
+		}
+	}
+
+	for _, possible := range t.PossibleTypes {
+		if name := getBaseTypeName(possible); name != "" {
+			typeDef.PossibleTypes = append(typeDef.PossibleTypes, name)
+		}
 	}
 
 	return typeDef
@@ -362,16 +393,10 @@ func (p *Parser) convertType(t IntrospectionType) TypeDef {
 
 // convertDirective converts an introspection directive
 func (p *Parser) convertDirective(d IntrospectionDirective) DirectiveDef {
-	directive := DirectiveDef{
+	return DirectiveDef{
 		Name:        d.Name,
 		Description: d.Description,
 		Locations:   d.Locations,
-		Arguments:   make([]Argument, 0, len(d.Args)),
+		Arguments:   p.convertArguments(d.Args),
 	}
-
-	for _, arg := range d.Args {
-		directive.Arguments = append(directive.Arguments, p.convertArgument(arg))
-	}
-
-	return directive
 }

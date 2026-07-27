@@ -158,7 +158,7 @@ func (b *RequestBuilder) buildQuery(op core.Operation, paramValues map[string]an
 	if !b.returnsLeafType(op) {
 		selectionSet := ""
 		if b.schema != nil && op.GraphQL != nil && op.GraphQL.ReturnType != "" {
-			selectionSet = b.buildSelectionSetFromTypeName(op.GraphQL.ReturnType, 0)
+			selectionSet = b.schema.BuildSelectionSetForTypeName(op.GraphQL.ReturnType, b.selectionOptions())
 		}
 		if selectionSet == "" {
 			selectionSet = "{\n    __typename\n  }"
@@ -239,36 +239,8 @@ func (b *RequestBuilder) applyAuth(req *http.Request) {
 	}
 }
 
-func (b *RequestBuilder) buildSelectionSetFromTypeName(typeName string, depth int) string {
-	if b.schema == nil || depth > b.MaxDepth {
-		return ""
-	}
-
-	baseName := stripTypeModifiers(typeName)
-
-	typeDef, ok := b.schema.Types[baseName]
-	if !ok {
-		return ""
-	}
-
-	var fields []string
-	for _, field := range typeDef.Fields {
-		fieldBaseName := getBaseTypeNameFromRef(field.Type)
-		if b.isScalarOrEnumType(fieldBaseName) {
-			fields = append(fields, field.Name)
-		} else if depth < b.MaxDepth {
-			nestedSelection := b.buildSelectionSetFromTypeName(fieldBaseName, depth+1)
-			if nestedSelection != "" {
-				fields = append(fields, field.Name+" "+nestedSelection)
-			}
-		}
-	}
-
-	if len(fields) == 0 {
-		fields = append(fields, "__typename")
-	}
-
-	return "{\n    " + strings.Join(fields, "\n    ") + "\n  }"
+func (b *RequestBuilder) selectionOptions() pkgGraphql.SelectionOptions {
+	return pkgGraphql.SelectionOptions{MaxDepth: b.MaxDepth, IncludeDeprecated: true}
 }
 
 // returnsLeafType reports whether the operation's return type takes no selection
@@ -278,39 +250,7 @@ func (b *RequestBuilder) returnsLeafType(op core.Operation) bool {
 	if op.GraphQL == nil || op.GraphQL.ReturnType == "" {
 		return false
 	}
-	return b.isScalarOrEnumType(stripTypeModifiers(op.GraphQL.ReturnType))
-}
-
-func (b *RequestBuilder) isScalarOrEnumType(typeName string) bool {
-	builtinScalars := map[string]bool{
-		"String": true, "Int": true, "Float": true, "Boolean": true, "ID": true,
-	}
-	if builtinScalars[typeName] {
-		return true
-	}
-	if b.schema != nil {
-		for _, s := range b.schema.Scalars {
-			if s == typeName {
-				return true
-			}
-		}
-		if _, ok := b.schema.Enums[typeName]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-func getBaseTypeNameFromRef(ref pkgGraphql.TypeRef) string {
-	if ref.OfType != nil {
-		return getBaseTypeNameFromRef(*ref.OfType)
-	}
-	return ref.Name
-}
-
-func stripTypeModifiers(typeName string) string {
-	replacer := strings.NewReplacer("[", "", "]", "", "!", "")
-	return replacer.Replace(typeName)
+	return b.schema.IsLeafType(pkgGraphql.StripTypeModifiers(op.GraphQL.ReturnType))
 }
 
 func BuildIntrospectionRequest(ctx context.Context, baseURL string) (*http.Request, error) {

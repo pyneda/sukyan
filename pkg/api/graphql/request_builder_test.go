@@ -92,10 +92,10 @@ func TestBuild_MutationOperation(t *testing.T) {
 
 func TestBuild_VariableHandling(t *testing.T) {
 	tests := []struct {
-		name           string
-		params         []core.Parameter
-		paramValues    map[string]any
-		expectedVars   map[string]any
+		name         string
+		params       []core.Parameter
+		paramValues  map[string]any
+		expectedVars map[string]any
 	}{
 		{
 			name: "string variable",

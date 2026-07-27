@@ -286,57 +286,6 @@ func TestInterestingValuesStrategyInputObject(t *testing.T) {
 	assert.True(t, hasEmpty, "Should include empty object variation")
 }
 
-func TestUnwrapType(t *testing.T) {
-	tests := []struct {
-		name     string
-		ref      TypeRef
-		expected string
-	}{
-		{
-			name:     "simple scalar",
-			ref:      TypeRef{Kind: TypeKindScalar, Name: "String"},
-			expected: "String",
-		},
-		{
-			name: "non-null wrapper",
-			ref: TypeRef{
-				Kind:   TypeKindNonNull,
-				OfType: &TypeRef{Kind: TypeKindScalar, Name: "Int"},
-			},
-			expected: "Int",
-		},
-		{
-			name: "list wrapper",
-			ref: TypeRef{
-				Kind:   TypeKindList,
-				OfType: &TypeRef{Kind: TypeKindScalar, Name: "Float"},
-			},
-			expected: "Float",
-		},
-		{
-			name: "deeply nested",
-			ref: TypeRef{
-				Kind: TypeKindNonNull,
-				OfType: &TypeRef{
-					Kind: TypeKindList,
-					OfType: &TypeRef{
-						Kind:   TypeKindNonNull,
-						OfType: &TypeRef{Kind: TypeKindScalar, Name: "Boolean"},
-					},
-				},
-			},
-			expected: "Boolean",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := unwrapType(tt.ref)
-			assert.Equal(t, tt.expected, result.Name)
-		})
-	}
-}
-
 func TestGetBaseTypeNameFromRef(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -432,18 +381,4 @@ func TestURLPayloads(t *testing.T) {
 	assert.True(t, hasSSRF, "Should include cloud metadata SSRF payload")
 	assert.True(t, hasFileProtocol, "Should include file protocol payload")
 	assert.True(t, hasJavascript, "Should include javascript protocol payload")
-}
-
-func TestRandomString(t *testing.T) {
-	// Test that RandomString generates correct length
-	for _, length := range []int{5, 10, 20, 100} {
-		result := RandomString(length)
-		assert.Len(t, result, length)
-	}
-
-	// Test that results are different (not deterministic)
-	s1 := RandomString(20)
-	s2 := RandomString(20)
-	// There's a tiny chance these could be equal, but highly unlikely
-	assert.NotEqual(t, s1, s2, "Random strings should be different")
 }

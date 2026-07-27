@@ -1,5 +1,5 @@
 id: excel-csv-injection
-issue_code: csv-injection
+issue_code: csv_injection
 detection_condition: or
 detection_methods:
   - oob_interaction:

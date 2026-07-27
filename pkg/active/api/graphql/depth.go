@@ -400,10 +400,23 @@ func getSchemaAwareDepthTestCases(schema *pkgGraphql.GraphQLSchema) []depthTestC
 	return testCases
 }
 
+// Enumerating every simple path through a type graph is factorial in the number
+// of types, and a real API's schema is densely cross-referenced enough that it
+// never finishes. Only the first few chains are ever turned into requests, and no
+// test nests deeper than the largest entry in depths, so both are bounded here.
+const (
+	maxTypeChains     = 200
+	maxTypeChainDepth = 15
+)
+
 func findDeepTypeChains(schema *pkgGraphql.GraphQLSchema) []typeChain {
 	var chains []typeChain
 
 	for _, query := range schema.Queries {
+		if len(chains) >= maxTypeChains {
+			break
+		}
+
 		returnTypeName := getBaseTypeName(query.ReturnType)
 		if returnTypeName == "" {
 			continue
@@ -435,11 +448,26 @@ func findDeepTypeChains(schema *pkgGraphql.GraphQLSchema) []typeChain {
 }
 
 func findChainDFS(schema *pkgGraphql.GraphQLSchema, typeName string, visited map[string]bool, steps []chainStep, chains *[]typeChain, rootField string) bool {
+	if len(*chains) >= maxTypeChains {
+		return false
+	}
+
 	if visited[typeName] {
 		*chains = append(*chains, typeChain{
 			rootField: rootField,
 			steps:     append([]chainStep(nil), steps...),
 			cyclic:    true,
+		})
+		return true
+	}
+
+	// A chain longer than the deepest test is already long enough to nest to any
+	// depth the audit asks for, so it is recorded rather than extended.
+	if len(steps) >= maxTypeChainDepth {
+		*chains = append(*chains, typeChain{
+			rootField: rootField,
+			steps:     append([]chainStep(nil), steps...),
+			cyclic:    false,
 		})
 		return true
 	}
@@ -454,6 +482,10 @@ func findChainDFS(schema *pkgGraphql.GraphQLSchema, typeName string, visited map
 
 	found := false
 	for _, field := range typeDef.Fields {
+		if len(*chains) >= maxTypeChains {
+			break
+		}
+
 		fieldTypeName := getBaseTypeName(field.Type)
 		if fieldTypeName == "" {
 			continue

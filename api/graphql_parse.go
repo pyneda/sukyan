@@ -15,6 +15,9 @@ type ParseGraphQLSchemaInput struct {
 	IncludeOptional bool              `json:"include_optional"`
 	EnableFuzzing   bool              `json:"enable_fuzzing"`
 	MaxDepth        int               `json:"max_depth,omitempty"`
+	// MaxRequestsPerOperation bounds the fuzzing variations returned per
+	// operation. Zero applies the default; a negative value removes the bound.
+	MaxRequestsPerOperation int `json:"max_requests_per_operation,omitempty"`
 }
 
 // ParseGraphQLSchemaResponse represents the response from parsing a GraphQL schema.
@@ -46,6 +49,9 @@ type ParseGraphQLFromIntrospectionInput struct {
 	IncludeOptional   bool              `json:"include_optional"`
 	EnableFuzzing     bool              `json:"enable_fuzzing"`
 	MaxDepth          int               `json:"max_depth,omitempty"`
+	// MaxRequestsPerOperation bounds the fuzzing variations returned per
+	// operation. Zero applies the default; a negative value removes the bound.
+	MaxRequestsPerOperation int `json:"max_requests_per_operation,omitempty"`
 }
 
 // ParseGraphQLSchema godoc
@@ -84,7 +90,7 @@ func ParseGraphQLSchema(c *fiber.Ctx) error {
 	}
 
 	// Parse schema via introspection
-	schema, err := parser.ParseFromURL(input.URL)
+	schema, err := parser.ParseFromURLContext(c.UserContext(), input.URL)
 	if err != nil {
 		log.Error().Err(err).Str("url", input.URL).Msg("Failed to introspect GraphQL schema")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -95,15 +101,19 @@ func ParseGraphQLSchema(c *fiber.Ctx) error {
 
 	// Configure request generation
 	config := graphql.GenerationConfig{
-		BaseURL:               input.URL,
-		IncludeOptionalParams: input.IncludeOptional,
-		FuzzingEnabled:        input.EnableFuzzing,
-		Headers:               input.Headers,
-		MaxDepth:              input.MaxDepth,
+		BaseURL:                 input.URL,
+		IncludeOptionalParams:   input.IncludeOptional,
+		FuzzingEnabled:          input.EnableFuzzing,
+		Headers:                 input.Headers,
+		MaxDepth:                input.MaxDepth,
+		MaxRequestsPerOperation: input.MaxRequestsPerOperation,
 	}
 
 	if config.MaxDepth == 0 {
 		config.MaxDepth = 3
+	}
+	if config.MaxRequestsPerOperation < 0 {
+		config.MaxRequestsPerOperation = 0
 	}
 
 	// Generate requests
@@ -175,15 +185,19 @@ func ParseGraphQLFromIntrospection(c *fiber.Ctx) error {
 
 	// Configure request generation
 	config := graphql.GenerationConfig{
-		BaseURL:               input.BaseURL,
-		IncludeOptionalParams: input.IncludeOptional,
-		FuzzingEnabled:        input.EnableFuzzing,
-		Headers:               input.Headers,
-		MaxDepth:              input.MaxDepth,
+		BaseURL:                 input.BaseURL,
+		IncludeOptionalParams:   input.IncludeOptional,
+		FuzzingEnabled:          input.EnableFuzzing,
+		Headers:                 input.Headers,
+		MaxDepth:                input.MaxDepth,
+		MaxRequestsPerOperation: input.MaxRequestsPerOperation,
 	}
 
 	if config.MaxDepth == 0 {
 		config.MaxDepth = 3
+	}
+	if config.MaxRequestsPerOperation < 0 {
+		config.MaxRequestsPerOperation = 0
 	}
 
 	// Generate requests

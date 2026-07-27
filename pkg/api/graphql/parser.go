@@ -91,10 +91,11 @@ func (p *Parser) convertOperation(definitionID uuid.UUID, baseURL, operationType
 
 func (p *Parser) convertArgument(arg pkgGraphql.Argument, schema *pkgGraphql.GraphQLSchema) core.Parameter {
 	param := core.Parameter{
-		Name:        arg.Name,
-		Location:    core.ParameterLocationArgument,
-		Required:    arg.Type.Required,
-		Description: arg.Description,
+		Name:          arg.Name,
+		Location:      core.ParameterLocationArgument,
+		Required:      arg.Type.Required,
+		Description:   arg.Description,
+		TypeSignature: arg.Type.Signature(),
 	}
 
 	param.DataType = p.mapGraphQLType(arg.Type, schema)
@@ -104,8 +105,14 @@ func (p *Parser) convertArgument(arg pkgGraphql.Argument, schema *pkgGraphql.Gra
 		param.DefaultValue = arg.DefaultValue
 	}
 
-	if arg.Type.Kind == pkgGraphql.TypeKindInputObject {
-		param.NestedParams = p.extractInputObjectFields(arg.Type.Name, schema)
+	// Match on the base kind: a required input object's outer Kind is NON_NULL,
+	// so keying on Kind alone leaves every `input: XInput!` argument with no
+	// nested fields and produces an empty `{}` body.
+	baseName := p.getBaseTypeName(arg.Type)
+	if arg.Type.BaseKind() == pkgGraphql.TypeKindInputObject {
+		param.NestedParams = p.extractInputObjectFields(baseName, schema)
+	} else if _, ok := schema.InputTypes[baseName]; ok {
+		param.NestedParams = p.extractInputObjectFields(baseName, schema)
 	}
 
 	return param

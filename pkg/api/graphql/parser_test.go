@@ -581,7 +581,14 @@ func TestParse_InputObjectNestedParams_NonNullWrapped(t *testing.T) {
 	assert.Equal(t, "input", inputParam.Name)
 	assert.True(t, inputParam.Required)
 	assert.Equal(t, core.DataTypeObject, inputParam.DataType)
-	assert.Empty(t, inputParam.NestedParams)
+
+	// A NON_NULL wrapper must not hide the input object's fields: without them the
+	// request body is an empty {} and every nested field is unreachable as an
+	// insertion point.
+	assert.NotEmpty(t, inputParam.NestedParams)
+	assert.NotNil(t, findCoreParam(inputParam.NestedParams, "name"))
+	assert.NotNil(t, findCoreParam(inputParam.NestedParams, "email"))
+	assert.Equal(t, "CreateUserInput!", inputParam.TypeSignature)
 }
 
 func TestParse_InputObjectNestedParams_DirectKind(t *testing.T) {

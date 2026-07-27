@@ -21,6 +21,10 @@ type Parameter struct {
 	Explode       *bool             `json:"explode,omitempty"`
 	ContentType   string            `json:"content_type,omitempty"`
 	SchemaRef     string            `json:"schema_ref,omitempty"`
+	// TypeSignature is the parameter's type spelled exactly as the source schema
+	// spells it (GraphQL: "[String!]!", "PostInput!"). DataType is a coarse
+	// classification and cannot be turned back into a valid schema type name.
+	TypeSignature string `json:"type_signature,omitempty"`
 }
 
 func (p Parameter) String() string {

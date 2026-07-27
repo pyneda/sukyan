@@ -152,16 +152,19 @@ func (b *RequestBuilder) buildQuery(op core.Operation, paramValues map[string]an
 		sb.WriteString(")")
 	}
 
-	if b.schema != nil && op.GraphQL != nil && op.GraphQL.ReturnType != "" {
-		selectionSet := b.buildSelectionSetFromTypeName(op.GraphQL.ReturnType, 0)
-		if selectionSet != "" {
-			sb.WriteString(" ")
-			sb.WriteString(selectionSet)
-		} else {
-			sb.WriteString(" {\n    __typename\n  }")
+	// A field returning a leaf type (built-in or custom scalar, enum) must carry
+	// no selection set at all; appending `{ __typename }` to one is a validation
+	// error that kills the operation before the resolver runs.
+	if !b.returnsLeafType(op) {
+		selectionSet := ""
+		if b.schema != nil && op.GraphQL != nil && op.GraphQL.ReturnType != "" {
+			selectionSet = b.buildSelectionSetFromTypeName(op.GraphQL.ReturnType, 0)
 		}
-	} else {
-		sb.WriteString(" {\n    __typename\n  }")
+		if selectionSet == "" {
+			selectionSet = "{\n    __typename\n  }"
+		}
+		sb.WriteString(" ")
+		sb.WriteString(selectionSet)
 	}
 
 	sb.WriteString("\n}")
@@ -170,6 +173,12 @@ func (b *RequestBuilder) buildQuery(op core.Operation, paramValues map[string]an
 }
 
 func (b *RequestBuilder) getGraphQLTypeName(param core.Parameter) string {
+	// The schema's own spelling is the only one the server accepts. Fall back to
+	// reconstruction from DataType only for parameters that carry no signature.
+	if param.TypeSignature != "" {
+		return param.TypeSignature
+	}
+
 	typeName := ""
 
 	switch param.DataType {
@@ -260,6 +269,16 @@ func (b *RequestBuilder) buildSelectionSetFromTypeName(typeName string, depth in
 	}
 
 	return "{\n    " + strings.Join(fields, "\n    ") + "\n  }"
+}
+
+// returnsLeafType reports whether the operation's return type takes no selection
+// set. Custom scalars (JSON, DateTime, Upload) are leaves too, and they are only
+// discoverable through the schema's scalar list.
+func (b *RequestBuilder) returnsLeafType(op core.Operation) bool {
+	if op.GraphQL == nil || op.GraphQL.ReturnType == "" {
+		return false
+	}
+	return b.isScalarOrEnumType(stripTypeModifiers(op.GraphQL.ReturnType))
 }
 
 func (b *RequestBuilder) isScalarOrEnumType(typeName string) bool {

@@ -90,6 +90,12 @@ func runAPIDefsParse(cmd *cobra.Command, args []string) {
 	apiType := detectAPIDefinitionType(content, sourceURL)
 	logger.Info().Str("type", string(apiType)).Msg("Detected API type")
 
+	content, err = resolveGraphQLDefinitionContent(content, apiType, apidefsParseURL)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to retrieve GraphQL schema")
+		os.Exit(1)
+	}
+
 	var authConfig *db.APIAuthConfig
 	if apidefsParseAuthType != "none" {
 		authConfig, err = createAuthConfig(apidefsParseWorkspaceID, apiDefsAuthParams{

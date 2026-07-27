@@ -40,6 +40,37 @@ type TypeRef struct {
 	IsList   bool     `json:"is_list"`           // True if List at any level
 }
 
+// Signature renders the type exactly as it appears in the schema, e.g.
+// "[String!]!" or "PostInput!". Variable declarations must reuse the schema's own
+// name: a reconstructed one ("JSONObject" for any object, "<arg>Enum" for any
+// enum) is rejected by the server as an unknown type before any resolver runs.
+func (t TypeRef) Signature() string {
+	switch t.Kind {
+	case TypeKindNonNull:
+		if t.OfType != nil {
+			return t.OfType.Signature() + "!"
+		}
+		return ""
+	case TypeKindList:
+		if t.OfType != nil {
+			return "[" + t.OfType.Signature() + "]"
+		}
+		return ""
+	default:
+		return t.Name
+	}
+}
+
+// BaseKind returns the kind of the underlying named type, unwrapping NON_NULL and
+// LIST wrappers. Kind alone reports the outermost wrapper, so a required input
+// object reads as NON_NULL rather than INPUT_OBJECT.
+func (t TypeRef) BaseKind() TypeKind {
+	if t.OfType != nil {
+		return t.OfType.BaseKind()
+	}
+	return t.Kind
+}
+
 // TypeKind represents the kind of GraphQL type
 type TypeKind string
 

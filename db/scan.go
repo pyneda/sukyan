@@ -420,6 +420,26 @@ func (d *DatabaseConnection) GetActiveScans() ([]*Scan, error) {
 	return scans, err
 }
 
+// GetOrchestratableScans returns the scans a single orchestrator instance is
+// responsible for driving through its phases.
+//
+// An isolated scan belongs to the process that created it (the CLI), which runs
+// its own orchestrator with a matching scanID filter. Shared orchestrators (API
+// server, standalone workers) must therefore skip isolated scans, otherwise every
+// process would drive every other process's scans: scheduling their jobs, running
+// their synchronous phases, and transitioning phases nobody is executing.
+func (d *DatabaseConnection) GetOrchestratableScans(scanID *uint) ([]*Scan, error) {
+	var scans []*Scan
+	query := d.db.Where("status IN ?", []ScanStatus{ScanStatusCrawling, ScanStatusScanning})
+	if scanID != nil {
+		query = query.Where("id = ?", *scanID)
+	} else {
+		query = query.Where("isolated = ?", false)
+	}
+	err := query.Find(&scans).Error
+	return scans, err
+}
+
 // GetPausedScans returns all paused scans
 func (d *DatabaseConnection) GetPausedScans() ([]*Scan, error) {
 	var scans []*Scan

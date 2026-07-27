@@ -91,6 +91,9 @@ type Config struct {
 	EnableNuclei bool
 	// EnableWebSocket enables websocket scanning phase
 	EnableWebSocket bool
+	// ScanID restricts the orchestrator to a single scan (isolated mode, used by
+	// the CLI). When nil the orchestrator drives every non-isolated active scan.
+	ScanID *uint
 }
 
 // DefaultConfig returns default orchestrator configuration
@@ -200,8 +203,7 @@ func (o *Orchestrator) monitorLoop() {
 
 // checkScans reviews all running scans and processes phase transitions
 func (o *Orchestrator) checkScans() {
-	// Get all running scans (crawling or scanning status)
-	scans, err := db.Connection().GetActiveScans()
+	scans, err := db.Connection().GetOrchestratableScans(o.config.ScanID)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get running scans")
 		return
@@ -880,7 +882,6 @@ func (o *Orchestrator) completeScan(scanEntity *db.Scan) error {
 		return fmt.Errorf("failed to complete scan: %w", err)
 	}
 
-	// Calculate final stats
 	o.updateScanStats(scanEntity)
 
 	// Cleanup site behaviors for this scan

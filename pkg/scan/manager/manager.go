@@ -214,8 +214,12 @@ func (sm *ScanManager) Start() error {
 		sm.workerPool.Start()
 
 		// Create and start orchestrator for phase management
-		// ScanManager implements orchestrator.JobScheduler interface
-		sm.orchestrator = orchestrator.New(sm, orchestrator.DefaultConfig())
+		// ScanManager implements orchestrator.JobScheduler interface.
+		// The scan ID filter keeps an isolated (CLI) run from driving phases of
+		// scans owned by other processes.
+		orchestratorCfg := orchestrator.DefaultConfig()
+		orchestratorCfg.ScanID = sm.config.ScanID
+		sm.orchestrator = orchestrator.New(sm, orchestratorCfg)
 		sm.orchestrator.Start(sm.ctx)
 
 		// Start periodic refresh

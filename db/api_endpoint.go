@@ -36,19 +36,13 @@ type APIEndpoint struct {
 
 }
 
-// BeforeSave truncates the descriptive fields backed by bounded columns. They are
-// copied out of a scan target's API definition, and endpoints are inserted as one
-// batch, so an over-long value would otherwise fail the statement and take every
-// other endpoint of the definition down with it.
-//
-// OperationID is deliberately left alone: the scan executor matches an endpoint to
-// its parsed operation by that value, and for GraphQL and SOAP — where every
-// operation shares Path "" and method POST — a shortened one does not fail the match,
-// it falls through to a positional one and binds to the wrong operation, so findings
-// are attributed to an endpoint that was never requested. An endpoint whose
-// identifier does not fit is dropped by persistEndpoints instead, which is a visible
-// gap rather than a wrong answer.
+// BeforeSave truncates the fields backed by bounded columns. They are copied out of
+// a scan target's API definition, and endpoints are inserted as one batch: a single
+// over-long operationId would otherwise fail the statement and take every other
+// endpoint of the definition down with it, leaving a definition the scanner reports
+// as parsed but never tests.
 func (e *APIEndpoint) BeforeSave(*gorm.DB) error {
+	e.OperationID = truncateRunes(e.OperationID, 255)
 	e.Name = truncateRunes(e.Name, 255)
 	e.Summary = truncateRunes(e.Summary, 500)
 	e.OperationType = truncateRunes(e.OperationType, 50)

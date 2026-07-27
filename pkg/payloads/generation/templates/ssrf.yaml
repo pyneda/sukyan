@@ -9,14 +9,10 @@ vars:
   - name: oob_address
     value: "{{interactionAddress}}"
 templates:
-  - "https://{{.oob_address}}"
-  - "ftp://{{.oob_address}}"
   - "http://{{.oob_address}}"
-  - "dict://{{.oob_address}}"
-  - "file://{{.oob_address}}"
-  - "imap://{{.oob_address}}"
-  - "ldap://{{.oob_address}}"
-  - "ldaps://{{.oob_address}}"
-  - "gopher://{{.oob_address}}"
+  - "https://{{.oob_address}}"
+  # Bare authority: reaches sinks that take a host rather than a URL (port
+  # probes, connectivity checks) and still yields a DNS interaction.
+  - "{{.oob_address}}"
 categories:
   - ssrf

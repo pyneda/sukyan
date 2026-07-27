@@ -1,5 +1,7 @@
 package scan
 
+import "strings"
+
 // GetCommonOpenRedirectParameters returns a list of common parameters known to be used in open redirect vulnerabilities
 func GetCommonOpenRedirectParameters() []string {
 	return []string{
@@ -123,6 +125,34 @@ func GetCommonSSRFParameters() []string {
 func IsCommonSSRFParameter(param string) bool {
 	for _, p := range GetCommonSSRFParameters() {
 		if p == param {
+			return true
+		}
+	}
+	return false
+}
+
+// ssrfParameterNameFragments are substrings that mark a parameter as carrying a
+// URL, hostname or endpoint. Exact-name matching alone misses the compound
+// names real APIs use (passport_url, avatarUrl, jku, callbackEndpoint), which
+// are exactly the SSRF sinks worth probing.
+var ssrfParameterNameFragments = []string{
+	"url", "uri", "link", "src", "host", "domain", "site",
+	"endpoint", "webhook", "hook", "callback", "redirect",
+	"proxy", "feed", "image", "avatar", "fetch", "remote",
+	"origin", "target", "dest", "jku", "x5u",
+}
+
+// IsLikelySSRFParameter reports whether a parameter name suggests it carries a
+// URL or host the server may request. It is deliberately broader than
+// IsCommonSSRFParameter: it gates which insertion points get probed, so a false
+// positive here only costs a few requests while a miss costs the finding.
+func IsLikelySSRFParameter(param string) bool {
+	lowered := strings.ToLower(param)
+	if IsCommonSSRFParameter(lowered) {
+		return true
+	}
+	for _, fragment := range ssrfParameterNameFragments {
+		if strings.Contains(lowered, fragment) {
 			return true
 		}
 	}

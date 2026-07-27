@@ -92,7 +92,10 @@ func SetDefaultConfig() {
 	// insertion points and reports SSRF only when the fixed marker (which the sink
 	// cannot produce by merely echoing the injected URL) is reflected in the response.
 	// Until the endpoint is hosted, detection is dormant: no false positives, no crash.
-	viper.SetDefault("scan.ssrf.canary_url", "https://sukyan.com")
+	// Empty by default: a canary_url that does not serve the marker leaves the
+	// detector probing every url-like insertion point without ever being able to
+	// fire, and would send tokens to a host the project does not control.
+	viper.SetDefault("scan.ssrf.canary_url", "")
 	viper.SetDefault("scan.ssrf.canary_marker", "SUKYAN_SSRF_CANARY")
 
 	// Crawl job timeout configuration

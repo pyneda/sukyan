@@ -3,7 +3,10 @@ package active
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -12,6 +15,53 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
+
+// defaultCanaryURL is the shipped value of scan.ssrf.canary_url. It is empty on
+// purpose: the canary oracle needs an endpoint the operator actually hosts, and a
+// non-empty default that does not serve the marker is worse than none — the
+// detector probes every url-like insertion point and can never fire, which looks
+// exactly like "target is not vulnerable".
+const defaultCanaryURL = ""
+
+// canaryVerification caches the preflight result per canary base + marker so the
+// check costs one request per process rather than one per scanned history item.
+var canaryVerification sync.Map
+
+func lastPathSegment(path string) string {
+	trimmed := strings.TrimRight(path, "/")
+	if idx := strings.LastIndex(trimmed, "/"); idx >= 0 {
+		return trimmed[idx+1:]
+	}
+	return trimmed
+}
+
+// canaryEndpointServesMarker verifies the operator's canary really answers
+// <canary_url>/ssrf/<token> with a body containing both the marker and that
+// token. Without this the detector cannot distinguish "nobody hosted a canary"
+// from "nothing was vulnerable", and silently reports neither.
+func canaryEndpointServesMarker(ctx context.Context, client *http.Client, canaryBase, marker string) bool {
+	if canaryBase == "" || marker == "" {
+		return false
+	}
+
+	token := lib.GenerateRandomLowercaseString(12)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(canaryBase, "/")+"/ssrf/"+token, nil)
+	if err != nil {
+		return false
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	if err != nil {
+		return false
+	}
+	return ssrfCanaryMatch(string(body), marker, token)
+}
 
 // ssrfCanaryMatch reports whether the response body proves the server fetched our
 // canary endpoint. It requires BOTH the fixed marker (which only appears if the
@@ -40,6 +90,29 @@ func SSRFCanaryScan(history *db.History, options ActiveModuleOptions, insertionP
 		ctx = context.Background()
 	}
 
+	client := options.HTTPClient
+	if client == nil {
+		client = http_utils.CreateHttpClient()
+	}
+
+	// Confirm the canary is really hosted before probing anything. A configured
+	// but unreachable canary would otherwise burn a request per url-like insertion
+	// point and never fire, reporting nothing while looking like a clean result.
+	verifyKey := canaryBase + "\x00" + marker
+	verified, cached := canaryVerification.Load(verifyKey)
+	if !cached {
+		verified = canaryEndpointServesMarker(ctx, client, canaryBase, marker)
+		canaryVerification.Store(verifyKey, verified)
+		if !verified.(bool) {
+			auditLog.Warn().
+				Str("canary_url", canaryBase).
+				Msg("SSRF canary scan is dormant: the configured canary does not serve the expected marker. Host <canary_url>/ssrf/<token> returning \"<canary_marker>:<token>:OK\" to enable in-band SSRF detection.")
+		}
+	}
+	if !verified.(bool) {
+		return false, nil
+	}
+
 	select {
 	case <-ctx.Done():
 		auditLog.Info().Msg("SSRF canary scan cancelled before starting")
@@ -57,11 +130,6 @@ func SSRFCanaryScan(history *db.History, options ActiveModuleOptions, insertionP
 	if len(scanInsertionPoints) == 0 {
 		auditLog.Debug().Msg("No interesting insertion points to test for SSRF")
 		return false, nil
-	}
-
-	client := options.HTTPClient
-	if client == nil {
-		client = http_utils.CreateHttpClient()
 	}
 
 	for _, insertionPoint := range scanInsertionPoints {

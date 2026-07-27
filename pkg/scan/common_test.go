@@ -17,3 +17,18 @@ func TestIsCommonSSRFParameter(t *testing.T) {
 		}
 	}
 }
+
+func TestIsLikelySSRFParameter(t *testing.T) {
+	likely := []string{"url", "src", "host", "passport_url", "avatarUrl", "jku", "callbackEndpoint", "imageSrc", "webhook_uri"}
+	for _, p := range likely {
+		if !IsLikelySSRFParameter(p) {
+			t.Errorf("expected %q to be treated as a likely SSRF parameter", p)
+		}
+	}
+	unlikely := []string{"q", "page", "sort", "email", "quantity", "port"}
+	for _, p := range unlikely {
+		if IsLikelySSRFParameter(p) {
+			t.Errorf("expected %q not to be treated as a likely SSRF parameter", p)
+		}
+	}
+}

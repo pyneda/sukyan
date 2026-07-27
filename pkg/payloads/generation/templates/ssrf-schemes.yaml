@@ -1,0 +1,50 @@
+id: "ssrf-schemes"
+issue_code: "ssrf"
+detection_condition: "or"
+detection_methods:
+  - oob_interaction:
+      oob_address: "{{.oob_address}}"
+      confidence: 100
+vars:
+  - name: oob_address
+    value: "{{interactionAddress}}"
+# Non-HTTP schemes only reach a fetcher that accepts arbitrary URLs, and the
+# plain http/https probes in the `ssrf` template already cover those sinks. They
+# are kept for parameters that clearly carry a URL, plus fuzz mode, so the common
+# case does not pay six extra requests per insertion point.
+launch:
+  operator: or
+  conditions:
+    - type: scan_mode
+      value: fuzz
+    - type: parameter_value_data_type
+      value: URL
+    - type: insertion_point_name
+      parameter_names:
+        - url
+        - uri
+        - src
+        - dest
+        - destination
+        - target
+        - host
+        - link
+        - feed
+        - webhook
+        - callback
+        - callback_url
+        - proxy
+        - image
+        - imageurl
+        - fetch
+        - resource
+        - domain
+        - site
+templates:
+  - "gopher://{{.oob_address}}"
+  - "dict://{{.oob_address}}"
+  - "ldap://{{.oob_address}}"
+  - "ftp://{{.oob_address}}"
+  - "file://{{.oob_address}}"
+categories:
+  - ssrf

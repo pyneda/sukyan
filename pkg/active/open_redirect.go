@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -18,6 +19,57 @@ import (
 const openRedirecTestDomain = "sukyan.com"
 
 var metaRefreshPattern = regexp.MustCompile(`(?i)<meta[^>]*http-equiv\s*=\s*["']?refresh["']?[^>]*content\s*=\s*["']?\d+\s*;\s*url\s*=\s*["']?([^"'\s>]+)`)
+
+var schemeWithoutAuthority = regexp.MustCompile(`(?i)^(https?):/?([^/].*)$`)
+
+// browserNormalizedLocation rewrites a redirect target the way a browser's URL parser
+// would before it resolves it. net/url follows RFC 3986, browsers follow WHATWG, and
+// they disagree on exactly the shapes attackers use: `\` is a path separator for
+// http(s), leading slash runs collapse, and `https:/host` still names an authority.
+// Without this, `/\evil.com` resolves to the *request's own* host under RFC 3986 and
+// the redirect looks same-origin when a browser would leave the site.
+func browserNormalizedLocation(location string) string {
+	v := strings.Map(func(r rune) rune {
+		switch r {
+		case '\t', '\n', '\r':
+			return -1
+		case '\\':
+			return '/'
+		}
+		return r
+	}, strings.TrimSpace(location))
+
+	if strings.HasPrefix(v, "//") {
+		v = "//" + strings.TrimLeft(v, "/")
+	}
+	if m := schemeWithoutAuthority.FindStringSubmatch(v); m != nil {
+		v = m[1] + "://" + m[2]
+	}
+	return v
+}
+
+// redirectsOffOrigin reports whether location, resolved against requestURL, points to a
+// different host. It handles absolute, protocol-relative and relative locations uniformly
+// via url.ResolveReference, so a same-origin relative redirect that merely contains the test
+// domain as a substring (e.g. in a path segment) is not mistaken for an actual open redirect.
+func redirectsOffOrigin(requestURL, location string) bool {
+	if location == "" {
+		return false
+	}
+	base, err := url.Parse(requestURL)
+	if err != nil {
+		return false
+	}
+	loc, err := url.Parse(browserNormalizedLocation(location))
+	if err != nil {
+		return false
+	}
+	resolved := base.ResolveReference(loc)
+	if resolved.Hostname() == "" {
+		return false
+	}
+	return !strings.EqualFold(resolved.Hostname(), base.Hostname())
+}
 
 func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertionPoints []scan.InsertionPoint) (bool, error) {
 	auditLog := log.With().Str("audit", "open-redirect").Str("url", history.URL).Uint("workspace", options.WorkspaceID).Logger()
@@ -120,7 +172,10 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 
 			if new.StatusCode >= 300 && new.StatusCode < 400 {
 				newLocation := executionResult.Response.Header.Get("Location")
-				if newLocation != "" && (newLocation == payload || strings.Contains(newLocation, openRedirecTestDomain)) {
+				// newLocation == payload is checked without a host comparison: every payload we
+				// send is itself absolute or protocol-relative, so an exact, byte-for-byte echo
+				// of it already proves the response points off-origin.
+				if newLocation != "" && (newLocation == payload || redirectsOffOrigin(new.URL, newLocation)) {
 					auditLog.Info().Str("insertionPoint", insertionPoint.String()).Str("payload", payload).Msg("Open redirect found via Location header")
 
 					details := fmt.Sprintf("Using the payload %s in the insertion point %s, the server redirected the request to %s.", payload, insertionPoint.String(), newLocation)
@@ -134,7 +189,7 @@ func OpenRedirectScan(history *db.History, options ActiveModuleOptions, insertio
 			if err == nil && len(responseBody) > 0 {
 				if matches := metaRefreshPattern.FindSubmatch(responseBody); len(matches) > 1 {
 					redirectURL := string(matches[1])
-					if strings.Contains(redirectURL, openRedirecTestDomain) {
+					if redirectsOffOrigin(new.URL, redirectURL) {
 						auditLog.Info().Str("insertionPoint", insertionPoint.String()).Str("payload", payload).Str("redirectURL", redirectURL).Msg("Open redirect found via meta refresh")
 
 						details := fmt.Sprintf("Using the payload %s in the insertion point %s, the server returned a meta refresh tag redirecting to %s.", payload, insertionPoint.String(), redirectURL)

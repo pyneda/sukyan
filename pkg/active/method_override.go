@@ -57,20 +57,22 @@ func MethodOverrideScan(history *db.History, opts ActiveModuleOptions) {
 		"X-HTTP-Method",
 	}
 
+	control := &baselineControl{}
+
 	for _, targetMethod := range overrideMethods {
 		for _, headerName := range overrideHeaderNames {
-			if runMethodOverrideProbe(ctx, history, opts, client, headerName, targetMethod, false, auditLog) {
+			if runMethodOverrideProbe(ctx, history, opts, client, headerName, targetMethod, false, auditLog, control) {
 				return
 			}
 		}
 
 		if baseMethod == http.MethodGet {
-			runMethodOverrideProbe(ctx, history, opts, client, "_method", targetMethod, true, auditLog)
+			runMethodOverrideProbe(ctx, history, opts, client, "_method", targetMethod, true, auditLog, control)
 		}
 	}
 }
 
-func runMethodOverrideProbe(ctx context.Context, baseline *db.History, opts ActiveModuleOptions, client *http.Client, key, value string, useQuery bool, auditLog zerolog.Logger) bool {
+func runMethodOverrideProbe(ctx context.Context, baseline *db.History, opts ActiveModuleOptions, client *http.Client, key, value string, useQuery bool, auditLog zerolog.Logger, control *baselineControl) bool {
 	select {
 	case <-ctx.Done():
 		return false
@@ -127,9 +129,26 @@ func runMethodOverrideProbe(ctx context.Context, baseline *db.History, opts Acti
 	}
 
 	probeSuccess := result.History.StatusCode >= 200 && result.History.StatusCode < 400
-	baselineBlocked := baseline.StatusCode == 405 || baseline.StatusCode == 403 || baseline.StatusCode == 401
+	baselineBlocked := isMethodOverrideBaselineBlocked(baseline.StatusCode)
 
 	if !baselineBlocked || !probeSuccess {
+		return false
+	}
+
+	// The stored baseline can go stale between crawl and scan (e.g. the
+	// resource stops being blocked), so re-confirm it with an unmodified
+	// replay before treating this probe as a genuine override.
+	controlHistory, err := control.resolve(ctx, client, baseline, opts)
+	if err != nil {
+		auditLog.Warn().Err(err).Msg("Could not re-validate baseline with a control request, suppressing method override finding")
+		return false
+	}
+	if !isMethodOverrideBaselineBlocked(controlHistory.StatusCode) {
+		if controlIsOpen(controlHistory.StatusCode) {
+			auditLog.Debug().Int("control_status", controlHistory.StatusCode).Msg("Control request no longer blocked, baseline is stale, skipping")
+		} else {
+			auditLog.Warn().Int("control_status", controlHistory.StatusCode).Msg("Control request could not confirm the blocked baseline, suppressing method override finding")
+		}
 		return false
 	}
 
@@ -139,6 +158,7 @@ func runMethodOverrideProbe(ctx context.Context, baseline *db.History, opts Acti
 Baseline:
 - Request: %s
 - Status: %d
+- Control re-validation status: %d
 
 Override attempt:
 - Mechanism: %s
@@ -147,7 +167,7 @@ Override attempt:
 - URL: %s
 - Headers sent:
 %s
-`, baseline.Method+" "+baseline.URL, baseline.StatusCode, overrideMechanismDescription(useQuery, key), value, result.History.StatusCode, result.History.URL, headersStr)
+`, baseline.Method+" "+baseline.URL, baseline.StatusCode, controlHistory.StatusCode, overrideMechanismDescription(useQuery, key), value, result.History.StatusCode, result.History.URL, headersStr)
 
 	confidence := 80
 	if result.History.StatusCode >= 200 && result.History.StatusCode < 300 {
@@ -169,6 +189,10 @@ Override attempt:
 
 	auditLog.Warn().Int("baseline_status", baseline.StatusCode).Int("override_status", result.History.StatusCode).Msg("Potential method override detected")
 	return true
+}
+
+func isMethodOverrideBaselineBlocked(statusCode int) bool {
+	return statusCode == http.StatusMethodNotAllowed || isForbiddenStatus(statusCode)
 }
 
 func methodOverrideTargets(baseMethod string) []string {

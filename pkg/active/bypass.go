@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/http_utils"
@@ -127,6 +128,13 @@ func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 	// Create pool with context for cancellation support
 	p := pool.New().WithMaxGoroutines(options.Concurrency)
 
+	state := &bypassScanState{}
+	// Deferred, not called at the end of the happy path: this function returns
+	// early from ten places (context cancellation, parse failures), and findings
+	// already confirmed by the control must not be discarded when a scan is
+	// cancelled at its wall-clock cap.
+	defer reportBypassFindings(history, state, options, auditLog)
+
 	allHeaderTypes := [][]HeaderTest{ipBasedHeaders, urlBasedHeaders, portBasedHeaders, pathBasedHeaders}
 	// header bypass checks
 	for _, headers := range allHeaderTypes {
@@ -161,7 +169,7 @@ func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 				}
 				// Use context for HTTP request
 				request = request.WithContext(ctx)
-				sendRequestAndCheckBypass(client, request, history, options, auditLog)
+				sendRequestAndCheckBypass(ctx, client, request, history, options, auditLog, state)
 			})
 		}
 	}
@@ -205,7 +213,7 @@ func ForbiddenBypassScan(history *db.History, options ActiveModuleOptions) {
 			request.URL = parsed
 			// Use context for HTTP request
 			request = request.WithContext(ctx)
-			sendRequestAndCheckBypass(client, request, history, options, auditLog)
+			sendRequestAndCheckBypass(ctx, client, request, history, options, auditLog, state)
 		})
 	}
 	p.Wait()
@@ -275,7 +283,32 @@ func generateBypassURLs(history *db.History) ([]string, error) {
 	return bypassURLs, nil
 }
 
-func sendRequestAndCheckBypass(client *http.Client, request *http.Request, original *db.History, options ActiveModuleOptions, auditLog zerolog.Logger) {
+// bypassFinding captures the evidence for a single header/path combination that
+// appeared to bypass the 401/403, once the control has confirmed the baseline
+// is still valid.
+type bypassFinding struct {
+	targetURL   string
+	headersSent string
+	history     *db.History
+	confidence  int
+}
+
+// bypassScanState is shared across all goroutines scanning one history item:
+// the baseline control (resolved at most once) and the findings collected so
+// far, so they can be reported as a single consolidated issue at the end.
+type bypassScanState struct {
+	control  baselineControl
+	mu       sync.Mutex
+	findings []bypassFinding
+}
+
+func (s *bypassScanState) addFinding(f bypassFinding) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.findings = append(s.findings, f)
+}
+
+func sendRequestAndCheckBypass(ctx context.Context, client *http.Client, request *http.Request, original *db.History, options ActiveModuleOptions, auditLog zerolog.Logger, state *bypassScanState) {
 	executionResult := http_utils.ExecuteRequest(request, http_utils.RequestExecutionOptions{
 		Client:        client,
 		CreateHistory: true,
@@ -323,33 +356,109 @@ func sendRequestAndCheckBypass(client *http.Client, request *http.Request, origi
 			}
 		}
 
-		bypassHeaders := http_utils.HeadersToString(request.Header)
-
-		confidence := 75
-		if history.StatusCode >= 200 && history.StatusCode < 300 {
-			confidence = 90
-		} else {
-			confidence = 50
+		// Crawled baselines go stale (e.g. the account they were captured
+		// against gets created minutes later by the crawler itself), so
+		// confirm the original request is still denied before trusting this
+		// candidate as a real bypass.
+		control, err := state.control.resolve(ctx, client, original, options)
+		if err != nil {
+			auditLog.Warn().Err(err).Str("url", request.URL.String()).Msg("Could not re-validate baseline with a control request, suppressing candidate bypass")
+			return
+		}
+		if !isForbiddenStatus(control.StatusCode) {
+			if controlIsOpen(control.StatusCode) {
+				auditLog.Debug().Str("url", request.URL.String()).Int("control_status", control.StatusCode).Msg("Control request no longer returns 401/403, baseline is stale, skipping")
+			} else {
+				auditLog.Warn().Str("url", request.URL.String()).Int("control_status", control.StatusCode).Msg("Control request could not confirm the 401/403 baseline, suppressing candidate bypass")
+			}
+			return
 		}
 
-		details := fmt.Sprintf(`
-Original Request:
+		confidence := 50
+		if history.StatusCode >= 200 && history.StatusCode < 300 {
+			confidence = 90
+		}
+
+		state.addFinding(bypassFinding{
+			targetURL:   request.URL.String(),
+			headersSent: http_utils.HeadersToString(request.Header),
+			history:     history,
+			confidence:  confidence,
+		})
+	}
+}
+
+// reportBypassFindings consolidates every technique that bypassed the 401/403
+// into a single issue, using the highest-confidence finding as the primary
+// evidence and attaching the rest as supporting histories.
+func reportBypassFindings(original *db.History, state *bypassScanState, options ActiveModuleOptions, auditLog zerolog.Logger) {
+	if len(state.findings) == 0 {
+		return
+	}
+
+	bestIndex := 0
+	for i, f := range state.findings {
+		if f.confidence > state.findings[bestIndex].confidence {
+			bestIndex = i
+		}
+	}
+	best := state.findings[bestIndex]
+
+	details := buildBypassDetails(original, state)
+
+	issue, err := db.CreateIssueFromHistoryAndTemplate(
+		best.history,
+		db.ForbiddenBypassCode,
+		details,
+		best.confidence,
+		"",
+		&options.WorkspaceID, &options.TaskID, &options.TaskJobID, &options.ScanID, &options.ScanJobID,
+	)
+	if err != nil {
+		auditLog.Error().Err(err).Msg("Failed to create forbidden bypass issue")
+		return
+	}
+
+	var additional []*db.History
+	for i, f := range state.findings {
+		if i != bestIndex {
+			additional = append(additional, f.history)
+		}
+	}
+	if err := issue.AppendHistories(additional); err != nil {
+		auditLog.Warn().Err(err).Uint("issue_id", issue.ID).Int("history_count", len(additional)).
+			Msg("Failed to link additional bypass histories to issue")
+	}
+
+	auditLog.Info().Uint("issue_id", issue.ID).Int("techniques", len(state.findings)).Msg("Created consolidated forbidden bypass issue")
+}
+
+func buildBypassDetails(original *db.History, state *bypassScanState) string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf(`Original Request:
 	-	URL: %s
 	-	Method: %s
 	-	Status Code: %d
 	-	Response Size: %d bytes
 
+`, original.URL, original.Method, original.StatusCode, original.ResponseBodySize))
 
-Attempted the bypass by making a request to %s with the following headers:
+	if state.control.history != nil {
+		sb.WriteString(fmt.Sprintf("Baseline re-validated with an unmodified request before reporting: still returned status %d, confirming the stored baseline is current.\n\n", state.control.history.StatusCode))
+	}
 
+	sb.WriteString(fmt.Sprintf("%d bypass technique(s) succeeded:\n\n", len(state.findings)))
+	for i, f := range state.findings {
+		sb.WriteString(fmt.Sprintf(`%d. Request to %s
+Headers sent:
 %s
-
-
 Response received:
 	-	Status Code: %d
 	-	Response Size: %d bytes
-`, original.URL, original.Method, original.StatusCode, original.ResponseBodySize, request.URL, bypassHeaders, history.StatusCode, history.ResponseBodySize)
 
-		db.CreateIssueFromHistoryAndTemplate(history, db.ForbiddenBypassCode, details, confidence, "", &options.WorkspaceID, &options.TaskID, &options.TaskJobID, &options.ScanID, &options.ScanJobID)
+`, i+1, f.targetURL, f.headersSent, f.history.StatusCode, f.history.ResponseBodySize))
 	}
+
+	return sb.String()
 }

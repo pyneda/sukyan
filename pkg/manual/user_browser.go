@@ -20,10 +20,7 @@ func LaunchUserBrowser(workspaceID uint, initialURL string, taskID uint) {
 	launcher.Delete("--headless")
 	controlURL := launcher.MustLaunch()
 	b := rod.New().ControlURL(controlURL).MustConnect()
-	hc := browser.HijackConfig{
-		AnalyzeJs:   true,
-		AnalyzeHTML: true,
-	}
+	hc := browser.HijackConfig{}
 	hijackResultsChannel := make(chan browser.HijackResult)
 
 	browser.Hijack(hc, b, nil, db.SourceBrowser, hijackResultsChannel, workspaceID, taskID, 0, 0)

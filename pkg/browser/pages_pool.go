@@ -7,14 +7,16 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
+	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
 type PagePoolManagerConfig struct {
-	PoolSize   int
-	UserAgent  string
-	HTTPClient *http.Client
+	PoolSize      int
+	UserAgent     string
+	HTTPClient    *http.Client
+	ShouldExtract func(history *db.History) bool
 }
 
 type PagePoolManager struct {
@@ -77,7 +79,7 @@ func (b *PagePoolManager) Start(hijack bool, source string) error {
 		poolSize = b.config.PoolSize
 	}
 	if hijack {
-		Hijack(HijackConfig{AnalyzeJs: true, AnalyzeHTML: true}, b.browser, b.httpClient, source, b.HijackResultsChannel, b.workspaceID, b.taskID, b.scanID, b.scanJobID)
+		Hijack(HijackConfig{ShouldExtract: b.config.ShouldExtract}, b.browser, b.httpClient, source, b.HijackResultsChannel, b.workspaceID, b.taskID, b.scanID, b.scanJobID)
 	}
 	// b.pool = rod.NewPagePool(poolSize)
 	b.pool = rod.NewPagePool(poolSize)

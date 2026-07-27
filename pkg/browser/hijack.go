@@ -24,6 +24,10 @@ import (
 type HijackConfig struct {
 	AnalyzeJs   bool
 	AnalyzeHTML bool
+
+	// ShouldExtract is consulted before running URL extraction on a response.
+	// A nil predicate currently means "extract"; Task 3 inverts this to opt-in.
+	ShouldExtract func(history *db.History) bool
 }
 
 type HijackResult struct {
@@ -125,7 +129,8 @@ func HijackWithContext(config HijackConfig, browser *rod.Browser, httpClient *ht
 				// Additional check for context cancellation
 				history := CreateHistoryFromHijack(hj.Request, hj.Response, source, "Create history from hijack", workspaceID, taskID, scanID, scanJobID, 0)
 				linksFound := passive.ExtractedURLS{}
-				if hj.Request.Type() != "Image" && hj.Request.Type() != "Font" && hj.Request.Type() != "Media" {
+				if hj.Request.Type() != "Image" && hj.Request.Type() != "Font" && hj.Request.Type() != "Media" &&
+					(config.ShouldExtract == nil || config.ShouldExtract(history)) {
 					linksFound = passive.ExtractURLsFromHistoryItem(history)
 				}
 				hijackResult := HijackResult{
@@ -205,9 +210,9 @@ func Hijack(config HijackConfig, browser *rod.Browser, httpClient *http.Client, 
 				}()
 				history := CreateHistoryFromHijack(ctx.Request, ctx.Response, source, "Create history from hijack", workspaceID, taskID, scanID, scanJobID, 0)
 				linksFound := passive.ExtractedURLS{}
-				if ctx.Request.Type() != "Image" && ctx.Request.Type() != "Font" && ctx.Request.Type() != "Media" {
+				if ctx.Request.Type() != "Image" && ctx.Request.Type() != "Font" && ctx.Request.Type() != "Media" &&
+					(config.ShouldExtract == nil || config.ShouldExtract(history)) {
 					linksFound = passive.ExtractURLsFromHistoryItem(history)
-
 				}
 				hijackResult := HijackResult{
 					History:        history,

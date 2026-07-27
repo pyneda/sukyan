@@ -85,10 +85,27 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, ma
 		MaxPagesToCrawl: maxPagesToCrawl,
 		MaxPagesPerSite: maxPagesPerSite,
 	}
-	browser, err := browser.NewHijackedPagePoolManager(
+	c := &Crawler{
+		Options:                 options,
+		startURLs:               startURLs,
+		excludePatterns:         excludePatterns,
+		concLimit:               make(chan struct{}, poolSize+2), // Set max concurrency
+		hijackChan:              hijackChan,
+		ignoredExtensions:       viper.GetStringSlice("crawl.ignored_extensions"),
+		workspaceID:             workspaceID,
+		taskID:                  taskID,
+		scanID:                  scanID,
+		scanJobID:               scanJobID,
+		maxPagesWithSameParams:  viper.GetInt("crawl.max_pages_with_same_params"),
+		captureBrowserEvents:    captureBrowserEvents,
+		captureClientNavigation: viper.GetBool("crawl.interaction.capture_client_navigation"),
+	}
+
+	pool, err := browser.NewHijackedPagePoolManager(
 		browser.PagePoolManagerConfig{
-			PoolSize:   poolSize,
-			HTTPClient: httpClient,
+			PoolSize:      poolSize,
+			HTTPClient:    httpClient,
+			ShouldExtract: c.shouldExtract,
 		},
 		"Crawler",
 		hijackChan,
@@ -100,22 +117,9 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, ma
 	if err != nil {
 		return nil, err
 	}
-	return &Crawler{
-		Options:                options,
-		startURLs:              startURLs,
-		excludePatterns:        excludePatterns,
-		concLimit:              make(chan struct{}, poolSize+2), // Set max concurrency
-		hijackChan:             hijackChan,
-		browser:                browser,
-		ignoredExtensions:      viper.GetStringSlice("crawl.ignored_extensions"),
-		workspaceID:            workspaceID,
-		taskID:                 taskID,
-		scanID:                 scanID,
-		scanJobID:              scanJobID,
-		maxPagesWithSameParams:  viper.GetInt("crawl.max_pages_with_same_params"),
-		captureBrowserEvents:    captureBrowserEvents,
-		captureClientNavigation: viper.GetBool("crawl.interaction.capture_client_navigation"),
-	}, nil
+	c.browser = pool
+
+	return c, nil
 }
 
 // NewCrawlerWithContext creates a new Crawler with context for cancellation support

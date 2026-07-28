@@ -652,3 +652,31 @@ func TestNormalizeURLPathKeepsFixedRouteNames(t *testing.T) {
 		}
 	}
 }
+
+func TestIsRelativeURLRejectsSchemeLikeTokens(t *testing.T) {
+	schemeLike := []string{
+		"file:null,http:80,https:443,ws:80,wss:443",
+		"javascript:alert(1)",
+		"data:text/html;base64,PHN2Zz4=",
+		"blob:http://example.com/1234",
+		"ws://example.com/socket",
+	}
+
+	for _, url := range schemeLike {
+		if IsRelativeURL(url) {
+			t.Errorf("Expected '%s' to be treated as scheme-qualified, but it is considered relative", url)
+		}
+	}
+
+	stillRelative := []string{
+		"path/with:colon/inside.html",
+		"index.html",
+		"./a.js",
+	}
+
+	for _, url := range stillRelative {
+		if !IsRelativeURL(url) {
+			t.Errorf("Expected '%s' to remain relative", url)
+		}
+	}
+}

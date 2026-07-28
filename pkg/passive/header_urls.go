@@ -14,6 +14,19 @@ var linkHeaderURLRegex = regexp.MustCompile(`<([^>]+)>`)
 // meta refresh directive, e.g. `5; url=/next` or `0;URL='/next'`.
 var refreshURLRegex = regexp.MustCompile(`(?i)url\s*=\s*['"]?([^'"\s;]+)`)
 
+// urlReferenceHeaders carry a URI reference, so even a single-segment value names
+// a resource. Elsewhere a value with no path separator is a banner or a filename.
+var urlReferenceHeaders = map[string]bool{
+	"location":         true,
+	"content-location": true,
+	"link":             true,
+	"refresh":          true,
+}
+
+func headerCarriesURLReference(name string) bool {
+	return urlReferenceHeaders[strings.ToLower(name)]
+}
+
 // extractURLsFromKnownHeaders parses response headers whose values encode URLs
 // with a structured syntax the generic quoted-string extractor cannot handle
 // (angle brackets, url= prefixes). Values are resolved against base.

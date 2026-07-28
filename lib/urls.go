@@ -468,9 +468,15 @@ func ResolveURL(baseURL, relativeURL string) (string, error) {
 	return resolvedURL.String(), nil
 }
 
+// A relative reference cannot carry a colon before its first path segment.
+var schemePrefixRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9+.\-]*:`)
+
 // IsRelativeURL Function to check if URL is relative
 func IsRelativeURL(url string) bool {
-	return strings.HasPrefix(url, "./") || strings.HasPrefix(url, "../") || (!strings.HasPrefix(url, "/") && !strings.Contains(url, "://") && !strings.HasPrefix(url, "mailto:"))
+	if strings.HasPrefix(url, "./") || strings.HasPrefix(url, "../") {
+		return true
+	}
+	return !strings.HasPrefix(url, "/") && !schemePrefixRegex.MatchString(url)
 }
 
 // IsAbsoluteURL Function to check if URL is absolute

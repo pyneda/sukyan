@@ -3,6 +3,7 @@ package passive
 import (
 	"net/url"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -499,5 +500,67 @@ func TestResolveRelative(t *testing.T) {
 				t.Errorf("Expected URL to be %s, but got %s", tc.expected, got)
 			}
 		})
+	}
+}
+
+func TestExtractAndAnalyzeURLSDropsSchemeQualifiedJSTokens(t *testing.T) {
+	body := `<script>var ports={file:null,http:80,https:443,ws:80,wss:443};var cfg="/api/config.json";</script>`
+	got := ExtractAndAnalyzeURLS(body, "http://example.com/_next/static/chunks/x.js")
+
+	for _, u := range append(append([]string{}, got.Web...), got.NonWeb...) {
+		if strings.Contains(u, "file:null") {
+			t.Errorf("scheme-qualified token was resolved as a relative URL: %s", u)
+		}
+	}
+
+	found := false
+	for _, u := range got.Web {
+		if u == "http://example.com/api/config.json" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected the real URL in the same body to still be extracted, got %v", got.Web)
+	}
+}
+
+func TestExtractAndAnalyzeURLSStripsTrailingBackslash(t *testing.T) {
+	body := `<script>self.__next_f.push([1,"3:[\"$\",\"a\",null,{\"href\":\"/about\",\"children\":\"About\"}]\n"])</script>`
+	got := ExtractAndAnalyzeURLS(body, "http://example.com/")
+
+	found := false
+	for _, u := range got.Web {
+		if strings.HasSuffix(u, `\`) {
+			t.Errorf("extracted URL keeps the JSON escape backslash: %s", u)
+		}
+		if u == "http://example.com/about" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected http://example.com/about to be extracted, got %v", got.Web)
+	}
+}
+
+func TestExtractAndAnalyzeURLSKeepsBackslashOutsideEscapedJSON(t *testing.T) {
+	body := `<script>var download="/download\";</script>`
+	got := ExtractAndAnalyzeURLS(body, "http://example.com/")
+
+	want := `http://example.com/download\`
+	for _, u := range got.Web {
+		if u == want {
+			return
+		}
+	}
+	t.Errorf("expected %s to be preserved verbatim, got %v", want, got.Web)
+}
+
+func TestAnalyzeURLRejectsSchemeOpaquePortMaps(t *testing.T) {
+	base, err := url.Parse("http://example.com/_next/static/chunks/x.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := analyzeURL("http:80,https:443,ws:80,wss:443", base); err == nil {
+		t.Error("expected a script port map to be rejected, it was accepted as a URL")
 	}
 }

@@ -57,12 +57,16 @@ func ExtractURLsFromHeaders(headers map[string][]string, extractedFromURL string
 		log.Error().Err(err).Msg("Could not parse base URL")
 		return ExtractedURLS{}
 	}
-	for _, header := range headers {
+	for name, header := range headers {
+		allowsRelative := headerCarriesURLReference(name)
 		for _, headerValue := range header {
 			for _, rawURL := range ExtractURLs(fmt.Sprintf("'%v'", headerValue)) {
+				if !allowsRelative && lib.IsRelativeURL(rawURL) && !strings.Contains(rawURL, "/") {
+					continue
+				}
 				absoluteURL, urlType, err := analyzeURL(rawURL, base)
 				if err != nil {
-					log.Error().Err(err).Str("part", "headers").Str("url", rawURL).Msg("Could not analyze URL")
+					log.Debug().Err(err).Str("part", "headers").Str("url", rawURL).Msg("Could not analyze URL")
 					continue
 				}
 				switch urlType {
@@ -95,7 +99,7 @@ func ExtractAndAnalyzeURLS(response string, extractedFromURL string) ExtractedUR
 	for _, rawURL := range urls {
 		absoluteURL, urlType, err := analyzeURL(rawURL, base)
 		if err != nil {
-			log.Error().Err(err).Str("part", "response").Str("url", rawURL).Msg("Could not analyze URL")
+			log.Debug().Err(err).Str("part", "response").Str("url", rawURL).Msg("Could not analyze URL")
 			continue
 		}
 		switch urlType {
@@ -118,7 +122,18 @@ func ExtractURLs(response string) []string {
 }
 
 func extractQuotedURLs(response string) []string {
-	return urlRegex.FindAllString(response, -1)
+	matches := urlRegex.FindAllStringIndex(response, -1)
+	urls := make([]string, 0, len(matches))
+	for _, match := range matches {
+		token := response[match[0]:match[1]]
+		// In escaped JSON (\"/about\") the closing quote's escape lands in the match and
+		// browsers read it as a slash. Only an escaped opening quote marks that context.
+		if match[0] > 0 && response[match[0]-1] == '\\' {
+			token = strings.TrimRight(strings.Trim(token, "'\""), `\`)
+		}
+		urls = append(urls, token)
+	}
+	return urls
 }
 
 func extractURLsGeneric(response string) []string {
@@ -147,10 +162,8 @@ func mergeURLs(arr1, arr2 []string) []string {
 				log.Warn().Msg("Reached maximum safe capacity of URL list.")
 				break
 			}
-			if !seen[rawURL] {
-				merged = append(merged, rawURL)
-				seen[rawURL] = true
-			}
+			merged = append(merged, rawURL)
+			seen[rawURL] = true
 		}
 	}
 	return merged
@@ -170,7 +183,15 @@ func analyzeURL(rawURL string, base *url.URL) (string, string, error) {
 		absoluteURL := base.Scheme + "://" + base.Host + rawURL
 		return absoluteURL, "web", nil
 	} else if u, err := url.Parse(rawURL); err == nil && (u.Scheme == "http" || u.Scheme == "https") {
-		return rawURL, "web", nil
+		if u.Host != "" {
+			return rawURL, "web", nil
+		}
+		// http:example.com/x is authority-less but fetchable; http:80,https:443 is a
+		// port map from a script. Only the former opens with a hostname.
+		if opaqueAuthorityRegex.MatchString(u.Opaque) {
+			return u.Scheme + "://" + u.Opaque, "web", nil
+		}
+		return "", "", fmt.Errorf("could not determine URL type")
 	} else if strings.Contains(rawURL, "://") {
 		return rawURL, "non-web", nil
 	} else if strings.HasPrefix(rawURL, "mailto:") {

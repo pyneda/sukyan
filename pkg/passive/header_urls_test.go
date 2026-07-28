@@ -77,3 +77,103 @@ func TestExtractURLsFromHeadersKnownFields(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractURLsFromHeadersIgnoresNonURLValues(t *testing.T) {
+	base := "http://example.com/account/history"
+	tests := []struct {
+		name    string
+		headers map[string][]string
+		wantWeb []string
+	}{
+		{
+			name:    "framework banner is not a relative URL",
+			headers: map[string][]string{"X-Powered-By": {"Next.js"}},
+			wantWeb: []string{},
+		},
+		{
+			name:    "attachment filename is not a relative URL",
+			headers: map[string][]string{"Content-Disposition": {`attachment; filename="report.json"`}},
+			wantWeb: []string{},
+		},
+		{
+			name:    "server banner is not a relative URL",
+			headers: map[string][]string{"Server": {"Werkzeug/2.0.3 Python/3.6.9"}},
+			wantWeb: []string{},
+		},
+		{
+			name:    "absolute URL in an arbitrary header is still extracted",
+			headers: map[string][]string{"X-Backend": {"https://internal.example.org/api/v1.json"}},
+			wantWeb: []string{"https://internal.example.org/api/v1.json"},
+		},
+		{
+			name:    "root relative value in an arbitrary header is still extracted",
+			headers: map[string][]string{"X-Backend": {"/internal/api.json"}},
+			wantWeb: []string{"http://example.com/internal/api.json"},
+		},
+		{
+			// resolveRelative treats an extension-less base as a directory; RFC 3986
+			// would give /account/next-step.html. Pinned as current behaviour, not as intent.
+			name:    "relative Location is still extracted",
+			headers: map[string][]string{"Location": {"next-step.html"}},
+			wantWeb: []string{"http://example.com/account/history/next-step.html"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ExtractURLsFromHeaders(tt.headers, base)
+			if len(got.Web) != len(tt.wantWeb) {
+				t.Fatalf("web URLs got %v, want %v", got.Web, tt.wantWeb)
+			}
+			for i := range tt.wantWeb {
+				if got.Web[i] != tt.wantWeb[i] {
+					t.Errorf("web URLs got %v, want %v", got.Web, tt.wantWeb)
+				}
+			}
+		})
+	}
+}
+
+func TestExtractURLsFromHeadersPathLikeAndOpaqueValues(t *testing.T) {
+	base := "http://example.com/app/p.html"
+	tests := []struct {
+		name    string
+		headers map[string][]string
+		wantWeb []string
+	}{
+		{
+			name:    "path relative value in an arbitrary header is extracted",
+			headers: map[string][]string{"X-Template": {"views/profile.html"}},
+			wantWeb: []string{"http://example.com/app/views/profile.html"},
+		},
+		{
+			name:    "single segment value in an arbitrary header is not a URL",
+			headers: map[string][]string{"X-Powered-By": {"Next.js"}},
+			wantWeb: []string{},
+		},
+		{
+			name:    "authority-less Link target is normalized",
+			headers: map[string][]string{"Link": {`<http:example.com/next.js>; rel="preload"`}},
+			wantWeb: []string{"http://example.com/next.js"},
+		},
+		{
+			name:    "authority-less Refresh target is normalized",
+			headers: map[string][]string{"Refresh": {`0;url=http:example.com/next`}},
+			wantWeb: []string{"http://example.com/next"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ExtractURLsFromHeaders(tt.headers, base)
+			if len(got.Web) != len(tt.wantWeb) {
+				t.Fatalf("web URLs got %v, want %v", got.Web, tt.wantWeb)
+			}
+			for i := range tt.wantWeb {
+				if got.Web[i] != tt.wantWeb[i] {
+					t.Errorf("web URLs got %v, want %v", got.Web, tt.wantWeb)
+				}
+			}
+		})
+	}
+}

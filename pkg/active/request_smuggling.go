@@ -1,10 +1,14 @@
 package active
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -565,6 +569,11 @@ func (c *SmugglingClient) SendRawPipelined(ctx context.Context, host string, por
 	// Set deadline for the entire pipelined exchange
 	conn.SetDeadline(time.Now().Add(c.timeout * 2))
 
+	// One reader for both responses: bytes belonging to the second response may
+	// already have arrived in the same segment as the first, and must not be
+	// discarded between reads.
+	reader := bufio.NewReader(conn)
+
 	// Step 1: Send the smuggling payload
 	_, err = conn.Write(smugglingPayload)
 	if err != nil {
@@ -572,12 +581,10 @@ func (c *SmugglingClient) SendRawPipelined(ctx context.Context, host string, por
 	}
 
 	// Step 2: Read first response
-	firstBuf := make([]byte, 16384)
-	n1, err := conn.Read(firstBuf)
-	if err != nil && n1 == 0 {
+	firstResponse, err := readRawHTTPResponse(reader)
+	if err != nil && len(firstResponse) == 0 {
 		return nil, fmt.Errorf("read first response failed: %w", err)
 	}
-	firstResponse := firstBuf[:n1]
 
 	// Step 3: Send follow-up request on the same connection
 	_, err = conn.Write(followupRequest)
@@ -592,10 +599,9 @@ func (c *SmugglingClient) SendRawPipelined(ctx context.Context, host string, por
 		}, nil
 	}
 
-	// Step 4: Read second response
-	secondBuf := make([]byte, 16384)
-	n2, _ := conn.Read(secondBuf) // Ignore error - may get EOF
-	secondResponse := secondBuf[:n2]
+	// Step 4: Read second response. A desynced origin may answer late, oddly, or
+	// not at all, so a partial read is normal here and is kept as evidence.
+	secondResponse, _ := readRawHTTPResponse(reader)
 
 	elapsed := time.Since(start)
 
@@ -631,4 +637,165 @@ func (c *SmugglingClient) SendRawPipelined(ctx context.Context, host string, por
 		MarkerLocation: markerLocation,
 		History:        history,
 	}, nil
+}
+
+// maxSmugglingResponseBytes caps how much of a single response body is buffered,
+// so a hostile or desynced origin cannot exhaust memory.
+const maxSmugglingResponseBytes = 1 << 20 // 1 MiB
+
+// readRawHTTPResponse reads exactly one complete HTTP/1.1 response message and
+// returns its raw bytes.
+//
+// A single conn.Read() is not usable here. TCP carries no message boundaries, so
+// a response split across segments leaks its tail into the following read, and
+// two coalesced responses arrive as one. Either case silently breaks pipelined
+// smuggling detection, where the evidence lives in the *second* response.
+//
+// Interim 1xx responses are consumed and discarded so the final response is what
+// callers see. Whatever was read is returned alongside any error, since a
+// truncated exchange is still evidence.
+func readRawHTTPResponse(br *bufio.Reader) ([]byte, error) {
+	var raw bytes.Buffer
+
+	for {
+		raw.Reset() // an interim response is not the message the caller wants
+
+		statusLine, err := br.ReadString('\n')
+		if err != nil {
+			raw.WriteString(statusLine)
+			return raw.Bytes(), err
+		}
+		raw.WriteString(statusLine)
+		status := parseResponseStatusLine(statusLine)
+
+		var contentLength int64 = -1
+		chunked := false
+
+		for {
+			line, err := br.ReadString('\n')
+			if err != nil {
+				raw.WriteString(line)
+				return raw.Bytes(), err
+			}
+			raw.WriteString(line)
+			trimmed := strings.TrimRight(line, "\r\n")
+			if trimmed == "" {
+				break
+			}
+			idx := strings.Index(trimmed, ":")
+			if idx <= 0 {
+				continue
+			}
+			name := strings.ToLower(strings.TrimSpace(trimmed[:idx]))
+			value := strings.TrimSpace(trimmed[idx+1:])
+			switch name {
+			case "content-length":
+				if n, convErr := strconv.ParseInt(value, 10, 64); convErr == nil && n >= 0 {
+					contentLength = n
+				}
+			case "transfer-encoding":
+				if strings.Contains(strings.ToLower(value), "chunked") {
+					chunked = true
+				}
+			}
+		}
+
+		// 1xx has no body and is followed by the real response on the same stream.
+		if status >= 100 && status < 200 {
+			continue
+		}
+
+		switch {
+		case chunked:
+			if err := copyChunkedBody(br, &raw); err != nil {
+				return raw.Bytes(), err
+			}
+		case contentLength > 0:
+			if contentLength > maxSmugglingResponseBytes {
+				contentLength = maxSmugglingResponseBytes
+			}
+			if _, err := io.CopyN(&raw, br, contentLength); err != nil {
+				return raw.Bytes(), err
+			}
+		case contentLength == 0 || status == 204 || status == 304:
+			// Explicitly bodyless.
+		default:
+			// No framing headers: per RFC 7230 the body runs to connection close.
+			if _, err := io.Copy(&raw, io.LimitReader(br, maxSmugglingResponseBytes)); err != nil {
+				return raw.Bytes(), err
+			}
+		}
+
+		return raw.Bytes(), nil
+	}
+}
+
+// copyChunkedBody relays a chunked body, chunk headers and trailers included, so
+// the caller keeps the bytes exactly as they appeared on the wire.
+func copyChunkedBody(br *bufio.Reader, raw *bytes.Buffer) error {
+	var total int64
+
+	for {
+		line, err := br.ReadString('\n')
+		if err != nil {
+			raw.WriteString(line)
+			return err
+		}
+		raw.WriteString(line)
+
+		size := strings.TrimSpace(line)
+		if i := strings.IndexByte(size, ';'); i >= 0 { // chunk extensions
+			size = strings.TrimSpace(size[:i])
+		}
+		if size == "" {
+			continue
+		}
+
+		n, err := strconv.ParseInt(size, 16, 64)
+		if err != nil || n < 0 {
+			return fmt.Errorf("invalid chunk size %q", size)
+		}
+
+		if n == 0 { // last chunk: consume trailers up to the blank line
+			for {
+				trailer, err := br.ReadString('\n')
+				if err != nil {
+					raw.WriteString(trailer)
+					return err
+				}
+				raw.WriteString(trailer)
+				if strings.TrimRight(trailer, "\r\n") == "" {
+					return nil
+				}
+			}
+		}
+
+		total += n
+		if total > maxSmugglingResponseBytes {
+			return fmt.Errorf("chunked body exceeds %d bytes", maxSmugglingResponseBytes)
+		}
+		if _, err := io.CopyN(raw, br, n); err != nil {
+			return err
+		}
+		crlf, err := br.ReadString('\n')
+		if err != nil {
+			raw.WriteString(crlf)
+			return err
+		}
+		raw.WriteString(crlf)
+	}
+}
+
+// parseResponseStatusLine extracts the numeric status from a status line,
+// returning 0 when the line is not parseable.
+func parseResponseStatusLine(line string) int {
+	parts := strings.SplitN(strings.TrimSpace(line), " ", 3)
+	if len(parts) < 2 {
+		return 0
+	}
+	code, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0
+	}
+	return code
 }

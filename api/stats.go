@@ -150,3 +150,90 @@ func CleanupStaleWorkers(c *fiber.Ctx) error {
 		"message":           "Stale workers cleaned up successfully",
 	})
 }
+
+// WorkspaceRollupsResponse is the paginated response for cross-workspace rollups.
+type WorkspaceRollupsResponse struct {
+	Data  []db.WorkspaceRollup `json:"data"`
+	Count int64                `json:"count"`
+}
+
+var allowedRollupSortFields = map[string]bool{
+	"title":         true,
+	"critical":      true,
+	"high":          true,
+	"issues":        true,
+	"active_scans":  true,
+	"last_activity": true,
+}
+
+// ListWorkspaceRollupsHandler returns one summary row per workspace.
+//
+// @Summary Lists all workspaces with issue, history and scan rollups.
+// @Description Returns a paginated, sortable summary of every workspace, used by
+// the global workspaces view. Uses grouped queries rather than per-workspace counts.
+// @Tags Stats
+// @Accept json
+// @Produce json
+// @Param page query int false "Page number"
+// @Param page_size query int false "Page size"
+// @Param query query string false "Filter by workspace title or code"
+// @Param sort_by query string false "One of title, critical, high, issues, active_scans, last_activity"
+// @Param sort_order query string false "asc or desc"
+// @Success 200 {object} WorkspaceRollupsResponse "Successfully retrieved workspace rollups"
+// @Failure 400 {object} ErrorResponse "Invalid sort parameter"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Security ApiKeyAuth
+// @Router /api/v1/stats/workspaces [get]
+func ListWorkspaceRollupsHandler(c *fiber.Ctx) error {
+	filter := db.WorkspaceRollupFilter{
+		Query:     c.Query("query"),
+		SortBy:    c.Query("sort_by"),
+		SortOrder: c.Query("sort_order"),
+		Pagination: db.Pagination{
+			Page:     c.QueryInt("page", 1),
+			PageSize: c.QueryInt("page_size", 25),
+		},
+	}
+
+	if filter.SortBy != "" && !allowedRollupSortFields[filter.SortBy] {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Invalid sort field",
+			Message: "sort_by must be one of: title, critical, high, issues, active_scans, last_activity",
+		})
+	}
+	if filter.SortOrder != "" && filter.SortOrder != "asc" && filter.SortOrder != "desc" {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Invalid sort order",
+			Message: "sort_order must be either asc or desc",
+		})
+	}
+
+	// db.Pagination.GetData() normalises Page == 0 to 1 but does not guard a
+	// negative Page, and ListWorkspaceRollups slices its result with that raw
+	// offset. A negative page therefore produces a negative slice offset and
+	// panics. Reject non-positive page/page_size here, at the API boundary,
+	// rather than touching the DB layer.
+	if filter.Pagination.Page < 1 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Invalid page",
+			Message: "page must be 1 or greater",
+		})
+	}
+	if filter.Pagination.PageSize < 1 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+			Error:   "Invalid page size",
+			Message: "page_size must be 1 or greater",
+		})
+	}
+
+	rows, count, err := db.Connection().ListWorkspaceRollups(filter)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to retrieve workspace rollups")
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
+			Error:   "Failed to retrieve workspace rollups",
+			Message: "An unexpected error occurred while fetching workspace rollups. Please try again later.",
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(WorkspaceRollupsResponse{Data: rows, Count: count})
+}

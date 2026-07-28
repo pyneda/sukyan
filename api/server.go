@@ -239,6 +239,7 @@ func StartAPI(opts ...APIServerOptions) {
 	api.Post("/playground/wsdl/parse", JWTProtected(), ParseWSDL)
 	api.Post("/playground/wsdl/parse-content", JWTProtected(), ParseWSDLFromBytes)
 	api.Get("/stats/workspace", JWTProtected(), WorkspaceStats)
+	api.Get("/stats/workspaces", JWTProtected(), ListWorkspaceRollupsHandler)
 	api.Get("/stats/system", JWTProtected(), SystemStats)
 	api.Get("/stats/workers", JWTProtected(), ListWorkerNodes)
 	api.Post("/stats/workers/cleanup", JWTProtected(), CleanupStaleWorkers)

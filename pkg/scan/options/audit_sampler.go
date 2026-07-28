@@ -1,6 +1,7 @@
 package options
 
 import (
+	"net/url"
 	"sync"
 
 	"github.com/pyneda/sukyan/lib"
@@ -127,4 +128,44 @@ func (s *AuditSampler) getSamplingRate(auditType AuditType) int {
 	default:
 		return 1 // Unknown type, don't sample
 	}
+}
+
+// ShouldRunCapped reports whether an audit may run again for this URL's host,
+// allowing at most max runs per host:port. A max of 0 or less means unlimited.
+//
+// Some audits describe the *connection*, not the URL: request smuggling is a
+// property of the frontend/origin pair, so repeating its full probe suite on
+// every crawled page of the same host costs a great deal (several classes, each
+// with obfuscation variants and revalidation attempts, plus probes that can only
+// finish by timing out) and cannot discover anything the first run did not.
+// Allowing a few runs rather than exactly one keeps some route diversity, since
+// a frontend may proxy different paths differently.
+//
+// The counter is keyed on host:port, so the same hostname on two ports is two
+// targets, and each audit type has its own budget.
+func (s *AuditSampler) ShouldRunCapped(auditType AuditType, rawURL string, max int) bool {
+	if max <= 0 {
+		return true
+	}
+
+	key := rawURL
+	if parsed, err := url.Parse(rawURL); err == nil && parsed.Host != "" {
+		key = parsed.Host // includes the port when one is present
+	} else if host, err := lib.GetHostFromURL(rawURL); err == nil && host != "" {
+		key = host
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	hostCounters, exists := s.counters[auditType]
+	if !exists {
+		hostCounters = make(map[string]int)
+		s.counters[auditType] = hostCounters
+	}
+	if hostCounters[key] >= max {
+		return false
+	}
+	hostCounters[key]++
+	return true
 }

@@ -14,6 +14,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+// maxRequestSmugglingRunsPerHost bounds how often the request smuggling audit
+// repeats for one host:port. A few runs keep some route diversity, since a
+// frontend may proxy different paths differently, without paying for the full
+// probe suite on every crawled page.
+const maxRequestSmugglingRunsPerHost = 3
+
 const historyItemModulesConcurrency = 10
 
 func ScanHistoryItem(item *db.History, interactionsManager *integrations.InteractionsManager, payloadGenerators []*generation.PayloadGenerator, siteBehavior *http_utils.SiteBehavior, options scan_options.HistoryItemScanOptions) {
@@ -250,9 +256,15 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 		hasProxyIndicators := scan.PlatformReverseProxy.MatchesAnyFingerprint(options.Fingerprints) ||
 			http_utils.HasReverseProxyIndicatorsFromHistory(item)
 
-		shouldRunSmuggling := options.Mode == scan_options.ScanModeFuzz ||
-			(hasProxyIndicators && (options.AuditSampler == nil ||
-				options.AuditSampler.ShouldRun(scan_options.AuditTypeRequestSmuggling, item.URL)))
+		// Smuggling describes the frontend/origin pair, not a URL, so it is capped
+		// per host rather than repeated on every crawled page: the probe suite is
+		// slow (several classes, obfuscation variants, revalidation attempts, and
+		// probes that can only end by timing out) and a repeat run on the same
+		// host:port cannot find anything the first did not.
+		shouldRunSmuggling := (options.Mode == scan_options.ScanModeFuzz || hasProxyIndicators) &&
+			(options.AuditSampler == nil ||
+				options.AuditSampler.ShouldRunCapped(scan_options.AuditTypeRequestSmuggling,
+					item.URL, maxRequestSmugglingRunsPerHost))
 
 		if shouldRunSmuggling {
 			requestSmuggling := RequestSmugglingAudit{

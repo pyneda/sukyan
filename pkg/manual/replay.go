@@ -33,8 +33,8 @@ type RequestReplayOptions struct {
 }
 
 type BrowserReplayActionsResults struct {
-	PreRequest  actions.ActionsExecutionResults `json:"pre_request,omitempty"`
-	PostRequest actions.ActionsExecutionResults `json:"post_request,omitempty"`
+	PreRequest  *actions.ActionsExecutionResults `json:"pre_request,omitempty"`
+	PostRequest *actions.ActionsExecutionResults `json:"post_request,omitempty"`
 }
 
 type ReplayResult struct {
@@ -155,17 +155,18 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 		pre := input.BrowserActions.PreRequestAction.Actions
 		log.Info().Int("actions_count", len(pre)).Msg("Replaying pre-request action in browser")
 		preResults, err := actions.ExecuteActions(ctx, pageWithCancel, pre)
+		browserActionsResults.PreRequest = &preResults
 		if err != nil {
 			log.Error().Err(err).Msg("Error replaying pre-request action in browser")
-			// Attribute deadline exceeded to the pre-action phase so users see
-			// "pre-request action ..." rather than a generic "failed to navigate"
-			// error that points at the wrong phase.
+			// The request is deliberately not sent: it would go out without
+			// whatever state the pre-request action was establishing. Partial
+			// results are returned so the UI can show which step broke.
+			partial := ReplayResult{BrowserActionsResults: browserActionsResults}
 			if ctxErr := ctx.Err(); ctxErr == context.DeadlineExceeded {
-				return ReplayResult{}, fmt.Errorf("pre-request action exceeded request timeout (%s): %w", timeout, err)
+				return partial, fmt.Errorf("pre-request action exceeded request timeout (%s): %w", timeout, err)
 			}
-			return ReplayResult{}, fmt.Errorf("pre-request action failed: %w", err)
+			return partial, fmt.Errorf("pre-request action failed: %w", err)
 		}
-		browserActionsResults.PreRequest = preResults
 		log.Info().Int("actions_count", len(pre)).Msg("Pre-request action completed")
 	} else {
 		log.Warn().Msg("No pre-request action found for browser replay")
@@ -191,15 +192,15 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 		post := input.BrowserActions.PostRequestAction.Actions
 		log.Info().Int("actions_count", len(post)).Msg("Replaying post-request action in browser")
 		postResults, err := actions.ExecuteActions(ctx, pageWithCancel, post)
+		browserActionsResults.PostRequest = &postResults
 		if err != nil {
-			log.Error().Err(err).Msg("Error replaying post-request action in browser")
-			if ctxErr := ctx.Err(); ctxErr == context.DeadlineExceeded {
-				return ReplayResult{}, fmt.Errorf("post-request action exceeded request timeout (%s): %w", timeout, err)
-			}
-			return ReplayResult{}, fmt.Errorf("post-request action failed: %w", err)
+			// The request already succeeded and the history record exists, so a
+			// post-request failure must not discard the response. The failed
+			// step is reported through PostRequest.Failure instead.
+			log.Error().Err(err).Msg("Post-request action failed after a successful request")
+		} else {
+			log.Info().Int("actions_count", len(post)).Msg("Post-request action completed")
 		}
-		browserActionsResults.PostRequest = postResults
-		log.Info().Int("actions_count", len(post)).Msg("Post-request action completed")
 	}
 
 	// Wait for 1 second after navigation to gather more events

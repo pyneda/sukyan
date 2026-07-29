@@ -62,6 +62,39 @@ func TestCharacterEfficiencyIgnoresResidueFromEarlierProbes(t *testing.T) {
 	}
 }
 
+// A filter that drops the tested character and everything after it leaves the
+// probe's prefix and nonce in the body but no suffix. The probe demonstrably
+// reached the response, so this is a filtered character, not an unreflected
+// insertion point — requiring the fixed suffix here would report the opposite
+// and hand the decision to whatever residue happened to be on the page.
+func TestCharacterEfficiencyReportsStrippedWhenSuffixIsTruncated(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		v := r.URL.Query().Get("q")
+		if i := strings.Index(v, "<"); i >= 0 {
+			v = v[:i]
+		}
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprintf(w, "<html><body>%s</body></html>", v)
+	}))
+	defer srv.Close()
+
+	item := &db.History{
+		URL:        srv.URL + "/?q=orig",
+		Method:     "GET",
+		RawRequest: []byte("GET /?q=orig HTTP/1.1\r\nHost: " + srv.Listener.Addr().String() + "\r\n\r\n"),
+	}
+
+	result := testCharacterEfficiency(
+		item,
+		InsertionPointInfo{Name: "q", Type: "parameter", OriginalData: "orig"},
+		"<", srv.Client(), http_utils.HistoryCreationOptions{},
+	)
+	if result.EncodedAs != "[stripped]" {
+		t.Errorf("the probe reflected but the character was filtered; expected %q, got %q",
+			"[stripped]", result.EncodedAs)
+	}
+}
+
 // Two probes of the same insertion point must not see each other's stored
 // output. Without a per-request nonce every character test after the first
 // matches the first one's payload.

@@ -167,9 +167,11 @@ func testCharacterEfficiency(
 		}
 	}
 
-	// Check if this probe's canary markers are present but the char is stripped
-	if strings.Contains(body, CanaryPrefix+nonce) && strings.Contains(body, CanarySuffix) {
-		// Character was stripped/filtered
+	// This probe reached the body and none of the encodings above matched, so the
+	// character did not survive in any form we recognise. Testing for the suffix
+	// too would tell us nothing extra and would let an earlier probe's residue
+	// decide the outcome, since only the nonce is request-specific.
+	if strings.Contains(body, CanaryPrefix+nonce) {
 		result.Efficiency = 0
 		result.EncodedAs = "[stripped]"
 		return result

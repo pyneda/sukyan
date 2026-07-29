@@ -122,6 +122,12 @@ func ExtractURLs(response string) []string {
 }
 
 func extractQuotedURLs(response string) []string {
+	// PHP's json_encode escapes every slash by default, so an inlined route table
+	// reads "\/about" and matches nothing at all until the escapes are undone.
+	if strings.Contains(response, `\/`) {
+		response = strings.ReplaceAll(response, `\/`, "/")
+	}
+
 	matches := urlRegex.FindAllStringIndex(response, -1)
 	urls := make([]string, 0, len(matches))
 	for _, match := range matches {

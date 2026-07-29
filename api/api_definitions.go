@@ -2,6 +2,10 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -64,27 +68,76 @@ type APIEndpointListResponse struct {
 	Count int64             `json:"count"`
 }
 
-// ListAPIDefinitions godoc
-// @Summary List API definitions
-// @Description Returns a list of API definitions with optional filtering
-// @Tags api-definitions
-// @Accept json
-// @Produce json
-// @Param workspace_id query int false "Filter by workspace ID"
-// @Param scan_id query int false "Filter by scan ID"
-// @Param type query string false "Filter by type (openapi, graphql, wsdl)"
-// @Param status query string false "Filter by status"
-// @Param page query int false "Page number"
-// @Param page_size query int false "Page size"
-// @Success 200 {object} APIDefinitionListResponse
-// @Failure 500 {object} ErrorResponse
-// @Security ApiKeyAuth
-// @Router /api/v1/api-definitions [get]
-func ListAPIDefinitions(c *fiber.Ctx) error {
+// apiDefinitionSortFields mirrors the whitelist db.ListAPIDefinitions applies
+// (the validSortBy map in db/api_definition.go). Sorting is interpolated into
+// the ORDER BY clause down there, so the set has to stay a closed list; keeping
+// a copy here lets the handler answer a bad column with a 400 instead of
+// letting the db layer silently fall back to "created_at desc" — a sort the
+// caller asked for and did not get is worse than an error.
+var apiDefinitionSortFields = []string{
+	"id",
+	"created_at",
+	"updated_at",
+	"name",
+	"type",
+	"status",
+	"endpoint_count",
+}
+
+var apiDefinitionTypes = []db.APIDefinitionType{
+	db.APIDefinitionTypeOpenAPI,
+	db.APIDefinitionTypeGraphQL,
+	db.APIDefinitionTypeWSDL,
+}
+
+var apiDefinitionStatuses = []db.APIDefinitionStatus{
+	db.APIDefinitionStatusParsed,
+	db.APIDefinitionStatusScanning,
+	db.APIDefinitionStatusCompleted,
+	db.APIDefinitionStatusFailed,
+}
+
+// parseAPIEnumList reads a comma-separated query value into a slice of string
+// enum values, rejecting anything outside allowed. Empty input yields a nil
+// slice, which the db layer reads as "no filter".
+func parseAPIEnumList[T ~string](raw string, allowed []T, param string) ([]T, error) {
+	var out []T
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.ToLower(strings.TrimSpace(part))
+		if part == "" {
+			continue
+		}
+		value := T(part)
+		if !slices.Contains(allowed, value) {
+			return nil, fmt.Errorf("%s must be one of: %s", param, joinAPIEnumValues(allowed))
+		}
+		out = append(out, value)
+	}
+	return out, nil
+}
+
+func joinAPIEnumValues[T ~string](values []T) string {
+	parts := make([]string, len(values))
+	for i, value := range values {
+		parts[i] = string(value)
+	}
+	return strings.Join(parts, ", ")
+}
+
+// buildAPIDefinitionFilter reads every filter db.ListAPIDefinitions understands
+// off the query string. It is split out of the handler so the parsing and
+// validation rules can be exercised without a database.
+func buildAPIDefinitionFilter(c *fiber.Ctx) (db.APIDefinitionFilter, error) {
+	page := c.QueryInt("page", 1)
+	if page < 1 {
+		page = 1
+	}
+
 	filter := db.APIDefinitionFilter{
+		Query:       strings.TrimSpace(c.Query("query")),
 		WorkspaceID: uint(c.QueryInt("workspace_id", 0)),
 		Pagination: db.Pagination{
-			Page:     c.QueryInt("page", 1),
+			Page:     page,
 			PageSize: c.QueryInt("page_size", 20),
 		},
 	}
@@ -94,12 +147,76 @@ func ListAPIDefinitions(c *fiber.Ctx) error {
 		filter.ScanID = &sid
 	}
 
-	if typeFilter := c.Query("type"); typeFilter != "" {
-		filter.Types = []db.APIDefinitionType{db.APIDefinitionType(typeFilter)}
+	// Both enums accept a comma-separated list: the db layer matches them with
+	// IN, and the UI serialises multi-selects that way.
+	types, err := parseAPIEnumList(c.Query("type"), apiDefinitionTypes, "type")
+	if err != nil {
+		return filter, err
+	}
+	filter.Types = types
+
+	statuses, err := parseAPIEnumList(c.Query("status"), apiDefinitionStatuses, "status")
+	if err != nil {
+		return filter, err
+	}
+	filter.Statuses = statuses
+
+	if raw := strings.TrimSpace(c.Query("auto_discovered")); raw != "" {
+		autoDiscovered, parseErr := strconv.ParseBool(raw)
+		if parseErr != nil {
+			return filter, errors.New("auto_discovered must be a boolean")
+		}
+		filter.AutoDiscovered = &autoDiscovered
 	}
 
-	if statusFilter := c.Query("status"); statusFilter != "" {
-		filter.Statuses = []db.APIDefinitionStatus{db.APIDefinitionStatus(statusFilter)}
+	sortBy := strings.ToLower(strings.TrimSpace(c.Query("sort_by")))
+	if sortBy != "" && !slices.Contains(apiDefinitionSortFields, sortBy) {
+		return filter, fmt.Errorf("sort_by must be one of: %s", strings.Join(apiDefinitionSortFields, ", "))
+	}
+
+	sortOrder := strings.ToLower(strings.TrimSpace(c.Query("sort_order")))
+	if sortOrder != "" && sortOrder != "asc" && sortOrder != "desc" {
+		return filter, errors.New("sort_order must be either asc or desc")
+	}
+
+	// The db layer only applies sort_order next to a whitelisted sort_by, so a
+	// bare sort_order would look accepted and change nothing. Anchor it to the
+	// default column instead, which is the order the caller was already seeing.
+	if sortBy == "" && sortOrder != "" {
+		sortBy = "created_at"
+	}
+
+	filter.SortBy = sortBy
+	filter.SortOrder = sortOrder
+
+	return filter, nil
+}
+
+// ListAPIDefinitions godoc
+// @Summary List API definitions
+// @Description Returns a list of API definitions with optional filtering
+// @Tags api-definitions
+// @Accept json
+// @Produce json
+// @Param workspace_id query int false "Filter by workspace ID"
+// @Param scan_id query int false "Filter by scan ID"
+// @Param query query string false "Search by name, base URL or source URL"
+// @Param type query string false "Filter by type, comma separated" Enums(openapi, graphql, wsdl)
+// @Param status query string false "Filter by status, comma separated" Enums(parsed, scanning, completed, failed)
+// @Param auto_discovered query bool false "Filter by whether the definition was auto discovered"
+// @Param sort_by query string false "Field to sort by" Enums(id, created_at, updated_at, name, type, status, endpoint_count) default(created_at)
+// @Param sort_order query string false "Sort order" Enums(asc, desc) default(desc)
+// @Param page query int false "Page number"
+// @Param page_size query int false "Page size"
+// @Success 200 {object} APIDefinitionListResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Security ApiKeyAuth
+// @Router /api/v1/api-definitions [get]
+func ListAPIDefinitions(c *fiber.Ctx) error {
+	filter, err := buildAPIDefinitionFilter(c)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid filter", err.Error()))
 	}
 
 	items, count, err := db.Connection().ListAPIDefinitions(filter)

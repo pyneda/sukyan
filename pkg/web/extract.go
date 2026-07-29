@@ -11,17 +11,29 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// GetPageAnchors find anchors on the given page
+// GetPageAnchors find anchors on the given page. Extracted URLs keep their
+// fragment through ResolveClientRoute so hash-routed applications (hashbang and
+// hash-mode routers) expose their route table instead of collapsing to a single
+// document URL.
 func GetPageAnchors(p *rod.Page) (anchors []string, err error) {
 	anchors = []string{}
 	evalResult, err := p.Eval(GetLinks)
 	if err != nil {
 		return nil, err
 	}
-	for _, link := range evalResult.Value.Arr() {
-		anchors = append(anchors, link.String())
+	baseURI := evalResult.Value.Get("baseURI").Str()
+	seen := make(map[string]struct{})
+	for _, link := range evalResult.Value.Get("urls").Arr() {
+		resolved, ok := ResolveClientRoute(link.Str(), baseURI)
+		if !ok {
+			continue
+		}
+		if _, dup := seen[resolved]; dup {
+			continue
+		}
+		seen[resolved] = struct{}{}
+		anchors = append(anchors, resolved)
 	}
-	// log.Info().Strs("anchors", anchors).Int("count", len(anchors)).Msg("Page anchors gathered")
 	return anchors, nil
 }
 

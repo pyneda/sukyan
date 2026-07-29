@@ -58,6 +58,21 @@ type APIDefinitionResponse struct {
 	Stats *db.APIDefinitionStats `json:"stats,omitempty"`
 }
 
+// CreateAPIDefinitionResponse is the create response, which carries one field the
+// read response does not.
+//
+// Created states outright whether the request stored a new definition. Importing
+// used to reuse whatever row already held the same source URL — every pasted
+// import in a workspace shared one, since they were all stored under "/" — and
+// answer 201 anyway, so the UI reported "imported" for a request that had taken
+// over somebody else's definition. Imports are additive now and this is always
+// true, but the caller reads it instead of assuming it.
+type CreateAPIDefinitionResponse struct {
+	db.APIDefinition
+	Stats   *db.APIDefinitionStats `json:"stats,omitempty"`
+	Created bool                   `json:"created"`
+}
+
 type APIDefinitionListResponse struct {
 	Items []*db.APIDefinition `json:"items"`
 	Count int64               `json:"count"`
@@ -505,12 +520,12 @@ func ToggleAllEndpoints(c *fiber.Ctx) error {
 
 // CreateAPIDefinition godoc
 // @Summary Create API definition
-// @Description Creates a new API definition by parsing from URL or provided content
+// @Description Creates a new API definition by parsing from URL or provided content. Always stores a new definition: importing a source URL that is already in the library adds one rather than replacing it.
 // @Tags api-definitions
 // @Accept json
 // @Produce json
 // @Param input body CreateAPIDefinitionInput true "API definition input"
-// @Success 201 {object} APIDefinitionResponse
+// @Success 201 {object} CreateAPIDefinitionResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
@@ -567,14 +582,18 @@ func CreateAPIDefinition(c *fiber.Ctx) error {
 	definition, err := pkgapi.ImportAPIDefinition(fetched.Content, fetched.SourceURL, opts)
 	if err != nil {
 		log.Error().Err(err).Str("type", string(fetched.Type)).Msg("Failed to create API definition")
+		if errors.Is(err, pkgapi.ErrInvalidDefinition) {
+			return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Failed to parse API definition", err.Error()))
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(NewErrorResponse("Failed to create API definition", err.Error()))
 	}
 
 	stats, _ := db.Connection().GetAPIDefinitionStats(definition.ID)
 
-	return c.Status(fiber.StatusCreated).JSON(APIDefinitionResponse{
+	return c.Status(fiber.StatusCreated).JSON(CreateAPIDefinitionResponse{
 		APIDefinition: *definition,
 		Stats:         stats,
+		Created:       true,
 	})
 }
 
@@ -975,6 +994,9 @@ func ImportAndScanAPIDefinition(c *fiber.Ctx) error {
 	definition, err := pkgapi.ImportAPIDefinition(fetched.Content, fetched.SourceURL, importOpts)
 	if err != nil {
 		log.Error().Err(err).Str("type", string(fetched.Type)).Msg("Failed to create API definition")
+		if errors.Is(err, pkgapi.ErrInvalidDefinition) {
+			return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Failed to parse API definition", err.Error()))
+		}
 		return c.Status(fiber.StatusInternalServerError).JSON(NewErrorResponse("Failed to create API definition", err.Error()))
 	}
 

@@ -133,6 +133,32 @@ func TestDetectAPIType(t *testing.T) {
 			sourceURL: "https://example.com/graphql",
 			want:      db.APIDefinitionTypeWSDL,
 		},
+		{
+			name:      "graphql sdl with a root operation type",
+			content:   "type Query {\n  hello: String\n}\n",
+			sourceURL: "",
+			want:      db.APIDefinitionTypeGraphQL,
+		},
+		{
+			name:      "graphql sdl with an explicit schema block",
+			content:   "schema {\n  query: RootQuery\n}\n\ntype RootQuery { hello: String }\n",
+			sourceURL: "",
+			want:      db.APIDefinitionTypeGraphQL,
+		},
+		{
+			name:      "graphql sdl extending a root type",
+			content:   "extend type Mutation {\n  ping: String\n}\n",
+			sourceURL: "",
+			want:      db.APIDefinitionTypeGraphQL,
+		},
+		{
+			// The SDL match must not claim a spec that merely mentions one of its
+			// keywords inside a description or an example.
+			name:      "openapi spec describing a graphql type is still openapi",
+			content:   `{"openapi": "3.0.0", "info": {"description": "type Query { hello: String }"}}`,
+			sourceURL: "https://example.com/api.json",
+			want:      db.APIDefinitionTypeOpenAPI,
+		},
 	}
 
 	for _, tt := range tests {

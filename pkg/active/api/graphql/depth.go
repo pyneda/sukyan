@@ -78,7 +78,7 @@ func (a *DepthLimitAudit) Run() {
 	var testCases []depthTestCase
 
 	if len(a.Definition.RawDefinition) > 0 {
-		schema, err := pkgGraphql.NewParser().ParseFromJSON(a.Definition.RawDefinition)
+		schema, err := pkgGraphql.NewParser().ParseSchema(a.Definition.RawDefinition)
 		if err == nil && schema != nil {
 			testCases = getSchemaAwareDepthTestCases(schema)
 			auditLog.Debug().Int("test_cases", len(testCases)).Msg("Generated schema-aware depth test cases")

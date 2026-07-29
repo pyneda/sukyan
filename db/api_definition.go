@@ -309,7 +309,17 @@ func (d *DatabaseConnection) APIDefinitionExists(id uuid.UUID) (bool, error) {
 	return count > 0, err
 }
 
+// APIDefinitionExistsBySourceURL reports whether the workspace already holds a
+// definition imported from this URL.
+//
+// A definition stored with no source URL — pasted content, which has none — is
+// never a match. Two pasted imports are two definitions, and answering "yes" for
+// the empty string would make each new paste resolve to whichever earlier paste
+// the database returned first.
 func (d *DatabaseConnection) APIDefinitionExistsBySourceURL(workspaceID uint, sourceURL string) (bool, error) {
+	if sourceURL == "" {
+		return false, nil
+	}
 	var count int64
 	err := d.db.Model(&APIDefinition{}).
 		Where("workspace_id = ? AND source_url = ?", workspaceID, sourceURL).
@@ -317,7 +327,12 @@ func (d *DatabaseConnection) APIDefinitionExistsBySourceURL(workspaceID uint, so
 	return count > 0, err
 }
 
+// GetAPIDefinitionBySourceURL looks a definition up by the URL it was imported
+// from. An empty URL identifies nothing — see APIDefinitionExistsBySourceURL.
 func (d *DatabaseConnection) GetAPIDefinitionBySourceURL(workspaceID uint, sourceURL string) (*APIDefinition, error) {
+	if sourceURL == "" {
+		return nil, fmt.Errorf("a source URL is required to look up an API definition")
+	}
 	var definition APIDefinition
 	err := d.db.Where("workspace_id = ? AND source_url = ?", workspaceID, sourceURL).First(&definition).Error
 	if err != nil {

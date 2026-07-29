@@ -373,3 +373,49 @@ func TestFormFillAndScrollOnPage2(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, isBottomVisible, "Bottom section should be visible after scrolling")
 }
+
+func TestExecuteActionsCapturesEvaluationValue(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	server := startTestServer()
+	defer server.Shutdown(context.Background())
+
+	rodBrowser := setupRodBrowser(t, true)
+	defer rodBrowser.Close()
+
+	page := rodBrowser.MustPage("http://localhost:9999/page1")
+	page.MustWaitLoad()
+
+	acts := []Action{
+		{Type: ActionEvaluate, Expression: `() => document.title`},
+		{Type: ActionEvaluate, Expression: `() => [1, 2, 3]`},
+		{Type: ActionEvaluate, Expression: `() => ({a: 1})`},
+		{Type: ActionEvaluate, Expression: `() => 42`},
+	}
+
+	results, err := ExecuteActions(ctx, page, acts)
+	assert.NoError(t, err)
+	assert.Equal(t, 4, len(results.Steps))
+
+	strEval := results.Steps[0].Evaluation
+	assert.NotNil(t, strEval, "evaluate step carries an evaluation payload")
+	assert.Equal(t, `() => document.title`, strEval.Expression)
+	assert.Equal(t, "string", strEval.Type)
+	assert.JSONEq(t, `"Test Page"`, string(strEval.Value))
+
+	arrEval := results.Steps[1].Evaluation
+	assert.NotNil(t, arrEval)
+	assert.Equal(t, "array", arrEval.Type, "type is derived from the serialized value, not Chrome's RemoteObject.Subtype")
+	assert.JSONEq(t, `[1,2,3]`, string(arrEval.Value))
+
+	objEval := results.Steps[2].Evaluation
+	assert.NotNil(t, objEval)
+	assert.Equal(t, "object", objEval.Type)
+	assert.JSONEq(t, `{"a":1}`, string(objEval.Value))
+
+	numEval := results.Steps[3].Evaluation
+	assert.NotNil(t, numEval)
+	assert.Equal(t, "number", numEval.Type)
+	assert.JSONEq(t, `42`, string(numEval.Value))
+}

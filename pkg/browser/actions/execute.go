@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -315,6 +316,18 @@ func executeAction(ctx context.Context, page *rod.Page, action Action, actionLog
 			actionLogger.Log(lib.ERROR, fmt.Sprintf("failed to evaluate JavaScript: %s", err))
 			return out, fmt.Errorf("error evaluating JavaScript: %w", err)
 		}
+
+		evaluation := &EvaluationResult{
+			Expression: action.Expression,
+		}
+		if raw, marshalErr := json.Marshal(result.Value); marshalErr == nil {
+			evaluation.Value = raw
+		} else {
+			actionLogger.Log(lib.WARN, fmt.Sprintf("could not serialize evaluation result: %s", marshalErr))
+		}
+		evaluation.Type = evaluationValueType(evaluation.Value, result)
+		out.evaluation = evaluation
+
 		actionLogger.Log(lib.INFO, fmt.Sprintf("evaluated JavaScript with result: %v", result.Value.String()))
 		log.Info().Str("expression", action.Expression).Interface("result", result).Msg("Browser action evaluated JavaScript")
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/scan/manager"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
 
@@ -129,6 +130,8 @@ type OrchestratorConfigInfo struct {
 type ScanInfo struct {
 	ID                 uint       `json:"id"`
 	Title              string     `json:"title"`
+	WorkspaceID        uint       `json:"workspace_id"`
+	WorkspaceTitle     string     `json:"workspace_title"`
 	Status             string     `json:"status"`
 	Phase              string     `json:"phase"`
 	StartedAt          *time.Time `json:"started_at,omitempty"`
@@ -209,6 +212,13 @@ type GlobalQueueStatsInfo struct {
 // @Success 200 {object} DashboardStats
 // @Router /api/v1/dashboard/stats [get]
 func GetDashboardStats(c *fiber.Ctx, scanManager *manager.ScanManager) error {
+	return c.JSON(buildDashboardStats(scanManager))
+}
+
+// buildDashboardStats computes deployment-wide state. It is shared by the
+// basic-auth HTML dashboard and the JWT-protected /api/v1/stats/deployment
+// endpoint so the two can never drift.
+func buildDashboardStats(scanManager *manager.ScanManager) DashboardStats {
 	stats := DashboardStats{
 		Timestamp:       time.Now(),
 		RefreshInterval: viper.GetInt("api.dashboard.refresh_interval"),
@@ -326,13 +336,54 @@ func GetDashboardStats(c *fiber.Ctx, scanManager *manager.ScanManager) error {
 		stats.SystemStats = &sysStats
 	}
 
-	return c.JSON(stats)
+	resolveScanWorkspaceTitles(stats.ActiveScans, stats.PausedScans, stats.RecentScans)
+
+	return stats
+}
+
+// resolveScanWorkspaceTitles fills WorkspaceTitle across every scan list using a
+// single query, rather than one lookup per scan.
+func resolveScanWorkspaceTitles(lists ...[]ScanInfo) {
+	idSet := make(map[uint]struct{})
+	for _, list := range lists {
+		for _, info := range list {
+			if info.WorkspaceID != 0 {
+				idSet[info.WorkspaceID] = struct{}{}
+			}
+		}
+	}
+	if len(idSet) == 0 {
+		return
+	}
+
+	ids := make([]uint, 0, len(idSet))
+	for id := range idSet {
+		ids = append(ids, id)
+	}
+
+	var workspaces []db.Workspace
+	if err := db.Connection().DB().Model(&db.Workspace{}).Where("id IN ?", ids).Find(&workspaces).Error; err != nil {
+		log.Warn().Err(err).Msg("Failed to resolve workspace titles for dashboard scans")
+		return
+	}
+
+	titles := make(map[uint]string, len(workspaces))
+	for _, ws := range workspaces {
+		titles[ws.ID] = ws.Title
+	}
+
+	for _, list := range lists {
+		for i := range list {
+			list[i].WorkspaceTitle = titles[list[i].WorkspaceID]
+		}
+	}
 }
 
 func buildScanInfo(scan *db.Scan) ScanInfo {
 	info := ScanInfo{
 		ID:            scan.ID,
 		Title:         scan.Title,
+		WorkspaceID:   scan.WorkspaceID,
 		Status:        string(scan.Status),
 		Phase:         string(scan.Phase),
 		StartedAt:     scan.StartedAt,
@@ -494,8 +545,6 @@ func getRecentFailedJobs(scanID uint) []FailedJobInfo {
 
 // getWorkerNodesInfo retrieves information about all registered worker nodes
 func getWorkerNodesInfo() *WorkerNodesInfo {
-	heartbeatThreshold := 2 * time.Minute
-
 	// Get all worker nodes
 	nodes, err := db.Connection().GetAllWorkerNodes()
 	if err != nil {
@@ -521,7 +570,7 @@ func getWorkerNodesInfo() *WorkerNodesInfo {
 	}
 
 	for _, node := range nodes {
-		isStale := node.Status == db.WorkerNodeStatusRunning && time.Since(node.LastSeenAt) > heartbeatThreshold
+		isStale := node.Status == db.WorkerNodeStatusRunning && time.Since(node.LastSeenAt) > workerHeartbeatThreshold
 		nodeInfo := WorkerNodeInfo{
 			ID:            node.ID,
 			Hostname:      node.Hostname,

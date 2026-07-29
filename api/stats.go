@@ -11,6 +11,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// workerHeartbeatThreshold is how long a worker node may go without a heartbeat
+// before it is treated as stale. Shared by the worker listing, the cleanup
+// endpoint and the dashboard so the UI and the reaper never disagree.
+const workerHeartbeatThreshold = 2 * time.Minute
+
 // WorkspaceStats retrieves statistics for a given workspace.
 //
 // @Summary Retrieves workspace statistics including counts of issues, history entries, JWTs,
@@ -103,9 +108,8 @@ func ListWorkerNodes(c *fiber.Ctx) error {
 	}
 
 	// Mark stale workers in the response
-	heartbeatThreshold := 2 * time.Minute
 	for _, node := range nodes {
-		if node.Status == db.WorkerNodeStatusRunning && time.Since(node.LastSeenAt) > heartbeatThreshold {
+		if node.Status == db.WorkerNodeStatusRunning && time.Since(node.LastSeenAt) > workerHeartbeatThreshold {
 			// Add stale indicator - we could add a computed field to the response
 			// For now, the frontend can compute this from LastSeenAt
 		}
@@ -130,9 +134,7 @@ func ListWorkerNodes(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/stats/workers/cleanup [post]
 func CleanupStaleWorkers(c *fiber.Ctx) error {
-	heartbeatThreshold := 2 * time.Minute
-
-	resetCount, affectedScanIDs, err := db.Connection().ResetJobsFromStaleWorkers(heartbeatThreshold)
+	resetCount, affectedScanIDs, err := db.Connection().ResetJobsFromStaleWorkers(workerHeartbeatThreshold)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to cleanup stale workers")
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{
@@ -229,4 +231,21 @@ func ListWorkspaceRollupsHandler(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(WorkspaceRollupsResponse{Data: rows, Count: count})
+}
+
+// GetDeploymentStatsHandler returns deployment-wide state for the global overview.
+//
+// @Summary Retrieves deployment-wide state: orchestrator, workers, queue and scans.
+// @Description Returns the same payload as the embedded admin dashboard, exposed under
+// JWT so the main UI can render a global overview. Includes orchestrator and manager
+// state, worker nodes, active and paused scans across all workspaces, global queue
+// stats, throughput and job duration percentiles.
+// @Tags Stats
+// @Accept json
+// @Produce json
+// @Success 200 {object} DashboardStats "Successfully retrieved deployment stats"
+// @Security ApiKeyAuth
+// @Router /api/v1/stats/deployment [get]
+func GetDeploymentStatsHandler(c *fiber.Ctx) error {
+	return c.Status(http.StatusOK).JSON(buildDashboardStats(GetScanManager()))
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/rs/zerolog/log"
 )
@@ -38,9 +39,23 @@ type EncodingTestOptions struct {
 	TestAllEncodings bool // Test URL encoded, double encoded, etc.
 }
 
-// CanaryPrefix is used to wrap test characters for easier detection
+// CanaryPrefix and CanarySuffix bracket every reflection probe. The prefix is a
+// fixed family marker so scanner-injected content stays recognisable anywhere
+// without per-request state; the nonce between them is what makes a match
+// attributable to the request that sent it. Endpoints that store what we submit
+// echo earlier probes back on later responses, so matching on the fixed part
+// alone reports our own residue as live reflection.
 const CanaryPrefix = "st4r7s"
 const CanarySuffix = "3nd"
+
+// NewCanaryNonce returns the per-request component of a canary.
+func NewCanaryNonce() string {
+	return lib.GenerateRandomLowercaseString(8)
+}
+
+func canaryPayload(nonce, value string) string {
+	return CanaryPrefix + nonce + value + CanarySuffix
+}
 
 // AnalyzeCharacterEfficiencies tests each special character to determine how it's handled
 // This is inspired by XSStrike's filterChecker approach
@@ -75,8 +90,8 @@ func testCharacterEfficiency(
 	client *http.Client,
 	historyOptions http_utils.HistoryCreationOptions,
 ) CharacterEfficiency {
-	// Create the test payload: st4r7s<char>3nd
-	testPayload := CanaryPrefix + char + CanarySuffix
+	nonce := NewCanaryNonce()
+	testPayload := canaryPayload(nonce, char)
 
 	result := CharacterEfficiency{
 		Char:       char,
@@ -112,7 +127,7 @@ func testCharacterEfficiency(
 	}
 
 	// Check if the character was escaped (backslash added)
-	escapedPayload := CanaryPrefix + "\\" + char + CanarySuffix
+	escapedPayload := canaryPayload(nonce, "\\"+char)
 	if strings.Contains(body, escapedPayload) {
 		result.Efficiency = 90
 		result.EncodedAs = "\\" + char
@@ -122,7 +137,7 @@ func testCharacterEfficiency(
 	// Check for HTML entity encoding
 	htmlEncoded := html.EscapeString(char)
 	if htmlEncoded != char {
-		htmlEncodedPayload := CanaryPrefix + htmlEncoded + CanarySuffix
+		htmlEncodedPayload := canaryPayload(nonce, htmlEncoded)
 		if strings.Contains(body, htmlEncodedPayload) {
 			result.Efficiency = getHTMLEncodedEfficiency(char)
 			result.EncodedAs = htmlEncoded
@@ -133,7 +148,7 @@ func testCharacterEfficiency(
 	// Check for URL encoding
 	urlEncoded := url.QueryEscape(char)
 	if urlEncoded != char {
-		urlEncodedPayload := CanaryPrefix + urlEncoded + CanarySuffix
+		urlEncodedPayload := canaryPayload(nonce, urlEncoded)
 		if strings.Contains(body, urlEncodedPayload) {
 			result.Efficiency = 50
 			result.EncodedAs = urlEncoded
@@ -144,7 +159,7 @@ func testCharacterEfficiency(
 	// Check for numeric HTML entities
 	numericEntity := getNumericHTMLEntity(char)
 	if numericEntity != "" {
-		numericPayload := CanaryPrefix + numericEntity + CanarySuffix
+		numericPayload := canaryPayload(nonce, numericEntity)
 		if strings.Contains(body, numericPayload) {
 			result.Efficiency = getHTMLEncodedEfficiency(char)
 			result.EncodedAs = numericEntity
@@ -152,8 +167,8 @@ func testCharacterEfficiency(
 		}
 	}
 
-	// Check if the canary markers are present but the char is stripped
-	if strings.Contains(body, CanaryPrefix) && strings.Contains(body, CanarySuffix) {
+	// Check if this probe's canary markers are present but the char is stripped
+	if strings.Contains(body, CanaryPrefix+nonce) && strings.Contains(body, CanarySuffix) {
 		// Character was stripped/filtered
 		result.Efficiency = 0
 		result.EncodedAs = "[stripped]"

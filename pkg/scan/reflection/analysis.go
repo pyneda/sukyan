@@ -74,7 +74,7 @@ func AnalyzeReflection(
 	}
 
 	// Step 1: Send a request with a canary to detect reflection
-	canary := CanaryPrefix + "test" + CanarySuffix
+	canary := canaryPayload(NewCanaryNonce(), "")
 	responseBody, err := sendCanaryRequest(originalItem, insertionPoint, canary, client, options.HistoryCreationOptions)
 	if err != nil {
 		log.Debug().Err(err).Msg("Failed to send canary request for reflection analysis")

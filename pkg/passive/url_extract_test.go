@@ -564,3 +564,62 @@ func TestAnalyzeURLRejectsSchemeOpaquePortMaps(t *testing.T) {
 		t.Error("expected a script port map to be rejected, it was accepted as a URL")
 	}
 }
+
+func TestExtractAndAnalyzeURLSResolvesEscapedSlashes(t *testing.T) {
+	tests := []struct {
+		name     string
+		response string
+		want     []string
+	}{
+		{
+			name:     "json_encode route table in a script",
+			response: `<script>var routes=["\/about","\/team\/list.php"];</script>`,
+			want:     []string{"http://example.com/about", "http://example.com/team/list.php"},
+		},
+		{
+			name:     "json_encode payload in an attribute",
+			response: `<div data-routes='["\/admin\/panel.php"]'></div>`,
+			want:     []string{"http://example.com/admin/panel.php"},
+		},
+		{
+			name:     "escaped quotes and escaped slashes together",
+			response: `<script>push([1,"{\"href\":\"\/about\/team.html\"}"])</script>`,
+			want:     []string{"http://example.com/about/team.html"},
+		},
+		{
+			name:     "escaped absolute url",
+			response: `<script>var cdn="https:\/\/cdn.example.org\/app.js";</script>`,
+			want:     []string{"https://cdn.example.org/app.js"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ExtractAndAnalyzeURLS(tt.response, "http://example.com/")
+			if len(got.Web) != len(tt.want) {
+				t.Fatalf("web URLs got %v, want %v", got.Web, tt.want)
+			}
+			for i := range tt.want {
+				if got.Web[i] != tt.want[i] {
+					t.Errorf("web URLs got %v, want %v", got.Web, tt.want)
+				}
+			}
+		})
+	}
+}
+
+func TestExtractURLsNormalizesEscapedSlashesForBothExtractors(t *testing.T) {
+	escaped := `<script>var cdn=https:\/\/cdn.example.org\/app.js;</script>`
+
+	if raw := extractURLsGeneric(escaped); len(raw) != 0 {
+		t.Fatalf("premise changed: the generic extractor now reads escaped text on its own, got %v", raw)
+	}
+
+	got := ExtractURLs(escaped)
+	for _, u := range got {
+		if u == "https://cdn.example.org/app.js" {
+			return
+		}
+	}
+	t.Errorf("unquoted escaped absolute URL was not recovered by the generic extractor, got %v", got)
+}

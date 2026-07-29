@@ -12,6 +12,11 @@ import (
 	"github.com/pyneda/sukyan/pkg/http_utils"
 )
 
+// ErrInvalidDefinition reports a document that could not be parsed as the API
+// definition it claimed to be. It is the caller's input that is wrong, so import
+// handlers answer it with a 400 rather than a 500.
+var ErrInvalidDefinition = discovery.ErrInvalidDefinitionContent
+
 type ImportOptions struct {
 	WorkspaceID  uint
 	Name         string
@@ -60,6 +65,9 @@ func FetchAPIContent(url, content, typeHint string) (*FetchedContent, error) {
 	return result, nil
 }
 
+// ImportAPIDefinition stores a new definition parsed from content the caller
+// already holds. It never replaces a definition that is already in the library —
+// see discovery.PersistAPIDefinitionFromContent for why.
 func ImportAPIDefinition(content []byte, sourceURL string, opts ImportOptions) (*db.APIDefinition, error) {
 	apiType := db.APIDefinitionType(opts.Type)
 	if apiType == "" {

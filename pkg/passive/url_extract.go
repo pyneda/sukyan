@@ -116,6 +116,13 @@ func ExtractAndAnalyzeURLS(response string, extractedFromURL string) ExtractedUR
 }
 
 func ExtractURLs(response string) []string {
+	// PHP's json_encode escapes every slash by default, so an inlined route table
+	// reads "\/about" and matches nothing until the escapes are undone. Both
+	// extractors read the same normalized text so they cannot disagree on a body.
+	if strings.Contains(response, `\/`) {
+		response = strings.ReplaceAll(response, `\/`, "/")
+	}
+
 	quoted := extractQuotedURLs(response)
 	generic := extractURLsGeneric(response)
 	return mergeURLs(quoted, generic)

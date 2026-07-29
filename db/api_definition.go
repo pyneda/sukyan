@@ -194,6 +194,21 @@ func (d *DatabaseConnection) UpdateAPIDefinition(definition *APIDefinition) (*AP
 	return definition, result.Error
 }
 
+// UpdateAPIDefinitionFields writes only the named columns, leaving every column the
+// caller did not name — endpoint_count and the per-protocol counters above all — as
+// the parse stored them. Prefer it over UpdateAPIDefinition whenever the caller holds
+// a partial or possibly stale struct, since Save rewrites every column from memory.
+func (d *DatabaseConnection) UpdateAPIDefinitionFields(id uuid.UUID, updates map[string]interface{}) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	result := d.db.Model(&APIDefinition{}).Where("id = ?", id).Updates(updates)
+	if result.Error != nil {
+		log.Error().Err(result.Error).Str("id", id.String()).Interface("updates", updates).Msg("APIDefinition field update failed")
+	}
+	return result.Error
+}
+
 func (d *DatabaseConnection) DeleteAPIDefinition(id uuid.UUID) error {
 	return d.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&ScanJob{}).
@@ -219,7 +234,7 @@ func (d *DatabaseConnection) ListAPIDefinitions(filter APIDefinitionFilter) (ite
 	query := d.db.Model(&APIDefinition{})
 
 	if filter.Query != "" {
-		likeQuery := "%" + filter.Query + "%"
+		likeQuery := containsPattern(filter.Query)
 		query = query.Where("name ILIKE ? OR base_url ILIKE ? OR source_url ILIKE ?", likeQuery, likeQuery, likeQuery)
 	}
 
@@ -294,7 +309,17 @@ func (d *DatabaseConnection) APIDefinitionExists(id uuid.UUID) (bool, error) {
 	return count > 0, err
 }
 
+// APIDefinitionExistsBySourceURL reports whether the workspace already holds a
+// definition imported from this URL.
+//
+// A definition stored with no source URL — pasted content, which has none — is
+// never a match. Two pasted imports are two definitions, and answering "yes" for
+// the empty string would make each new paste resolve to whichever earlier paste
+// the database returned first.
 func (d *DatabaseConnection) APIDefinitionExistsBySourceURL(workspaceID uint, sourceURL string) (bool, error) {
+	if sourceURL == "" {
+		return false, nil
+	}
 	var count int64
 	err := d.db.Model(&APIDefinition{}).
 		Where("workspace_id = ? AND source_url = ?", workspaceID, sourceURL).
@@ -302,7 +327,12 @@ func (d *DatabaseConnection) APIDefinitionExistsBySourceURL(workspaceID uint, so
 	return count > 0, err
 }
 
+// GetAPIDefinitionBySourceURL looks a definition up by the URL it was imported
+// from. An empty URL identifies nothing — see APIDefinitionExistsBySourceURL.
 func (d *DatabaseConnection) GetAPIDefinitionBySourceURL(workspaceID uint, sourceURL string) (*APIDefinition, error) {
+	if sourceURL == "" {
+		return nil, fmt.Errorf("a source URL is required to look up an API definition")
+	}
 	var definition APIDefinition
 	err := d.db.Where("workspace_id = ? AND source_url = ?", workspaceID, sourceURL).First(&definition).Error
 	if err != nil {

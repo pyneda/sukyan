@@ -26,7 +26,10 @@ func (p *Parser) Parse(definition *db.APIDefinition) ([]core.Operation, *pkgGrap
 	}
 
 	parser := pkgGraphql.NewParser()
-	schema, err := parser.ParseFromJSON(definition.RawDefinition)
+	// ParseSchema, not ParseFromJSON: a definition imported from a pasted SDL
+	// document stores that SDL as its raw definition, and reading it back as
+	// introspection JSON would leave the whole definition unscannable.
+	schema, err := parser.ParseSchema(definition.RawDefinition)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to parse GraphQL schema: %w", err)
 	}

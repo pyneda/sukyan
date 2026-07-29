@@ -173,17 +173,9 @@ function getLinks() {
 
     
 
-    array = array.filter(item => item.startsWith("http")).map(item => {
-        try {
-            let url = new URL(item);
-            url.hash = '';
-            return url.href;
-        } catch (error) {
-            return item;
-        }
-    });
+    array = array.filter(item => item.startsWith("http"));
 
     return [...new Set(array)];
 }
-return getLinks();
+return { urls: getLinks(), baseURI: document.baseURI };
 }`

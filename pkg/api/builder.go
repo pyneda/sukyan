@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/pyneda/sukyan/db"
@@ -13,6 +14,12 @@ import (
 	"github.com/pyneda/sukyan/pkg/api/soap"
 	pkgGraphql "github.com/pyneda/sukyan/pkg/graphql"
 )
+
+// graphqlSDLPattern matches the declarations only a GraphQL SDL document has: a
+// root operation type or an explicit schema block. It is anchored to the start of
+// a line so a mention inside a description or an example in some other document
+// does not claim the content.
+var graphqlSDLPattern = regexp.MustCompile(`(?m)^\s*(?:extend\s+)?(?:type\s+(?:Query|Mutation|Subscription)\b|schema\s*\{)`)
 
 func DetectAPIType(content []byte, sourceURL string) db.APIDefinitionType {
 	contentStr := string(content)
@@ -39,6 +46,14 @@ func DetectAPIType(content []byte, sourceURL string) db.APIDefinitionType {
 	if strings.Contains(contentStr, "__schema") ||
 		strings.Contains(contentStr, "queryType") ||
 		strings.Contains(contentStr, "mutationType") {
+		return db.APIDefinitionTypeGraphQL
+	}
+
+	// An SDL document is a GraphQL schema just as much as an introspection
+	// response is, and it carries none of the markers above. Without this a pasted
+	// schema is taken for OpenAPI and rejected with an OpenAPI parse error that
+	// says nothing about what was actually wrong.
+	if graphqlSDLPattern.MatchString(contentStr) {
 		return db.APIDefinitionTypeGraphQL
 	}
 

@@ -1176,3 +1176,43 @@ func buildSingleArgIntrospection(scalarName string) string {
 		"directives":[]
 	}}}`
 }
+
+// A definition imported from a pasted schema stores that SDL as its raw
+// definition. Reading it back as introspection JSON would leave every such
+// definition unscannable — the scan would build no operations at all.
+func TestParse_StoredSDLDefinition(t *testing.T) {
+	const sdl = `
+type Query {
+  order(id: ID!): Order
+}
+
+type Mutation {
+  placeOrder(total: Float!): Order!
+}
+
+type Order {
+  id: ID!
+  total: Float!
+}
+`
+
+	parser := NewParser()
+	definition := newTestDefinition(sdl, "https://api.example.com/graphql")
+
+	ops, schema, err := parser.Parse(definition)
+	require.NoError(t, err)
+	require.NotNil(t, schema)
+	require.Len(t, ops, 2)
+
+	byName := map[string]core.Operation{}
+	for _, op := range ops {
+		require.NotNil(t, op.GraphQL)
+		byName[op.Name] = op
+	}
+
+	require.Contains(t, byName, "order")
+	require.Contains(t, byName, "placeOrder")
+	assert.Equal(t, "query", byName["order"].GraphQL.OperationType)
+	assert.Equal(t, "mutation", byName["placeOrder"].GraphQL.OperationType)
+	assert.Equal(t, "https://api.example.com/graphql", byName["order"].BaseURL)
+}

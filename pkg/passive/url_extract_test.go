@@ -607,3 +607,19 @@ func TestExtractAndAnalyzeURLSResolvesEscapedSlashes(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractURLsNormalizesEscapedSlashesForBothExtractors(t *testing.T) {
+	escaped := `<script>var cdn=https:\/\/cdn.example.org\/app.js;</script>`
+
+	if raw := extractURLsGeneric(escaped); len(raw) != 0 {
+		t.Fatalf("premise changed: the generic extractor now reads escaped text on its own, got %v", raw)
+	}
+
+	got := ExtractURLs(escaped)
+	for _, u := range got {
+		if u == "https://cdn.example.org/app.js" {
+			return
+		}
+	}
+	t.Errorf("unquoted escaped absolute URL was not recovered by the generic extractor, got %v", got)
+}

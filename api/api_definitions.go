@@ -880,7 +880,14 @@ func GetAPIDefinitionSecuritySchemes(c *fiber.Ctx) error {
 			if len(globalSec) > 0 {
 				if globalSecJSON, marshalErr := json.Marshal(globalSec); marshalErr == nil {
 					definition.GlobalSecurityJSON = globalSecJSON
-					db.Connection().UpdateAPIDefinition(definition)
+					// One column, written as one column: a full-struct save here would
+					// rewrite endpoint_count and the protocol counters from whatever
+					// this request happens to be holding.
+					if updateErr := db.Connection().UpdateAPIDefinitionFields(id, map[string]interface{}{
+						"global_security_json": globalSecJSON,
+					}); updateErr != nil {
+						log.Warn().Err(updateErr).Str("id", id.String()).Msg("Failed to backfill global security requirements")
+					}
 				}
 			}
 		}

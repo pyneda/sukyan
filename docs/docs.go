@@ -274,6 +274,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/api-auth-configs/{id}/test-refresh": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Executes a token refresh request and returns the result",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-auth"
+                ],
+                "summary": "Test token refresh configuration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Auth Config ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/api-definitions": {
             "get": {
                 "security": [
@@ -307,14 +357,64 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Filter by type (openapi, graphql, wsdl)",
+                        "description": "Search by name, base URL or source URL",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "openapi",
+                            "graphql",
+                            "wsdl"
+                        ],
+                        "type": "string",
+                        "description": "Filter by type, comma separated",
                         "name": "type",
                         "in": "query"
                     },
                     {
+                        "enum": [
+                            "parsed",
+                            "scanning",
+                            "completed",
+                            "failed"
+                        ],
                         "type": "string",
-                        "description": "Filter by status",
+                        "description": "Filter by status, comma separated",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by whether the definition was auto discovered",
+                        "name": "auto_discovered",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "id",
+                            "created_at",
+                            "updated_at",
+                            "name",
+                            "type",
+                            "status",
+                            "endpoint_count"
+                        ],
+                        "type": "string",
+                        "default": "created_at",
+                        "description": "Field to sort by",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "default": "desc",
+                        "description": "Sort order",
+                        "name": "sort_order",
                         "in": "query"
                     },
                     {
@@ -335,6 +435,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/api.APIDefinitionListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
                         }
                     },
                     "500": {
@@ -1975,6 +2081,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "integer",
+                        "description": "filter by playground session id",
+                        "name": "playground_session_id",
+                        "in": "query"
+                    },
+                    {
                         "type": "boolean",
                         "description": "Filter by binary messages (true) or text messages (false)",
                         "name": "is_binary",
@@ -2809,16 +2921,14 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/api/v1/playground/fuzz": {
-            "post": {
+            },
+            "put": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Schedules a new task to fuzz the provided request with the provided insertion points, payloads, etc and returns the task ID to filter the results",
+                "description": "Update a playground collection by its ID",
                 "consumes": [
                     "application/json"
                 ],
@@ -2828,10 +2938,68 @@ const docTemplate = `{
                 "tags": [
                     "Playground"
                 ],
-                "summary": "Schedules a new task to fuzz the provided request",
+                "summary": "Update Playground Collection by ID",
                 "parameters": [
                     {
-                        "description": "Set the fuzzing request configuration",
+                        "type": "integer",
+                        "description": "Playground Collection ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Playground Collection Input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdatePlaygroundCollectionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.PlaygroundCollection"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/fuzz": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Validates the input, snapshots the config onto a new PlaygroundFuzzRun row, and launches the engine asynchronously. Returns immediately with the run id.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Launch a new fuzz run",
+                "parameters": [
+                    {
+                        "description": "Fuzz launch input",
                         "name": "input",
                         "in": "body",
                         "required": true,
@@ -2844,7 +3012,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/api.PlaygroundFuzzResponse"
                         }
                     },
                     "400": {
@@ -2855,6 +3023,489 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/fuzz/preview": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Compute request count + warnings for a fuzz config without launching",
+                "parameters": [
+                    {
+                        "description": "Fuzz preview input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.PlaygroundFuzzPreviewInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/fuzz.PreviewResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/fuzz/runs/{run_id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Fetch a single fuzz run by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fuzz Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.PlaygroundFuzzRun"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Cancel an in-flight fuzz run",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fuzz Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "already_finished",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/fuzz/runs/{run_id}/match": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Server-side companion to the client's fast-matcher evaluation.\nReturns the history IDs of rows that pass all body/header rules\nin the supplied matcher set. Client-side rules (status, size,\netc.) are ignored here — the UI applies them locally.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Evaluate body/header matchers against a fuzz run's persisted results",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fuzz Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Matcher input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.MatchFuzzRunInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.MatchFuzzRunResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/fuzz/runs/{run_id}/matchers": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Fetch persisted matchers for a fuzz run",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fuzz Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/fuzz.MatcherSet"
+                        }
+                    },
+                    "204": {
+                        "description": "No matchers persisted"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Persist matcher set on a fuzz run",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fuzz Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Matcher set",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/fuzz.MatcherSet"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/fuzz/runs/{run_id}/pause": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Stops scheduling new requests; in-flight workers complete naturally. Idempotent — calling on an already-paused run returns 200 with {\"status\":\"already_paused\"}.",
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Pause an in-flight fuzz run",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fuzz Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "already_paused",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/fuzz/runs/{run_id}/results": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns the persisted History rows tagged with the run id.\nUse the WS stream for live updates while the run is in flight;\nthis endpoint is for past runs and reloads.",
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Paginated historical results for a finished or live fuzz run",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fuzz Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page (1-based)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 100, max 500)",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter by exact status code",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/fuzz/runs/{run_id}/resume": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Re-opens the pause gate so workers resume scheduling. Idempotent — calling on a non-paused run returns 200 with {\"status\":\"not_paused\"}.",
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Resume a paused fuzz run",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fuzz Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "not_paused",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/fuzz/runs/{run_id}/stream": {
+            "get": {
+                "description": "Upgrades the connection to a WebSocket that streams snapshot,\nresult, progress, status, and done events for the given run.\nAuthenticates via ` + "`" + `?token=\u003cjwt\u003e` + "`" + ` because browsers cannot set\nAuthorization on WS handshakes. Optional ` + "`" + `?since=\u003cseq\u003e` + "`" + ` replays\nevents with seq \u003e since (for reconnect-with-cursor flow).",
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Stream live events for a playground fuzz run",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Fuzz Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "JWT auth token",
+                        "name": "token",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Replay events with seq greater than this value",
+                        "name": "since",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "426": {
+                        "description": "Upgrade Required",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -3015,6 +3666,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/playground/openapi/parse-content": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Parses OpenAPI from provided JSON/YAML content (useful when spec is not directly accessible via URL)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Parse an OpenAPI specification from raw content",
+                "parameters": [
+                    {
+                        "description": "OpenAPI content and configuration",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseOpenAPISpecFromContentInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ParseOpenAPISpecResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/playground/replay": {
             "post": {
                 "security": [
@@ -3054,7 +3756,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
+                            "$ref": "#/definitions/api.ReplayErrorResponse"
                         }
                     }
                 }
@@ -3302,6 +4004,480 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/playground/sessions/{id}/fuzz-runs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "List fuzz runs for a session, newest first",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page (1-based)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/sessions/{id}/fuzzer-config": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Fetch the persisted fuzzer config for a session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_pyneda_sukyan_pkg_playground_fuzz.FuzzerConfig"
+                        }
+                    },
+                    "204": {
+                        "description": "No Content (no config persisted yet)"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Persist the fuzzer config for a session (autosaved by the UI)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fuzzer config",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_pyneda_sukyan_pkg_playground_fuzz.FuzzerConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/sessions/{id}/fuzzer-config/flush": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "navigator.sendBeacon target — accepts the same body as PUT but",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Flush (force-save) the fuzzer config for a session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fuzzer config",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_pyneda_sukyan_pkg_playground_fuzz.FuzzerConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/sessions/{id}/replay-config": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Fetch the persisted replay config for a session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ReplayConfig"
+                        }
+                    },
+                    "204": {
+                        "description": "No Content (no config persisted yet)"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Persist the replay config for a session (autosaved by the UI)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Replay config",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ReplayConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/sessions/{id}/replay-config/flush": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Flush (force-save) the replay config for a session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Replay config",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ReplayConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/sessions/{id}/ws-fuzzer-config": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Fetch the persisted WsFuzzerConfig for a session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/wsfuzz.WsFuzzerConfig"
+                        }
+                    },
+                    "204": {
+                        "description": "No Content (no config persisted yet)"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Persist the WsFuzzerConfig for a session (autosaved by the UI)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Fuzzer config",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/wsfuzz.WsFuzzerConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/sessions/{id}/ws-fuzzer-config/flush": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "navigator.sendBeacon target — wraps PutWsFuzzerConfig with POST",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Flush (force-save) the WS fuzzer config for a session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "WS fuzzer config",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/wsfuzz.WsFuzzerConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/playground/wordlists": {
             "get": {
                 "security": [
@@ -3340,6 +4516,870 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/ws-fuzz/runs/{run_id}/stream": {
+            "get": {
+                "description": "Upgrades the connection to a WebSocket that streams snapshot,\nresult, progress, status, baseline, warning, and done events\nfor the given run. Authenticates via ` + "`" + `?token=\u003cjwt\u003e` + "`" + ` because\nbrowsers cannot set Authorization on WS handshakes. Optional\n` + "`" + `?since=\u003cseq\u003e` + "`" + ` replays events with seq \u003e since (reconnect-with-cursor).",
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Stream live events for a playground ws-fuzz run",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "WS Fuzz Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "JWT auth token",
+                        "name": "token",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Replay events with seq greater than this value",
+                        "name": "since",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "426": {
+                        "description": "Upgrade Required",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/ws/sessions": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Create a new playground WebSocket session and its associated WS payload",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Create a new playground WebSocket session",
+                "parameters": [
+                    {
+                        "description": "Create Playground WS Session Input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.CreateWsSessionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/ws/sessions/import-connection": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Derive a scripted WS replay session from a captured WebSocket connection. Each\nsent text frame becomes a step; received frames between two sent frames attach a\nwait_for(any) hint to the preceding step. Binary frames are skipped. Long\nhistories are capped at importMessageCap messages.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Import a WebSocket connection as a playground WS session",
+                "parameters": [
+                    {
+                        "description": "Import Connection Input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ImportConnectionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/ws/sessions/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Get the playground WebSocket session payload along with its parent session and recent runs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Get a playground WebSocket session by parent session ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Update the playground WebSocket session payload (and optionally the parent session name)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Update a playground WebSocket session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Playground WS Session Input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateWsSessionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.PlaygroundWsSession"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Delete the playground WebSocket session and cascade-remove the associated WS payload and runs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Delete a playground WebSocket session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/ws/sessions/{id}/connect": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Dial the upstream WebSocket using the session's stored target URL and headers,\nand register the resulting interactive session with the in-process manager.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Open the interactive WebSocket for a playground WS session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/ws/sessions/{id}/disconnect": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Close and unregister the interactive WebSocket session if one is currently open.\nSafe to call when no interactive session exists; the manager treats it as a no-op.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Close the interactive WebSocket for a playground WS session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/ws/sessions/{id}/flush": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "navigator.sendBeacon target — wraps UpdatePlaygroundWsSession",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Flush (force-save) a WS playground session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update fields",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.UpdateWsSessionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.PlaygroundWsSession"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/ws/sessions/{id}/frames": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Queue a single text (opcode 1) or binary (opcode 2) frame on the currently open\ninteractive WebSocket. Returns 409 if the session is not connected.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Send a frame on the interactive WebSocket of a playground WS session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Send Frame Input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.SendFrameInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/ws/sessions/{id}/messages-import": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Look up the given WebSocket message IDs and append each text frame as a new\nstep at the end of the session's script. Binary frames are silently skipped.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Append captured WebSocket messages to a playground WS session script",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Append Messages Input",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.AppendMessagesInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.PlaygroundWsSession"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/ws/sessions/{id}/runs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Return a paginated list of run rows for the given playground WS session,\nnewest first. Page defaults to 1 and page_size to 20.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "List runs for a playground WS session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 20)",
+                        "name": "page_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Snapshot the session's current script and options, persist a new run row, and\nkick off background execution against a fresh upstream socket. Returns the new\nrun ID immediately; lifecycle events are published on the session's broadcaster.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Start a new run for a playground WS session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/ws/sessions/{id}/runs/{run_id}/cancel": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Signal context cancellation to the run's walker and close its upstream socket.\nReturns 404 if no active run is registered for the given (session, run) pair.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Cancel an active playground WS run",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/playground/ws/sessions/{id}/stream": {
+            "get": {
+                "description": "Upgrades the connection to a WebSocket that streams interactive state changes,\nframe events and run progress for the given playground session. Authenticates via\na ` + "`" + `?token=\u003cjwt\u003e` + "`" + ` query param because browsers cannot set Authorization headers on\nWebSocket handshakes. Optional ` + "`" + `?since=\u003cseq\u003e` + "`" + ` replays events with seq \u003e since.",
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Stream control events for a playground WebSocket session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Playground Session ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "JWT auth token",
+                        "name": "token",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Replay events with seq greater than this value",
+                        "name": "since",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "426": {
+                        "description": "Upgrade Required",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -3434,6 +5474,360 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/proxy-services/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves a proxy service with runtime status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Proxy Services"
+                ],
+                "summary": "Get a proxy service by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Proxy Service ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ProxyServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Deletes a proxy service (stops it first if running)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Proxy Services"
+                ],
+                "summary": "Delete a proxy service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Proxy Service ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "message\": \"Proxy service successfully deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Updates a proxy service and restarts it if running",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Proxy Services"
+                ],
+                "summary": "Update a proxy service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Proxy Service ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Proxy service updates",
+                        "name": "proxy_service",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ProxyServiceUpdateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.ProxyService"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/proxy-services/{id}/restart": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Restarts a proxy service instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Proxy Services"
+                ],
+                "summary": "Restart a proxy service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Proxy Service ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ProxyServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/proxy-services/{id}/start": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Starts a proxy service instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Proxy Services"
+                ],
+                "summary": "Start a proxy service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Proxy Service ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ProxyServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/proxy-services/{id}/stop": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Stops a running proxy service instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Proxy Services"
+                ],
+                "summary": "Stop a proxy service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Proxy Service ID (UUID)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.ProxyServiceResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -3638,7 +6032,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Receives a list of URLs and other parameters and schedules them for a full scan. Supports API-only scans with definition_ids or inline_imports.",
+                "description": "Receives a list of URLs and other parameters and schedules them for a full scan. Supports API-only scans with definition_configs.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3803,6 +6197,80 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scans/pause-all": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Pauses all currently active scans",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "Pause all scans",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/db.Scan"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/scans/resume-all": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Resumes all paused scans",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scans"
+                ],
+                "summary": "Resume all scans",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/db.Scan"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -4402,6 +6870,34 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/stats/deployment": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns the same payload as the embedded admin dashboard, exposed under",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Stats"
+                ],
+                "summary": "Retrieves deployment-wide state: orchestrator, workers, queue and scans.",
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved deployment stats",
+                        "schema": {
+                            "$ref": "#/definitions/api.DashboardStats"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/stats/system": {
             "get": {
                 "security": [
@@ -4539,6 +7035,78 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Invalid workspace ID",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/stats/workspaces": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns a paginated, sortable summary of every workspace, used by",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Stats"
+                ],
+                "summary": "Lists all workspaces with issue, history and scan rollups.",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by workspace title or code",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "One of title, critical, high, issues, active_scans, last_activity",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "asc or desc",
+                        "name": "sort_order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved workspace rollups",
+                        "schema": {
+                            "$ref": "#/definitions/api.WorkspaceRollupsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid sort parameter",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -5067,6 +7635,334 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/workspaces/{workspaceId}/proxy-services": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Retrieves all proxy services for a workspace with runtime status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Proxy Services"
+                ],
+                "summary": "List proxy services for a workspace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workspace ID",
+                        "name": "workspaceId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.ProxyServiceResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Creates a new proxy service for a workspace",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Proxy Services"
+                ],
+                "summary": "Create a new proxy service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workspace ID",
+                        "name": "workspaceId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Proxy service to create",
+                        "name": "proxy_service",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.ProxyServiceCreateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/db.ProxyService"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workspaces/{workspace_id}/matcher-presets": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "List matcher presets for a workspace",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "http_fuzz or ws_fuzz",
+                        "name": "domain",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/db.MatcherPreset"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Create a matcher preset",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Preset",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.MatcherPresetInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/db.MatcherPreset"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workspaces/{workspace_id}/matcher-presets/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Rename a preset or replace its matcher_set",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Preset ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated preset",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.matcherPresetUpdateInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/db.MatcherPreset"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "tags": [
+                    "Playground"
+                ],
+                "summary": "Delete a matcher preset",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Workspace ID",
+                        "name": "workspace_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Preset ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/dashboard": {
             "get": {
                 "description": "Returns an HTML page with real-time dashboard",
@@ -5163,6 +8059,52 @@ const docTemplate = `{
                 }
             }
         },
+        "actions.ActionFailure": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "step_index": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "actions.ActionStepResult": {
+            "type": "object",
+            "properties": {
+                "assertion": {
+                    "$ref": "#/definitions/actions.AssertionResult"
+                },
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "evaluation": {
+                    "$ref": "#/definitions/actions.EvaluationResult"
+                },
+                "index": {
+                    "type": "integer"
+                },
+                "screenshot": {
+                    "$ref": "#/definitions/actions.ScreenshotResult"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "actions.ActionType": {
             "type": "string",
             "enum": [
@@ -5191,19 +8133,25 @@ const docTemplate = `{
         "actions.ActionsExecutionResults": {
             "type": "object",
             "properties": {
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "failure": {
+                    "$ref": "#/definitions/actions.ActionFailure"
+                },
                 "logs": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/lib.LogEntry"
                     }
                 },
-                "screenshots": {
+                "steps": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/actions.ScreenshotResult"
+                        "$ref": "#/definitions/actions.ActionStepResult"
                     }
                 },
-                "succeded": {
+                "succeeded": {
                     "type": "boolean"
                 }
             }
@@ -5222,6 +8170,43 @@ const docTemplate = `{
                 "AssertVisible",
                 "AssertHidden"
             ]
+        },
+        "actions.AssertionResult": {
+            "type": "object",
+            "properties": {
+                "actual": {
+                    "type": "string"
+                },
+                "condition": {
+                    "type": "string"
+                },
+                "expected": {
+                    "type": "string"
+                },
+                "passed": {
+                    "type": "boolean"
+                },
+                "selector": {
+                    "type": "string"
+                }
+            }
+        },
+        "actions.EvaluationResult": {
+            "type": "object",
+            "properties": {
+                "expression": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
         },
         "actions.ScreenshotResult": {
             "type": "object",
@@ -5507,6 +8492,21 @@ const docTemplate = `{
                 }
             }
         },
+        "api.AppendMessagesInput": {
+            "type": "object",
+            "required": [
+                "message_ids"
+            ],
+            "properties": {
+                "message_ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "api.BrowserActionsInput": {
             "type": "object",
             "required": [
@@ -5622,13 +8622,15 @@ const docTemplate = `{
                 "by_category": {
                     "type": "object",
                     "additionalProperties": {
-                        "type": "integer"
+                        "type": "integer",
+                        "format": "int64"
                     }
                 },
                 "by_event_type": {
                     "type": "object",
                     "additionalProperties": {
-                        "type": "integer"
+                        "type": "integer",
+                        "format": "int64"
                     }
                 },
                 "total_count": {
@@ -5694,6 +8696,9 @@ const docTemplate = `{
                 "token_prefix": {
                     "type": "string",
                     "maxLength": 50
+                },
+                "token_refresh_config": {
+                    "$ref": "#/definitions/api.TokenRefreshConfigInput"
                 },
                 "type": {
                     "enum": [
@@ -5795,6 +8800,55 @@ const docTemplate = `{
                 },
                 "type": {
                     "$ref": "#/definitions/db.PlaygroundSessionType"
+                }
+            }
+        },
+        "api.CreateWsSessionInput": {
+            "type": "object",
+            "required": [
+                "collection_id",
+                "name",
+                "workspace_id"
+            ],
+            "properties": {
+                "collection_id": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "name": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "request_headers": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "script": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "target_url": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "ws_manual",
+                        "ws_fuzz"
+                    ]
+                },
+                "workspace_id": {
+                    "type": "integer",
+                    "minimum": 1
                 }
             }
         },
@@ -6107,6 +9161,34 @@ const docTemplate = `{
                 }
             }
         },
+        "api.ImportConnectionInput": {
+            "type": "object",
+            "required": [
+                "connection_id",
+                "workspace_id"
+            ],
+            "properties": {
+                "collection_id": {
+                    "type": "integer"
+                },
+                "connection_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "target_session_type": {
+                    "type": "string",
+                    "enum": [
+                        "ws_manual",
+                        "ws_fuzz"
+                    ]
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "api.IssueUpdateResponse": {
             "type": "object",
             "properties": {
@@ -6173,6 +9255,66 @@ const docTemplate = `{
                 }
             }
         },
+        "api.MatchFuzzRunInput": {
+            "type": "object",
+            "properties": {
+                "history_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "include_bodies": {
+                    "type": "boolean"
+                },
+                "matchers": {
+                    "$ref": "#/definitions/fuzz.MatcherSet"
+                }
+            }
+        },
+        "api.MatchFuzzRunResponse": {
+            "type": "object",
+            "properties": {
+                "matching_history_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "api.MatcherPresetInput": {
+            "type": "object",
+            "required": [
+                "domain",
+                "matcher_set",
+                "name"
+            ],
+            "properties": {
+                "domain": {
+                    "enum": [
+                        "http_fuzz",
+                        "ws_fuzz"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.MatcherPresetDomain"
+                        }
+                    ]
+                },
+                "matcher_set": {
+                    "$ref": "#/definitions/fuzz.MatcherSet"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 1
+                }
+            }
+        },
         "api.OrchestratorConfigInfo": {
             "type": "object",
             "properties": {
@@ -6223,6 +9365,10 @@ const docTemplate = `{
                 },
                 "max_depth": {
                     "type": "integer"
+                },
+                "max_requests_per_operation": {
+                    "description": "MaxRequestsPerOperation bounds the fuzzing variations returned per\noperation. Zero applies the default; a negative value removes the bound.",
+                    "type": "integer"
                 }
             }
         },
@@ -6247,6 +9393,10 @@ const docTemplate = `{
                 "max_depth": {
                     "type": "integer"
                 },
+                "max_requests_per_operation": {
+                    "description": "MaxRequestsPerOperation bounds the fuzzing variations returned per\noperation. Zero applies the default; a negative value removes the bound.",
+                    "type": "integer"
+                },
                 "url": {
                     "type": "string"
                 }
@@ -6269,6 +9419,26 @@ const docTemplate = `{
                 },
                 "schema": {
                     "$ref": "#/definitions/api.GraphQLSchemaInfo"
+                }
+            }
+        },
+        "api.ParseOpenAPISpecFromContentInput": {
+            "type": "object",
+            "required": [
+                "content"
+            ],
+            "properties": {
+                "base_url": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "enable_fuzzing": {
+                    "type": "boolean"
+                },
+                "include_optional": {
+                    "type": "boolean"
                 }
             }
         },
@@ -6361,6 +9531,7 @@ const docTemplate = `{
                     }
                 },
                 "include_optional": {
+                    "description": "IncludeOptional is a pointer so an omitted field keeps optional\nparameters, which is what a caller exploring an unknown service wants.",
                     "type": "boolean"
                 },
                 "prefer_soap_12": {
@@ -6398,31 +9569,95 @@ const docTemplate = `{
         "api.PlaygroundFuzzInput": {
             "type": "object",
             "required": [
-                "insertion_points",
+                "mode",
+                "positions",
                 "raw_request",
                 "session_id",
                 "url"
             ],
             "properties": {
-                "insertion_points": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/manual.FuzzerInsertionPoint"
-                    }
+                "execution": {
+                    "$ref": "#/definitions/fuzz.FuzzerExecutionOptions"
+                },
+                "mode": {
+                    "enum": [
+                        "single",
+                        "all",
+                        "paired",
+                        "combinations"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/fuzz.FuzzMode"
+                        }
+                    ]
                 },
                 "options": {
-                    "$ref": "#/definitions/manual.RequestOptions"
+                    "$ref": "#/definitions/fuzz.RequestOptions"
+                },
+                "positions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/fuzz.FuzzerPosition"
+                    }
                 },
                 "raw_request": {
-                    "type": "string",
-                    "example": "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+                    "type": "string"
                 },
                 "session_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "shared_payloads": {
+                    "$ref": "#/definitions/fuzz.FuzzerPayloadsGroup"
                 },
                 "url": {
                     "type": "string",
                     "example": "https://example.com/"
+                }
+            }
+        },
+        "api.PlaygroundFuzzPreviewInput": {
+            "type": "object",
+            "required": [
+                "mode",
+                "positions"
+            ],
+            "properties": {
+                "mode": {
+                    "enum": [
+                        "single",
+                        "all",
+                        "paired",
+                        "combinations"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/fuzz.FuzzMode"
+                        }
+                    ]
+                },
+                "positions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/fuzz.FuzzerPosition"
+                    }
+                },
+                "shared_payloads": {
+                    "$ref": "#/definitions/fuzz.FuzzerPayloadsGroup"
+                }
+            }
+        },
+        "api.PlaygroundFuzzResponse": {
+            "type": "object",
+            "properties": {
+                "requests_count": {
+                    "type": "integer"
+                },
+                "run_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -6455,6 +9690,97 @@ const docTemplate = `{
                 }
             }
         },
+        "api.ProxyServiceCreateInput": {
+            "type": "object",
+            "required": [
+                "host",
+                "name",
+                "port"
+            ],
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "log_out_of_scope_requests": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer",
+                    "maximum": 65535,
+                    "minimum": 1
+                },
+                "verbose": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "api.ProxyServiceResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "State management",
+                    "type": "boolean"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "log_out_of_scope_requests": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "Basic config",
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/proxy.ProxyStatus"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "verbose": {
+                    "description": "Current proxy settings",
+                    "type": "boolean"
+                },
+                "workspace_id": {
+                    "description": "Workspace scoping",
+                    "type": "integer"
+                }
+            }
+        },
+        "api.ProxyServiceUpdateInput": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "log_out_of_scope_requests": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer",
+                    "maximum": 65535,
+                    "minimum": 1
+                },
+                "verbose": {
+                    "type": "boolean"
+                }
+            }
+        },
         "api.Renew": {
             "type": "object",
             "properties": {
@@ -6474,6 +9800,43 @@ const docTemplate = `{
                 },
                 "tokens": {
                     "$ref": "#/definitions/auth.Tokens"
+                }
+            }
+        },
+        "api.ReplayConfig": {
+            "type": "object",
+            "properties": {
+                "options": {
+                    "$ref": "#/definitions/manual.RequestOptions"
+                },
+                "post_action_id": {
+                    "type": "integer"
+                },
+                "pre_action_id": {
+                    "type": "integer"
+                },
+                "raw_request": {
+                    "type": "string"
+                },
+                "replay_mode": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ReplayErrorResponse": {
+            "type": "object",
+            "properties": {
+                "browser_actions_results": {
+                    "$ref": "#/definitions/manual.BrowserReplayActionsResults"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
                 }
             }
         },
@@ -6621,6 +9984,12 @@ const docTemplate = `{
                 },
                 "total_jobs": {
                     "type": "integer"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                },
+                "workspace_title": {
+                    "type": "string"
                 }
             }
         },
@@ -6779,9 +10148,6 @@ const docTemplate = `{
                 "completed_jobs_count": {
                     "type": "integer"
                 },
-                "consecutive_failures": {
-                    "type": "integer"
-                },
                 "created_at": {
                     "type": "string"
                 },
@@ -6792,14 +10158,11 @@ const docTemplate = `{
                     "description": "Base fields",
                     "type": "integer"
                 },
-                "last_failure_at": {
-                    "type": "string"
-                },
                 "max_concurrent_jobs": {
                     "type": "integer"
                 },
                 "max_rps": {
-                    "description": "Rate limiting and circuit breaker fields",
+                    "description": "Rate limiting fields",
                     "type": "integer"
                 },
                 "options": {
@@ -6834,9 +10197,6 @@ const docTemplate = `{
                 "status": {
                     "$ref": "#/definitions/db.ScanStatus"
                 },
-                "throttled_until": {
-                    "type": "string"
-                },
                 "title": {
                     "type": "string"
                 },
@@ -6870,7 +10230,8 @@ const docTemplate = `{
                 "job_stats": {
                     "type": "object",
                     "additionalProperties": {
-                        "type": "integer"
+                        "type": "integer",
+                        "format": "int64"
                     }
                 }
             }
@@ -6895,6 +10256,24 @@ const docTemplate = `{
                         "fast",
                         "smart",
                         "fuzz"
+                    ]
+                }
+            }
+        },
+        "api.SendFrameInput": {
+            "type": "object",
+            "required": [
+                "opcode"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string"
+                },
+                "opcode": {
+                    "type": "integer",
+                    "enum": [
+                        1,
+                        2
                     ]
                 }
             }
@@ -6973,6 +10352,12 @@ const docTemplate = `{
                 "run_standard_tests": {
                     "type": "boolean"
                 },
+                "scheme_auth_map": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "server_side_checks": {
                     "type": "boolean"
                 }
@@ -7012,6 +10397,56 @@ const docTemplate = `{
                 }
             }
         },
+        "api.TokenRefreshConfigInput": {
+            "type": "object",
+            "required": [
+                "extraction_source",
+                "extraction_value",
+                "interval_seconds",
+                "request_method",
+                "request_url"
+            ],
+            "properties": {
+                "extraction_source": {
+                    "type": "string",
+                    "enum": [
+                        "body_jsonpath",
+                        "response_header"
+                    ]
+                },
+                "extraction_value": {
+                    "type": "string"
+                },
+                "interval_seconds": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "request_body": {
+                    "type": "string"
+                },
+                "request_content_type": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "request_headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "request_method": {
+                    "type": "string",
+                    "enum": [
+                        "GET",
+                        "POST",
+                        "PUT"
+                    ]
+                },
+                "request_url": {
+                    "type": "string"
+                }
+            }
+        },
         "api.UpdateAPIAuthConfigInput": {
             "type": "object",
             "properties": {
@@ -7048,12 +10483,18 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 500
                 },
+                "remove_token_refresh_config": {
+                    "type": "boolean"
+                },
                 "token": {
                     "type": "string"
                 },
                 "token_prefix": {
                     "type": "string",
                     "maxLength": 50
+                },
+                "token_refresh_config": {
+                    "$ref": "#/definitions/api.TokenRefreshConfigInput"
                 },
                 "type": {
                     "enum": [
@@ -7102,6 +10543,17 @@ const docTemplate = `{
                 }
             }
         },
+        "api.UpdatePlaygroundCollectionInput": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "api.UpdatePlaygroundSessionInput": {
             "type": "object",
             "required": [
@@ -7124,6 +10576,35 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 255,
                     "minLength": 1
+                }
+            }
+        },
+        "api.UpdateWsSessionInput": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "request_headers": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "script": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "target_url": {
+                    "type": "string"
                 }
             }
         },
@@ -7260,6 +10741,20 @@ const docTemplate = `{
                 }
             }
         },
+        "api.WorkspaceRollupsResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.WorkspaceRollup"
+                    }
+                }
+            }
+        },
         "api.WorkspaceUpdateInput": {
             "type": "object",
             "properties": {
@@ -7271,6 +10766,23 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                }
+            }
+        },
+        "api.matcherPresetUpdateInput": {
+            "type": "object",
+            "required": [
+                "matcher_set",
+                "name"
+            ],
+            "properties": {
+                "matcher_set": {
+                    "$ref": "#/definitions/fuzz.MatcherSet"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 1
                 }
             }
         },
@@ -7320,6 +10832,9 @@ const docTemplate = `{
                 },
                 "token_prefix": {
                     "type": "string"
+                },
+                "token_refresh_config": {
+                    "$ref": "#/definitions/db.TokenRefreshConfig"
                 },
                 "type": {
                     "$ref": "#/definitions/db.APIAuthType"
@@ -7598,32 +11113,14 @@ const docTemplate = `{
                 "operation_type": {
                     "type": "string"
                 },
-                "parameters": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/db.APIEndpointParameter"
-                    }
-                },
                 "path": {
                     "type": "string"
                 },
                 "port_name": {
                     "type": "string"
                 },
-                "request_variations": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/db.APIRequestVariation"
-                    }
-                },
                 "return_type": {
                     "type": "string"
-                },
-                "security_schemes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/db.APIEndpointSecurity"
-                    }
                 },
                 "service_name": {
                     "type": "string"
@@ -7632,85 +11129,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "summary": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "db.APIEndpointParameter": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "data_type": {
-                    "type": "string"
-                },
-                "default_value": {
-                    "type": "string"
-                },
-                "endpoint_id": {
-                    "type": "string"
-                },
-                "enum_values": {
-                    "type": "string"
-                },
-                "example": {
-                    "type": "string"
-                },
-                "format": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "location": {
-                    "$ref": "#/definitions/db.APIParameterLocation"
-                },
-                "max_length": {
-                    "type": "integer"
-                },
-                "maximum": {
-                    "type": "number"
-                },
-                "min_length": {
-                    "type": "integer"
-                },
-                "minimum": {
-                    "type": "number"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "pattern": {
-                    "type": "string"
-                },
-                "required": {
-                    "type": "boolean"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "db.APIEndpointSecurity": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "endpoint_id": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "scheme_name": {
-                    "type": "string"
-                },
-                "scopes": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -7730,79 +11148,6 @@ const docTemplate = `{
                 "APIKeyLocationQuery",
                 "APIKeyLocationCookie"
             ]
-        },
-        "db.APIParameterLocation": {
-            "type": "string",
-            "enum": [
-                "path",
-                "query",
-                "header",
-                "cookie",
-                "body"
-            ],
-            "x-enum-varnames": [
-                "APIParamLocationPath",
-                "APIParamLocationQuery",
-                "APIParamLocationHeader",
-                "APIParamLocationCookie",
-                "APIParamLocationBody"
-            ]
-        },
-        "db.APIRequestVariation": {
-            "type": "object",
-            "properties": {
-                "body": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "content_type": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "endpoint_id": {
-                    "type": "string"
-                },
-                "headers": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "id": {
-                    "type": "string"
-                },
-                "label": {
-                    "type": "string"
-                },
-                "method": {
-                    "type": "string"
-                },
-                "operation_name": {
-                    "type": "string"
-                },
-                "query": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "url": {
-                    "type": "string"
-                },
-                "variables": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                }
-            }
         },
         "db.BrowserActionScope": {
             "type": "string",
@@ -7903,10 +11248,16 @@ const docTemplate = `{
                 "parameters_count": {
                     "type": "integer"
                 },
+                "playground_fuzz_run_id": {
+                    "type": "integer"
+                },
                 "playground_session_id": {
                     "type": "integer"
                 },
                 "proto": {
+                    "type": "string"
+                },
+                "proxy_service_id": {
                     "type": "string"
                 },
                 "raw_request": {
@@ -7985,6 +11336,9 @@ const docTemplate = `{
                 },
                 "playground_session_id": {
                     "type": "integer"
+                },
+                "proxy_service_id": {
+                    "type": "string"
                 },
                 "query": {
                     "type": "string"
@@ -8358,6 +11712,46 @@ const docTemplate = `{
                 }
             }
         },
+        "db.MatcherPreset": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "domain": {
+                    "$ref": "#/definitions/db.MatcherPresetDomain"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "matcher_set": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "db.MatcherPresetDomain": {
+            "type": "string",
+            "enum": [
+                "http_fuzz",
+                "ws_fuzz"
+            ],
+            "x-enum-varnames": [
+                "MatcherPresetDomainHTTPFuzz",
+                "MatcherPresetDomainWsFuzz"
+            ]
+        },
         "db.MessageDirection": {
             "type": "string",
             "enum": [
@@ -8657,6 +12051,101 @@ const docTemplate = `{
                 }
             }
         },
+        "db.PlaygroundFuzzRun": {
+            "type": "object",
+            "properties": {
+                "baseline": {
+                    "description": "Baseline is the per-run BaselineFingerprint set computed during the\ncalibrating phase. nil when baseline mode = off, or when calibration\nhas not yet run.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "config_snapshot": {
+                    "description": "ConfigSnapshot is the FuzzerConfig used at launch — frozen, so editing\nthe session's live config does not retroactively change run history.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "error_count": {
+                    "type": "integer"
+                },
+                "failure_reason": {
+                    "type": "string"
+                },
+                "finished_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "matchers": {
+                    "description": "Matchers is the user's matcher set as of the last save. nil = no matchers.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "planned_request_count": {
+                    "description": "Progress — updated periodically by the engine, not per-result, to avoid DB write storms.",
+                    "type": "integer"
+                },
+                "playground_session_id": {
+                    "type": "integer"
+                },
+                "sent_request_count": {
+                    "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Lifecycle",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.PlaygroundFuzzRunStatus"
+                        }
+                    ]
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "db.PlaygroundFuzzRunStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "calibrating",
+                "running",
+                "paused",
+                "succeeded",
+                "failed",
+                "cancelled",
+                "stopped_error_rate",
+                "stopped_max_duration",
+                "aborted_server_restart"
+            ],
+            "x-enum-varnames": [
+                "FuzzRunPending",
+                "FuzzRunCalibrating",
+                "FuzzRunRunning",
+                "FuzzRunPaused",
+                "FuzzRunSucceeded",
+                "FuzzRunFailed",
+                "FuzzRunCancelled",
+                "FuzzRunStoppedErrorRate",
+                "FuzzRunStoppedMaxDuration",
+                "FuzzRunAbortedServerRestart"
+            ]
+        },
         "db.PlaygroundSession": {
             "type": "object",
             "properties": {
@@ -8666,6 +12155,13 @@ const docTemplate = `{
                 },
                 "created_at": {
                     "type": "string"
+                },
+                "fuzzer_config": {
+                    "description": "FuzzerConfig is the live, editable fuzzer config for sessions of type\n\"fuzz\". Nullable: sessions of other types ignore it; new fuzz sessions\npersist a config on first save. Snapshotted into PlaygroundFuzzRun on\neach launch.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "id": {
                     "type": "integer"
@@ -8678,6 +12174,12 @@ const docTemplate = `{
                 },
                 "original_request_id": {
                     "type": "integer"
+                },
+                "replay_config": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "type": {
                     "$ref": "#/definitions/db.PlaygroundSessionType"
@@ -8694,12 +12196,96 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "manual",
-                "fuzz"
+                "fuzz",
+                "ws_manual",
+                "ws_fuzz"
             ],
             "x-enum-varnames": [
                 "ManualType",
-                "FuzzType"
+                "FuzzType",
+                "WsManualType",
+                "WsFuzzType"
             ]
+        },
+        "db.PlaygroundWsSession": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "imported_from_connection_id": {
+                    "type": "integer"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "playground_session_id": {
+                    "type": "integer"
+                },
+                "request_headers": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "script": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "target_url": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.ProxyService": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "State management",
+                    "type": "boolean"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "log_out_of_scope_requests": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "Basic config",
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "verbose": {
+                    "description": "Current proxy settings",
+                    "type": "boolean"
+                },
+                "workspace_id": {
+                    "description": "Workspace scoping",
+                    "type": "integer"
+                }
+            }
         },
         "db.RequestsStats": {
             "type": "object",
@@ -8736,9 +12322,6 @@ const docTemplate = `{
                 "completed_jobs_count": {
                     "type": "integer"
                 },
-                "consecutive_failures": {
-                    "type": "integer"
-                },
                 "created_at": {
                     "type": "string"
                 },
@@ -8752,18 +12335,21 @@ const docTemplate = `{
                     "description": "Isolation flag - when true, only workers with matching scan ID filter can claim jobs\nThis is used for CLI scans to prevent API workers from claiming their jobs",
                     "type": "boolean"
                 },
-                "last_failure_at": {
-                    "type": "string"
-                },
                 "max_concurrent_jobs": {
                     "type": "integer"
                 },
                 "max_rps": {
-                    "description": "Rate limiting and circuit breaker fields",
+                    "description": "Rate limiting fields",
                     "type": "integer"
                 },
                 "options": {
                     "$ref": "#/definitions/options.FullScanOptions"
+                },
+                "pause_on_auth_failure": {
+                    "type": "boolean"
+                },
+                "pause_reason": {
+                    "type": "string"
                 },
                 "paused_at": {
                     "type": "string"
@@ -8786,9 +12372,6 @@ const docTemplate = `{
                 },
                 "status": {
                     "$ref": "#/definitions/db.ScanStatus"
-                },
-                "throttled_until": {
-                    "type": "string"
                 },
                 "title": {
                     "type": "string"
@@ -9180,6 +12763,61 @@ const docTemplate = `{
                 "TaskTypeCrawl"
             ]
         },
+        "db.TokenExtractionSource": {
+            "type": "string",
+            "enum": [
+                "body_jsonpath",
+                "response_header"
+            ],
+            "x-enum-varnames": [
+                "TokenExtractionSourceBodyJSONPath",
+                "TokenExtractionSourceResponseHeader"
+            ]
+        },
+        "db.TokenRefreshConfig": {
+            "type": "object",
+            "properties": {
+                "auth_config_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "extraction_source": {
+                    "$ref": "#/definitions/db.TokenExtractionSource"
+                },
+                "extraction_value": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "interval_seconds": {
+                    "type": "integer"
+                },
+                "request_body": {
+                    "type": "string"
+                },
+                "request_content_type": {
+                    "type": "string"
+                },
+                "request_headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "request_method": {
+                    "type": "string"
+                },
+                "request_url": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "db.WebSocketConnection": {
             "type": "object",
             "properties": {
@@ -9204,6 +12842,12 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/db.WebSocketMessage"
                     }
+                },
+                "playground_session_id": {
+                    "type": "integer"
+                },
+                "proxy_service_id": {
+                    "type": "string"
                 },
                 "scan_id": {
                     "type": "integer"
@@ -9385,6 +13029,35 @@ const docTemplate = `{
                 }
             }
         },
+        "db.WorkspaceRollup": {
+            "type": "object",
+            "properties": {
+                "active_scan_count": {
+                    "type": "integer"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "history_count": {
+                    "type": "integer"
+                },
+                "issues": {
+                    "$ref": "#/definitions/db.IssuesStats"
+                },
+                "issues_count": {
+                    "type": "integer"
+                },
+                "last_activity_at": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "db.WorkspaceStats": {
             "type": "object",
             "properties": {
@@ -9430,10 +13103,366 @@ const docTemplate = `{
                 "Critical"
             ]
         },
+        "fuzz.AutoBaselineMode": {
+            "type": "string",
+            "enum": [
+                "off",
+                "hide",
+                "flag"
+            ],
+            "x-enum-comments": {
+                "AutoBaselineHide": "default"
+            },
+            "x-enum-descriptions": [
+                "",
+                "default",
+                ""
+            ],
+            "x-enum-varnames": [
+                "AutoBaselineOff",
+                "AutoBaselineHide",
+                "AutoBaselineFlag"
+            ]
+        },
+        "fuzz.FuzzMode": {
+            "type": "string",
+            "enum": [
+                "single",
+                "all",
+                "paired",
+                "combinations"
+            ],
+            "x-enum-varnames": [
+                "ModeSingle",
+                "ModeAll",
+                "ModePaired",
+                "ModeCombinations"
+            ]
+        },
+        "fuzz.FuzzerExecutionOptions": {
+            "type": "object",
+            "properties": {
+                "auto_baseline": {
+                    "enum": [
+                        "off",
+                        "hide",
+                        "flag"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/fuzz.AutoBaselineMode"
+                        }
+                    ]
+                },
+                "baseline_probe_count": {
+                    "type": "integer",
+                    "maximum": 10,
+                    "minimum": 2
+                },
+                "baseline_simhash_threshold": {
+                    "type": "integer",
+                    "maximum": 20,
+                    "minimum": 0
+                },
+                "concurrency": {
+                    "type": "integer",
+                    "maximum": 200,
+                    "minimum": 1
+                },
+                "jitter_ms": {
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 0
+                },
+                "max_duration_seconds": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "per_host_concurrency": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "request_timeout_seconds": {
+                    "type": "integer",
+                    "maximum": 300,
+                    "minimum": 1
+                },
+                "retries": {
+                    "type": "integer",
+                    "maximum": 10,
+                    "minimum": 0
+                },
+                "retry_on": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "rps": {
+                    "type": "integer",
+                    "maximum": 1000,
+                    "minimum": 0
+                },
+                "stop_on_error_rate": {
+                    "type": "number",
+                    "maximum": 1,
+                    "minimum": 0
+                }
+            }
+        },
+        "fuzz.FuzzerPayloadsGroup": {
+            "type": "object",
+            "properties": {
+                "payloads": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "processors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "base64encode"
+                    ]
+                },
+                "type": {
+                    "type": "string"
+                },
+                "wordlist": {
+                    "type": "string"
+                }
+            }
+        },
+        "fuzz.FuzzerPosition": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "integer"
+                },
+                "originalValue": {
+                    "type": "string"
+                },
+                "payload_groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fuzz.FuzzerPayloadsGroup"
+                    }
+                },
+                "start": {
+                    "type": "integer"
+                }
+            }
+        },
+        "fuzz.MatcherField": {
+            "type": "string",
+            "enum": [
+                "status_code",
+                "response_size",
+                "word_count",
+                "line_count",
+                "duration_ms",
+                "response_body",
+                "response_headers",
+                "payload",
+                "error",
+                "baseline_match",
+                "iteration.status",
+                "iteration.duration_ms",
+                "iteration.baseline_match",
+                "iteration.peer_close_code",
+                "handshake.status",
+                "handshake.header",
+                "received_frame_count",
+                "total_received_bytes",
+                "received_frame_at",
+                "step.received_frame",
+                "step.duration_ms",
+                "step.matched",
+                "variables"
+            ],
+            "x-enum-varnames": [
+                "FieldStatusCode",
+                "FieldResponseSize",
+                "FieldWordCount",
+                "FieldLineCount",
+                "FieldDurationMs",
+                "FieldResponseBody",
+                "FieldResponseHeaders",
+                "FieldPayload",
+                "FieldError",
+                "FieldBaselineMatch",
+                "FieldWsIterationStatus",
+                "FieldWsIterationDurationMs",
+                "FieldWsIterationBaselineMatch",
+                "FieldWsIterationPeerCloseCode",
+                "FieldWsHandshakeStatus",
+                "FieldWsHandshakeHeader",
+                "FieldWsReceivedFrameCount",
+                "FieldWsTotalReceivedBytes",
+                "FieldWsReceivedFrameAt",
+                "FieldWsStepReceivedFrame",
+                "FieldWsStepDurationMs",
+                "FieldWsStepMatched",
+                "FieldWsVariable"
+            ]
+        },
+        "fuzz.MatcherMode": {
+            "type": "string",
+            "enum": [
+                "show",
+                "hide"
+            ],
+            "x-enum-comments": {
+                "MatcherModeHide": "hide rows that pass all rules",
+                "MatcherModeShow": "hide rows that don't pass all rules"
+            },
+            "x-enum-descriptions": [
+                "hide rows that don't pass all rules",
+                "hide rows that pass all rules"
+            ],
+            "x-enum-varnames": [
+                "MatcherModeShow",
+                "MatcherModeHide"
+            ]
+        },
+        "fuzz.MatcherOperator": {
+            "type": "string",
+            "enum": [
+                "eq",
+                "neq",
+                "lt",
+                "lte",
+                "gt",
+                "gte",
+                "in",
+                "not_in",
+                "contains",
+                "not_contains",
+                "regex",
+                "not_regex",
+                "exists",
+                "not_exists",
+                "is_empty",
+                "is_not_empty"
+            ],
+            "x-enum-varnames": [
+                "OpEq",
+                "OpNeq",
+                "OpLt",
+                "OpLte",
+                "OpGt",
+                "OpGte",
+                "OpIn",
+                "OpNotIn",
+                "OpContains",
+                "OpNotContains",
+                "OpRegex",
+                "OpNotRegex",
+                "OpExists",
+                "OpNotExists",
+                "OpIsEmpty",
+                "OpIsNotEmpty"
+            ]
+        },
+        "fuzz.MatcherRule": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "$ref": "#/definitions/fuzz.MatcherField"
+                },
+                "operator": {
+                    "$ref": "#/definitions/fuzz.MatcherOperator"
+                },
+                "value": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "fuzz.MatcherSet": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "$ref": "#/definitions/fuzz.MatcherMode"
+                },
+                "rules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fuzz.MatcherRule"
+                    }
+                }
+            }
+        },
+        "fuzz.PreviewResult": {
+            "type": "object",
+            "properties": {
+                "request_count": {
+                    "type": "integer"
+                },
+                "warnings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "fuzz.RequestOptions": {
+            "type": "object",
+            "properties": {
+                "follow_redirects": {
+                    "type": "boolean"
+                },
+                "max_redirects": {
+                    "type": "integer"
+                },
+                "update_content_length": {
+                    "type": "boolean"
+                },
+                "update_host_header": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_pyneda_sukyan_pkg_playground_fuzz.FuzzerConfig": {
+            "type": "object",
+            "properties": {
+                "execution": {
+                    "$ref": "#/definitions/fuzz.FuzzerExecutionOptions"
+                },
+                "mode": {
+                    "$ref": "#/definitions/fuzz.FuzzMode"
+                },
+                "positions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fuzz.FuzzerPosition"
+                    }
+                },
+                "request": {
+                    "$ref": "#/definitions/fuzz.RequestOptions"
+                },
+                "shared": {
+                    "$ref": "#/definitions/fuzz.FuzzerPayloadsGroup"
+                }
+            }
+        },
         "graphql.Argument": {
             "type": "object",
             "properties": {
-                "default_value": {},
+                "default_literal": {
+                    "description": "DefaultLiteral is that same default in its original GraphQL literal form,\nwhich is what has to be written when the value appears inline in a document\nrather than in the variables map.",
+                    "type": "string"
+                },
+                "default_value": {
+                    "description": "DefaultValue is the default decoded into a Go value ready to be sent as a\nJSON variable. Introspection reports defaults as GraphQL literals, so\n` + "`" + `first: Int = 10` + "`" + ` arrives as the text \"10\" and must be decoded before use:\nsent verbatim the server sees the string \"10\" for an Int and rejects it."
+                },
                 "description": {
                     "type": "string"
                 },
@@ -9544,6 +13573,10 @@ const docTemplate = `{
         "graphql.InputField": {
             "type": "object",
             "properties": {
+                "default_literal": {
+                    "description": "DefaultLiteral holds the default in GraphQL literal form. See Argument.",
+                    "type": "string"
+                },
                 "default_value": {},
                 "description": {
                     "type": "string"
@@ -9649,8 +13682,18 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "kind": {
+                    "$ref": "#/definitions/graphql.TypeKind"
+                },
                 "name": {
                     "type": "string"
+                },
+                "possible_types": {
+                    "description": "PossibleTypes lists the concrete object types an interface or union\nresolves to. Unions declare no fields of their own, so these names are the\nonly way to write a selection set for one.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -9699,7 +13742,7 @@ const docTemplate = `{
                     ]
                 },
                 "required": {
-                    "description": "True if NonNull at any level",
+                    "description": "Required reports whether the outermost wrapper is NON_NULL, which is what\ndecides whether a value has to be supplied. Inner non-nullability\n([String!] vs [String]) constrains the elements, not the argument, and is\nonly visible through Signature.",
                     "type": "boolean"
                 }
             }
@@ -9750,52 +13793,6 @@ const docTemplate = `{
                 },
                 "pre_request": {
                     "$ref": "#/definitions/actions.ActionsExecutionResults"
-                }
-            }
-        },
-        "manual.FuzzerInsertionPoint": {
-            "type": "object",
-            "properties": {
-                "end": {
-                    "type": "integer"
-                },
-                "originalValue": {
-                    "type": "string"
-                },
-                "payloadGroups": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/manual.FuzzerPayloadsGroup"
-                    }
-                },
-                "start": {
-                    "type": "integer"
-                }
-            }
-        },
-        "manual.FuzzerPayloadsGroup": {
-            "type": "object",
-            "properties": {
-                "payloads": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "processors": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "example": [
-                        "base64encode"
-                    ]
-                },
-                "type": {
-                    "type": "string"
-                },
-                "wordlist": {
-                    "type": "string"
                 }
             }
         },
@@ -9915,6 +13912,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/openapi.RequestVariation"
                     }
+                },
+                "requires_auth": {
+                    "description": "RequiresAuth reports whether every authentication alternative demands at least\none scheme. It is false when the operation declares \"security: []\" (explicitly\npublic) or offers an empty alternative (authentication optional), both of which\nare indistinguishable from an inherited requirement by looking at Security alone.",
+                    "type": "boolean"
                 },
                 "security": {
                     "description": "Security requirements for this endpoint",
@@ -10047,26 +14048,22 @@ const docTemplate = `{
             ],
             "properties": {
                 "auth_config_id": {
-                    "description": "Override definition's auth",
                     "type": "string"
                 },
                 "definition_id": {
                     "type": "string"
                 },
                 "endpoint_ids": {
-                    "description": "Empty = all enabled endpoints",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
-                "inline_auth": {
-                    "description": "Or configure inline",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/options.InlineAuth"
-                        }
-                    ]
+                "scheme_auth_map": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -10094,27 +14091,13 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "definition_configs": {
-                    "description": "Per-definition configuration with endpoint selection and auth override",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/options.APIDefinitionScanConfig"
                     }
                 },
-                "definition_ids": {
-                    "description": "Legacy: Simple list of definition IDs (backwards compatible)",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "enabled": {
                     "type": "boolean"
-                },
-                "inline_imports": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/options.InlineAPIImport"
-                    }
                 },
                 "run_api_specific_tests": {
                     "type": "boolean"
@@ -10224,6 +14207,9 @@ const docTemplate = `{
                     "maximum": 100,
                     "minimum": 1
                 },
+                "pause_on_auth_failure": {
+                    "type": "boolean"
+                },
                 "start_urls": {
                     "type": "array",
                     "items": {
@@ -10259,86 +14245,6 @@ const docTemplate = `{
                 },
                 "replay_messages": {
                     "type": "boolean"
-                }
-            }
-        },
-        "options.InlineAPIImport": {
-            "type": "object",
-            "required": [
-                "type"
-            ],
-            "properties": {
-                "auth_config_id": {
-                    "type": "string"
-                },
-                "base_url": {
-                    "type": "string"
-                },
-                "content": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string",
-                    "enum": [
-                        "openapi",
-                        "graphql",
-                        "wsdl"
-                    ]
-                },
-                "url": {
-                    "type": "string"
-                }
-            }
-        },
-        "options.InlineAuth": {
-            "type": "object",
-            "required": [
-                "type"
-            ],
-            "properties": {
-                "api_key_location": {
-                    "type": "string",
-                    "enum": [
-                        "header",
-                        "query",
-                        "cookie"
-                    ]
-                },
-                "api_key_name": {
-                    "type": "string"
-                },
-                "api_key_value": {
-                    "type": "string"
-                },
-                "custom_headers": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "password": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "token_prefix": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string",
-                    "enum": [
-                        "none",
-                        "basic",
-                        "bearer",
-                        "api_key"
-                    ]
-                },
-                "username": {
-                    "type": "string"
                 }
             }
         },
@@ -10387,6 +14293,26 @@ const docTemplate = `{
                 "ScanModeSmart",
                 "ScanModeFuzz"
             ]
+        },
+        "proxy.ProxyStatus": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "running": {
+                    "type": "boolean"
+                },
+                "startedAt": {
+                    "type": "string"
+                }
+            }
         },
         "report.ReportFormat": {
             "type": "string",
@@ -10564,6 +14490,436 @@ const docTemplate = `{
                 },
                 "soap_version": {
                     "type": "string"
+                }
+            }
+        },
+        "wsfuzz.AssertionLogic": {
+            "type": "string",
+            "enum": [
+                "and",
+                "or"
+            ],
+            "x-enum-varnames": [
+                "LogicAnd",
+                "LogicOr"
+            ]
+        },
+        "wsfuzz.CheckAssertion": {
+            "type": "object",
+            "properties": {
+                "logic": {
+                    "$ref": "#/definitions/wsfuzz.AssertionLogic"
+                },
+                "negate": {
+                    "type": "boolean"
+                },
+                "rules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fuzz.MatcherRule"
+                    }
+                }
+            }
+        },
+        "wsfuzz.ContentKind": {
+            "type": "string",
+            "enum": [
+                "text",
+                "json",
+                "binary",
+                "custom"
+            ],
+            "x-enum-comments": {
+                "KindBinary": "base64-encoded transport"
+            },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "base64-encoded transport",
+                ""
+            ],
+            "x-enum-varnames": [
+                "KindText",
+                "KindJSON",
+                "KindBinary",
+                "KindCustom"
+            ]
+        },
+        "wsfuzz.ExtractMethod": {
+            "type": "string",
+            "enum": [
+                "regex_group",
+                "json_path",
+                "header",
+                "full"
+            ],
+            "x-enum-comments": {
+                "MethodHeader": "http_response only"
+            },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "http_response only",
+                ""
+            ],
+            "x-enum-varnames": [
+                "MethodRegexGroup",
+                "MethodJSONPath",
+                "MethodHeader",
+                "MethodFull"
+            ]
+        },
+        "wsfuzz.ExtractSource": {
+            "type": "string",
+            "enum": [
+                "last_received_frame",
+                "step_received",
+                "http_response"
+            ],
+            "x-enum-comments": {
+                "SourceHTTPResponse": "PreSetup only",
+                "SourceStepReceived": "requires StepIndex"
+            },
+            "x-enum-descriptions": [
+                "",
+                "requires StepIndex",
+                "PreSetup only"
+            ],
+            "x-enum-varnames": [
+                "SourceLastReceivedFrame",
+                "SourceStepReceived",
+                "SourceHTTPResponse"
+            ]
+        },
+        "wsfuzz.Extraction": {
+            "type": "object",
+            "properties": {
+                "fallback_policy": {
+                    "$ref": "#/definitions/wsfuzz.FallbackAction"
+                },
+                "group_or_path": {
+                    "type": "string"
+                },
+                "header_name": {
+                    "type": "string"
+                },
+                "method": {
+                    "$ref": "#/definitions/wsfuzz.ExtractMethod"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pattern": {
+                    "type": "string"
+                },
+                "source": {
+                    "$ref": "#/definitions/wsfuzz.ExtractSource"
+                },
+                "step_index": {
+                    "description": "for Source=step_received",
+                    "type": "integer"
+                }
+            }
+        },
+        "wsfuzz.FallbackAction": {
+            "type": "string",
+            "enum": [
+                "abort_iteration",
+                "continue_with_empty"
+            ],
+            "x-enum-varnames": [
+                "FallbackAbort",
+                "FallbackContinueEmpty"
+            ]
+        },
+        "wsfuzz.HTTPRequestSpec": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "method": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "wsfuzz.PolicyAction": {
+            "type": "string",
+            "enum": [
+                "abort",
+                "continue"
+            ],
+            "x-enum-varnames": [
+                "PolicyAbort",
+                "PolicyContinue"
+            ]
+        },
+        "wsfuzz.PreSetup": {
+            "type": "object",
+            "properties": {
+                "extract": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsfuzz.Extraction"
+                    }
+                },
+                "http_request": {
+                    "description": "Kind=http_request",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wsfuzz.HTTPRequestSpec"
+                        }
+                    ]
+                },
+                "kind": {
+                    "$ref": "#/definitions/wsfuzz.SetupKind"
+                },
+                "steps": {
+                    "description": "Kind=ws_script",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsfuzz.WsFuzzStep"
+                    }
+                }
+            }
+        },
+        "wsfuzz.SetupKind": {
+            "type": "string",
+            "enum": [
+                "none",
+                "ws_script",
+                "http_request"
+            ],
+            "x-enum-varnames": [
+                "SetupNone",
+                "SetupWsScript",
+                "SetupHTTPRequest"
+            ]
+        },
+        "wsfuzz.StepRole": {
+            "type": "string",
+            "enum": [
+                "setup",
+                "fuzz",
+                "check"
+            ],
+            "x-enum-comments": {
+                "RoleCheck": "assertion-only; failure marks iteration as a finding",
+                "RoleFuzz": "carries insertion points; payloads vary per iteration",
+                "RoleSetup": "sent verbatim every iteration; runs once if in PreSetup"
+            },
+            "x-enum-descriptions": [
+                "sent verbatim every iteration; runs once if in PreSetup",
+                "carries insertion points; payloads vary per iteration",
+                "assertion-only; failure marks iteration as a finding"
+            ],
+            "x-enum-varnames": [
+                "RoleSetup",
+                "RoleFuzz",
+                "RoleCheck"
+            ]
+        },
+        "wsfuzz.TLSConfig": {
+            "type": "object",
+            "properties": {
+                "client_cert_pem": {
+                    "type": "string"
+                },
+                "client_key_pem": {
+                    "type": "string"
+                },
+                "insecure_skip_verify": {
+                    "type": "boolean"
+                },
+                "server_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "wsfuzz.VarScope": {
+            "type": "string",
+            "enum": [
+                "run",
+                "iteration"
+            ],
+            "x-enum-comments": {
+                "VarScopeIteration": "set mid-script; visible only within the iteration",
+                "VarScopeRun": "set once by PreSetup; constant across iterations"
+            },
+            "x-enum-descriptions": [
+                "set once by PreSetup; constant across iterations",
+                "set mid-script; visible only within the iteration"
+            ],
+            "x-enum-varnames": [
+                "VarScopeRun",
+                "VarScopeIteration"
+            ]
+        },
+        "wsfuzz.VariableSpec": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "scope": {
+                    "$ref": "#/definitions/wsfuzz.VarScope"
+                }
+            }
+        },
+        "wsfuzz.WsFuzzStep": {
+            "type": "object",
+            "properties": {
+                "check_assert": {
+                    "description": "role=check only",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wsfuzz.CheckAssertion"
+                        }
+                    ]
+                },
+                "content": {
+                    "description": "may contain §§ markers and ${vars}",
+                    "type": "string"
+                },
+                "content_kind": {
+                    "description": "editor hint",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wsfuzz.ContentKind"
+                        }
+                    ]
+                },
+                "delay_ms": {
+                    "type": "integer"
+                },
+                "extract": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsfuzz.Extraction"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "on_no_match": {
+                    "$ref": "#/definitions/wsfuzz.PolicyAction"
+                },
+                "on_timeout": {
+                    "$ref": "#/definitions/wsfuzz.PolicyAction"
+                },
+                "opcode": {
+                    "description": "1 text, 2 binary",
+                    "type": "integer"
+                },
+                "positions": {
+                    "description": "role=fuzz only",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/fuzz.FuzzerPosition"
+                    }
+                },
+                "role": {
+                    "$ref": "#/definitions/wsfuzz.StepRole"
+                },
+                "wait_for": {
+                    "$ref": "#/definitions/wsreplay.WaitForSpec"
+                }
+            }
+        },
+        "wsfuzz.WsFuzzerConfig": {
+            "type": "object",
+            "properties": {
+                "auto_baseline": {
+                    "$ref": "#/definitions/fuzz.AutoBaselineMode"
+                },
+                "connection_timeout_ms": {
+                    "type": "integer"
+                },
+                "execution_options": {
+                    "$ref": "#/definitions/fuzz.FuzzerExecutionOptions"
+                },
+                "matchers": {
+                    "$ref": "#/definitions/fuzz.MatcherSet"
+                },
+                "mode": {
+                    "$ref": "#/definitions/fuzz.FuzzMode"
+                },
+                "pre_iteration_setup": {
+                    "$ref": "#/definitions/wsfuzz.PreSetup"
+                },
+                "request_headers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsreplay.HeaderSpec"
+                    }
+                },
+                "script": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsfuzz.WsFuzzStep"
+                    }
+                },
+                "shared_payloads": {
+                    "$ref": "#/definitions/fuzz.FuzzerPayloadsGroup"
+                },
+                "subprotocols": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "target_url": {
+                    "type": "string"
+                },
+                "tls_config": {
+                    "$ref": "#/definitions/wsfuzz.TLSConfig"
+                },
+                "variables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/wsfuzz.VariableSpec"
+                    }
+                }
+            }
+        },
+        "wsreplay.HeaderSpec": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "wsreplay.WaitForSpec": {
+            "type": "object",
+            "properties": {
+                "match_type": {
+                    "description": "any | contains | regex | json_path",
+                    "type": "string"
+                },
+                "pattern": {
+                    "type": "string"
+                },
+                "timeout_ms": {
+                    "type": "integer"
                 }
             }
         }

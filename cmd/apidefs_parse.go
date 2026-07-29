@@ -120,14 +120,19 @@ func runAPIDefsParse(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// Applied as named columns in one statement: saving the whole struct would rewrite
+	// endpoint_count and the protocol counters the parse just stored.
+	overrides := make(map[string]interface{})
 	if apidefsParseName != "" {
 		definition.Name = apidefsParseName
-		db.Connection().UpdateAPIDefinition(definition)
+		overrides["name"] = apidefsParseName
 	}
-
 	if apidefsParseBaseURL != "" {
 		definition.BaseURL = apidefsParseBaseURL
-		db.Connection().UpdateAPIDefinition(definition)
+		overrides["base_url"] = apidefsParseBaseURL
+	}
+	if err := db.Connection().UpdateAPIDefinitionFields(definition.ID, overrides); err != nil {
+		logger.Warn().Err(err).Msg("Failed to apply name/base URL overrides")
 	}
 
 	logger.Info().

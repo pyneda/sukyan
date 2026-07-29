@@ -25,6 +25,40 @@ type APIPersistenceOptions struct {
 	ScanID      *uint
 }
 
+// storeEndpointsWithCount inserts a definition's parsed endpoints and writes the
+// resulting endpoint_count in the same transaction, then mirrors the stored value
+// onto the in-memory definition.
+//
+// The count is written unconditionally, including when the parse produced no
+// endpoints: it is the definition's only summary of how much surface it covers,
+// and a row whose counter disagrees with its api_endpoints rows makes every
+// consumer either wrong or forced to re-count by fetching the endpoint list.
+// The count is read back from the table rather than taken from len(endpoints) so
+// it also reflects rows a retry or a partially applied batch already left behind.
+//
+// Mirroring onto the struct matters as much as the write: callers hand the same
+// struct back to the database afterwards (a named import re-saves it to apply the
+// user's name), so a struct carrying a stale zero would undo the row's counter.
+func storeEndpointsWithCount(tx *gorm.DB, definition *db.APIDefinition, endpoints []*db.APIEndpoint) error {
+	if len(endpoints) > 0 {
+		if err := tx.Create(endpoints).Error; err != nil {
+			return fmt.Errorf("creating endpoints: %w", err)
+		}
+	}
+
+	var count int64
+	if err := tx.Model(&db.APIEndpoint{}).Where("definition_id = ?", definition.ID).Count(&count).Error; err != nil {
+		return fmt.Errorf("counting endpoints: %w", err)
+	}
+
+	if err := tx.Model(&db.APIDefinition{}).Where("id = ?", definition.ID).Update("endpoint_count", count).Error; err != nil {
+		return fmt.Errorf("updating endpoint count: %w", err)
+	}
+
+	definition.EndpointCount = int(count)
+	return nil
+}
+
 func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (*db.APIDefinition, error) {
 	body, err := history.ResponseBody()
 	if err != nil {
@@ -168,32 +202,21 @@ func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (
 		if len(globalSecurity) > 0 {
 			if globalSecJSON, marshalErr := json.Marshal(globalSecurity); marshalErr == nil {
 				definition.GlobalSecurityJSON = globalSecJSON
-				if err := tx.Save(definition).Error; err != nil {
+				// One column, not the whole struct: a full save here would write
+				// endpoint_count from memory, and the struct does not learn its
+				// count until the endpoints below have been inserted.
+				if err := tx.Model(&db.APIDefinition{}).Where("id = ?", definition.ID).
+					Update("global_security_json", globalSecJSON).Error; err != nil {
 					return fmt.Errorf("updating global security requirements: %w", err)
 				}
 			}
 		}
 
-		if len(endpoints) > 0 {
-			if err := tx.Create(endpoints).Error; err != nil {
-				return fmt.Errorf("creating endpoints: %w", err)
-			}
-
-			var count int64
-			if err := tx.Model(&db.APIEndpoint{}).Where("definition_id = ?", definition.ID).Count(&count).Error; err != nil {
-				return fmt.Errorf("counting endpoints: %w", err)
-			}
-			if err := tx.Model(&db.APIDefinition{}).Where("id = ?", definition.ID).Update("endpoint_count", count).Error; err != nil {
-				return fmt.Errorf("updating endpoint count: %w", err)
-			}
-		}
-
-		return nil
+		return storeEndpointsWithCount(tx, definition, endpoints)
 	})
 	if txErr != nil {
 		log.Warn().Err(txErr).Str("definition_id", definition.ID.String()).Msg("Failed to persist OpenAPI definition child records")
-	} else {
-		definition.EndpointCount = len(endpoints)
+		definition.EndpointCount = 0
 	}
 
 	log.Info().
@@ -332,27 +355,12 @@ func PersistGraphQLDefinition(history *db.History, opts APIPersistenceOptions) (
 	}
 
 	txErr := db.Connection().DB().Transaction(func(tx *gorm.DB) error {
-		if len(endpoints) > 0 {
-			if err := tx.Create(endpoints).Error; err != nil {
-				return fmt.Errorf("creating endpoints: %w", err)
-			}
-
-			var count int64
-			if err := tx.Model(&db.APIEndpoint{}).Where("definition_id = ?", definition.ID).Count(&count).Error; err != nil {
-				return fmt.Errorf("counting endpoints: %w", err)
-			}
-			if err := tx.Model(&db.APIDefinition{}).Where("id = ?", definition.ID).Update("endpoint_count", count).Error; err != nil {
-				return fmt.Errorf("updating endpoint count: %w", err)
-			}
-		}
-
-		return nil
+		return storeEndpointsWithCount(tx, definition, endpoints)
 	})
 	if txErr != nil {
 		log.Warn().Err(txErr).Str("definition_id", definition.ID.String()).Msg("Failed to persist GraphQL definition child records")
+		definition.EndpointCount = 0
 	}
-
-	definition.EndpointCount = len(endpoints)
 
 	log.Info().
 		Str("definition_id", definition.ID.String()).
@@ -484,34 +492,19 @@ func PersistWSDLDefinition(history *db.History, opts APIPersistenceOptions) (*db
 	}
 
 	txErr := db.Connection().DB().Transaction(func(tx *gorm.DB) error {
-		if len(endpoints) > 0 {
-			if err := tx.Create(endpoints).Error; err != nil {
-				return fmt.Errorf("creating endpoints: %w", err)
-			}
-
-			var count int64
-			if err := tx.Model(&db.APIEndpoint{}).Where("definition_id = ?", definition.ID).Count(&count).Error; err != nil {
-				return fmt.Errorf("counting endpoints: %w", err)
-			}
-			if err := tx.Model(&db.APIDefinition{}).Where("id = ?", definition.ID).Update("endpoint_count", count).Error; err != nil {
-				return fmt.Errorf("updating endpoint count: %w", err)
-			}
-		}
-
-		return nil
+		return storeEndpointsWithCount(tx, definition, endpoints)
 	})
 	if txErr != nil {
 		log.Warn().Err(txErr).Str("definition_id", definition.ID.String()).Msg("Failed to persist WSDL definition child records")
+		definition.EndpointCount = 0
 	}
-
-	definition.EndpointCount = len(endpoints)
 
 	log.Info().
 		Str("definition_id", definition.ID.String()).
 		Str("name", definition.Name).
 		Int("services", wsdlServiceCount).
 		Int("operations", wsdlOperationCount).
-		Int("endpoints", len(endpoints)).
+		Int("endpoints", definition.EndpointCount).
 		Str("source_url", history.URL).
 		Msg("Persisted discovered WSDL definition")
 
@@ -592,27 +585,28 @@ func PersistAPIDefinitionFromContent(content []byte, apiType db.APIDefinitionTyp
 		return nil, err
 	}
 
+	// Only the columns the import options actually override are written. This used
+	// to build the same map and then ignore it in favour of saving the whole struct,
+	// which rewrote every column from memory — including endpoint_count, so a named
+	// import stamped the definition's counter back to whatever the struct happened
+	// to hold and left definitions reporting 0 endpoints while their rows existed.
 	updates := make(map[string]interface{})
 	if opts.Name != "" {
 		updates["name"] = opts.Name
+		definition.Name = opts.Name
 	}
 	if opts.BaseURL != "" {
 		updates["base_url"] = opts.BaseURL
+		definition.BaseURL = opts.BaseURL
 	}
 	if opts.AuthConfigID != nil {
 		updates["auth_config_id"] = opts.AuthConfigID
+		definition.AuthConfigID = opts.AuthConfigID
 	}
 	if len(updates) > 0 {
-		if opts.Name != "" {
-			definition.Name = opts.Name
+		if err := db.Connection().UpdateAPIDefinitionFields(definition.ID, updates); err != nil {
+			log.Warn().Err(err).Str("definition_id", definition.ID.String()).Msg("Failed to apply import overrides to API definition")
 		}
-		if opts.BaseURL != "" {
-			definition.BaseURL = opts.BaseURL
-		}
-		if opts.AuthConfigID != nil {
-			definition.AuthConfigID = opts.AuthConfigID
-		}
-		db.Connection().UpdateAPIDefinition(definition)
 	}
 
 	return definition, nil

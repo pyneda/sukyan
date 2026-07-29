@@ -194,6 +194,21 @@ func (d *DatabaseConnection) UpdateAPIDefinition(definition *APIDefinition) (*AP
 	return definition, result.Error
 }
 
+// UpdateAPIDefinitionFields writes only the named columns, leaving every column the
+// caller did not name — endpoint_count and the per-protocol counters above all — as
+// the parse stored them. Prefer it over UpdateAPIDefinition whenever the caller holds
+// a partial or possibly stale struct, since Save rewrites every column from memory.
+func (d *DatabaseConnection) UpdateAPIDefinitionFields(id uuid.UUID, updates map[string]interface{}) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	result := d.db.Model(&APIDefinition{}).Where("id = ?", id).Updates(updates)
+	if result.Error != nil {
+		log.Error().Err(result.Error).Str("id", id.String()).Interface("updates", updates).Msg("APIDefinition field update failed")
+	}
+	return result.Error
+}
+
 func (d *DatabaseConnection) DeleteAPIDefinition(id uuid.UUID) error {
 	return d.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&ScanJob{}).
@@ -219,7 +234,7 @@ func (d *DatabaseConnection) ListAPIDefinitions(filter APIDefinitionFilter) (ite
 	query := d.db.Model(&APIDefinition{})
 
 	if filter.Query != "" {
-		likeQuery := "%" + filter.Query + "%"
+		likeQuery := containsPattern(filter.Query)
 		query = query.Where("name ILIKE ? OR base_url ILIKE ? OR source_url ILIKE ?", likeQuery, likeQuery, likeQuery)
 	}
 

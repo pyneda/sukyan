@@ -157,14 +157,19 @@ func runAPIDefsScan(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// Applied as named columns in one statement: saving the whole struct would rewrite
+	// endpoint_count and the protocol counters the parse just stored.
+	overrides := make(map[string]interface{})
 	if apidefsScanName != "" {
 		definition.Name = apidefsScanName
-		db.Connection().UpdateAPIDefinition(definition)
+		overrides["name"] = apidefsScanName
 	}
-
 	if apidefsScanBaseURL != "" {
 		definition.BaseURL = apidefsScanBaseURL
-		db.Connection().UpdateAPIDefinition(definition)
+		overrides["base_url"] = apidefsScanBaseURL
+	}
+	if err := db.Connection().UpdateAPIDefinitionFields(definition.ID, overrides); err != nil {
+		logger.Warn().Err(err).Msg("Failed to apply name/base URL overrides")
 	}
 
 	// A base URL no HTTP client can request yields a scan that is accepted, runs to
@@ -247,7 +252,11 @@ func runAPIDefsScan(cmd *cobra.Command, args []string) {
 	}
 
 	definition.ScanID = &scanEntity.ID
-	db.Connection().UpdateAPIDefinition(definition)
+	if err := db.Connection().UpdateAPIDefinitionFields(definition.ID, map[string]interface{}{
+		"scan_id": scanEntity.ID,
+	}); err != nil {
+		logger.Warn().Err(err).Msg("Failed to record scan ID on API definition")
+	}
 
 	if err := db.Connection().LinkAPIDefinitionToScan(scanEntity.ID, definition.ID); err != nil {
 		logger.Warn().Err(err).Msg("Failed to link API definition to scan")

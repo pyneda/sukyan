@@ -456,3 +456,78 @@ func TestExecuteActionsRecordsAssertionVerdicts(t *testing.T) {
 	assert.Equal(t, "Welcome to Test Page", failedVerdict.Actual)
 	assert.Equal(t, StepStatusFailed, failing.Steps[0].Status)
 }
+
+func TestExecuteActionsRecordsVisibilityAssertionVerdicts(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	server := startTestServer()
+	defer server.Shutdown(context.Background())
+
+	rodBrowser := setupRodBrowser(t, true)
+	defer rodBrowser.Close()
+
+	page := rodBrowser.MustPage("http://localhost:9999/page1")
+	page.MustWaitLoad()
+
+	visiblePassing, err := ExecuteActions(ctx, page, []Action{
+		{Type: ActionAssert, Selector: "#welcome-message", Condition: AssertVisible},
+	})
+	assert.NoError(t, err)
+	visibleVerdict := visiblePassing.Steps[0].Assertion
+	assert.NotNil(t, visibleVerdict)
+	assert.True(t, visibleVerdict.Passed)
+	assert.Equal(t, "visible", visibleVerdict.Expected)
+	assert.Equal(t, "visible", visibleVerdict.Actual)
+
+	hiddenPassing, err := ExecuteActions(ctx, page, []Action{
+		{Type: ActionAssert, Selector: "#login-form", Condition: AssertHidden},
+	})
+	assert.NoError(t, err)
+	hiddenVerdict := hiddenPassing.Steps[0].Assertion
+	assert.NotNil(t, hiddenVerdict)
+	assert.True(t, hiddenVerdict.Passed)
+	assert.Equal(t, "hidden", hiddenVerdict.Expected)
+	assert.Equal(t, "hidden", hiddenVerdict.Actual)
+
+	visibleFailing, err := ExecuteActions(ctx, page, []Action{
+		{Type: ActionAssert, Selector: "#login-form", Condition: AssertVisible},
+	})
+	assert.Error(t, err, "a failed visibility assertion still ends the run")
+	failedVerdict := visibleFailing.Steps[0].Assertion
+	assert.NotNil(t, failedVerdict, "the verdict survives the failure")
+	assert.False(t, failedVerdict.Passed)
+	assert.Equal(t, "visible", failedVerdict.Expected)
+	assert.Equal(t, "hidden", failedVerdict.Actual)
+	assert.Equal(t, StepStatusFailed, visibleFailing.Steps[0].Status)
+}
+
+func TestExecuteActionsAssertionNotEvaluatedLeavesNoVerdict(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	server := startTestServer()
+	defer server.Shutdown(context.Background())
+
+	rodBrowser := setupRodBrowser(t, true)
+	defer rodBrowser.Close()
+
+	page := rodBrowser.MustPage("http://localhost:9999/page1")
+	page.MustWaitLoad()
+
+	// A selector that never appears makes rod's element lookup retry until
+	// its own context is done. Bound that lookup tightly so this test fails
+	// fast instead of hanging (page.Element does not honour the ctx passed
+	// to ExecuteActions).
+	shortPage := page.Timeout(500 * time.Millisecond)
+
+	results, err := ExecuteActions(ctx, shortPage, []Action{
+		{Type: ActionAssert, Selector: "#does-not-exist", Condition: AssertVisible},
+	})
+	assert.Error(t, err, "failing to find the element still ends the run")
+	assert.Len(t, results.Steps, 1)
+	step := results.Steps[0]
+	assert.Equal(t, StepStatusFailed, step.Status)
+	assert.NotEmpty(t, step.Error)
+	assert.Nil(t, step.Assertion, "no comparison ever ran, so no verdict should be recorded")
+}

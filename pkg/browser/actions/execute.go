@@ -181,7 +181,6 @@ func executeAction(ctx context.Context, page *rod.Page, action Action, actionLog
 			Selector:  action.Selector,
 			Expected:  action.Value,
 		}
-		out.assertion = verdict
 
 		switch action.Condition {
 		case AssertContains, AssertEquals:
@@ -198,6 +197,9 @@ func executeAction(ctx context.Context, page *rod.Page, action Action, actionLog
 			} else {
 				verdict.Passed = text == action.Value
 			}
+			// The comparison has genuinely run: record the verdict now, so it
+			// survives below whether the assertion passed or failed.
+			out.assertion = verdict
 
 			if !verdict.Passed {
 				msg := fmt.Sprintf("assertion failed: element text does not contain '%s'", action.Value)
@@ -208,6 +210,7 @@ func executeAction(ctx context.Context, page *rod.Page, action Action, actionLog
 				return out, errors.New(msg)
 			}
 			actionLogger.Log(lib.INFO, fmt.Sprintf("assertion passed: element text matches '%s'", action.Value))
+			log.Info().Str("selector", action.Selector).Str("condition", string(action.Condition)).Str("value", action.Value).Msg("Browser action assertion passed")
 
 		case AssertVisible, AssertHidden:
 			actionLogger.Log(lib.INFO, fmt.Sprintf("checking visibility of element %s", action.Selector))
@@ -223,6 +226,9 @@ func executeAction(ctx context.Context, page *rod.Page, action Action, actionLog
 				verdict.Actual = "visible"
 			}
 			verdict.Passed = verdict.Actual == verdict.Expected
+			// The comparison has genuinely run: record the verdict now, so it
+			// survives below whether the assertion passed or failed.
+			out.assertion = verdict
 
 			if !verdict.Passed {
 				msg := fmt.Sprintf("assertion failed: element %s is %s", action.Selector, verdict.Actual)
@@ -230,6 +236,7 @@ func executeAction(ctx context.Context, page *rod.Page, action Action, actionLog
 				return out, errors.New(msg)
 			}
 			actionLogger.Log(lib.INFO, fmt.Sprintf("assertion passed: element %s is %s", action.Selector, verdict.Actual))
+			log.Info().Str("selector", action.Selector).Str("condition", string(action.Condition)).Str("value", verdict.Actual).Msg("Browser action assertion passed")
 		}
 
 	case ActionScroll:

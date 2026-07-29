@@ -419,3 +419,40 @@ func TestExecuteActionsCapturesEvaluationValue(t *testing.T) {
 	assert.Equal(t, "number", numEval.Type)
 	assert.JSONEq(t, `42`, string(numEval.Value))
 }
+
+func TestExecuteActionsRecordsAssertionVerdicts(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	server := startTestServer()
+	defer server.Shutdown(context.Background())
+
+	rodBrowser := setupRodBrowser(t, true)
+	defer rodBrowser.Close()
+
+	page := rodBrowser.MustPage("http://localhost:9999/page1")
+	page.MustWaitLoad()
+
+	passing, err := ExecuteActions(ctx, page, []Action{
+		{Type: ActionAssert, Selector: "#welcome-message", Condition: AssertContains, Value: "Welcome"},
+	})
+	assert.NoError(t, err)
+	verdict := passing.Steps[0].Assertion
+	assert.NotNil(t, verdict)
+	assert.True(t, verdict.Passed)
+	assert.Equal(t, "contains", verdict.Condition)
+	assert.Equal(t, "#welcome-message", verdict.Selector)
+	assert.Equal(t, "Welcome", verdict.Expected)
+	assert.Equal(t, "Welcome to Test Page", verdict.Actual)
+
+	failing, err := ExecuteActions(ctx, page, []Action{
+		{Type: ActionAssert, Selector: "#welcome-message", Condition: AssertEquals, Value: "Goodbye"},
+	})
+	assert.Error(t, err, "a failed assertion still ends the run")
+	failedVerdict := failing.Steps[0].Assertion
+	assert.NotNil(t, failedVerdict, "the verdict survives the failure")
+	assert.False(t, failedVerdict.Passed)
+	assert.Equal(t, "Goodbye", failedVerdict.Expected)
+	assert.Equal(t, "Welcome to Test Page", failedVerdict.Actual)
+	assert.Equal(t, StepStatusFailed, failing.Steps[0].Status)
+}

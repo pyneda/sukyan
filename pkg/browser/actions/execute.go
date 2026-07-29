@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -174,54 +175,61 @@ func executeAction(ctx context.Context, page *rod.Page, action Action, actionLog
 			return out, fmt.Errorf("failed to find element %s: %w", action.Selector, err)
 		}
 		actionLogger.Log(lib.INFO, fmt.Sprintf("asserting element %s", action.Selector))
-		text, err := el.Text()
-		if err != nil {
-			actionLogger.Log(lib.ERROR, fmt.Sprintf("failed to get text of element %s: %s", action.Selector, err))
-			return out, fmt.Errorf("failed to get text of element %s: %w", action.Selector, err)
-		}
-		actionLogger.Log(lib.INFO, fmt.Sprintf("got text of element %s: %s", action.Selector, text))
-		switch action.Condition {
-		case AssertContains:
-			if !strings.Contains(text, action.Value) {
-				actionLogger.Log(lib.ERROR, fmt.Sprintf("assertion failed: element text does not contain '%s'", action.Value))
-				return out, fmt.Errorf("assertion failed: element text does not contain '%s'", action.Value)
-			}
-			actionLogger.Log(lib.INFO, fmt.Sprintf("assertion passed: element text contains '%s'", action.Value))
-			log.Info().Str("selector", action.Selector).Str("value", action.Value).Msg("Browser action contains assertion passed")
-		case AssertEquals:
-			if text != action.Value {
-				actionLogger.Log(lib.ERROR, fmt.Sprintf("assertion failed: element text is not equal to '%s'", action.Value))
-				return out, fmt.Errorf("assertion failed: element text is not equal to '%s'", action.Value)
-			}
-			actionLogger.Log(lib.INFO, fmt.Sprintf("assertion passed: element text is equal to '%s'", action.Value))
-			log.Info().Str("selector", action.Selector).Str("value", action.Value).Msg("Browser action equals assertion passed")
-		case AssertVisible:
-			isVisible, err := el.Visible()
-			actionLogger.Log(lib.INFO, fmt.Sprintf("checking visibility of element %s", action.Selector))
-			if err != nil {
-				actionLogger.Log(lib.ERROR, fmt.Sprintf("failed to check visibility of element %s: %s", action.Selector, err))
-				return out, fmt.Errorf("failed to check visibility of element %s: %w", action.Selector, err)
-			}
-			if !isVisible {
-				actionLogger.Log(lib.ERROR, fmt.Sprintf("assertion failed: element %s is not visible", action.Selector))
-				return out, fmt.Errorf("assertion failed: element %s is not visible", action.Selector)
-			}
-			actionLogger.Log(lib.INFO, fmt.Sprintf("assertion passed: element %s is visible", action.Selector))
-			log.Info().Str("selector", action.Selector).Msg("Browser action visible assertion passed")
 
-		case AssertHidden:
-			isVisible, err := el.Visible()
+		verdict := &AssertionResult{
+			Condition: string(action.Condition),
+			Selector:  action.Selector,
+			Expected:  action.Value,
+		}
+		out.assertion = verdict
+
+		switch action.Condition {
+		case AssertContains, AssertEquals:
+			text, err := el.Text()
+			if err != nil {
+				actionLogger.Log(lib.ERROR, fmt.Sprintf("failed to get text of element %s: %s", action.Selector, err))
+				return out, fmt.Errorf("failed to get text of element %s: %w", action.Selector, err)
+			}
+			actionLogger.Log(lib.INFO, fmt.Sprintf("got text of element %s: %s", action.Selector, text))
+			verdict.Actual = text
+
+			if action.Condition == AssertContains {
+				verdict.Passed = strings.Contains(text, action.Value)
+			} else {
+				verdict.Passed = text == action.Value
+			}
+
+			if !verdict.Passed {
+				msg := fmt.Sprintf("assertion failed: element text does not contain '%s'", action.Value)
+				if action.Condition == AssertEquals {
+					msg = fmt.Sprintf("assertion failed: element text is not equal to '%s'", action.Value)
+				}
+				actionLogger.Log(lib.ERROR, msg)
+				return out, errors.New(msg)
+			}
+			actionLogger.Log(lib.INFO, fmt.Sprintf("assertion passed: element text matches '%s'", action.Value))
+
+		case AssertVisible, AssertHidden:
 			actionLogger.Log(lib.INFO, fmt.Sprintf("checking visibility of element %s", action.Selector))
+			isVisible, err := el.Visible()
 			if err != nil {
 				actionLogger.Log(lib.ERROR, fmt.Sprintf("failed to check visibility of element %s: %s", action.Selector, err))
 				return out, fmt.Errorf("failed to check visibility of element %s: %w", action.Selector, err)
 			}
+
+			verdict.Expected = string(action.Condition)
+			verdict.Actual = "hidden"
 			if isVisible {
-				actionLogger.Log(lib.ERROR, fmt.Sprintf("assertion failed: element %s is visible, expected hidden", action.Selector))
-				return out, fmt.Errorf("assertion failed: element %s is visible, expected hidden", action.Selector)
+				verdict.Actual = "visible"
 			}
-			actionLogger.Log(lib.INFO, fmt.Sprintf("assertion passed: element %s is hidden", action.Selector))
-			log.Info().Str("selector", action.Selector).Msg("Browser action hidden assertion passed")
+			verdict.Passed = verdict.Actual == verdict.Expected
+
+			if !verdict.Passed {
+				msg := fmt.Sprintf("assertion failed: element %s is %s", action.Selector, verdict.Actual)
+				actionLogger.Log(lib.ERROR, msg)
+				return out, errors.New(msg)
+			}
+			actionLogger.Log(lib.INFO, fmt.Sprintf("assertion passed: element %s is %s", action.Selector, verdict.Actual))
 		}
 
 	case ActionScroll:

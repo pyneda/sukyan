@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -157,15 +159,6 @@ type WorkspaceRollupsResponse struct {
 	Count int64                `json:"count"`
 }
 
-var allowedRollupSortFields = map[string]bool{
-	"title":         true,
-	"critical":      true,
-	"high":          true,
-	"issues":        true,
-	"active_scans":  true,
-	"last_activity": true,
-}
-
 // ListWorkspaceRollupsHandler returns one summary row per workspace.
 //
 // @Summary Lists all workspaces with issue, history and scan rollups.
@@ -195,10 +188,10 @@ func ListWorkspaceRollupsHandler(c *fiber.Ctx) error {
 		},
 	}
 
-	if filter.SortBy != "" && !allowedRollupSortFields[filter.SortBy] {
+	if filter.SortBy != "" && !slices.Contains(db.WorkspaceRollupSortFields, filter.SortBy) {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Invalid sort field",
-			Message: "sort_by must be one of: title, critical, high, issues, active_scans, last_activity",
+			Message: "sort_by must be one of: " + strings.Join(db.WorkspaceRollupSortFields, ", "),
 		})
 	}
 	if filter.SortOrder != "" && filter.SortOrder != "asc" && filter.SortOrder != "desc" {

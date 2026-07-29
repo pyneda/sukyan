@@ -196,6 +196,12 @@ type WorkspaceRollupFilter struct {
 	Pagination Pagination `json:"pagination"`
 }
 
+// WorkspaceRollupSortFields are the columns ListWorkspaceRollups can sort by.
+// The API layer validates against this so the two cannot drift.
+var WorkspaceRollupSortFields = []string{
+	"title", "critical", "high", "issues", "active_scans", "last_activity",
+}
+
 // activeScanStatuses are the statuses that count as "currently running" for
 // rollup purposes. Paused is included: the scan still occupies the workspace.
 var activeScanStatuses = []ScanStatus{

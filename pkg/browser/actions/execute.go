@@ -30,6 +30,19 @@ func ExecuteActions(ctx context.Context, page *rod.Page, actions []Action) (Acti
 		select {
 		case <-ctx.Done():
 			actionLogger.Log(lib.INFO, "context cancelled")
+			results.Failure = &ActionFailure{
+				StepIndex: i,
+				Type:      string(action.Type),
+				Message:   ctx.Err().Error(),
+			}
+			for j := i; j < len(actions); j++ {
+				results.Steps = append(results.Steps, ActionStepResult{
+					Index:  j,
+					Type:   string(actions[j].Type),
+					Target: actionTarget(actions[j]),
+					Status: StepStatusSkipped,
+				})
+			}
 			return finish(ctx.Err())
 		default:
 		}

@@ -190,6 +190,55 @@ func TestExecuteActionsRecordsSteps(t *testing.T) {
 	assert.GreaterOrEqual(t, results.DurationMs, results.Steps[1].DurationMs)
 }
 
+// TestExecuteActionsCancelledBetweenActions covers cancellation observed at
+// the top-of-loop ctx.Done() check - the gap between actions - as opposed to
+// cancellation observed mid-action (e.g. inside ActionSleep's own select,
+// which was already correct before this fix). The context is cancelled
+// before ExecuteActions is even called: context.WithCancel closes its Done
+// channel synchronously inside cancel(), so this is fully deterministic (no
+// timer/goroutine race) and guarantees the very first top-of-loop check
+// observes the context as already done, before action 0 ever runs. The loop
+// branch under test does not treat index 0 specially - the same code path
+// handles cancellation at any index - so this deterministically exercises
+// exactly the fixed logic: every action must still get a step, all of them
+// skipped, with Failure populated for the action that didn't get to run.
+func TestExecuteActionsCancelledBetweenActions(t *testing.T) {
+	server := startTestServer()
+	defer server.Shutdown(context.Background())
+
+	rodBrowser := setupRodBrowser(t, true)
+	defer rodBrowser.Close()
+
+	page := rodBrowser.MustPage("http://localhost:9999/page1")
+	page.MustWaitLoad()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	acts := []Action{
+		{Type: ActionClick, Selector: "#login-button"},
+		{Type: ActionFill, Selector: "#username", Value: "testuser"},
+		{Type: ActionFill, Selector: "#password", Value: "testpassword"},
+	}
+
+	results, err := ExecuteActions(ctx, page, acts)
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.False(t, results.Succeeded)
+
+	assert.Equal(t, len(acts), len(results.Steps), "every action gets a step, even ones that never ran")
+	for i, step := range results.Steps {
+		assert.Equal(t, i, step.Index)
+		assert.Equal(t, string(acts[i].Type), step.Type)
+		assert.Equal(t, StepStatusSkipped, step.Status, "cancellation before it ran means the action is skipped")
+	}
+
+	if assert.NotNil(t, results.Failure, "cancellation between actions must still populate Failure") {
+		assert.Equal(t, 0, results.Failure.StepIndex)
+		assert.Equal(t, string(ActionClick), results.Failure.Type)
+		assert.Equal(t, context.Canceled.Error(), results.Failure.Message)
+	}
+}
+
 func TestFormFillAndSubmit(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

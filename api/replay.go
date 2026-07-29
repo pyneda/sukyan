@@ -20,6 +20,15 @@ type PlaygroundReplayInput struct {
 	SessionID      uint                      `json:"session_id" validate:"required"`
 }
 
+// ReplayErrorResponse is returned when a replay could not complete. It carries
+// any browser action results collected before the failure so the client can
+// show which step broke rather than only a message.
+type ReplayErrorResponse struct {
+	Error                 string                              `json:"error"`
+	Message               string                              `json:"message"`
+	BrowserActionsResults *manual.BrowserReplayActionsResults `json:"browser_actions_results,omitempty"`
+}
+
 // ReplayRequest godoc
 // @Summary Sends a request to a target
 // @Description Sends a request to a target and returns the response
@@ -28,7 +37,7 @@ type PlaygroundReplayInput struct {
 // @Produce  json
 // @Param input body PlaygroundReplayInput true "Set the request configuration"
 // @Success 200 {object} manual.ReplayResult
-// @Failure 400 {object} ErrorResponse
+// @Failure 400 {object} ReplayErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/replay [post]
 func ReplayRequest(c *fiber.Ctx) error {
@@ -94,10 +103,14 @@ func ReplayRequest(c *fiber.Ctx) error {
 	result, err := manual.Replay(options)
 	if err != nil {
 		log.Error().Err(err).Msg("Error replaying request")
-		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
+		response := ReplayErrorResponse{
 			Error:   "Request Replay Failed",
 			Message: err.Error(),
-		})
+		}
+		if result.BrowserActionsResults.PreRequest != nil || result.BrowserActionsResults.PostRequest != nil {
+			response.BrowserActionsResults = &result.BrowserActionsResults
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(response)
 	}
 
 	return c.JSON(result)

@@ -63,10 +63,6 @@ func ExecuteActions(ctx context.Context, page *rod.Page, actions []Action) (Acti
 		step.Evaluation = out.evaluation
 		step.Assertion = out.assertion
 
-		if out.screenshot != nil {
-			results.Screenshots = append(results.Screenshots, *out.screenshot)
-		}
-
 		if err != nil {
 			step.Status = StepStatusFailed
 			step.Error = err.Error()

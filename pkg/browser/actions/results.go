@@ -28,12 +28,17 @@ type EvaluationResult struct {
 	Type       string          `json:"type"`
 }
 
-// AssertionResult holds the verdict of an assert action.
+// AssertionResult holds the verdict of an assert action. Expected/Actual
+// intentionally lack `omitempty`: AssertionResult is only ever emitted once
+// the comparison has actually run (see execute.go), so an empty string here
+// is real data - e.g. an `equals ""` assertion, or an element whose text is
+// genuinely empty - not an absent field. Omitting it would make that
+// indistinguishable from "not recorded".
 type AssertionResult struct {
 	Condition string `json:"condition"`
 	Selector  string `json:"selector"`
-	Expected  string `json:"expected,omitempty"`
-	Actual    string `json:"actual,omitempty"`
+	Expected  string `json:"expected"`
+	Actual    string `json:"actual"`
 	Passed    bool   `json:"passed"`
 }
 
@@ -59,12 +64,11 @@ type ActionStepResult struct {
 
 // ActionsExecutionResults is the full record of one action sequence run.
 type ActionsExecutionResults struct {
-	Succeeded   bool               `json:"succeeded"`
-	Steps       []ActionStepResult `json:"steps"`
-	Screenshots []ScreenshotResult `json:"screenshots"`
-	Logs        []lib.LogEntry     `json:"logs"`
-	Failure     *ActionFailure     `json:"failure,omitempty"`
-	DurationMs  int64              `json:"duration_ms"`
+	Succeeded  bool               `json:"succeeded"`
+	Steps      []ActionStepResult `json:"steps"`
+	Logs       []lib.LogEntry     `json:"logs"`
+	Failure    *ActionFailure     `json:"failure,omitempty"`
+	DurationMs int64              `json:"duration_ms"`
 }
 
 // stepOutput carries the optional typed payload an action may produce.
@@ -94,7 +98,7 @@ func actionTarget(action Action) string {
 // "array"/"date"/"map"/"set"/etc. subtypes, those are only populated on the
 // object-reference/preview path (`returnByValue: false`), which does not
 // hand back a serialized value at all. This was verified empirically against
-// go-rod v0.116.2 + Chromium 150.0.7871.46 (see task-2-report.md): evaluating
+// go-rod v0.116.2 + Chromium 150.0.7871.46: evaluating
 // `() => [1,2,3]` by value comes back as {Type: "object", Subtype: ""}, so
 // trusting Subtype would report every array as a plain "object" and defeat
 // the whole point of this field - letting the frontend label and shape the

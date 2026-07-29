@@ -150,7 +150,6 @@ func TestClickAndVisibility(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 3, len(results.Logs), "There should be 3 logs")
 	assert.Equal(t, true, results.Succeeded, "The action should have succeeded")
-	assert.Equal(t, 0, len(results.Screenshots), "There should be no screenshots")
 
 }
 

@@ -109,6 +109,16 @@ func ReplayRaw(input RequestReplayOptions) (ReplayResult, error) {
 	return result, nil
 }
 
+// navigationFailureResult builds the ReplayResult returned when navigating in
+// the browser fails. A pre-request action may have already run and succeeded
+// (with its own steps, screenshots, evaluations and assertions) before
+// navigation failed; those results must be preserved rather than discarded,
+// since api/replay.go attaches BrowserActionsResults to the 400 body whenever
+// either phase is set.
+func navigationFailureResult(browserActionsResults BrowserReplayActionsResults) ReplayResult {
+	return ReplayResult{BrowserActionsResults: browserActionsResults}
+}
+
 func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 	request, err := input.Request.toHTTPRequest()
 	if err != nil {
@@ -184,7 +194,7 @@ func ReplayInBrowser(input RequestReplayOptions) (ReplayResult, error) {
 	})
 	if navigationErr != nil {
 		log.Error().Err(navigationErr).Msg("Error replaying request in browser")
-		return ReplayResult{}, navigationErr
+		return navigationFailureResult(browserActionsResults), navigationErr
 	}
 	log.Info().Msg("Request replayed in browser")
 

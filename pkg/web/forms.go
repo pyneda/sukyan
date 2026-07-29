@@ -190,6 +190,18 @@ func AutoFillInput(input *rod.Element, page *rod.Page) {
 	}
 }
 
+// SubmitsAForm reports whether clicking el would submit a form. A <button> or
+// <input> with no explicit type defaults to type="submit", so an unlabelled button
+// inside a form is a submit control. Errors resolve to true: when it cannot be
+// determined, the caller should treat the element as one that writes to the target.
+func SubmitsAForm(el *rod.Element) bool {
+	result, err := el.Timeout(2 * time.Second).Eval(`() => this.form !== null && this.type === 'submit'`)
+	if err != nil {
+		return true
+	}
+	return result.Value.Bool()
+}
+
 // SafeClick clicks an element by dispatching the click via JS instead of rod's
 // Click(), which drives Hover->ScrollIntoView->WaitStableRAF and hangs on a
 // continuously-animating element (its requestAnimationFrame loop runs on the

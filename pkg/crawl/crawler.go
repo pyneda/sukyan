@@ -719,6 +719,13 @@ func (c *Crawler) getAndClickElements(selector string, page *rod.Page) (err erro
 					continue
 				}
 
+				// A button inside a form submits it, so clicking one would write to the
+				// target even though form submission was turned off for this scan.
+				if !c.crawlOptions.SubmitForms && web.SubmitsAForm(btn) {
+					log.Debug().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Skipping form submit element because form submission is disabled")
+					continue
+				}
+
 				err = web.SafeClick(btn)
 				if err != nil && page.GetContext().Err() != nil {
 					log.Debug().Err(err).Str("xpath", xpath).Str("selector", selector).Msg("Element click stopped due to interaction cancellation")

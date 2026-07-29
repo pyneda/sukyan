@@ -531,3 +531,41 @@ func TestExecuteActionsAssertionNotEvaluatedLeavesNoVerdict(t *testing.T) {
 	assert.NotEmpty(t, step.Error)
 	assert.Nil(t, step.Assertion, "no comparison ever ran, so no verdict should be recorded")
 }
+
+func TestExecuteActionsReportsFailureAndSkipsRemaining(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	server := startTestServer()
+	defer server.Shutdown(context.Background())
+
+	rodBrowser := setupRodBrowser(t, true)
+	defer rodBrowser.Close()
+
+	page := rodBrowser.MustPage("http://localhost:9999/page1")
+	page.MustWaitLoad()
+
+	acts := []Action{
+		{Type: ActionClick, Selector: "#login-button"},
+		{Type: ActionAssert, Selector: "#welcome-message", Condition: AssertEquals, Value: "Nope"},
+		{Type: ActionSleep, Duration: 10},
+		{Type: ActionSleep, Duration: 10},
+	}
+
+	results, err := ExecuteActions(ctx, page, acts)
+	assert.Error(t, err)
+
+	assert.False(t, results.Succeeded)
+	assert.NotNil(t, results.Failure)
+	assert.Equal(t, 1, results.Failure.StepIndex)
+	assert.Equal(t, string(ActionAssert), results.Failure.Type)
+	assert.Contains(t, results.Failure.Message, "assertion failed")
+
+	assert.Equal(t, 4, len(results.Steps), "every action gets a step, even after the failure")
+	assert.Equal(t, StepStatusOK, results.Steps[0].Status)
+	assert.Equal(t, StepStatusFailed, results.Steps[1].Status)
+	assert.Equal(t, StepStatusSkipped, results.Steps[2].Status)
+	assert.Equal(t, StepStatusSkipped, results.Steps[3].Status)
+
+	assert.NotEmpty(t, results.Logs, "logs collected before the failure survive")
+}

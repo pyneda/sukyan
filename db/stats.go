@@ -286,7 +286,7 @@ func (d *DatabaseConnection) ListWorkspaceRollups(filter WorkspaceRollupFilter) 
 		case Info:
 			rows[i].Issues.Info = g.Count
 		default:
-			rows[i].Issues.Unknown = g.Count
+			rows[i].Issues.Unknown += g.Count
 		}
 	}
 

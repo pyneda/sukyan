@@ -5,34 +5,46 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/browser"
+	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/pyneda/sukyan/pkg/scope"
 	"github.com/pyneda/sukyan/pkg/web"
 	"github.com/rs/zerolog/log"
-	"github.com/spf13/viper"
 )
 
-type CrawlOptions struct {
-	ExtraHeaders    map[string][]string
-	MaxDepth        int
-	MaxPagesToCrawl int
-	MaxPagesPerSite int
+// CrawlerConfig describes what to crawl and the limits the crawl must respect.
+// CrawlOptions carries the per-scan crawl behaviour and may be nil, in which case
+// the defaults from the options package apply.
+type CrawlerConfig struct {
+	StartURLs            []string
+	ExcludePatterns      []string
+	ExtraHeaders         map[string][]string
+	MaxDepth             int
+	MaxPagesToCrawl      int
+	MaxPagesPerSite      int
+	PagesPoolSize        int
+	WorkspaceID          uint
+	TaskID               uint
+	ScanID               uint
+	ScanJobID            uint
+	CaptureBrowserEvents bool
+	HTTPClient           *http.Client
+	CrawlOptions         *options.FullScanCrawlOptions
 }
 
 type Crawler struct {
 	ctx                     context.Context
 	cancel                  context.CancelFunc
-	Options                 CrawlOptions
+	config                  CrawlerConfig
+	crawlOptions            options.ResolvedCrawlOptions
 	scope                   scope.Scope
 	startURLs               []string
 	excludePatterns         []string
-	ignoredExtensions       []string
 	browser                 *browser.PagePoolManager
 	pages                   sync.Map
 	pageCounter             int
@@ -50,9 +62,7 @@ type Crawler struct {
 	hijackChan              chan browser.HijackResult
 	normalizedURLCounts     sync.Map
 	eventStore              sync.Map
-	maxPagesWithSameParams  int
 	captureBrowserEvents    bool
-	captureClientNavigation bool
 }
 
 type CrawlItem struct {
@@ -77,42 +87,36 @@ type SubmittedForm struct {
 	xpath string
 }
 
-func NewCrawler(startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool, httpClient *http.Client) (*Crawler, error) {
+func NewCrawler(config CrawlerConfig) (*Crawler, error) {
 	hijackChan := make(chan browser.HijackResult)
-	options := CrawlOptions{
-		ExtraHeaders:    extraHeaders,
-		MaxDepth:        maxDepth,
-		MaxPagesToCrawl: maxPagesToCrawl,
-		MaxPagesPerSite: maxPagesPerSite,
-	}
+	crawlOptions := config.CrawlOptions.Resolve()
 	c := &Crawler{
-		Options:                 options,
-		startURLs:               startURLs,
-		excludePatterns:         excludePatterns,
-		concLimit:               make(chan struct{}, poolSize+2), // Set max concurrency
-		hijackChan:              hijackChan,
-		ignoredExtensions:       viper.GetStringSlice("crawl.ignored_extensions"),
-		workspaceID:             workspaceID,
-		taskID:                  taskID,
-		scanID:                  scanID,
-		scanJobID:               scanJobID,
-		maxPagesWithSameParams:  viper.GetInt("crawl.max_pages_with_same_params"),
-		captureBrowserEvents:    captureBrowserEvents,
-		captureClientNavigation: viper.GetBool("crawl.interaction.capture_client_navigation"),
+		config:               config,
+		crawlOptions:         crawlOptions,
+		startURLs:            config.StartURLs,
+		excludePatterns:      config.ExcludePatterns,
+		concLimit:            make(chan struct{}, config.PagesPoolSize+2), // Set max concurrency
+		hijackChan:           hijackChan,
+		workspaceID:          config.WorkspaceID,
+		taskID:               config.TaskID,
+		scanID:               config.ScanID,
+		scanJobID:            config.ScanJobID,
+		captureBrowserEvents: config.CaptureBrowserEvents,
 	}
 
 	pool, err := browser.NewHijackedPagePoolManager(
 		browser.PagePoolManagerConfig{
-			PoolSize:      poolSize,
-			HTTPClient:    httpClient,
+			PoolSize:      config.PagesPoolSize,
+			HTTPClient:    config.HTTPClient,
+			UserAgent:     crawlOptions.UserAgent,
 			ShouldExtract: c.shouldExtract,
 		},
 		"Crawler",
 		hijackChan,
-		workspaceID,
-		taskID,
-		scanID,
-		scanJobID,
+		config.WorkspaceID,
+		config.TaskID,
+		config.ScanID,
+		config.ScanJobID,
 	)
 	if err != nil {
 		return nil, err
@@ -123,8 +127,8 @@ func NewCrawler(startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, ma
 }
 
 // NewCrawlerWithContext creates a new Crawler with context for cancellation support
-func NewCrawlerWithContext(ctx context.Context, startURLs []string, maxPagesToCrawl int, maxPagesPerSite int, maxDepth int, poolSize int, excludePatterns []string, workspaceID, taskID, scanID, scanJobID uint, extraHeaders map[string][]string, captureBrowserEvents bool, httpClient *http.Client) (*Crawler, error) {
-	crawler, err := NewCrawler(startURLs, maxPagesToCrawl, maxPagesPerSite, maxDepth, poolSize, excludePatterns, workspaceID, taskID, scanID, scanJobID, extraHeaders, captureBrowserEvents, httpClient)
+func NewCrawlerWithContext(ctx context.Context, config CrawlerConfig) (*Crawler, error) {
+	crawler, err := NewCrawler(config)
 	if err != nil {
 		return nil, err
 	}
@@ -186,8 +190,8 @@ func (c *Crawler) RunWithContext(ctx context.Context) []*db.History {
 						}
 						// Check if max pages to crawl are reached (global limit)
 						c.counterLock.Lock()
-						if c.Options.MaxPagesToCrawl != 0 && c.pageCounter >= c.Options.MaxPagesToCrawl {
-							taskLog.Info().Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Not processing new crawler urls due to max pages to crawl")
+						if c.config.MaxPagesToCrawl != 0 && c.pageCounter >= c.config.MaxPagesToCrawl {
+							taskLog.Info().Int("max_pages_to_crawl", c.config.MaxPagesToCrawl).Int("crawled", c.pageCounter).Msg("Not processing new crawler urls due to max pages to crawl")
 							c.counterLock.Unlock()
 							continue // Max pages reached, skip processing the rest of the discovered URLs
 						}
@@ -195,7 +199,7 @@ func (c *Crawler) RunWithContext(ctx context.Context) []*db.History {
 
 						// Check if per-site limit is reached
 						if c.isSiteLimitReached(url) {
-							taskLog.Debug().Str("url", url).Int("max_pages_per_site", c.Options.MaxPagesPerSite).Int("site_count", c.getSitePageCount(url)).Msg("Skipping URL due to per-site page limit")
+							taskLog.Debug().Str("url", url).Int("max_pages_per_site", c.config.MaxPagesPerSite).Int("site_count", c.getSitePageCount(url)).Msg("Skipping URL due to per-site page limit")
 							continue
 						}
 
@@ -203,7 +207,7 @@ func (c *Crawler) RunWithContext(ctx context.Context) []*db.History {
 						depth := lib.CalculateURLDepth(url)
 
 						// If the URL is within the depth limit, schedule it for crawling
-						if c.Options.MaxDepth == 0 || depth <= c.Options.MaxDepth {
+						if c.config.MaxDepth == 0 || depth <= c.config.MaxDepth {
 							c.wg.Add(1)
 							go c.crawlPage(&CrawlItem{url: url, depth: depth})
 							taskLog.Debug().Str("url", url).Msg("Scheduled page to crawl from hijack result")
@@ -232,7 +236,7 @@ func (c *Crawler) RunWithContext(ctx context.Context) []*db.History {
 		if err != nil {
 			continue
 		}
-		for _, u := range viper.GetStringSlice("crawl.common.files") {
+		for _, u := range c.crawlOptions.SeedPaths {
 			c.wg.Add(1)
 			go c.crawlPage(&CrawlItem{url: baseURL + u, depth: lib.CalculateURLDepth(u)})
 		}
@@ -261,17 +265,17 @@ func (c *Crawler) CreateScopeFromProvidedUrls() {
 }
 
 func (c *Crawler) isAllowedCrawlDepth(item *CrawlItem) bool {
-	if c.Options.MaxDepth == 0 {
+	if c.config.MaxDepth == 0 {
 		return true
 	}
-	return item.depth <= c.Options.MaxDepth
+	return item.depth <= c.config.MaxDepth
 }
 
 // isSiteLimitReached checks if the per-site page limit has been reached for the given URL.
 // Returns true if the limit is reached, false otherwise.
 // This method is thread-safe and should be called while holding counterLock.
 func (c *Crawler) isSiteLimitReached(urlStr string) bool {
-	if c.Options.MaxPagesPerSite == 0 {
+	if c.config.MaxPagesPerSite == 0 {
 		return false // No per-site limit configured
 	}
 
@@ -285,13 +289,13 @@ func (c *Crawler) isSiteLimitReached(urlStr string) bool {
 	if countVal == nil {
 		return false
 	}
-	return countVal.(int) >= c.Options.MaxPagesPerSite
+	return countVal.(int) >= c.config.MaxPagesPerSite
 }
 
 // incrementSiteCounter increments the page counter for the site of the given URL.
 // This method is thread-safe.
 func (c *Crawler) incrementSiteCounter(urlStr string) {
-	if c.Options.MaxPagesPerSite == 0 {
+	if c.config.MaxPagesPerSite == 0 {
 		return // No per-site limit configured, no need to track
 	}
 
@@ -364,13 +368,13 @@ func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
 		}
 	}
 	// Check if the url has an ignored extension
-	for _, extension := range c.ignoredExtensions {
+	for _, extension := range c.crawlOptions.ExcludeExtensions {
 		if strings.HasSuffix(item.url, extension) {
 			log.Debug().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Str("url", item.url).Str("extension", extension).Msg("Skipping page because it has an ignored extension")
 			return false
 		}
 	}
-	if c.maxPagesWithSameParams > 0 {
+	if c.crawlOptions.MaxPagesWithSameParameters > 0 {
 		// Check how many times the URL with the same parameters has been crawled
 		normalizedURL, err := lib.NormalizeURLParams(item.url)
 		if err != nil {
@@ -380,8 +384,8 @@ func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
 
 		count, _ := c.normalizedURLCounts.Load(normalizedURL)
 
-		if count != nil && count.(int) >= c.maxPagesWithSameParams {
-			log.Debug().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Int("maxPagesWithSameParams", c.maxPagesWithSameParams).Str("normalized", normalizedURL).Str("url", item.url).Msg("Skipping page because it has reached the maximum count of crawled pages with the same parameters")
+		if count != nil && count.(int) >= c.crawlOptions.MaxPagesWithSameParameters {
+			log.Debug().Uint("workspace", c.workspaceID).Uint("task", c.taskID).Int("max_pages_with_same_parameters", c.crawlOptions.MaxPagesWithSameParameters).Str("normalized", normalizedURL).Str("url", item.url).Msg("Skipping page because it has reached the maximum count of crawled pages with the same parameters")
 			return false
 		}
 	}
@@ -404,13 +408,12 @@ func (c *Crawler) shouldCrawl(item *CrawlItem) bool {
 
 func (c *Crawler) getBrowserPage(targetURL string) *rod.Page {
 	page := c.browser.NewPage()
-	setupTimeout := time.Duration(viper.GetInt("crawl.page_setup_timeout"))
-	page = page.Timeout(setupTimeout * time.Second)
+	page = page.Timeout(c.crawlOptions.PageSetupTimeout)
 
 	web.IgnoreCertificateErrors(page)
 	// Set extra headers and cookies if provided
-	if c.Options.ExtraHeaders != nil {
-		err := browser.SetPageHeadersAndCookies(page, c.Options.ExtraHeaders, targetURL)
+	if c.config.ExtraHeaders != nil {
+		err := browser.SetPageHeadersAndCookies(page, c.config.ExtraHeaders, targetURL)
 		if err != nil {
 			log.Error().Err(err).Msg("Error setting page headers and cookies")
 		}
@@ -431,7 +434,7 @@ func (c *Crawler) getBrowserPage(targetURL string) *rod.Page {
 		}
 	}
 
-	if c.captureClientNavigation {
+	if c.crawlOptions.CaptureClientNavigation {
 		if _, err := page.EvalOnNewDocument(web.ClientNavigationHookScript); err != nil {
 			log.Debug().Err(err).Msg("Failed to inject client navigation hook")
 		}
@@ -465,14 +468,14 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 
 	// Check per-site limit before proceeding
 	if c.isSiteLimitReached(item.url) {
-		log.Debug().Uint("workspace", c.workspaceID).Int("max_pages_per_site", c.Options.MaxPagesPerSite).Int("site_count", c.getSitePageCount(item.url)).Str("url", item.url).Msg("Crawler skipping page due to per-site page limit")
+		log.Debug().Uint("workspace", c.workspaceID).Int("max_pages_per_site", c.config.MaxPagesPerSite).Int("site_count", c.getSitePageCount(item.url)).Str("url", item.url).Msg("Crawler skipping page due to per-site page limit")
 		return
 	}
 
 	// Increment global pageCounter
 	c.counterLock.Lock()
-	if c.Options.MaxPagesToCrawl != 0 && c.pageCounter >= c.Options.MaxPagesToCrawl {
-		log.Debug().Uint("workspace", c.workspaceID).Int("max_pages_to_crawl", c.Options.MaxPagesToCrawl).Int("crawled", c.pageCounter).Str("url", item.url).Msg("Crawler skipping page due to having reached max pages to crawl")
+	if c.config.MaxPagesToCrawl != 0 && c.pageCounter >= c.config.MaxPagesToCrawl {
+		log.Debug().Uint("workspace", c.workspaceID).Int("max_pages_to_crawl", c.config.MaxPagesToCrawl).Int("crawled", c.pageCounter).Str("url", item.url).Msg("Crawler skipping page due to having reached max pages to crawl")
 		c.counterLock.Unlock()
 		return
 	}
@@ -484,7 +487,7 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 
 	c.pages.Store(item.url, item)
 
-	if c.maxPagesWithSameParams > 0 {
+	if c.crawlOptions.MaxPagesWithSameParameters > 0 {
 		// Track the URL with the same parameters values to avoid crawling the same URL a high amount of times
 		normalizedURL, err := lib.NormalizeURLParams(item.url)
 		if err != nil {
@@ -552,7 +555,7 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 	}()
 	urlData := c.loadPageAndGetAnchors(url, page)
 
-	if c.captureClientNavigation && !urlData.IsError {
+	if c.crawlOptions.CaptureClientNavigation && !urlData.IsError {
 		if captured := web.DrainClientNavigations(page); len(captured) > 0 {
 			urlData.DiscoveredURLs = mergeClientNavURLs(urlData.DiscoveredURLs, captured)
 			log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Int("count", len(captured)).Msg("Captured client navigations after load")
@@ -565,15 +568,14 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 
 	if !urlData.IsError {
 		log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Msg("Starting to interact with page")
-		interactionTimeout := time.Duration(viper.GetInt("crawl.interaction.timeout")) * time.Second
-		interactionCtx, interactionCancel := context.WithTimeout(ctx, interactionTimeout)
+		interactionCtx, interactionCancel := context.WithTimeout(ctx, c.crawlOptions.InteractionTimeout)
 		pageWithCtx := page.Context(interactionCtx)
 		c.interactWithPage(pageWithCtx)
 		if interactionCtx.Err() == context.DeadlineExceeded {
 			log.Warn().Uint("workspace", c.workspaceID).Str("url", url).Msg("Timeout interacting with page")
 		}
 		interactionCancel()
-		if c.captureClientNavigation {
+		if c.crawlOptions.CaptureClientNavigation {
 			if captured := web.DrainClientNavigations(page); len(captured) > 0 {
 				urlData.DiscoveredURLs = mergeClientNavURLs(urlData.DiscoveredURLs, captured)
 				log.Debug().Uint("workspace", c.workspaceID).Str("url", url).Int("count", len(captured)).Msg("Captured client navigations after interaction")
@@ -602,14 +604,14 @@ func (c *Crawler) crawlPage(item *CrawlItem) {
 }
 
 func (c *Crawler) loadPageAndGetAnchors(url string, page *rod.Page) CrawledPageResut {
-	navigationTimeout := time.Duration(viper.GetInt("navigation.timeout"))
-	navigateError := page.Timeout(navigationTimeout * time.Second).Navigate(url)
+	navigationTimeout := c.crawlOptions.NavigationTimeout
+	navigateError := page.Timeout(navigationTimeout).Navigate(url)
 	if navigateError != nil {
 		log.Warn().Err(navigateError).Str("url", url).Msg("Error navigating to page")
 		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
 	}
 
-	err := page.Timeout(navigationTimeout * time.Second).WaitLoad()
+	err := page.Timeout(navigationTimeout).WaitLoad()
 
 	if err != nil {
 		log.Warn().Err(err).Str("url", url).Msg("Error waiting for page complete load while crawling")
@@ -617,16 +619,13 @@ func (c *Crawler) loadPageAndGetAnchors(url string, page *rod.Page) CrawledPageR
 		return CrawledPageResut{URL: url, DiscoveredURLs: []string{}, IsError: true}
 	}
 
-	if viper.GetBool("navigation.wait_stable") {
-		waitStableDuration := time.Duration(viper.GetInt("navigation.wait_stable_duration"))
-		waitStableTimeout := time.Duration(viper.GetInt("navigation.wait_stable_timeout"))
-
-		ctx, cancel := context.WithTimeout(context.Background(), waitStableTimeout*time.Second)
+	if c.crawlOptions.WaitForStablePage {
+		ctx, cancel := context.WithTimeout(context.Background(), c.crawlOptions.PageStableTimeout)
 		defer cancel()
 
 		pageWithTimeout := page.Context(ctx)
 
-		err = pageWithTimeout.WaitStable(waitStableDuration * time.Second)
+		err = pageWithTimeout.WaitStable(c.crawlOptions.PageStableDuration)
 		if err != nil {
 			if ctx.Err() == context.DeadlineExceeded {
 				log.Warn().Str("url", url).Msg("Timeout reached while waiting for page to be stable, trying to get data anyway")
@@ -645,10 +644,10 @@ func (c *Crawler) loadPageAndGetAnchors(url string, page *rod.Page) CrawledPageR
 }
 
 func (c *Crawler) interactWithPage(page *rod.Page) {
-	if viper.GetBool("crawl.interaction.submit_forms") {
+	if c.crawlOptions.SubmitForms {
 		c.handleForms(page)
 	}
-	if viper.GetBool("crawl.interaction.click_buttons") {
+	if c.crawlOptions.ClickButtons {
 		c.handleClickableElements(page)
 	}
 }
@@ -673,9 +672,8 @@ func (c *Crawler) handleForms(page *rod.Page) (err error) {
 			xpath: xpath,
 		}
 
-		skipPreviouslySubmittedForms := viper.GetBool("crawl.interaction.skip_previously_submitted_forms")
 		_, submitted := c.submittedForms.Load(e)
-		if skipPreviouslySubmittedForms && submitted {
+		if c.crawlOptions.SubmitEachFormOnce && submitted {
 			log.Info().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Skipping already submitted form")
 		} else {
 			log.Info().Uint("workspace", c.workspaceID).Str("xpath", xpath).Msg("Filling form")

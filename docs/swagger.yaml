@@ -529,6 +529,73 @@ definitions:
     required:
     - workspace_id
     type: object
+  api.CreateAPIDefinitionResponse:
+    properties:
+      auth_config:
+        $ref: '#/definitions/db.APIAuthConfig'
+      auth_config_id:
+        type: string
+      auto_discovered:
+        type: boolean
+      base_url:
+        type: string
+      created:
+        type: boolean
+      created_at:
+        type: string
+      endpoint_count:
+        type: integer
+      endpoints:
+        items:
+          $ref: '#/definitions/db.APIEndpoint'
+        type: array
+      graphql_mutation_count:
+        type: integer
+      graphql_query_count:
+        type: integer
+      graphql_subscription_count:
+        type: integer
+      graphql_type_count:
+        type: integer
+      id:
+        type: string
+      name:
+        type: string
+      openapi_servers:
+        type: integer
+      openapi_title:
+        type: string
+      openapi_version:
+        type: string
+      scan_id:
+        type: integer
+      security_schemes:
+        items:
+          $ref: '#/definitions/db.APIDefinitionSecurityScheme'
+        type: array
+      source_history_id:
+        type: integer
+      source_url:
+        type: string
+      stats:
+        $ref: '#/definitions/db.APIDefinitionStats'
+      status:
+        $ref: '#/definitions/db.APIDefinitionStatus'
+      type:
+        $ref: '#/definitions/db.APIDefinitionType'
+      updated_at:
+        type: string
+      workspace_id:
+        type: integer
+      wsdl_port_count:
+        type: integer
+      wsdl_service_count:
+        type: integer
+      wsdl_soap_version:
+        type: string
+      wsdl_target_namespace:
+        type: string
+    type: object
   api.CreatePlaygroundCollectionInput:
     properties:
       description:
@@ -4236,6 +4303,52 @@ definitions:
       run_standard_tests:
         type: boolean
     type: object
+  options.FullScanCrawlOptions:
+    properties:
+      capture_client_navigation:
+        type: boolean
+      click_buttons:
+        type: boolean
+      exclude_extensions:
+        items:
+          type: string
+        type: array
+      interaction_timeout_seconds:
+        maximum: 120
+        minimum: 1
+        type: integer
+      max_pages_with_same_parameters:
+        minimum: 0
+        type: integer
+      navigation_timeout_seconds:
+        maximum: 300
+        minimum: 1
+        type: integer
+      page_setup_timeout_seconds:
+        maximum: 300
+        minimum: 1
+        type: integer
+      page_stable_duration_seconds:
+        maximum: 60
+        minimum: 1
+        type: integer
+      page_stable_timeout_seconds:
+        maximum: 120
+        minimum: 1
+        type: integer
+      seed_paths:
+        items:
+          type: string
+        type: array
+      submit_each_form_once:
+        type: boolean
+      submit_forms:
+        type: boolean
+      user_agent:
+        type: string
+      wait_for_stable_page:
+        type: boolean
+    type: object
   options.FullScanOptions:
     properties:
       api_scan_options:
@@ -4244,6 +4357,8 @@ definitions:
         $ref: '#/definitions/options.AuditCategories'
       capture_browser_events:
         type: boolean
+      crawl_options:
+        $ref: '#/definitions/options.FullScanCrawlOptions'
       exclude_patterns:
         items:
           type: string
@@ -5099,7 +5214,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a new API definition by parsing from URL or provided content
+      description: 'Creates a new API definition by parsing from URL or provided content.
+        Always stores a new definition: importing a source URL that is already in
+        the library adds one rather than replacing it.'
       parameters:
       - description: API definition input
         in: body
@@ -5113,7 +5230,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/api.APIDefinitionResponse'
+            $ref: '#/definitions/api.CreateAPIDefinitionResponse'
         "400":
           description: Bad Request
           schema:

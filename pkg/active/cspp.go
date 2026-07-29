@@ -10,12 +10,18 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/browser"
 	"github.com/pyneda/sukyan/pkg/web"
-	"github.com/spf13/viper"
 
 	"github.com/rs/zerolog/log"
 )
 
 // This is a port of: https://github.com/kleiton0x00/ppmap
+
+const (
+	// csppNavigationTimeout bounds a single payload navigation, csppOverallTimeout
+	// the whole audit across every payload.
+	csppNavigationTimeout = 10 * time.Second
+	csppOverallTimeout    = 4 * csppNavigationTimeout
+)
 
 type ClientSidePrototypePollutionAudit struct {
 	Ctx         context.Context
@@ -84,8 +90,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluateWithContext(parentCtx contex
 	}
 	defer browserPool.ReleaseBrowser(b)
 
-	overallTimeout := time.Duration(viper.GetInt("navigation.timeout")) * time.Second * 4
-	overallCtx, overallCancel := context.WithTimeout(parentCtx, overallTimeout)
+	overallCtx, overallCancel := context.WithTimeout(parentCtx, csppOverallTimeout)
 	defer overallCancel()
 
 	hijackResultsChannel := make(chan browser.HijackResult)
@@ -137,18 +142,17 @@ func (a *ClientSidePrototypePollutionAudit) evaluateWithContext(parentCtx contex
 
 		url := string(a.HistoryItem.URL) + string(quote) + string(payload)
 		taskLog := log.With().Str("url", url).Str("audit", "client-side-prototype-pollution").Logger()
-		navigationTimeout := time.Duration(viper.GetInt("navigation.timeout"))
-		navigateError := page.Timeout(navigationTimeout * time.Second).Navigate(url)
+		navigateError := page.Timeout(csppNavigationTimeout).Navigate(url)
 		if navigateError != nil {
 			taskLog.Warn().Err(navigateError).Msg("Error navigating to page")
 			continue
 		}
-		err := page.Timeout(navigationTimeout * time.Second).WaitLoad()
+		err := page.Timeout(csppNavigationTimeout).WaitLoad()
 		if err != nil {
 			taskLog.Warn().Err(err).Msg("Error waiting for page complete load")
 			// continue
 		}
-		evalResult, err := page.Timeout(navigationTimeout * time.Second).Eval(`() => {
+		evalResult, err := page.Timeout(csppNavigationTimeout).Eval(`() => {
 			function getWindowValue() {
 				return window.sukyan;
 			}
@@ -169,7 +173,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluateWithContext(parentCtx contex
 		severity := ""
 		history := a.GetHistory(url)
 		log.Info().Str("url", history.URL).Int("status_code", history.StatusCode).Str("method", history.Method).Msg("History for prototype pollution item")
-		fingerprintResult, err := page.Timeout(navigationTimeout * time.Second).Eval(clientSidePrototypePollutionFingerprints)
+		fingerprintResult, err := page.Timeout(csppNavigationTimeout).Eval(clientSidePrototypePollutionFingerprints)
 		if err != nil {
 			taskLog.Warn().Err(err).Msg("Error evaluating fingerprint JavaScript - browser connection may have been lost")
 			return

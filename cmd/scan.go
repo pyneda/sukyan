@@ -184,6 +184,7 @@ var scanCmd = &cobra.Command{
 			HTTPMaxIdleConnsPerHost: httpMaxIdleConnsPerHostPtr,
 			HTTPMaxConnsPerHost:     httpMaxConnsPerHostPtr,
 			HTTPDisableKeepAlives:   httpDisableKeepAlivesPtr,
+			CrawlOptions:            crawlOptionsFromFlags(cmd),
 		}
 		if err := validate.Struct(options); err != nil {
 			log.Error().Err(err).Msg("Validation failed")
@@ -379,4 +380,7 @@ func init() {
 
 	// API Scan Configuration
 	scanCmd.Flags().BoolVar(&noAPIScan, "no-api-scan", false, "Disable API scanning phase (for discovered API definitions)")
+
+	// Crawl Behaviour
+	registerCrawlOptionFlags(scanCmd)
 }

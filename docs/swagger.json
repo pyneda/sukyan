@@ -449,7 +449,7 @@
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Creates a new API definition by parsing from URL or provided content",
+                "description": "Creates a new API definition by parsing from URL or provided content. Always stores a new definition: importing a source URL that is already in the library adds one rather than replacing it.",
                 "consumes": [
                     "application/json"
                 ],
@@ -475,7 +475,7 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/api.APIDefinitionResponse"
+                            "$ref": "#/definitions/api.CreateAPIDefinitionResponse"
                         }
                     },
                     "400": {
@@ -8750,6 +8750,107 @@
                 }
             }
         },
+        "api.CreateAPIDefinitionResponse": {
+            "type": "object",
+            "properties": {
+                "auth_config": {
+                    "$ref": "#/definitions/db.APIAuthConfig"
+                },
+                "auth_config_id": {
+                    "type": "string"
+                },
+                "auto_discovered": {
+                    "type": "boolean"
+                },
+                "base_url": {
+                    "type": "string"
+                },
+                "created": {
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "endpoint_count": {
+                    "type": "integer"
+                },
+                "endpoints": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIEndpoint"
+                    }
+                },
+                "graphql_mutation_count": {
+                    "type": "integer"
+                },
+                "graphql_query_count": {
+                    "type": "integer"
+                },
+                "graphql_subscription_count": {
+                    "type": "integer"
+                },
+                "graphql_type_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "openapi_servers": {
+                    "type": "integer"
+                },
+                "openapi_title": {
+                    "type": "string"
+                },
+                "openapi_version": {
+                    "type": "string"
+                },
+                "scan_id": {
+                    "type": "integer"
+                },
+                "security_schemes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.APIDefinitionSecurityScheme"
+                    }
+                },
+                "source_history_id": {
+                    "type": "integer"
+                },
+                "source_url": {
+                    "type": "string"
+                },
+                "stats": {
+                    "$ref": "#/definitions/db.APIDefinitionStats"
+                },
+                "status": {
+                    "$ref": "#/definitions/db.APIDefinitionStatus"
+                },
+                "type": {
+                    "$ref": "#/definitions/db.APIDefinitionType"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                },
+                "wsdl_port_count": {
+                    "type": "integer"
+                },
+                "wsdl_service_count": {
+                    "type": "integer"
+                },
+                "wsdl_soap_version": {
+                    "type": "string"
+                },
+                "wsdl_target_namespace": {
+                    "type": "string"
+                }
+            }
+        },
         "api.CreatePlaygroundCollectionInput": {
             "type": "object",
             "required": [
@@ -14102,6 +14203,70 @@
                 }
             }
         },
+        "options.FullScanCrawlOptions": {
+            "type": "object",
+            "properties": {
+                "capture_client_navigation": {
+                    "type": "boolean"
+                },
+                "click_buttons": {
+                    "type": "boolean"
+                },
+                "exclude_extensions": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "interaction_timeout_seconds": {
+                    "type": "integer",
+                    "maximum": 120,
+                    "minimum": 1
+                },
+                "max_pages_with_same_parameters": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "navigation_timeout_seconds": {
+                    "type": "integer",
+                    "maximum": 300,
+                    "minimum": 1
+                },
+                "page_setup_timeout_seconds": {
+                    "type": "integer",
+                    "maximum": 300,
+                    "minimum": 1
+                },
+                "page_stable_duration_seconds": {
+                    "type": "integer",
+                    "maximum": 60,
+                    "minimum": 1
+                },
+                "page_stable_timeout_seconds": {
+                    "type": "integer",
+                    "maximum": 120,
+                    "minimum": 1
+                },
+                "seed_paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "submit_each_form_once": {
+                    "type": "boolean"
+                },
+                "submit_forms": {
+                    "type": "boolean"
+                },
+                "user_agent": {
+                    "type": "string"
+                },
+                "wait_for_stable_page": {
+                    "type": "boolean"
+                }
+            }
+        },
         "options.FullScanOptions": {
             "type": "object",
             "required": [
@@ -14117,6 +14282,9 @@
                 },
                 "capture_browser_events": {
                     "type": "boolean"
+                },
+                "crawl_options": {
+                    "$ref": "#/definitions/options.FullScanCrawlOptions"
                 },
                 "exclude_patterns": {
                     "type": "array",

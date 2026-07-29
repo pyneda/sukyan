@@ -676,7 +676,7 @@ func (o *Orchestrator) scheduleActiveScanJobs(scanLog zerolog.Logger, scanEntity
 			Msg("Removed duplicate history items before active scanning")
 	}
 
-	ignoredExtensions := viper.GetStringSlice("crawl.ignored_extensions")
+	ignoredExtensions := scanEntity.Options.CrawlOptions.Resolve().ExcludeExtensions
 	scheduledURLPaths := make(map[string]bool)
 	fullInsertionPointIDs := make([]uint, 0)
 	reducedInsertionPointIDs := make([]uint, 0)

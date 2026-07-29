@@ -39,7 +39,19 @@ to quickly create a Cobra application.`,
 
 		log.Info().Strs("startUrls", startUrls).Int("count", len(startUrls)).Msg("Creating and scheduling the crawler")
 		httpClient := http_utils.CreateHTTPClientFromConfig(http_utils.HTTPClientConfig{})
-		crawler, err := crawl.NewCrawler(startUrls, maxPagesToCrawl, maxPagesPerSite, depth, pagesPoolSize, crawlExcludePatterns, workspaceID, 0, 0, 0, headers, crawlCaptureBrowserEvents, httpClient)
+		crawler, err := crawl.NewCrawler(crawl.CrawlerConfig{
+			StartURLs:            startUrls,
+			ExcludePatterns:      crawlExcludePatterns,
+			ExtraHeaders:         headers,
+			MaxDepth:             depth,
+			MaxPagesToCrawl:      maxPagesToCrawl,
+			MaxPagesPerSite:      maxPagesPerSite,
+			PagesPoolSize:        pagesPoolSize,
+			WorkspaceID:          workspaceID,
+			CaptureBrowserEvents: crawlCaptureBrowserEvents,
+			HTTPClient:           httpClient,
+			CrawlOptions:         crawlOptionsFromFlags(cmd),
+		})
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to create crawler")
 		}
@@ -57,4 +69,5 @@ func init() {
 	crawlCmd.Flags().UintVarP(&workspaceID, "workspace", "w", 0, "Workspace ID")
 	crawlCmd.Flags().StringVarP(&requestsHeadersString, "headers", "H", "", "Headers to use in requests")
 	crawlCmd.Flags().BoolVar(&crawlCaptureBrowserEvents, "capture-browser-events", false, "Capture and store browser events (console, storage, security, etc.) during crawling")
+	registerCrawlOptionFlags(crawlCmd)
 }

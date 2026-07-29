@@ -90,15 +90,12 @@ func (b *PagePoolManager) Start(hijack bool, source string) error {
 func (b *PagePoolManager) NewPage() *rod.Page {
 	page, err := b.pool.Get(b.createPage)
 	// page.HandleDialog()
-	// Set user-agent provided by browser manager config or config file
 	if err != nil {
 		log.Error().Err(err).Msg("Error getting page from pool")
 	}
 
 	if b.config.UserAgent != "" {
-		_ = page.SetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Test"})
-	} else if viper.GetString("navigation.user_agent") != "" {
-		_ = page.SetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: viper.GetString("navigation.user_agent")})
+		_ = page.SetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: b.config.UserAgent})
 	}
 
 	return page

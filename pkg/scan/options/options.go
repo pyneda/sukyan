@@ -165,6 +165,7 @@ type FullScanOptions struct {
 	AuditCategories         AuditCategories          `json:"audit_categories" validate:"required"`
 	WebSocketOptions        FullScanWebSocketOptions `json:"websocket_options" validate:"omitempty"`
 	APIScanOptions          FullScanAPIScanOptions   `json:"api_scan_options" validate:"omitempty"`
+	CrawlOptions            *FullScanCrawlOptions    `json:"crawl_options,omitempty" validate:"omitempty"`
 	MaxRetries              int                      `json:"max_retries" validate:"min=0"`
 	MaxConcurrentJobs       *int                     `json:"max_concurrent_jobs,omitempty"`
 	MaxRPS                  *int                     `json:"max_rps,omitempty"`

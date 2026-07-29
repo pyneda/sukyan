@@ -42,12 +42,6 @@ func SetDefaultConfig() {
 	viper.SetDefault("history.responses.ignored.content_types", []string{"video", "audio", "image"})
 
 	// Navigation
-	viper.SetDefault("navigation.user_agent", "")
-	viper.SetDefault("navigation.timeout", 10)
-	viper.SetDefault("navigation.wait_stable", true)
-	viper.SetDefault("navigation.wait_stable_duration", 2)
-	viper.SetDefault("navigation.wait_stable_timeout", 10)
-
 	viper.SetDefault("navigation.max_redirects", 10)
 	viper.SetDefault("navigation.proxy", "")
 	viper.SetDefault("navigation.auth.basic.username", "admin")
@@ -57,16 +51,6 @@ func SetDefaultConfig() {
 
 	// Crawl
 	viper.SetDefault("crawl.headless", true)
-	viper.SetDefault("crawl.page_setup_timeout", 15)
-	viper.SetDefault("crawl.interaction.timeout", 10)
-	viper.SetDefault("crawl.interaction.submit_forms", true)
-	viper.SetDefault("crawl.interaction.skip_previously_submitted_forms", false)
-	viper.SetDefault("crawl.interaction.click_buttons", true)
-	viper.SetDefault("crawl.interaction.capture_client_navigation", true)
-	viper.SetDefault("crawl.common.files", []string{"/robots.txt", "/sitemap.xml"})
-	viper.SetDefault("crawl.ignored_extensions", []string{".jpg", ".woff2", ".png", ".gif", ".webp", ".ico", ".css", ".svg", ".tif", ".tiff", ".bmp", ".raw", ".indd", ".ai", ".eps", ".pdf", ".exe", ".dll", ".psd", ".fla", ".avi", ".flv", ".mov", ".mp4", ".mpg", ".mpeg", ".swf", ".mkv", ".wav", ".mp3", ".flac", ".m4a", ".wma", ".aac", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf", ".zip", ".rar", ".7z", ".tar.gz", ".iso", ".dmg"})
-	viper.SetDefault("crawl.max_pages_with_same_params", 20)
-	viper.SetDefault("crawl.max_pages_per_site", 0) // 0 = unlimited, otherwise limits pages crawled per site (scheme://host:port)
 
 	// Scan
 	viper.SetDefault("scan.workers", 10)

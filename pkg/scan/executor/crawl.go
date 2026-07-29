@@ -76,21 +76,21 @@ func (e *CrawlExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *cont
 		DisableKeepAlives:   scan.Options.HTTPDisableKeepAlives,
 	})
 
-	crawler, err := crawl.NewCrawler(
-		jobData.StartURLs,
-		jobData.MaxPagesToCrawl,
-		jobData.MaxPagesPerSite,
-		jobData.MaxDepth,
-		jobData.PoolSize,
-		jobData.ExcludePatterns,
-		job.WorkspaceID,
-		0,
-		job.ScanID,
-		job.ID,
-		jobData.ExtraHeaders,
-		scan.CaptureBrowserEvents,
-		httpClient,
-	)
+	crawler, err := crawl.NewCrawler(crawl.CrawlerConfig{
+		StartURLs:            jobData.StartURLs,
+		ExcludePatterns:      jobData.ExcludePatterns,
+		ExtraHeaders:         jobData.ExtraHeaders,
+		MaxDepth:             jobData.MaxDepth,
+		MaxPagesToCrawl:      jobData.MaxPagesToCrawl,
+		MaxPagesPerSite:      jobData.MaxPagesPerSite,
+		PagesPoolSize:        jobData.PoolSize,
+		WorkspaceID:          job.WorkspaceID,
+		ScanID:               job.ScanID,
+		ScanJobID:            job.ID,
+		CaptureBrowserEvents: scan.CaptureBrowserEvents,
+		HTTPClient:           httpClient,
+		CrawlOptions:         scan.Options.CrawlOptions,
+	})
 	if err != nil {
 		taskLog.Error().Err(err).Msg("Failed to create crawler")
 		return fmt.Errorf("creating crawler: %w", err)

@@ -149,9 +149,45 @@ func TestClickAndVisibility(t *testing.T) {
 	results, err := ExecuteActions(ctx, page, actions)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, len(results.Logs), "There should be 3 logs")
-	assert.Equal(t, true, results.Succeded, "The action should have succeeded")
+	assert.Equal(t, true, results.Succeeded, "The action should have succeeded")
 	assert.Equal(t, 0, len(results.Screenshots), "There should be no screenshots")
 
+}
+
+func TestExecuteActionsRecordsSteps(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	server := startTestServer()
+	defer server.Shutdown(context.Background())
+
+	rodBrowser := setupRodBrowser(t, true)
+	defer rodBrowser.Close()
+
+	page := rodBrowser.MustPage("http://localhost:9999/page1")
+	page.MustWaitLoad()
+
+	acts := []Action{
+		{Type: ActionClick, Selector: "#login-button"},
+		{Type: ActionSleep, Duration: 50},
+	}
+
+	results, err := ExecuteActions(ctx, page, acts)
+	assert.NoError(t, err)
+
+	assert.Equal(t, 2, len(results.Steps), "one step per action")
+	assert.Equal(t, true, results.Succeeded, "all steps ok means succeeded")
+	assert.Nil(t, results.Failure, "no failure on a clean run")
+
+	assert.Equal(t, 0, results.Steps[0].Index)
+	assert.Equal(t, string(ActionClick), results.Steps[0].Type)
+	assert.Equal(t, "#login-button", results.Steps[0].Target)
+	assert.Equal(t, StepStatusOK, results.Steps[0].Status)
+
+	assert.Equal(t, 1, results.Steps[1].Index)
+	assert.Equal(t, string(ActionSleep), results.Steps[1].Type)
+	assert.GreaterOrEqual(t, results.Steps[1].DurationMs, int64(50), "sleep duration is measured")
+	assert.GreaterOrEqual(t, results.DurationMs, results.Steps[1].DurationMs)
 }
 
 func TestFormFillAndSubmit(t *testing.T) {

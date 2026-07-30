@@ -17,42 +17,42 @@ import (
 // History holds table for storing requests history found
 type History struct {
 	BaseModel
-	StatusCode          int               `gorm:"index" json:"status_code"`
-	URL                 string            `json:"url"`
-	CleanURL            string            `gorm:"index" json:"clean_url"`
-	Depth               int               `gorm:"index" json:"depth"`
-	RawRequest          []byte            `json:"raw_request"`
-	RawResponse         []byte            `json:"raw_response"`
-	Method              string            `gorm:"index" json:"method"`
-	Proto               string            `json:"proto" gorm:"index"`
-	ParametersCount     int               `gorm:"index" json:"parameters_count"`
-	Evaluated           bool              `gorm:"index" json:"evaluated"`
-	Note                string            `json:"note"`
-	Source              string            `gorm:"index" json:"source"`
-	JsonWebTokens       []JsonWebToken    `gorm:"many2many:json_web_token_histories;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"json_web_tokens"`
-	Workspace           Workspace         `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID         *uint             `json:"workspace_id" gorm:"index"`
-	TaskID              *uint             `json:"task_id" gorm:"index" `
-	Task                Task              `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	ScanID              *uint             `json:"scan_id" gorm:"index"`
-	Scan                *Scan             `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	ScanJobID           *uint             `json:"scan_job_id" gorm:"index"`
-	ScanJob             *ScanJob          `json:"-" gorm:"foreignKey:ScanJobID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	StatusCode          int                `gorm:"index" json:"status_code"`
+	URL                 string             `json:"url"`
+	CleanURL            string             `gorm:"index" json:"clean_url"`
+	Depth               int                `gorm:"index" json:"depth"`
+	RawRequest          []byte             `json:"raw_request"`
+	RawResponse         []byte             `json:"raw_response"`
+	Method              string             `gorm:"index" json:"method"`
+	Proto               string             `json:"proto" gorm:"index"`
+	ParametersCount     int                `gorm:"index" json:"parameters_count"`
+	Evaluated           bool               `gorm:"index" json:"evaluated"`
+	Note                string             `json:"note"`
+	Source              string             `gorm:"index" json:"source"`
+	JsonWebTokens       []JsonWebToken     `gorm:"many2many:json_web_token_histories;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"json_web_tokens"`
+	Workspace           Workspace          `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	WorkspaceID         *uint              `json:"workspace_id" gorm:"index"`
+	TaskID              *uint              `json:"task_id" gorm:"index" `
+	Task                Task               `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ScanID              *uint              `json:"scan_id" gorm:"index"`
+	Scan                *Scan              `json:"-" gorm:"foreignKey:ScanID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ScanJobID           *uint              `json:"scan_job_id" gorm:"index"`
+	ScanJob             *ScanJob           `json:"-" gorm:"foreignKey:ScanJobID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	PlaygroundSessionID *uint              `json:"playground_session_id" gorm:"index" `
 	PlaygroundSession   PlaygroundSession  `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	PlaygroundFuzzRunID *uint              `json:"playground_fuzz_run_id" gorm:"index"`
 	PlaygroundFuzzRun   *PlaygroundFuzzRun `json:"-" gorm:"foreignKey:PlaygroundFuzzRunID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	ResponseBodySize    int               `gorm:"index" json:"response_body_size"`
-	RequestBodySize     int               `gorm:"index" json:"request_body_size"`
-	RequestContentType  string            `gorm:"index" json:"request_content_type"`
-	ResponseContentType string            `gorm:"index" json:"response_content_type"`
-	IsWebSocketUpgrade  bool              `json:"is_websocket_upgrade"`
-	APIDefinitionID *uuid.UUID     `json:"api_definition_id,omitempty" gorm:"type:uuid;index"`
-	APIDefinition   *APIDefinition `json:"-" gorm:"foreignKey:APIDefinitionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	APIEndpointID   *uuid.UUID     `json:"api_endpoint_id,omitempty" gorm:"type:uuid;index"`
-	APIEndpoint     *APIEndpoint   `json:"-" gorm:"foreignKey:APIEndpointID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	ProxyServiceID  *uuid.UUID     `json:"proxy_service_id" gorm:"type:uuid;index"`
-	ProxyService    *ProxyService  `json:"-" gorm:"foreignKey:ProxyServiceID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	ResponseBodySize    int                `gorm:"index" json:"response_body_size"`
+	RequestBodySize     int                `gorm:"index" json:"request_body_size"`
+	RequestContentType  string             `gorm:"index" json:"request_content_type"`
+	ResponseContentType string             `gorm:"index" json:"response_content_type"`
+	IsWebSocketUpgrade  bool               `json:"is_websocket_upgrade"`
+	APIDefinitionID     *uuid.UUID         `json:"api_definition_id,omitempty" gorm:"type:uuid;index"`
+	APIDefinition       *APIDefinition     `json:"-" gorm:"foreignKey:APIDefinitionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	APIEndpointID       *uuid.UUID         `json:"api_endpoint_id,omitempty" gorm:"type:uuid;index"`
+	APIEndpoint         *APIEndpoint       `json:"-" gorm:"foreignKey:APIEndpointID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	ProxyServiceID      *uuid.UUID         `json:"proxy_service_id" gorm:"type:uuid;index"`
+	ProxyService        *ProxyService      `json:"-" gorm:"foreignKey:ProxyServiceID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 }
 
 func (h History) TaskTitle() string {
@@ -311,11 +311,21 @@ type HistoryFilter struct {
 	TaskID               uint       `json:"task_id" validate:"omitempty,numeric"`
 	IDs                  []uint     `json:"ids" validate:"omitempty,dive,numeric"`
 	// Matched against clean_url, which is indexed, so this is a btree prefix scan.
-	URLPrefix            string     `json:"url_prefix" validate:"omitempty,uri"`
-	PlaygroundSessionID  uint       `json:"playground_session_id" validate:"omitempty,numeric"`
-	ProxyServiceID       *uuid.UUID `json:"proxy_service_id,omitempty"`
-	CreatedAfter         *time.Time `json:"created_after,omitempty"`
-	CreatedBefore        *time.Time `json:"created_before,omitempty"`
+	URLPrefix string `json:"url_prefix" validate:"omitempty,uri"`
+	// A selection of sitemap nodes. Folded together with URLPrefix; same semantics.
+	URLPrefixes         []string   `json:"url_prefixes" validate:"omitempty,max=200,dive,uri"`
+	PlaygroundSessionID uint       `json:"playground_session_id" validate:"omitempty,numeric"`
+	ProxyServiceID      *uuid.UUID `json:"proxy_service_id,omitempty"`
+	CreatedAfter        *time.Time `json:"created_after,omitempty"`
+	CreatedBefore       *time.Time `json:"created_before,omitempty"`
+}
+
+// Callers may send either field; the singular is the older public API.
+func (f HistoryFilter) allURLPrefixes() []string {
+	if f.URLPrefix == "" {
+		return f.URLPrefixes
+	}
+	return append(append(make([]string, 0, len(f.URLPrefixes)+1), f.URLPrefixes...), f.URLPrefix)
 }
 
 // ListHistory Lists history
@@ -357,10 +367,17 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 	if len(filter.IDs) > 0 {
 		query = query.Where("id IN ?", filter.IDs)
 	}
-	if filter.URLPrefix != "" {
-		// Escape LIKE wildcards so a URL containing % or _ stays a literal match.
-		escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(filter.URLPrefix)
-		query = query.Where(`clean_url LIKE ? ESCAPE '\'`, escaped+"%")
+	if prefixes := filter.allURLPrefixes(); len(prefixes) > 0 {
+		// LIKE wildcards are escaped so a URL containing % or _ stays literal. The
+		// trailing "/" is what stops /img from reaching /images.
+		escaper := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+		clauses := make([]string, 0, len(prefixes))
+		args := make([]interface{}, 0, len(prefixes)*2)
+		for _, prefix := range prefixes {
+			clauses = append(clauses, `(clean_url = ? OR clean_url LIKE ? ESCAPE '\')`)
+			args = append(args, prefix, escaper.Replace(prefix)+"/%")
+		}
+		query = query.Where("("+strings.Join(clauses, " OR ")+")", args...)
 	}
 	if filter.PlaygroundSessionID > 0 {
 		query = query.Where("playground_session_id = ?", filter.PlaygroundSessionID)

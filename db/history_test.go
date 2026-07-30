@@ -574,3 +574,84 @@ func TestHistoryProxyServiceConstraints(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, fetched.ProxyServiceID, "ProxyServiceID should be NULL after proxy service deletion")
 }
+
+func TestListHistoryURLPrefixes(t *testing.T) {
+	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
+		Code:        "history-prefix-test",
+		Title:       "history prefix test workspace",
+		Description: "Workspace for url prefix filter tests",
+	})
+	require.Nil(t, err)
+	workspaceID := workspace.ID
+
+	// /images must never be reached by the /img prefix.
+	urls := []string{
+		"https://prefix.test/img",
+		"https://prefix.test/img/github.png",
+		"https://prefix.test/images/decoy.png",
+		"https://prefix.test/api/v1/users",
+		"https://other.test/img/github.png",
+	}
+	for _, u := range urls {
+		_, err := Connection().CreateHistory(&History{
+			URL:         u,
+			Method:      "GET",
+			StatusCode:  200,
+			WorkspaceID: &workspaceID,
+		})
+		require.Nil(t, err)
+	}
+
+	collect := func(filter HistoryFilter) []string {
+		filter.WorkspaceID = workspaceID
+		filter.Pagination = Pagination{Page: 1, PageSize: 100}
+		items, count, err := Connection().ListHistory(filter)
+		require.Nil(t, err)
+		require.Equal(t, int64(len(items)), count, "count must match returned rows")
+		out := make([]string, 0, len(items))
+		for _, i := range items {
+			out = append(out, i.URL)
+		}
+		return out
+	}
+
+	t.Run("a prefix matches the node itself and its descendants", func(t *testing.T) {
+		got := collect(HistoryFilter{URLPrefixes: []string{"https://prefix.test/img"}})
+		assert.ElementsMatch(t, []string{
+			"https://prefix.test/img",
+			"https://prefix.test/img/github.png",
+		}, got)
+	})
+
+	t.Run("a prefix does not match a sibling sharing its name prefix", func(t *testing.T) {
+		got := collect(HistoryFilter{URLPrefixes: []string{"https://prefix.test/img"}})
+		assert.NotContains(t, got, "https://prefix.test/images/decoy.png")
+	})
+
+	t.Run("multiple prefixes union", func(t *testing.T) {
+		got := collect(HistoryFilter{URLPrefixes: []string{
+			"https://prefix.test/img",
+			"https://prefix.test/api",
+		}})
+		assert.ElementsMatch(t, []string{
+			"https://prefix.test/img",
+			"https://prefix.test/img/github.png",
+			"https://prefix.test/api/v1/users",
+		}, got)
+	})
+
+	t.Run("prefixes are host scoped", func(t *testing.T) {
+		got := collect(HistoryFilter{URLPrefixes: []string{"https://prefix.test/img"}})
+		assert.NotContains(t, got, "https://other.test/img/github.png")
+	})
+
+	t.Run("an empty slice does not filter", func(t *testing.T) {
+		got := collect(HistoryFilter{URLPrefixes: []string{}})
+		assert.Contains(t, got, "https://prefix.test/images/decoy.png")
+	})
+
+	t.Run("the singular field still works", func(t *testing.T) {
+		got := collect(HistoryFilter{URLPrefix: "https://prefix.test/api"})
+		assert.ElementsMatch(t, []string{"https://prefix.test/api/v1/users"}, got)
+	})
+}

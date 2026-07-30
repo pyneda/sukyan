@@ -109,7 +109,6 @@ func FindHistoryPost(c *fiber.Ctx) error {
 // @Param sources query string false "Comma-separated list of sources to filter by"
 // @Param ids query string false "Comma-separated list of history IDs to filter by"
 // @Param url_prefix query string false "Only requests at or below this URL (matched against clean_url)"
-// @Param url_prefixes body []string false "Only requests at or below any of these URLs (POST body only)"
 // @Param workspace query integer true "Workspace ID to filter by"
 // @Param playground_session query integer false "Playground session ID to filter by"
 // @Param task query integer false "Task ID"

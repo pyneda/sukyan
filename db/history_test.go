@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -576,13 +577,18 @@ func TestHistoryProxyServiceConstraints(t *testing.T) {
 }
 
 func TestListHistoryURLPrefixes(t *testing.T) {
+	// Unique code + cleanup keeps the exact-equality assertions below valid on reruns
+	// against a persistent (non-reset) database.
 	workspace, err := Connection().GetOrCreateWorkspace(&Workspace{
-		Code:        "history-prefix-test",
+		Code:        "history-prefix-test-" + uuid.New().String(),
 		Title:       "history prefix test workspace",
 		Description: "Workspace for url prefix filter tests",
 	})
 	require.Nil(t, err)
 	workspaceID := workspace.ID
+	t.Cleanup(func() {
+		Connection().DeleteWorkspace(workspaceID)
+	})
 
 	// /images must never be reached by the /img prefix.
 	urls := []string{

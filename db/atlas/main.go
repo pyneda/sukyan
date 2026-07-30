@@ -13,7 +13,6 @@ func main() {
 	stmts, err := gormschema.New("postgres").Load(
 		&db.Workspace{},
 		&db.User{},
-		&db.RefreshToken{},
 		&db.WorkerNode{},
 		&db.Scan{},
 		&db.ScanJob{},

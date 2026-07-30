@@ -1,6 +1,8 @@
 package db
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
@@ -10,6 +12,9 @@ type User struct {
 	Email        string `gorm:"type:varchar(255);not null;unique" json:"email" validate:"required,email,lte=255"`
 	PasswordHash string `json:"password_hash,omitempty"`
 	Active       bool   `json:"active" validate:"required,len=1"`
+	// TokensValidFrom revokes every session issued before it. Sessions are
+	// otherwise stateless, so this is the only lever that ends them early.
+	TokensValidFrom time.Time `gorm:"not null;default:'epoch'" json:"tokens_valid_from"`
 }
 
 func (d *DatabaseConnection) CreateUser(user *User) (*User, error) {

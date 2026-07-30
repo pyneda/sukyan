@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/gofiber/contrib/fiberzerolog"
@@ -8,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/basicauth"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 
@@ -43,14 +45,33 @@ func JWTProtected() func(*fiber.Ctx) error {
 	// Create config for JWT authentication middleware.
 	jwtSecret := viper.GetString("api.auth.jwt_secret_key")
 	config := jwtMiddleware.Config{
-		SigningKey:   jwtMiddleware.SigningKey{Key: []byte(jwtSecret)},
-		ContextKey:   "jwt", // used in private routes
-		TokenLookup:  "header:Authorization,cookie:auth",
-		AuthScheme:   "Bearer",
-		ErrorHandler: jwtError,
+		SigningKey:     jwtMiddleware.SigningKey{Key: []byte(jwtSecret)},
+		ContextKey:     "jwt", // used in private routes
+		TokenLookup:    "header:Authorization,cookie:auth",
+		AuthScheme:     "Bearer",
+		SuccessHandler: requireTokenExpiry,
+		ErrorHandler:   jwtError,
 	}
 
 	return jwtMiddleware.New(config)
+}
+
+// requireTokenExpiry rejects tokens carrying no expiration. contrib/jwt parses
+// without parser options, so expiry cannot be made mandatory through config, and
+// a token minted before the registered claim existed would otherwise be honoured
+// forever.
+func requireTokenExpiry(c *fiber.Ctx) error {
+	token, ok := c.Locals("jwt").(*jwt.Token)
+	if !ok {
+		return jwtError(c, errors.New("invalid token"))
+	}
+
+	expires, err := token.Claims.GetExpirationTime()
+	if err != nil || expires == nil {
+		return jwtError(c, errors.New("token has no expiration"))
+	}
+
+	return c.Next()
 }
 
 func jwtError(c *fiber.Ctx, err error) error {

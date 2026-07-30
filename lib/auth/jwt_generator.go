@@ -1,16 +1,17 @@
 package auth
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"github.com/spf13/viper"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/spf13/viper"
 )
+
+// refreshTokenType is the value of the refresh token's "typ" claim. Refresh and
+// access tokens are otherwise shaped alike, so without this a refresh token
+// would authenticate against any protected route.
+const refreshTokenType = "refresh"
 
 // Tokens struct to describe tokens object.
 type Tokens struct {
@@ -18,19 +19,33 @@ type Tokens struct {
 	Refresh string
 }
 
-// GenerateNewTokens func for generate a new Access & Refresh tokens.
-func GenerateNewTokens(id string, credentials []string) (*Tokens, error) {
-	// Generate JWT Access token.
-	accessToken, err := generateNewAccessToken(id, credentials)
+// RefreshClaims describes a verified refresh token.
+type RefreshClaims struct {
+	UserID   string
+	AuthTime time.Time
+	Expires  time.Time
+}
+
+// GenerateNewTokens issues the token pair for a fresh sign-in, starting a new
+// absolute session window.
+func GenerateNewTokens(id string) (*Tokens, error) {
+	return generateTokens(id, time.Now())
+}
+
+// RenewTokens issues a token pair that continues an existing session, so the
+// absolute expiry stays anchored to the original sign-in.
+func RenewTokens(id string, authTime time.Time) (*Tokens, error) {
+	return generateTokens(id, authTime)
+}
+
+func generateTokens(id string, authTime time.Time) (*Tokens, error) {
+	accessToken, err := GenerateAccessToken(id)
 	if err != nil {
-		// Return token generation error.
 		return nil, err
 	}
 
-	// Generate JWT Refresh token.
-	refreshToken, err := generateNewRefreshToken()
+	refreshToken, err := GenerateRefreshToken(id, authTime)
 	if err != nil {
-		// Return token generation error.
 		return nil, err
 	}
 
@@ -40,69 +55,105 @@ func GenerateNewTokens(id string, credentials []string) (*Tokens, error) {
 	}, nil
 }
 
-func generateNewAccessToken(id string, credentials []string) (string, error) {
-	// Set secret key from .env file.
+// GenerateAccessToken issues a short-lived access token for the given user.
+func GenerateAccessToken(id string) (string, error) {
 	secret := viper.GetString("api.auth.jwt_secret_key")
-
-	// Set expires minutes count for secret key from .env file.
 	minutesCount := viper.GetInt("api.auth.jwt_secret_expire_minutes")
-	// Create a new claims.
-	claims := jwt.MapClaims{}
 
-	// Set public claims:
-	claims["id"] = id
-	claims["expires"] = time.Now().Add(time.Minute * time.Duration(minutesCount)).Unix()
+	now := time.Now()
+	expires := now.Add(time.Minute * time.Duration(minutesCount))
 
-	// Set private token credentials:
-	for _, credential := range credentials {
-		claims[credential] = true
+	// "expires" mirrors "exp" for clients that read the non-registered claim.
+	claims := jwt.MapClaims{
+		"id":      id,
+		"exp":     expires.Unix(),
+		"iat":     now.Unix(),
+		"expires": expires.Unix(),
 	}
 
-	// Create a new JWT access token with claims.
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// Generate token.
-	t, err := token.SignedString([]byte(secret))
-	if err != nil {
-		// Return error, it JWT token generation failed.
-		return "", err
-	}
-
-	return t, nil
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
 }
 
-func generateNewRefreshToken() (string, error) {
-	// Create a new SHA256 hash.
-	hash := sha256.New()
+// GenerateRefreshToken issues a refresh token for the given user. Its expiry
+// slides forward on every renewal but never past the absolute window measured
+// from authTime, so an idle session ends and a stolen token cannot be extended
+// indefinitely.
+func GenerateRefreshToken(id string, authTime time.Time) (string, error) {
+	secret := viper.GetString("api.auth.jwt_refresh_key")
 
-	// Create a new now date and time string with salt.
-	refresh_key := viper.GetString("api.auth.jwt_refresh_key")
-	refresh := refresh_key + time.Now().String()
+	now := time.Now()
+	expires := now.Add(refreshIdleWindow())
 
-	// See: https://pkg.go.dev/io#Writer.Write
-	_, err := hash.Write([]byte(refresh))
-	if err != nil {
-		// Return error, it refresh token generation failed.
-		return "", err
+	if deadline := authTime.Add(refreshAbsoluteWindow()); expires.After(deadline) {
+		expires = deadline
 	}
 
-	// Set expires hours count for refresh key from .env file.
-	hoursCount := viper.GetInt("api.auth.jwt_refresh_expire_hours")
+	claims := jwt.MapClaims{
+		"typ":       refreshTokenType,
+		"id":        id,
+		"exp":       expires.Unix(),
+		"iat":       now.Unix(),
+		"auth_time": authTime.Unix(),
+	}
 
-	// Set expiration time.
-	expireTime := fmt.Sprint(time.Now().Add(time.Hour * time.Duration(hoursCount)).Unix())
-
-	// Create a new refresh token (sha256 string with salt + expire time).
-	t := hex.EncodeToString(hash.Sum(nil)) + "." + expireTime
-
-	return t, nil
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
 }
 
-// ParseRefreshToken func for parse second argument from refresh token.
-func ParseRefreshToken(refreshToken string) (int64, error) {
-	parts := strings.Split(refreshToken, ".")
-	if len(parts) < 2 {
-		return 0, fmt.Errorf("malformed refresh token")
+// ParseRefreshToken verifies a refresh token and returns its claims.
+func ParseRefreshToken(refreshToken string) (*RefreshClaims, error) {
+	secret := viper.GetString("api.auth.jwt_refresh_key")
+
+	token, err := jwt.Parse(refreshToken, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return []byte(secret), nil
+	}, jwt.WithExpirationRequired())
+	if err != nil {
+		return nil, err
 	}
-	return strconv.ParseInt(parts[1], 0, 64)
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, fmt.Errorf("malformed refresh token")
+	}
+
+	if typ, _ := claims["typ"].(string); typ != refreshTokenType {
+		return nil, fmt.Errorf("not a refresh token")
+	}
+
+	id, _ := claims["id"].(string)
+	if id == "" {
+		return nil, fmt.Errorf("refresh token has no subject")
+	}
+
+	expires, err := claims.GetExpirationTime()
+	if err != nil || expires == nil {
+		return nil, fmt.Errorf("refresh token has no expiry")
+	}
+
+	authTime, ok := claims["auth_time"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("refresh token has no auth time")
+	}
+
+	return &RefreshClaims{
+		UserID:   id,
+		AuthTime: time.Unix(int64(authTime), 0),
+		Expires:  expires.Time,
+	}, nil
+}
+
+func refreshIdleWindow() time.Duration {
+	return time.Duration(viper.GetInt("api.auth.jwt_refresh_idle_hours")) * time.Hour
+}
+
+func refreshAbsoluteWindow() time.Duration {
+	return time.Duration(viper.GetInt("api.auth.jwt_refresh_expire_hours")) * time.Hour
+}
+
+// RefreshCookieMaxAge is how long the refresh cookie should live: the longest a
+// session can last before a new sign-in is required.
+func RefreshCookieMaxAge() time.Duration {
+	return refreshAbsoluteWindow()
 }

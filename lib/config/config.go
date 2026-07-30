@@ -213,6 +213,8 @@ func SetDefaultConfig() {
 	viper.SetDefault("api.auth.jwt_secret_expire_minutes", 15)
 	viper.SetDefault("api.auth.jwt_refresh_key", "ch4ng3Th1sK3y")
 	viper.SetDefault("api.auth.jwt_refresh_expire_hours", 7*24)
+	viper.SetDefault("api.auth.jwt_refresh_idle_hours", 24)
+	viper.SetDefault("api.auth.cookie_secure", false)
 
 	viper.SetDefault("api.dashboard.enabled", true)
 	viper.SetDefault("api.dashboard.path", "/dashboard")

@@ -288,8 +288,8 @@ func StartAPI(opts ...APIServerOptions) {
 		LimiterMiddleware: limiter.SlidingWindow{},
 	}))
 
-	auth_app.Post("/token/renew", JWTProtected(), RenewTokens)
-	auth_app.Post("/user/sign/out", JWTProtected(), UserSignOut)
+	auth_app.Post("/token/renew", RenewTokens)
+	auth_app.Post("/user/sign/out", UserSignOut)
 	auth_app.Post("/user/sign/in", UserSignIn)
 
 	// Make a group for all scan endpoints which require the scan engine

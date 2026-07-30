@@ -1,12 +1,22 @@
 package api
 
 import (
-	"github.com/google/uuid"
+	"time"
+
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/auth"
 	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
 
 	"github.com/gofiber/fiber/v2"
+)
+
+// The refresh cookie is scoped to the auth routes so it never rides along with
+// ordinary API traffic, and is HttpOnly so a script injected into a rendered
+// response cannot read a credential that outlives the page.
+const (
+	refreshCookieName = "refresh"
+	refreshCookiePath = "/api/v1/auth"
 )
 
 // SignIn struct to describe login user.
@@ -27,8 +37,35 @@ type SignInResponse struct {
 	Tokens SignInTokens `json:"tokens"`
 }
 
+func setRefreshCookie(c *fiber.Ctx, token string) {
+	c.Cookie(&fiber.Cookie{
+		Name:     refreshCookieName,
+		Value:    token,
+		Path:     refreshCookiePath,
+		MaxAge:   int(auth.RefreshCookieMaxAge().Seconds()),
+		HTTPOnly: true,
+		Secure:   viper.GetBool("api.auth.cookie_secure"),
+		SameSite: fiber.CookieSameSiteStrictMode,
+	})
+}
+
+func clearRefreshCookie(c *fiber.Ctx) {
+	c.Cookie(&fiber.Cookie{
+		Name:     refreshCookieName,
+		Value:    "",
+		Path:     refreshCookiePath,
+		MaxAge:   -1,
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+		Secure:   viper.GetBool("api.auth.cookie_secure"),
+		SameSite: fiber.CookieSameSiteStrictMode,
+	})
+}
+
 // UserSignIn method to auth user and return access and refresh tokens.
-// @Description Auth user and return access and refresh token.
+// @Description Auth user and return access and refresh token. The refresh token
+// @Description is also set as an HttpOnly cookie scoped to /api/v1/auth; browser
+// @Description clients should rely on that cookie rather than storing the token.
 // @Summary auth user and return access and refresh token
 // @Tags Auth
 // @Accept json
@@ -37,63 +74,48 @@ type SignInResponse struct {
 // @Success 200 {object} SignInResponse
 // @Router /api/v1/auth/user/sign/in [post]
 func UserSignIn(c *fiber.Ctx) error {
-	// Create a new user auth struct.
 	signIn := &SignIn{}
 
-	// Checking received data from JSON body.
 	if err := c.BodyParser(signIn); err != nil {
-		// Return status 400 and error message.
 		return c.JSON(fiber.Map{
 			"error": true,
 			"msg":   err.Error(),
 		})
 	}
 
-	// Get user by email.
 	foundUser, err := db.Connection().GetUserByEmail(signIn.Email)
 	if err != nil {
-		// Return, if user not found.
-		return c.JSON(fiber.Map{
-			"error": true,
-			"msg":   "wrong user email address or password", // "user with the given email is not found",
-		})
-	}
-
-	// Compare given user password with stored in found user.
-	compareUserPassword := auth.ComparePasswords(foundUser.PasswordHash, signIn.Password)
-	if !compareUserPassword {
-		// Return, if password is not compare to stored in database.
 		return c.JSON(fiber.Map{
 			"error": true,
 			"msg":   "wrong user email address or password",
 		})
 	}
 
-	// Generate a new pair of access and refresh tokens.
-	credentials := []string{}
-	tokens, err := auth.GenerateNewTokens(foundUser.ID.String(), credentials)
+	if !auth.ComparePasswords(foundUser.PasswordHash, signIn.Password) {
+		return c.JSON(fiber.Map{
+			"error": true,
+			"msg":   "wrong user email address or password",
+		})
+	}
+
+	if !foundUser.Active {
+		return c.JSON(fiber.Map{
+			"error": true,
+			"msg":   "wrong user email address or password",
+		})
+	}
+
+	tokens, err := auth.GenerateNewTokens(foundUser.ID.String())
 	if err != nil {
-		// Return status 500 and token generation error.
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": true,
 			"msg":   err.Error(),
 		})
 	}
 
-	// Define user ID.
-	userID := foundUser.ID.String()
+	setRefreshCookie(c, tokens.Refresh)
+	log.Info().Str("user", foundUser.ID.String()).Msg("Signed in")
 
-	// Save refresh token to database.
-	refreshToken := &db.RefreshToken{UserID: foundUser.ID, Token: tokens.Refresh}
-	if err := db.Connection().CreateRefreshToken(refreshToken); err != nil {
-		// Return status 500 and token save error.
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": true,
-			"msg":   err.Error(),
-		})
-	}
-	log.Info().Str("user", userID).Msg("Signed in")
-	// Return status 200 OK.
 	return c.JSON(fiber.Map{
 		"error": false,
 		"msg":   nil,
@@ -104,46 +126,17 @@ func UserSignIn(c *fiber.Ctx) error {
 	})
 }
 
-// UserSignOut method to de-authorize user and delete refresh token.
-// @Description De-authorize user and delete refresh token.
-// @Summary de-authorize user and delete refresh token
+// UserSignOut method to de-authorize user and clear the refresh token.
+// @Description Clears the refresh token cookie, ending the session. Deliberately
+// @Description unauthenticated: clearing a cookie needs no identity, and requiring
+// @Description a live access token would leave an expired session unable to sign out.
+// @Summary de-authorize user and clear the refresh token
 // @Tags Auth
 // @Accept json
 // @Produce json
 // @Success 204 {string} status "ok"
-// @Security ApiKeyAuth
 // @Router /api/v1/auth/user/sign/out [post]
 func UserSignOut(c *fiber.Ctx) error {
-	// Get claims from JWT.
-	claims, err := auth.ExtractTokenMetadata(c)
-	if err != nil {
-		// Return status 500 and JWT parse error.
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": true,
-			"msg":   err.Error(),
-		})
-	}
-
-	// Define user ID.
-	userID := claims.UserID.String()
-	userIDUUID, err := uuid.Parse(userID)
-	if err != nil {
-		// Return status 500 and parsing error.
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": true,
-			"msg":   err.Error(),
-		})
-	}
-
-	// Delete refresh token from database.
-	if err := db.Connection().DeleteRefreshToken(userIDUUID); err != nil {
-		// Return status 500 and token deletion error.
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": true,
-			"msg":   err.Error(),
-		})
-	}
-
-	// Return status 204 no content.
+	clearRefreshCookie(c)
 	return c.SendStatus(fiber.StatusNoContent)
 }

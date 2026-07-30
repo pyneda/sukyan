@@ -108,6 +108,7 @@ func FindHistoryPost(c *fiber.Ctx) error {
 // @Param methods query string false "Comma-separated list of HTTP methods to filter by"
 // @Param sources query string false "Comma-separated list of sources to filter by"
 // @Param ids query string false "Comma-separated list of history IDs to filter by"
+// @Param url_prefix query string false "Only requests at or below this URL (matched against clean_url)"
 // @Param workspace query integer true "Workspace ID to filter by"
 // @Param playground_session query integer false "Playground session ID to filter by"
 // @Param task query integer false "Task ID"
@@ -243,6 +244,7 @@ func FindHistory(c *fiber.Ctx) error {
 		ScanID:              scanID,
 		ScanJobID:           scanJobID,
 		IDs:                 filterIDs,
+		URLPrefix:           c.Query("url_prefix"),
 		PlaygroundSessionID: playgroundSession,
 		ProxyServiceID:      proxyServiceID,
 	}

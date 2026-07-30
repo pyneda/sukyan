@@ -3,19 +3,48 @@ package db
 import (
 	"net/url"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/pyneda/sukyan/lib"
 )
 
+// SitemapNode is one addressable point of the target's attack surface. URL is
+// its identity — the path walk guarantees one node per distinct URL path.
+//
+// Aggregates are subtree-inclusive and deduplicated: a history record increments
+// each node along its path exactly once, so nothing double-counts.
 type SitemapNode struct {
-	ID       uint            `json:"id"`
-	OtherIDs []uint          `json:"other_ids,omitempty"`
-	Depth    int             `json:"depth"`
-	URL      string          `json:"url"`
-	Path     string          `json:"path"`
-	Type     SitemapNodeType `json:"type"`
-	Children []*SitemapNode  `json:"children"`
+	URL   string          `json:"url"`
+	Path  string          `json:"path"`
+	Depth int             `json:"depth"`
+	Type  SitemapNodeType `json:"type"`
+
+	Requests      int            `json:"requests"`
+	Methods       []string       `json:"methods,omitempty"`
+	StatusClasses map[string]int `json:"status_classes,omitempty"`
+	// Derived from the URL on read; parameter names are not persisted anywhere.
+	Params []string `json:"params,omitempty"`
+
+	// Only meaningful on endpoints — a directory's is an arbitrary descendant.
+	ExampleID uint `json:"example_id"`
+
+	// Reserved: correlating findings and coverage needs a join through
+	// issue_requests plus task correlation. Declared now so filling them in later
+	// does not reshape the payload for every consumer.
+	Issues  *SitemapIssueCounts `json:"issues"`
+	Scanned *bool               `json:"scanned"`
+
+	HasChildren bool           `json:"has_children"`
+	Children    []*SitemapNode `json:"children"`
+}
+
+type SitemapIssueCounts struct {
+	Critical int `json:"critical"`
+	High     int `json:"high"`
+	Medium   int `json:"medium"`
+	Low      int `json:"low"`
+	Info     int `json:"info"`
 }
 
 type SitemapFilter struct {
@@ -50,9 +79,12 @@ const (
 	SitemapNodeTypeText     SitemapNodeType = "text"
 )
 
-func (d *DatabaseConnection) getSitemapData(filter SitemapFilter) ([]History, error) {
+// Real endpoints have tens of parameters; a heavily crawled tracking pixel can
+// produce thousands of one-off names that would bloat the payload for nothing.
+const maxParamsPerNode = 200
 
-	query := d.db.Model(&History{}).Select("id, url, depth")
+func (d *DatabaseConnection) getSitemapData(filter SitemapFilter) ([]History, error) {
+	query := d.db.Model(&History{}).Select("id, url, method, status_code")
 	if filter.WorkspaceID != 0 {
 		query = query.Where("workspace_id = ?", filter.WorkspaceID)
 	}
@@ -63,6 +95,10 @@ func (d *DatabaseConnection) getSitemapData(filter SitemapFilter) ([]History, er
 	sources := GetSitemapSources()
 	query = query.Where("source IN ?", sources)
 
+	// The tree is built first-seen, so an unordered scan would yield different
+	// ExampleIDs between calls.
+	query = query.Order("id asc")
+
 	var histories []History
 	err := query.Find(&histories).Error
 	if err != nil {
@@ -71,117 +107,198 @@ func (d *DatabaseConnection) getSitemapData(filter SitemapFilter) ([]History, er
 	return histories, nil
 }
 
+// Sets are collapsed to sorted slices in finalise so the payload is stable.
+type sitemapBuilder struct {
+	node    *SitemapNode
+	methods map[string]struct{}
+	params  map[string]struct{}
+	kids    map[string]*sitemapBuilder
+	order   []*sitemapBuilder
+}
+
+func newBuilder(url, path string, depth int, t SitemapNodeType, exampleID uint) *sitemapBuilder {
+	return &sitemapBuilder{
+		node: &SitemapNode{
+			URL:           url,
+			Path:          path,
+			Depth:         depth,
+			Type:          t,
+			ExampleID:     exampleID,
+			StatusClasses: map[string]int{},
+			Children:      []*SitemapNode{},
+		},
+		methods: map[string]struct{}{},
+		params:  map[string]struct{}{},
+		kids:    map[string]*sitemapBuilder{},
+	}
+}
+
+// Called exactly once per node per history record, which is what keeps the
+// counts deduplicated.
+func (b *sitemapBuilder) record(h History, params []string) {
+	b.node.Requests++
+	if h.Method != "" {
+		b.methods[h.Method] = struct{}{}
+	}
+	b.node.StatusClasses[statusClass(h.StatusCode)]++
+	for _, p := range params {
+		if len(b.params) >= maxParamsPerNode {
+			break
+		}
+		b.params[p] = struct{}{}
+	}
+}
+
+func statusClass(code int) string {
+	switch {
+	case code >= 200 && code < 300:
+		return "2xx"
+	case code >= 300 && code < 400:
+		return "3xx"
+	case code >= 400 && code < 500:
+		return "4xx"
+	case code >= 500 && code < 600:
+		return "5xx"
+	case code >= 100 && code < 200:
+		return "1xx"
+	default:
+		// Transport failures have no status but are still surface worth seeing.
+		return "none"
+	}
+}
+
+// Query strings do not become nodes: every request to a path collapses into one
+// endpoint carrying the union of parameter names seen, which stops a tracking
+// endpoint from emitting hundreds of visually identical rows.
 func (d *DatabaseConnection) ConstructSitemap(filter SitemapFilter) ([]*SitemapNode, error) {
 	histories, err := d.getSitemapData(filter)
 	if err != nil {
 		return nil, err
 	}
 
-	nodes := make(map[string]*SitemapNode)
-	const maxUint = ^uint(0)
-	nextNegativeID := maxUint // for URLs without a history or missing paths
+	roots := map[string]*sitemapBuilder{}
+	var rootOrder []*sitemapBuilder
+
 	for _, history := range histories {
 		baseURL, err := lib.GetBaseURL(history.URL)
 		if err != nil {
-			return nil, err
+			// A single malformed URL should not fail the whole sitemap.
+			continue
 		}
-
-		if _, exists := nodes[baseURL]; !exists {
-			node := &SitemapNode{
-				ID:       history.ID, // set the ID for the baseURL the first time it's encountered
-				Depth:    0,
-				URL:      baseURL,
-				Type:     SitemapNodeTypeRoot,
-				Path:     "",
-				Children: []*SitemapNode{},
-			}
-			nodes[baseURL] = node
-		} else {
-			nodes[baseURL].OtherIDs = append(nodes[baseURL].OtherIDs, history.ID)
-		}
-
-		currentNode := nodes[baseURL]
 		u, err := url.Parse(history.URL)
 		if err != nil {
-			return nil, err
+			continue
 		}
 
-		parts := strings.Split(u.Path, "/")
-		for i, part := range parts[1:] {
-			if part == "" {
+		params := queryParamNames(u)
+
+		root, exists := roots[baseURL]
+		if !exists {
+			root = newBuilder(baseURL, "", 0, SitemapNodeTypeRoot, history.ID)
+			roots[baseURL] = root
+			rootOrder = append(rootOrder, root)
+		}
+		root.record(history, params)
+
+		current := root
+		segments := strings.Split(u.Path, "/")
+		for i, segment := range segments[1:] {
+			if segment == "" {
 				continue
 			}
-
-			childNode := findChildByPath(currentNode, part)
-			if childNode == nil {
-				childUrl := baseURL + strings.Join(parts[:i+2], "/")
-				childNode = &SitemapNode{
-					ID:       history.ID,
-					Depth:    currentNode.Depth + 1,
-					URL:      childUrl,
-					Path:     part,
-					Type:     determineType(childUrl),
-					Children: []*SitemapNode{},
-				}
-				currentNode.Children = append(currentNode.Children, childNode)
-			} else {
-				childNode.OtherIDs = append(childNode.OtherIDs, history.ID)
+			child, ok := current.kids[segment]
+			if !ok {
+				childURL := baseURL + strings.Join(segments[:i+2], "/")
+				child = newBuilder(childURL, segment, current.node.Depth+1, determineType(childURL), history.ID)
+				current.kids[segment] = child
+				current.order = append(current.order, child)
 			}
-			currentNode = childNode
-		}
-
-		if u.RawQuery != "" {
-			queryChild := &SitemapNode{
-				ID:       history.ID, // nextNegativeID,
-				Depth:    currentNode.Depth + 1,
-				URL:      history.URL,
-				Type:     SitemapNodeTypeQuery,
-				Path:     u.RawQuery,
-				Children: []*SitemapNode{},
-			}
-			currentNode.Children = append(currentNode.Children, queryChild)
-			nextNegativeID--
+			child.record(history, params)
+			current = child
 		}
 	}
 
-	var results []*SitemapNode
-	for _, node := range nodes {
-		results = append(results, node)
+	results := make([]*SitemapNode, 0, len(rootOrder))
+	for _, root := range rootOrder {
+		results = append(results, root.finalise())
 	}
-
+	sortNodes(results)
 	return results, nil
 }
 
-func findChildByPath(node *SitemapNode, path string) *SitemapNode {
-	for _, child := range node.Children {
-		if child.Path == path {
-			return child
+func (b *sitemapBuilder) finalise() *SitemapNode {
+	b.node.Methods = sortedKeys(b.methods)
+	b.node.Params = sortedKeys(b.params)
+
+	children := make([]*SitemapNode, 0, len(b.order))
+	for _, kid := range b.order {
+		children = append(children, kid.finalise())
+	}
+	sortNodes(children)
+
+	b.node.Children = children
+	b.node.HasChildren = len(children) > 0
+	return b.node
+}
+
+// Go randomises map iteration, so without an explicit sort the payload — and the
+// rendered tree — changes on every request. Busiest first, path ascending to
+// break ties so equal-weight siblings never swap places.
+func sortNodes(nodes []*SitemapNode) {
+	sort.SliceStable(nodes, func(i, j int) bool {
+		if nodes[i].Requests != nodes[j].Requests {
+			return nodes[i].Requests > nodes[j].Requests
+		}
+		if nodes[i].Path != nodes[j].Path {
+			return nodes[i].Path < nodes[j].Path
+		}
+		return nodes[i].URL < nodes[j].URL
+	})
+}
+
+func sortedKeys(set map[string]struct{}) []string {
+	if len(set) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func queryParamNames(u *url.URL) []string {
+	if u.RawQuery == "" {
+		return nil
+	}
+	values, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return nil
+	}
+	var names []string
+	for name := range values {
+		if name != "" {
+			names = append(names, name)
 		}
 	}
-	return nil
+	sort.Strings(names)
+	return names
 }
 
 // determineType returns the SitemapNodeType based on the URL and its properties.
 func determineType(urlStr string) SitemapNodeType {
-	// Parse the URL
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		return SitemapNodeTypeFile // Default to file if there's an error
 	}
 
-	// Check for root
 	if u.Path == "/" || u.Path == "" {
 		return SitemapNodeTypeRoot
 	}
 
-	// Check for query
-	if u.RawQuery != "" {
-		return SitemapNodeTypeQuery
-	}
-
-	// Check for directory (treat as directory if not recognized as a specific file type)
 	ext := filepath.Ext(u.Path)
-	if ext == "" || (ext != "" && determineFileType(ext) == SitemapNodeTypeFile) {
+	if ext == "" || determineFileType(ext) == SitemapNodeTypeFile {
 		return SitemapNodeTypeDirectory
 	}
 

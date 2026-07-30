@@ -310,6 +310,8 @@ type HistoryFilter struct {
 	SortOrder            string     `json:"sort_order" validate:"omitempty,oneof=asc desc"`                                                                                           // Validate to be either "asc" or "desc"
 	TaskID               uint       `json:"task_id" validate:"omitempty,numeric"`
 	IDs                  []uint     `json:"ids" validate:"omitempty,dive,numeric"`
+	// Matched against clean_url, which is indexed, so this is a btree prefix scan.
+	URLPrefix            string     `json:"url_prefix" validate:"omitempty,uri"`
 	PlaygroundSessionID  uint       `json:"playground_session_id" validate:"omitempty,numeric"`
 	ProxyServiceID       *uuid.UUID `json:"proxy_service_id,omitempty"`
 	CreatedAfter         *time.Time `json:"created_after,omitempty"`
@@ -354,6 +356,11 @@ func (d *DatabaseConnection) ListHistory(filter HistoryFilter) (items []*History
 	}
 	if len(filter.IDs) > 0 {
 		query = query.Where("id IN ?", filter.IDs)
+	}
+	if filter.URLPrefix != "" {
+		// Escape LIKE wildcards so a URL containing % or _ stays a literal match.
+		escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(filter.URLPrefix)
+		query = query.Where(`clean_url LIKE ? ESCAPE '\'`, escaped+"%")
 	}
 	if filter.PlaygroundSessionID > 0 {
 		query = query.Where("playground_session_id = ?", filter.PlaygroundSessionID)

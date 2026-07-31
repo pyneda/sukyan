@@ -659,6 +659,20 @@ func (d *DatabaseConnection) GetScanJobStatsForJob(scanJobID uint) (ScanJobStats
 	return stats, nil
 }
 
+type scanJobCountRow struct {
+	ScanJobID uint
+	Count     int64
+}
+
+func (d *DatabaseConnection) countByScanJob(model interface{}, jobIDs []uint) ([]scanJobCountRow, error) {
+	var rows []scanJobCountRow
+	err := d.db.Model(model).
+		Select("scan_job_id, COUNT(*) as count").
+		Where("scan_job_id IN ?", jobIDs).
+		Group("scan_job_id").Scan(&rows).Error
+	return rows, err
+}
+
 // GetScanJobStatsForJobs returns stats for a page of jobs in three grouped
 // queries. The per-job equivalent costs three queries per row, and this list is
 // polled every few seconds while a scan runs.
@@ -671,16 +685,8 @@ func (d *DatabaseConnection) GetScanJobStatsForJobs(jobIDs []uint) (map[uint]Sca
 		stats[id] = ScanJobStatsResponse{}
 	}
 
-	type countRow struct {
-		ScanJobID uint
-		Count     int64
-	}
-
-	var requestRows []countRow
-	if err := d.db.Model(&History{}).
-		Select("scan_job_id, COUNT(*) as count").
-		Where("scan_job_id IN ?", jobIDs).
-		Group("scan_job_id").Scan(&requestRows).Error; err != nil {
+	requestRows, err := d.countByScanJob(&History{}, jobIDs)
+	if err != nil {
 		return nil, err
 	}
 	for _, row := range requestRows {
@@ -721,11 +727,8 @@ func (d *DatabaseConnection) GetScanJobStatsForJobs(jobIDs []uint) (map[uint]Sca
 		stats[row.ScanJobID] = entry
 	}
 
-	var oobRows []countRow
-	if err := d.db.Model(&OOBTest{}).
-		Select("scan_job_id, COUNT(*) as count").
-		Where("scan_job_id IN ?", jobIDs).
-		Group("scan_job_id").Scan(&oobRows).Error; err != nil {
+	oobRows, err := d.countByScanJob(&OOBTest{}, jobIDs)
+	if err != nil {
 		return nil, err
 	}
 	for _, row := range oobRows {

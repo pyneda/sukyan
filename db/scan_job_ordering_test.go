@@ -89,6 +89,32 @@ func TestListScanJobsRelevanceOrdersByAttention(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
+// Regression test for issues_found DESC being unguarded: it sat ahead of the
+// guarded completed_at key, so a failed job with issues_found > 0 would
+// displace the "most recent first" ordering even though only completed jobs
+// are meant to rank by issues_found.
+func TestListScanJobsRelevanceIgnoresIssuesFoundOutsideCompletedBucket(t *testing.T) {
+	scan, cleanup := setupOrderingTest(t)
+	defer cleanup()
+
+	now := time.Now()
+	older := now.Add(-10 * time.Minute)
+	recent := now.Add(-1 * time.Minute)
+
+	failedOldWithIssues := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusFailed, CompletedAt: &older, IssuesFound: 5})
+	failedNewClean := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusFailed, CompletedAt: &recent})
+
+	jobs, _, err := Connection().ListScanJobs(ScanJobFilter{
+		ScanID:     scan.ID,
+		SortBy:     "relevance",
+		Pagination: Pagination{Page: 1, PageSize: 50},
+	})
+	require.NoError(t, err)
+	require.Len(t, jobs, 2)
+	assert.Equal(t, failedNewClean, jobs[0].ID, "most recent failed job must sort first regardless of issues_found")
+	assert.Equal(t, failedOldWithIssues, jobs[1].ID)
+}
+
 func TestListScanJobsUnknownSortFallsBackToQueueOrder(t *testing.T) {
 	scan, cleanup := setupOrderingTest(t)
 	defer cleanup()

@@ -860,7 +860,8 @@ func GetScanJobsHandler(c *fiber.Ctx) error {
 			Page:     1,
 			PageSize: 50,
 		},
-		SortBy: "relevance",
+		SortBy:    "relevance",
+		SortOrder: "desc",
 	}
 
 	// Parse query parameter for searching URL and error message

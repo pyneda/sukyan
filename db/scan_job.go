@@ -292,10 +292,13 @@ func (d *DatabaseConnection) UpdateScanJob(job *ScanJob) (*ScanJob, error) {
 	return job, result.Error
 }
 
-// Secondary keys are CASE-guarded because a single ORDER BY tail applies to
-// every bucket: an unguarded `started_at ASC` would sort the failed bucket
-// oldest-first as well. NULLS LAST is explicit because Postgres defaults DESC
-// to NULLS FIRST.
+// Secondary keys that only make sense for one bucket are CASE-guarded because
+// a single ORDER BY tail applies to every bucket: an unguarded `started_at ASC`
+// would sort the failed bucket oldest-first as well, and an unguarded
+// `issues_found DESC` would let a hit on a running/failed job displace the
+// "most recent first" ordering those buckets are meant to have. `priority DESC`
+// stays unguarded on purpose as the universal final tiebreaker. NULLS LAST is
+// explicit because Postgres defaults DESC to NULLS FIRST.
 const scanJobRelevanceOrder = `CASE status
 		WHEN 'running'   THEN 0
 		WHEN 'claimed'   THEN 1
@@ -305,7 +308,7 @@ const scanJobRelevanceOrder = `CASE status
 		ELSE 6
 	END ASC,
 	CASE WHEN status = 'running' THEN started_at END ASC NULLS LAST,
-	issues_found DESC,
+	CASE WHEN status = 'completed' THEN issues_found END DESC,
 	CASE WHEN status IN ('failed','completed','cancelled') THEN completed_at END DESC NULLS LAST,
 	priority DESC,
 	id ASC`

@@ -300,11 +300,16 @@ func (d *DatabaseConnection) UpdateScanJob(job *ScanJob) (*ScanJob, error) {
 // stays unguarded on purpose as the universal final tiebreaker. NULLS LAST is
 // explicit because Postgres defaults DESC to NULLS FIRST.
 //
-// scan_jobs.issues_found is not populated by the scan engine, so both the
-// bucket split and the secondary key count live rows in issues instead —
-// the same source GetScanJobStatsForJobs uses for the UI's Result column.
-// The deleted_at IS NULL guard on that subquery is required: GORM appends it
-// automatically to queries built through its own API, but not to raw SQL.
+// scan_jobs.issues_found and scan_jobs.http_status are never populated: the
+// worker always completes a job via queue.Complete(ctx, id, JobResult{}), an
+// empty struct, so both fields only ever travel through as their zero value.
+// ErrorType and ErrorMessage are not affected by this — queue.Fail writes
+// them directly as columns, independent of JobResult. That is why the
+// bucket split and the secondary key above count live rows in issues instead
+// of reading issues_found — the same source GetScanJobStatsForJobs uses for
+// the UI's Result column. The deleted_at IS NULL guard on that subquery is
+// required: GORM appends it automatically to queries built through its own
+// API, but not to raw SQL.
 const scanJobRelevanceOrder = `CASE status
 		WHEN 'running'   THEN 0
 		WHEN 'claimed'   THEN 1

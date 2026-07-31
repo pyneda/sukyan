@@ -126,9 +126,9 @@ func TestDepthAuditHandlesAbstractTypes(t *testing.T) {
 	schema, err := pkgGraphql.NewParser().ParseFromJSON(body)
 	require.NoError(t, err)
 
-	assert.Equal(t, "__typename", findScalarField(schema, "Any"),
+	assert.Equal(t, "__typename", findLeafSelection(schema, "Any"),
 		"a union has no fields of its own to select")
-	assert.Equal(t, "id", findScalarField(schema, "Node"),
+	assert.Equal(t, "id", findLeafSelection(schema, "Node"),
 		"an interface's own fields are selectable")
 
 	for _, tc := range getSchemaAwareDepthTestCases(schema) {

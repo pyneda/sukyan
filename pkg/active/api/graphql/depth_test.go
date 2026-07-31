@@ -473,24 +473,18 @@ func TestGetSchemaAwareDepthTestCases(t *testing.T) {
 
 		testCases := getSchemaAwareDepthTestCases(schema)
 
-		genericCount := len(getGenericDepthTestCases())
-		if len(testCases) <= genericCount {
-			t.Errorf("Expected more test cases than generic (%d), got %d", genericCount, len(testCases))
+		if len(testCases) == 0 {
+			t.Fatal("Expected schema-aware test cases")
 		}
 
-		hasSchemaTest := false
 		for _, tc := range testCases {
-			if len(tc.name) > 7 && tc.name[:7] == "schema_" {
-				hasSchemaTest = true
-				break
+			if !strings.HasPrefix(tc.name, "schema_") {
+				t.Errorf("Expected only schema-aware cases, got %s", tc.name)
 			}
-		}
-		if !hasSchemaTest {
-			t.Error("Expected at least one schema-aware test case")
 		}
 	})
 
-	t.Run("falls back to generic when no chains", func(t *testing.T) {
+	t.Run("no cases when no chains", func(t *testing.T) {
 		schema := &pkgGraphql.GraphQLSchema{
 			Queries: []pkgGraphql.Operation{
 				{
@@ -502,10 +496,8 @@ func TestGetSchemaAwareDepthTestCases(t *testing.T) {
 			Enums: make(map[string]pkgGraphql.EnumDef),
 		}
 
-		testCases := getSchemaAwareDepthTestCases(schema)
-		genericCount := len(getGenericDepthTestCases())
-		if len(testCases) != genericCount {
-			t.Errorf("Expected exactly generic test count (%d), got %d", genericCount, len(testCases))
+		if testCases := getSchemaAwareDepthTestCases(schema); len(testCases) != 0 {
+			t.Errorf("Expected no schema-aware test cases, got %d", len(testCases))
 		}
 	})
 }
@@ -535,9 +527,12 @@ func TestBuildDeepQueryFromChain(t *testing.T) {
 			cyclic: true,
 		}
 
-		query := buildDeepQueryFromChain(schema, chain, 5)
+		query, depth := buildDeepQueryFromChain(schema, chain, 5)
 		if query == "" {
 			t.Fatal("Expected non-empty query")
+		}
+		if depth != 5 {
+			t.Errorf("Expected depth 5, got %d", depth)
 		}
 
 		if !containsBalancedBraces(query) {
@@ -552,14 +547,14 @@ func TestBuildDeepQueryFromChain(t *testing.T) {
 			cyclic:    true,
 		}
 
-		query := buildDeepQueryFromChain(schema, chain, 5)
-		if query != "" {
-			t.Errorf("Expected empty query for empty steps, got: %s", query)
+		query, depth := buildDeepQueryFromChain(schema, chain, 5)
+		if query != "" || depth != 0 {
+			t.Errorf("Expected empty query for empty steps, got: %s (depth %d)", query, depth)
 		}
 	})
 }
 
-func TestFindScalarField(t *testing.T) {
+func TestFindLeafSelection(t *testing.T) {
 	schema := &pkgGraphql.GraphQLSchema{
 		Types: map[string]pkgGraphql.TypeDef{
 			"User": {
@@ -582,23 +577,47 @@ func TestFindScalarField(t *testing.T) {
 	}
 
 	t.Run("prefers id field", func(t *testing.T) {
-		field := findScalarField(schema, "User")
+		field := findLeafSelection(schema, "User")
 		if field != "id" {
 			t.Errorf("Expected 'id', got '%s'", field)
 		}
 	})
 
 	t.Run("falls back to any scalar", func(t *testing.T) {
-		field := findScalarField(schema, "Post")
+		field := findLeafSelection(schema, "Post")
 		if field != "content" {
 			t.Errorf("Expected 'content', got '%s'", field)
 		}
 	})
 
-	t.Run("unknown type returns id", func(t *testing.T) {
-		field := findScalarField(schema, "Unknown")
-		if field != "id" {
-			t.Errorf("Expected 'id' for unknown type, got '%s'", field)
+	t.Run("unknown type falls back to __typename", func(t *testing.T) {
+		field := findLeafSelection(schema, "Unknown")
+		if field != "__typename" {
+			t.Errorf("Expected '__typename' for unknown type, got '%s'", field)
+		}
+	})
+
+	t.Run("leaf carries its required arguments", func(t *testing.T) {
+		argSchema := &pkgGraphql.GraphQLSchema{
+			Types: map[string]pkgGraphql.TypeDef{
+				"Report": {
+					Name: "Report",
+					Fields: []pkgGraphql.Field{
+						{
+							Name: "summary",
+							Type: pkgGraphql.TypeRef{Name: "String", Kind: pkgGraphql.TypeKindScalar},
+							Arguments: []pkgGraphql.Argument{
+								{Name: "locale", Type: pkgGraphql.TypeRef{Kind: pkgGraphql.TypeKindNonNull, Required: true, OfType: &pkgGraphql.TypeRef{Name: "String", Kind: pkgGraphql.TypeKindScalar}}},
+							},
+						},
+					},
+				},
+			},
+			Enums: make(map[string]pkgGraphql.EnumDef),
+		}
+
+		if field := findLeafSelection(argSchema, "Report"); field != `summary(locale: "1")` {
+			t.Errorf("Expected leaf to carry required arguments, got '%s'", field)
 		}
 	})
 }

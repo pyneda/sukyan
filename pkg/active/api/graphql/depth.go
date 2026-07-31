@@ -34,16 +34,27 @@ type depthTestResult struct {
 	depth       int
 	description string
 	passed      bool
+	// invalid marks a probe the server refused to execute because the document
+	// was malformed for its schema. It is the audit's own defect rather than a
+	// property of the target, and it is what makes the generic fallback matter.
+	invalid bool
 }
 
 type typeChain struct {
 	rootField string
+	rootArgs  string
 	steps     []chainStep
 	cyclic    bool
+	// cycleStart indexes the first step of the segment that returns to a type
+	// already on the path. Only that segment may be replayed to nest further:
+	// replaying from step zero selects fields the current type does not declare,
+	// which the server rejects as a validation error.
+	cycleStart int
 }
 
 type chainStep struct {
 	fieldName string
+	args      string
 	typeName  string
 }
 
@@ -75,70 +86,45 @@ func (a *DepthLimitAudit) Run() {
 		client = http_utils.CreateHttpClient()
 	}
 
-	var testCases []depthTestCase
-
-	if len(a.Definition.RawDefinition) > 0 {
-		schema, err := pkgGraphql.NewParser().ParseSchema(a.Definition.RawDefinition)
-		if err == nil && schema != nil {
-			testCases = getSchemaAwareDepthTestCases(schema)
-			auditLog.Debug().Int("test_cases", len(testCases)).Msg("Generated schema-aware depth test cases")
-		}
-	}
-
-	if len(testCases) == 0 {
-		testCases = getGenericDepthTestCases()
-	}
-
 	var results []depthTestResult
-	for _, tc := range testCases {
-		if a.Options.Ctx != nil {
-			select {
-			case <-a.Options.Ctx.Done():
-				return
-			default:
-			}
-		}
-		result := a.executeDepthTest(baseURL, client, tc)
-		results = append(results, result)
+
+	if schema := a.parseSchema(); schema != nil {
+		schemaCases := getSchemaAwareDepthTestCases(schema)
+		auditLog.Debug().Int("test_cases", len(schemaCases)).Msg("Generated schema-aware depth test cases")
+		results = a.runTestCases(baseURL, client, schemaCases)
 	}
 
-	if a.Options.ScanMode.String() == "fuzz" {
-		for _, tc := range getCircularFragmentTestCases() {
-			if a.Options.Ctx != nil {
-				select {
-				case <-a.Options.Ctx.Done():
-					return
-				default:
-				}
-			}
-			result := a.executeDepthTest(baseURL, client, tc)
-			results = append(results, result)
-		}
-	}
-
-	var passed []depthTestResult
-	for _, r := range results {
-		if r.passed {
-			passed = append(passed, r)
-		}
-	}
-
-	if len(passed) == 0 {
-		auditLog.Info().Msg("No depth limit bypass detected")
+	if a.cancelled() {
 		return
 	}
 
-	maxDepth := 0
-	for _, r := range passed {
-		if r.depth > maxDepth {
-			maxDepth = r.depth
-		}
+	// Schema-aware probes are the ones that reach real resolvers, but they depend
+	// on the audit generating a document the target's schema accepts. Nested
+	// introspection needs no schema at all, so it is the fallback whenever the
+	// schema-derived probes proved nothing.
+	if !reachedReportableDepth(results) {
+		auditLog.Debug().
+			Int("schema_probes", len(results)).
+			Int("invalid_probes", countInvalid(results)).
+			Msg("Schema-aware depth probes inconclusive, falling back to generic introspection")
+		results = append(results, a.runTestCases(baseURL, client, getGenericDepthTestCases())...)
 	}
 
-	const minReportableDepth = 8
-	if maxDepth > 0 && maxDepth < minReportableDepth {
-		auditLog.Info().Int("max_depth", maxDepth).
-			Msg("Depth tests passed but within acceptable range, not reporting")
+	if a.cancelled() {
+		return
+	}
+
+	if a.Options.ScanMode.String() == "fuzz" {
+		results = append(results, a.runTestCases(baseURL, client, getCircularFragmentTestCases())...)
+	}
+
+	if a.cancelled() {
+		return
+	}
+
+	passed := reportableFinding(results)
+	if len(passed) == 0 {
+		auditLog.Info().Int("probes", len(results)).Msg("No reportable depth limit bypass detected")
 		return
 	}
 
@@ -176,6 +162,84 @@ func (a *DepthLimitAudit) Run() {
 	auditLog.Info().Uint("issue_id", issue.ID).Int("tests_passed", len(passed)).Msg("Created consolidated depth limit issue")
 }
 
+func (a *DepthLimitAudit) parseSchema() *pkgGraphql.GraphQLSchema {
+	if len(a.Definition.RawDefinition) == 0 {
+		return nil
+	}
+	schema, err := pkgGraphql.NewParser().ParseSchema(a.Definition.RawDefinition)
+	if err != nil {
+		return nil
+	}
+	return schema
+}
+
+func (a *DepthLimitAudit) cancelled() bool {
+	if a.Options.Ctx == nil {
+		return false
+	}
+	select {
+	case <-a.Options.Ctx.Done():
+		return true
+	default:
+		return false
+	}
+}
+
+func (a *DepthLimitAudit) runTestCases(baseURL string, client *http.Client, cases []depthTestCase) []depthTestResult {
+	var results []depthTestResult
+	for _, tc := range cases {
+		if a.cancelled() {
+			return results
+		}
+		results = append(results, a.executeDepthTest(baseURL, client, tc))
+	}
+	return results
+}
+
+// reportableFinding returns the probes that together prove the target enforces
+// no useful depth limit, or nil when the evidence does not clear
+// minReportableDepth. A server that rejects deep queries, or that only ever
+// answered shallow ones, must produce no finding.
+func reportableFinding(results []depthTestResult) []depthTestResult {
+	var passed []depthTestResult
+	maxDepth := 0
+
+	for _, r := range results {
+		if !r.passed {
+			continue
+		}
+		passed = append(passed, r)
+		if r.depth > maxDepth {
+			maxDepth = r.depth
+		}
+	}
+
+	if maxDepth < minReportableDepth {
+		return nil
+	}
+
+	return passed
+}
+
+func reachedReportableDepth(results []depthTestResult) bool {
+	for _, r := range results {
+		if r.passed && r.depth >= minReportableDepth {
+			return true
+		}
+	}
+	return false
+}
+
+func countInvalid(results []depthTestResult) int {
+	count := 0
+	for _, r := range results {
+		if r.invalid {
+			count++
+		}
+	}
+	return count
+}
+
 func (a *DepthLimitAudit) executeDepthTest(baseURL string, client *http.Client, tc depthTestCase) depthTestResult {
 	result := depthTestResult{
 		testName:    tc.name,
@@ -208,7 +272,16 @@ func (a *DepthLimitAudit) executeDepthTest(baseURL string, client *http.Client, 
 	result.history = execResult.History
 	body, _ := execResult.History.ResponseBody()
 	result.passed = analyzeResponse(body, execResult.History.StatusCode)
+	result.invalid = isInvalidDocument(body)
 	return result
+}
+
+func isInvalidDocument(body []byte) bool {
+	var response map[string]any
+	if err := json.Unmarshal(body, &response); err != nil {
+		return false
+	}
+	return containsSyntaxOrValidationError(parseErrorsArray(response))
 }
 
 func analyzeResponse(body []byte, statusCode int) bool {
@@ -372,22 +445,21 @@ func getGenericDepthTestCases() []depthTestCase {
 	}
 }
 
+// getSchemaAwareDepthTestCases builds probes from the target's own schema. It
+// returns only schema-derived cases; the generic introspection probes are the
+// caller's fallback for when these prove nothing.
 func getSchemaAwareDepthTestCases(schema *pkgGraphql.GraphQLSchema) []depthTestCase {
 	var testCases []depthTestCase
+	seen := make(map[string]bool)
 
-	testCases = append(testCases, getGenericDepthTestCases()...)
-
-	chains := findDeepTypeChains(schema)
-	depths := []int{7, 10, 13}
-
-	limit := min(3, len(chains))
-
-	for _, chain := range chains[:limit] {
-		for _, depth := range depths {
-			query := buildDeepQueryFromChain(schema, chain, depth)
-			if query == "" {
+	for _, chain := range selectProbeChains(findDeepTypeChains(schema)) {
+		for _, target := range probeDepths {
+			query, depth := buildDeepQueryFromChain(schema, chain, target)
+			if query == "" || seen[query] {
 				continue
 			}
+			seen[query] = true
+
 			testCases = append(testCases, depthTestCase{
 				name:        fmt.Sprintf("schema_%s_depth_%d", chain.rootField, depth),
 				query:       query,
@@ -400,14 +472,40 @@ func getSchemaAwareDepthTestCases(schema *pkgGraphql.GraphQLSchema) []depthTestC
 	return testCases
 }
 
+// selectProbeChains keeps one chain per root field. Several chains through the
+// same root field render to the same document at the shallower depths and share
+// a resolver that may answer null for all of them, so spending the whole probe
+// budget on one root field buys neither coverage nor evidence.
+func selectProbeChains(chains []typeChain) []typeChain {
+	var selected []typeChain
+	used := make(map[string]bool)
+
+	for _, chain := range chains {
+		if len(selected) >= maxProbeChains {
+			break
+		}
+		if used[chain.rootField] {
+			continue
+		}
+		used[chain.rootField] = true
+		selected = append(selected, chain)
+	}
+
+	return selected
+}
+
 // Enumerating every simple path through a type graph is factorial in the number
 // of types, and a real API's schema is densely cross-referenced enough that it
 // never finishes. Only the first few chains are ever turned into requests, and no
 // test nests deeper than the largest entry in depths, so both are bounded here.
 const (
-	maxTypeChains     = 200
-	maxTypeChainDepth = 15
+	maxTypeChains      = 200
+	maxTypeChainDepth  = 15
+	maxProbeChains     = 3
+	minReportableDepth = 8
 )
+
+var probeDepths = []int{7, 10, 13}
 
 func findDeepTypeChains(schema *pkgGraphql.GraphQLSchema) []typeChain {
 	var chains []typeChain
@@ -422,24 +520,34 @@ func findDeepTypeChains(schema *pkgGraphql.GraphQLSchema) []typeChain {
 			continue
 		}
 
-		visited := make(map[string]bool)
-		var steps []chainStep
-		found := findChainDFS(schema, returnTypeName, visited, steps, &chains, query.Name)
-
-		if !found {
-			if len(steps) > 0 {
-				chains = append(chains, typeChain{
-					rootField: query.Name,
-					steps:     steps,
-					cyclic:    false,
-				})
-			}
+		// A root field whose required arguments cannot be rendered can never be
+		// selected, so every chain under it would be refused during validation.
+		rootArgs, ok := schema.RenderRequiredArguments(query.Arguments)
+		if !ok {
+			continue
 		}
+
+		walker := &chainWalker{
+			schema:   schema,
+			root:     query.Name,
+			rootArgs: rootArgs,
+			rootType: returnTypeName,
+			visited:  make(map[string]bool),
+			chains:   &chains,
+		}
+		walker.walk(returnTypeName, nil)
 	}
 
-	sort.Slice(chains, func(i, j int) bool {
+	// SliceStable keeps chain discovery order for equally ranked chains, so the
+	// same schema always yields the same probes and a finding is reproducible.
+	sort.SliceStable(chains, func(i, j int) bool {
 		if chains[i].cyclic != chains[j].cyclic {
 			return chains[i].cyclic
+		}
+		// A root field whose arguments had to be invented is likely to resolve to
+		// null, which the oracle cannot distinguish from an enforced limit.
+		if (chains[i].rootArgs == "") != (chains[j].rootArgs == "") {
+			return chains[i].rootArgs == ""
 		}
 		return len(chains[i].steps) > len(chains[j].steps)
 	})
@@ -447,129 +555,195 @@ func findDeepTypeChains(schema *pkgGraphql.GraphQLSchema) []typeChain {
 	return chains
 }
 
-func findChainDFS(schema *pkgGraphql.GraphQLSchema, typeName string, visited map[string]bool, steps []chainStep, chains *[]typeChain, rootField string) bool {
-	if len(*chains) >= maxTypeChains {
-		return false
+type chainWalker struct {
+	schema   *pkgGraphql.GraphQLSchema
+	root     string
+	rootArgs string
+	rootType string
+	visited  map[string]bool
+	chains   *[]typeChain
+}
+
+func (w *chainWalker) walk(typeName string, steps []chainStep) {
+	if len(*w.chains) >= maxTypeChains {
+		return
 	}
 
-	if visited[typeName] {
-		*chains = append(*chains, typeChain{
-			rootField: rootField,
-			steps:     append([]chainStep(nil), steps...),
-			cyclic:    true,
-		})
-		return true
+	if w.visited[typeName] {
+		w.record(steps, true)
+		return
 	}
 
 	// A chain longer than the deepest test is already long enough to nest to any
 	// depth the audit asks for, so it is recorded rather than extended.
 	if len(steps) >= maxTypeChainDepth {
-		*chains = append(*chains, typeChain{
-			rootField: rootField,
-			steps:     append([]chainStep(nil), steps...),
-			cyclic:    false,
-		})
-		return true
+		w.record(steps, false)
+		return
 	}
 
-	typeDef, ok := schema.Types[typeName]
+	typeDef, ok := w.schema.LookupType(typeName)
 	if !ok {
-		return false
+		return
 	}
 
-	visited[typeName] = true
-	defer func() { visited[typeName] = false }()
+	w.visited[typeName] = true
+	defer func() { w.visited[typeName] = false }()
 
-	found := false
 	for _, field := range typeDef.Fields {
-		if len(*chains) >= maxTypeChains {
-			break
+		if len(*w.chains) >= maxTypeChains {
+			return
 		}
 
 		fieldTypeName := getBaseTypeName(field.Type)
 		if fieldTypeName == "" {
 			continue
 		}
-		if _, isObject := schema.Types[fieldTypeName]; !isObject {
+		if _, isComposite := w.schema.LookupType(fieldTypeName); !isComposite {
 			continue
 		}
 
-		newSteps := append(steps, chainStep{fieldName: field.Name, typeName: fieldTypeName})
-		if findChainDFS(schema, fieldTypeName, visited, newSteps, chains, rootField) {
-			found = true
+		args, ok := w.schema.RenderRequiredArguments(field.Arguments)
+		if !ok {
+			continue
 		}
+
+		w.walk(fieldTypeName, append(steps, chainStep{fieldName: field.Name, args: args, typeName: fieldTypeName}))
 	}
-	return found
 }
 
-func buildDeepQueryFromChain(schema *pkgGraphql.GraphQLSchema, chain typeChain, targetDepth int) string {
-	if len(chain.steps) == 0 {
-		return ""
+func (w *chainWalker) record(steps []chainStep, cyclic bool) {
+	if len(steps) == 0 {
+		return
+	}
+
+	chain := typeChain{
+		rootField: w.root,
+		rootArgs:  w.rootArgs,
+		steps:     append([]chainStep(nil), steps...),
+		cyclic:    cyclic,
+	}
+	if cyclic {
+		chain.cycleStart = w.cycleStart(chain.steps)
+	}
+
+	*w.chains = append(*w.chains, chain)
+}
+
+// cycleStart finds where the walk last stood on the type it has just returned
+// to. The steps from there to the end are what maps that type back to itself,
+// and are the only segment that may be repeated.
+func (w *chainWalker) cycleStart(steps []chainStep) int {
+	revisited := steps[len(steps)-1].typeName
+	if revisited == w.rootType {
+		return 0
+	}
+	for i := 0; i < len(steps)-1; i++ {
+		if steps[i].typeName == revisited {
+			return i + 1
+		}
+	}
+	return 0
+}
+
+// buildDeepQueryFromChain renders the chain as a request body nested to at most
+// targetDepth levels, returning the body and the depth actually reached. A
+// non-cyclic chain may be shorter than asked for, and reporting the depth
+// requested rather than the depth sent would claim evidence that was never
+// gathered.
+func buildDeepQueryFromChain(schema *pkgGraphql.GraphQLSchema, chain typeChain, targetDepth int) (string, int) {
+	selections := chainSelections(chain, targetDepth)
+	if len(selections) == 0 {
+		return "", 0
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf(`{"query":"{%s`, chain.rootField))
-	currentDepth := 1
-
-	if chain.cyclic {
-		for currentDepth < targetDepth {
-			idx := (currentDepth - 1) % len(chain.steps)
-			step := chain.steps[idx]
-			sb.WriteString(fmt.Sprintf("{%s", step.fieldName))
-			currentDepth++
-		}
-
-		lastTypeName := chain.steps[(currentDepth-2)%len(chain.steps)].typeName
-		scalarField := findScalarField(schema, lastTypeName)
-		sb.WriteString(fmt.Sprintf("{%s}", scalarField))
-
-		for i := 0; i < currentDepth-1; i++ {
-			sb.WriteString("}")
-		}
-	} else {
-		for i, step := range chain.steps {
-			if i >= targetDepth-1 {
-				break
-			}
-			sb.WriteString(fmt.Sprintf("{%s", step.fieldName))
-			currentDepth++
-		}
-
-		lastTypeName := chain.steps[min(len(chain.steps)-1, targetDepth-2)].typeName
-		scalarField := findScalarField(schema, lastTypeName)
-		sb.WriteString(fmt.Sprintf("{%s}", scalarField))
-
-		for i := 0; i < currentDepth-1; i++ {
-			sb.WriteString("}")
-		}
+	sb.WriteString("{" + chain.rootField + chain.rootArgs)
+	for _, step := range selections {
+		sb.WriteString("{" + step.fieldName + step.args)
 	}
+	sb.WriteString("{" + findLeafSelection(schema, selections[len(selections)-1].typeName) + "}")
+	sb.WriteString(strings.Repeat("}", len(selections)+1))
 
-	sb.WriteString(`}"}`)
-	return sb.String()
+	return encodeGraphQLBody(sb.String()), len(selections) + 1
 }
 
-func findScalarField(schema *pkgGraphql.GraphQLSchema, typeName string) string {
+// chainSelections trims or extends a chain to the requested nesting. Only the
+// cyclic segment may be replayed; a prefix of any chain is a valid path, but
+// appending arbitrary steps is not.
+func chainSelections(chain typeChain, targetDepth int) []chainStep {
+	wanted := targetDepth - 1
+	if wanted <= 0 || len(chain.steps) == 0 {
+		return nil
+	}
+
+	if len(chain.steps) >= wanted {
+		return chain.steps[:wanted]
+	}
+	if !chain.cyclic {
+		return chain.steps
+	}
+
+	cycle := chain.steps[chain.cycleStart:]
+	if len(cycle) == 0 {
+		return chain.steps
+	}
+
+	extended := append([]chainStep(nil), chain.steps...)
+	for len(extended) < wanted {
+		extended = append(extended, cycle[(len(extended)-len(chain.steps))%len(cycle)])
+	}
+	return extended
+}
+
+func encodeGraphQLBody(query string) string {
+	body, err := json.Marshal(struct {
+		Query string `json:"query"`
+	}{Query: query})
+	if err != nil {
+		return ""
+	}
+	return string(body)
+}
+
+// findLeafSelection picks a field that terminates the nesting. It carries the
+// field's required arguments because a leaf missing them invalidates the whole
+// document, and falls back to __typename, which every composite type answers.
+func findLeafSelection(schema *pkgGraphql.GraphQLSchema, typeName string) string {
 	typeDef, ok := schema.Types[typeName]
 	if !ok {
-		return "id"
+		return "__typename"
 	}
 
 	preferredNames := []string{"id", "name", "title", "email", "slug"}
 	for _, pref := range preferredNames {
 		for _, field := range typeDef.Fields {
-			if strings.EqualFold(field.Name, pref) && isScalarType(schema, field.Type) {
-				return field.Name
+			if !strings.EqualFold(field.Name, pref) {
+				continue
+			}
+			if selection, ok := leafSelection(schema, field); ok {
+				return selection
 			}
 		}
 	}
 
 	for _, field := range typeDef.Fields {
-		if isScalarType(schema, field.Type) {
-			return field.Name
+		if selection, ok := leafSelection(schema, field); ok {
+			return selection
 		}
 	}
 
 	return "__typename"
+}
+
+func leafSelection(schema *pkgGraphql.GraphQLSchema, field pkgGraphql.Field) (string, bool) {
+	if !isScalarType(schema, field.Type) {
+		return "", false
+	}
+	args, ok := schema.RenderRequiredArguments(field.Arguments)
+	if !ok {
+		return "", false
+	}
+	return field.Name + args, true
 }
 
 func isScalarType(schema *pkgGraphql.GraphQLSchema, typeRef pkgGraphql.TypeRef) bool {

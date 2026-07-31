@@ -167,7 +167,7 @@ func (b *selectionBuilder) fieldSelections(def TypeDef, depth, indent int, pad s
 			continue
 		}
 
-		args, ok := b.schema.renderRequiredArguments(field.Arguments)
+		args, ok := b.schema.RenderRequiredArguments(field.Arguments)
 		if !ok {
 			continue
 		}
@@ -190,11 +190,11 @@ func (b *selectionBuilder) fieldSelections(def TypeDef, depth, indent int, pad s
 	return lines
 }
 
-// renderRequiredArguments writes the arguments a nested field cannot be selected
+// RenderRequiredArguments writes the arguments a nested field cannot be selected
 // without. Reporting false means no valid value could be produced, in which case
 // the field has to be dropped: selecting it without its arguments would invalidate
 // the entire document rather than just that field.
-func (s *GraphQLSchema) renderRequiredArguments(args []Argument) (string, bool) {
+func (s *GraphQLSchema) RenderRequiredArguments(args []Argument) (string, bool) {
 	var parts []string
 
 	for _, arg := range args {

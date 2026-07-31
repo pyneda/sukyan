@@ -295,20 +295,26 @@ func (d *DatabaseConnection) UpdateScanJob(job *ScanJob) (*ScanJob, error) {
 // Secondary keys that only make sense for one bucket are CASE-guarded because
 // a single ORDER BY tail applies to every bucket: an unguarded `started_at ASC`
 // would sort the failed bucket oldest-first as well, and an unguarded
-// `issues_found DESC` would let a hit on a running/failed job displace the
+// issue-count key would let a hit on a running/failed job displace the
 // "most recent first" ordering those buckets are meant to have. `priority DESC`
 // stays unguarded on purpose as the universal final tiebreaker. NULLS LAST is
 // explicit because Postgres defaults DESC to NULLS FIRST.
+//
+// scan_jobs.issues_found is not populated by the scan engine, so both the
+// bucket split and the secondary key count live rows in issues instead —
+// the same source GetScanJobStatsForJobs uses for the UI's Result column.
+// The deleted_at IS NULL guard on that subquery is required: GORM appends it
+// automatically to queries built through its own API, but not to raw SQL.
 const scanJobRelevanceOrder = `CASE status
 		WHEN 'running'   THEN 0
 		WHEN 'claimed'   THEN 1
 		WHEN 'failed'    THEN 2
-		WHEN 'completed' THEN CASE WHEN issues_found > 0 THEN 3 ELSE 4 END
+		WHEN 'completed' THEN CASE WHEN (SELECT count(*) FROM issues WHERE issues.scan_job_id = scan_jobs.id AND issues.deleted_at IS NULL) > 0 THEN 3 ELSE 4 END
 		WHEN 'cancelled' THEN 5
 		ELSE 6
 	END ASC,
 	CASE WHEN status = 'running' THEN started_at END ASC NULLS LAST,
-	CASE WHEN status = 'completed' THEN issues_found END DESC,
+	CASE WHEN status = 'completed' THEN (SELECT count(*) FROM issues WHERE issues.scan_job_id = scan_jobs.id AND issues.deleted_at IS NULL) END DESC,
 	CASE WHEN status IN ('failed','completed','cancelled') THEN completed_at END DESC NULLS LAST,
 	priority DESC,
 	id ASC`

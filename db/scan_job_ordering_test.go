@@ -26,6 +26,7 @@ func setupOrderingTest(t *testing.T) (*Scan, func()) {
 	require.NoError(t, Connection().DB().Create(scan).Error)
 
 	return scan, func() {
+		Connection().DB().Unscoped().Where("scan_id = ?", scan.ID).Delete(&Issue{})
 		Connection().DB().Where("scan_id = ?", scan.ID).Delete(&ScanJob{})
 		Connection().DB().Where("workspace_id = ?", workspace.ID).Delete(&Scan{})
 		Connection().DeleteWorkspace(workspace.ID)
@@ -39,6 +40,24 @@ func createOrderingJob(t *testing.T, job *ScanJob) uint {
 	}
 	require.NoError(t, Connection().DB().Create(job).Error)
 	return job.ID
+}
+
+// createOrderingIssue links a real Issue row to jobID, the same mechanism
+// GetScanJobStatsForJobs counts from for the UI's Result column.
+func createOrderingIssue(t *testing.T, scan *Scan, jobID uint) uint {
+	t.Helper()
+	issue := &Issue{
+		ScanID:    &scan.ID,
+		ScanJobID: &jobID,
+		Title:     "ordering-issue-" + uuid.New().String(),
+	}
+	require.NoError(t, Connection().DB().Create(issue).Error)
+	return issue.ID
+}
+
+func softDeleteIssue(t *testing.T, issueID uint) {
+	t.Helper()
+	require.NoError(t, Connection().DB().Delete(&Issue{}, issueID).Error)
 }
 
 func TestListScanJobsRelevanceOrdersByAttention(t *testing.T) {
@@ -55,7 +74,8 @@ func TestListScanJobsRelevanceOrdersByAttention(t *testing.T) {
 	claimed := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusClaimed, ClaimedAt: &recent})
 	failedOld := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusFailed, CompletedAt: &middle})
 	failedNew := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusFailed, CompletedAt: &recent})
-	completedWithIssues := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusCompleted, CompletedAt: &middle, IssuesFound: 3})
+	completedWithIssues := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusCompleted, CompletedAt: &middle})
+	createOrderingIssue(t, scan, completedWithIssues)
 	completedClean := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusCompleted, CompletedAt: &recent})
 	cancelled := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusCancelled})
 	pendingLow := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusPending, Priority: 5})
@@ -89,11 +109,11 @@ func TestListScanJobsRelevanceOrdersByAttention(t *testing.T) {
 	assert.Equal(t, want, got)
 }
 
-// Regression test for issues_found DESC being unguarded: it sat ahead of the
-// guarded completed_at key, so a failed job with issues_found > 0 would
-// displace the "most recent first" ordering even though only completed jobs
-// are meant to rank by issues_found.
-func TestListScanJobsRelevanceIgnoresIssuesFoundOutsideCompletedBucket(t *testing.T) {
+// Regression test for the issue-count secondary key being unguarded: it sat
+// ahead of the guarded completed_at key, so a failed job with linked issues
+// would displace the "most recent first" ordering even though only completed
+// jobs are meant to rank by issue count.
+func TestListScanJobsRelevanceIgnoresIssueCountOutsideCompletedBucket(t *testing.T) {
 	scan, cleanup := setupOrderingTest(t)
 	defer cleanup()
 
@@ -101,7 +121,8 @@ func TestListScanJobsRelevanceIgnoresIssuesFoundOutsideCompletedBucket(t *testin
 	older := now.Add(-10 * time.Minute)
 	recent := now.Add(-1 * time.Minute)
 
-	failedOldWithIssues := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusFailed, CompletedAt: &older, IssuesFound: 5})
+	failedOldWithIssues := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusFailed, CompletedAt: &older})
+	createOrderingIssue(t, scan, failedOldWithIssues)
 	failedNewClean := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusFailed, CompletedAt: &recent})
 
 	jobs, _, err := Connection().ListScanJobs(ScanJobFilter{
@@ -111,8 +132,42 @@ func TestListScanJobsRelevanceIgnoresIssuesFoundOutsideCompletedBucket(t *testin
 	})
 	require.NoError(t, err)
 	require.Len(t, jobs, 2)
-	assert.Equal(t, failedNewClean, jobs[0].ID, "most recent failed job must sort first regardless of issues_found")
+	assert.Equal(t, failedNewClean, jobs[0].ID, "most recent failed job must sort first regardless of linked issues")
 	assert.Equal(t, failedOldWithIssues, jobs[1].ID)
+}
+
+// Regression test for the deleted_at guard on the issues subquery: GORM adds
+// that predicate automatically to its own queries but not to raw SQL, so this
+// is the only thing standing between the ordering and counting issues the UI
+// no longer shows.
+func TestListScanJobsRelevanceIgnoresSoftDeletedIssues(t *testing.T) {
+	scan, cleanup := setupOrderingTest(t)
+	defer cleanup()
+
+	now := time.Now()
+	older := now.Add(-10 * time.Minute)
+	recent := now.Add(-1 * time.Minute)
+
+	// The soft-deleted job's completed_at is deliberately more recent, so an
+	// unguarded count would let it win the completed_at tiebreak within a
+	// shared "has issues" bucket and sort first — the same failure mode the
+	// bucket split itself is checking, but on the secondary key.
+	completedWithLiveIssue := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusCompleted, CompletedAt: &older})
+	createOrderingIssue(t, scan, completedWithLiveIssue)
+
+	completedWithDeletedIssue := createOrderingJob(t, &ScanJob{ScanID: scan.ID, Status: ScanJobStatusCompleted, CompletedAt: &recent})
+	deletedIssue := createOrderingIssue(t, scan, completedWithDeletedIssue)
+	softDeleteIssue(t, deletedIssue)
+
+	jobs, _, err := Connection().ListScanJobs(ScanJobFilter{
+		ScanID:     scan.ID,
+		SortBy:     "relevance",
+		Pagination: Pagination{Page: 1, PageSize: 50},
+	})
+	require.NoError(t, err)
+	require.Len(t, jobs, 2)
+	assert.Equal(t, completedWithLiveIssue, jobs[0].ID, "a live issue must outrank a soft-deleted one")
+	assert.Equal(t, completedWithDeletedIssue, jobs[1].ID)
 }
 
 func TestListScanJobsUnknownSortFallsBackToQueueOrder(t *testing.T) {

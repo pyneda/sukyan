@@ -174,6 +174,7 @@ func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL string, entry pk
 		OpenAPI: &core.OpenAPIMetadata{
 			Servers: servers,
 		},
+		Responses: buildResponses(op),
 	}
 
 	if doc.OpenAPI != "" {
@@ -670,4 +671,58 @@ func ExtractConstraintsFromSchema(schemaJSON []byte) (core.Constraints, error) {
 	}
 
 	return constraints, nil
+}
+
+// buildResponses flattens an operation's declared responses into the shape the
+// API surface serves. Status codes are sorted so a response list does not
+// reorder between two reads of the same specification.
+func buildResponses(op *openapi3.Operation) []core.ResponseInfo {
+	if op == nil || op.Responses == nil {
+		return nil
+	}
+	responses := op.Responses.Map()
+	codes := make([]string, 0, len(responses))
+	for code := range responses {
+		codes = append(codes, code)
+	}
+	sort.Strings(codes)
+
+	out := make([]core.ResponseInfo, 0, len(codes))
+	for _, code := range codes {
+		ref := responses[code]
+		if ref == nil || ref.Value == nil {
+			continue
+		}
+		info := core.ResponseInfo{StatusCode: code}
+		if ref.Value.Description != nil {
+			info.Description = *ref.Value.Description
+		}
+		if contentType := selectResponseContentType(ref.Value.Content); contentType != "" {
+			info.ContentType = contentType
+			if media := ref.Value.Content[contentType]; media != nil && media.Schema != nil {
+				info.Schema = media.Schema.Value
+			}
+		}
+		out = append(out, info)
+	}
+	return out
+}
+
+// selectResponseContentType prefers JSON, then whatever sorts first, so the choice
+// does not depend on Go's map iteration order.
+func selectResponseContentType(content openapi3.Content) string {
+	if len(content) == 0 {
+		return ""
+	}
+	types := make([]string, 0, len(content))
+	for contentType := range content {
+		types = append(types, contentType)
+	}
+	sort.Strings(types)
+	for _, contentType := range types {
+		if strings.Contains(contentType, "json") {
+			return contentType
+		}
+	}
+	return types[0]
 }

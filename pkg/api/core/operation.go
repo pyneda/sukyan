@@ -23,6 +23,7 @@ type Operation struct {
 	Deprecated   bool        `json:"deprecated,omitempty"`
 	Security     []SecurityRequirement `json:"security,omitempty"`
 	ContentTypes RequestContentTypes   `json:"content_types,omitempty"`
+	Responses    []ResponseInfo        `json:"responses,omitempty"`
 
 	OpenAPI  *OpenAPIMetadata  `json:"openapi,omitempty"`
 	GraphQL  *GraphQLMetadata  `json:"graphql,omitempty"`
@@ -38,6 +39,15 @@ type SecurityRequirement struct {
 type RequestContentTypes struct {
 	Request  []string `json:"request,omitempty"`
 	Response []string `json:"response,omitempty"`
+}
+
+// ResponseInfo is one declared response of an operation. Schema is the response
+// body's schema as the source document spells it, already dereferenced.
+type ResponseInfo struct {
+	StatusCode  string `json:"status_code"`
+	Description string `json:"description,omitempty"`
+	ContentType string `json:"content_type,omitempty"`
+	Schema      any    `json:"schema,omitempty"`
 }
 
 type OpenAPIMetadata struct {

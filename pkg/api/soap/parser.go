@@ -117,6 +117,13 @@ func (p *Parser) convertOperation(
 
 	if portTypeOp.Output != nil {
 		operation.SOAP.OutputMessage = portTypeOp.Output.Message
+		// SOAP answers every call on 200 and carries faults in the body, so the
+		// output message name is the only response shape the WSDL declares.
+		operation.Responses = []core.ResponseInfo{{
+			StatusCode:  "200",
+			Description: portTypeOp.Output.Message,
+			ContentType: "text/xml",
+		}}
 	}
 
 	return operation

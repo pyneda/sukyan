@@ -2,12 +2,16 @@ package discovery
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -390,9 +394,25 @@ func PersistGraphQLDefinition(history *db.History, opts APIPersistenceOptions) (
 		GraphQLTypeCount:         typeCount,
 	}
 
-	definition, err = db.Connection().CreateAPIDefinition(definition)
-	if err != nil {
-		return nil, err
+	if opts.AlwaysCreateNew {
+		definition, err = db.Connection().CreateAPIDefinition(definition)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		stored, reused, storeErr := storeGraphQLDefinitionUnlessAliased(definition, graphQLSchemaFingerprint(schema))
+		if storeErr != nil {
+			return nil, storeErr
+		}
+		if reused {
+			log.Debug().
+				Str("definition_id", stored.ID.String()).
+				Str("source_url", sourceURL).
+				Str("canonical_url", stored.SourceURL).
+				Msg("GraphQL endpoint serves a schema already stored for this origin")
+			return stored, nil
+		}
+		definition = stored
 	}
 
 	endpoints := make([]*db.APIEndpoint, 0)
@@ -463,6 +483,228 @@ func PersistGraphQLDefinition(history *db.History, opts APIPersistenceOptions) (
 		Msg("Persisted discovered GraphQL definition")
 
 	return definition, nil
+}
+
+// storeGraphQLDefinitionUnlessAliased inserts the definition unless the workspace
+// already holds one for the same origin serving the same schema, in which case
+// that one is returned with reused set.
+//
+// One GraphQL endpoint answers on many paths. A server mounted with
+// app.use('/graphql', ...) replies to every path below the mount point, an SPA
+// fallback replies to all of them, and plain aliases (/graphql and /api/graphql)
+// are routine — while discovery POSTs the introspection query to about forty
+// candidate paths. Keyed on the source URL alone, one endpoint became one
+// definition per alias: a measured Apollo scan stored eight identical definitions
+// of 89 operations, queued 712 api_scan jobs where 89 would do, and reported every
+// finding eight times.
+//
+// Two different origins serving the same schema stay two definitions: they are two
+// targets, they can answer differently under test, and their findings belong apart.
+func storeGraphQLDefinitionUnlessAliased(definition *db.APIDefinition, fingerprint string) (*db.APIDefinition, bool, error) {
+	// Without an origin there is nothing to scope the schema to, and rows that
+	// share "no origin" are not the same API — the same reasoning that keeps
+	// definitions with no source URL out of the source URL lookup. An empty
+	// fingerprint is likewise not an identity: it is what an unreadable stored
+	// document yields, and matching on it would fold those together.
+	if definition.BaseURL == "" || fingerprint == "" {
+		stored, err := db.Connection().CreateAPIDefinition(definition)
+		return stored, false, err
+	}
+
+	var (
+		stored *db.APIDefinition
+		reused bool
+	)
+
+	// The check and the insert share one transaction holding an advisory lock on
+	// the identity being checked. Workers race here by construction: they probe the
+	// aliases of one endpoint concurrently, and possibly from separate processes, so
+	// a plain check-then-act lets every one of them read "not stored yet" and insert.
+	// The lock is transaction-scoped, so it is released by the commit that publishes
+	// the row the losers are waiting to see.
+	err := db.Connection().DB().Transaction(func(tx *gorm.DB) error {
+		lockKey := graphQLDefinitionLockKey(definition.WorkspaceID, definition.BaseURL, fingerprint)
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", lockKey).Error; err != nil {
+			return fmt.Errorf("locking GraphQL definition identity: %w", err)
+		}
+
+		siblings, err := db.ListGraphQLAPIDefinitionsByBaseURL(tx, definition.WorkspaceID, definition.BaseURL)
+		if err != nil {
+			return fmt.Errorf("listing GraphQL definitions for origin: %w", err)
+		}
+
+		for _, sibling := range siblings {
+			if graphQLRawDefinitionFingerprint(sibling.RawDefinition) != fingerprint {
+				continue
+			}
+			stored, reused = sibling, true
+			return adoptCanonicalGraphQLSourceURL(tx, sibling, definition.SourceURL)
+		}
+
+		if err := db.CreateAPIDefinitionTx(tx, definition); err != nil {
+			return fmt.Errorf("creating GraphQL definition: %w", err)
+		}
+		stored = definition
+		return nil
+	})
+	if err != nil {
+		log.Error().Err(err).Str("source_url", definition.SourceURL).Msg("Failed to store GraphQL definition")
+		return nil, false, err
+	}
+
+	return stored, reused, nil
+}
+
+// adoptCanonicalGraphQLSourceURL points the definition at the most canonical alias
+// seen so far for its schema.
+//
+// The aliases are probed concurrently, so /graphql/playground can reach the
+// database before /graphql and the endpoint every later request is sent to would
+// otherwise be whichever alias won the race. The ranking is a total order, so the
+// arrival order of the remaining aliases cannot change where it settles.
+func adoptCanonicalGraphQLSourceURL(tx *gorm.DB, existing *db.APIDefinition, candidate string) error {
+	if !isMoreCanonicalGraphQLURL(candidate, existing.SourceURL) {
+		return nil
+	}
+	if err := tx.Model(&db.APIDefinition{}).Where("id = ?", existing.ID).
+		Update("source_url", candidate).Error; err != nil {
+		return fmt.Errorf("updating canonical GraphQL source URL: %w", err)
+	}
+	existing.SourceURL = candidate
+	return nil
+}
+
+func isMoreCanonicalGraphQLURL(candidate, current string) bool {
+	if candidate == "" {
+		return false
+	}
+	if current == "" {
+		return true
+	}
+
+	candidateSegments, candidateLength := graphQLURLRank(candidate)
+	currentSegments, currentLength := graphQLURLRank(current)
+	if candidateSegments != currentSegments {
+		return candidateSegments < currentSegments
+	}
+	if candidateLength != currentLength {
+		return candidateLength < currentLength
+	}
+	return candidate < current
+}
+
+func graphQLURLRank(rawURL string) (segments int, length int) {
+	path := rawURL
+	if parsed, err := url.Parse(rawURL); err == nil {
+		path = parsed.EscapedPath()
+	}
+
+	trimmed := strings.Trim(path, "/")
+	if trimmed == "" {
+		return 0, len(path)
+	}
+	return strings.Count(trimmed, "/") + 1, len(path)
+}
+
+// graphQLSchemaFingerprint reduces a parsed schema to the surface it exposes:
+// every operation, type, input, enum, scalar and directive, rendered with its
+// argument and return signatures and sorted.
+//
+// The parsed schema is fingerprinted rather than the introspection bytes because
+// the bytes are the server's rendering of it, not its identity: nothing obliges a
+// server to order its JSON keys, its type list or a type's fields the same way
+// twice, and one reordered field would make an alias look like a new API. Sorting
+// everything makes the fingerprint depend only on what the scanner can inject
+// into. Descriptions are left out — prose changing does not make it another API.
+func graphQLSchemaFingerprint(schema *graphql.GraphQLSchema) string {
+	if schema == nil {
+		return ""
+	}
+
+	entries := make([]string, 0, len(schema.Queries)+len(schema.Mutations)+len(schema.Subscriptions)+
+		len(schema.Types)+len(schema.InputTypes)+len(schema.Enums)+len(schema.Scalars)+len(schema.Directives))
+
+	appendOperations := func(kind string, operations []graphql.Operation) {
+		for _, operation := range operations {
+			entries = append(entries, kind+" "+operation.Name+graphQLArgumentsSignature(operation.Arguments)+":"+operation.ReturnType.Signature())
+		}
+	}
+	appendOperations("query", schema.Queries)
+	appendOperations("mutation", schema.Mutations)
+	appendOperations("subscription", schema.Subscriptions)
+
+	for name, typeDef := range schema.Types {
+		fields := make([]string, 0, len(typeDef.Fields))
+		for _, field := range typeDef.Fields {
+			fields = append(fields, field.Name+graphQLArgumentsSignature(field.Arguments)+":"+field.Type.Signature())
+		}
+		possibleTypes := append([]string(nil), typeDef.PossibleTypes...)
+		sort.Strings(fields)
+		sort.Strings(possibleTypes)
+		entries = append(entries, string(typeDef.Kind)+" "+name+"{"+strings.Join(fields, ",")+"}="+strings.Join(possibleTypes, ","))
+	}
+
+	for name, inputDef := range schema.InputTypes {
+		fields := make([]string, 0, len(inputDef.Fields))
+		for _, field := range inputDef.Fields {
+			fields = append(fields, field.Name+":"+field.Type.Signature())
+		}
+		sort.Strings(fields)
+		entries = append(entries, "input "+name+"{"+strings.Join(fields, ",")+"}")
+	}
+
+	for name, enumDef := range schema.Enums {
+		values := make([]string, 0, len(enumDef.Values))
+		for _, value := range enumDef.Values {
+			values = append(values, value.Name)
+		}
+		sort.Strings(values)
+		entries = append(entries, "enum "+name+"{"+strings.Join(values, ",")+"}")
+	}
+
+	for _, scalar := range schema.Scalars {
+		entries = append(entries, "scalar "+scalar)
+	}
+
+	for _, directive := range schema.Directives {
+		locations := append([]string(nil), directive.Locations...)
+		sort.Strings(locations)
+		entries = append(entries, "directive "+directive.Name+graphQLArgumentsSignature(directive.Arguments)+"@"+strings.Join(locations, ","))
+	}
+
+	sort.Strings(entries)
+	sum := sha256.Sum256([]byte(strings.Join(entries, "\n")))
+	return hex.EncodeToString(sum[:])
+}
+
+func graphQLArgumentsSignature(arguments []graphql.Argument) string {
+	rendered := make([]string, 0, len(arguments))
+	for _, argument := range arguments {
+		rendered = append(rendered, argument.Name+":"+argument.Type.Signature())
+	}
+	sort.Strings(rendered)
+	return "(" + strings.Join(rendered, ",") + ")"
+}
+
+// graphQLRawDefinitionFingerprint fingerprints a stored definition. A document
+// that no longer parses yields the empty string, which matches nothing: a schema
+// we cannot read is not evidence that the one being persisted is a duplicate.
+func graphQLRawDefinitionFingerprint(raw []byte) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	schema, err := graphql.NewParser().ParseSchema(raw)
+	if err != nil {
+		return ""
+	}
+	return graphQLSchemaFingerprint(schema)
+}
+
+// graphQLDefinitionLockKey derives the bigint PostgreSQL advisory locks take from
+// the identity being serialised on.
+func graphQLDefinitionLockKey(workspaceID uint, baseURL, fingerprint string) int64 {
+	sum := sha256.Sum256(fmt.Appendf(nil, "api_definition:graphql:%d:%s:%s", workspaceID, baseURL, fingerprint))
+	return int64(binary.BigEndian.Uint64(sum[:8]))
 }
 
 func PersistWSDLDefinition(history *db.History, opts APIPersistenceOptions) (*db.APIDefinition, error) {
@@ -724,6 +966,9 @@ func persistDiscoveredAPIDefinitions(results DiscoverAndCreateIssueResults, opti
 	if len(results.Issues) == 0 {
 		return
 	}
+
+	scanID := options.HistoryCreationOptions.ScanID
+
 	for _, history := range results.Responses {
 		validationCtx := &ValidationContext{SiteBehavior: options.SiteBehavior}
 		if valid, _, _ := validationFunc(history, validationCtx); !valid {
@@ -732,13 +977,51 @@ func persistDiscoveredAPIDefinitions(results DiscoverAndCreateIssueResults, opti
 		persistOpts := APIPersistenceOptions{
 			WorkspaceID: options.HistoryCreationOptions.WorkspaceID,
 		}
-		if options.HistoryCreationOptions.ScanID > 0 {
-			scanID := options.HistoryCreationOptions.ScanID
+		if scanID > 0 {
 			persistOpts.ScanID = &scanID
 		}
-		_, persistErr := persistFunc(history, persistOpts)
+		definition, persistErr := persistFunc(history, persistOpts)
 		if persistErr != nil {
 			log.Debug().Err(persistErr).Str("url", history.URL).Msgf("Failed to persist %s definition", apiType)
+			continue
 		}
+		claimRediscoveredDefinitionForScan(definition, scanID, apiType)
 	}
+}
+
+// claimRediscoveredDefinitionForScan gives the scan doing the discovery a claim on
+// a definition an earlier scan already stored.
+//
+// A scan reaches a definition two ways: api_definitions.scan_id, which records the
+// scan that discovered it, or the scan_api_definitions join table. Rediscovery
+// reuses the stored row and wrote neither, so the second scan of a target found no
+// definitions at all — HasLinkedAPIDefinitions answered false, ScheduleAPIScan
+// enumerated nothing, and the entire API scan phase was skipped. On a GraphQL
+// target that is effectively the whole scan, and it made continuous or scheduled
+// scanning API-scan the target exactly once, ever.
+//
+// scan_id is deliberately left as it is. It records which scan discovered the
+// definition; re-pointing it at the current scan would take the definition out of
+// the discovering scan's own view, moving the gap rather than closing it.
+func claimRediscoveredDefinitionForScan(definition *db.APIDefinition, scanID uint, apiType string) {
+	if definition == nil || scanID == 0 {
+		return
+	}
+	if definition.ScanID != nil && *definition.ScanID == scanID {
+		return
+	}
+
+	if err := db.Connection().LinkAPIDefinitionToScan(scanID, definition.ID); err != nil {
+		log.Warn().Err(err).
+			Uint("scan_id", scanID).
+			Str("definition_id", definition.ID.String()).
+			Msgf("Failed to link rediscovered %s definition to scan", apiType)
+		return
+	}
+
+	log.Info().
+		Uint("scan_id", scanID).
+		Str("definition_id", definition.ID.String()).
+		Int("endpoints", definition.EndpointCount).
+		Msgf("Linked previously discovered %s definition to this scan", apiType)
 }

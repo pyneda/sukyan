@@ -268,6 +268,7 @@ func StartAPI(opts ...APIServerOptions) {
 	api.Post("/api-definitions/:id/scan", JWTProtected(), StartAPIDefinitionScan)
 	api.Get("/api-definitions/:id/endpoints", JWTProtected(), ListAPIEndpoints)
 	api.Get("/api-definitions/:id/endpoints/:endpoint_id", JWTProtected(), GetAPIEndpoint)
+	api.Get("/api-definitions/:id/endpoints/:endpoint_id/detail", JWTProtected(), GetAPIEndpointDetail)
 	api.Patch("/api-definitions/:id/endpoints/:endpoint_id", JWTProtected(), UpdateAPIEndpoint)
 	api.Post("/api-definitions/:id/endpoints/toggle-all", JWTProtected(), ToggleAllEndpoints)
 	api.Get("/api-definitions/:id/security-schemes", JWTProtected(), GetAPIDefinitionSecuritySchemes)

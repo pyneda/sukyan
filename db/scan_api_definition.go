@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"gorm.io/gorm/clause"
 )
 
 type ScanAPIDefinition struct {
@@ -17,12 +18,20 @@ func (ScanAPIDefinition) TableName() string {
 	return "scan_api_definitions"
 }
 
+// LinkAPIDefinitionToScan gives a scan a claim on a definition it did not
+// discover itself.
+//
+// The write is idempotent. The link is set membership, not an event, and the
+// callers that matter reach it concurrently: several discovery workers can
+// rediscover one endpoint at the same time, and without ON CONFLICT the losers
+// fail on the composite primary key and log a duplicate-key error for what is
+// already the desired state.
 func (d *DatabaseConnection) LinkAPIDefinitionToScan(scanID uint, definitionID uuid.UUID) error {
 	link := &ScanAPIDefinition{
 		ScanID:          scanID,
 		APIDefinitionID: definitionID,
 	}
-	result := d.db.Create(link)
+	result := d.db.Clauses(clause.OnConflict{DoNothing: true}).Create(link)
 	if result.Error != nil {
 		log.Error().Err(result.Error).
 			Uint("scan_id", scanID).
@@ -45,7 +54,7 @@ func (d *DatabaseConnection) LinkAPIDefinitionsToScan(scanID uint, definitionIDs
 		}
 	}
 
-	result := d.db.Create(&links)
+	result := d.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&links)
 	if result.Error != nil {
 		log.Error().Err(result.Error).
 			Uint("scan_id", scanID).

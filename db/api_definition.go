@@ -148,6 +148,17 @@ type APIDefinitionFilter struct {
 }
 
 func (d *DatabaseConnection) CreateAPIDefinition(definition *APIDefinition) (*APIDefinition, error) {
+	err := CreateAPIDefinitionTx(d.db, definition)
+	if err != nil {
+		log.Error().Err(err).Interface("definition", definition).Msg("APIDefinition creation failed")
+	}
+	return definition, err
+}
+
+// CreateAPIDefinitionTx inserts a definition on the caller's transaction, so a
+// caller that has to decide whether to insert at all — a dedup check that must not
+// race another worker — can hold its lock across both the check and the insert.
+func CreateAPIDefinitionTx(tx *gorm.DB, definition *APIDefinition) error {
 	if definition.SourceHistoryID != nil && *definition.SourceHistoryID == 0 {
 		definition.SourceHistoryID = nil
 	}
@@ -158,11 +169,7 @@ func (d *DatabaseConnection) CreateAPIDefinition(definition *APIDefinition) (*AP
 		definition.AuthConfigID = nil
 	}
 
-	result := d.db.Create(definition)
-	if result.Error != nil {
-		log.Error().Err(result.Error).Interface("definition", definition).Msg("APIDefinition creation failed")
-	}
-	return definition, result.Error
+	return tx.Create(definition).Error
 }
 
 func (d *DatabaseConnection) GetAPIDefinitionByID(id uuid.UUID) (*APIDefinition, error) {
@@ -339,6 +346,23 @@ func (d *DatabaseConnection) GetAPIDefinitionBySourceURL(workspaceID uint, sourc
 		return nil, err
 	}
 	return &definition, nil
+}
+
+// ListGraphQLAPIDefinitionsByBaseURL returns the workspace's GraphQL definitions
+// discovered at one origin, oldest first.
+//
+// It takes the caller's transaction because the only caller uses it to decide
+// whether an alias of an already-known endpoint needs a definition of its own, and
+// that decision has to see the same snapshot as the insert that follows it.
+func ListGraphQLAPIDefinitionsByBaseURL(tx *gorm.DB, workspaceID uint, baseURL string) ([]*APIDefinition, error) {
+	if baseURL == "" {
+		return nil, nil
+	}
+	var definitions []*APIDefinition
+	err := tx.Where("workspace_id = ? AND type = ? AND base_url = ?", workspaceID, APIDefinitionTypeGraphQL, baseURL).
+		Order("created_at asc, id asc").
+		Find(&definitions).Error
+	return definitions, err
 }
 
 type APIDefinitionStats struct {

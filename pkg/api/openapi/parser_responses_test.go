@@ -44,3 +44,33 @@ func TestParseFromRawDefinitionPopulatesResponses(t *testing.T) {
 	require.Equal(t, "Not found", responses[1].Description)
 	require.Empty(t, responses[1].ContentType)
 }
+
+const requestBodySpec = `{
+  "openapi": "3.0.0",
+  "info": {"title": "t", "version": "1"},
+  "servers": [{"url": "https://api.example.com"}],
+  "paths": {
+    "/pets": {
+      "post": {
+        "operationId": "addPet",
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}}
+        },
+        "responses": {"200": {"description": "ok"}}
+      }
+    }
+  }
+}`
+
+func TestParseFromRawDefinitionPopulatesRequestBodySchema(t *testing.T) {
+	ops, err := ParseFromRawDefinition([]byte(requestBodySpec))
+	require.NoError(t, err)
+	require.Len(t, ops, 1)
+
+	body := ops[0].OpenAPI.RequestBody
+	require.NotNil(t, body)
+	require.True(t, body.Required)
+	require.Equal(t, "application/json", body.ContentType)
+	require.NotNil(t, body.Schema, "the body's own schema must survive, not just its flattened parameters")
+}

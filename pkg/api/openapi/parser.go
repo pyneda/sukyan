@@ -198,6 +198,13 @@ func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL string, entry pk
 
 		operation.OpenAPI.RequestBody.ContentType = selectBodyContentType(op.RequestBody.Value.Content)
 		operation.OpenAPI.RequestBody.Structured = isStructuredBody(op.RequestBody.Value, budget)
+
+		// The body's own schema, alongside the parameters extracted from it: the
+		// parameter list flattens a body to leaves, which loses the nesting and the
+		// composition a reader needs to see to write one by hand.
+		if media := op.RequestBody.Value.Content[operation.OpenAPI.RequestBody.ContentType]; media != nil && media.Schema != nil {
+			operation.OpenAPI.RequestBody.Schema = media.Schema.Value
+		}
 	}
 
 	operation.Security = p.parseSecurityRequirements(op, doc)

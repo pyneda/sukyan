@@ -708,48 +708,61 @@ func GetInsertionPoints(history *db.History, scoped []string) ([]InsertionPoint,
 		effectiveContentType = headerValueCaseInsensitive(headers, "Content-Type")
 	}
 
-	bodyPoints, err := handleBodyParameters(effectiveContentType, body)
-	if err != nil {
-		return nil, err
-	}
-	points = append(points, bodyPoints...)
+	// Use the header-fallback content type: crawler/proxy-captured GraphQL POSTs leave
+	// RequestContentType empty and would otherwise be seen as a plain JSON body.
+	graphQLEnvelope := parseGraphQLEnvelope(effectiveContentType, body)
 
-	// Per-element XML points make individual SOAP/XML parameters addressable. The
-	// whole-body point above stays as the XXE surface; these carry the value-injection
-	// surface it cannot reach.
-	if isScoped(scoped, "xml") && isXMLContentType(effectiveContentType) {
-		points = append(points, ExtractXMLPoints(bodyStr, XMLPointOptions{
-			ElementType: InsertionPointTypeXMLElement,
-			MaxPoints:   maxXMLInsertionPoints(),
-		})...)
+	// query, variables and operationName are transport structure, not application
+	// input: replacing any of them (or the whole body) makes the server reject the
+	// request with a 400 before a resolver runs, so those points can never yield a
+	// finding. Only the GraphQL points below reach application code.
+	if graphQLEnvelope == nil {
+		bodyPoints, err := handleBodyParameters(effectiveContentType, body)
+		if err != nil {
+			return nil, err
+		}
+		points = append(points, bodyPoints...)
+
+		// Per-element XML points make individual SOAP/XML parameters addressable. The
+		// whole-body point above stays as the XXE surface; these carry the value-injection
+		// surface it cannot reach.
+		if isScoped(scoped, "xml") && isXMLContentType(effectiveContentType) {
+			points = append(points, ExtractXMLPoints(bodyStr, XMLPointOptions{
+				ElementType: InsertionPointTypeXMLElement,
+				MaxPoints:   maxXMLInsertionPoints(),
+			})...)
+		}
+
+		if len(bodyPoints) > 0 && !hasFullBodyPoint(bodyPoints) {
+			points = append(points, InsertionPoint{
+				Type:         InsertionPointTypeFullBody,
+				Name:         "fullbody",
+				Value:        bodyStr,
+				ValueType:    lib.GuessDataType(bodyStr),
+				OriginalData: bodyStr,
+			})
+		}
 	}
 
-	if len(bodyPoints) > 0 && !hasFullBodyPoint(bodyPoints) {
-		points = append(points, InsertionPoint{
-			Type:         InsertionPointTypeFullBody,
-			Name:         "fullbody",
-			Value:        bodyStr,
-			ValueType:    lib.GuessDataType(bodyStr),
-			OriginalData: bodyStr,
-		})
-	}
-
-	// GraphQL-specific insertion points (variables + inline args). Use the same
-	// header-fallback content type as the body points above: crawler/proxy-captured
-	// GraphQL POSTs leave RequestContentType empty and would otherwise get no
-	// GraphQL insertion points at all.
-	if isScoped(scoped, "graphql") &&
-		strings.Contains(effectiveContentType, "application/json") && len(body) > 0 {
-		var jsonData map[string]any
-		if err := json.Unmarshal(body, &jsonData); err == nil && isGraphQLBody(jsonData) {
-			if vars, ok := jsonData["variables"].(map[string]any); ok && len(vars) > 0 {
-				points = append(points, extractGraphQLVariablePoints("", vars, bodyStr)...)
-			}
-			if queryStr, ok := jsonData["query"].(string); ok {
-				points = append(points, extractGraphQLInlineArgPoints(queryStr, bodyStr)...)
-			}
+	if isScoped(scoped, "graphql") && graphQLEnvelope != nil {
+		if vars, ok := graphQLEnvelope["variables"].(map[string]any); ok && len(vars) > 0 {
+			points = append(points, extractGraphQLVariablePoints("", vars, bodyStr)...)
+		}
+		if queryStr, ok := graphQLEnvelope["query"].(string); ok {
+			points = append(points, extractGraphQLInlineArgPoints(queryStr, bodyStr)...)
 		}
 	}
 
 	return points, nil
+}
+
+func parseGraphQLEnvelope(contentType string, body []byte) map[string]any {
+	if len(body) == 0 || !strings.Contains(contentType, "application/json") {
+		return nil
+	}
+	var jsonData map[string]any
+	if err := json.Unmarshal(body, &jsonData); err != nil || !isGraphQLBody(jsonData) {
+		return nil
+	}
+	return jsonData
 }

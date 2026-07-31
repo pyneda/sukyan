@@ -14,6 +14,8 @@ func filterTestPoints() []scan.InsertionPoint {
 		{Type: scan.InsertionPointTypeBody, Name: "field"},
 		{Type: scan.InsertionPointTypeFullBody, Name: "xml", ValueType: lib.TypeXML},
 		{Type: scan.InsertionPointTypeXMLElement, Name: "userId"},
+		{Type: scan.InsertionPointTypeGraphQLVariable, Name: "gqlVar"},
+		{Type: scan.InsertionPointTypeGraphQLInlineArg, Name: "gqlArg"},
 		{Type: scan.InsertionPointTypeHeader, Name: "X-Static"},
 		{Type: scan.InsertionPointTypeCookie, Name: "session", Behaviour: scan.InsertionPointBehaviour{IsDynamic: true}},
 		{Type: scan.InsertionPointTypeURLPath, Name: "id", Behaviour: scan.InsertionPointBehaviour{IsReflected: true}},
@@ -31,7 +33,7 @@ func selectedNames(points []scan.InsertionPoint) map[string]bool {
 func TestInsertionPointsForModeSmartKeepsXMLElementPoints(t *testing.T) {
 	got := selectedNames(insertionPointsForMode(scan_options.ScanModeSmart, filterTestPoints()))
 
-	for _, name := range []string{"q", "field", "xml", "userId", "session", "id"} {
+	for _, name := range []string{"q", "field", "xml", "userId", "gqlVar", "gqlArg", "session", "id"} {
 		if !got[name] {
 			t.Errorf("smart mode should audit %q", name)
 		}

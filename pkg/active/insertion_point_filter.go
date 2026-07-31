@@ -10,8 +10,10 @@ import (
 //
 // Smart mode keeps the points that carry user input by construction even when the
 // behaviour probes found nothing: body fields, query parameters, the XML whole-body
-// point (the only XXE surface) and per-element XML values. Reflection analysis cannot
-// measure XML points, so keying on Behaviour alone would drop every SOAP parameter.
+// point (the only XXE surface), per-element XML values and GraphQL variables/inline
+// arguments. Reflection analysis cannot measure XML points, so keying on Behaviour
+// alone would drop every SOAP parameter, and it leaves GraphQL operands — the only
+// GraphQL surface a resolver ever sees — behind the dynamic probe.
 func insertionPointsForMode(mode scan_options.ScanMode, points []scan.InsertionPoint) []scan.InsertionPoint {
 	switch mode {
 	case scan_options.ScanModeFuzz:
@@ -37,7 +39,8 @@ func insertionPointsForMode(mode scan_options.ScanMode, points []scan.InsertionP
 func carriesInputByConstruction(point scan.InsertionPoint) bool {
 	switch point.Type {
 	case scan.InsertionPointTypeBody, scan.InsertionPointTypeParameter,
-		scan.InsertionPointTypeXMLElement, scan.InsertionPointTypeXMLAttribute:
+		scan.InsertionPointTypeXMLElement, scan.InsertionPointTypeXMLAttribute,
+		scan.InsertionPointTypeGraphQLVariable, scan.InsertionPointTypeGraphQLInlineArg:
 		return true
 	case scan.InsertionPointTypeFullBody:
 		return point.ValueType == lib.TypeXML

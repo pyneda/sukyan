@@ -17,6 +17,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
+	"github.com/pyneda/sukyan/pkg/api/core"
+	apigraphql "github.com/pyneda/sukyan/pkg/api/graphql"
+	apiopenapi "github.com/pyneda/sukyan/pkg/api/openapi"
+	"github.com/pyneda/sukyan/pkg/api/operationlink"
+	apisoap "github.com/pyneda/sukyan/pkg/api/soap"
 	"github.com/pyneda/sukyan/pkg/graphql"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/openapi"
@@ -90,6 +95,42 @@ func existingDefinitionFor(opts APIPersistenceOptions, sourceURL string) (*db.AP
 		return nil, fmt.Errorf("retrieving existing definition: %w", err)
 	}
 	return existing, nil
+}
+
+// attachOperations normalizes the document a second time and stores the resulting
+// operation on each endpoint row, so the detail API can serve parameters, schemas
+// and an example request without re-parsing the specification on every read.
+//
+// Failure is deliberately not fatal: the endpoints are what the scanner needs, and
+// the detail API backfills from the stored raw definition on first read.
+func attachOperations(endpoints []*db.APIEndpoint, body []byte, definition *db.APIDefinition, sourceURL string) {
+	if len(endpoints) == 0 {
+		return
+	}
+
+	var (
+		operations []core.Operation
+		err        error
+	)
+	switch definition.Type {
+	case db.APIDefinitionTypeGraphQL:
+		operations, _, err = apigraphql.ParseFromRawDefinition(body, definition.BaseURL)
+	case db.APIDefinitionTypeWSDL:
+		operations, err = apisoap.ParseFromRawDefinition(body, sourceURL)
+	default:
+		operations, err = apiopenapi.ParseFromRawDefinition(body)
+	}
+	if err != nil {
+		log.Warn().Err(err).Str("source_url", sourceURL).Str("type", string(definition.Type)).
+			Msg("Could not normalize operations; the detail view will backfill on first read")
+		return
+	}
+
+	matched := operationlink.AttachOperationJSON(endpoints, operations, definition.Type)
+	if matched < len(endpoints) {
+		log.Debug().Int("matched", matched).Int("endpoints", len(endpoints)).Str("source_url", sourceURL).
+			Msg("Some endpoints could not be matched to a parsed operation")
+	}
 }
 
 // storeEndpointsWithCount inserts a definition's parsed endpoints and writes the
@@ -258,6 +299,8 @@ func PersistOpenAPIDefinition(history *db.History, opts APIPersistenceOptions) (
 			endpoints = append(endpoints, endpoint)
 		}
 	}
+
+	attachOperations(endpoints, body, definition, sourceURL)
 
 	txErr := db.Connection().DB().Transaction(func(tx *gorm.DB) error {
 		specSchemes := doc.GetSecuritySchemes()
@@ -464,6 +507,8 @@ func PersistGraphQLDefinition(history *db.History, opts APIPersistenceOptions) (
 		}
 		endpoints = append(endpoints, endpoint)
 	}
+
+	attachOperations(endpoints, body, definition, sourceURL)
 
 	txErr := db.Connection().DB().Transaction(func(tx *gorm.DB) error {
 		return storeEndpointsWithCount(tx, definition, endpoints)
@@ -820,6 +865,8 @@ func PersistWSDLDefinition(history *db.History, opts APIPersistenceOptions) (*db
 			}
 		}
 	}
+
+	attachOperations(endpoints, body, definition, sourceURL)
 
 	txErr := db.Connection().DB().Transaction(func(tx *gorm.DB) error {
 		return storeEndpointsWithCount(tx, definition, endpoints)

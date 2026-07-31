@@ -3,6 +3,8 @@ package scan
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -10,6 +12,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var graphQLOperationKeywords = []string{"query", "mutation", "subscription"}
+
+// isGraphQLBody discriminates a GraphQL envelope from any other JSON body carrying a
+// "query" field, which search APIs commonly do. An operation keyword only counts when
+// it ends at a GraphQL token boundary — "queryable products" is a search term, not an
+// operation — and must be followed by a selection set, which every valid operation has
+// and prose such as "query results for shoes" does not.
 func isGraphQLBody(jsonData map[string]any) bool {
 	queryVal, ok := jsonData["query"]
 	if !ok {
@@ -19,11 +28,32 @@ func isGraphQLBody(jsonData map[string]any) bool {
 	if !ok {
 		return false
 	}
+
 	trimmed := strings.TrimSpace(queryStr)
-	return strings.HasPrefix(trimmed, "query ") ||
-		strings.HasPrefix(trimmed, "mutation ") ||
-		strings.HasPrefix(trimmed, "subscription ") ||
-		strings.HasPrefix(trimmed, "{")
+	if strings.HasPrefix(trimmed, "{") {
+		return true
+	}
+
+	for _, keyword := range graphQLOperationKeywords {
+		if !strings.HasPrefix(trimmed, keyword) {
+			continue
+		}
+		rest := trimmed[len(keyword):]
+		if rest == "" || !isGraphQLKeywordBoundary(rest[0]) {
+			continue
+		}
+		return strings.Contains(rest, "{")
+	}
+
+	return false
+}
+
+func isGraphQLKeywordBoundary(c byte) bool {
+	switch c {
+	case ' ', '\t', '\n', '\r', '(', '{', '@':
+		return true
+	}
+	return false
 }
 
 func extractGraphQLVariablePoints(path string, variables map[string]any, originalBody string) []InsertionPoint {
@@ -182,36 +212,140 @@ func parseGraphQLArrayAccess(s string) (int, string, bool) {
 	return idx, name, true
 }
 
+// Inline arguments are the only injectable surface a crawled GraphQL request exposes
+// when the operation embeds its values in the document instead of passing variables.
+// Every scalar leaf gets its own point, including leaves nested inside list and
+// input-object literals, addressed by the byte span of its literal inside the decoded
+// query string - not inside OriginalData, which is the JSON envelope the query was
+// extracted from and never the string the rewriter edits.
+//
+// Addressing by span rather than by argument name is what keeps repeated arguments
+// (`{ a(id: 1) b(id: 2) }`) independently targetable, and what keeps a payload out of
+// the operation's variable definition list when an argument shares a variable's name.
+const (
+	// maxGraphQLInlineArgPoints bounds a single operation's contribution. Every point
+	// costs a full payload sweep, so a wide input object would otherwise multiply that
+	// request's traffic without bound.
+	maxGraphQLInlineArgPoints = 25
+	maxGraphQLValueDepth      = 10
+)
+
+var (
+	graphQLNumberLiteralPattern = regexp.MustCompile(`^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$`)
+	graphQLNamePattern          = regexp.MustCompile(`^[_A-Za-z][_0-9A-Za-z]*$`)
+)
+
+type graphQLLiteralKind int
+
+const (
+	graphQLLiteralString graphQLLiteralKind = iota
+	graphQLLiteralNumber
+	graphQLLiteralBoolean
+	graphQLLiteralNull
+	graphQLLiteralEnum
+)
+
+// dataType reports the type implied by the literal's syntactic form rather than by
+// its text: `id: "10"` is a string argument even though its content parses as an
+// integer, and only the form tells a launch condition which payloads can reach the
+// resolver behind it.
+func (k graphQLLiteralKind) dataType(value string) lib.DataType {
+	switch k {
+	case graphQLLiteralNumber:
+		return lib.GuessDataType(value)
+	case graphQLLiteralBoolean:
+		return lib.TypeBoolean
+	case graphQLLiteralNull:
+		return lib.TypeNull
+	default:
+		return lib.TypeString
+	}
+}
+
+type graphQLArgCandidate struct {
+	field string
+	path  string
+	value string
+	kind  graphQLLiteralKind
+	span  InsertionPointSpan
+}
+
+func (c graphQLArgCandidate) qualifiedName() string {
+	if c.field == "" {
+		return c.path
+	}
+	return c.field + "." + c.path
+}
+
 func extractGraphQLInlineArgPoints(query string, originalBody string) []InsertionPoint {
-	var points []InsertionPoint
-	i := 0
-	n := len(query)
+	return nameGraphQLArgPoints(collectGraphQLArgCandidates(query), originalBody)
+}
+
+func collectGraphQLArgCandidates(query string) []graphQLArgCandidate {
+	var candidates []graphQLArgCandidate
+	i, n := 0, len(query)
 
 	for i < n {
-		if query[i] == '(' {
+		switch query[i] {
+		case '(':
+			field := graphQLNameBefore(query, i)
 			i++
-			points = append(points, parseArgList(query, &i, n, originalBody)...)
-		} else if query[i] == '"' {
-			i++
-			for i < n && query[i] != '"' {
-				if query[i] == '\\' {
-					i++
-				}
-				i++
-			}
-			if i < n {
-				i++
-			}
-		} else {
+			collectGraphQLArgListCandidates(query, &i, n, field, &candidates)
+		case '"':
+			skipGraphQLString(query, &i, n)
+		default:
 			i++
 		}
 	}
 
-	return points
+	return candidates
 }
 
+// graphQLNameBefore returns the name an argument list is attached to, which is what
+// disambiguates arguments repeated across sibling fields. An alias wins over the field
+// it renames: valid GraphQL requires one whenever sibling fields differ in their
+// arguments, so it is what identifies the call a finding belongs to.
+func graphQLNameBefore(s string, parenIndex int) string {
+	end := parenIndex
+	for end > 0 && isGraphQLSpace(s[end-1]) {
+		end--
+	}
+	start := end
+	for start > 0 && isNameChar(s[start-1]) {
+		start--
+	}
+	if start == end {
+		return ""
+	}
+
+	i := start
+	for i > 0 && isGraphQLSpace(s[i-1]) {
+		i--
+	}
+	if i == 0 || s[i-1] != ':' {
+		return s[start:end]
+	}
+
+	i--
+	for i > 0 && isGraphQLSpace(s[i-1]) {
+		i--
+	}
+	aliasEnd := i
+	for i > 0 && isNameChar(s[i-1]) {
+		i--
+	}
+	if i == aliasEnd {
+		return s[start:end]
+	}
+	return s[i:aliasEnd]
+}
+
+// isVariableDefinitionList distinguishes an operation's variable definition list -
+// `query GetUsers($role: String)` - from a field's argument list. The two are
+// syntactically identical up to the opening parenthesis, and rewriting inside the
+// former makes the whole document unparseable while leaving the real sink untested.
 func isVariableDefinitionList(query string, pos int, n int) bool {
-	for pos < n && (query[pos] == ' ' || query[pos] == '\t' || query[pos] == '\n' || query[pos] == '\r') {
+	for pos < n && isGraphQLSpace(query[pos]) {
 		pos++
 	}
 	return pos < n && query[pos] == '$'
@@ -226,45 +360,27 @@ func skipParenthesized(query string, pos *int, n int) {
 		case ')':
 			depth--
 		case '"':
-			*pos++
-			for *pos < n && query[*pos] != '"' {
-				if query[*pos] == '\\' {
-					*pos++
-				}
-				*pos++
-			}
+			skipGraphQLString(query, pos, n)
+			continue
 		}
-		if *pos < n {
-			*pos++
-		}
+		*pos++
 	}
 }
 
-func parseArgList(query string, pos *int, n int, originalBody string) []InsertionPoint {
+func collectGraphQLArgListCandidates(query string, pos *int, n int, field string, out *[]graphQLArgCandidate) {
 	if isVariableDefinitionList(query, *pos, n) {
 		skipParenthesized(query, pos, n)
-		return nil
+		return
 	}
 
-	var points []InsertionPoint
-	depth := 1
-
-	for *pos < n && depth > 0 {
+	for *pos < n {
 		skipWhitespace(query, pos, n)
-		if *pos >= n || depth <= 0 {
-			break
+		if *pos >= n {
+			return
 		}
-
-		ch := query[*pos]
-		if ch == ')' {
-			depth--
+		if query[*pos] == ')' {
 			*pos++
-			continue
-		}
-		if ch == '(' {
-			depth++
-			*pos++
-			continue
+			return
 		}
 
 		name := readArgName(query, pos, n)
@@ -280,29 +396,132 @@ func parseArgList(query string, pos *int, n int, originalBody string) []Insertio
 		*pos++
 		skipWhitespace(query, pos, n)
 
-		if *pos >= n {
-			break
-		}
-
-		if query[*pos] == '$' {
-			skipUntilArgBoundary(query, pos, n)
-			continue
-		}
-
-		value := readArgValue(query, pos, n)
-		if value != "" {
-			points = append(points, InsertionPoint{
-				Type:         InsertionPointTypeGraphQLInlineArg,
-				Name:         name,
-				Value:        value,
-				ValueType:    lib.GuessDataType(value),
-				OriginalData: originalBody,
-			})
-		}
+		collectGraphQLValueCandidates(query, pos, n, field, name, 0, out)
 
 		skipWhitespace(query, pos, n)
 		if *pos < n && query[*pos] == ',' {
 			*pos++
+		}
+	}
+}
+
+// collectGraphQLValueCandidates walks a single argument value, descending into list
+// and input-object literals so their scalar leaves stay individually addressable, and
+// names each leaf with the same path convention extractGraphQLVariablePoints uses.
+func collectGraphQLValueCandidates(query string, pos *int, n int, field string, path string, depth int, out *[]graphQLArgCandidate) {
+	if *pos >= n {
+		return
+	}
+	if depth > maxGraphQLValueDepth {
+		skipGraphQLValue(query, pos, n)
+		return
+	}
+
+	switch query[*pos] {
+	case '{':
+		*pos++
+		for *pos < n {
+			skipWhitespace(query, pos, n)
+			if *pos >= n || query[*pos] == '}' {
+				break
+			}
+
+			name := readArgName(query, pos, n)
+			if name == "" {
+				*pos++
+				continue
+			}
+
+			skipWhitespace(query, pos, n)
+			if *pos >= n || query[*pos] != ':' {
+				continue
+			}
+			*pos++
+			skipWhitespace(query, pos, n)
+
+			collectGraphQLValueCandidates(query, pos, n, field, path+"."+name, depth+1, out)
+
+			skipWhitespace(query, pos, n)
+			if *pos < n && query[*pos] == ',' {
+				*pos++
+			}
+		}
+		if *pos < n {
+			*pos++
+		}
+
+	case '[':
+		*pos++
+		for index := 0; *pos < n; index++ {
+			skipWhitespace(query, pos, n)
+			if *pos >= n || query[*pos] == ']' {
+				break
+			}
+
+			collectGraphQLValueCandidates(query, pos, n, field, fmt.Sprintf("%s[%d]", path, index), depth+1, out)
+
+			skipWhitespace(query, pos, n)
+			if *pos < n && query[*pos] == ',' {
+				*pos++
+			}
+		}
+		if *pos < n {
+			*pos++
+		}
+
+	case '$':
+		skipUntilArgBoundary(query, pos, n)
+
+	default:
+		start := *pos
+		value, ok := readGraphQLScalar(query, pos, n)
+		if !ok {
+			return
+		}
+		*out = append(*out, graphQLArgCandidate{
+			field: field,
+			path:  path,
+			value: value,
+			kind:  graphQLLiteralKindAt(query, start),
+			span:  InsertionPointSpan{Start: start, End: *pos, Valid: true},
+		})
+	}
+}
+
+// nameGraphQLArgPoints keeps the bare argument path while it is unambiguous, so
+// templates gating on insertion_point_name still match, and qualifies it with the
+// enclosing field only when repeated siblings would otherwise be indistinguishable.
+func nameGraphQLArgPoints(candidates []graphQLArgCandidate, originalBody string) []InsertionPoint {
+	pathCount := make(map[string]int, len(candidates))
+	qualifiedCount := make(map[string]int, len(candidates))
+	for _, c := range candidates {
+		pathCount[c.path]++
+		qualifiedCount[c.qualifiedName()]++
+	}
+
+	occurrence := make(map[string]int, len(candidates))
+	points := make([]InsertionPoint, 0, len(candidates))
+	for _, c := range candidates {
+		name := c.path
+		if pathCount[c.path] > 1 {
+			name = c.qualifiedName()
+			if qualifiedCount[name] > 1 {
+				occurrence[name]++
+				name = fmt.Sprintf("%s[%d]", name, occurrence[name])
+			}
+		}
+
+		points = append(points, InsertionPoint{
+			Type:         InsertionPointTypeGraphQLInlineArg,
+			Name:         name,
+			Value:        c.value,
+			ValueType:    c.kind.dataType(c.value),
+			OriginalData: originalBody,
+			Span:         c.span,
+		})
+
+		if len(points) >= maxGraphQLInlineArgPoints {
+			break
 		}
 	}
 
@@ -310,9 +529,13 @@ func parseArgList(query string, pos *int, n int, originalBody string) []Insertio
 }
 
 func skipWhitespace(s string, pos *int, n int) {
-	for *pos < n && (s[*pos] == ' ' || s[*pos] == '\t' || s[*pos] == '\n' || s[*pos] == '\r') {
+	for *pos < n && isGraphQLSpace(s[*pos]) {
 		*pos++
 	}
+}
+
+func isGraphQLSpace(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
 
 func readArgName(s string, pos *int, n int) string {
@@ -330,31 +553,37 @@ func isNameChar(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
+func isGraphQLValueTerminator(c byte) bool {
+	return isGraphQLSpace(c) || c == ')' || c == ',' || c == '}' || c == ']'
+}
+
 func skipUntilArgBoundary(s string, pos *int, n int) {
-	for *pos < n && s[*pos] != ')' && s[*pos] != ',' && s[*pos] != ' ' && s[*pos] != '\t' {
+	for *pos < n && !isGraphQLValueTerminator(s[*pos]) {
 		*pos++
 	}
 }
 
-func readArgValue(s string, pos *int, n int) string {
-	if *pos >= n {
-		return ""
+// readGraphQLScalar consumes one scalar literal and reports whether it produced a
+// rewritable value. Block strings are consumed but rejected: they have no single
+// quoted span a payload can replace without corrupting the document.
+func readGraphQLScalar(s string, pos *int, n int) (string, bool) {
+	if strings.HasPrefix(s[*pos:], `"""`) {
+		skipGraphQLString(s, pos, n)
+		return "", false
 	}
-
 	if s[*pos] == '"' {
-		return readQuotedString(s, pos, n)
-	}
-
-	if s[*pos] == '[' || s[*pos] == '{' {
-		skipBracketedValue(s, pos, n)
-		return ""
+		return readQuotedString(s, pos, n), true
 	}
 
 	start := *pos
-	for *pos < n && s[*pos] != ')' && s[*pos] != ',' && s[*pos] != ' ' && s[*pos] != '\t' && s[*pos] != '\n' {
+	for *pos < n && !isGraphQLValueTerminator(s[*pos]) {
 		*pos++
 	}
-	return s[start:*pos]
+	if *pos == start {
+		*pos++
+		return "", false
+	}
+	return s[start:*pos], true
 }
 
 func readQuotedString(s string, pos *int, n int) string {
@@ -375,34 +604,97 @@ func readQuotedString(s string, pos *int, n int) string {
 	return buf.String()
 }
 
+func skipGraphQLString(s string, pos *int, n int) {
+	if strings.HasPrefix(s[*pos:], `"""`) {
+		*pos += 3
+		for *pos < n && !strings.HasPrefix(s[*pos:], `"""`) {
+			*pos++
+		}
+		if *pos < n {
+			*pos += 3
+		}
+		return
+	}
+
+	*pos++
+	for *pos < n && s[*pos] != '"' {
+		if s[*pos] == '\\' {
+			*pos++
+		}
+		*pos++
+	}
+	if *pos < n {
+		*pos++
+	}
+}
+
+func skipGraphQLValue(s string, pos *int, n int) {
+	if *pos >= n {
+		return
+	}
+	switch s[*pos] {
+	case '"':
+		skipGraphQLString(s, pos, n)
+	case '[', '{':
+		skipBracketedValue(s, pos, n)
+	case '$':
+		skipUntilArgBoundary(s, pos, n)
+	default:
+		skipUntilArgBoundary(s, pos, n)
+	}
+}
+
 func skipBracketedValue(s string, pos *int, n int) {
 	open := s[*pos]
-	var close byte
+	closing := byte('}')
 	if open == '[' {
-		close = ']'
-	} else {
-		close = '}'
+		closing = ']'
 	}
+
 	depth := 1
 	*pos++
 	for *pos < n && depth > 0 {
-		if s[*pos] == open {
+		switch s[*pos] {
+		case open:
 			depth++
-		} else if s[*pos] == close {
+		case closing:
 			depth--
-		} else if s[*pos] == '"' {
-			*pos++
-			for *pos < n && s[*pos] != '"' {
-				if s[*pos] == '\\' {
-					*pos++
-				}
-				*pos++
-			}
+		case '"':
+			skipGraphQLString(s, pos, n)
+			continue
 		}
-		if *pos < n {
-			*pos++
-		}
+		*pos++
 	}
+}
+
+func graphQLLiteralKindAt(s string, pos int) graphQLLiteralKind {
+	if pos >= len(s) {
+		return graphQLLiteralEnum
+	}
+
+	c := s[pos]
+	if c == '"' {
+		return graphQLLiteralString
+	}
+	if c == '-' || (c >= '0' && c <= '9') {
+		return graphQLLiteralNumber
+	}
+
+	rest := s[pos:]
+	switch {
+	case hasGraphQLKeyword(rest, "true"), hasGraphQLKeyword(rest, "false"):
+		return graphQLLiteralBoolean
+	case hasGraphQLKeyword(rest, "null"):
+		return graphQLLiteralNull
+	}
+	return graphQLLiteralEnum
+}
+
+func hasGraphQLKeyword(s string, keyword string) bool {
+	if !strings.HasPrefix(s, keyword) {
+		return false
+	}
+	return len(s) == len(keyword) || !isNameChar(s[len(keyword)])
 }
 
 func modifyGraphQLInlineArg(body []byte, builders []InsertionPointBuilder) ([]byte, error) {
@@ -416,207 +708,98 @@ func modifyGraphQLInlineArg(body []byte, builders []InsertionPointBuilder) ([]by
 		return nil, fmt.Errorf("GraphQL body missing required 'query' field")
 	}
 
-	for _, builder := range builders {
-		queryStr = replaceInlineArgValue(queryStr, builder.Point.Name, builder.Payload)
-	}
-
-	fullBody["query"] = queryStr
+	fullBody["query"] = applyGraphQLInlineArgPayloads(queryStr, builders)
 	return json.Marshal(fullBody)
 }
 
-func replaceInlineArgValue(query string, argName string, payload string) string {
-	var result strings.Builder
-	i := 0
-	n := len(query)
-	replaced := false
+// applyGraphQLInlineArgPayloads splices each payload into its own literal's byte span,
+// last span first so a completed write never shifts the offsets of the pending ones.
+func applyGraphQLInlineArgPayloads(query string, builders []InsertionPointBuilder) string {
+	ordered := make([]InsertionPointBuilder, len(builders))
+	copy(ordered, builders)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		return ordered[i].Point.Span.Start > ordered[j].Point.Span.Start
+	})
 
-	for i < n {
-		if !replaced && query[i] == '(' {
-			result.WriteByte(query[i])
-			i++
-			writeArgListWithReplacement(&result, query, &i, n, argName, payload, &replaced)
-		} else if query[i] == '"' {
-			result.WriteByte(query[i])
-			i++
-			for i < n && query[i] != '"' {
-				if query[i] == '\\' {
-					result.WriteByte(query[i])
-					i++
-					if i < n {
-						result.WriteByte(query[i])
-						i++
-					}
-				} else {
-					result.WriteByte(query[i])
-					i++
-				}
-			}
-			if i < n {
-				result.WriteByte(query[i])
-				i++
-			}
-		} else {
-			result.WriteByte(query[i])
-			i++
-		}
-	}
-
-	return result.String()
-}
-
-func writeArgListWithReplacement(result *strings.Builder, query string, pos *int, n int, targetName string, payload string, replaced *bool) {
-	depth := 1
-	for *pos < n && depth > 0 {
-		if query[*pos] == ')' {
-			depth--
-			result.WriteByte(query[*pos])
-			*pos++
+	applied := make([]InsertionPointSpan, 0, len(ordered))
+	for _, builder := range ordered {
+		span := builder.Point.Span
+		if !span.Valid || span.Start < 0 || span.End < span.Start || span.End > len(query) {
+			log.Warn().Str("point", builder.Point.Name).Msg("Skipping GraphQL inline argument without a usable span")
 			continue
 		}
-		if query[*pos] == '(' {
-			depth++
-			result.WriteByte(query[*pos])
-			*pos++
+		if overlapsAppliedSpan(applied, span) {
+			log.Debug().Str("point", builder.Point.Name).Msg("Skipping GraphQL inline argument overlapping an earlier one")
 			continue
 		}
 
-		nameStart := *pos
-		name := peekArgName(query, pos, n)
-		if name == "" {
-			result.WriteByte(query[*pos])
-			*pos++
-			continue
-		}
-
-		savedPos := *pos
-		skipWhitespace(query, pos, n)
-		if *pos >= n || query[*pos] != ':' {
-			result.WriteString(query[nameStart:savedPos])
-			*pos = savedPos
-			continue
-		}
-
-		result.WriteString(name)
-		for k := savedPos; k < *pos; k++ {
-			result.WriteByte(query[k])
-		}
-		result.WriteByte(':')
-		*pos++
-
-		wsStart := *pos
-		skipWhitespace(query, pos, n)
-		for k := wsStart; k < *pos; k++ {
-			result.WriteByte(query[k])
-		}
-
-		if *pos >= n {
-			break
-		}
-
-		if !*replaced && name == targetName && query[*pos] != '$' {
-			skipOriginalValue(query, pos, n)
-			needsQuotes := payload != "true" && payload != "false" && payload != "null"
-			if needsQuotes {
-				if _, err := strconv.ParseFloat(payload, 64); err != nil {
-					needsQuotes = true
-				} else {
-					needsQuotes = false
-				}
-			}
-			if needsQuotes {
-				result.WriteByte('"')
-				for _, c := range payload {
-					if c == '"' {
-						result.WriteString(`\"`)
-					} else if c == '\\' {
-						result.WriteString(`\\`)
-					} else {
-						result.WriteRune(c)
-					}
-				}
-				result.WriteByte('"')
-			} else {
-				result.WriteString(payload)
-			}
-			*replaced = true
-		} else {
-			copyOriginalValue(result, query, pos, n)
-		}
+		literal := renderGraphQLLiteral(query[span.Start:span.End], builder.Payload)
+		query = query[:span.Start] + literal + query[span.End:]
+		applied = append(applied, span)
 	}
+
+	return query
 }
 
-func peekArgName(s string, pos *int, n int) string {
-	start := *pos
-	for *pos < n && isNameChar(s[*pos]) {
-		*pos++
+// renderGraphQLLiteral emits the payload in the syntactic form the original literal
+// used. A bare payload where a string was, or a quoted payload where a bare
+// number/enum/boolean was, yields a document the server rejects before any resolver
+// runs, so the probe would test nothing. Where the payload cannot take the original
+// form the fallback is a quoted string, which stays parseable and is what ID-typed
+// arguments - numeric-looking but string-accepting - need.
+func renderGraphQLLiteral(original string, payload string) string {
+	switch graphQLLiteralKindAt(original, 0) {
+	case graphQLLiteralNumber:
+		if graphQLNumberLiteralPattern.MatchString(payload) {
+			return payload
+		}
+	case graphQLLiteralBoolean, graphQLLiteralNull:
+		if payload == "true" || payload == "false" || payload == "null" {
+			return payload
+		}
+	case graphQLLiteralEnum:
+		if isGraphQLEnumValue(payload) {
+			return payload
+		}
 	}
-	if *pos == start {
-		return ""
-	}
-	return s[start:*pos]
+	return quoteGraphQLString(payload)
 }
 
-func skipOriginalValue(s string, pos *int, n int) {
-	if *pos >= n {
-		return
+func isGraphQLEnumValue(s string) bool {
+	if s == "true" || s == "false" || s == "null" {
+		return false
 	}
-	if s[*pos] == '"' {
-		*pos++
-		for *pos < n && s[*pos] != '"' {
-			if s[*pos] == '\\' {
-				*pos++
-			}
-			*pos++
-		}
-		if *pos < n {
-			*pos++
-		}
-	} else if s[*pos] == '[' || s[*pos] == '{' {
-		skipBracketedValue(s, pos, n)
-	} else {
-		for *pos < n && s[*pos] != ')' && s[*pos] != ',' && s[*pos] != ' ' && s[*pos] != '\t' && s[*pos] != '\n' {
-			*pos++
-		}
-	}
+	return graphQLNamePattern.MatchString(s)
 }
 
-func copyOriginalValue(result *strings.Builder, s string, pos *int, n int) {
-	if *pos >= n {
-		return
-	}
-	if s[*pos] == '"' {
-		result.WriteByte('"')
-		*pos++
-		for *pos < n && s[*pos] != '"' {
-			if s[*pos] == '\\' {
-				result.WriteByte(s[*pos])
-				*pos++
-				if *pos < n {
-					result.WriteByte(s[*pos])
-					*pos++
-				}
+func quoteGraphQLString(payload string) string {
+	var buf strings.Builder
+	buf.Grow(len(payload) + 2)
+	buf.WriteByte('"')
+	for _, r := range payload {
+		switch r {
+		case '"':
+			buf.WriteString(`\"`)
+		case '\\':
+			buf.WriteString(`\\`)
+		case '\n':
+			buf.WriteString(`\n`)
+		case '\r':
+			buf.WriteString(`\r`)
+		case '\t':
+			buf.WriteString(`\t`)
+		case '\b':
+			buf.WriteString(`\b`)
+		case '\f':
+			buf.WriteString(`\f`)
+		default:
+			if r < 0x20 {
+				fmt.Fprintf(&buf, `\u%04X`, r)
 				continue
 			}
-			result.WriteByte(s[*pos])
-			*pos++
-		}
-		if *pos < n {
-			result.WriteByte('"')
-			*pos++
-		}
-	} else if s[*pos] == '$' {
-		for *pos < n && s[*pos] != ')' && s[*pos] != ',' && s[*pos] != ' ' && s[*pos] != '\t' {
-			result.WriteByte(s[*pos])
-			*pos++
-		}
-	} else if s[*pos] == '[' || s[*pos] == '{' {
-		start := *pos
-		skipBracketedValue(s, pos, n)
-		result.WriteString(s[start:*pos])
-	} else {
-		for *pos < n && s[*pos] != ')' && s[*pos] != ',' && s[*pos] != ' ' && s[*pos] != '\t' && s[*pos] != '\n' {
-			result.WriteByte(s[*pos])
-			*pos++
+			buf.WriteRune(r)
 		}
 	}
+	buf.WriteByte('"')
+	return buf.String()
 }

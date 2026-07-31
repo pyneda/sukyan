@@ -101,7 +101,7 @@ func modifyGraphQLTransportWSFrame(frame string, point InsertionPoint, payload s
 
 	switch point.Type {
 	case InsertionPointTypeWSGraphQLInlineArg:
-		container["query"] = replaceInlineArgValue(query, point.Name, payload)
+		container["query"] = applyGraphQLInlineArgPayloads(query, []InsertionPointBuilder{{Point: point, Payload: payload}})
 
 	case InsertionPointTypeWSGraphQLVariable:
 		variables, isMap := container["variables"].(map[string]any)

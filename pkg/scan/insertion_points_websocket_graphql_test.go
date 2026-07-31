@@ -30,6 +30,20 @@ func queryFromFrame(t *testing.T, frame string) string {
 	return q
 }
 
+// wsGraphQLPoint derives a point the way production does - from the frame itself -
+// so its span addresses the exact literal the rewriter will replace.
+func wsGraphQLPoint(t *testing.T, frame string, pointType InsertionPointType, name string) InsertionPoint {
+	t.Helper()
+
+	for _, p := range extractGraphQLTransportWSInsertionPoints(frame) {
+		if p.Type == pointType && p.Name == name {
+			return p
+		}
+	}
+	t.Fatalf("no %s point named %q in frame %s", pointType, name, frame)
+	return InsertionPoint{}
+}
+
 func TestLooksLikeGraphQLQuery(t *testing.T) {
 	cases := []struct {
 		in   string
@@ -101,7 +115,7 @@ func TestExtractGraphQLTransportWSInsertionPoints_NotGraphQL(t *testing.T) {
 }
 
 func TestModifyGraphQLTransportWSFrame_InlineArg(t *testing.T) {
-	point := InsertionPoint{Type: InsertionPointTypeWSGraphQLInlineArg, Name: "id", Value: "1"}
+	point := wsGraphQLPoint(t, gqlWSSubscribeFrame, InsertionPointTypeWSGraphQLInlineArg, "id")
 
 	got, err := modifyGraphQLTransportWSFrame(gqlWSSubscribeFrame, point, "1'")
 	if err != nil {
@@ -126,7 +140,7 @@ func TestModifyGraphQLTransportWSFrame_InlineArg(t *testing.T) {
 }
 
 func TestModifyGraphQLTransportWSFrame_InlineArgSQLPayload(t *testing.T) {
-	point := InsertionPoint{Type: InsertionPointTypeWSGraphQLInlineArg, Name: "id", Value: "1"}
+	point := wsGraphQLPoint(t, gqlWSSubscribeFrame, InsertionPointTypeWSGraphQLInlineArg, "id")
 	got, err := modifyGraphQLTransportWSFrame(gqlWSSubscribeFrame, point, "1' OR '1'='1")
 	if err != nil {
 		t.Fatalf("modify: %v", err)
@@ -139,7 +153,7 @@ func TestModifyGraphQLTransportWSFrame_InlineArgSQLPayload(t *testing.T) {
 
 func TestModifyGraphQLTransportWSFrame_Variable(t *testing.T) {
 	frame := `{"id":"1","type":"subscribe","payload":{"query":"query Q($id: ID!){ user(id:$id){ name } }","variables":{"id":"7"}}}`
-	point := InsertionPoint{Type: InsertionPointTypeWSGraphQLVariable, Name: "id", Value: "7"}
+	point := wsGraphQLPoint(t, frame, InsertionPointTypeWSGraphQLVariable, "id")
 
 	got, err := modifyGraphQLTransportWSFrame(frame, point, "7' OR 1=1--")
 	if err != nil {
@@ -159,7 +173,7 @@ func TestModifyGraphQLTransportWSFrame_Variable(t *testing.T) {
 
 func TestCreateModifiedWebSocketMessage_GraphQLInlineArg(t *testing.T) {
 	original := &db.WebSocketMessage{Opcode: 1, PayloadData: gqlWSSubscribeFrame}
-	point := InsertionPoint{Type: InsertionPointTypeWSGraphQLInlineArg, Name: "id", Value: "1"}
+	point := wsGraphQLPoint(t, gqlWSSubscribeFrame, InsertionPointTypeWSGraphQLInlineArg, "id")
 
 	modified, err := CreateModifiedWebSocketMessage(original, point, "1'")
 	if err != nil {

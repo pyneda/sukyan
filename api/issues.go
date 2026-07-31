@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"gorm.io/gorm"
 
@@ -76,13 +77,23 @@ func FindIssues(c *fiber.Ctx) error {
 		issueCodes = strings.Split(unparsedIssueCodes, ",")
 	}
 
+	var apiEndpointID *uuid.UUID
+	if raw := c.Query("api_endpoint_id"); raw != "" {
+		parsed, parseErr := uuid.Parse(raw)
+		if parseErr != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid api_endpoint_id format"})
+		}
+		apiEndpointID = &parsed
+	}
+
 	issues, count, err := db.Connection().ListIssues(db.IssueFilter{
-		WorkspaceID: workspaceID,
-		TaskID:      taskID,
-		TaskJobID:   taskJobID,
-		ScanID:      scanID,
-		ScanJobID:   scanJobID,
-		Codes:       issueCodes,
+		WorkspaceID:   workspaceID,
+		TaskID:        taskID,
+		TaskJobID:     taskJobID,
+		ScanID:        scanID,
+		ScanJobID:     scanJobID,
+		Codes:         issueCodes,
+		APIEndpointID: apiEndpointID,
 	})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get issues"})

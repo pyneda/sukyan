@@ -204,6 +204,7 @@ type IssueFilter struct {
 	ScanJobID     uint
 	URL           string
 	MinConfidence int
+	APIEndpointID *uuid.UUID
 }
 
 // ListIssues Lists issues
@@ -221,6 +222,11 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 	if filter.URL != "" {
 		query = query.Where("url = ?", filter.URL)
 	}
+
+	if filter.APIEndpointID != nil {
+		query = query.Where("api_endpoint_id = ?", *filter.APIEndpointID)
+	}
+
 	if filter.TaskID != 0 {
 		query = query.Where("task_id = ?", filter.TaskID)
 	}

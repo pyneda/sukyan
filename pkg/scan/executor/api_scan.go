@@ -3,7 +3,6 @@ package executor
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -397,73 +396,13 @@ func (e *APIScanExecutor) buildRequestFromOperation(ctx context.Context, defType
 }
 
 func (e *APIScanExecutor) applyAuthToRequest(req *http.Request, authConfig *db.APIAuthConfig) {
-	switch authConfig.Type {
-	case db.APIAuthTypeBasic:
-		if authConfig.Username != "" || authConfig.Password != "" {
-			auth := authConfig.Username + ":" + authConfig.Password
-			encoded := base64.StdEncoding.EncodeToString([]byte(auth))
-			req.Header.Set("Authorization", "Basic "+encoded)
-		}
-
-	case db.APIAuthTypeBearer:
-		token := authConfig.Token
-		if authConfig.TokenRefreshConfig != nil && e.tokenManager != nil {
-			if dynamicToken, tmErr := e.tokenManager.GetToken(authConfig.ID); tmErr == nil && dynamicToken != "" {
-				token = dynamicToken
-			}
-		}
-		if token != "" {
-			prefix := authConfig.TokenPrefix
-			if prefix == "" {
-				prefix = "Bearer"
-			}
-			req.Header.Set("Authorization", prefix+" "+token)
-		}
-
-	case db.APIAuthTypeAPIKey:
-		keyValue := authConfig.APIKeyValue
-		if authConfig.TokenRefreshConfig != nil && e.tokenManager != nil {
-			if dynamicToken, tmErr := e.tokenManager.GetToken(authConfig.ID); tmErr == nil && dynamicToken != "" {
-				keyValue = dynamicToken
-			}
-		}
-		if authConfig.APIKeyName != "" && keyValue != "" {
-			switch authConfig.APIKeyLocation {
-			case db.APIKeyLocationHeader:
-				req.Header.Set(authConfig.APIKeyName, keyValue)
-			case db.APIKeyLocationQuery:
-				q := req.URL.Query()
-				q.Set(authConfig.APIKeyName, keyValue)
-				req.URL.RawQuery = q.Encode()
-			case db.APIKeyLocationCookie:
-				req.AddCookie(&http.Cookie{
-					Name:  authConfig.APIKeyName,
-					Value: keyValue,
-				})
-			}
-		}
-
-	case db.APIAuthTypeOAuth2:
-		token := authConfig.Token
-		if authConfig.TokenRefreshConfig != nil && e.tokenManager != nil {
-			if dynamicToken, tmErr := e.tokenManager.GetToken(authConfig.ID); tmErr == nil && dynamicToken != "" {
-				token = dynamicToken
-			}
-		}
-		if token != "" {
-			prefix := authConfig.TokenPrefix
-			if prefix == "" {
-				prefix = "Bearer"
-			}
-			req.Header.Set("Authorization", prefix+" "+token)
-		} else {
-			log.Warn().Msg("OAuth2 auth config has no token set, skipping authentication")
+	dynamicToken := ""
+	if authConfig != nil && authConfig.TokenRefreshConfig != nil && e.tokenManager != nil {
+		if token, tmErr := e.tokenManager.GetToken(authConfig.ID); tmErr == nil {
+			dynamicToken = token
 		}
 	}
-
-	for _, header := range authConfig.CustomHeaders {
-		req.Header.Set(header.HeaderName, header.HeaderValue)
-	}
+	pkgapi.ApplyAuthConfig(req, authConfig, dynamicToken)
 }
 
 func (e *APIScanExecutor) resolveAuthForOperation(operation *apicore.Operation, schemeAuthMap map[string]uuid.UUID) *uuid.UUID {

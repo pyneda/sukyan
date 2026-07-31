@@ -1,6 +1,7 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -34,6 +35,11 @@ type APIEndpoint struct {
 	SOAPAction   string `gorm:"size:500" json:"soap_action"`
 	BindingStyle string `gorm:"size:50" json:"binding_style"`
 
+	// OperationJSON is the normalized core.Operation for this endpoint. It is what
+	// the detail API serves and what its example request is built from, so a read
+	// never re-parses the definition: parsing a 7.6MB specification costs ~3.5s and
+	// the cost is per-document, not per-operation.
+	OperationJSON json.RawMessage `gorm:"type:jsonb" json:"-"`
 }
 
 // BeforeSave truncates the fields backed by bounded columns. They are copied out of

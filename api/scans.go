@@ -828,6 +828,7 @@ func CancelScanJobHandler(c *fiber.Ctx) error {
 // @Param query query string false "Search by URL or error message"
 // @Param status query string false "Filter by status (comma-separated)"
 // @Param job_type query string false "Filter by job type (comma-separated)"
+// @Param sort_by query string false "Sort field: relevance (default), id, created_at, updated_at, status, priority"
 // @Param page query int false "Page number"
 // @Param page_size query int false "Page size"
 // @Success 200 {object} ScanJobsListResponse
@@ -859,8 +860,7 @@ func GetScanJobsHandler(c *fiber.Ctx) error {
 			Page:     1,
 			PageSize: 50,
 		},
-		SortBy:    "id",
-		SortOrder: "desc",
+		SortBy: "relevance",
 	}
 
 	// Parse query parameter for searching URL and error message

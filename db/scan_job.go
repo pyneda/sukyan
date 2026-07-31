@@ -209,7 +209,7 @@ type ScanJobFilter struct {
 	TargetHost string          `json:"target_host" validate:"omitempty"`
 	WorkerID   string          `json:"worker_id" validate:"omitempty"`
 	Pagination Pagination      `json:"pagination"`
-	SortBy     string          `json:"sort_by" validate:"omitempty,oneof=id created_at updated_at status priority"`
+	SortBy     string          `json:"sort_by" validate:"omitempty,oneof=id created_at updated_at status priority relevance"`
 	SortOrder  string          `json:"sort_order" validate:"omitempty,oneof=asc desc"`
 }
 
@@ -292,6 +292,24 @@ func (d *DatabaseConnection) UpdateScanJob(job *ScanJob) (*ScanJob, error) {
 	return job, result.Error
 }
 
+// Secondary keys are CASE-guarded because a single ORDER BY tail applies to
+// every bucket: an unguarded `started_at ASC` would sort the failed bucket
+// oldest-first as well. NULLS LAST is explicit because Postgres defaults DESC
+// to NULLS FIRST.
+const scanJobRelevanceOrder = `CASE status
+		WHEN 'running'   THEN 0
+		WHEN 'claimed'   THEN 1
+		WHEN 'failed'    THEN 2
+		WHEN 'completed' THEN CASE WHEN issues_found > 0 THEN 3 ELSE 4 END
+		WHEN 'cancelled' THEN 5
+		ELSE 6
+	END ASC,
+	CASE WHEN status = 'running' THEN started_at END ASC NULLS LAST,
+	issues_found DESC,
+	CASE WHEN status IN ('failed','completed','cancelled') THEN completed_at END DESC NULLS LAST,
+	priority DESC,
+	id ASC`
+
 // ListScanJobs lists scan jobs with filters
 func (d *DatabaseConnection) ListScanJobs(filter ScanJobFilter) (items []*ScanJob, count int64, err error) {
 	query := d.db.Model(&ScanJob{})
@@ -335,7 +353,10 @@ func (d *DatabaseConnection) ListScanJobs(filter ScanJobFilter) (items []*ScanJo
 	}
 
 	order := "priority desc, id asc"
-	if validSortBy[filter.SortBy] {
+	switch {
+	case filter.SortBy == "relevance":
+		order = scanJobRelevanceOrder
+	case validSortBy[filter.SortBy]:
 		sortOrder := "asc"
 		if filter.SortOrder == "desc" {
 			sortOrder = "desc"

@@ -1,4 +1,4 @@
-h1:lt4zeuhXwaC5dqXnjW7J8dG/WdDgE92bb2MJT87e3wA=
+h1:GH6Dj8Cry/ZV7+BZd39OuOd5eTHh1HUV7d8dCNEM5IA=
 20251208012158_initial.sql h1:gwJqqGHQCjCbqlxba40IAPxNgWyj2LdQniyWHXO9vlc=
 20251208041927_add_scan_isolated.sql h1:dF6ne/760ggiHVjvqLh8HY/PqReOrDs6ugiexfmkvNM=
 20251209020515_add_browser_events_table.sql h1:J2lHVNkZ1RH4Mxp6MO6Pc4TtF5R5nlqX9j7OQ2XR+sQ=
@@ -30,3 +30,4 @@ h1:lt4zeuhXwaC5dqXnjW7J8dG/WdDgE92bb2MJT87e3wA=
 20260524110133_add_matcher_presets.sql h1:+lAbLVQf6R20BOEiHCLpphm+SaF4lIaiMG1az3oJ2T4=
 20260730065653_add_stateless_sessions.sql h1:FUjRHKnDLrg8+XNPv783PqzDYl7D9VTYCNM60Rk3QKA=
 20260731030434_add_endpoint_operation_json.sql h1:zaT8h0O6TROgLQBY6puvzj+ZsoYJkebWTz3FHKOirI0=
+20260731085415_add_websocket_message_connection_index.sql h1:QeGdN4Yunf/AR3SfVaOas4jqk3nFFQPY5OHveNsZGQw=

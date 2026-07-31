@@ -39,6 +39,7 @@ type WebSocketConnection struct {
 	ProxyService        *ProxyService      `json:"-" gorm:"foreignKey:ProxyServiceID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	PlaygroundSessionID *uint              `json:"playground_session_id" gorm:"index"`
 	PlaygroundSession   *PlaygroundSession `json:"-" gorm:"foreignKey:PlaygroundSessionID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+	MessageCount int64 `json:"message_count" gorm:"->;-:migration"`
 }
 
 func (c WebSocketConnection) TaskTitle() string {
@@ -192,7 +193,7 @@ const (
 
 type WebSocketMessage struct {
 	BaseModel
-	ConnectionID uint             `json:"connection_id"`
+	ConnectionID uint             `gorm:"index" json:"connection_id"`
 	Opcode       float64          `json:"opcode"`
 	Mask         bool             `gorm:"index" json:"mask"`
 	PayloadData  string           `json:"payload_data"`
@@ -325,6 +326,33 @@ type WebSocketConnectionFilter struct {
 	ProxyServiceID *uuid.UUID `json:"proxy_service_id,omitempty"`
 	Sources        []string   `json:"sources" validate:"omitempty,dive,ascii"`
 	ExcludeSources []string   `json:"exclude_sources" validate:"omitempty,dive,ascii"`
+	SortBy         string     `json:"sort_by" validate:"omitempty,oneof=id url status_code source message_count created_at closed_at"`
+	SortOrder      string     `json:"sort_order" validate:"omitempty,oneof=asc desc"`
+}
+
+func messageCountSubquery(db *gorm.DB) *gorm.DB {
+	return db.Model(&WebSocketMessage{}).
+		Select("COUNT(*)").
+		Where("web_socket_messages.connection_id = web_socket_connections.id")
+}
+
+func webSocketConnectionOrder(filter WebSocketConnectionFilter) string {
+	sortable := map[string]bool{
+		"id":            true,
+		"url":           true,
+		"status_code":   true,
+		"source":        true,
+		"message_count": true,
+		"created_at":    true,
+		"closed_at":     true,
+	}
+	if !sortable[filter.SortBy] {
+		return "id desc"
+	}
+	if filter.SortOrder == "desc" {
+		return filter.SortBy + " desc"
+	}
+	return filter.SortBy + " asc"
 }
 
 func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnectionFilter) ([]WebSocketConnection, int64, error) {
@@ -364,7 +392,9 @@ func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnection
 		query = query.Scopes(Paginate(&filter.Pagination))
 	}
 
-	query = query.Order("id desc")
+	query = query.
+		Select("web_socket_connections.*, (?) AS message_count", messageCountSubquery(d.db)).
+		Order(webSocketConnectionOrder(filter))
 
 	if err := query.Find(&connections).Error; err != nil {
 		log.Error().Err(err).Msg("Failed to list WebSocket connections")
@@ -379,6 +409,7 @@ type WebSocketMessageFilter struct {
 	ConnectionID        uint
 	PlaygroundSessionID *uint // optional; matches via web_socket_connections.playground_session_id
 	IsBinary            *bool // Pointer to allow distinguishing between false and not-set
+	Direction           MessageDirection
 }
 
 // GetSentWebSocketMessagesForConnections loads the client->server messages for
@@ -419,6 +450,10 @@ func (d *DatabaseConnection) ListWebSocketMessages(filter WebSocketMessageFilter
 
 	if filter.IsBinary != nil {
 		query = query.Where("is_binary = ?", *filter.IsBinary)
+	}
+
+	if filter.Direction != "" {
+		query = query.Where("direction = ?", filter.Direction)
 	}
 
 	var messages []WebSocketMessage

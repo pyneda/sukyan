@@ -24,6 +24,8 @@ import (
 // @Param scan_id query int false "Scan ID"
 // @Param scan_job_id query int false "Scan Job ID"
 // @Param sources query string false "Comma-separated list of sources to filter by"
+// @Param sort_by query string false "Field to sort by" Enums(id,url,status_code,source,message_count,created_at,closed_at) default("id")
+// @Param sort_order query string false "Sort order" Enums(asc,desc) default("desc")
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history/websocket/connections [get]
@@ -109,6 +111,8 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 		ScanJobID:      scanJobID,
 		ProxyServiceID: proxyServiceID,
 		Sources:        sources,
+		SortBy:         c.Query("sort_by", "id"),
+		SortOrder:      c.Query("sort_order", "desc"),
 	})
 
 	if err != nil {
@@ -126,6 +130,7 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 // @Param connection_id query string false "Filter messages by WebSocket connection ID"
 // @Param playground_session_id query int false "filter by playground session id"
 // @Param is_binary query boolean false "Filter by binary messages (true) or text messages (false)"
+// @Param direction query string false "Filter by message direction" Enums(sent,received)
 // @Success 200 {array} db.WebSocketMessage
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
@@ -180,6 +185,15 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 		isBinary = &parsed
 	}
 
+	var direction db.MessageDirection
+	switch unparsedDirection := c.Query("direction"); unparsedDirection {
+	case "":
+	case string(db.MessageSent), string(db.MessageReceived):
+		direction = db.MessageDirection(unparsedDirection)
+	default:
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid direction parameter, must be sent or received"})
+	}
+
 	messages, count, err := db.Connection().ListWebSocketMessages(db.WebSocketMessageFilter{
 		Pagination: db.Pagination{
 			Page:     page,
@@ -188,6 +202,7 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 		ConnectionID:        connectionID,
 		PlaygroundSessionID: playgroundSessionID,
 		IsBinary:            isBinary,
+		Direction:           direction,
 	})
 
 	if err != nil {

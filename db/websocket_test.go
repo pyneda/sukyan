@@ -112,3 +112,56 @@ func TestListWebSocketConnections_ExcludeSources(t *testing.T) {
 		require.NotEqual(t, SourceWsFuzz, c.Source)
 	}
 }
+
+func TestListWebSocketConnections_SortByMessageCount(t *testing.T) {
+	require.NoError(t, Connection().DB().AutoMigrate(&WebSocketConnection{}, &WebSocketMessage{}))
+	workspace := createTestWorkspace(t)
+
+	mkConn := func(url string, messages int) uint {
+		c := &WebSocketConnection{URL: url, Source: "Scanner", WorkspaceID: &workspace.ID}
+		require.NoError(t, Connection().CreateWebSocketConnection(c))
+		for i := 0; i < messages; i++ {
+			require.NoError(t, Connection().CreateWebSocketMessage(&WebSocketMessage{
+				ConnectionID: c.ID,
+				Opcode:       1,
+				PayloadData:  "hello",
+				Direction:    MessageSent,
+			}))
+		}
+		return c.ID
+	}
+
+	quiet := mkConn("wss://example.com/quiet", 1)
+	busy := mkConn("wss://example.com/busy", 3)
+
+	out, _, err := Connection().ListWebSocketConnections(WebSocketConnectionFilter{
+		WorkspaceID: workspace.ID,
+		SortBy:      "message_count",
+		SortOrder:   "desc",
+	})
+	require.NoError(t, err)
+	require.Len(t, out, 2)
+	require.Equal(t, busy, out[0].ID)
+	require.EqualValues(t, 3, out[0].MessageCount)
+	require.Equal(t, quiet, out[1].ID)
+	require.EqualValues(t, 1, out[1].MessageCount)
+}
+
+func TestListWebSocketConnections_SortByRejectsUnknownColumn(t *testing.T) {
+	require.NoError(t, Connection().DB().AutoMigrate(&WebSocketConnection{}))
+	workspace := createTestWorkspace(t)
+
+	for _, url := range []string{"wss://example.com/a", "wss://example.com/b"} {
+		c := &WebSocketConnection{URL: url, Source: "Scanner", WorkspaceID: &workspace.ID}
+		require.NoError(t, Connection().CreateWebSocketConnection(c))
+	}
+
+	out, _, err := Connection().ListWebSocketConnections(WebSocketConnectionFilter{
+		WorkspaceID: workspace.ID,
+		SortBy:      "url; DROP TABLE web_socket_connections",
+		SortOrder:   "asc",
+	})
+	require.NoError(t, err)
+	require.Len(t, out, 2)
+	require.Greater(t, out[0].ID, out[1].ID)
+}

@@ -659,6 +659,84 @@ func (d *DatabaseConnection) GetScanJobStatsForJob(scanJobID uint) (ScanJobStats
 	return stats, nil
 }
 
+// GetScanJobStatsForJobs returns stats for a page of jobs in three grouped
+// queries. The per-job equivalent costs three queries per row, and this list is
+// polled every few seconds while a scan runs.
+func (d *DatabaseConnection) GetScanJobStatsForJobs(jobIDs []uint) (map[uint]ScanJobStatsResponse, error) {
+	stats := make(map[uint]ScanJobStatsResponse, len(jobIDs))
+	if len(jobIDs) == 0 {
+		return stats, nil
+	}
+	for _, id := range jobIDs {
+		stats[id] = ScanJobStatsResponse{}
+	}
+
+	type countRow struct {
+		ScanJobID uint
+		Count     int64
+	}
+
+	var requestRows []countRow
+	if err := d.db.Model(&History{}).
+		Select("scan_job_id, COUNT(*) as count").
+		Where("scan_job_id IN ?", jobIDs).
+		Group("scan_job_id").Scan(&requestRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range requestRows {
+		entry := stats[row.ScanJobID]
+		entry.Requests = row.Count
+		stats[row.ScanJobID] = entry
+	}
+
+	type severityRow struct {
+		ScanJobID uint
+		Severity  severity
+		Count     int64
+	}
+
+	var issueRows []severityRow
+	if err := d.db.Model(&Issue{}).
+		Select("scan_job_id, severity, COUNT(*) as count").
+		Where("scan_job_id IN ?", jobIDs).
+		Group("scan_job_id, severity").Scan(&issueRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range issueRows {
+		entry := stats[row.ScanJobID]
+		switch row.Severity {
+		case Unknown:
+			entry.Issues.Unknown = row.Count
+		case Info:
+			entry.Issues.Info = row.Count
+		case Low:
+			entry.Issues.Low = row.Count
+		case Medium:
+			entry.Issues.Medium = row.Count
+		case High:
+			entry.Issues.High = row.Count
+		case Critical:
+			entry.Issues.Critical = row.Count
+		}
+		stats[row.ScanJobID] = entry
+	}
+
+	var oobRows []countRow
+	if err := d.db.Model(&OOBTest{}).
+		Select("scan_job_id, COUNT(*) as count").
+		Where("scan_job_id IN ?", jobIDs).
+		Group("scan_job_id").Scan(&oobRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range oobRows {
+		entry := stats[row.ScanJobID]
+		entry.OOBTests = row.Count
+		stats[row.ScanJobID] = entry
+	}
+
+	return stats, nil
+}
+
 // ResetTimedOutJobs marks jobs that have exceeded their max_duration as failed.
 // Timed-out jobs are NOT retried
 // Returns the number of jobs marked as failed and affected scan IDs.

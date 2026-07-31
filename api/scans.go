@@ -919,13 +919,26 @@ func GetScanJobsHandler(c *fiber.Ctx) error {
 	}
 
 	// Build response with stats
+	jobIDs := make([]uint, 0, len(jobs))
+	for _, job := range jobs {
+		jobIDs = append(jobIDs, job.ID)
+	}
+
+	// Stats are decoration on top of the job rows. A failure here degrades the
+	// page to zeroed counters rather than failing the whole list.
+	statsByJob, statsErr := db.Connection().GetScanJobStatsForJobs(jobIDs)
+	if statsErr != nil {
+		log.Warn().Err(statsErr).Uint("scan_id", scanID).Msg("Failed to load scan job stats")
+		statsByJob = map[uint]db.ScanJobStatsResponse{}
+	}
+
 	jobResponses := make([]ScanJobResponse, 0, len(jobs))
 	for _, job := range jobs {
-		stats, _ := db.Connection().GetScanJobStatsForJob(job.ID)
+		jobStats := statsByJob[job.ID]
 		jobResponses = append(jobResponses, ScanJobResponseFromDBScanJob(job, ScanJobStats{
-			Requests: stats.Requests,
-			Issues:   stats.Issues,
-			OOBTests: stats.OOBTests,
+			Requests: jobStats.Requests,
+			Issues:   jobStats.Issues,
+			OOBTests: jobStats.OOBTests,
 		}))
 	}
 

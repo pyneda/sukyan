@@ -139,6 +139,8 @@ var (
 	PhpCodeInjectionCode IssueCode = "php_code_injection"
 	PhpInfoDetectedCode IssueCode = "php_info_detected"
 	PkiValidationDetectedCode IssueCode = "pki_validation_detected"
+	PostmessageInsecureTargetOriginCode IssueCode = "postmessage_insecure_target_origin"
+	PostmessageWeakOriginValidationCode IssueCode = "postmessage_weak_origin_validation"
 	PrivateIpsCode IssueCode = "private_ips"
 	PrivateKeysCode IssueCode = "private_keys"
 	PythonCodeInjectionCode IssueCode = "python_code_injection"
@@ -1880,6 +1882,32 @@ var issueTemplates = []IssueTemplate{
 		References: []string{
 			"https://cabforum.org/baseline-requirements-documents/",
 			"https://datatracker.ietf.org/doc/html/rfc5280",
+		},
+	},
+	{
+		Code:        PostmessageInsecureTargetOriginCode,
+		Title:       "postMessage Sent To Any Origin",
+		Description: "The application calls window.postMessage with \"*\" as the target origin, which tells the browser to deliver the message to whatever document currently occupies the target window or frame, without checking who that is. If an attacker can influence what is loaded there, or can navigate a window the application still holds a reference to, the message and everything in it is delivered to the attacker's document. This matters most when the message carries session tokens, authorization codes, user data or anything else not already public, which is common in OAuth popup flows and embedded widget SDKs.",
+		Remediation: "Pass an explicit target origin as the second argument to postMessage instead of \"*\", naming the exact scheme and host the message is intended for. Where the recipient is genuinely dynamic, derive the value from a validated allowlist rather than falling back to the wildcard. Avoid sending credentials, tokens or personal data over postMessage at all where an alternative exists.",
+		Cwe:         201,
+		Severity:    "Medium",
+		References: []string{
+			"https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage",
+			"https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#web-messaging",
+			"https://portswigger.net/web-security/dom-based/controlling-the-web-message-source",
+		},
+	},
+	{
+		Code:        PostmessageWeakOriginValidationCode,
+		Title:       "Weak postMessage Origin Validation",
+		Description: "A window.postMessage handler validates the sender's origin with a comparison that matches more origins than intended. Substring checks (indexOf, includes, search), prefix checks (startsWith), suffix checks (endsWith) and unanchored regular expressions all accept attacker-controlled origins that merely contain the trusted string. A handler trusting any origin starting with \"https://trusted.com\" also trusts \"https://trusted.com.attacker.example\", and one trusting any origin ending in \"trusted.com\" also trusts \"https://eviltrusted.com\". Treating the literal origin \"null\" as trusted is equally unsafe, because any sandboxed iframe or document loaded from a data URI presents that origin. An attacker who can get a page to frame or open the application can then send messages the handler accepts, reaching whatever the handler does with the message data.",
+		Remediation: "Compare event.origin for exact equality against a fixed allowlist of origins, for example by testing membership with allowedOrigins.includes(event.origin) or a strict equality comparison against a known constant. Never build the check out of indexOf, includes, startsWith, endsWith or a regular expression that is not anchored at both ends with ^ and $. Never trust the \"null\" origin. Validate the message data itself after the origin check, and reject messages whose shape is unexpected.",
+		Cwe:         346,
+		Severity:    "Medium",
+		References: []string{
+			"https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage",
+			"https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#web-messaging",
+			"https://portswigger.net/web-security/dom-based/controlling-the-web-message-source",
 		},
 	},
 	{

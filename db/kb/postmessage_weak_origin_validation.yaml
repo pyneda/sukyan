@@ -1,0 +1,28 @@
+code: postmessage_weak_origin_validation
+title: Weak postMessage Origin Validation
+description:
+  A window.postMessage handler validates the sender's origin with a comparison that
+  matches more origins than intended. Substring checks (indexOf, includes, search),
+  prefix checks (startsWith), suffix checks (endsWith) and unanchored regular
+  expressions all accept attacker-controlled origins that merely contain the trusted
+  string. A handler trusting any origin starting with "https://trusted.com" also
+  trusts "https://trusted.com.attacker.example", and one trusting any origin ending
+  in "trusted.com" also trusts "https://eviltrusted.com". Treating the literal origin
+  "null" as trusted is equally unsafe, because any sandboxed iframe or document
+  loaded from a data URI presents that origin. An attacker who can get a page to
+  frame or open the application can then send messages the handler accepts, reaching
+  whatever the handler does with the message data.
+remediation:
+  Compare event.origin for exact equality against a fixed allowlist of origins, for
+  example by testing membership with allowedOrigins.includes(event.origin) or a
+  strict equality comparison against a known constant. Never build the check out of
+  indexOf, includes, startsWith, endsWith or a regular expression that is not
+  anchored at both ends with ^ and $. Never trust the "null" origin. Validate the
+  message data itself after the origin check, and reject messages whose shape is
+  unexpected.
+cwe: 346
+severity: Medium
+references:
+  - https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage
+  - https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#web-messaging
+  - https://portswigger.net/web-security/dom-based/controlling-the-web-message-source

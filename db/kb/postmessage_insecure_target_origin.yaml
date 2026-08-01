@@ -1,0 +1,23 @@
+code: postmessage_insecure_target_origin
+title: postMessage Sent To Any Origin
+description:
+  The application calls window.postMessage with "*" as the target origin, which tells
+  the browser to deliver the message to whatever document currently occupies the
+  target window or frame, without checking who that is. If an attacker can influence
+  what is loaded there, or can navigate a window the application still holds a
+  reference to, the message and everything in it is delivered to the attacker's
+  document. This matters most when the message carries session tokens, authorization
+  codes, user data or anything else not already public, which is common in OAuth
+  popup flows and embedded widget SDKs.
+remediation:
+  Pass an explicit target origin as the second argument to postMessage instead of "*",
+  naming the exact scheme and host the message is intended for. Where the recipient is
+  genuinely dynamic, derive the value from a validated allowlist rather than falling
+  back to the wildcard. Avoid sending credentials, tokens or personal data over
+  postMessage at all where an alternative exists.
+cwe: 201
+severity: Medium
+references:
+  - https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage
+  - https://cheatsheetseries.owasp.org/cheatsheets/HTML5_Security_Cheat_Sheet.html#web-messaging
+  - https://portswigger.net/web-security/dom-based/controlling-the-web-message-source

@@ -207,3 +207,101 @@ func TestSendRawPipelinedSplitsCoalescedResponses(t *testing.T) {
 		t.Fatalf("marker not isolated into SecondResponse: %q", resp.SecondResponse)
 	}
 }
+
+// A body-echoing endpoint returns the marker in its own response to the smuggling
+// payload. That is reflection, not desync: the follow-up response is clean and the
+// connection was never poisoned. Verified false twice in the field (casino/FastAPI
+// 422, prototype-pollution-matrix/nginx 200), where it reported High at 95%.
+func TestSendRawPipelinedFirstResponseEchoIsNotDesyncEvidence(t *testing.T) {
+	const marker = "ZZQAPROBE"
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		buf := make([]byte, 8192)
+
+		// First response echoes the request body, marker and all.
+		_, _ = conn.Read(buf)
+		echoed := "you sent: GET /" + marker + " HTTP/1.1"
+		fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s", len(echoed), echoed)
+
+		// Follow-up is served normally: no smuggled request was ever queued.
+		_, _ = conn.Read(buf)
+		clean := "ok"
+		fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s", len(clean), clean)
+		time.Sleep(50 * time.Millisecond)
+	}()
+
+	addr := ln.Addr().(*net.TCPAddr)
+	client := NewSmugglingClient(5*time.Second, http_utils.HistoryCreationOptions{})
+
+	resp, err := client.SendRawPipelined(context.Background(), "127.0.0.1", addr.Port, false,
+		[]byte("POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 33\r\n\r\nGET /"+marker+" HTTP/1.1\r\n\r\n"),
+		[]byte("GET / HTTP/1.1\r\nHost: x\r\n\r\n"),
+		marker)
+	if err != nil {
+		t.Fatalf("SendRawPipelined: %v", err)
+	}
+
+	if !bytes.Contains(resp.FirstResponse, []byte(marker)) {
+		t.Fatalf("test setup wrong: first response should echo the marker, got %q", resp.FirstResponse)
+	}
+	if bytes.Contains(resp.SecondResponse, []byte(marker)) {
+		t.Fatalf("test setup wrong: second response must be clean, got %q", resp.SecondResponse)
+	}
+	if resp.MarkerInSecondResponse {
+		t.Fatalf("first-response echo must not count as desync evidence (location=%q)", resp.MarkerLocation)
+	}
+	if !resp.MarkerFound || resp.MarkerLocation != "first response" {
+		t.Fatalf("the echo should still be recorded for diagnostics: found=%v location=%q",
+			resp.MarkerFound, resp.MarkerLocation)
+	}
+}
+
+// The genuine signal: the marker surfaces in the follow-up response.
+func TestSendRawPipelinedSecondResponseMarkerIsDesyncEvidence(t *testing.T) {
+	const marker = "QQDESYNC"
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		buf := make([]byte, 8192)
+		_, _ = conn.Read(buf)
+		fmt.Fprint(conn, "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")
+		_, _ = conn.Read(buf)
+		second := "Method " + marker + " not implemented"
+		fmt.Fprintf(conn, "HTTP/1.1 501 Not Implemented\r\nContent-Length: %d\r\n\r\n%s", len(second), second)
+		time.Sleep(50 * time.Millisecond)
+	}()
+
+	addr := ln.Addr().(*net.TCPAddr)
+	client := NewSmugglingClient(5*time.Second, http_utils.HistoryCreationOptions{})
+	resp, err := client.SendRawPipelined(context.Background(), "127.0.0.1", addr.Port, false,
+		[]byte("POST / HTTP/1.1\r\nHost: x\r\nContent-Length: 0\r\n\r\n"),
+		[]byte("GET / HTTP/1.1\r\nHost: x\r\n\r\n"),
+		marker)
+	if err != nil {
+		t.Fatalf("SendRawPipelined: %v", err)
+	}
+	if !resp.MarkerInSecondResponse {
+		t.Fatalf("marker in the follow-up must count as desync evidence: location=%q", resp.MarkerLocation)
+	}
+}

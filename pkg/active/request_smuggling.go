@@ -294,7 +294,13 @@ func (a *RequestSmugglingAudit) testCL0(ctx context.Context, auditLog zerolog.Lo
 		return false
 	}
 
-	if resp.MarkerFound {
+	if resp.MarkerFound && !resp.MarkerInSecondResponse {
+		auditLog.Debug().Str("location", resp.MarkerLocation).
+			Msg("Marker echoed by the origin rather than smuggled, not a CL.0 desync")
+		return false
+	}
+
+	if resp.MarkerInSecondResponse {
 		auditLog.Info().Str("location", resp.MarkerLocation).Msg("Potential CL.0 detected, starting revalidation")
 
 		vulnerable, confidence, details, revalidationHistories := a.revalidateResponseBased(
@@ -371,8 +377,11 @@ func (a *RequestSmugglingAudit) revalidateResponseBased(
 		// Check for indicators in second response
 		found, reason := a.detectSmugglingIndicators(resp.SecondResponse, freshPayload)
 
-		// Also check if marker was found via SendRawPipelined's marker check
-		if !found && resp.MarkerFound {
+		// Also check if marker was found via SendRawPipelined's marker check. Only the
+		// follow-up response counts: an echo in the first response repeats identically
+		// on every attempt, so accepting it here turns revalidation into confirmation
+		// of the scanner's own reflection.
+		if !found && resp.MarkerInSecondResponse {
 			found = true
 			reason = fmt.Sprintf("Marker found in %s", resp.MarkerLocation)
 		}
@@ -481,7 +490,12 @@ type SmugglingPipelinedResponse struct {
 	Duration       time.Duration
 	MarkerFound    bool
 	MarkerLocation string
-	History        *db.History
+	// MarkerInSecondResponse is the only marker signal that evidences a desync.
+	// The marker appearing in the first response means the origin echoed the request
+	// body back to us, which any body-echoing endpoint does and which leaves the
+	// connection perfectly healthy. MarkerFound stays true there for diagnostics.
+	MarkerInSecondResponse bool
+	History                *db.History
 }
 
 func (c *SmugglingClient) createHistory(host string, port int, useTLS bool, rawRequest, rawResponse []byte) (*db.History, error) {
@@ -608,6 +622,7 @@ func (c *SmugglingClient) SendRawPipelined(ctx context.Context, host string, por
 	// Check for marker in responses
 	markerFound := false
 	markerLocation := ""
+	markerInSecond := false
 
 	if marker != "" {
 		if strings.Contains(string(firstResponse), marker) {
@@ -616,6 +631,7 @@ func (c *SmugglingClient) SendRawPipelined(ctx context.Context, host string, por
 		}
 		if strings.Contains(string(secondResponse), marker) {
 			markerFound = true
+			markerInSecond = true
 			if markerLocation != "" {
 				markerLocation = "both responses"
 			} else {
@@ -630,12 +646,13 @@ func (c *SmugglingClient) SendRawPipelined(ctx context.Context, host string, por
 	history, _ := c.createHistory(host, port, useTLS, combinedRequest, combinedResponse)
 
 	return &SmugglingPipelinedResponse{
-		FirstResponse:  firstResponse,
-		SecondResponse: secondResponse,
-		Duration:       elapsed,
-		MarkerFound:    markerFound,
-		MarkerLocation: markerLocation,
-		History:        history,
+		FirstResponse:          firstResponse,
+		SecondResponse:         secondResponse,
+		Duration:               elapsed,
+		MarkerFound:            markerFound,
+		MarkerLocation:         markerLocation,
+		MarkerInSecondResponse: markerInSecond,
+		History:                history,
 	}, nil
 }
 

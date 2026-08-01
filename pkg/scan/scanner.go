@@ -603,8 +603,16 @@ func (f *TemplateScanner) EvaluateDetectionMethod(ctx context.Context, result Te
 				}
 			}
 			if strings.Contains(matchAgainst, m.Contains) {
-				sb.WriteString(fmt.Sprintf("Response contains the value: %s\n", m.Contains))
-				containsMatch = true
+				// A marker the unmodified response already carried is a property
+				// of the endpoint, not evidence the payload reached anything.
+				if baselineContainsMarker(result.Original, m.Part, m.Contains) {
+					log.Debug().
+						Str("marker", m.Contains).
+						Msg("Ignoring ResponseCondition: marker also present in baseline response")
+				} else {
+					sb.WriteString(fmt.Sprintf("Response contains the value: %s\n", m.Contains))
+					containsMatch = true
+				}
 			}
 		} else {
 			// If no contains is defined, assume it's matched
@@ -875,6 +883,42 @@ func baselineResponseText(original *db.History) (string, bool) {
 		return "", false
 	}
 	return string(body), true
+}
+
+// baselineContainsMarker reports whether the unmodified response already carried
+// the literal a ResponseCondition looks for, compared against the same part of
+// the response the condition inspects. Markers rendered from the payload are
+// unique per request and so never suppress; fingerprint literals like a driver
+// module name do, which is the point.
+func baselineContainsMarker(original *db.History, part generation.ResponseContainsPart, marker string) bool {
+	if original == nil || marker == "" {
+		return false
+	}
+	baseline, ok := baselineTextForPart(original, part)
+	if !ok {
+		return false
+	}
+	return strings.Contains(baseline, marker)
+}
+
+// baselineTextForPart mirrors the part selection the live comparison performs, so
+// a header marker is never checked against a body and vice versa.
+func baselineTextForPart(original *db.History, part generation.ResponseContainsPart) (string, bool) {
+	switch part {
+	case generation.Headers:
+		headers, err := original.GetResponseHeadersAsString()
+		if err != nil || headers == "" {
+			return "", false
+		}
+		return headers, true
+	case generation.Raw:
+		if len(original.RawResponse) == 0 {
+			return "", false
+		}
+		return string(original.RawResponse), true
+	default:
+		return baselineResponseText(original)
+	}
 }
 
 // isTimeBasedPayload checks if a payload contains time-based detection methods

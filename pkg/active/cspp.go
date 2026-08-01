@@ -49,17 +49,13 @@ func (a *ClientSidePrototypePollutionAudit) Run() {
 	default:
 	}
 
-	if strings.Contains(a.HistoryItem.URL, "?") {
-		a.evaluateWithContext(ctx, "&")
-	} else {
-		a.evaluateWithContext(ctx, "?")
-		// Check context before second evaluation
+	for _, separator := range csppPayloadSeparators(a.HistoryItem.URL) {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
-		a.evaluateWithContext(ctx, "#")
+		a.evaluateWithContext(ctx, separator)
 	}
 }
 
@@ -140,9 +136,9 @@ func (a *ClientSidePrototypePollutionAudit) evaluateWithContext(parentCtx contex
 		default:
 		}
 
-		url := string(a.HistoryItem.URL) + string(quote) + string(payload)
+		url := buildCSPPTestURL(a.HistoryItem.URL, quote, payload)
 		taskLog := log.With().Str("url", url).Str("audit", "client-side-prototype-pollution").Logger()
-		navigateError := page.Timeout(csppNavigationTimeout).Navigate(url)
+		navigateError := navigateForPayload(page, url, csppNavigationTimeout)
 		if navigateError != nil {
 			taskLog.Warn().Err(navigateError).Msg("Error navigating to page")
 			continue
@@ -170,8 +166,12 @@ func (a *ClientSidePrototypePollutionAudit) evaluateWithContext(parentCtx contex
 			continue
 		}
 		sb.WriteString("The following payload has been inserted " + payload + " and it has been validated that the prototype has been polluted by checking that `window.sukyan` has the value `reflected`\n\n")
+		sb.WriteString("Tested URL: " + url + "\n\n")
 		severity := ""
-		history := a.GetHistory(url)
+		// Requests never carry the fragment, so a fragment payload's history is
+		// recorded under the stripped URL. Looking it up with the fragment still
+		// attached returns an empty record and files the issue with no evidence.
+		history := a.GetHistory(stripURLFragment(url))
 		log.Info().Str("url", history.URL).Int("status_code", history.StatusCode).Str("method", history.Method).Msg("History for prototype pollution item")
 		fingerprintResult, err := page.Timeout(csppNavigationTimeout).Eval(clientSidePrototypePollutionFingerprints)
 		if err != nil {

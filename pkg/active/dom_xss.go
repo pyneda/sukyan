@@ -124,57 +124,45 @@ func (a *DOMXSSAudit) Run() {
 	}
 	defer incognito.Close()
 
-	for _, source := range web.GetURLBasedSources() {
-		select {
-		case <-overallCtx.Done():
-			taskLog.Info().Msg("DOM XSS audit timeout reached")
-			return
-		default:
-		}
-		a.testURLSource(overallCtx, incognito, source)
-	}
-
-	// Test storage sources with crawl-informed optimization
-	if a.shouldTestStorageSources() {
-		for _, source := range web.GetStorageSources() {
-			select {
-			case <-overallCtx.Done():
-				taskLog.Info().Msg("DOM XSS audit timeout reached")
-				return
-			default:
-			}
-			// Skip specific storage source if no crawl evidence for it
-			if !a.shouldTestSpecificStorageSource(source) {
-				continue
-			}
-			a.testStorageSource(overallCtx, incognito, source)
-		}
-	} else {
+	testStorage := a.shouldTestStorageSources()
+	if !testStorage {
 		taskLog.Debug().Msg("Skipping all storage sources - no storage events detected during crawl")
 	}
 
-	for _, source := range web.DOMXSSSources() {
-		if source.Type == web.SourceTypeDocument || source.Type == web.SourceTypeWindow {
-			select {
-			case <-overallCtx.Done():
-				taskLog.Info().Msg("DOM XSS audit timeout reached")
-				return
-			default:
-			}
-			a.testOtherSource(overallCtx, incognito, source)
-		}
-	}
+	// Each source gets an equal share of whatever budget is left rather than
+	// competing for one pool: a source early in the plan used to consume the
+	// whole audit, leaving postMessage and the document/window sources untested.
+	plan := planDOMXSSSources(testStorage, viper.GetBool("scan.dom_xss.test_postmessage"))
+	deadline := time.Now().Add(overallTimeout)
 
-	if viper.GetBool("scan.dom_xss.test_postmessage") {
+	for i, entry := range plan {
 		select {
 		case <-overallCtx.Done():
 			taskLog.Info().Msg("DOM XSS audit timeout reached")
 			return
 		default:
 		}
-		for _, source := range web.GetMessageSources() {
-			a.testPostMessageSource(overallCtx, incognito, source)
+
+		budget := domXSSSourceBudget(time.Until(deadline), len(plan)-i)
+		if budget <= 0 {
+			taskLog.Info().Msg("DOM XSS audit timeout reached")
+			return
 		}
+
+		sourceCtx, cancel := context.WithTimeout(overallCtx, budget)
+		switch entry.Kind {
+		case domXSSSourceKindURL:
+			a.testURLSource(sourceCtx, incognito, entry.Source)
+		case domXSSSourceKindStorage:
+			if a.shouldTestSpecificStorageSource(entry.Source) {
+				a.testStorageSource(sourceCtx, incognito, entry.Source)
+			}
+		case domXSSSourceKindOther:
+			a.testOtherSource(sourceCtx, incognito, entry.Source)
+		case domXSSSourceKindPostMessage:
+			a.testPostMessageSource(sourceCtx, incognito, entry.Source)
+		}
+		cancel()
 	}
 
 	taskLog.Info().Msg("DOM XSS audit completed")
@@ -183,14 +171,14 @@ func (a *DOMXSSAudit) Run() {
 // getPayloads returns DOM XSS payloads, filtered by CSP if enabled
 func (a *DOMXSSAudit) getPayloads() []payloads.DOMXSSPayload {
 	if a.csp == nil {
-		return payloads.GetDOMXSSPayloads()
+		return payloads.OrderDOMXSSPayloadsBySinkFamily(payloads.GetDOMXSSPayloads())
 	}
 
 	result := payloads.GetCSPAwareDOMXSSPayloads(a.csp)
 	if result.OriginalCount != result.FilteredCount {
 		result.LogCSPFilterStats(a.HistoryItem.URL)
 	}
-	return result.Payloads
+	return payloads.OrderDOMXSSPayloadsBySinkFamily(result.Payloads)
 }
 
 func (a *DOMXSSAudit) testURLSource(ctx context.Context, browser *rod.Browser, source web.DOMXSSSource) {
@@ -470,28 +458,11 @@ func (a *DOMXSSAudit) testPostMessagePayloadInBrowser(ctx context.Context, rodBr
 	time.Sleep(300 * time.Millisecond)
 
 	// Send postMessage with payload in different formats (string, object, JSON)
-	escapedPayload := web.EscapeJSString(payload.Value)
-
-	postMessageScript := fmt.Sprintf(`
-		try {
-			window.postMessage('%s', '*');
-		} catch(e) {}
-	`, escapedPayload)
-	pageWithCtx.Eval(postMessageScript)
-
-	postMessageObjScript := fmt.Sprintf(`
-		try {
-			window.postMessage({data: '%s', message: '%s', content: '%s', html: '%s', text: '%s', value: '%s'}, '*');
-		} catch(e) {}
-	`, escapedPayload, escapedPayload, escapedPayload, escapedPayload, escapedPayload, escapedPayload)
-	pageWithCtx.Eval(postMessageObjScript)
-
-	postMessageJSONScript := fmt.Sprintf(`
-		try {
-			window.postMessage(JSON.stringify({payload: '%s'}), '*');
-		} catch(e) {}
-	`, escapedPayload)
-	pageWithCtx.Eval(postMessageJSONScript)
+	for _, script := range buildPostMessageScripts(payload.Value) {
+		if _, err := pageWithCtx.Eval(script); err != nil {
+			taskLog.Debug().Err(err).Msg("Failed to send postMessage payload")
+		}
+	}
 
 	detectionTimeout := a.getDetectionTimeout(pageWithCtx)
 

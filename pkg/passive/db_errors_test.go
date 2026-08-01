@@ -27,7 +27,24 @@ func TestSearchDatabaseErrors(t *testing.T) {
 		{"SQLite no such column", "no such column: password", "SQLite", "no such column:"},
 		{"SQLite no such table", "no such table: agents", "SQLite", "no such table:"},
 		{"Sybase", "Sybase message: Server is not responding", "Sybase", "Sybase message"},
+		// Native Postgres driver output. Every wrapper pattern above expects a
+		// vendor prefix these drivers never emit, so the raw server message is
+		// the only thing on the wire.
+		{"node-postgres unterminated string", `{"errors":[{"message":"unterminated quoted string at or near \"' or pg_sleep(7)--\""}]}`, "PostgreSQL", "unterminated quoted string at or near"},
+		{"pgx syntax error", `ERROR: syntax error at or near "'" (SQLSTATE 42601)`, "PostgreSQL", `syntax error at or near "`},
+		{"lib/pq syntax error", `pq: syntax error at or near "SELECT"`, "PostgreSQL", `syntax error at or near "`},
+		{"psycopg module", "psycopg2.errors.UndefinedColumn: column \"x\" does not exist", "PostgreSQL", `column "x" does not exist`},
+		{"asyncpg module", "asyncpg.exceptions.PostgresSyntaxError: bad", "PostgreSQL", "asyncpg.exceptions."},
+		{"invalid input syntax", `invalid input syntax for type integer: "abc"`, "PostgreSQL", "invalid input syntax for type "},
+		{"operator does not exist", "operator does not exist: text = integer", "PostgreSQL", "operator does not exist: "},
+		{"relation does not exist", `relation "users" does not exist`, "PostgreSQL", `relation "users" does not exist`},
+		{"syntax error at end of input", "syntax error at end of input", "PostgreSQL", "syntax error at end of input"},
 		{"Non-matching", "This is a non-matching error message", "", ""},
+		// The Postgres phrases carry their own punctuation so ordinary prose and
+		// unrelated validation copy must not false-fire.
+		{"Prose syntax error", "There is a syntax error in your search query", "", ""},
+		{"Prose column missing", "That column does not exist in this view", "", ""},
+		{"Prose invalid input", "invalid input for the type of card selected", "", ""},
 		// The generic SQLite phrases are anchored to the trailing colon SQLite
 		// always emits, so bare English prose in a non-SQLite response must NOT
 		// false-fire (regression guard for the FIX1 precision fix).

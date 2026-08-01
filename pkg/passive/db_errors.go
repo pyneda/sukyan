@@ -50,7 +50,20 @@ var DBMS_ERRORS = map[string][]*regexp.Regexp{
 		`PostgreSQL query failed`,
 		`org\.postgresql\.jdbc`,
 		`Pdo[./_\\]Pgsql`,
-		`PSQLException`),
+		`PSQLException`,
+		// node-postgres, pgx, lib/pq, psycopg and asyncpg surface the server's
+		// primary message with no vendor prefix, so none of the wrapper patterns
+		// above ever see it.
+		`syntax error at or near "`,
+		`syntax error at end of input`,
+		`unterminated quoted string at or near`,
+		`unterminated quoted identifier at or near`,
+		`invalid input syntax for type `,
+		`operator does not exist: `,
+		`relation "[^"]+" does not exist`,
+		`column "[^"]+" does not exist`,
+		`psycopg2?\.(errors|ProgrammingError|OperationalError|IntegrityError|DataError|InternalError)`,
+		`asyncpg\.exceptions\.`),
 	"Microsoft SQL Server": compilePatterns(
 		`Driver.* SQL[\-\_\ ]*Server`,
 		`OLE DB.* SQL Server`,

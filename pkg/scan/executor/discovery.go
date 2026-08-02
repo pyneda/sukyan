@@ -25,6 +25,16 @@ type DiscoveryJobData struct {
 	SiteBehavior *http_utils.SiteBehavior `json:"site_behavior,omitempty"`
 }
 
+// siteBehaviorForJob loads the samples IsNotFound compares against. Without
+// BaseURLSample it classifies nothing and every soft 404 passes through.
+func siteBehaviorForJob(jobData DiscoveryJobData, scanID uint) *http_utils.SiteBehavior {
+	sbResult, err := db.Connection().GetSiteBehaviorWithSamples(scanID, jobData.BaseURL)
+	if err == nil && sbResult != nil {
+		return http_utils.NewSiteBehaviorFromResult(sbResult)
+	}
+	return jobData.SiteBehavior
+}
+
 // DiscoveryExecutor executes discovery scan jobs
 type DiscoveryExecutor struct{}
 
@@ -94,7 +104,7 @@ func (e *DiscoveryExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *
 		ScanMode:               jobData.ScanMode,
 		HttpClient:             httpClient,
 		BaseHeaders:            jobData.BaseHeaders,
-		SiteBehavior:           jobData.SiteBehavior,
+		SiteBehavior:           siteBehaviorForJob(jobData, job.ScanID),
 	}
 
 	// Run the appropriate discovery module(s)

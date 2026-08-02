@@ -13,7 +13,6 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/lib/integrations"
-	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 	"github.com/pyneda/sukyan/pkg/scan/auth"
 	"github.com/pyneda/sukyan/pkg/scan/circuitbreaker"
@@ -769,34 +768,13 @@ func (sm *ScanManager) scheduleDiscoveryForURL(scanID uint, workspaceID uint, ba
 		baseHeaders = scan.Options.Headers
 	}
 
-	// Get site behavior from database table (populated by site_behavior phase)
-	var siteBehavior *http_utils.SiteBehavior
-	sbResult, sbErr := sm.dbConn.GetSiteBehaviorForBaseURL(scanID, baseURL)
-	if sbErr == nil && sbResult != nil {
-		siteBehavior = &http_utils.SiteBehavior{
-			NotFoundReturns404:  sbResult.NotFoundReturns404,
-			NotFoundChanges:     sbResult.NotFoundChanges,
-			NotFoundCommonHash:  sbResult.NotFoundCommonHash,
-		}
-		log.Debug().
-			Uint("scan_id", scanID).
-			Str("base_url", baseURL).
-			Bool("not_found_returns_404", sbResult.NotFoundReturns404).
-			Msg("Using site behavior from database for discovery job")
-	} else {
-		log.Debug().
-			Uint("scan_id", scanID).
-			Str("base_url", baseURL).
-			Msg("No site behavior found in database for discovery job")
-	}
-
-	// Build payload for the executor
+	// Site behavior is loaded by the executor: its response samples are too
+	// large to duplicate into every job payload.
 	jobData := executor.DiscoveryJobData{
-		BaseURL:      baseURL,
-		Module:       "all", // Run all discovery modules
-		ScanMode:     scanMode,
-		BaseHeaders:  baseHeaders,
-		SiteBehavior: siteBehavior,
+		BaseURL:     baseURL,
+		Module:      "all", // Run all discovery modules
+		ScanMode:    scanMode,
+		BaseHeaders: baseHeaders,
 	}
 	payload, _ := json.Marshal(jobData)
 

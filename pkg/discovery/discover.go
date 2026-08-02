@@ -192,12 +192,15 @@ func DiscoverPaths(input DiscoveryInput) (DiscoverResults, error) {
 			}
 
 			history := executionResult.History
-			result.History = history
 
+			// Set past this check: the collection loop below keeps every
+			// non-nil History, so assigning earlier defeats the skip.
 			if input.SiteBehavior != nil && input.SiteBehavior.IsNotFound(history) {
 				log.Debug().Int("history", int(history.ID)).Str("url", history.URL).Int("status_code", history.StatusCode).Msg("skipping not found response based on site behavior")
 				return result, nil
 			}
+
+			result.History = history
 
 			validationCtx := &ValidationContext{
 				SiteBehavior: input.SiteBehavior,

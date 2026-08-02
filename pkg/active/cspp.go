@@ -23,6 +23,21 @@ const (
 	csppOverallTimeout    = 4 * csppNavigationTimeout
 )
 
+// csppPollutionOracle asserts on the prototype rather than on `window.sukyan`.
+// A global read cannot distinguish an inherited polluted value from an own
+// property or an accessor the application defines itself, which is exactly what
+// the unexploitable "oracle bait" pages exploit to fake a detection. Reading the
+// canary off a fresh object literal proves it was actually inherited from
+// Object.prototype.
+const csppPollutionOracle = `() => {
+	try {
+		if (({}).sukyan === "reserved") {
+			return "reserved";
+		}
+	} catch (e) {}
+	return "";
+}`
+
 type ClientSidePrototypePollutionAudit struct {
 	Ctx         context.Context
 	HistoryItem *db.History
@@ -148,12 +163,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluateWithContext(parentCtx contex
 			taskLog.Warn().Err(err).Msg("Error waiting for page complete load")
 			// continue
 		}
-		evalResult, err := page.Timeout(csppNavigationTimeout).Eval(`() => {
-			function getWindowValue() {
-				return window.sukyan;
-			}
-			return getWindowValue();
-		}`)
+		evalResult, err := page.Timeout(csppNavigationTimeout).Eval(csppPollutionOracle)
 		if err != nil {
 			taskLog.Warn().Err(err).Msg("Error evaluating JavaScript")
 			continue
@@ -165,7 +175,7 @@ func (a *ClientSidePrototypePollutionAudit) evaluateWithContext(parentCtx contex
 		} else {
 			continue
 		}
-		sb.WriteString("The following payload has been inserted " + payload + " and it has been validated that the prototype has been polluted by checking that `window.sukyan` has the value `reflected`\n\n")
+		sb.WriteString("The following payload has been inserted " + payload + " and it has been validated that `Object.prototype` has been polluted by checking that a freshly created object inherits `sukyan` with the value `reserved`\n\n")
 		sb.WriteString("Tested URL: " + url + "\n\n")
 		severity := ""
 		// Requests never carry the fragment, so a fragment payload's history is

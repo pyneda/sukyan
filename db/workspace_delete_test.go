@@ -187,6 +187,72 @@ func TestDeleteWorkspaceCascadeHonoursCancellation(t *testing.T) {
 	}
 }
 
+// histories and scan_jobs reference each other with ON DELETE CASCADE, so
+// deleting one history removes its scan job and every other history of that
+// job. A batch that triggers that cascade is bounded in name only: it can take
+// most of the workspace in a single transaction.
+func TestDeleteWorkspaceCascadeBoundsTheHistoryScanJobCycle(t *testing.T) {
+	conn := Connection()
+
+	workspace, err := conn.GetOrCreateWorkspace(&Workspace{Code: "ws-delete-cycle", Title: "cycle"})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		conn.DeleteWorkspaceCascade(context.Background(), workspace.ID, WorkspaceDeleteOptions{})
+	})
+
+	scan, err := conn.CreateScan(&Scan{WorkspaceID: workspace.ID, Status: ScanStatusCompleted, Title: "cycle scan"})
+	require.NoError(t, err)
+
+	job := &ScanJob{
+		ScanID:      scan.ID,
+		WorkspaceID: workspace.ID,
+		JobType:     ScanJobTypeActiveScan,
+		Status:      ScanJobStatusCompleted,
+	}
+	require.NoError(t, conn.DB().Create(job).Error)
+
+	const total = 40
+	var first *History
+	for i := 0; i < total; i++ {
+		created, err := conn.CreateHistory(&History{
+			URL:         fmt.Sprintf("http://example.com/cycle/%d", i),
+			StatusCode:  200,
+			Method:      "GET",
+			WorkspaceID: &workspace.ID,
+			ScanID:      &scan.ID,
+			ScanJobID:   &job.ID,
+			Source:      SourceScanner,
+		})
+		require.NoError(t, err)
+		if first == nil {
+			first = created
+		}
+	}
+	// Closes the cycle: the job points back at one of its own histories.
+	require.NoError(t, conn.DB().Model(job).Update("history_id", first.ID).Error)
+
+	// Stop after the first histories batch and count what actually went.
+	ctx, cancel := context.WithCancel(context.Background())
+	_, err = conn.DeleteWorkspaceCascade(ctx, workspace.ID, WorkspaceDeleteOptions{
+		BatchSize: 10,
+		Progress: func(table string, deleted int64) {
+			if table == "histories" {
+				cancel()
+			}
+		},
+	})
+	require.ErrorIs(t, err, context.Canceled)
+
+	var remaining int64
+	require.NoError(t, conn.DB().
+		Raw("SELECT count(*) FROM histories WHERE workspace_id = ?", workspace.ID).
+		Scan(&remaining).Error)
+
+	assert.EqualValues(t, total-10, remaining,
+		"one batch of 10 should remove exactly 10 histories; %d of %d went, so the cascade is unbounded",
+		total-remaining, total)
+}
+
 func TestDeleteWorkspaceCascadeRejectsZeroID(t *testing.T) {
 	_, err := Connection().DeleteWorkspaceCascade(context.Background(), 0, WorkspaceDeleteOptions{})
 	require.Error(t, err)

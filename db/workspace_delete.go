@@ -16,15 +16,26 @@ const DefaultWorkspaceDeleteBatchSize = 5000
 // workspaceBulkTables are the tables large enough that deleting them through
 // the workspace cascade would produce an unbounded transaction. They are
 // emptied in batches first; the remaining tables are small and are left to the
-// final cascade. Order is irrelevant for correctness because every one of them
-// cascades to its own children, but children are listed before parents so the
-// cheaper rows go first.
-var workspaceBulkTables = []string{
-	"histories",
-	"web_socket_connections",
-	"oob_interactions",
-	"oob_tests",
-	"issues",
+// final cascade.
+//
+// web_socket_messages is listed before web_socket_connections because a batch
+// bounds only the rows it matches directly: rows removed by cascade ride along
+// in the same transaction.
+var workspaceBulkTables = []workspaceBulkTable{
+	{Name: "web_socket_messages", Scope: `connection_id IN (SELECT id FROM web_socket_connections WHERE workspace_id = ?)`},
+	{Name: "histories", Scope: `workspace_id = ?`},
+	{Name: "web_socket_connections", Scope: `workspace_id = ?`},
+	{Name: "oob_interactions", Scope: `workspace_id = ?`},
+	{Name: "oob_tests", Scope: `workspace_id = ?`},
+	{Name: "issues", Scope: `workspace_id = ?`},
+}
+
+// workspaceBulkTable names a table and the predicate matching its rows to a
+// workspace. Not every bulk table carries workspace_id; web_socket_messages is
+// reached through its connection.
+type workspaceBulkTable struct {
+	Name  string
+	Scope string
 }
 
 // WorkspaceDeleteOptions configures a batched workspace delete.
@@ -74,9 +85,13 @@ func (d *DatabaseConnection) DeleteWorkspaceCascade(ctx context.Context, workspa
 	}
 	result.ScansCancelled = cancelled
 
+	if err := d.detachHistoryScanJobCycle(ctx, workspaceID, batchSize); err != nil {
+		return result, err
+	}
+
 	for _, table := range workspaceBulkTables {
 		deleted, err := d.deleteWorkspaceTableInBatches(ctx, table, workspaceID, batchSize, opts.Progress)
-		result.RowsByTable[table] = deleted
+		result.RowsByTable[table.Name] = deleted
 		result.TotalRows += deleted
 		if err != nil {
 			return result, err
@@ -138,6 +153,34 @@ func (d *DatabaseConnection) WorkspacesPendingPurge() ([]Workspace, error) {
 	return workspaces, nil
 }
 
+// detachHistoryScanJobCycle clears scan_jobs.history_id ahead of the deletes.
+//
+// histories and scan_jobs reference each other with ON DELETE CASCADE, so
+// removing one history takes its scan job and, with it, every other history of
+// that job -- measured at ~550 histories per scan job. Left in place, a single
+// bounded batch cascades into most of the workspace inside one transaction,
+// which is exactly what batching is here to prevent. Clearing the back
+// reference first costs one cheap pass (scan_jobs is small, and the column is
+// indexed) and makes every later batch bound what it claims to bound.
+func (d *DatabaseConnection) detachHistoryScanJobCycle(ctx context.Context, workspaceID uint, batchSize int) error {
+	statement := `UPDATE scan_jobs SET history_id = NULL WHERE id IN (
+		SELECT id FROM scan_jobs WHERE workspace_id = ? AND history_id IS NOT NULL LIMIT ?)`
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		tx := d.db.WithContext(ctx).Exec(statement, workspaceID, batchSize)
+		if tx.Error != nil {
+			log.Error().Err(tx.Error).Uint("workspace", workspaceID).Msg("Failed to detach scan job history references")
+			return fmt.Errorf("detaching scan job history references for workspace %d: %w", workspaceID, tx.Error)
+		}
+		if tx.RowsAffected == 0 {
+			return nil
+		}
+	}
+}
+
 // cancelWorkspaceScans stops any scan still running against the workspace so
 // that workers do not keep inserting rows behind the delete. Cancellation is
 // published through the database, which is how the control registry propagates
@@ -171,10 +214,10 @@ func (d *DatabaseConnection) cancelWorkspaceScans(ctx context.Context, workspace
 	return int64(len(scanIDs)), nil
 }
 
-func (d *DatabaseConnection) deleteWorkspaceTableInBatches(ctx context.Context, table string, workspaceID uint, batchSize int, progress func(string, int64)) (int64, error) {
+func (d *DatabaseConnection) deleteWorkspaceTableInBatches(ctx context.Context, table workspaceBulkTable, workspaceID uint, batchSize int, progress func(string, int64)) (int64, error) {
 	statement := fmt.Sprintf(
-		"DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE workspace_id = ? LIMIT ?)",
-		table, table,
+		"DELETE FROM %s WHERE id IN (SELECT id FROM %s WHERE %s LIMIT ?)",
+		table.Name, table.Name, table.Scope,
 	)
 
 	var total int64
@@ -185,8 +228,8 @@ func (d *DatabaseConnection) deleteWorkspaceTableInBatches(ctx context.Context, 
 
 		tx := d.db.WithContext(ctx).Exec(statement, workspaceID, batchSize)
 		if tx.Error != nil {
-			log.Error().Err(tx.Error).Str("table", table).Uint("workspace", workspaceID).Msg("Batched delete failed")
-			return total, fmt.Errorf("deleting %s rows for workspace %d: %w", table, workspaceID, tx.Error)
+			log.Error().Err(tx.Error).Str("table", table.Name).Uint("workspace", workspaceID).Msg("Batched delete failed")
+			return total, fmt.Errorf("deleting %s rows for workspace %d: %w", table.Name, workspaceID, tx.Error)
 		}
 		if tx.RowsAffected == 0 {
 			return total, nil
@@ -194,7 +237,7 @@ func (d *DatabaseConnection) deleteWorkspaceTableInBatches(ctx context.Context, 
 
 		total += tx.RowsAffected
 		if progress != nil {
-			progress(table, total)
+			progress(table.Name, total)
 		}
 	}
 }

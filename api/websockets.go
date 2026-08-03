@@ -176,7 +176,7 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 
 	var connectionID uint
 	if unparsedConnectionID != "" {
-		unparsedUint, err := strconv.ParseUint(unparsedConnectionID, 10, 32)
+		unparsedUint, err := strconv.ParseUint(unparsedConnectionID, 10, 64)
 		if err != nil {
 			log.Error().Err(err).Msg("Error parsing connection ID query parameter")
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Invalid connection ID parameter"})
@@ -186,7 +186,7 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 
 	var playgroundSessionID *uint
 	if unparsedPlaygroundSessionID != "" {
-		parsed, err := strconv.ParseUint(unparsedPlaygroundSessionID, 10, 32)
+		parsed, err := strconv.ParseUint(unparsedPlaygroundSessionID, 10, 64)
 		if err != nil {
 			log.Error().Err(err).Msg("Error parsing playground_session_id query parameter")
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid playground_session_id parameter"})
@@ -244,7 +244,7 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 func FindWebSocketConnectionByID(c *fiber.Ctx) error {
 	unparsedConnectionID := c.Params("id")
 
-	connectionID, err := strconv.ParseUint(unparsedConnectionID, 10, 32)
+	connectionID, err := strconv.ParseUint(unparsedConnectionID, 10, 64)
 	if err != nil {
 		log.Error().Err(err).Msg("Error parsing connection ID parameter")
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pyneda/sukyan/db"
 
@@ -78,18 +79,23 @@ func TestDeleteWorkspace(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, resp, "Response should not be nil")
 
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	// Purging runs in the background, so the request only acknowledges it.
+	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
 
+	// The workspace leaves every listing straight away, before its rows are gone.
 	workspaceExists, err := db.Connection().WorkspaceExists(workspace.ID)
 	assert.Nil(t, err)
 	assert.False(t, workspaceExists)
 
-	// ensure related data is deleted
-	// TODO: This is failing, the on delete constrain seems to not be working
-	// historyExists, err := db.Connection().HistoryExists(history.ID)
-	// assert.Nil(t, err)
-	// assert.False(t, historyExists)
+	assert.Eventually(t, func() bool {
+		var remaining int64
+		db.Connection().DB().Raw("SELECT count(*) FROM histories WHERE workspace_id = ?", workspace.ID).Scan(&remaining)
+		return remaining == 0
+	}, 30*time.Second, 100*time.Millisecond, "the background purge should remove the workspace's history")
 
+	var workspaceRows int64
+	db.Connection().DB().Raw("SELECT count(*) FROM workspaces WHERE id = ?", workspace.ID).Scan(&workspaceRows)
+	assert.Zero(t, workspaceRows, "the workspace row itself should be hard deleted once the purge finishes")
 }
 
 func TestGetWorkspaceDetail(t *testing.T) {

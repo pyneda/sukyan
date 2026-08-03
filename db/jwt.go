@@ -26,7 +26,7 @@ type JsonWebToken struct {
 	IssuedAt               time.Time             `gorm:"type:timestamp" json:"issued_at"`
 	Histories              []History             `gorm:"many2many:json_web_token_histories;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"histories"`
 	Workspace              Workspace             `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID            *uint                 `json:"workspace_id"`
+	WorkspaceID            *uint                 `json:"workspace_id" gorm:"index"`
 	TestedEmbeddedWordlist bool                  `json:"tested_embedded_wordlist"`
 	Cracked                bool                  `json:"cracked"`
 	Secret                 string                `json:"secret"`

@@ -116,6 +116,11 @@ func StartAPI(opts ...APIServerOptions) {
 		// StrictRouting: true,
 		ServerHeader: "Sukyan",
 		AppName:      "Sukyan API",
+		// Raised for workspace archive uploads. Deliberately not combined with
+		// StreamRequestBody: fasthttp drops ErrBodyTooLarge when streaming and
+		// its stream reader enforces no maximum, so the limit stops being a
+		// limit -- on every route, including the unauthenticated auth group.
+		BodyLimit: viper.GetInt("api.body_limit"),
 	})
 
 	registerBaseMiddleware(app, &apiLogger)
@@ -153,7 +158,9 @@ func StartAPI(opts ...APIServerOptions) {
 	api.Get("/history/websocket/messages", JWTProtected(), FindWebSocketMessages)
 	api.Get("/workspaces", JWTProtected(), FindWorkspaces)
 	api.Post("/workspaces", JWTProtected(), CreateWorkspace)
+	api.Post("/workspaces/import", JWTProtected(), ImportWorkspace)
 	api.Get("/workspaces/:id", JWTProtected(), GetWorkspaceDetail)
+	api.Get("/workspaces/:id/export", JWTProtected(), ExportWorkspace)
 	api.Delete("/workspaces/:id", JWTProtected(), DeleteWorkspace)
 	api.Put("/workspaces/:id", JWTProtected(), UpdateWorkspace)
 	api.Get("/workspaces/:workspace_id/matcher-presets", JWTProtected(), ListMatcherPresets)

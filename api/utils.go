@@ -259,8 +259,10 @@ func parseInt(input string) (int, error) {
 	return strconv.Atoi(input)
 }
 
+// parseUint reads a row identifier. Identifier columns are bigint, so the full
+// 64-bit range has to parse.
 func parseUint(input string) (uint, error) {
-	val, err := strconv.ParseUint(input, 10, 32)
+	val, err := strconv.ParseUint(input, 10, 64)
 	if err != nil {
 		return 0, err
 	}

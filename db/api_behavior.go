@@ -25,7 +25,7 @@ type APIBehaviorResult struct {
 	WorkspaceID uint      `json:"workspace_id" gorm:"index;not null"`
 	Workspace   Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 
-	DefinitionID   uuid.UUID         `json:"definition_id" gorm:"uniqueIndex:idx_api_behavior_scan_def,priority:2;type:uuid;not null"`
+	DefinitionID   uuid.UUID         `json:"definition_id" gorm:"uniqueIndex:idx_api_behavior_scan_def,priority:2;index;type:uuid;not null"`
 	Definition     APIDefinition     `json:"-" gorm:"foreignKey:DefinitionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	DefinitionType APIDefinitionType `json:"definition_type" gorm:"size:50;not null"`
 

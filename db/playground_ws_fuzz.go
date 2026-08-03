@@ -37,7 +37,7 @@ type PlaygroundWsFuzzIteration struct {
 	DurationMs            int                  `json:"duration_ms"`
 	HandshakeStatusCode   int                  `json:"handshake_status_code"`
 	HandshakeHeaders      datatypes.JSON       `json:"handshake_headers,omitempty" swaggerignore:"true"`
-	WebSocketConnectionID *uint                `json:"websocket_connection_id,omitempty"`
+	WebSocketConnectionID *uint                `json:"websocket_connection_id,omitempty" gorm:"index"`
 	WebSocketConnection   *WebSocketConnection `json:"-" gorm:"foreignKey:WebSocketConnectionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	PeerCloseCode         *int                 `json:"peer_close_code,omitempty"`
 	FailureReason         string               `json:"failure_reason,omitempty"`

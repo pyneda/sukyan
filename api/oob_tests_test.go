@@ -519,6 +519,44 @@ func TestFindOOBTestsWithInteractions(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 
+	// The count is what the table renders, so it has to survive serialisation —
+	// it is derived rather than a column, and so is absent unless explicitly set.
+	t.Run("Reports the callback count on the wire", func(t *testing.T) {
+		filter := db.OOBTestsFilter{
+			WorkspaceID: workspace.ID,
+			Pagination: db.Pagination{
+				Page:     1,
+				PageSize: 50,
+			},
+		}
+
+		body, _ := json.Marshal(filter)
+		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, testErr := app.Test(req, 10000)
+		assert.Nil(t, testErr)
+		if resp == nil {
+			return
+		}
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var result struct {
+			Data []struct {
+				ID                uint `json:"id"`
+				InteractionsCount int  `json:"interactions_count"`
+			} `json:"data"`
+		}
+		assert.Nil(t, json.NewDecoder(resp.Body).Decode(&result))
+
+		counts := make(map[uint]int, len(result.Data))
+		for _, item := range result.Data {
+			counts[item.ID] = item.InteractionsCount
+		}
+
+		assert.Equal(t, 1, counts[createdTestWithInteractions.ID])
+		assert.Equal(t, 0, counts[createdTestWithoutInteractions.ID])
+	})
+
 	// Clean up
 	db.Connection().DB().Delete(&createdInteraction)
 	db.Connection().DB().Delete(&createdTestWithInteractions)

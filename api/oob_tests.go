@@ -124,5 +124,9 @@ func GetOOBTestDetail(c *fiber.Ctx) error {
 		})
 	}
 
+	if err := db.Connection().LoadInteractionCounts([]*db.OOBTest{&oobTest}); err != nil {
+		log.Error().Err(err).Int("oob_test_id", oobTestID).Msg("Failed to load OOB test interaction count")
+	}
+
 	return c.Status(http.StatusOK).JSON(oobTest)
 }

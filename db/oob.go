@@ -40,6 +40,52 @@ type OOBTest struct {
 	IssueID           *uint     `json:"issue_id" gorm:"index"`
 	Issue             *Issue    `json:"-" gorm:"foreignKey:IssueID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	Note              string    `json:"note"`
+
+	// Callbacks received against this test. Derived rather than stored, so it is
+	// filled in by the read paths; a zero value means none came back.
+	InteractionsCount int `json:"interactions_count" gorm:"-"`
+}
+
+// LoadInteractionCounts fills InteractionsCount for the given tests with a single
+// grouped query, keyed on the ids actually being returned rather than the whole
+// filtered set.
+func (d *DatabaseConnection) LoadInteractionCounts(tests []*OOBTest) error {
+	if len(tests) == 0 {
+		return nil
+	}
+
+	byID := make(map[uint]*OOBTest, len(tests))
+	ids := make([]uint, 0, len(tests))
+	for _, test := range tests {
+		if test == nil {
+			continue
+		}
+		byID[test.ID] = test
+		ids = append(ids, test.ID)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	var rows []struct {
+		OOBTestID uint
+		Total     int
+	}
+	err := d.db.Model(&OOBInteraction{}).
+		Select("oob_test_id, COUNT(*) AS total").
+		Where("oob_test_id IN ?", ids).
+		Group("oob_test_id").
+		Scan(&rows).Error
+	if err != nil {
+		return err
+	}
+
+	for _, row := range rows {
+		if test, ok := byID[row.OOBTestID]; ok {
+			test.InteractionsCount = row.Total
+		}
+	}
+	return nil
 }
 
 func (o OOBTest) TableHeaders() []string {
@@ -569,6 +615,12 @@ func (d *DatabaseConnection) ListOOBTests(filter OOBTestsFilter) (items []*OOBTe
 	if err := query.Find(&items).Error; err != nil {
 		log.Error().Err(err).Msg("Failed to list OOB tests")
 		return nil, 0, err
+	}
+
+	// A missing count is not worth failing the listing over — the tests are still
+	// the answer to what was asked.
+	if err := d.LoadInteractionCounts(items); err != nil {
+		log.Error().Err(err).Msg("Failed to load OOB test interaction counts")
 	}
 
 	log.Debug().Interface("filters", filter).Int("gathered", len(items)).Int("count", int(count)).Msg("Getting OOB test items")

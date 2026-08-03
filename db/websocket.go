@@ -326,8 +326,12 @@ type WebSocketConnectionFilter struct {
 	ProxyServiceID *uuid.UUID `json:"proxy_service_id,omitempty"`
 	Sources        []string   `json:"sources" validate:"omitempty,dive,ascii"`
 	ExcludeSources []string   `json:"exclude_sources" validate:"omitempty,dive,ascii"`
-	SortBy         string     `json:"sort_by" validate:"omitempty,oneof=id url status_code source message_count created_at closed_at"`
-	SortOrder      string     `json:"sort_order" validate:"omitempty,oneof=asc desc"`
+	// Query is matched case-insensitively against the connection URL only.
+	Query string `json:"query" validate:"omitempty,ascii"`
+	// MinMessages keeps connections having at least this many messages.
+	MinMessages int    `json:"min_messages" validate:"omitempty,gte=0"`
+	SortBy      string `json:"sort_by" validate:"omitempty,oneof=id url status_code source message_count created_at closed_at"`
+	SortOrder   string `json:"sort_order" validate:"omitempty,oneof=asc desc"`
 }
 
 func messageCountSubquery(db *gorm.DB) *gorm.DB {
@@ -378,6 +382,12 @@ func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnection
 	}
 	if filter.ProxyServiceID != nil {
 		query = query.Where("proxy_service_id = ?", filter.ProxyServiceID)
+	}
+	if filter.Query != "" {
+		query = query.Where("url ILIKE ?", containsPattern(filter.Query))
+	}
+	if filter.MinMessages > 0 {
+		query = query.Where("(?) >= ?", messageCountSubquery(d.db), filter.MinMessages)
 	}
 
 	var connections []WebSocketConnection

@@ -24,6 +24,8 @@ import (
 // @Param scan_id query int false "Scan ID"
 // @Param scan_job_id query int false "Scan Job ID"
 // @Param sources query string false "Comma-separated list of sources to filter by"
+// @Param query query string false "Case-insensitive substring match against the connection URL"
+// @Param min_messages query integer false "Only return connections with at least this many messages"
 // @Param sort_by query string false "Field to sort by" Enums(id,url,status_code,source,message_count,created_at,closed_at) default("id")
 // @Param sort_order query string false "Sort order" Enums(asc,desc) default("desc")
 // @Failure 500 {object} ErrorResponse
@@ -93,13 +95,29 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 
 	if unparsedSources != "" {
 		for _, source := range strings.Split(unparsedSources, ",") {
-			if db.IsValidSource(source) {
+			if db.IsValidWebSocketSource(source) {
 				sources = append(sources, source)
 			} else {
-				log.Warn().Str("source", source).Msg("Invalid filter source provided")
+				return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"error":   "Invalid source",
+					"message": "The provided sources filter contains an unknown source",
+				})
 			}
 		}
 	}
+
+	minMessages := 0
+	if unparsedMinMessages := c.Query("min_messages"); unparsedMinMessages != "" {
+		parsed, err := strconv.Atoi(unparsedMinMessages)
+		if err != nil || parsed < 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error":   "Invalid min messages",
+				"message": "The provided min_messages must be a non-negative integer",
+			})
+		}
+		minMessages = parsed
+	}
+
 	connections, count, err := db.Connection().ListWebSocketConnections(db.WebSocketConnectionFilter{
 		Pagination: db.Pagination{
 			Page:     page,
@@ -111,6 +129,8 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 		ScanJobID:      scanJobID,
 		ProxyServiceID: proxyServiceID,
 		Sources:        sources,
+		Query:          c.Query("query"),
+		MinMessages:    minMessages,
 		SortBy:         c.Query("sort_by", "id"),
 		SortOrder:      c.Query("sort_order", "desc"),
 	})

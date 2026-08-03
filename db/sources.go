@@ -8,5 +8,21 @@ package db
 var SourcePlayground = "playground"
 
 // SourceWsFuzz tags connections opened by per-iteration wsfuzz runs.
-// The captures UI excludes these by default.
 var SourceWsFuzz = "ws_fuzz"
+
+// WebSocketSources is the full taxonomy a WebSocketConnection.Source may hold:
+// the HTTP sources plus the two WebSocket-only ones. Note the mixed casing is
+// load-bearing, these are the values written to the column.
+var WebSocketSources = append(append([]string{}, Sources...), SourcePlayground, SourceWsFuzz)
+
+// IsValidWebSocketSource reports whether source is a known WebSocket connection
+// source. IsValidSource covers only the HTTP taxonomy and so rejects the
+// WebSocket-only values.
+func IsValidWebSocketSource(source string) bool {
+	for _, s := range WebSocketSources {
+		if s == source {
+			return true
+		}
+	}
+	return false
+}

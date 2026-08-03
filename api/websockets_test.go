@@ -49,6 +49,39 @@ func TestFindWebSocketConnections(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 }
 
+func TestFindWebSocketConnectionsFilterParams(t *testing.T) {
+	app := fiber.New()
+	app.Get("/api/v1/wsconnections", FindWebSocketConnections)
+
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{
+		Title: "TestFindWebSocketConnectionsFilterParams",
+		Code:  "TestFindWebSocketConnectionsFilterParams",
+	})
+	assert.Nil(t, err)
+
+	get := func(query string) int {
+		req := httptest.NewRequest(
+			"GET",
+			fmt.Sprintf("/api/v1/wsconnections?workspace=%d&%s", workspace.ID, query),
+			nil,
+		)
+		resp, err := app.Test(req, 10000)
+		assert.NoError(t, err)
+		return resp.StatusCode
+	}
+
+	assert.Equal(t, http.StatusOK, get("query=lichess&min_messages=10"))
+	assert.Equal(t, http.StatusOK, get("sources=Proxy,playground,ws_fuzz"))
+
+	// The lowercase HTTP-taxonomy spellings the v2 UI used to send were silently
+	// dropped, which read as "filter applied, everything matched".
+	assert.Equal(t, http.StatusBadRequest, get("sources=proxy"))
+	assert.Equal(t, http.StatusBadRequest, get("sources=Proxy,bogus"))
+
+	assert.Equal(t, http.StatusBadRequest, get("min_messages=-1"))
+	assert.Equal(t, http.StatusBadRequest, get("min_messages=lots"))
+}
+
 func TestFindWebSocketMessages(t *testing.T) {
 	app := fiber.New()
 	app.Get("/api/v1/wsmessages", FindWebSocketMessages)

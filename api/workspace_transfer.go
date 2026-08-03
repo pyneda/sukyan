@@ -2,7 +2,10 @@ package api
 
 import (
 	"bufio"
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"strconv"
 	"time"
 
@@ -41,17 +44,23 @@ func ExportWorkspace(c *fiber.Ctx) error {
 
 	// The response is streamed: a workspace archive can run to gigabytes, so it
 	// must never be assembled in memory before the first byte goes out.
+	//
+	// The writer runs on its own goroutine after this handler returns, by which
+	// point fiber has recycled the Ctx. Nothing from c may be touched inside it,
+	// so the workspace id is captured by value and the export gets its own
+	// context; a client that disconnects surfaces as a write error instead.
+	workspaceID := uint(id)
 	c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
-		result, err := workspace.Export(c.UserContext(), db.Connection(), uint(id), w, workspace.ExportOptions{})
+		result, err := workspace.Export(context.Background(), db.Connection(), workspaceID, w, workspace.ExportOptions{})
 		if err != nil {
-			log.Error().Err(err).Int("workspace", id).Msg("Workspace export failed mid-stream")
+			log.Error().Err(err).Uint("workspace", workspaceID).Msg("Workspace export failed mid-stream")
 			return
 		}
 		if err := w.Flush(); err != nil {
-			log.Error().Err(err).Int("workspace", id).Msg("Failed to flush workspace export")
+			log.Error().Err(err).Uint("workspace", workspaceID).Msg("Failed to flush workspace export")
 			return
 		}
-		log.Info().Int("workspace", id).Int64("rows", result.TotalRows).Msg("Workspace exported")
+		log.Info().Uint("workspace", workspaceID).Int64("rows", result.TotalRows).Msg("Workspace exported")
 	}))
 	return nil
 }
@@ -70,9 +79,16 @@ func ExportWorkspace(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/import [post]
 func ImportWorkspace(c *fiber.Ctx) error {
-	body := c.Context().RequestBodyStream()
+	// Fiber only hands over a stream once the body outgrows its buffer; smaller
+	// uploads arrive fully read. Both have to work, or import succeeds only for
+	// archives above whatever that threshold happens to be.
+	var body io.Reader = c.Context().RequestBodyStream()
 	if body == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "An archive body is required", "error": "Empty request body"})
+		raw := c.Body()
+		if len(raw) == 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "An archive body is required", "error": "Empty request body"})
+		}
+		body = bytes.NewReader(raw)
 	}
 
 	result, err := workspace.Import(c.UserContext(), db.Connection(), body, workspace.ImportOptions{

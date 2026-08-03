@@ -116,6 +116,11 @@ func StartAPI(opts ...APIServerOptions) {
 		// StrictRouting: true,
 		ServerHeader: "Sukyan",
 		AppName:      "Sukyan API",
+		// Workspace archives are uploaded as a raw body and can reach gigabytes.
+		// Streaming hands the body to the handler as a reader instead of
+		// buffering it, so the size limit bounds the upload rather than memory.
+		StreamRequestBody: true,
+		BodyLimit:         viper.GetInt("api.body_limit"),
 	})
 
 	registerBaseMiddleware(app, &apiLogger)

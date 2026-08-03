@@ -171,3 +171,50 @@ func TestHTMLReportIsSelfContained(t *testing.T) {
 		assert.NotContains(t, content, forbidden, "report must not reference external resources")
 	}
 }
+
+func TestHTMLReportEscapesIssueDataInPayload(t *testing.T) {
+	workspace := setupTestWorkspace(t)
+	defer func() {
+		assert.NoError(t, db.Connection().DeleteWorkspace(workspace.ID))
+	}()
+
+	issue := createTestIssue(workspace.ID)
+	issue.Title = `</script><img src=x onerror=alert(1)>`
+	issue.URL = `https://example.com/?q=</script><svg onload=alert(2)>`
+	saved, err := db.Connection().CreateIssue(*issue)
+	assert.NoError(t, err)
+
+	var buf bytes.Buffer
+	err = GenerateReport(ReportOptions{
+		WorkspaceID: workspace.ID,
+		Issues:      []*db.Issue{&saved},
+		Title:       "Escaping",
+		Format:      ReportFormatHTML,
+	}, &buf)
+	assert.NoError(t, err)
+
+	content := buf.String()
+
+	// The payload is embedded in a JS context and must not be able to close the
+	// script element. json.Marshal alone does not escape "<", which is why the
+	// payload is handed to html/template rather than pre-marshalled.
+	assert.NotContains(t, content, "</script><img")
+	assert.NotContains(t, content, "</script><svg")
+
+	// Matching the tail of the unicode escape rather than the whole sequence,
+	// because a literal backslash-u in this assertion is easy to mangle. The
+	// fixture data above contains no such substring of its own.
+	assert.Contains(t, content, "u003c", "angle brackets in issue data must be escaped")
+}
+
+func TestReportScriptNeverUsesInnerHTML(t *testing.T) {
+	script := mustAsset("report.js")
+
+	// Every value the report renders originates from a scanned target. Building
+	// nodes from text avoids the whole class of injection, so the asset is not
+	// allowed to reintroduce innerHTML.
+	assert.NotContains(t, script, "innerHTML")
+	assert.NotContains(t, script, "outerHTML")
+	assert.NotContains(t, script, "insertAdjacentHTML")
+	assert.NotContains(t, script, "document.write")
+}

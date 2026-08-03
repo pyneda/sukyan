@@ -1,5 +1,7 @@
 package report
 
+import "html/template"
+
 // ReportIssue is an optimized representation of an issue for report generation
 type ReportIssue struct {
 	ID                  uint                       `json:"id"`
@@ -93,6 +95,17 @@ type HTMLReportData struct {
 	Issues        []*ReportIssue   `json:"issues"`
 	GroupedIssues []*GroupedIssues `json:"grouped_issues"`
 	GeneratedAt   string           `json:"generated_at"`
+	SeverityDonut template.HTML    `json:"-"`
+	TopTypes      []TopTypeBar     `json:"-"`
+	Payload       ReportPayload    `json:"-"`
+}
+
+// ReportPayload is the data handed to the browser.
+type ReportPayload struct {
+	Title         string           `json:"title"`
+	GeneratedAt   string           `json:"generated_at"`
+	Summary       Summary          `json:"summary"`
+	GroupedIssues []*GroupedIssues `json:"grouped_issues"`
 }
 
 // ReportWebSocketConnection represents a WebSocket connection for report generation

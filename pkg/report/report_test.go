@@ -3,7 +3,6 @@ package report
 import (
 	"bytes"
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/pyneda/sukyan/db"
@@ -137,38 +136,38 @@ func TestGenerateReport(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestHelperFunctions(t *testing.T) {
-	t.Run("toString", func(t *testing.T) {
-		tests := []struct {
-			input    interface{}
-			expected string
-		}{
-			{[]byte("test bytes"), "test bytes"},
-			{"test string", "test string"},
-			{123, "123"},
-			{true, "true"},
-			{nil, "<nil>"},
-		}
+func TestHTMLReportIsSelfContained(t *testing.T) {
+	workspace := setupTestWorkspace(t)
+	defer func() {
+		assert.NoError(t, db.Connection().DeleteWorkspace(workspace.ID))
+	}()
 
-		for _, tt := range tests {
-			result := toString(tt.input)
-			assert.Equal(t, tt.expected, result)
-		}
-	})
+	issue := createTestIssue(workspace.ID)
+	saved, err := db.Connection().CreateIssue(*issue)
+	assert.NoError(t, err)
 
-	t.Run("toJSON", func(t *testing.T) {
-		tests := []struct {
-			input    interface{}
-			expected string
-		}{
-			{map[string]string{"key": "value"}, `{"key":"value"}`},
-			{[]string{"a", "b"}, `["a","b"]`},
-			{nil, `null`},
-		}
+	var buf bytes.Buffer
+	err = GenerateReport(ReportOptions{
+		WorkspaceID: workspace.ID,
+		Issues:      []*db.Issue{&saved},
+		Title:       "Self Contained",
+		Format:      ReportFormatHTML,
+	}, &buf)
+	assert.NoError(t, err)
 
-		for _, tt := range tests {
-			result := toJSON(tt.input)
-			assert.Equal(t, tt.expected, strings.TrimSpace(string(result)))
-		}
-	})
+	content := buf.String()
+
+	// A report is a deliverable. It must render in an air-gapped room and must
+	// not phone home when a client opens it.
+	for _, forbidden := range []string{
+		"cdn.tailwindcss.com",
+		"cdn.jsdelivr.net",
+		"fonts.googleapis.com",
+		"fonts.gstatic.com",
+		"<script src=",
+		"<link rel=\"stylesheet\"",
+		"@import",
+	} {
+		assert.NotContains(t, content, forbidden, "report must not reference external resources")
+	}
 }

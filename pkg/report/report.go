@@ -44,11 +44,19 @@ func GenerateReport(options ReportOptions, w io.Writer) error {
 	}
 }
 
+func mustAsset(name string) string {
+	content, err := templates.ReadFile("templates/" + name)
+	if err != nil {
+		panic("report: missing embedded asset " + name + ": " + err.Error())
+	}
+	return string(content)
+}
+
 func generateHTMLReport(options ReportOptions, w io.Writer) error {
 	funcMap := template.FuncMap{
-		"toString": toString,
-		"toJSON":   toJSON,
-		"add":      func(a, b int) int { return a + b },
+		"add":    func(a, b int) int { return a + b },
+		"styles": func() template.CSS { return template.CSS(mustAsset("report.css")) },
+		"script": func() template.JS { return template.JS(mustAsset("report.js")) },
 	}
 
 	// Parse the template with the custom function map
@@ -68,13 +76,23 @@ func generateHTMLReport(options ReportOptions, w io.Writer) error {
 
 	summary := generateSummary(reportIssues)
 
+	generatedAt := time.Now().Format("2006-01-02 15:04:05")
+
 	// Prepare data for the template
 	data := HTMLReportData{
 		Title:         options.Title,
 		Summary:       summary,
 		Issues:        reportIssues,
 		GroupedIssues: groupedIssues,
-		GeneratedAt:   time.Now().Format("2006-01-02 15:04:05"),
+		GeneratedAt:   generatedAt,
+		SeverityDonut: severityDonut(summary),
+		TopTypes:      topTypeBars(summary),
+		Payload: ReportPayload{
+			Title:         options.Title,
+			GeneratedAt:   generatedAt,
+			Summary:       summary,
+			GroupedIssues: groupedIssues,
+		},
 	}
 
 	if err := tmpl.Execute(w, data); err != nil {
@@ -103,21 +121,3 @@ func generateJSONReport(options ReportOptions, w io.Writer) error {
 	return nil
 }
 
-func toString(value interface{}) string {
-	switch v := value.(type) {
-	case []byte:
-		return string(v)
-	case string:
-		return v
-	default:
-		return fmt.Sprintf("%v", v)
-	}
-}
-
-func toJSON(value interface{}) template.JS {
-	bytes, err := json.Marshal(value)
-	if err != nil {
-		return template.JS("{}")
-	}
-	return template.JS(bytes)
-}

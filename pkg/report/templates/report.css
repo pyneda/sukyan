@@ -1,0 +1,711 @@
+/* Design tokens ported from sukyan-ui/v2 src/styles/globals.css. */
+
+:root {
+  --radius: 0.25rem;
+
+  --background: oklch(0.935 0.012 75);
+  --foreground: oklch(0.24 0.018 55);
+  --card: oklch(0.97 0.007 70);
+  --card-foreground: oklch(0.24 0.018 55);
+  --primary: oklch(0.24 0.018 55);
+  --primary-foreground: oklch(0.935 0.012 75);
+  --secondary: oklch(0.875 0.018 72);
+  --muted: oklch(0.875 0.018 72);
+  --muted-foreground: oklch(0.57 0.025 60);
+  --accent: oklch(0.875 0.018 72);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.855 0.019 75);
+  --input: oklch(0.855 0.019 75);
+  --ring: oklch(0.24 0.018 55);
+
+  /* Two roles, because one value cannot serve both: a fill needs a fixed label
+     colour to stay readable, while text needs to contrast with the page. */
+  --severity-critical: oklch(0.5 0.21 15);
+  --severity-high: oklch(0.7 0.18 45);
+  --severity-medium: oklch(0.82 0.15 85);
+  --severity-low: oklch(0.52 0.13 235);
+  --severity-info: oklch(0.48 0.01 253);
+
+  --severity-critical-fg: oklch(0.5 0.21 15);
+  --severity-high-fg: oklch(0.53 0.16 45);
+  --severity-medium-fg: oklch(0.51 0.13 70);
+  --severity-low-fg: oklch(0.49 0.13 235);
+  --severity-info-fg: oklch(0.48 0.01 253);
+
+  --chart-1: oklch(0.678 0.165 23);
+  --chart-2: oklch(0.634 0.061 171);
+  --chart-3: oklch(0.38 0.033 206);
+  --chart-4: oklch(0.835 0.115 51);
+  --chart-5: oklch(0.784 0.139 35);
+
+  /* Inter and JetBrains Mono lead the stack so machines that have them
+     installed get them. Embedding the files would add ~150KB to every report. */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.dark {
+  --background: oklch(0.166 0.002 253);
+  --foreground: oklch(0.925 0.003 250);
+  --card: oklch(0.188 0.003 253);
+  --card-foreground: oklch(0.925 0.003 250);
+  --primary: oklch(0.925 0.003 250);
+  --primary-foreground: oklch(0.166 0.002 253);
+  --secondary: oklch(0.253 0.005 253);
+  --muted: oklch(0.253 0.005 253);
+  --muted-foreground: oklch(0.63 0.006 253);
+  --accent: oklch(0.253 0.005 253);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(0.273 0.006 253);
+  --input: oklch(0.273 0.006 253);
+  --ring: oklch(0.759 0.012 253);
+
+  --severity-critical: oklch(0.52 0.21 15);
+  --severity-high: oklch(0.72 0.18 45);
+  --severity-medium: oklch(0.85 0.15 85);
+  --severity-low: oklch(0.55 0.13 235);
+  --severity-info: oklch(0.5 0.01 253);
+
+  --severity-critical-fg: oklch(0.72 0.17 15);
+  --severity-high-fg: oklch(0.78 0.15 45);
+  --severity-medium-fg: oklch(0.85 0.15 85);
+  --severity-low-fg: oklch(0.78 0.11 235);
+  --severity-info-fg: oklch(0.72 0.01 253);
+
+  --chart-1: oklch(0.53 0.208 219);
+  --chart-2: oklch(0.702 0.072 148);
+  --chart-3: oklch(0.723 0.155 36);
+  --chart-4: oklch(0.75 0.12 75);
+  --chart-5: oklch(0.613 0.15 6);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+code,
+pre,
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+a {
+  color: var(--severity-low-fg);
+}
+
+.container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Header */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 0;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* Card */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.card-body {
+  padding: 1rem;
+}
+
+/* Stat tile — mirrors v2 StatTile: uppercase 11px label, 2xl tabular value */
+.stat {
+  padding: 0.875rem 1rem;
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.stat-value {
+  margin-top: 0.25rem;
+  font-size: 1.5rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-hint {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+/* Badges — mirrors v2 SeverityBadge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: calc(var(--radius) - 1px);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge-sev-critical {
+  background: var(--severity-critical);
+  color: #fff;
+}
+
+.badge-sev-high {
+  background: var(--severity-high);
+  color: #000;
+}
+
+.badge-sev-medium {
+  background: var(--severity-medium);
+  color: #000;
+}
+
+.badge-sev-low {
+  background: var(--severity-low);
+  color: #fff;
+}
+
+.badge-sev-info {
+  background: var(--severity-info);
+  color: #fff;
+}
+
+.badge-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted-foreground);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 1px);
+  background: color-mix(in oklch, var(--muted) 40%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+
+/* Controls */
+.input,
+.select {
+  width: 100%;
+  padding: 0.4375rem 0.625rem;
+  background: var(--background);
+  color: var(--foreground);
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 0.8125rem;
+}
+
+.input:focus,
+.select:focus {
+  outline: 2px solid color-mix(in oklch, var(--ring) 50%, transparent);
+  outline-offset: -1px;
+}
+
+.select {
+  width: auto;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3125rem 0.625rem;
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--accent);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted-foreground);
+}
+
+.btn-ghost:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+/* Charts */
+.donut {
+  width: 100%;
+  max-height: 220px;
+}
+
+/* Two columns rather than centred wrapping: five severities always overflow one
+   row, and centring orphans the last one on a line of its own. */
+.legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.375rem 0.75rem;
+  margin-top: 0.875rem;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.legend-swatch {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 2px;
+}
+
+.bar {
+  display: grid;
+  grid-template-columns: minmax(0, 12rem) 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.3125rem 0;
+}
+
+.bar-label {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-track {
+  height: 0.5rem;
+  background: color-mix(in oklch, var(--muted) 60%, transparent);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--chart-1);
+  border-radius: 9999px;
+}
+
+.bar-count {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+
+/* Layout */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.sidebar {
+  position: sticky;
+  top: 4.25rem;
+  max-height: calc(100vh - 5.5rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.sidebar-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-list::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
+/* Groups */
+.group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  background: color-mix(in oklch, var(--muted) 45%, transparent);
+  border: 0;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.group-head:hover {
+  background: var(--accent);
+}
+
+.group-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.group[data-open="true"] .group-chevron {
+  transform: rotate(90deg);
+}
+
+/* 0fr -> 1fr animates correctly at any content height. The old
+   max-height: 9999px transition ran at a wildly wrong speed for short lists. */
+.group-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.18s ease;
+}
+
+.group[data-open="true"] .group-body {
+  grid-template-rows: 1fr;
+}
+
+.group-body > div {
+  overflow: hidden;
+}
+
+/* Issue rows */
+.issue-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.625rem 0.5rem 0.75rem;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-left: 2px solid transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.issue-row:hover {
+  background: var(--accent);
+}
+
+.issue-row-selected {
+  background: var(--accent);
+  border-left-color: var(--ring);
+}
+
+.issue-row-title {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.issue-row-url {
+  margin-top: 0.125rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issue-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: 0.4375rem 0.75rem;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--foreground);
+}
+
+.tab[aria-selected="true"] {
+  color: var(--foreground);
+  border-bottom-color: var(--ring);
+  font-weight: 500;
+}
+
+.tab-panel {
+  padding-top: 1rem;
+}
+
+.tab-panel[hidden] {
+  display: none;
+}
+
+/* Fields and sections */
+.field {
+  margin-bottom: 1.25rem;
+}
+
+.field-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-bottom: 0.375rem;
+}
+
+.field-value {
+  font-size: 0.8125rem;
+  white-space: pre-line;
+}
+
+.separator {
+  height: 1px;
+  background: var(--border);
+  margin: 1.25rem 0;
+}
+
+/* Code blocks */
+.code {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--muted) 30%, transparent);
+  overflow: hidden;
+}
+
+.code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4375rem 0.625rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.code-body {
+  max-height: 28rem;
+  overflow: auto;
+  padding: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.code .btn {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.code:hover .btn,
+.code .btn:focus-visible {
+  opacity: 1;
+}
+
+.empty {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.mark {
+  background: color-mix(in oklch, var(--severity-medium) 45%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* Message timeline */
+.msg {
+  display: flex;
+  gap: 0.625rem;
+  padding: 0.5rem 0;
+}
+
+.msg-dir {
+  flex-shrink: 0;
+  width: 4.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+
+.msg-sent .msg-dir {
+  color: var(--chart-1);
+}
+
+.msg-received .msg-dir {
+  color: var(--chart-2);
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chart-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media print {
+  /* Printing forces the light palette regardless of the on-screen theme. */
+  .dark {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.24 0.018 55);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.24 0.018 55);
+    --muted: oklch(0.94 0 0);
+    --muted-foreground: oklch(0.45 0 0);
+    --border: oklch(0.85 0 0);
+    --accent: oklch(0.95 0 0);
+  }
+
+  .header {
+    position: static;
+  }
+
+  .sidebar,
+  .no-print {
+    display: none !important;
+  }
+
+  .layout {
+    display: block;
+  }
+
+  .tabs {
+    display: none;
+  }
+
+  .tab-panel[hidden] {
+    display: block !important;
+  }
+
+  .group-body {
+    grid-template-rows: 1fr !important;
+  }
+
+  .code-body {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .card,
+  .field {
+    break-inside: avoid;
+  }
+
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.6875rem;
+    color: #555;
+  }
+}

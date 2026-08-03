@@ -396,10 +396,15 @@
     })
   }
 
+  // Reset per selection, so the print hook only ever builds panels that are
+  // actually in the document.
+  let panelBuilders = []
+
   function renderDetail(issue) {
     const container = document.getElementById('issue-details')
     if (!container) return
     container.replaceChildren()
+    panelBuilders = []
 
     const head = el('div', 'card-head')
     head.style.alignItems = 'flex-start'
@@ -450,19 +455,403 @@
     container.appendChild(body)
   }
 
-  // Replaced by the tabbed implementation.
-  function buildDetailBody(issue) {
-    const panel = el('div')
-    if (issue.description) {
-      panel.appendChild(el('p', 'field-label', 'Summary'))
-      panel.appendChild(el('p', 'field-value', issue.description))
+  const COPY_ICON = [
+    'M8 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2',
+    'M16 2H10a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z',
+  ]
+
+  function decodeBase64(value) {
+    if (!value) return ''
+    try {
+      // atob yields a binary string; this round-trip recovers UTF-8 text.
+      return new TextDecoder().decode(Uint8Array.from(atob(value), (c) => c.charCodeAt(0)))
+    } catch {
+      return '[unable to decode content]'
     }
+  }
+
+  function formatBytes(count) {
+    if (count < 1024) return `${count} B`
+    if (count < 1024 * 1024) return `${(count / 1024).toFixed(1)} KB`
+    return `${(count / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  function codeBlock(title, content, options = {}) {
+    const block = el('div', 'code')
+
+    const head = el('div', 'code-head')
+    head.appendChild(el('span', null, title))
+
+    const right = el('div')
+    right.style.display = 'flex'
+    right.style.alignItems = 'center'
+    right.style.gap = '0.375rem'
+
+    if (options.truncated) right.appendChild(el('span', 'badge badge-outline', 'Truncated'))
+    right.appendChild(el('span', 'chip', formatBytes(new Blob([content]).size)))
+
+    const copy = el('button', 'btn btn-ghost no-print')
+    copy.type = 'button'
+    copy.appendChild(icon(COPY_ICON, 12))
+    copy.appendChild(el('span', null, 'Copy'))
+    copy.addEventListener('click', () => copyToClipboard(content))
+    right.appendChild(copy)
+
+    head.appendChild(right)
+    block.appendChild(head)
+    block.appendChild(el('pre', 'code-body', content))
+    return block
+  }
+
+  function field(label, value) {
+    const wrapper = el('div', 'field')
+    wrapper.appendChild(el('p', 'field-label', label))
+    wrapper.appendChild(el('p', 'field-value', value))
+    return wrapper
+  }
+
+  function separator() {
+    return el('div', 'separator')
+  }
+
+  function labelledRow(label, value, labelWidth) {
+    const row = el('div')
+    row.style.display = 'flex'
+    row.style.gap = '0.5rem'
+    const key = el('span', 'stat-hint', label)
+    key.style.minWidth = labelWidth
+    key.style.flexShrink = '0'
+    row.appendChild(key)
+    const val = el('span', null, value)
+    val.style.wordBreak = 'break-all'
+    row.appendChild(val)
+    return row
+  }
+
+  // Panels are built lazily on first activation, so opening a finding does not
+  // pay for decoding evidence the reader may never look at.
+  function buildTabs(definitions) {
+    const wrapper = el('div')
+    const list = el('div', 'tabs')
+    list.setAttribute('role', 'tablist')
+    const panels = el('div')
+
+    definitions.forEach((definition, index) => {
+      const tab = el('button', 'tab', definition.label)
+      tab.type = 'button'
+      tab.setAttribute('role', 'tab')
+      tab.setAttribute('aria-selected', String(index === 0))
+
+      const panel = el('div', 'tab-panel')
+      panel.setAttribute('role', 'tabpanel')
+      panel.hidden = index !== 0
+
+      const build = () => {
+        if (panel.dataset.built === 'true') return
+        panel.appendChild(definition.build())
+        panel.dataset.built = 'true'
+      }
+
+      if (index === 0) build()
+
+      // Printing hides the tab strip and reveals every panel, so panels the
+      // reader never opened still have to exist on paper.
+      panelBuilders.push(build)
+
+      tab.addEventListener('click', () => {
+        for (const other of list.children) other.setAttribute('aria-selected', 'false')
+        for (const other of panels.children) other.hidden = true
+        tab.setAttribute('aria-selected', 'true')
+        build()
+        panel.hidden = false
+      })
+
+      list.appendChild(tab)
+      panels.appendChild(panel)
+    })
+
+    wrapper.appendChild(list)
+    wrapper.appendChild(panels)
+    return wrapper
+  }
+
+  function linkTo(url) {
+    const link = el('a', null, url)
+    link.href = url
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer'
+    link.style.wordBreak = 'break-all'
+    return link
+  }
+
+  function descriptionPanel(issue) {
+    const panel = el('div')
+
+    const urlField = el('div', 'field')
+    urlField.appendChild(el('p', 'field-label', 'URL'))
+    if (/^https?:\/\//i.test(issue.url || '')) {
+      urlField.appendChild(linkTo(issue.url))
+    } else {
+      urlField.appendChild(el('p', 'field-value', issue.url || '-'))
+    }
+    panel.appendChild(urlField)
+
+    if (issue.payload) {
+      const payloadField = el('div', 'field')
+      payloadField.appendChild(el('p', 'field-label', 'Payload'))
+      payloadField.appendChild(codeBlock('Payload', issue.payload))
+      panel.appendChild(payloadField)
+    }
+
+    panel.appendChild(separator())
+
+    if (issue.description) panel.appendChild(field('Summary', issue.description))
+    if (issue.details) panel.appendChild(field('Details', issue.details))
+    if (issue.note) panel.appendChild(field('Notes', issue.note))
+
+    if (issue.curl_command) {
+      const curlField = el('div', 'field')
+      curlField.appendChild(el('p', 'field-label', 'cURL Command'))
+      curlField.appendChild(codeBlock('cURL', issue.curl_command))
+      panel.appendChild(curlField)
+    }
+
+    if (issue.remediation) {
+      panel.appendChild(separator())
+      panel.appendChild(field('Remediation', issue.remediation))
+    }
+
+    if (issue.references && issue.references.length > 0) {
+      const refField = el('div', 'field')
+      refField.appendChild(el('p', 'field-label', 'References'))
+      const list = el('ul')
+      list.style.paddingLeft = '1.125rem'
+      for (const reference of issue.references) {
+        const item = el('li')
+        item.appendChild(linkTo(reference))
+        list.appendChild(item)
+      }
+      refField.appendChild(list)
+      panel.appendChild(refField)
+    }
+
     return panel
+  }
+
+  function requestsPanel(issue) {
+    const panel = el('div')
+
+    if (issue.request) {
+      const wrapper = el('div', 'field')
+      wrapper.appendChild(el('p', 'field-label', 'Request'))
+      wrapper.appendChild(
+        codeBlock('HTTP Request', decodeBase64(issue.request), { truncated: issue.request_truncated }),
+      )
+      panel.appendChild(wrapper)
+    }
+
+    if (issue.response) {
+      const wrapper = el('div', 'field')
+      wrapper.appendChild(el('p', 'field-label', 'Response'))
+      wrapper.appendChild(
+        codeBlock('HTTP Response', decodeBase64(issue.response), { truncated: issue.response_truncated }),
+      )
+      panel.appendChild(wrapper)
+    }
+
+    if (!issue.request && !issue.response) {
+      panel.appendChild(el('p', 'empty', 'No request or response was captured for this finding'))
+    }
+
+    return panel
+  }
+
+  function interactionsPanel(issue) {
+    const panel = el('div')
+
+    for (const interaction of issue.interactions || []) {
+      const card = el('div', 'card')
+      card.style.marginBottom = '0.75rem'
+
+      const head = el('div', 'card-head')
+      const left = el('div')
+      left.style.display = 'flex'
+      left.style.alignItems = 'center'
+      left.style.gap = '0.5rem'
+      left.appendChild(el('span', 'badge badge-outline', (interaction.protocol || 'unknown').toUpperCase()))
+      left.appendChild(el('span', null, interaction.remote_address || 'unknown source'))
+      head.appendChild(left)
+      head.appendChild(el('span', 'stat-hint', interaction.timestamp || ''))
+      card.appendChild(head)
+
+      const body = el('div', 'card-body')
+
+      if (interaction.cause) {
+        const cause = el('div', 'field')
+        cause.appendChild(el('p', 'field-label', 'Triggered by'))
+        const grid = el('div')
+        grid.style.display = 'grid'
+        grid.style.gap = '0.375rem'
+        for (const [label, value] of [
+          ['Test', interaction.cause.test_name],
+          ['Code', interaction.cause.code],
+          ['Insertion point', interaction.cause.insertion_point],
+          ['Interaction domain', interaction.cause.interaction_domain],
+        ]) {
+          if (!value) continue
+          grid.appendChild(labelledRow(label, value, '9rem'))
+        }
+        cause.appendChild(grid)
+
+        if (interaction.cause.payload) {
+          const payload = el('div')
+          payload.style.marginTop = '0.5rem'
+          payload.appendChild(codeBlock('Payload', interaction.cause.payload))
+          cause.appendChild(payload)
+        }
+        body.appendChild(cause)
+      }
+
+      const protocol = (interaction.protocol || '').toUpperCase()
+
+      const request = decodeBase64(interaction.raw_request)
+      if (request) body.appendChild(codeBlock(`${protocol} Request`, request))
+
+      const response = decodeBase64(interaction.raw_response)
+      if (response) {
+        const spacer = el('div')
+        spacer.style.marginTop = '0.5rem'
+        spacer.appendChild(codeBlock(`${protocol} Response`, response))
+        body.appendChild(spacer)
+      }
+
+      card.appendChild(body)
+      panel.appendChild(card)
+    }
+
+    return panel
+  }
+
+  // Some capture sources already prefix the numeric code into the status text
+  // ("101 Switching Protocols"), so joining both unconditionally repeats it.
+  function formatStatus(code, text) {
+    const codeText = code ? String(code) : ''
+    const statusText = (text || '').trim()
+    if (!codeText) return statusText
+    if (!statusText) return codeText
+    return statusText.startsWith(codeText) ? statusText : `${codeText} ${statusText}`
+  }
+
+  function websocketPanel(issue) {
+    const connection = issue.websocket_connection
+    const panel = el('div')
+
+    const info = el('div', 'field')
+    info.appendChild(el('p', 'field-label', 'Connection'))
+
+    const grid = el('div')
+    grid.style.display = 'grid'
+    grid.style.gap = '0.375rem'
+
+    // status_code / status_text are the fields the payload actually carries.
+    // The previous template read a `status` field that never existed and
+    // rendered "undefined" on every WebSocket finding.
+    const status = formatStatus(connection.status_code, connection.status_text)
+
+    for (const [label, value] of [
+      ['URL', connection.url],
+      ['Status', status],
+      ['Source', connection.source],
+      ['Opened', connection.created_at],
+      ['Closed', connection.closed_at],
+    ]) {
+      if (!value) continue
+      const row = labelledRow(label, value, '5rem')
+      row.lastChild.style.fontFamily = 'var(--font-mono)'
+      row.lastChild.style.fontSize = '0.75rem'
+      grid.appendChild(row)
+    }
+
+    info.appendChild(grid)
+    panel.appendChild(info)
+
+    const messages = connection.messages || []
+    const messagesField = el('div', 'field')
+    messagesField.appendChild(el('p', 'field-label', `Messages (${messages.length})`))
+
+    if (messages.length === 0) {
+      messagesField.appendChild(el('p', 'empty', 'No messages were recorded on this connection'))
+    } else {
+      for (const message of messages) {
+        const row = el('div', `msg msg-${message.direction === 'sent' ? 'sent' : 'received'}`)
+        row.appendChild(el('span', 'msg-dir', message.direction === 'sent' ? 'sent →' : '← received'))
+
+        const content = el('div')
+        content.style.flex = '1'
+        content.style.minWidth = '0'
+
+        let text = message.payload_data || ''
+        if (!message.is_binary) {
+          try {
+            const trimmed = text.trim()
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+              text = JSON.stringify(JSON.parse(trimmed), null, 2)
+            }
+          } catch {
+            // Not JSON. The raw payload is what matters.
+          }
+        }
+
+        content.appendChild(codeBlock(message.timestamp || 'message', text))
+        row.appendChild(content)
+        messagesField.appendChild(row)
+      }
+    }
+
+    panel.appendChild(messagesField)
+    return panel
+  }
+
+  function pocPanel(issue) {
+    const panel = el('div')
+    if (issue.poc_type) {
+      const type = el('div')
+      type.style.marginBottom = '0.5rem'
+      type.appendChild(el('span', 'badge badge-outline', issue.poc_type))
+      panel.appendChild(type)
+    }
+    panel.appendChild(codeBlock('Proof of Concept', issue.poc || ''))
+    return panel
+  }
+
+  function buildDetailBody(issue) {
+    const definitions = [{ label: 'Description', build: () => descriptionPanel(issue) }]
+
+    if (issue.request || issue.response) {
+      definitions.push({ label: 'Request / Response', build: () => requestsPanel(issue) })
+    }
+    if (issue.interactions && issue.interactions.length > 0) {
+      definitions.push({
+        label: `Interactions (${issue.interactions.length})`,
+        build: () => interactionsPanel(issue),
+      })
+    }
+    if (issue.websocket_connection) {
+      definitions.push({ label: 'WebSocket', build: () => websocketPanel(issue) })
+    }
+    if (issue.poc) {
+      definitions.push({ label: 'PoC', build: () => pocPanel(issue) })
+    }
+
+    return buildTabs(definitions)
   }
 
   function bootstrap() {
     bindTheme()
     bindControls()
+    window.addEventListener('beforeprint', () => {
+      for (const build of panelBuilders) build()
+    })
     applyFilters()
 
     const fromHash = window.location.hash.startsWith('#issue-')

@@ -98,6 +98,7 @@ type HTMLReportData struct {
 	SeverityDonut template.HTML    `json:"-"`
 	TopTypes      []TopTypeBar     `json:"-"`
 	Payload       ReportPayload    `json:"-"`
+	Highlight     bool             `json:"-"`
 }
 
 // ReportPayload is the data handed to the browser.

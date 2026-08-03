@@ -21,6 +21,8 @@ type ReportRequest struct {
 	Format         report.ReportFormat `json:"format" validate:"required,oneof=html json pdf"`
 	MinConfidence  int                 `json:"min_confidence" validate:"omitempty"`
 	MaxRequestSize int                 `json:"max_request_size" validate:"omitempty"`
+	// Omitting this highlights, matching the UI. See report.ReportOptions.
+	DisableSyntaxHighlight bool `json:"disable_syntax_highlight" validate:"omitempty"`
 }
 
 // reportContentType maps a format onto how the browser should receive it.
@@ -99,6 +101,8 @@ func ReportHandler(c *fiber.Ctx) error {
 		TaskID:         input.TaskID,
 		ScanID:         input.ScanID,
 		GeneratedAt:    time.Now(),
+
+		DisableSyntaxHighlight: input.DisableSyntaxHighlight,
 	}
 
 	// Create a buffer to temporarily hold the generated report

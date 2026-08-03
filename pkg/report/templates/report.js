@@ -394,6 +394,7 @@
     if (!container) return
     container.replaceChildren()
     panelBuilders = []
+    highlightBudget = HIGHLIGHT_RENDER_BUDGET
 
     const head = el('div', 'card-head')
     head.style.alignItems = 'flex-start'
@@ -465,6 +466,67 @@
     return `${(count / (1024 * 1024)).toFixed(1)} MB`
   }
 
+  /* Syntax highlighting. `SukyanSyntax` is the UI's tokeniser, embedded only
+     when the report was generated with highlighting enabled, so every path
+     here has to survive it being absent.
+
+     Two limits, both measured on the payload sizes this report actually
+     carries. A block is tokenised whole below BLOCK_LIMIT; a 64 KB JSON body
+     costs ~15 ms to tokenise and ~55 ms to paint, and the cost climbs steeply
+     past that (a 200 KB HTML body is ~100k spans and ~0.8 s). Above it only
+     the message head is tokenised — status line and headers are where a
+     reader looks first and cost nothing — and the body stays plain text.
+
+     RENDER_BUDGET bounds the panel rather than the block: a WebSocket
+     transcript is hundreds of small blocks, each far below BLOCK_LIMIT, and
+     without a shared budget they add up to the same stall. */
+  const HIGHLIGHT_BLOCK_LIMIT = 64 * 1024
+  const HIGHLIGHT_RENDER_BUDGET = 512 * 1024
+  let highlightBudget = 0
+
+  function headEnd(text) {
+    const match = /\r?\n\r?\n/.exec(text)
+    return match ? match.index + match[0].length : -1
+  }
+
+  function tokenRanges(text, lang) {
+    if (!lang || lang === 'plain' || !text) return null
+    const syntax = window.SukyanSyntax
+    if (!syntax) return null
+
+    const head = text.length > HIGHLIGHT_BLOCK_LIMIT && lang === 'http' ? headEnd(text) : -1
+    const target = head > 0 ? text.slice(0, head) : text
+    if (target.length > HIGHLIGHT_BLOCK_LIMIT || target.length > highlightBudget) return null
+
+    try {
+      const ranges = syntax.tokenize(target, lang)
+      highlightBudget -= target.length
+      return ranges.length > 0 ? ranges : null
+    } catch {
+      // A grammar that throws must not cost the reader the evidence itself.
+      return null
+    }
+  }
+
+  // Ranges arrive ascending and non-overlapping, so one pass emits the whole block.
+  function paintCode(pre, text, ranges) {
+    if (!ranges) {
+      pre.textContent = text
+      return
+    }
+    const fragment = document.createDocumentFragment()
+    let cursor = 0
+    for (const range of ranges) {
+      if (range.start < cursor) continue
+      if (range.start > cursor) fragment.appendChild(document.createTextNode(text.slice(cursor, range.start)))
+      const span = el('span', `tok-${range.role}`, text.slice(range.start, range.end))
+      fragment.appendChild(span)
+      cursor = range.end
+    }
+    if (cursor < text.length) fragment.appendChild(document.createTextNode(text.slice(cursor)))
+    pre.replaceChildren(fragment)
+  }
+
   function codeBlock(title, content, options = {}) {
     const block = el('div', 'code')
 
@@ -488,7 +550,10 @@
 
     head.appendChild(right)
     block.appendChild(head)
-    block.appendChild(el('pre', 'code-body', content))
+
+    const pre = el('pre', 'code-body')
+    paintCode(pre, content, tokenRanges(content, options.lang))
+    block.appendChild(pre)
     return block
   }
 
@@ -631,7 +696,10 @@
       const wrapper = el('div', 'field')
       wrapper.appendChild(el('p', 'field-label', 'Request'))
       wrapper.appendChild(
-        codeBlock('HTTP Request', decodeBase64(issue.request), { truncated: issue.request_truncated }),
+        codeBlock('HTTP Request', decodeBase64(issue.request), {
+          truncated: issue.request_truncated,
+          lang: 'http',
+        }),
       )
       panel.appendChild(wrapper)
     }
@@ -640,7 +708,10 @@
       const wrapper = el('div', 'field')
       wrapper.appendChild(el('p', 'field-label', 'Response'))
       wrapper.appendChild(
-        codeBlock('HTTP Response', decodeBase64(issue.response), { truncated: issue.response_truncated }),
+        codeBlock('HTTP Response', decodeBase64(issue.response), {
+          truncated: issue.response_truncated,
+          lang: 'http',
+        }),
       )
       panel.appendChild(wrapper)
     }
@@ -650,6 +721,14 @@
     }
 
     return panel
+  }
+
+  // SMTP and LDAP callbacks have no grammar; they stay plain.
+  function interactionLang(protocol) {
+    const name = (protocol || '').toLowerCase()
+    if (name === 'dns') return 'dns'
+    if (name === 'http' || name === 'https') return 'http'
+    return 'plain'
   }
 
   function interactionsPanel(issue) {
@@ -699,15 +778,16 @@
       }
 
       const protocol = (interaction.protocol || '').toUpperCase()
+      const lang = interactionLang(interaction.protocol)
 
       const request = decodeBase64(interaction.raw_request)
-      if (request) body.appendChild(codeBlock(`${protocol} Request`, request))
+      if (request) body.appendChild(codeBlock(`${protocol} Request`, request, { lang }))
 
       const response = decodeBase64(interaction.raw_response)
       if (response) {
         const spacer = el('div')
         spacer.style.marginTop = '0.5rem'
-        spacer.appendChild(codeBlock(`${protocol} Response`, response))
+        spacer.appendChild(codeBlock(`${protocol} Response`, response, { lang }))
         body.appendChild(spacer)
       }
 
@@ -773,18 +853,20 @@
         content.style.minWidth = '0'
 
         let text = message.payload_data || ''
+        let lang = 'plain'
         if (!message.is_binary) {
           try {
             const trimmed = text.trim()
             if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
               text = JSON.stringify(JSON.parse(trimmed), null, 2)
+              lang = 'json'
             }
           } catch {
             // Not JSON. The raw payload is what matters.
           }
         }
 
-        content.appendChild(codeBlock(message.timestamp || 'message', text))
+        content.appendChild(codeBlock(message.timestamp || 'message', text, { lang }))
         row.appendChild(content)
         messagesField.appendChild(row)
       }

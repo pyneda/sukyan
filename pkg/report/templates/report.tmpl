@@ -6,6 +6,7 @@
     <title>{{ .Title }} - Sukyan Scanner Report</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFhMTkxNyIvPgogIDxwYXRoIGQ9Ik0yMC44IDExLjVjMC0yLjYtMi00LjItNC44LTQuMnMtNC44IDEuNi00LjggNC4yYzAgNS4yIDkuNiAyLjggOS42IDcuNCAwIDItMS44IDMtNC44IDNzLTQuOC0xLjYtNC44LTMuNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZThlM2RjIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K">
     <style>{{ styles }}</style>
+    {{ if .Highlight }}<style>{{ syntaxStyles }}</style>{{ end }}
 </head>
 <body>
     <header class="header">
@@ -116,6 +117,7 @@
     <div id="toast" class="card no-print" role="status" aria-live="polite" style="position:fixed;bottom:1rem;right:1rem;padding:0.5rem 0.875rem;font-size:0.8125rem;opacity:0;transform:translateY(0.5rem);transition:opacity 0.2s ease,transform 0.2s ease;pointer-events:none;z-index:50"></div>
 
     <script>window.__SUKYAN_REPORT__ = {{ .Payload }};</script>
+    {{ if .Highlight }}<script>{{ syntaxScript }}</script>{{ end }}
     <script>{{ script }}</script>
 </body>
 </html>

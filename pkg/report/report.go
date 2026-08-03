@@ -33,6 +33,12 @@ type ReportOptions struct {
 	ScanID         uint
 	MaxRequestSize int // Maximum size for requests in bytes (0 = no limit)
 
+	// HTML only. Embeds the tokeniser the UI uses so requests and responses are
+	// coloured the same way there. Negated for the same reason MaxInstances is:
+	// the zero value is what callers who do not care send, and they should get
+	// the report the UI shows. Turning it off drops ~38 KB from the file.
+	DisableSyntaxHighlight bool
+
 	// PDF only. Zero applies the default, negative means unlimited. Unlimited is
 	// not the zero value because that is what callers who do not care send, and
 	// an unbounded document can run to thousands of pages.
@@ -65,9 +71,11 @@ func mustAsset(name string) string {
 
 func generateHTMLReport(options ReportOptions, w io.Writer) error {
 	funcMap := template.FuncMap{
-		"add":    func(a, b int) int { return a + b },
-		"styles": func() template.CSS { return template.CSS(mustAsset("report.css")) },
-		"script": func() template.JS { return template.JS(mustAsset("report.js")) },
+		"add":          func(a, b int) int { return a + b },
+		"styles":       func() template.CSS { return template.CSS(mustAsset("report.css")) },
+		"script":       func() template.JS { return template.JS(mustAsset("report.js")) },
+		"syntaxStyles": func() template.CSS { return template.CSS(mustAsset("syntax.css")) },
+		"syntaxScript": func() template.JS { return template.JS(mustAsset("syntax.js")) },
 	}
 
 	// Parse the template with the custom function map
@@ -98,6 +106,7 @@ func generateHTMLReport(options ReportOptions, w io.Writer) error {
 		GeneratedAt:   generatedAt,
 		SeverityDonut: severityDonut(summary),
 		TopTypes:      topTypeBars(summary),
+		Highlight:     !options.DisableSyntaxHighlight,
 		Payload: ReportPayload{
 			Title:         options.Title,
 			GeneratedAt:   generatedAt,

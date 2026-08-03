@@ -21,6 +21,7 @@ var (
 	maxRequestSize   int
 	maxInstances     int
 	maxEvidenceBytes int
+	syntaxHighlight  bool
 	taskID           uint
 	scanID           uint
 )
@@ -128,6 +129,8 @@ var reportCmd = &cobra.Command{
 			MaxInstances:     unlimitedIfZero(maxInstances),
 			MaxEvidenceBytes: unlimitedIfZero(maxEvidenceBytes),
 			GeneratedAt:      time.Now(),
+
+			DisableSyntaxHighlight: !syntaxHighlight,
 		}
 
 		var buf bytes.Buffer
@@ -174,4 +177,5 @@ func init() {
 	reportCmd.Flags().IntVar(&maxRequestSize, "max-request-size", 200*1024, "Maximum size (in bytes) for request/response content when using html report format. 0 means no limit")
 	reportCmd.Flags().IntVar(&maxInstances, "max-instances", 50, "Maximum instances shown per finding in pdf reports. 0 means no limit")
 	reportCmd.Flags().IntVar(&maxEvidenceBytes, "max-evidence-bytes", 2048, "Maximum request/response bytes shown per instance in pdf reports. 0 means no limit")
+	reportCmd.Flags().BoolVar(&syntaxHighlight, "syntax-highlight", true, "Syntax highlight requests and responses in html reports")
 }

@@ -120,3 +120,43 @@ func TestPDFDocTruncateToWidthShortensLongText(t *testing.T) {
 	require.LessOrEqual(t, d.pdf.GetStringWidth(got), 40.0)
 	require.NoError(t, d.finish())
 }
+
+// fpdf's SplitLines returns no parts for an empty string, which silently drops
+// the blank line separating HTTP headers from the body.
+func TestWrapMonoPreservesBlankLine(t *testing.T) {
+	d := testDoc(t)
+	d.startBody()
+	d.pdf.SetFont(fontMono, "", sizeMono)
+
+	require.Equal(t, []string{""}, d.wrapMono(""), "a blank line must still occupy one row")
+	require.Len(t, d.wrapMono("GET / HTTP/1.1"), 1)
+	require.NoError(t, d.finish())
+}
+
+func TestEvidenceBlockKeepsHeaderBodySeparator(t *testing.T) {
+	raw := []byte("POST /search HTTP/1.1\r\nHost: a.test\r\n\r\nquery=xss")
+	ev := sanitizeEvidence(raw, 0)
+	require.Equal(t, []string{"POST /search HTTP/1.1", "Host: a.test", "", "query=xss"}, ev.Lines)
+
+	d := testDoc(t)
+	d.startBody()
+	d.pdf.SetFont(fontMono, "", sizeMono)
+
+	before := d.pdf.GetY()
+	d.evidenceBlock("Request", ev)
+	withBlank := d.pdf.GetY() - before
+
+	noBlank := ev
+	noBlank.Lines = []string{"POST /search HTTP/1.1", "Host: a.test", "query=xss"}
+	d2 := testDoc(t)
+	d2.startBody()
+	d2.pdf.SetFont(fontMono, "", sizeMono)
+	before2 := d2.pdf.GetY()
+	d2.evidenceBlock("Request", noBlank)
+	withoutBlank := d2.pdf.GetY() - before2
+
+	require.InDelta(t, leadMono, withBlank-withoutBlank, 0.01,
+		"the blank separator line must render as exactly one extra row")
+	require.NoError(t, d.finish())
+	require.NoError(t, d2.finish())
+}

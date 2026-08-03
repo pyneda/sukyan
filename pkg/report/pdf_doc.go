@@ -200,6 +200,36 @@ func (d *pdfDoc) severityChip(severity string) {
 	d.pdf.SetXY(marginX, y)
 }
 
+// wrapMono wraps one logical line to the evidence column. SplitLines returns no
+// parts for an empty string, which would drop the blank line separating HTTP
+// headers from the body, so an empty line maps to a single blank row.
+func (d *pdfDoc) wrapMono(line string) []string {
+	if line == "" {
+		return []string{""}
+	}
+
+	parts := d.pdf.SplitLines([]byte(line), evidenceWidth-2)
+	if len(parts) == 0 {
+		return []string{""}
+	}
+
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		out = append(out, string(p))
+	}
+	return out
+}
+
+func (d *pdfDoc) monoRow(text string) {
+	d.keepTogether(leadMono, func() {
+		d.setFill(inkEvidenceBG)
+		d.pdf.Rect(marginX+evidenceInset, d.pdf.GetY(), evidenceWidth, leadMono, "F")
+		d.pdf.SetX(marginX + evidenceInset + 1)
+		d.setInk(inkBody)
+		d.pdf.CellFormat(evidenceWidth-2, leadMono, text, "", 1, "L", false, 0, "")
+	})
+}
+
 // evidenceBlock renders monospace captured bytes on a tinted panel, wrapping
 // long lines at the column rather than overflowing the frame.
 func (d *pdfDoc) evidenceBlock(title string, ev evidenceText) {
@@ -213,19 +243,13 @@ func (d *pdfDoc) evidenceBlock(title string, ev evidenceText) {
 
 	rendered, omittedLines := 0, 0
 	for _, line := range ev.Lines {
-		for _, wrapped := range d.pdf.SplitLines([]byte(line), evidenceWidth-2) {
+		for _, wrapped := range d.wrapMono(line) {
 			if rendered >= maxEvidenceLines {
 				omittedLines++
 				continue
 			}
 			rendered++
-			d.keepTogether(leadMono, func() {
-				d.setFill(inkEvidenceBG)
-				d.pdf.Rect(marginX+evidenceInset, d.pdf.GetY(), evidenceWidth, leadMono, "F")
-				d.pdf.SetX(marginX + evidenceInset + 1)
-				d.setInk(inkBody)
-				d.pdf.CellFormat(evidenceWidth-2, leadMono, string(wrapped), "", 1, "L", false, 0, "")
-			})
+			d.monoRow(wrapped)
 		}
 	}
 

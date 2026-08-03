@@ -268,13 +268,8 @@ func (d *pdfDoc) renderWebSocket(conn *ReportWebSocketConnection, maxEvidenceByt
 
 		d.pdf.SetFont(fontMono, "", sizeMono)
 		for _, line := range lines {
-			for _, wrapped := range d.pdf.SplitLines([]byte(line), evidenceWidth-2) {
-				d.keepTogether(leadMono, func() {
-					d.setFill(inkEvidenceBG)
-					d.pdf.Rect(marginX+evidenceInset, d.pdf.GetY(), evidenceWidth, leadMono, "F")
-					d.pdf.SetX(marginX + evidenceInset + 1)
-					d.pdf.CellFormat(evidenceWidth-2, leadMono, string(wrapped), "", 1, "L", false, 0, "")
-				})
+			for _, wrapped := range d.wrapMono(line) {
+				d.monoRow(wrapped)
 			}
 		}
 		d.pdf.Ln(1.5)

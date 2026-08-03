@@ -116,10 +116,11 @@ func StartAPI(opts ...APIServerOptions) {
 		// StrictRouting: true,
 		ServerHeader: "Sukyan",
 		AppName:      "Sukyan API",
-		// Raised for workspace archive uploads. Deliberately not combined with
+		// Applies to every route, so it is also the most an unauthenticated
+		// caller can make the server allocate. Deliberately not combined with
 		// StreamRequestBody: fasthttp drops ErrBodyTooLarge when streaming and
 		// its stream reader enforces no maximum, so the limit stops being a
-		// limit -- on every route, including the unauthenticated auth group.
+		// limit.
 		BodyLimit: viper.GetInt("api.body_limit"),
 	})
 
@@ -253,6 +254,7 @@ func StartAPI(opts ...APIServerOptions) {
 	api.Get("/stats/deployment", JWTProtected(), GetDeploymentStatsHandler)
 	api.Get("/stats/deployment/pulse", JWTProtected(), GetDeploymentPulseHandler)
 	api.Get("/stats/deployment/findings", JWTProtected(), GetDeploymentFindingsHandler)
+	api.Get("/auth/me", JWTProtected(), GetCurrentUserHandler)
 	api.Post("/browser-actions", JWTProtected(), CreateStoredBrowserActions)
 	api.Get("/browser-actions", JWTProtected(), ListStoredBrowserActions)
 	api.Get("/browser-actions/:id", JWTProtected(), GetStoredBrowserActions)

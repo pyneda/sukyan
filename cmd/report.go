@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -13,14 +14,25 @@ import (
 )
 
 var (
-	reportTitle    string
-	reportFormat   string
-	reportOutput   string
-	minConfidence  int
-	maxRequestSize int
-	taskID         uint
-	scanID         uint
+	reportTitle      string
+	reportFormat     string
+	reportOutput     string
+	minConfidence    int
+	maxRequestSize   int
+	maxInstances     int
+	maxEvidenceBytes int
+	taskID           uint
+	scanID           uint
 )
+
+// unlimitedIfZero maps the user-facing "0 means no limit" flag convention onto
+// ReportOptions, where zero selects the default and negative means unlimited.
+func unlimitedIfZero(v int) int {
+	if v == 0 {
+		return -1
+	}
+	return v
+}
 
 // reportCmd represents the report command
 var reportCmd = &cobra.Command{
@@ -106,13 +118,16 @@ var reportCmd = &cobra.Command{
 		}
 
 		options := report.ReportOptions{
-			WorkspaceID:    workspaceID,
-			Issues:         issues,
-			Title:          reportTitle,
-			Format:         format,
-			TaskID:         taskID,
-			ScanID:         scanID,
-			MaxRequestSize: maxRequestSize,
+			WorkspaceID:      workspaceID,
+			Issues:           issues,
+			Title:            reportTitle,
+			Format:           format,
+			TaskID:           taskID,
+			ScanID:           scanID,
+			MaxRequestSize:   maxRequestSize,
+			MaxInstances:     unlimitedIfZero(maxInstances),
+			MaxEvidenceBytes: unlimitedIfZero(maxEvidenceBytes),
+			GeneratedAt:      time.Now(),
 		}
 
 		var buf bytes.Buffer
@@ -139,6 +154,8 @@ func toReportFormat(format string) (report.ReportFormat, error) {
 		return report.ReportFormatHTML, nil
 	case string(report.ReportFormatJSON):
 		return report.ReportFormatJSON, nil
+	case string(report.ReportFormatPDF):
+		return report.ReportFormatPDF, nil
 	default:
 		return "", fmt.Errorf("invalid format provided: %s", format)
 	}
@@ -151,8 +168,10 @@ func init() {
 	reportCmd.Flags().UintVarP(&taskID, "task", "t", 0, "Task ID")
 	reportCmd.Flags().UintVarP(&scanID, "scan", "s", 0, "Scan ID (for orchestrator scans)")
 	reportCmd.Flags().StringVarP(&reportTitle, "title", "T", "", "Report Title")
-	reportCmd.Flags().StringVarP(&reportFormat, "format", "f", "html", "Report Format (html or json)")
+	reportCmd.Flags().StringVarP(&reportFormat, "format", "f", "html", "Report Format (html, json or pdf)")
 	reportCmd.Flags().StringVarP(&reportOutput, "output", "o", "", "Output file path")
 	reportCmd.Flags().IntVarP(&minConfidence, "min-confidence", "c", 0, "Minimum issue confidence level to include in the report")
 	reportCmd.Flags().IntVar(&maxRequestSize, "max-request-size", 200*1024, "Maximum size (in bytes) for request/response content when using html report format. 0 means no limit")
+	reportCmd.Flags().IntVar(&maxInstances, "max-instances", 50, "Maximum instances shown per finding in pdf reports. 0 means no limit")
+	reportCmd.Flags().IntVar(&maxEvidenceBytes, "max-evidence-bytes", 2048, "Maximum request/response bytes shown per instance in pdf reports. 0 means no limit")
 }

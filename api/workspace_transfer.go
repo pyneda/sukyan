@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"strconv"
 	"time"
 
@@ -79,17 +78,15 @@ func ExportWorkspace(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/import [post]
 func ImportWorkspace(c *fiber.Ctx) error {
-	// Fiber only hands over a stream once the body outgrows its buffer; smaller
-	// uploads arrive fully read. Both have to work, or import succeeds only for
-	// archives above whatever that threshold happens to be.
-	var body io.Reader = c.Context().RequestBodyStream()
-	if body == nil {
-		raw := c.Body()
-		if len(raw) == 0 {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "An archive body is required", "error": "Empty request body"})
-		}
-		body = bytes.NewReader(raw)
+	// Read the buffered body rather than a stream: request streaming disables
+	// fasthttp's body limit entirely, and an unbounded upload on a shared server
+	// is the worse trade. Archives too large for api.body_limit are imported
+	// with the CLI instead.
+	raw := c.Body()
+	if len(raw) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "An archive body is required", "error": "Empty request body"})
 	}
+	body := bytes.NewReader(raw)
 
 	result, err := workspace.Import(c.UserContext(), db.Connection(), body, workspace.ImportOptions{
 		Code:  c.Query("code"),

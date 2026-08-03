@@ -200,9 +200,11 @@ func SetDefaultConfig() {
 	// API
 	viper.SetDefault("api.listen.host", "")
 	viper.SetDefault("api.listen.port", 8013)
-	// Bounds a single request body. Workspace archive uploads are the only
-	// endpoint that needs more than a few megabytes.
-	viper.SetDefault("api.body_limit", 8*1024*1024*1024)
+	// Bounds a single request body, and it is enforced, so the body is also the
+	// most a request can make the server allocate. Workspace archive uploads are
+	// the only endpoint needing more than a few megabytes; larger archives are
+	// imported with the CLI, which never goes through HTTP.
+	viper.SetDefault("api.body_limit", 512*1024*1024)
 	viper.SetDefault("api.docs.enabled", false)
 	viper.SetDefault("api.docs.path", "/docs")
 	viper.SetDefault("api.metrics.enabled", false)

@@ -94,8 +94,13 @@ func Import(ctx context.Context, conn *db.DatabaseConnection, r io.Reader, opts 
 
 	// A failed import leaves a partial workspace behind; remove it so the
 	// operator is not left with half a dataset carrying a real workspace ID.
+	//
+	// Gated on the workspace row actually having been written by this import.
+	// The id is chosen before the insert, so acting on it earlier could delete a
+	// workspace someone else created in the meantime, cascading through all of
+	// its data.
 	defer func() {
-		if err != nil && state.newWorkspaceID != 0 {
+		if err != nil && state.workspaceInserted && state.newWorkspaceID != 0 {
 			if _, cleanupErr := conn.DeleteWorkspaceCascade(context.WithoutCancel(ctx), state.newWorkspaceID, db.WorkspaceDeleteOptions{}); cleanupErr != nil {
 				log.Error().Err(cleanupErr).Uint("workspace", state.newWorkspaceID).Msg("Failed to clean up partially imported workspace")
 			}
@@ -148,6 +153,9 @@ type importState struct {
 	total            int64
 	newWorkspaceID   uint
 	newWorkspaceCode string
+	// workspaceInserted records that this import wrote the workspace row, which
+	// is what makes it safe to delete it again during cleanup.
+	workspaceInserted bool
 }
 
 func (s *importState) consume(ctx context.Context, reader *archiveReader, opts ImportOptions) error {
@@ -375,9 +383,14 @@ func (s *importState) shift(value any, target string) (any, error) {
 	if value == nil {
 		return nil, nil
 	}
+	// Anything that is not a JSON number has to be rejected rather than passed
+	// through. Postgres coerces a JSON string to bigint on insert, so letting a
+	// non-numeric value survive unshifted would hand the archive direct control
+	// of the stored identifier -- and child tables carry no workspace_id for the
+	// pin below to correct.
 	number, ok := value.(json.Number)
 	if !ok {
-		return nil, nil
+		return nil, fmt.Errorf("identifier is %T, expected a number", value)
 	}
 	parsed, err := number.Int64()
 	if err != nil {
@@ -418,6 +431,9 @@ func (s *importState) insertBatch(ctx context.Context, spec tableSpec, rows []js
 	)
 	if err := s.conn.DB().WithContext(ctx).Exec(statement, string(payload)).Error; err != nil {
 		return fmt.Errorf("inserting %d %s rows: %w", len(rows), spec.Name, err)
+	}
+	if spec.Name == "workspaces" {
+		s.workspaceInserted = true
 	}
 	return nil
 }

@@ -10,9 +10,41 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func fetchWebSocketConnections(issues []*db.Issue) map[uint]*ReportWebSocketConnection {
+	ids := make([]uint, 0)
+	seen := make(map[uint]bool)
+	for _, issue := range issues {
+		if issue.WebsocketConnectionID == nil || *issue.WebsocketConnectionID == 0 {
+			continue
+		}
+		if seen[*issue.WebsocketConnectionID] {
+			continue
+		}
+		seen[*issue.WebsocketConnectionID] = true
+		ids = append(ids, *issue.WebsocketConnectionID)
+	}
+
+	byID := make(map[uint]*ReportWebSocketConnection, len(ids))
+	if len(ids) == 0 {
+		return byID
+	}
+
+	connections, err := db.Connection().GetWebSocketConnectionsWithMessagesByID(ids)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to fetch WebSocket connections for report")
+		return byID
+	}
+
+	for i := range connections {
+		byID[connections[i].ID] = processWebSocketConnection(&connections[i])
+	}
+	return byID
+}
+
 // processIssues converts db.Issue objects to optimized ReportIssue objects
 func processIssues(issues []*db.Issue, maxRequestSize int) []*ReportIssue {
 	reportIssues := make([]*ReportIssue, 0, len(issues))
+	wsConnections := fetchWebSocketConnections(issues)
 
 	for _, issue := range issues {
 		request := issue.Request
@@ -66,14 +98,8 @@ func processIssues(issues []*db.Issue, maxRequestSize int) []*ReportIssue {
 		}
 
 		// Include WebSocket connection data if this is a WebSocket-related issue
-		if issue.WebsocketConnectionID != nil && *issue.WebsocketConnectionID > 0 {
-			wsConnection, err := db.Connection().GetWebSocketConnection(*issue.WebsocketConnectionID)
-			if err != nil {
-				log.Error().Err(err).Uint("connection_id", *issue.WebsocketConnectionID).Msg("Failed to fetch WebSocket connection for issue")
-			} else {
-				reportWsConnection := processWebSocketConnection(wsConnection)
-				reportIssue.WebSocketConnection = reportWsConnection
-			}
+		if issue.WebsocketConnectionID != nil {
+			reportIssue.WebSocketConnection = wsConnections[*issue.WebsocketConnectionID]
 		}
 
 		reportIssues = append(reportIssues, reportIssue)

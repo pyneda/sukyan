@@ -279,6 +279,20 @@ func (d *DatabaseConnection) GetWebSocketConnectionsByID(ids []uint) ([]WebSocke
 	return connections, nil
 }
 
+// GetWebSocketConnectionsWithMessagesByID preloads messages, which
+// GetWebSocketConnectionsByID deliberately omits for callers that only need
+// connection metadata.
+func (d *DatabaseConnection) GetWebSocketConnectionsWithMessagesByID(ids []uint) ([]WebSocketConnection, error) {
+	var connections []WebSocketConnection
+	err := d.db.Preload("Messages", func(db *gorm.DB) *gorm.DB {
+		return db.Order("id ASC")
+	}).Where("id IN ?", ids).Find(&connections).Error
+	if err != nil {
+		return nil, err
+	}
+	return connections, nil
+}
+
 func (d *DatabaseConnection) GetWebSocketConnectionsByIDAndWorkspace(ids []uint, workspaceID uint) ([]WebSocketConnection, error) {
 	var connections []WebSocketConnection
 	err := d.db.Where("id IN ? AND workspace_id = ?", ids, workspaceID).Find(&connections).Error

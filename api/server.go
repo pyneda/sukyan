@@ -255,6 +255,7 @@ func StartAPI(opts ...APIServerOptions) {
 	api.Get("/stats/deployment/pulse", JWTProtected(), GetDeploymentPulseHandler)
 	api.Get("/stats/deployment/findings", JWTProtected(), GetDeploymentFindingsHandler)
 	api.Get("/auth/me", JWTProtected(), GetCurrentUserHandler)
+	api.Get("/users", JWTProtected(), SuperuserProtected(), ListUsersHandler)
 	api.Post("/browser-actions", JWTProtected(), CreateStoredBrowserActions)
 	api.Get("/browser-actions", JWTProtected(), ListStoredBrowserActions)
 	api.Get("/browser-actions/:id", JWTProtected(), GetStoredBrowserActions)

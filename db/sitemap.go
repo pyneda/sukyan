@@ -202,8 +202,8 @@ func buildSitemapTree(rows []sitemapRow) []*SitemapNode {
 	var rootOrder []*sitemapBuilder
 
 	for _, row := range rows {
-		baseURL, err := lib.GetBaseURL(row.URL)
-		if err != nil {
+		baseURL := lib.ExtractOrigin(row.URL)
+		if baseURL == "" {
 			// A single malformed URL should not fail the whole sitemap.
 			continue
 		}

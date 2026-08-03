@@ -316,6 +316,28 @@ func TestSortRanksWebSocketOnlyNodesByConnections(t *testing.T) {
 	assert.Equal(t, "live", children[0].Path, "2 connections outrank 1 request")
 }
 
+func TestWebSocketOriginJoinsTheHttpsHostTree(t *testing.T) {
+	roots := buildSitemapTree([]sitemapRow{
+		{ID: 1, URL: "https://app.test/api", Method: "GET", StatusCode: 200},
+		wsRow(2, "wss://app.test/ws/feed", true, 4),
+	})
+
+	require.Len(t, roots, 1, "wss:// must not spawn a second root")
+	assert.Equal(t, "https://app.test", roots[0].URL)
+
+	ws := findChild(t, roots[0], "ws")
+	feed := findChild(t, ws, "feed")
+	assert.Equal(t, "https://app.test/ws/feed", feed.URL)
+	assert.True(t, feed.WebSocket)
+}
+
+func TestInsecureWebSocketOriginJoinsTheHttpHostTree(t *testing.T) {
+	roots := buildSitemapTree([]sitemapRow{wsRow(1, "ws://app.test/socket", false, 0)})
+
+	require.Len(t, roots, 1)
+	assert.Equal(t, "http://app.test", roots[0].URL)
+}
+
 func findChild(t *testing.T, parent *SitemapNode, path string) *SitemapNode {
 	t.Helper()
 	for _, c := range parent.Children {

@@ -22,6 +22,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/gosimple/slug v1.14.0
 	github.com/jpillora/go-tld v1.2.1
+	github.com/klauspost/compress v1.18.2
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mfonda/simhash v0.0.0-20151007195837-79f94a1100d6
 	github.com/mingrammer/commonregex v1.0.1
@@ -42,6 +43,7 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/swag v1.16.4
+	github.com/valyala/fasthttp v1.63.0
 	github.com/vektah/gqlparser/v2 v2.5.36
 	github.com/ysmood/gson v0.7.3
 	go.uber.org/goleak v1.3.0
@@ -133,7 +135,6 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
@@ -219,7 +220,6 @@ require (
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.63.0 // indirect
 	github.com/weppos/publicsuffix-go v0.50.3-0.20260104170930-90713dec78f2 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yl2chen/cidranger v1.0.2 // indirect

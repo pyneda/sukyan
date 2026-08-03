@@ -76,14 +76,12 @@ func (d *pdfDoc) findingOverview(f pdfFinding) {
 	d.rule()
 }
 
+// findingNarrative carries only what is generic to the issue type. Per-instance
+// prose lives on the instance; see renderInstance.
 func (d *pdfDoc) findingNarrative(f pdfFinding) {
 	first := f.Group.Issues[0]
 
 	d.body(f.Group.Description)
-
-	if strings.TrimSpace(first.Details) != "" && first.Details != f.Group.Description {
-		d.body(first.Details)
-	}
 
 	if strings.TrimSpace(f.Group.Remediation) != "" {
 		d.pdf.Ln(1)
@@ -153,6 +151,11 @@ func (d *pdfDoc) renderInstance(issue *ReportIssue, n int, maxEvidenceBytes int)
 		d.setInk(inkMuted)
 		d.pdf.MultiCell(contentWidth, 4.2, strings.Join(meta, " · "), "", "L", false)
 		d.setInk(inkBody)
+	}
+
+	if strings.TrimSpace(issue.Details) != "" {
+		d.pdf.Ln(1)
+		d.body(issue.Details)
 	}
 
 	if strings.TrimSpace(issue.Payload) != "" {

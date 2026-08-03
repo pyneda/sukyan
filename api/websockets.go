@@ -118,6 +118,14 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 		minMessages = parsed
 	}
 
+	urlPrefixes := c.Context().QueryArgs().PeekMulti("url_prefixes")
+	prefixes := make([]string, 0, len(urlPrefixes))
+	for _, p := range urlPrefixes {
+		if len(p) > 0 {
+			prefixes = append(prefixes, string(p))
+		}
+	}
+
 	connections, count, err := db.Connection().ListWebSocketConnections(db.WebSocketConnectionFilter{
 		Pagination: db.Pagination{
 			Page:     page,
@@ -131,6 +139,7 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 		Sources:        sources,
 		Query:          c.Query("query"),
 		MinMessages:    minMessages,
+		URLPrefixes:    prefixes,
 		SortBy:         c.Query("sort_by", "id"),
 		SortOrder:      c.Query("sort_order", "desc"),
 	})

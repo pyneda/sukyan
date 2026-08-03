@@ -256,3 +256,26 @@ func TestListWebSocketConnections_SortByRejectsUnknownColumn(t *testing.T) {
 	require.Len(t, out, 2)
 	require.Greater(t, out[0].ID, out[1].ID)
 }
+
+func TestWebSocketPrefixClauseMatchesBothSchemes(t *testing.T) {
+	clause, args := webSocketPrefixClause([]string{"https://app.test/ws"})
+
+	assert.Contains(t, clause, "url = ?")
+	assert.Contains(t, args, "https://app.test/ws")
+	assert.Contains(t, args, "wss://app.test/ws", "the tree normalises wss to https, the rows do not")
+	assert.Contains(t, args, "wss://app.test/ws/%")
+	assert.Contains(t, args, "wss://app.test/ws?%", "socket.io appends a query string with no trailing slash")
+}
+
+func TestWebSocketPrefixClauseEscapesWildcards(t *testing.T) {
+	_, args := webSocketPrefixClause([]string{"https://app.test/a_b"})
+
+	assert.Contains(t, args, `https://app.test/a\_b/%`)
+}
+
+func TestWebSocketPrefixClauseEmpty(t *testing.T) {
+	clause, args := webSocketPrefixClause(nil)
+
+	assert.Empty(t, clause)
+	assert.Empty(t, args)
+}

@@ -343,9 +343,42 @@ type WebSocketConnectionFilter struct {
 	// Query is matched case-insensitively against the connection URL only.
 	Query string `json:"query" validate:"omitempty,ascii"`
 	// MinMessages keeps connections having at least this many messages.
-	MinMessages int    `json:"min_messages" validate:"omitempty,gte=0"`
-	SortBy      string `json:"sort_by" validate:"omitempty,oneof=id url status_code source message_count created_at closed_at"`
-	SortOrder   string `json:"sort_order" validate:"omitempty,oneof=asc desc"`
+	MinMessages int `json:"min_messages" validate:"omitempty,gte=0"`
+	// Matched against url. Each prefix is expanded to its ws/wss form because the
+	// sitemap normalises schemes but the stored URLs keep theirs.
+	URLPrefixes []string `json:"url_prefixes" validate:"omitempty,max=200,dive,uri"`
+	SortBy      string   `json:"sort_by" validate:"omitempty,oneof=id url status_code source message_count created_at closed_at"`
+	SortOrder   string   `json:"sort_order" validate:"omitempty,oneof=asc desc"`
+}
+
+func webSocketSchemeVariants(prefix string) []string {
+	switch {
+	case strings.HasPrefix(prefix, "https://"):
+		return []string{prefix, "wss://" + strings.TrimPrefix(prefix, "https://")}
+	case strings.HasPrefix(prefix, "http://"):
+		return []string{prefix, "ws://" + strings.TrimPrefix(prefix, "http://")}
+	default:
+		return []string{prefix}
+	}
+}
+
+// The "/" and "?" boundaries are what stop /img from reaching /images, while
+// still matching socket.io URLs that append a query directly to the path.
+func webSocketPrefixClause(prefixes []string) (string, []interface{}) {
+	if len(prefixes) == 0 {
+		return "", nil
+	}
+	escaper := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	clauses := make([]string, 0, len(prefixes)*2)
+	args := make([]interface{}, 0, len(prefixes)*6)
+	for _, prefix := range prefixes {
+		for _, variant := range webSocketSchemeVariants(prefix) {
+			clauses = append(clauses, `(url = ? OR url LIKE ? ESCAPE '\' OR url LIKE ? ESCAPE '\')`)
+			escaped := escaper.Replace(variant)
+			args = append(args, variant, escaped+"/%", escaped+"?%")
+		}
+	}
+	return "(" + strings.Join(clauses, " OR ") + ")", args
 }
 
 func messageCountSubquery(db *gorm.DB) *gorm.DB {
@@ -399,6 +432,9 @@ func (d *DatabaseConnection) ListWebSocketConnections(filter WebSocketConnection
 	}
 	if filter.Query != "" {
 		query = query.Where("url ILIKE ?", containsPattern(filter.Query))
+	}
+	if clause, args := webSocketPrefixClause(filter.URLPrefixes); clause != "" {
+		query = query.Where(clause, args...)
 	}
 	if filter.MinMessages > 0 {
 		query = query.Where("(?) >= ?", messageCountSubquery(d.db), filter.MinMessages)

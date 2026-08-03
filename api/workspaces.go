@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
 	"github.com/pyneda/sukyan/db"
+	"github.com/rs/zerolog/log"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -94,12 +96,12 @@ func CreateWorkspace(c *fiber.Ctx) error {
 
 // DeleteWorkspace godoc
 // @Summary Delete a workspace
-// @Description Deletes a workspace and all associated data
+// @Description Hides the workspace immediately and purges all of its data in the background
 // @Tags Workspaces
 // @Accept  json
 // @Produce  json
 // @Param id path string true "Workspace ID"
-// @Success 200 {object} map[string]interface{} "message": "Workspace successfully deleted"
+// @Success 202 {object} map[string]interface{} "message": "Workspace deletion started"
 // @Failure 404 {object} ErrorResponse
 // @Failure 422 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
@@ -115,11 +117,26 @@ func DeleteWorkspace(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"message": "Workspace not found"})
 	}
 
-	if err := db.Connection().DeleteWorkspace(uint(id)); err != nil {
+	// Purging a workspace holding millions of rows takes minutes, far longer
+	// than a request can be held open. The workspace is hidden synchronously so
+	// it leaves every listing at once, and the rows are removed behind it. An
+	// interrupted purge is resumable with `sukyan cleanup purge-workspaces`.
+	if err := db.Connection().MarkWorkspaceForDeletion(uint(id)); err != nil {
+		log.Error().Err(err).Int("workspace", id).Msg("Failed to mark workspace for deletion")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"message": "Failed to delete workspace", "error": "Failed to delete workspace"})
 	}
 
-	return c.JSON(fiber.Map{"message": "Workspace successfully deleted"})
+	go func(workspaceID uint) {
+		result, err := db.Connection().DeleteWorkspaceCascade(context.Background(), workspaceID, db.WorkspaceDeleteOptions{})
+		if err != nil {
+			log.Error().Err(err).Uint("workspace", workspaceID).Int64("rows", result.TotalRows).
+				Msg("Workspace purge did not finish; re-run `sukyan cleanup purge-workspaces`")
+			return
+		}
+		log.Info().Uint("workspace", workspaceID).Int64("rows", result.TotalRows).Msg("Workspace purge finished")
+	}(uint(id))
+
+	return c.Status(fiber.StatusAccepted).JSON(fiber.Map{"message": "Workspace deletion started"})
 }
 
 // WorkspaceUpdateInput defines the acceptable input for updating a workspace

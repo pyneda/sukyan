@@ -2,10 +2,15 @@ package delete
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/pyneda/sukyan/db"
 	"github.com/spf13/cobra"
@@ -50,12 +55,29 @@ var deleteWorkspaceCmd = &cobra.Command{
 			}
 		}
 
-		err = db.Connection().DeleteWorkspace(uint(deleteWorkspaceID))
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+
+		result, err := db.Connection().DeleteWorkspaceCascade(ctx, uint(deleteWorkspaceID), db.WorkspaceDeleteOptions{
+			Progress: func(table string, deleted int64) {
+				fmt.Printf("\r  %-24s %10d rows", table, deleted)
+			},
+		})
+		fmt.Println()
+
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				fmt.Printf("Deletion interrupted after %d rows. Re-run the same command to finish it.\n", result.TotalRows)
+				return
+			}
 			fmt.Printf("Error during deletion: %s\n", err)
-		} else {
-			fmt.Println("Workspace has been successfully deleted!")
+			return
 		}
+		if result.ScansCancelled > 0 {
+			fmt.Printf("Cancelled %d running scan(s) before deleting.\n", result.ScansCancelled)
+		}
+		fmt.Printf("Workspace deleted in %s (%d rows removed in batches, the remainder by cascade)\n",
+			result.Duration.Round(time.Millisecond), result.TotalRows)
 	},
 }
 

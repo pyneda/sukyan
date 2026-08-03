@@ -21,6 +21,7 @@ type ReportFormat string
 const (
 	ReportFormatHTML ReportFormat = "html"
 	ReportFormatJSON ReportFormat = "json"
+	ReportFormatPDF  ReportFormat = "pdf"
 )
 
 type ReportOptions struct {
@@ -31,6 +32,14 @@ type ReportOptions struct {
 	TaskID         uint
 	ScanID         uint
 	MaxRequestSize int // Maximum size for requests in bytes (0 = no limit)
+
+	// PDF only. Zero applies the default, negative means unlimited. Unlimited is
+	// not the zero value because that is what callers who do not care send, and
+	// an unbounded document can run to thousands of pages.
+	MaxInstances     int
+	MaxEvidenceBytes int
+	// GeneratedAt is injectable so the same input can produce byte-identical output.
+	GeneratedAt time.Time
 }
 
 func GenerateReport(options ReportOptions, w io.Writer) error {
@@ -39,6 +48,8 @@ func GenerateReport(options ReportOptions, w io.Writer) error {
 		return generateHTMLReport(options, w)
 	case ReportFormatJSON:
 		return generateJSONReport(options, w)
+	case ReportFormatPDF:
+		return generatePDFReport(options, w)
 	default:
 		return errors.New("invalid report format")
 	}

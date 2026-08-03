@@ -733,7 +733,7 @@ func GetScanJobHandler(c *fiber.Ctx) error {
 // parseScanJobIDParam parses the scan job ID from the URL path parameter
 func parseScanJobIDParam(c *fiber.Ctx) (uint, error) {
 	idStr := c.Params("id")
-	id64, err := strconv.ParseUint(idStr, 10, 32)
+	id64, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		return 0, err
 	}
@@ -763,7 +763,7 @@ func CancelScanJobHandler(c *fiber.Ctx) error {
 	}
 
 	jobIDStr := c.Params("job_id")
-	jobID64, err := strconv.ParseUint(jobIDStr, 10, 32)
+	jobID64, err := strconv.ParseUint(jobIDStr, 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Invalid job ID",
@@ -1101,7 +1101,7 @@ func ScheduleHistoryItemScansHandler(c *fiber.Ctx) error {
 // parseScanIDParam parses the scan ID from the URL path parameter
 func parseScanIDParam(c *fiber.Ctx) (uint, error) {
 	idStr := c.Params("id")
-	id64, err := strconv.ParseUint(idStr, 10, 32)
+	id64, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
 		return 0, err
 	}

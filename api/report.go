@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -17,9 +18,21 @@ type ReportRequest struct {
 	TaskID         uint                `json:"task_id"`
 	ScanID         uint                `json:"scan_id"`
 	Title          string              `json:"title" validate:"required"`
-	Format         report.ReportFormat `json:"format" validate:"required,oneof=html json"`
+	Format         report.ReportFormat `json:"format" validate:"required,oneof=html json pdf"`
 	MinConfidence  int                 `json:"min_confidence" validate:"omitempty"`
 	MaxRequestSize int                 `json:"max_request_size" validate:"omitempty"`
+}
+
+// reportContentType maps a format onto how the browser should receive it.
+func reportContentType(format report.ReportFormat) (contentType, extension string) {
+	switch format {
+	case report.ReportFormatJSON:
+		return "application/json", "json"
+	case report.ReportFormatPDF:
+		return "application/pdf", "pdf"
+	default:
+		return "text/html", "html"
+	}
 }
 
 // ReportHandler godoc
@@ -85,6 +98,7 @@ func ReportHandler(c *fiber.Ctx) error {
 		MaxRequestSize: input.MaxRequestSize,
 		TaskID:         input.TaskID,
 		ScanID:         input.ScanID,
+		GeneratedAt:    time.Now(),
 	}
 
 	// Create a buffer to temporarily hold the generated report
@@ -96,13 +110,7 @@ func ReportHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString("Failed to generate report")
 	}
 
-	// Set the content type based on the report format
-	contentType := "text/html"
-	fileExtension := "html"
-	if input.Format == report.ReportFormatJSON {
-		contentType = "application/json"
-		fileExtension = "json"
-	}
+	contentType, fileExtension := reportContentType(input.Format)
 	c.Response().Header.Set(fiber.HeaderContentType, contentType)
 
 	// Make the file downloadable

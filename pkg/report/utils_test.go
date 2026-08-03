@@ -129,3 +129,51 @@ func TestProcessIssuesMapsInteractionsAndPOC(t *testing.T) {
 	assert.Equal(t, "' OR 1=1--", interaction.Cause.Payload)
 	assert.Equal(t, "parameter:username", interaction.Cause.InsertionPoint)
 }
+
+func TestTopVulnTypesOrderIsTotal(t *testing.T) {
+	issues := []*ReportIssue{
+		{Code: "zebra", Title: "Zebra", Severity: "Low", URL: "https://a.test/1"},
+		{Code: "alpha", Title: "Alpha", Severity: "Low", URL: "https://a.test/2"},
+		{Code: "mango", Title: "Mango", Severity: "Low", URL: "https://a.test/3"},
+	}
+
+	want := generateSummary(issues).TopVulnTypes
+	for i := 0; i < 200; i++ {
+		require.Equal(t, want, generateSummary(issues).TopVulnTypes,
+			"types with equal counts must come out in a fixed order")
+	}
+}
+
+func TestGroupOrderIsTotalWhenTitlesCollide(t *testing.T) {
+	issues := []*ReportIssue{
+		{Code: "b_code", Title: "Same Title", Severity: "High", URL: "https://a.test/1"},
+		{Code: "a_code", Title: "Same Title", Severity: "High", URL: "https://a.test/2"},
+		{Code: "c_code", Title: "Same Title", Severity: "High", URL: "https://a.test/3"},
+	}
+
+	want := groupIssuesByType(issues)
+	for i := 0; i < 200; i++ {
+		got := groupIssuesByType(issues)
+		require.Len(t, got, len(want))
+		for j := range want {
+			require.Equal(t, want[j].Code, got[j].Code, "tied groups must come out in a fixed order")
+		}
+	}
+}
+
+func TestInstanceOrderWithinGroupIsTotal(t *testing.T) {
+	issues := []*ReportIssue{
+		{ID: 3, Code: "c", Title: "C", Severity: "Low", URL: "https://a.test/z", Confidence: 50},
+		{ID: 1, Code: "c", Title: "C", Severity: "Low", URL: "https://a.test/a", Confidence: 50},
+		{ID: 2, Code: "c", Title: "C", Severity: "Low", URL: "https://a.test/m", Confidence: 50},
+	}
+
+	want := groupIssuesByType(issues)[0].Issues
+	for i := 0; i < 200; i++ {
+		got := groupIssuesByType(issues)[0].Issues
+		require.Len(t, got, len(want))
+		for j := range want {
+			require.Equal(t, want[j].ID, got[j].ID, "tied instances must come out in a fixed order")
+		}
+	}
+}

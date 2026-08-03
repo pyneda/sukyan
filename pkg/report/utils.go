@@ -203,9 +203,14 @@ func groupIssuesByType(issues []*ReportIssue) []*GroupedIssues {
 	// Convert map to slice for template usage
 	groups := make([]*GroupedIssues, 0, len(groupMap))
 	for _, group := range groupMap {
-		// Sort issues within each group by confidence (high to low)
 		sort.Slice(group.Issues, func(i, j int) bool {
-			return group.Issues[i].Confidence > group.Issues[j].Confidence
+			if group.Issues[i].Confidence != group.Issues[j].Confidence {
+				return group.Issues[i].Confidence > group.Issues[j].Confidence
+			}
+			if group.Issues[i].URL != group.Issues[j].URL {
+				return group.Issues[i].URL < group.Issues[j].URL
+			}
+			return group.Issues[i].ID < group.Issues[j].ID
 		})
 		groups = append(groups, group)
 	}
@@ -224,8 +229,11 @@ func groupIssuesByType(issues []*ReportIssue) []*GroupedIssues {
 			return groups[i].Count > groups[j].Count
 		}
 
-		// If count is same, sort alphabetically by title
-		return strings.ToLower(groups[i].Title) < strings.ToLower(groups[j].Title)
+		ti, tj := strings.ToLower(groups[i].Title), strings.ToLower(groups[j].Title)
+		if ti != tj {
+			return ti < tj
+		}
+		return groups[i].Code < groups[j].Code
 	})
 
 	return groups
@@ -272,9 +280,12 @@ func generateSummary(issues []*ReportIssue) Summary {
 		})
 	}
 
-	// Sort top types by count (descending)
+	// Ties break on code so equal counts cannot leak map iteration order into the report.
 	sort.Slice(topTypes, func(i, j int) bool {
-		return topTypes[i].Count > topTypes[j].Count
+		if topTypes[i].Count != topTypes[j].Count {
+			return topTypes[i].Count > topTypes[j].Count
+		}
+		return topTypes[i].Code < topTypes[j].Code
 	})
 
 	if len(topTypes) > topVulnTypeLimit {

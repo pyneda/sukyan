@@ -1,12 +1,12 @@
 ;(() => {
   const THEME_KEY = 'sukyan-report-theme'
 
+  // Icons are markup swapped in CSS; must not overwrite the button's children.
   function applyTheme(theme) {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     const button = document.getElementById('theme-toggle')
     if (button) {
       button.setAttribute('aria-label', theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme')
-      button.textContent = theme === 'dark' ? 'Light' : 'Dark'
     }
   }
 
@@ -31,8 +31,7 @@
       try {
         localStorage.setItem(THEME_KEY, next)
       } catch {
-        // A report opened over file:// may have no storage. The toggle still
-        // works for the session.
+        // file:// may have no storage; the toggle still works for the session.
       }
       applyTheme(next)
     })
@@ -76,9 +75,7 @@
     return svg
   }
 
-  // Scanner output is attacker-influenced: a scanned application controls its
-  // own URLs and payloads. Highlighting builds text nodes so a crafted title
-  // cannot introduce markup.
+  // Text nodes only: scanned targets control these strings.
   function highlight(text, query) {
     const fragment = document.createDocumentFragment()
     const value = String(text ?? '')
@@ -144,8 +141,6 @@
     )
   }
 
-  // Replaces Fuse.js. Exact substring beats token-prefix; title beats code
-  // beats url. Enough for a few thousand groups, and it costs nothing to ship.
   function scoreGroup(group, query) {
     if (!query) return 1
 
@@ -227,8 +222,6 @@
     return row
   }
 
-  // Children are built on first expand. Building every card for every group up
-  // front is what made large reports slow to open.
   function fillGroupBody(group, body) {
     if (body.dataset.filled === 'true') return
     const inner = el('div')
@@ -290,7 +283,6 @@
       container.appendChild(wrapper)
     })
 
-    // A re-render rebuilds the rows, so the selection marker has to be put back.
     if (state.selected) markSelectedRow(state.selected.id)
   }
 
@@ -326,7 +318,6 @@
     return null
   }
 
-  // Expanding the owning group first, so the row exists to be highlighted.
   function revealIssue(issue) {
     const index = state.filtered.findIndex((group) =>
       (group.issues || []).some((candidate) => candidate.id === issue.id),
@@ -396,8 +387,6 @@
     })
   }
 
-  // Reset per selection, so the print hook only ever builds panels that are
-  // actually in the document.
   let panelBuilders = []
 
   function renderDetail(issue) {
@@ -463,7 +452,7 @@
   function decodeBase64(value) {
     if (!value) return ''
     try {
-      // atob yields a binary string; this round-trip recovers UTF-8 text.
+      // atob yields a binary string; the round-trip recovers UTF-8.
       return new TextDecoder().decode(Uint8Array.from(atob(value), (c) => c.charCodeAt(0)))
     } catch {
       return '[unable to decode content]'
@@ -528,8 +517,6 @@
     return row
   }
 
-  // Panels are built lazily on first activation, so opening a finding does not
-  // pay for decoding evidence the reader may never look at.
   function buildTabs(definitions) {
     const wrapper = el('div')
     const list = el('div', 'tabs')
@@ -554,8 +541,7 @@
 
       if (index === 0) build()
 
-      // Printing hides the tab strip and reveals every panel, so panels the
-      // reader never opened still have to exist on paper.
+      // Print reveals every panel, including ones never opened.
       panelBuilders.push(build)
 
       tab.addEventListener('click', () => {
@@ -732,8 +718,7 @@
     return panel
   }
 
-  // Some capture sources already prefix the numeric code into the status text
-  // ("101 Switching Protocols"), so joining both unconditionally repeats it.
+  // status_text sometimes already carries the numeric code.
   function formatStatus(code, text) {
     const codeText = code ? String(code) : ''
     const statusText = (text || '').trim()
@@ -753,9 +738,6 @@
     grid.style.display = 'grid'
     grid.style.gap = '0.375rem'
 
-    // status_code / status_text are the fields the payload actually carries.
-    // The previous template read a `status` field that never existed and
-    // rendered "undefined" on every WebSocket finding.
     const status = formatStatus(connection.status_code, connection.status_text)
 
     for (const [label, value] of [
@@ -858,8 +840,6 @@
       ? issueById(window.location.hash.slice('#issue-'.length))
       : null
 
-    // Opening on the worst finding rather than an empty pane: the largest
-    // region of the page should say something on first paint.
     const initial = fromHash || flatIssues()[0]
     if (initial) {
       revealIssue(initial)

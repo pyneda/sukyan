@@ -86,6 +86,8 @@ func processInteractions(interactions []db.OOBInteraction) []*ReportInteraction 
 	return result
 }
 
+const topVulnTypeLimit = 10
+
 // processIssues converts db.Issue objects to optimized ReportIssue objects
 func processIssues(issues []*db.Issue, maxRequestSize int) []*ReportIssue {
 	reportIssues := make([]*ReportIssue, 0, len(issues))
@@ -275,9 +277,8 @@ func generateSummary(issues []*ReportIssue) Summary {
 		return topTypes[i].Count > topTypes[j].Count
 	})
 
-	// Limit to top 5 types
-	if len(topTypes) > 5 {
-		topTypes = topTypes[:5]
+	if len(topTypes) > topVulnTypeLimit {
+		topTypes = topTypes[:topVulnTypeLimit]
 	}
 
 	return Summary{

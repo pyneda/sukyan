@@ -18,7 +18,7 @@ type donutSegment struct {
 }
 
 // severityDonut renders the severity split as inline SVG. Strokes reference CSS
-// custom properties so the chart follows the theme toggle and prints correctly.
+// custom properties so the chart follows the theme and prints correctly.
 func severityDonut(s Summary) template.HTML {
 	segments := []donutSegment{
 		{s.CriticalCount, "--severity-critical"},
@@ -54,8 +54,7 @@ func severityDonut(s Summary) template.HTML {
 		return template.HTML(b.String())
 	}
 
-	// One segment spanning the whole circle has coincident start and end
-	// points, which SVG renders as nothing. Draw a closed ring instead.
+	// A single full-circle arc has coincident endpoints and renders as nothing.
 	if nonZero == 1 {
 		for _, seg := range segments {
 			if seg.count > 0 {

@@ -33,8 +33,6 @@ func TestProcessIssuesAttachesWebSocketMessages(t *testing.T) {
 		Timestamp:    time.Now(),
 	}))
 
-	// Two issues sharing one connection: the batch must serve both from a
-	// single fetch.
 	issues := make([]*db.Issue, 0, 2)
 	for i := range 2 {
 		issue := createTestIssue(workspace.ID)

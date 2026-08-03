@@ -120,4 +120,3 @@ func generateJSONReport(options ReportOptions, w io.Writer) error {
 
 	return nil
 }
-

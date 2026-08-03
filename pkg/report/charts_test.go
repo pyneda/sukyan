@@ -18,8 +18,6 @@ func TestSeverityDonutEmpty(t *testing.T) {
 func TestSeverityDonutSingleSeverity(t *testing.T) {
 	svg := string(severityDonut(Summary{HighCount: 7}))
 
-	// A lone segment's start and end angle coincide, which would render a
-	// zero-length arc. It must become a full ring instead.
 	assert.NotContains(t, svg, "<path", "a single severity draws a full ring, not an arc")
 	assert.Contains(t, svg, `stroke="var(--severity-high)"`)
 }

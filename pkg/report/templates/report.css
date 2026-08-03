@@ -1,4 +1,4 @@
-/* Design tokens ported from sukyan-ui/v2 src/styles/globals.css. */
+/* Tokens copied from sukyan-ui/v2 src/styles/globals.css. */
 
 :root {
   --radius: 0.25rem;
@@ -18,8 +18,7 @@
   --input: oklch(0.855 0.019 75);
   --ring: oklch(0.24 0.018 55);
 
-  /* Two roles, because one value cannot serve both: a fill needs a fixed label
-     colour to stay readable, while text needs to contrast with the page. */
+  /* Fills carry a fixed label colour; *-fg contrasts with the page. */
   --severity-critical: oklch(0.5 0.21 15);
   --severity-high: oklch(0.7 0.18 45);
   --severity-medium: oklch(0.82 0.15 85);
@@ -38,8 +37,6 @@
   --chart-4: oklch(0.835 0.115 51);
   --chart-5: oklch(0.784 0.139 35);
 
-  /* Inter and JetBrains Mono lead the stack so machines that have them
-     installed get them. Embedding the files would add ~150KB to every report. */
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
@@ -138,6 +135,81 @@ a {
   gap: 0.625rem;
   font-size: 1rem;
   font-weight: 600;
+  min-width: 0;
+}
+
+.logo {
+  height: 1.25rem;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.theme-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid color-mix(in oklch, var(--ring) 50%, transparent);
+  outline-offset: -1px;
+}
+
+.theme-toggle svg {
+  position: absolute;
+  width: 1rem;
+  height: 1rem;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.theme-toggle .icon-sun {
+  transform: rotate(0deg) scale(1);
+  opacity: 1;
+}
+
+.theme-toggle .icon-moon {
+  transform: rotate(90deg) scale(0);
+  opacity: 0;
+}
+
+.dark .theme-toggle .icon-sun {
+  transform: rotate(-90deg) scale(0);
+  opacity: 0;
+}
+
+.dark .theme-toggle .icon-moon {
+  transform: rotate(0deg) scale(1);
+  opacity: 1;
+}
+
+.footer {
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1.5rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
 }
 
 /* Card */
@@ -162,7 +234,7 @@ a {
   padding: 1rem;
 }
 
-/* Stat tile — mirrors v2 StatTile: uppercase 11px label, 2xl tabular value */
+/* Stat tile */
 .stat {
   padding: 0.875rem 1rem;
 }
@@ -303,8 +375,6 @@ a {
   max-height: 220px;
 }
 
-/* Two columns rather than centred wrapping: five severities always overflow one
-   row, and centring orphans the last one on a line of its own. */
 .legend {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -437,8 +507,6 @@ a {
   transform: rotate(90deg);
 }
 
-/* 0fr -> 1fr animates correctly at any content height. The old
-   max-height: 9999px transition ran at a wildly wrong speed for short lists. */
 .group-body {
   display: grid;
   grid-template-rows: 0fr;
@@ -656,8 +724,7 @@ a {
 }
 
 @media print {
-  /* Paper is white in both themes: the light palette's warm stone background
-     would otherwise be printed as a full-page tint. */
+  /* White paper regardless of the on-screen theme. */
   :root,
   .dark {
     --background: oklch(1 0 0);

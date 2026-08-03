@@ -158,8 +158,6 @@ func TestHTMLReportIsSelfContained(t *testing.T) {
 
 	content := buf.String()
 
-	// A report is a deliverable. It must render in an air-gapped room and must
-	// not phone home when a client opens it.
 	for _, forbidden := range []string{
 		"cdn.tailwindcss.com",
 		"cdn.jsdelivr.net",
@@ -196,24 +194,15 @@ func TestHTMLReportEscapesIssueDataInPayload(t *testing.T) {
 
 	content := buf.String()
 
-	// The payload is embedded in a JS context and must not be able to close the
-	// script element. json.Marshal alone does not escape "<", which is why the
-	// payload is handed to html/template rather than pre-marshalled.
 	assert.NotContains(t, content, "</script><img")
 	assert.NotContains(t, content, "</script><svg")
 
-	// Matching the tail of the unicode escape rather than the whole sequence,
-	// because a literal backslash-u in this assertion is easy to mangle. The
-	// fixture data above contains no such substring of its own.
 	assert.Contains(t, content, "u003c", "angle brackets in issue data must be escaped")
 }
 
 func TestReportScriptNeverUsesInnerHTML(t *testing.T) {
 	script := mustAsset("report.js")
 
-	// Every value the report renders originates from a scanned target. Building
-	// nodes from text avoids the whole class of injection, so the asset is not
-	// allowed to reintroduce innerHTML.
 	assert.NotContains(t, script, "innerHTML")
 	assert.NotContains(t, script, "outerHTML")
 	assert.NotContains(t, script, "insertAdjacentHTML")
@@ -239,8 +228,6 @@ func TestHTMLReportHasNoExternalResourceReferences(t *testing.T) {
 	}, &buf)
 	assert.NoError(t, err)
 
-	// src= and stylesheet href= are the attributes that cause a fetch. Ordinary
-	// href= links are fine: reference URLs belong in the report.
 	fetching := regexp.MustCompile(`(?i)(<script[^>]+src=|<link[^>]+stylesheet|src\s*=\s*["']https?://|@import)`)
 	assert.NotRegexp(t, fetching, buf.String(), "report must not fetch anything at open time")
 }

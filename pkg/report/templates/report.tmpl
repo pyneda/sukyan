@@ -4,21 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ .Title }} - Sukyan Scanner Report</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+CiAgPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzFhMTkxNyIvPgogIDxwYXRoIGQ9Ik0yMC44IDExLjVjMC0yLjYtMi00LjItNC44LTQuMnMtNC44IDEuNi00LjggNC4yYzAgNS4yIDkuNiAyLjggOS42IDcuNCAwIDItMS44IDMtNC44IDNzLTQuOC0xLjYtNC44LTMuNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZThlM2RjIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K">
     <style>{{ styles }}</style>
 </head>
 <body>
     <header class="header">
         <div class="container header-inner">
             <div class="header-title">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--severity-critical-fg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <svg class="logo" viewBox="8.5 4.5 15 20" aria-hidden="true">
+                    <path d="M20.8 11.5c0-2.6-2-4.2-4.8-4.2s-4.8 1.6-4.8 4.2c0 5.2 9.6 2.8 9.6 7.4 0 2-1.8 3-4.8 3s-4.8-1.6-4.8-3.4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
                 <span>{{ .Title }}</span>
             </div>
-            <div class="header-title" style="gap:0.75rem">
-                <span class="stat-hint">Generated {{ .GeneratedAt }}</span>
-                <button type="button" id="theme-toggle" class="btn no-print">Light</button>
-            </div>
+            <button type="button" id="theme-toggle" class="theme-toggle no-print" aria-label="Toggle theme">
+                <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M22 12h-2"/><path d="m19.07 19.07-1.41-1.41"/><path d="M12 20v2"/><path d="m4.93 19.07 1.41-1.41"/><path d="M2 12h2"/><path d="m4.93 4.93 1.41 1.41"/>
+                </svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                </svg>
+            </button>
         </div>
     </header>
 
@@ -100,6 +105,13 @@
             </section>
         </div>
     </main>
+
+    <footer class="footer">
+        <div class="container footer-inner">
+            <span>Generated {{ .GeneratedAt }}</span>
+            <span>{{ .Summary.TotalIssues }} findings &middot; Sukyan</span>
+        </div>
+    </footer>
 
     <div id="toast" class="card no-print" role="status" aria-live="polite" style="position:fixed;bottom:1rem;right:1rem;padding:0.5rem 0.875rem;font-size:0.8125rem;opacity:0;transform:translateY(0.5rem);transition:opacity 0.2s ease,transform 0.2s ease;pointer-events:none;z-index:50"></div>
 

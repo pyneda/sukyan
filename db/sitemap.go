@@ -135,12 +135,12 @@ func newBuilder(url, path string, depth int, t SitemapNodeType, exampleID uint) 
 
 // Called exactly once per node per history record, which is what keeps the
 // counts deduplicated.
-func (b *sitemapBuilder) record(h History, params []string) {
+func (b *sitemapBuilder) record(row sitemapRow, params []string) {
 	b.node.Requests++
-	if h.Method != "" {
-		b.methods[h.Method] = struct{}{}
+	if row.Method != "" {
+		b.methods[row.Method] = struct{}{}
 	}
-	b.node.StatusClasses[statusClass(h.StatusCode)]++
+	b.node.StatusClasses[statusClass(row.StatusCode)]++
 	for _, p := range params {
 		if len(b.params) >= maxParamsPerNode {
 			break
@@ -167,25 +167,26 @@ func statusClass(code int) string {
 	}
 }
 
-// Query strings do not become nodes: every request to a path collapses into one
-// endpoint carrying the union of parameter names seen, which stops a tracking
-// endpoint from emitting hundreds of visually identical rows.
-func (d *DatabaseConnection) ConstructSitemap(filter SitemapFilter) ([]*SitemapNode, error) {
-	histories, err := d.getSitemapData(filter)
-	if err != nil {
-		return nil, err
-	}
+// sitemapRow is one traffic record the tree is built from. Keeping the walk on a
+// neutral type is what lets HTTP and WebSocket traffic share it.
+type sitemapRow struct {
+	ID         uint
+	URL        string
+	Method     string
+	StatusCode int
+}
 
+func buildSitemapTree(rows []sitemapRow) []*SitemapNode {
 	roots := map[string]*sitemapBuilder{}
 	var rootOrder []*sitemapBuilder
 
-	for _, history := range histories {
-		baseURL, err := lib.GetBaseURL(history.URL)
+	for _, row := range rows {
+		baseURL, err := lib.GetBaseURL(row.URL)
 		if err != nil {
 			// A single malformed URL should not fail the whole sitemap.
 			continue
 		}
-		u, err := url.Parse(history.URL)
+		u, err := url.Parse(row.URL)
 		if err != nil {
 			continue
 		}
@@ -194,11 +195,11 @@ func (d *DatabaseConnection) ConstructSitemap(filter SitemapFilter) ([]*SitemapN
 
 		root, exists := roots[baseURL]
 		if !exists {
-			root = newBuilder(baseURL, "", 0, SitemapNodeTypeRoot, history.ID)
+			root = newBuilder(baseURL, "", 0, SitemapNodeTypeRoot, row.ID)
 			roots[baseURL] = root
 			rootOrder = append(rootOrder, root)
 		}
-		root.record(history, params)
+		root.record(row, params)
 
 		current := root
 		segments := strings.Split(u.Path, "/")
@@ -209,11 +210,11 @@ func (d *DatabaseConnection) ConstructSitemap(filter SitemapFilter) ([]*SitemapN
 			child, ok := current.kids[segment]
 			if !ok {
 				childURL := baseURL + strings.Join(segments[:i+2], "/")
-				child = newBuilder(childURL, segment, current.node.Depth+1, determineType(childURL), history.ID)
+				child = newBuilder(childURL, segment, current.node.Depth+1, determineType(childURL), row.ID)
 				current.kids[segment] = child
 				current.order = append(current.order, child)
 			}
-			child.record(history, params)
+			child.record(row, params)
 			current = child
 		}
 	}
@@ -223,7 +224,24 @@ func (d *DatabaseConnection) ConstructSitemap(filter SitemapFilter) ([]*SitemapN
 		results = append(results, root.finalise())
 	}
 	sortNodes(results)
-	return results, nil
+	return results
+}
+
+// Query strings do not become nodes: every request to a path collapses into one
+// endpoint carrying the union of parameter names seen, which stops a tracking
+// endpoint from emitting hundreds of visually identical rows.
+func (d *DatabaseConnection) ConstructSitemap(filter SitemapFilter) ([]*SitemapNode, error) {
+	histories, err := d.getSitemapData(filter)
+	if err != nil {
+		return nil, err
+	}
+
+	rows := make([]sitemapRow, 0, len(histories))
+	for _, h := range histories {
+		rows = append(rows, sitemapRow{ID: h.ID, URL: h.URL, Method: h.Method, StatusCode: h.StatusCode})
+	}
+
+	return buildSitemapTree(rows), nil
 }
 
 func (b *sitemapBuilder) finalise() *SitemapNode {

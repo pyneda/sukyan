@@ -9,87 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// buildSitemap runs the pure tree-construction path over a fixed set of history
-// records. It mirrors ConstructSitemap without touching the database so the
-// aggregation rules can be tested directly.
+// buildSitemap runs the real tree-construction path over a fixed set of history
+// records, so the tests cannot drift from production.
 func buildSitemap(t *testing.T, histories []History) []*SitemapNode {
 	t.Helper()
-	roots := map[string]*sitemapBuilder{}
-	var rootOrder []*sitemapBuilder
-
+	rows := make([]sitemapRow, 0, len(histories))
 	for _, h := range histories {
-		u, err := url.Parse(h.URL)
-		require.NoError(t, err)
-		baseURL := u.Scheme + "://" + u.Host
-		params := queryParamNames(u)
-
-		root, ok := roots[baseURL]
-		if !ok {
-			root = newBuilder(baseURL, "", 0, SitemapNodeTypeRoot, h.ID)
-			roots[baseURL] = root
-			rootOrder = append(rootOrder, root)
-		}
-		root.record(h, params)
-
-		current := root
-		segments := splitPath(u.Path)
-		for i, segment := range segments {
-			if segment == "" {
-				continue
-			}
-			child, ok := current.kids[segment]
-			if !ok {
-				childURL := baseURL + joinPath(segments[:i+1])
-				child = newBuilder(childURL, segment, current.node.Depth+1, determineType(childURL), h.ID)
-				current.kids[segment] = child
-				current.order = append(current.order, child)
-			}
-			child.record(h, params)
-			current = child
-		}
+		rows = append(rows, sitemapRow{ID: h.ID, URL: h.URL, Method: h.Method, StatusCode: h.StatusCode})
 	}
-
-	out := make([]*SitemapNode, 0, len(rootOrder))
-	for _, r := range rootOrder {
-		out = append(out, r.finalise())
-	}
-	sortNodes(out)
-	return out
-}
-
-func splitPath(p string) []string {
-	var out []string
-	for _, s := range splitOnSlash(p) {
-		out = append(out, s)
-	}
-	return out
-}
-
-func splitOnSlash(p string) []string {
-	var parts []string
-	current := ""
-	for _, r := range p {
-		if r == '/' {
-			if current != "" {
-				parts = append(parts, current)
-			}
-			current = ""
-			continue
-		}
-		current += string(r)
-	}
-	if current != "" {
-		parts = append(parts, current)
-	}
-	return parts
-}
-
-func joinPath(segments []string) string {
-	out := ""
-	for _, s := range segments {
-		out += "/" + s
-	}
-	return out
+	return buildSitemapTree(rows)
 }
 
 func hist(id uint, method, rawURL string, status int) History {
@@ -108,6 +36,24 @@ func findChild(node *SitemapNode, path string) *SitemapNode {
 		}
 	}
 	return nil
+}
+
+func TestBuildSitemapTreeSharedWithProduction(t *testing.T) {
+	rows := []sitemapRow{
+		{ID: 1, URL: "https://app.test/api/users", Method: "GET", StatusCode: 200},
+		{ID: 2, URL: "https://app.test/api/orders", Method: "POST", StatusCode: 201},
+	}
+
+	roots := buildSitemapTree(rows)
+
+	require.Len(t, roots, 1)
+	assert.Equal(t, "https://app.test", roots[0].URL)
+	assert.Equal(t, 2, roots[0].Requests)
+	require.Len(t, roots[0].Children, 1)
+	api := roots[0].Children[0]
+	assert.Equal(t, "api", api.Path)
+	assert.Equal(t, 2, api.Requests)
+	assert.Len(t, api.Children, 2)
 }
 
 // Requests must count each history record once per node on its path. The

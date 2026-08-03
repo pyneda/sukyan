@@ -55,10 +55,16 @@ var createUserCmd = &cobra.Command{
 			return fmt.Errorf("failed to generate password hash")
 		}
 
+		superuser, err := cmd.Flags().GetBool("superuser")
+		if err != nil {
+			return fmt.Errorf("error getting 'superuser' flag: %v", err)
+		}
+
 		user := &db.User{
 			Email:        email,
 			PasswordHash: passwordHash,
 			Active:       true,
+			Superuser:    superuser,
 		}
 
 		user, err = db.Connection().CreateUser(user)
@@ -66,7 +72,11 @@ var createUserCmd = &cobra.Command{
 			return fmt.Errorf("error creating user: %v", err)
 		}
 
-		fmt.Printf("User created successfully! ID: %s\n", user.ID)
+		role := "member"
+		if user.Superuser {
+			role = "superuser"
+		}
+		fmt.Printf("User created successfully! ID: %s (%s)\n", user.ID, role)
 		return nil
 	},
 }
@@ -76,6 +86,7 @@ func init() {
 
 	createUserCmd.Flags().StringP("email", "e", "", "Email for the new user (required, must be valid email format)")
 	createUserCmd.Flags().StringP("password", "p", "", "Password for the new user (if omitted, will be prompted; must be at least 7 characters with letters and numbers)")
+	createUserCmd.Flags().Bool("superuser", false, "Grant deployment-wide administration rights")
 
 	cobra.CheckErr(createUserCmd.MarkFlagRequired("email"))
 }

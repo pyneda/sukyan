@@ -8,6 +8,7 @@ import (
 	"github.com/pyneda/sukyan/cmd/get"
 	"github.com/pyneda/sukyan/cmd/scanctl"
 	"github.com/pyneda/sukyan/cmd/stats"
+	"github.com/pyneda/sukyan/cmd/update"
 	"github.com/pyneda/sukyan/cmd/utils"
 )
 
@@ -18,6 +19,7 @@ func init() {
 	rootCmd.AddCommand(stats.StatsCmd)
 	rootCmd.AddCommand(delete.DeleteCmd)
 	rootCmd.AddCommand(create.CreateCmd)
+	rootCmd.AddCommand(update.UpdateCmd)
 	rootCmd.AddCommand(utils.UtilsCmd)
 	rootCmd.AddCommand(scanctl.ScanCtlCmd)
 }

@@ -1,9 +1,11 @@
 package db
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 )
 
@@ -21,6 +23,56 @@ type User struct {
 	// otherwise stateless, so this is the only lever that ends them early.
 	TokensValidFrom time.Time  `gorm:"not null;default:'epoch'" json:"tokens_valid_from"`
 	LastLoginAt     *time.Time `json:"last_login_at"`
+}
+
+func (u User) role() string {
+	if u.Superuser {
+		return "superuser"
+	}
+	return "member"
+}
+
+func (u User) status() string {
+	if u.Active {
+		return "active"
+	}
+	return "disabled"
+}
+
+func (u User) lastLogin() string {
+	if u.LastLoginAt == nil {
+		return "never"
+	}
+	return u.LastLoginAt.Format(time.RFC3339)
+}
+
+func (u User) String() string {
+	return fmt.Sprintf("%s (%s, %s) last login: %s", u.Email, u.role(), u.status(), u.lastLogin())
+}
+
+func (u User) TableHeaders() []string {
+	return []string{"Email", "Role", "Status", "Last login", "Joined", "ID"}
+}
+
+func (u User) TableRow() []string {
+	return []string{
+		u.Email,
+		u.role(),
+		u.status(),
+		u.lastLogin(),
+		u.CreatedAt.Format(time.RFC3339),
+		u.ID.String(),
+	}
+}
+
+func (u User) Pretty() string {
+	role, status, lastLogin := u.role(), u.status(), u.lastLogin()
+	return fmt.Sprintf("%sEmail:%s %s, %sRole:%s %s, %sStatus:%s %s, %sLast login:%s %s, %sID:%s %s",
+		lib.Blue, lib.ResetColor, u.Email,
+		lib.Blue, lib.ResetColor, role,
+		lib.Blue, lib.ResetColor, status,
+		lib.Blue, lib.ResetColor, lastLogin,
+		lib.Blue, lib.ResetColor, u.ID)
 }
 
 func (d *DatabaseConnection) CreateUser(user *User) (*User, error) {

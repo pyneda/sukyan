@@ -10,6 +10,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 
@@ -72,6 +74,43 @@ func requireTokenExpiry(c *fiber.Ctx) error {
 	}
 
 	return c.Next()
+}
+
+// userLoader resolves the authenticated account. Injected so the superuser gate
+// can be exercised without a database.
+type userLoader func(uuid.UUID) (*db.User, error)
+
+// SuperuserProtected restricts a route to active superusers. Chain it after
+// JWTProtected().
+//
+// The flag is read from the database on every request rather than from the
+// token, so revoking a superuser or deactivating them takes effect at once
+// instead of at the next token renewal.
+func SuperuserProtected() fiber.Handler {
+	return superuserProtectedWith(func(id uuid.UUID) (*db.User, error) {
+		return db.Connection().GetUserByID(id)
+	})
+}
+
+func superuserProtectedWith(load userLoader) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		forbidden := func() error {
+			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
+				Error:   "Forbidden",
+				Message: "This resource requires a superuser account.",
+			})
+		}
+
+		id, err := currentUserID(c)
+		if err != nil {
+			return forbidden()
+		}
+		user, err := load(id)
+		if err != nil || user == nil || !user.Active || !user.Superuser {
+			return forbidden()
+		}
+		return c.Next()
+	}
 }
 
 func jwtError(c *fiber.Ctx, err error) error {

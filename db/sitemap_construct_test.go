@@ -299,8 +299,7 @@ func TestWebSocketRowsDoNotTouchRequestsOrStatusClasses(t *testing.T) {
 
 	feed := findChild(t, roots[0].Children[0], "feed")
 	assert.Equal(t, 1, feed.Requests, "a connection is not a request")
-	assert.Equal(t, 1, feed.StatusClasses["2xx"])
-	assert.Equal(t, 0, feed.StatusClasses["1xx"], "a connection contributes no status class")
+	assert.Equal(t, map[string]int{"2xx": 1}, feed.StatusClasses, "a connection contributes no status class, not even 'none'")
 	assert.Equal(t, []string{"GET"}, feed.Methods, "a connection contributes no method")
 	assert.True(t, feed.WebSocket)
 }

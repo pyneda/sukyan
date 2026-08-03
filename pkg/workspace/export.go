@@ -124,9 +124,7 @@ func exportTable(ctx context.Context, conn *db.DatabaseConnection, spec tableSpe
 }
 
 // lowestIdentifiers records, per table, the smallest bigint row identifier the
-// export will contain. Import anchors each table's offset to its own base, which
-// keeps the identifier space growing by the size of the archive rather than by
-// the size of the database it is imported into.
+// export will contain, which import uses to anchor its offsets.
 func lowestIdentifiers(ctx context.Context, conn *db.DatabaseConnection, workspaceID uint) (map[string]int64, error) {
 	bases := make(map[string]int64, len(orderedTables))
 	for _, spec := range orderedTables {

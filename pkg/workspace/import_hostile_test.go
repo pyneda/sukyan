@@ -55,12 +55,12 @@ func TestImportRejectsRowsAimedAtAnotherWorkspace(t *testing.T) {
 		conn.DeleteWorkspaceCascade(context.Background(), victim.ID, db.WorkspaceDeleteOptions{})
 	})
 
-	highest, err := highestIdentifier(context.Background(), conn)
+	_, floors, err := planIdentifierOffsets(context.Background(), conn, nil)
 	require.NoError(t, err)
 
-	// The crafted archive declares no identifier base, so the offset is
-	// highest+1. This value resolves to exactly victim.ID once shifted.
-	aimed := int64(victim.ID) - (highest + 1)
+	// The crafted archive declares no identifier base, so histories are shifted
+	// by their table's floor. This value resolves to exactly victim.ID.
+	aimed := int64(victim.ID) - floors["histories"]
 
 	archive := craftArchive(t, []record{
 		{Table: "workspaces", Row: json.RawMessage(`{"id":1,"code":"hostile","title":"hostile"}`)},
@@ -105,8 +105,9 @@ func TestRepeatedImportsDoNotInflateIdentifierSpace(t *testing.T) {
 		conn.DeleteWorkspaceCascade(context.Background(), seed.Workspace.ID, db.WorkspaceDeleteOptions{})
 	})
 
-	before, err := highestIdentifier(context.Background(), conn)
+	_, floorsBefore, err := planIdentifierOffsets(context.Background(), conn, nil)
 	require.NoError(t, err)
+	before := floorsBefore["histories"]
 
 	for i := 0; i < 3; i++ {
 		archive := exportToBuffer(t, seed.Workspace.ID)
@@ -117,8 +118,9 @@ func TestRepeatedImportsDoNotInflateIdentifierSpace(t *testing.T) {
 		})
 	}
 
-	after, err := highestIdentifier(context.Background(), conn)
+	_, floorsAfter, err := planIdentifierOffsets(context.Background(), conn, nil)
 	require.NoError(t, err)
+	after := floorsAfter["histories"]
 
 	// Three copies of a workspace holding a few dozen rows should consume a few
 	// hundred identifiers, not multiply the ceiling.

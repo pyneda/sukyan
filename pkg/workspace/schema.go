@@ -14,14 +14,9 @@ type tableSpec struct {
 	// ID as its single parameter and must return whole rows of Name.
 	Query string
 	// IDColumns maps each bigint identifier column to the table whose identifier
-	// space it draws from; the table's own primary key maps to itself.
-	//
-	// Import shifts a column by the offset chosen for the table it points at,
-	// which keeps every reference consistent without a per-row mapping table.
-	// The offsets have to be per-table because tables occupy very different
-	// ranges -- playground_collections sits in the hundreds while histories
-	// reaches into the billions -- and one shared offset would drag every table
-	// up to the largest, doubling the ceiling on each import.
+	// space it draws from; the table's own primary key maps to itself. Import
+	// shifts a column by the offset chosen for that table (see
+	// planIdentifierOffsets).
 	IDColumns map[string]string
 	// UUIDPrimaryKey is the uuid column holding this table's own identity, if
 	// it has one. Import always mints a fresh value for it.

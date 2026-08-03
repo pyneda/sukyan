@@ -19,6 +19,10 @@ import (
 // DefaultImportBatchSize is how many rows are inserted per statement.
 const DefaultImportBatchSize = 500
 
+// maxPendingBatchBytes caps how much row data an insert batch accumulates,
+// independently of the row count.
+const maxPendingBatchBytes = 32 << 20
+
 // ImportOptions configures an import.
 type ImportOptions struct {
 	// Code overrides the imported workspace's code. Empty keeps the archived
@@ -148,21 +152,26 @@ type importState struct {
 
 func (s *importState) consume(ctx context.Context, reader *archiveReader, opts ImportOptions) error {
 	var (
-		pending   []json.RawMessage
-		pendingID string
+		pending      []json.RawMessage
+		pendingBytes int
+		pendingID    string
 	)
 
 	flush := func() error {
 		if len(pending) == 0 {
 			return nil
 		}
-		spec, _ := tableByName(pendingID)
+		spec, ok := tableByName(pendingID)
+		if !ok {
+			return fmt.Errorf("archive references unknown table %q", pendingID)
+		}
 		if err := s.insertBatch(ctx, spec, pending); err != nil {
 			return err
 		}
 		s.counts[pendingID] += int64(len(pending))
 		s.total += int64(len(pending))
 		pending = pending[:0]
+		pendingBytes = 0
 		return nil
 	}
 
@@ -210,8 +219,12 @@ func (s *importState) consume(ctx context.Context, reader *archiveReader, opts I
 			return err
 		}
 		pending = append(pending, transformed)
+		pendingBytes += len(transformed)
 
-		if len(pending) >= s.batchSize {
+		// Bounded by bytes as well as rows: a single archived row may be
+		// megabytes (a stored HTTP exchange), and an archive is untrusted input,
+		// so a row count alone puts no ceiling on what a batch holds.
+		if len(pending) >= s.batchSize || pendingBytes >= maxPendingBatchBytes {
 			if err := flush(); err != nil {
 				return err
 			}
@@ -449,8 +462,14 @@ func (s *importState) advanceSequences(ctx context.Context) error {
 		if spec.SkipImport || !spec.hasBigintPrimaryKey() {
 			continue
 		}
+		// Forward only. Another process may already have reserved identifiers
+		// beyond the highest committed row, and winding the sequence back to
+		// MAX(id) would hand those same values out a second time.
 		statement := fmt.Sprintf(`
-			SELECT setval(seq, GREATEST(COALESCE((SELECT MAX(id) FROM %s), 1), 1))
+			SELECT setval(seq, GREATEST(
+				COALESCE(pg_sequence_last_value(seq), 1),
+				COALESCE((SELECT MAX(id) FROM %s), 1),
+				1))
 			FROM pg_get_serial_sequence('%s', 'id') AS seq
 			WHERE seq IS NOT NULL`, spec.Name, spec.Name)
 		if err := s.conn.DB().WithContext(ctx).Exec(statement).Error; err != nil {
@@ -496,26 +515,6 @@ func planIdentifierOffsets(ctx context.Context, conn *db.DatabaseConnection, bas
 		}
 	}
 	return offsets, floors, nil
-}
-
-// highestIdentifier returns the largest bigint row identifier currently stored.
-func highestIdentifier(ctx context.Context, conn *db.DatabaseConnection) (int64, error) {
-	var highest int64
-	for _, spec := range orderedTables {
-		if !spec.hasBigintPrimaryKey() {
-			continue
-		}
-		var current *int64
-		if err := conn.DB().WithContext(ctx).
-			Raw(fmt.Sprintf("SELECT MAX(id) FROM %s", spec.Name)).
-			Scan(&current).Error; err != nil {
-			return 0, fmt.Errorf("reading highest id of %s: %w", spec.Name, err)
-		}
-		if current != nil && *current > highest {
-			highest = *current
-		}
-	}
-	return highest, nil
 }
 
 func toInt64(value any) (int64, error) {

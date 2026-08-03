@@ -55,16 +55,18 @@ type WorkspaceDeleteResult struct {
 // caller cancel through ctx, and makes an interrupted delete resumable: the
 // workspace is left partially emptied and re-running finishes the job.
 func (d *DatabaseConnection) DeleteWorkspaceCascade(ctx context.Context, workspaceID uint, opts WorkspaceDeleteOptions) (*WorkspaceDeleteResult, error) {
+	// Callers report progress from the result even when an error comes back, so
+	// it is never nil.
+	started := time.Now()
+	result := &WorkspaceDeleteResult{RowsByTable: make(map[string]int64, len(workspaceBulkTables)+1)}
+
 	if workspaceID == 0 {
-		return nil, fmt.Errorf("a workspace ID is required")
+		return result, fmt.Errorf("a workspace ID is required")
 	}
 	batchSize := opts.BatchSize
 	if batchSize <= 0 {
 		batchSize = DefaultWorkspaceDeleteBatchSize
 	}
-
-	started := time.Now()
-	result := &WorkspaceDeleteResult{RowsByTable: make(map[string]int64, len(workspaceBulkTables)+1)}
 
 	cancelled, err := d.cancelWorkspaceScans(ctx, workspaceID)
 	if err != nil {

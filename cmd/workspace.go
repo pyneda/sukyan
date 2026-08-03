@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pyneda/sukyan/db"
+	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/workspace"
 	"github.com/spf13/cobra"
 )
@@ -66,7 +67,7 @@ rest. The archive can be imported into another sukyan deployment.`,
 		info, statErr := file.Stat()
 		size := "unknown size"
 		if statErr == nil {
-			size = humanBytes(info.Size())
+			size = lib.BytesCountToHumanReadable(info.Size())
 		}
 		fmt.Printf("\nExported workspace %q (%d rows) to %s [%s] in %s\n",
 			result.Workspace.Code, result.TotalRows, workspaceArchivePath, size,
@@ -116,19 +117,6 @@ the imported data cannot collide with, or reference, anything already stored.`,
 		}
 		return nil
 	},
-}
-
-func humanBytes(size int64) string {
-	const unit = 1024
-	if size < unit {
-		return fmt.Sprintf("%d B", size)
-	}
-	div, exp := int64(unit), 0
-	for n := size / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
 func init() {

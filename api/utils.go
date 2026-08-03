@@ -259,10 +259,8 @@ func parseInt(input string) (int, error) {
 	return strconv.Atoi(input)
 }
 
-// parseUint reads a row identifier. Identifier columns are bigint and uint is
-// 64-bit, so parsing at 32 bits rejected every identifier above ~4.29 billion --
-// reachable both by a long-lived install and immediately after a workspace
-// import, which allocates identifiers above everything already stored.
+// parseUint reads a row identifier. Identifier columns are bigint, so the full
+// 64-bit range has to parse.
 func parseUint(input string) (uint, error) {
 	val, err := strconv.ParseUint(input, 10, 64)
 	if err != nil {

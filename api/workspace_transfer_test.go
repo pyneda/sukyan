@@ -40,10 +40,9 @@ func seedTransferWorkspace(t *testing.T) *db.Workspace {
 	return workspace
 }
 
-// The import handler reads the request body. Fiber only exposes a body stream
-// once the upload outgrows its buffer, so a handler that reads only the stream
-// silently rejects every ordinary upload -- which is what shipped until an
-// end-to-end run caught it.
+// Fiber only exposes a body stream once the upload outgrows its buffer, so a
+// handler that reads only the stream rejects every ordinary upload. Exercising
+// export and import over real HTTP is the only way that surfaces.
 func TestWorkspaceExportImportOverHTTP(t *testing.T) {
 	source := seedTransferWorkspace(t)
 	t.Cleanup(func() {

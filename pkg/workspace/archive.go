@@ -43,11 +43,7 @@ type Manifest struct {
 	CreatedAt     time.Time     `json:"created_at"`
 	Workspace     WorkspaceInfo `json:"workspace"`
 	// IdentifierBases holds, per table, the lowest bigint row identifier in the
-	// archive. Import shifts each table relative to its own base, so the
-	// identifier space grows by the archive's span rather than by the size of
-	// the target database. Without it, importing into the same database
-	// repeatedly doubles the highest identifier each time and exhausts the
-	// bigint range within a few dozen imports.
+	// archive; import anchors each table's offset to it.
 	IdentifierBases map[string]int64 `json:"identifier_bases,omitempty"`
 	Excluded        []ExcludedTable  `json:"excluded_tables,omitempty"`
 }
@@ -116,7 +112,15 @@ func (a *archiveWriter) writeRow(table string, row []byte) error {
 }
 
 func (a *archiveWriter) close(summary Summary) error {
-	if err := a.writeJSON(record{Table: summaryTag, Row: mustJSON(summary)}); err != nil {
+	// The summary is what lets import detect a truncated archive, so a failure
+	// to encode it has to abort rather than ship an archive that verifies
+	// vacuously against an empty summary.
+	encoded, err := json.Marshal(summary)
+	if err != nil {
+		a.zstd.Close()
+		return fmt.Errorf("encoding archive summary: %w", err)
+	}
+	if err := a.writeJSON(record{Table: summaryTag, Row: encoded}); err != nil {
 		a.zstd.Close()
 		return err
 	}
@@ -128,14 +132,6 @@ func (a *archiveWriter) close(summary Summary) error {
 		return fmt.Errorf("closing zstd stream: %w", err)
 	}
 	return nil
-}
-
-func mustJSON(v any) json.RawMessage {
-	encoded, err := json.Marshal(v)
-	if err != nil {
-		return json.RawMessage(`{}`)
-	}
-	return encoded
 }
 
 type archiveReader struct {

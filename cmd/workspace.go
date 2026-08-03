@@ -32,7 +32,8 @@ var workspaceExportCmd = &cobra.Command{
 	Long: `Writes a compressed archive holding every row that belongs to the workspace:
 history, issues, websocket traffic, API definitions, playground sessions and the
 rest. The archive can be imported into another sukyan deployment.`,
-	Args: cobra.ExactArgs(1),
+	Args:         cobra.ExactArgs(1),
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		workspaceID, err := strconv.ParseUint(args[0], 10, 64)
 		if err != nil || workspaceID == 0 {
@@ -79,6 +80,7 @@ var workspaceImportCmd = &cobra.Command{
 	Short: "Import a workspace archive into this deployment",
 	Long: `Recreates an exported workspace as a new workspace. Identifiers are rewritten so
 the imported data cannot collide with, or reference, anything already stored.`,
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if workspaceArchivePath == "" {
 			return fmt.Errorf("an input path is required (--input)")

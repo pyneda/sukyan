@@ -121,14 +121,19 @@ func (d *DatabaseConnection) MarkWorkspaceForDeletion(workspaceID uint) error {
 // WorkspacesPendingPurge lists workspaces that were marked for deletion but
 // whose rows were never fully removed, which is what an interrupted purge leaves
 // behind. Re-running the delete for each finishes the job.
-func (d *DatabaseConnection) WorkspacesPendingPurge() ([]uint, error) {
-	var ids []uint
-	if err := d.db.Unscoped().Model(&Workspace{}).
+//
+// Note that a workspace soft-deleted by any other means shows up here too, so
+// callers must treat the result as a proposal to confirm rather than a worklist
+// to run unattended.
+func (d *DatabaseConnection) WorkspacesPendingPurge() ([]Workspace, error) {
+	var workspaces []Workspace
+	if err := d.db.Unscoped().
 		Where("deleted_at IS NOT NULL").
-		Pluck("id", &ids).Error; err != nil {
+		Order("id").
+		Find(&workspaces).Error; err != nil {
 		return nil, fmt.Errorf("listing workspaces pending purge: %w", err)
 	}
-	return ids, nil
+	return workspaces, nil
 }
 
 // cancelWorkspaceScans stops any scan still running against the workspace so

@@ -1,11 +1,13 @@
 package cleanup
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -13,12 +15,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var purgeWorkspacesYes bool
+
 var purgeWorkspacesCmd = &cobra.Command{
 	Use:   "purge-workspaces",
 	Short: "🗑️  Finish deleting workspaces whose purge was interrupted",
 	Long: `Deleting a large workspace removes its rows in batches. If that is interrupted --
 the process is stopped, the machine restarts -- the workspace stays hidden but its
 rows remain. This command finds those workspaces and finishes removing them.`,
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		connection := db.Connection()
 		if connection == nil {
@@ -34,13 +39,30 @@ rows remain. This command finds those workspaces and finishes removing them.`,
 			return nil
 		}
 
-		fmt.Printf("Found %d workspace(s) pending purge.\n", len(pending))
+		// Anything soft-deleted lands here, not only interrupted purges, so the
+		// operator sees exactly what is about to go before it goes.
+		fmt.Printf("The following %d workspace(s) are marked as deleted and will be permanently removed:\n\n", len(pending))
+		for _, workspace := range pending {
+			fmt.Printf("  %-10d %-40s %s\n", workspace.ID, workspace.Code, workspace.Title)
+		}
+
+		if !purgeWorkspacesYes {
+			fmt.Print("\nThis cannot be undone. Proceed? (yes/no): ")
+			reader := bufio.NewReader(os.Stdin)
+			confirmation, _ := reader.ReadString('\n')
+			if strings.TrimSpace(confirmation) != "yes" {
+				fmt.Println("Aborted.")
+				return nil
+			}
+		}
+		fmt.Println()
 
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 
 		var totalRows int64
-		for _, workspaceID := range pending {
+		for _, workspace := range pending {
+			workspaceID := workspace.ID
 			result, err := connection.DeleteWorkspaceCascade(ctx, workspaceID, db.WorkspaceDeleteOptions{
 				Progress: func(table string, deleted int64) {
 					fmt.Printf("\r  workspace %-6d %-24s %10d rows", workspaceID, table, deleted)
@@ -65,5 +87,6 @@ rows remain. This command finds those workspaces and finishes removing them.`,
 }
 
 func init() {
+	purgeWorkspacesCmd.Flags().BoolVarP(&purgeWorkspacesYes, "yes", "y", false, "Skip the confirmation prompt")
 	CleanupCmd.AddCommand(purgeWorkspacesCmd)
 }

@@ -63,10 +63,11 @@ func ReportHandler(c *fiber.Ctx) error {
 	}
 
 	issues, _, err := db.Connection().ListIssues(db.IssueFilter{
-		WorkspaceID:   input.WorkspaceID,
-		MinConfidence: input.MinConfidence,
-		TaskID:        input.TaskID,
-		ScanID:        input.ScanID,
+		WorkspaceID:         input.WorkspaceID,
+		MinConfidence:       input.MinConfidence,
+		TaskID:              input.TaskID,
+		ScanID:              input.ScanID,
+		IncludeInteractions: true,
 	})
 
 	if err != nil {

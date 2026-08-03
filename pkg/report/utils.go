@@ -41,6 +41,51 @@ func fetchWebSocketConnections(issues []*db.Issue) map[uint]*ReportWebSocketConn
 	return byID
 }
 
+func processInteractions(interactions []db.OOBInteraction) []*ReportInteraction {
+	if len(interactions) == 0 {
+		return nil
+	}
+
+	result := make([]*ReportInteraction, 0, len(interactions))
+	for _, interaction := range interactions {
+		timestamp := ""
+		if !interaction.Timestamp.IsZero() {
+			timestamp = interaction.Timestamp.Format("2006-01-02 15:04:05")
+		}
+
+		item := &ReportInteraction{
+			ID:            interaction.ID,
+			Protocol:      interaction.Protocol,
+			FullID:        interaction.FullID,
+			UniqueID:      interaction.UniqueID,
+			QType:         interaction.QType,
+			RawRequest:    base64.StdEncoding.EncodeToString([]byte(interaction.RawRequest)),
+			RawResponse:   base64.StdEncoding.EncodeToString([]byte(interaction.RawResponse)),
+			RemoteAddress: interaction.RemoteAddress,
+			Timestamp:     timestamp,
+		}
+
+		if interaction.OOBTestID != nil {
+			item.Cause = &ReportInteractionCause{
+				TestName:          interaction.OOBTest.TestName,
+				Code:              string(interaction.OOBTest.Code),
+				Target:            interaction.OOBTest.Target,
+				InteractionDomain: interaction.OOBTest.InteractionDomain,
+				Payload:           interaction.OOBTest.Payload,
+				InsertionPoint:    interaction.OOBTest.InsertionPoint,
+			}
+		}
+
+		result = append(result, item)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Timestamp < result[j].Timestamp
+	})
+
+	return result
+}
+
 // processIssues converts db.Issue objects to optimized ReportIssue objects
 func processIssues(issues []*db.Issue, maxRequestSize int) []*ReportIssue {
 	reportIssues := make([]*ReportIssue, 0, len(issues))
@@ -95,6 +140,9 @@ func processIssues(issues []*db.Issue, maxRequestSize int) []*ReportIssue {
 			RequestTruncated:  requestTruncated,
 			ResponseTruncated: responseTruncated,
 			CWE:               issue.Cwe,
+			POC:               issue.POC,
+			POCType:           issue.POCType,
+			Interactions:      processInteractions(issue.Interactions),
 		}
 
 		// Include WebSocket connection data if this is a WebSocket-related issue
@@ -273,6 +321,7 @@ func processWebSocketConnection(conn *db.WebSocketConnection) *ReportWebSocketCo
 			Opcode:      msg.Opcode,
 			Mask:        msg.Mask,
 			PayloadData: msg.PayloadData,
+			IsBinary:    msg.IsBinary,
 			Timestamp:   timestamp,
 			Direction:   string(msg.Direction),
 		}

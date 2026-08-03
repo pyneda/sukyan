@@ -196,15 +196,16 @@ func (i Issue) IsEmpty() bool {
 
 // IssueFilter represents available issue filters
 type IssueFilter struct {
-	Codes         []string
-	WorkspaceID   uint
-	TaskID        uint
-	TaskJobID     uint
-	ScanID        uint
-	ScanJobID     uint
-	URL           string
-	MinConfidence int
-	APIEndpointID *uuid.UUID
+	Codes               []string
+	WorkspaceID         uint
+	TaskID              uint
+	TaskJobID           uint
+	ScanID              uint
+	ScanJobID           uint
+	URL                 string
+	MinConfidence       int
+	APIEndpointID       *uuid.UUID
+	IncludeInteractions bool
 }
 
 // ListIssues Lists issues
@@ -245,6 +246,10 @@ func (d *DatabaseConnection) ListIssues(filter IssueFilter) (issues []*Issue, co
 
 	if filter.MinConfidence > 0 {
 		query = query.Where("confidence >= ?", filter.MinConfidence)
+	}
+
+	if filter.IncludeInteractions {
+		query = query.Preload("Interactions").Preload("Interactions.OOBTest")
 	}
 
 	result := query.Order(severityOrderQuery).Order("title ASC, created_at DESC").Find(&issues).Count(&count)

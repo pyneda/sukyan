@@ -24,7 +24,34 @@ type ReportIssue struct {
 	RequestTruncated    bool                       `json:"request_truncated,omitempty"`  // True if request content was truncated
 	ResponseTruncated   bool                       `json:"response_truncated,omitempty"` // True if response content was truncated
 	CWE                 int                        `json:"cwe,omitempty"`
+	POC                 string                     `json:"poc,omitempty"`
+	POCType             string                     `json:"poc_type,omitempty"`
+	Interactions        []*ReportInteraction       `json:"interactions,omitempty"`
 	WebSocketConnection *ReportWebSocketConnection `json:"websocket_connection,omitempty"` // Included when issue is WebSocket-related
+}
+
+// ReportInteraction is an out-of-band callback recorded against an issue.
+type ReportInteraction struct {
+	ID            uint                    `json:"id"`
+	Protocol      string                  `json:"protocol"`
+	FullID        string                  `json:"full_id"`
+	UniqueID      string                  `json:"unique_id"`
+	QType         string                  `json:"qtype,omitempty"`
+	RawRequest    string                  `json:"raw_request,omitempty"`  // Base64 encoded
+	RawResponse   string                  `json:"raw_response,omitempty"` // Base64 encoded
+	RemoteAddress string                  `json:"remote_address"`
+	Timestamp     string                  `json:"timestamp"`
+	Cause         *ReportInteractionCause `json:"cause,omitempty"`
+}
+
+// ReportInteractionCause is the out-of-band test whose payload produced the callback.
+type ReportInteractionCause struct {
+	TestName          string `json:"test_name"`
+	Code              string `json:"code"`
+	Target            string `json:"target"`
+	InteractionDomain string `json:"interaction_domain"`
+	Payload           string `json:"payload"`
+	InsertionPoint    string `json:"insertion_point"`
 }
 
 // GroupedIssues represents issues grouped by their type
@@ -88,6 +115,7 @@ type ReportWebSocketMessage struct {
 	Opcode      float64 `json:"opcode"`
 	Mask        bool    `json:"mask"`
 	PayloadData string  `json:"payload_data"`
+	IsBinary    bool    `json:"is_binary"`
 	Timestamp   string  `json:"timestamp"`
 	Direction   string  `json:"direction"`
 }

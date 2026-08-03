@@ -93,10 +93,11 @@ var reportCmd = &cobra.Command{
 		}
 
 		issues, _, err := db.Connection().ListIssues(db.IssueFilter{
-			WorkspaceID:   workspaceID,
-			TaskID:        taskID,
-			ScanID:        scanID,
-			MinConfidence: minConfidence,
+			WorkspaceID:         workspaceID,
+			TaskID:              taskID,
+			ScanID:              scanID,
+			MinConfidence:       minConfidence,
+			IncludeInteractions: true,
 		})
 
 		if err != nil {

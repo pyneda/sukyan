@@ -137,6 +137,10 @@ type ScanInfo struct {
 	StartedAt          *time.Time `json:"started_at,omitempty"`
 	CompletedAt        *time.Time `json:"completed_at,omitempty"`
 	Duration           string     `json:"duration,omitempty"`
+	// When this scan's most recent job finished. Absent while no job has
+	// finished yet. The overview reads it to tell a scan that is working from
+	// one that is merely still marked active.
+	LastJobCompletedAt *time.Time `json:"last_job_completed_at,omitempty"`
 	TotalJobs          int        `json:"total_jobs"`
 	PendingJobs        int        `json:"pending_jobs"`
 	RunningJobs        int        `json:"running_jobs"`
@@ -295,6 +299,8 @@ func buildDashboardStats(scanManager *manager.ScanManager) DashboardStats {
 		}
 	}
 
+	attachLastJobCompletion(stats.ActiveScans, stats.PausedScans, stats.RecentScans)
+
 	// Global queue stats
 	stats.GlobalQueueStats = calculateGlobalQueueStats(stats.ActiveScans, stats.PausedScans)
 
@@ -375,6 +381,36 @@ func resolveScanWorkspaceTitles(lists ...[]ScanInfo) {
 	for _, list := range lists {
 		for i := range list {
 			list[i].WorkspaceTitle = titles[list[i].WorkspaceID]
+		}
+	}
+}
+
+// attachLastJobCompletion fills LastJobCompletedAt across every listed scan in a
+// single grouped query. Resolving it inside buildScanInfo would add one round
+// trip per scan to a payload the overview polls every five seconds.
+func attachLastJobCompletion(lists ...[]ScanInfo) {
+	ids := make([]uint, 0)
+	for _, list := range lists {
+		for _, info := range list {
+			ids = append(ids, info.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+
+	completions, err := db.Connection().GetLastJobCompletionByScan(ids)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to resolve last job completion per scan")
+		return
+	}
+
+	for _, list := range lists {
+		for i := range list {
+			if at, ok := completions[list[i].ID]; ok {
+				completedAt := at
+				list[i].LastJobCompletedAt = &completedAt
+			}
 		}
 	}
 }

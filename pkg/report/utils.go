@@ -81,17 +81,8 @@ func processIssues(issues []*db.Issue, maxRequestSize int) []*ReportIssue {
 
 	// Sort issues by severity and then by title
 	sort.Slice(reportIssues, func(i, j int) bool {
-		severityOrder := map[string]int{
-			"Critical": 5,
-			"High":     4,
-			"Medium":   3,
-			"Low":      2,
-			"Info":     1,
-			"Unknown":  0,
-		}
-
-		si := severityOrder[reportIssues[i].Severity]
-		sj := severityOrder[reportIssues[j].Severity]
+		si := severityRank(reportIssues[i].Severity)
+		sj := severityRank(reportIssues[j].Severity)
 
 		if si != sj {
 			return si > sj
@@ -128,16 +119,7 @@ func groupIssuesByType(issues []*ReportIssue) []*GroupedIssues {
 		group.Count = len(group.Issues)
 
 		// If this issue has a higher severity than the current group severity, update it
-		severityOrder := map[string]int{
-			"Critical": 5,
-			"High":     4,
-			"Medium":   3,
-			"Low":      2,
-			"Info":     1,
-			"Unknown":  0,
-		}
-
-		if severityOrder[issue.Severity] > severityOrder[group.Severity] {
+		if severityRank(issue.Severity) > severityRank(group.Severity) {
 			group.Severity = issue.Severity
 		}
 	}
@@ -154,17 +136,8 @@ func groupIssuesByType(issues []*ReportIssue) []*GroupedIssues {
 
 	// Sort groups by severity (Critical > High > Medium > Low > Info)
 	sort.Slice(groups, func(i, j int) bool {
-		severityOrder := map[string]int{
-			"Critical": 5,
-			"High":     4,
-			"Medium":   3,
-			"Low":      2,
-			"Info":     1,
-			"Unknown":  0,
-		}
-
-		si := severityOrder[groups[i].Severity]
-		sj := severityOrder[groups[j].Severity]
+		si := severityRank(groups[i].Severity)
+		sj := severityRank(groups[j].Severity)
 
 		if si != sj {
 			return si > sj

@@ -33,11 +33,11 @@ type PlaygroundSession struct {
 	Name              string                `json:"name"`
 	Type              PlaygroundSessionType `json:"type"`
 	OriginalRequest   *History              `json:"-" gorm:"foreignKey:OriginalRequestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
-	OriginalRequestID *uint                 `json:"original_request_id"`
+	OriginalRequestID *uint                 `json:"original_request_id" gorm:"index"`
 	InitialRawRequest string                `json:"initial_raw_request"`
 	// Task              Task                 `json:"-" gorm:"foreignKey:TaskID"`
 	// TaskID            *uint                `json:"task_id"`
-	CollectionID uint                 `json:"collection_id"`
+	CollectionID uint                 `json:"collection_id" gorm:"index"`
 	Collection   PlaygroundCollection `json:"-" gorm:"foreignKey:CollectionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	WorkspaceID  uint                 `json:"workspace_id" gorm:"index"`
 	Workspace    Workspace            `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`

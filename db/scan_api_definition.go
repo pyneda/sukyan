@@ -10,7 +10,7 @@ import (
 
 type ScanAPIDefinition struct {
 	ScanID          uint      `gorm:"primaryKey;not null"`
-	APIDefinitionID uuid.UUID `gorm:"primaryKey;type:uuid;not null"`
+	APIDefinitionID uuid.UUID `gorm:"primaryKey;type:uuid;not null;index"`
 	CreatedAt       time.Time `gorm:"autoCreateTime"`
 }
 

@@ -21,14 +21,14 @@ type OOBTest struct {
 	Code              IssueCode `json:"code"`
 	TestName          string    `json:"test_name"`
 	Target            string    `json:"target"`
-	HistoryID         *uint     `json:"history_id"`
+	HistoryID         *uint     `json:"history_id" gorm:"index"`
 	HistoryItem       *History  `json:"-" gorm:"foreignKey:HistoryID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 	InteractionDomain string    `gorm:"index" json:"interaction_domain"`
 	InteractionFullID string    `gorm:"index" json:"interaction_id"`
 	Payload           string    `json:"payload"`
 	InsertionPoint    string    `json:"insertion_point"`
 	Workspace         Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID       *uint     `json:"workspace_id"`
+	WorkspaceID       *uint     `json:"workspace_id" gorm:"index"`
 	Task              Task      `json:"-" gorm:"foreignKey:TaskID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
 	TaskID            *uint     `json:"task_id" gorm:"index"`
 	TaskJobID         *uint     `json:"task_job_id" gorm:"index"`
@@ -128,7 +128,7 @@ func (d *DatabaseConnection) CreateOOBTest(item OOBTest) (OOBTest, error) {
 
 type OOBInteraction struct {
 	BaseModel
-	OOBTestID *uint   `json:"oob_test_id"`
+	OOBTestID *uint   `json:"oob_test_id" gorm:"index"`
 	OOBTest   OOBTest `gorm:"foreignKey:OOBTestID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"oob_test"`
 
 	Protocol      string    `json:"protocol"`
@@ -140,8 +140,8 @@ type OOBInteraction struct {
 	RemoteAddress string    `json:"remote_address"`
 	Timestamp     time.Time `json:"timestamp"`
 	Workspace     Workspace `json:"-" gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
-	WorkspaceID   *uint     `json:"workspace_id"`
-	IssueID       *uint     `json:"issue_id"`
+	WorkspaceID   *uint     `json:"workspace_id" gorm:"index"`
+	IssueID       *uint     `json:"issue_id" gorm:"index"`
 }
 
 func (o OOBInteraction) TableHeaders() []string {

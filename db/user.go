@@ -49,6 +49,15 @@ func (d *DatabaseConnection) GetUserByID(id uuid.UUID) (*User, error) {
 	return &user, nil
 }
 
+func (d *DatabaseConnection) TouchUserLastLogin(id uuid.UUID) error {
+	now := time.Now()
+	if err := d.db.Model(&User{}).Where("id = ?", id).Update("last_login_at", now).Error; err != nil {
+		log.Error().Err(err).Interface("id", id).Msg("Unable to record user last login")
+		return err
+	}
+	return nil
+}
+
 func (d *DatabaseConnection) DeactivateUser(id uuid.UUID) error {
 	if err := d.db.Model(&User{}).Where("id = ?", id).Update("active", false).Error; err != nil {
 		log.Error().Err(err).Interface("id", id).Msg("Unable to deactivate user")

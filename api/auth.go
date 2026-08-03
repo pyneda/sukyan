@@ -116,6 +116,9 @@ func UserSignIn(c *fiber.Ctx) error {
 	setRefreshCookie(c, tokens.Refresh)
 	log.Info().Str("user", foundUser.ID.String()).Msg("Signed in")
 
+	// A failed write must never block a sign-in; the column is reporting only.
+	_ = db.Connection().TouchUserLastLogin(foundUser.ID)
+
 	return c.JSON(fiber.Map{
 		"error": false,
 		"msg":   nil,

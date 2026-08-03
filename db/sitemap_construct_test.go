@@ -29,15 +29,6 @@ func hist(id uint, method, rawURL string, status int) History {
 	}
 }
 
-func findChild(node *SitemapNode, path string) *SitemapNode {
-	for _, c := range node.Children {
-		if c.Path == path {
-			return c
-		}
-	}
-	return nil
-}
-
 func TestBuildSitemapTreeSharedWithProduction(t *testing.T) {
 	rows := []sitemapRow{
 		{ID: 1, URL: "https://app.test/api/users", Method: "GET", StatusCode: 200},
@@ -73,20 +64,16 @@ func TestSitemapRequestCountsAreDeduplicated(t *testing.T) {
 
 	assert.Equal(t, 4, root.Requests, "root counts every request exactly once")
 
-	api := findChild(root, "api")
-	require.NotNil(t, api)
+	api := findChild(t, root, "api")
 	assert.Equal(t, 3, api.Requests)
 
-	v1 := findChild(api, "v1")
-	require.NotNil(t, v1)
+	v1 := findChild(t, api, "v1")
 	assert.Equal(t, 3, v1.Requests)
 
-	users := findChild(v1, "users")
-	require.NotNil(t, users)
+	users := findChild(t, v1, "users")
 	assert.Equal(t, 2, users.Requests, "two records hit /api/v1/users")
 
-	assets := findChild(root, "assets")
-	require.NotNil(t, assets)
+	assets := findChild(t, root, "assets")
 	assert.Equal(t, 1, assets.Requests)
 
 	// A parent's count equals the sum of its children when their paths are disjoint.
@@ -105,8 +92,7 @@ func TestSitemapCollapsesQueryStringsIntoOneEndpoint(t *testing.T) {
 	roots := buildSitemap(t, histories)
 	require.Len(t, roots, 1)
 
-	embed := findChild(roots[0], "embed")
-	require.NotNil(t, embed)
+	embed := findChild(t, roots[0], "embed")
 	assert.Empty(t, embed.Children, "query strings never become child nodes")
 	assert.Equal(t, 3, embed.Requests)
 	assert.Equal(t, []string{"contentId", "portalId", "utk"}, embed.Params,
@@ -168,8 +154,7 @@ func TestSitemapAggregatesMethodsAndStatusClasses(t *testing.T) {
 	}
 
 	roots := buildSitemap(t, histories)
-	thing := findChild(findChild(roots[0], "v1"), "thing")
-	require.NotNil(t, thing)
+	thing := findChild(t, findChild(t, roots[0], "v1"), "thing")
 
 	assert.Equal(t, []string{"DELETE", "GET", "POST"}, thing.Methods, "sorted and deduplicated")
 	assert.Equal(t, map[string]int{"2xx": 2, "3xx": 1, "4xx": 1, "5xx": 1, "none": 1}, thing.StatusClasses)
@@ -206,12 +191,10 @@ func TestSitemapHasChildrenReflectsTree(t *testing.T) {
 	root := roots[0]
 	assert.True(t, root.HasChildren)
 
-	dir := findChild(root, "dir")
-	require.NotNil(t, dir)
+	dir := findChild(t, root, "dir")
 	assert.True(t, dir.HasChildren)
 
-	leaf := findChild(dir, "leaf.js")
-	require.NotNil(t, leaf)
+	leaf := findChild(t, dir, "leaf.js")
 	assert.False(t, leaf.HasChildren)
 	assert.Empty(t, leaf.Children)
 	assert.Equal(t, SitemapNodeTypeJs, leaf.Type)
@@ -254,8 +237,7 @@ func TestSitemapBoundsParamsPerNode(t *testing.T) {
 		histories = append(histories, hist(uint(i+1), "GET", "https://x.example.com/px?p"+itoa(i)+"=1", 200))
 	}
 	roots := buildSitemap(t, histories)
-	px := findChild(roots[0], "px")
-	require.NotNil(t, px)
+	px := findChild(t, roots[0], "px")
 	assert.LessOrEqual(t, len(px.Params), maxParamsPerNode)
 	assert.Equal(t, maxParamsPerNode+50, px.Requests, "capping names never drops requests")
 }
@@ -270,4 +252,78 @@ func itoa(i int) string {
 		i /= 10
 	}
 	return digits
+}
+
+func wsRow(id uint, rawURL string, live bool, messages int) sitemapRow {
+	return sitemapRow{ID: id, URL: rawURL, WebSocket: true, Live: live, Messages: messages}
+}
+
+func TestWebSocketRowMarksOnlyTheEndpointNode(t *testing.T) {
+	roots := buildSitemapTree([]sitemapRow{wsRow(1, "https://app.test/ws/feed", true, 12)})
+
+	require.Len(t, roots, 1)
+	assert.False(t, roots[0].WebSocket, "host row is not itself an endpoint")
+	ws := roots[0].Children[0]
+	assert.False(t, ws.WebSocket, "intermediate directory is not an endpoint")
+	feed := ws.Children[0]
+	assert.True(t, feed.WebSocket)
+	assert.Equal(t, "feed", feed.Path)
+}
+
+func TestWebSocketAggregatesAreSubtreeInclusive(t *testing.T) {
+	roots := buildSitemapTree([]sitemapRow{
+		wsRow(1, "https://app.test/ws/feed", true, 12),
+		wsRow(2, "https://app.test/ws/feed", false, 8),
+		wsRow(3, "https://app.test/ws/alerts", false, 3),
+	})
+
+	root := roots[0]
+	assert.Equal(t, 3, root.Connections)
+	assert.Equal(t, 1, root.LiveConnections)
+	assert.Equal(t, 23, root.Messages)
+
+	ws := root.Children[0]
+	assert.Equal(t, 3, ws.Connections)
+
+	feed := findChild(t, ws, "feed")
+	assert.Equal(t, 2, feed.Connections)
+	assert.Equal(t, 1, feed.LiveConnections)
+	assert.Equal(t, 20, feed.Messages)
+}
+
+func TestWebSocketRowsDoNotTouchRequestsOrStatusClasses(t *testing.T) {
+	roots := buildSitemapTree([]sitemapRow{
+		{ID: 1, URL: "https://app.test/ws/feed", Method: "GET", StatusCode: 200},
+		wsRow(2, "https://app.test/ws/feed", true, 5),
+	})
+
+	feed := findChild(t, roots[0].Children[0], "feed")
+	assert.Equal(t, 1, feed.Requests, "a connection is not a request")
+	assert.Equal(t, 1, feed.StatusClasses["2xx"])
+	assert.Equal(t, 0, feed.StatusClasses["1xx"], "a connection contributes no status class")
+	assert.Equal(t, []string{"GET"}, feed.Methods, "a connection contributes no method")
+	assert.True(t, feed.WebSocket)
+}
+
+func TestSortRanksWebSocketOnlyNodesByConnections(t *testing.T) {
+	roots := buildSitemapTree([]sitemapRow{
+		{ID: 1, URL: "https://app.test/missing", Method: "GET", StatusCode: 404},
+		wsRow(2, "https://app.test/live", false, 0),
+		wsRow(3, "https://app.test/live", false, 0),
+	})
+
+	children := roots[0].Children
+	require.Len(t, children, 2)
+	assert.Equal(t, "live", children[0].Path, "2 connections outrank 1 request")
+}
+
+func findChild(t *testing.T, parent *SitemapNode, path string) *SitemapNode {
+	t.Helper()
+	for _, c := range parent.Children {
+		if c.Path == path {
+			return c
+		}
+	}
+	t.Fatalf("no child %q under %s", path, parent.URL)
+	return nil
 }

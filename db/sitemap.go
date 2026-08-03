@@ -26,6 +26,13 @@ type SitemapNode struct {
 	// Derived from the URL on read; parameter names are not persisted anywhere.
 	Params []string `json:"params,omitempty"`
 
+	// WebSocket describes this exact node; the three counts below are
+	// subtree-inclusive like Requests.
+	WebSocket       bool `json:"websocket"`
+	Connections     int  `json:"connections,omitempty"`
+	LiveConnections int  `json:"live_connections,omitempty"`
+	Messages        int  `json:"messages,omitempty"`
+
 	// Only meaningful on endpoints — a directory's is an arbitrary descendant.
 	ExampleID uint `json:"example_id"`
 
@@ -136,11 +143,21 @@ func newBuilder(url, path string, depth int, t SitemapNodeType, exampleID uint) 
 // Called exactly once per node per history record, which is what keeps the
 // counts deduplicated.
 func (b *sitemapBuilder) record(row sitemapRow, params []string) {
-	b.node.Requests++
-	if row.Method != "" {
-		b.methods[row.Method] = struct{}{}
+	if row.WebSocket {
+		b.node.Connections++
+		if row.Live {
+			b.node.LiveConnections++
+		}
+		b.node.Messages += row.Messages
+	} else {
+		b.node.Requests++
+		if row.Method != "" {
+			b.methods[row.Method] = struct{}{}
+		}
+		// StatusBar normalises against Requests, so a row that does not increment
+		// it must not add a class either.
+		b.node.StatusClasses[statusClass(row.StatusCode)]++
 	}
-	b.node.StatusClasses[statusClass(row.StatusCode)]++
 	for _, p := range params {
 		if len(b.params) >= maxParamsPerNode {
 			break
@@ -174,6 +191,10 @@ type sitemapRow struct {
 	URL        string
 	Method     string
 	StatusCode int
+	// Set only for websocket_connections rows.
+	WebSocket bool
+	Live      bool
+	Messages  int
 }
 
 func buildSitemapTree(rows []sitemapRow) []*SitemapNode {
@@ -216,6 +237,9 @@ func buildSitemapTree(rows []sitemapRow) []*SitemapNode {
 			}
 			child.record(row, params)
 			current = child
+		}
+		if row.WebSocket {
+			current.node.WebSocket = true
 		}
 	}
 
@@ -263,9 +287,10 @@ func (b *sitemapBuilder) finalise() *SitemapNode {
 // rendered tree — changes on every request. Busiest first, path ascending to
 // break ties so equal-weight siblings never swap places.
 func sortNodes(nodes []*SitemapNode) {
+	weight := func(n *SitemapNode) int { return n.Requests + n.Connections }
 	sort.SliceStable(nodes, func(i, j int) bool {
-		if nodes[i].Requests != nodes[j].Requests {
-			return nodes[i].Requests > nodes[j].Requests
+		if weight(nodes[i]) != weight(nodes[j]) {
+			return weight(nodes[i]) > weight(nodes[j])
 		}
 		if nodes[i].Path != nodes[j].Path {
 			return nodes[i].Path < nodes[j].Path

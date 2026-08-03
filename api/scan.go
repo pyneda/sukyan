@@ -1,6 +1,10 @@
 package api
 
 import (
+	"fmt"
+	"net/url"
+	"strings"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -18,10 +22,61 @@ type ActiveScanInput struct {
 	ScanID             *uint                         `json:"scan_id" validate:"omitempty,min=1"`
 	WorkspaceID        uint                          `json:"workspace" validate:"omitempty,min=0"`
 	TaskID             uint                          `json:"task" validate:"omitempty,min=0"`
+	Title              string                        `json:"title" validate:"omitempty,max=255"`
 	AuditCategories    *scan_options.AuditCategories `json:"audit_categories" validate:"omitempty"`
 	Mode               string                        `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
 	InsertionPoints    []string                      `json:"insertion_points" validate:"omitempty"`
 	ExperimentalAudits bool                          `json:"experimental_audits"`
+}
+
+// maxScanTitleLength matches the column size of db.Scan.Title.
+const maxScanTitleLength = 255
+
+// adHocScanTitle describes the items a right-click scan was launched from. Ad-hoc
+// scans and full scans share the db.Scan record with no field telling them apart,
+// so the title is all the scans list has to distinguish one from another.
+func adHocScanTitle(items []db.History) string {
+	if len(items) == 0 {
+		return "Ad-hoc scan"
+	}
+
+	hosts := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		if parsed, err := url.Parse(item.URL); err == nil && parsed.Host != "" {
+			hosts[parsed.Host] = struct{}{}
+		}
+	}
+
+	var title string
+	switch {
+	case len(items) == 1:
+		item := items[0]
+		parsed, err := url.Parse(item.URL)
+		if err != nil || parsed.Host == "" {
+			title = strings.TrimSpace(item.Method + " " + item.URL)
+			break
+		}
+		path := parsed.EscapedPath()
+		if path == "" {
+			path = "/"
+		}
+		title = strings.TrimSpace(item.Method+" "+path) + " — " + parsed.Host
+	case len(hosts) == 1:
+		var host string
+		for h := range hosts {
+			host = h
+		}
+		title = fmt.Sprintf("%d requests — %s", len(items), host)
+	case len(hosts) > 1:
+		title = fmt.Sprintf("%d requests — %d hosts", len(items), len(hosts))
+	default:
+		title = fmt.Sprintf("%d requests", len(items))
+	}
+
+	if runes := []rune(title); len(runes) > maxScanTitleLength {
+		return string(runes[:maxScanTitleLength-1]) + "…"
+	}
+	return title
 }
 
 // ActiveScanHandler godoc
@@ -133,8 +188,13 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 			insertionPoints = scan_options.GetValidInsertionPoints()
 		}
 
+		title := input.Title
+		if title == "" {
+			title = adHocScanTitle(items)
+		}
+
 		opts := scan_options.FullScanOptions{
-			Title:              "Ad-hoc Scan",
+			Title:              title,
 			StartURLs:          []string{items[0].URL},
 			WorkspaceID:        itemsWorkspaceID,
 			AuditCategories:    auditCategories,

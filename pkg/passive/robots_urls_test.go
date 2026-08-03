@@ -61,9 +61,23 @@ func TestExtractURLsFromRobotsTxt(t *testing.T) {
 			wantWeb: []string{},
 		},
 		{
-			name:    "wildcard paths are skipped",
-			body:    "Disallow: /*.php$\nDisallow: /search?q=*",
+			name: "wildcard paths keep their literal prefix",
+			body: "Disallow: /admin/*\nDisallow: /internal/*/config\nDisallow: /search?q=*",
+			wantWeb: []string{
+				"http://example.com/admin/",
+				"http://example.com/internal/",
+				"http://example.com/search?q=",
+			},
+		},
+		{
+			name:    "wildcard paths with no literal prefix are skipped",
+			body:    "Disallow: /*.php$\nDisallow: /*",
 			wantWeb: []string{},
+		},
+		{
+			name:    "end anchor is dropped from the literal path",
+			body:    "Disallow: /private/report.pdf$",
+			wantWeb: []string{"http://example.com/private/report.pdf"},
 		},
 		{
 			name:    "comments and blank lines ignored",

@@ -25,18 +25,40 @@ func ExtractURLsFromHistoryItem(history *db.History) ExtractedURLS {
 		log.Debug().Err(err).Uint("history_id", history.ID).Msg("Failed to get response body")
 
 	}
-	responseLinks := ExtractAndAnalyzeURLS(string(body), history.URL)
-	if isRobotsTxtURL(history.URL) {
-		if base, err := url.Parse(history.URL); err == nil {
-			responseLinks = mergeExtractedURLs(responseLinks, extractURLsFromRobotsTxt(string(body), base))
-		}
-	}
+	responseLinks := extractURLsFromBody(body, history.URL)
 	headers, err := history.GetResponseHeadersAsMap()
 	if err != nil {
 		return responseLinks
 	}
 	headersLinks := ExtractURLsFromHeaders(headers, history.URL)
 	return mergeExtractedURLs(responseLinks, headersLinks)
+}
+
+// extractURLsFromBody picks the reader that fits the document. Sitemaps and
+// app-site-association files replace the generic extractor rather than adding to
+// it: reading their escaped or wildcarded values as plain text yields URLs that
+// are wrong ("?a=1&amp;b=2") or unfetchable ("/user/*"), so keeping the generic
+// output alongside the parsed one would only reintroduce that traffic.
+func extractURLsFromBody(body []byte, fromURL string) ExtractedURLS {
+	base, err := url.Parse(fromURL)
+	if err != nil {
+		log.Error().Err(err).Str("url", fromURL).Msg("Could not parse base URL")
+		return ExtractAndAnalyzeURLS(string(body), fromURL)
+	}
+
+	if sitemap, ok := ParseSitemap(body, base); ok {
+		return ExtractedURLS{Web: sitemap.Locations(), NonWeb: []string{}}
+	}
+
+	if isAppSiteAssociationURL(fromURL) {
+		return extractURLsFromAppSiteAssociation(body, base)
+	}
+
+	links := ExtractAndAnalyzeURLS(string(body), fromURL)
+	if isRobotsTxtURL(fromURL) {
+		links = mergeExtractedURLs(links, extractURLsFromRobotsTxt(string(body), base))
+	}
+	return links
 }
 
 func mergeExtractedURLs(a, b ExtractedURLS) ExtractedURLS {

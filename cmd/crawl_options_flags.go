@@ -23,7 +23,7 @@ func registerCrawlOptionFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("click-buttons", defaults.ClickButtons, "Click buttons found while crawling")
 	cmd.Flags().Bool("capture-client-navigation", defaults.CaptureClientNavigation, "Capture client-side navigations that emit no request")
 	cmd.Flags().Int("max-pages-with-same-parameters", defaults.MaxPagesWithSameParameters, "Max pages sharing a path and query parameter names, differing only in values (0 = unlimited)")
-	cmd.Flags().StringArray("seed-path", defaults.SeedPaths, "Path crawled at each start URL's origin, repeatable")
+	cmd.Flags().StringArray("seed-path", defaults.SeedPaths, "Extra path crawled at each start URL's origin, repeatable (robots.txt and sitemaps are read automatically)")
 	cmd.Flags().StringArray("exclude-extension", defaults.ExcludeExtensions, "URL extension to skip while crawling, repeatable")
 	cmd.Flags().String("user-agent", defaults.UserAgent, "User agent for crawler browser pages")
 }

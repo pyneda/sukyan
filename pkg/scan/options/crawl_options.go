@@ -58,10 +58,11 @@ func DefaultExcludeExtensions() []string {
 	}
 }
 
-// DefaultSeedPaths lists the paths crawled at each start URL's origin in addition
-// to the start URL itself.
+// DefaultSeedPaths is empty: robots.txt and the sitemaps are no longer expressed
+// as removable defaults here. The crawler reads an origin's own map of itself as
+// its own step, so this option means only "extra paths this scan wants crawled".
 func DefaultSeedPaths() []string {
-	return []string{"/robots.txt", "/sitemap.xml"}
+	return []string{}
 }
 
 // DefaultCrawlOptions returns the crawl behaviour used when a scan specifies none.

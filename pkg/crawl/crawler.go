@@ -217,6 +217,36 @@ func (c *Crawler) RunWithContext(ctx context.Context) []*db.History {
 			}
 		}
 	}()
+	bootstrapped := make(map[string]bool, len(c.startURLs))
+bootstrapLoop:
+	for _, startURL := range c.startURLs {
+		select {
+		case <-c.ctx.Done():
+			taskLog.Info().Msg("Crawler cancelled while bootstrapping origins")
+			break bootstrapLoop
+		default:
+		}
+
+		origin, err := lib.GetBaseURL(startURL)
+		if err != nil || bootstrapped[origin] {
+			continue
+		}
+		bootstrapped[origin] = true
+
+		outcome := c.bootstrapOrigin(c.ctx, origin, c.bootstrapFetch)
+		historyMutex.Lock()
+		for _, history := range outcome.Histories {
+			if c.scope.IsInScope(history.URL) {
+				inScopeHistoryItems = append(inScopeHistoryItems, history)
+			}
+		}
+		historyMutex.Unlock()
+		for _, fetched := range outcome.Fetched {
+			c.pages.Store(fetched, &CrawlItem{url: fetched, depth: lib.CalculateURLDepth(fetched), visited: true})
+		}
+		c.scheduleBootstrapLocations(origin, outcome.Locations)
+	}
+
 	taskLog.Info().Interface("start_urls", c.startURLs).Msg("Crawling start urls")
 	for _, url := range c.startURLs {
 		// Check context before scheduling start URLs

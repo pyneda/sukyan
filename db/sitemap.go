@@ -114,6 +114,40 @@ func (d *DatabaseConnection) getSitemapData(filter SitemapFilter) ([]History, er
 	return histories, nil
 }
 
+func (d *DatabaseConnection) getSitemapWebSocketData(filter SitemapFilter) ([]WebSocketConnection, error) {
+	query := d.db.Model(&WebSocketConnection{}).
+		Select("web_socket_connections.id, web_socket_connections.url, web_socket_connections.closed_at, (?) AS message_count",
+			messageCountSubquery(d.db))
+	if filter.WorkspaceID != 0 {
+		query = query.Where("workspace_id = ?", filter.WorkspaceID)
+	}
+	if filter.TaskID != 0 {
+		query = query.Where("task_id = ?", filter.TaskID)
+	}
+	query = query.Where("source IN ?", GetSitemapSources())
+	query = query.Order("id asc")
+
+	var connections []WebSocketConnection
+	if err := query.Find(&connections).Error; err != nil {
+		return nil, err
+	}
+	return connections, nil
+}
+
+func webSocketRows(connections []WebSocketConnection) []sitemapRow {
+	rows := make([]sitemapRow, 0, len(connections))
+	for _, c := range connections {
+		rows = append(rows, sitemapRow{
+			ID:        c.ID,
+			URL:       c.URL,
+			WebSocket: true,
+			Live:      c.ClosedAt == nil,
+			Messages:  int(c.MessageCount),
+		})
+	}
+	return rows
+}
+
 // Sets are collapsed to sorted slices in finalise so the payload is stable.
 type sitemapBuilder struct {
 	node    *SitemapNode
@@ -259,11 +293,16 @@ func (d *DatabaseConnection) ConstructSitemap(filter SitemapFilter) ([]*SitemapN
 	if err != nil {
 		return nil, err
 	}
+	connections, err := d.getSitemapWebSocketData(filter)
+	if err != nil {
+		return nil, err
+	}
 
-	rows := make([]sitemapRow, 0, len(histories))
+	rows := make([]sitemapRow, 0, len(histories)+len(connections))
 	for _, h := range histories {
 		rows = append(rows, sitemapRow{ID: h.ID, URL: h.URL, Method: h.Method, StatusCode: h.StatusCode})
 	}
+	rows = append(rows, webSocketRows(connections)...)
 
 	return buildSitemapTree(rows), nil
 }

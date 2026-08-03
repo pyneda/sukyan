@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -336,6 +337,23 @@ func TestInsecureWebSocketOriginJoinsTheHttpHostTree(t *testing.T) {
 
 	require.Len(t, roots, 1)
 	assert.Equal(t, "http://app.test", roots[0].URL)
+}
+
+func TestWebSocketConnectionsMapToRows(t *testing.T) {
+	closed := time.Now()
+	conns := []WebSocketConnection{
+		{BaseModel: BaseModel{ID: 7}, URL: "wss://app.test/ws", MessageCount: 12},
+		{BaseModel: BaseModel{ID: 8}, URL: "wss://app.test/ws", MessageCount: 3, ClosedAt: &closed},
+	}
+
+	rows := webSocketRows(conns)
+
+	require.Len(t, rows, 2)
+	assert.Equal(t, uint(7), rows[0].ID)
+	assert.True(t, rows[0].WebSocket)
+	assert.True(t, rows[0].Live, "no ClosedAt means still open")
+	assert.Equal(t, 12, rows[0].Messages)
+	assert.False(t, rows[1].Live)
 }
 
 func findChild(t *testing.T, parent *SitemapNode, path string) *SitemapNode {

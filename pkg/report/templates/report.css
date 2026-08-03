@@ -656,7 +656,9 @@ a {
 }
 
 @media print {
-  /* Printing forces the light palette regardless of the on-screen theme. */
+  /* Paper is white in both themes: the light palette's warm stone background
+     would otherwise be printed as a full-page tint. */
+  :root,
   .dark {
     --background: oklch(1 0 0);
     --foreground: oklch(0.24 0.018 55);

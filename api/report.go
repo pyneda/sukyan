@@ -109,5 +109,9 @@ func ReportHandler(c *fiber.Ctx) error {
 	filename := "report." + fileExtension
 	c.Response().Header.Set("Content-Disposition", "attachment; filename="+filename)
 
-	return c.Send(buf.Bytes())
+	// The buffer is not reused after this point, so the body can reference it
+	// directly instead of being copied. Buffering itself stays: streaming would
+	// mean a 200 with a truncated report if template execution failed midway.
+	c.Response().SetBodyRaw(buf.Bytes())
+	return nil
 }

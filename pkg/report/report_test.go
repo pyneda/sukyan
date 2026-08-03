@@ -3,6 +3,7 @@ package report
 import (
 	"bytes"
 	"encoding/json"
+	"regexp"
 	"testing"
 
 	"github.com/pyneda/sukyan/db"
@@ -217,4 +218,29 @@ func TestReportScriptNeverUsesInnerHTML(t *testing.T) {
 	assert.NotContains(t, script, "outerHTML")
 	assert.NotContains(t, script, "insertAdjacentHTML")
 	assert.NotContains(t, script, "document.write")
+}
+
+func TestHTMLReportHasNoExternalResourceReferences(t *testing.T) {
+	workspace := setupTestWorkspace(t)
+	defer func() {
+		assert.NoError(t, db.Connection().DeleteWorkspace(workspace.ID))
+	}()
+
+	issue := createTestIssue(workspace.ID)
+	saved, err := db.Connection().CreateIssue(*issue)
+	assert.NoError(t, err)
+
+	var buf bytes.Buffer
+	err = GenerateReport(ReportOptions{
+		WorkspaceID: workspace.ID,
+		Issues:      []*db.Issue{&saved},
+		Title:       "External Resources",
+		Format:      ReportFormatHTML,
+	}, &buf)
+	assert.NoError(t, err)
+
+	// src= and stylesheet href= are the attributes that cause a fetch. Ordinary
+	// href= links are fine: reference URLs belong in the report.
+	fetching := regexp.MustCompile(`(?i)(<script[^>]+src=|<link[^>]+stylesheet|src\s*=\s*["']https?://|@import)`)
+	assert.NotRegexp(t, fetching, buf.String(), "report must not fetch anything at open time")
 }

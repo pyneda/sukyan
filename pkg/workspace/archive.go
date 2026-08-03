@@ -39,10 +39,17 @@ type ExcludedTable struct {
 
 // Manifest is the first line of an archive.
 type Manifest struct {
-	FormatVersion int             `json:"format_version"`
-	CreatedAt     time.Time       `json:"created_at"`
-	Workspace     WorkspaceInfo   `json:"workspace"`
-	Excluded      []ExcludedTable `json:"excluded_tables,omitempty"`
+	FormatVersion int           `json:"format_version"`
+	CreatedAt     time.Time     `json:"created_at"`
+	Workspace     WorkspaceInfo `json:"workspace"`
+	// IdentifierBases holds, per table, the lowest bigint row identifier in the
+	// archive. Import shifts each table relative to its own base, so the
+	// identifier space grows by the archive's span rather than by the size of
+	// the target database. Without it, importing into the same database
+	// repeatedly doubles the highest identifier each time and exhausts the
+	// bigint range within a few dozen imports.
+	IdentifierBases map[string]int64 `json:"identifier_bases,omitempty"`
+	Excluded        []ExcludedTable  `json:"excluded_tables,omitempty"`
 }
 
 // Summary is the last line of an archive. Import compares it against what it

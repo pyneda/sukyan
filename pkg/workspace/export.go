@@ -45,11 +45,17 @@ func Export(ctx context.Context, conn *db.DatabaseConnection, workspaceID uint, 
 		Description: source.Description,
 	}
 
+	bases, err := lowestIdentifiers(ctx, conn, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+
 	manifest := Manifest{
-		FormatVersion: ArchiveFormatVersion,
-		CreatedAt:     started.UTC(),
-		Workspace:     info,
-		Excluded:      excludedTables(),
+		FormatVersion:   ArchiveFormatVersion,
+		CreatedAt:       started.UTC(),
+		Workspace:       info,
+		IdentifierBases: bases,
+		Excluded:        excludedTables(),
 	}
 
 	writer, err := newArchiveWriter(w, manifest)
@@ -115,6 +121,28 @@ func exportTable(ctx context.Context, conn *db.DatabaseConnection, spec tableSpe
 		return written, fmt.Errorf("iterating %s rows: %w", spec.Name, err)
 	}
 	return written, nil
+}
+
+// lowestIdentifiers records, per table, the smallest bigint row identifier the
+// export will contain. Import anchors each table's offset to its own base, which
+// keeps the identifier space growing by the size of the archive rather than by
+// the size of the database it is imported into.
+func lowestIdentifiers(ctx context.Context, conn *db.DatabaseConnection, workspaceID uint) (map[string]int64, error) {
+	bases := make(map[string]int64, len(orderedTables))
+	for _, spec := range orderedTables {
+		if !spec.hasBigintPrimaryKey() {
+			continue
+		}
+		var lowest *int64
+		query := fmt.Sprintf("SELECT MIN(id) FROM (%s) AS sukyan_exported_row", spec.Query)
+		if err := conn.DB().WithContext(ctx).Raw(query, workspaceID).Scan(&lowest).Error; err != nil {
+			return nil, fmt.Errorf("reading lowest id of %s: %w", spec.Name, err)
+		}
+		if lowest != nil {
+			bases[spec.Name] = *lowest
+		}
+	}
+	return bases, nil
 }
 
 func excludedTables() []ExcludedTable {

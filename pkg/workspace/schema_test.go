@@ -124,7 +124,11 @@ func TestIDColumnsMatchLiveSchema(t *testing.T) {
 			}
 		}
 
-		assert.ElementsMatch(t, bigints, spec.IDColumns,
+		declared := make([]string, 0, len(spec.IDColumns))
+		for column := range spec.IDColumns {
+			declared = append(declared, column)
+		}
+		assert.ElementsMatch(t, bigints, declared,
 			"%s: IDColumns does not match the bigint key columns in the database", spec.Name)
 
 		declaredUUIDs := append([]string{}, spec.UUIDReferences...)
@@ -133,6 +137,37 @@ func TestIDColumnsMatchLiveSchema(t *testing.T) {
 		}
 		assert.ElementsMatch(t, uuids, declaredUUIDs,
 			"%s: uuid columns do not match the uuid key columns in the database", spec.Name)
+	}
+}
+
+// A column mapped to the wrong table would be shifted by the wrong offset, so
+// the reference would resolve to an unrelated row rather than fail loudly.
+func TestIDColumnTargetsMatchLiveForeignKeys(t *testing.T) {
+	actual := make(map[string]map[string]string)
+	for _, fk := range liveForeignKeys(t) {
+		if actual[fk.Child] == nil {
+			actual[fk.Child] = map[string]string{}
+		}
+		actual[fk.Child][fk.Column] = fk.Parent
+	}
+
+	for _, spec := range orderedTables {
+		for column, target := range spec.IDColumns {
+			switch {
+			case column == "id":
+				assert.Equal(t, spec.Name, target,
+					"%s.id must draw from its own identifier space", spec.Name)
+			case actual[spec.Name][column] != "":
+				assert.Equal(t, actual[spec.Name][column], target,
+					"%s.%s points at %s in the database", spec.Name, column, actual[spec.Name][column])
+			default:
+				// scan_jobs and playground_fuzz_runs carry workspace_id without a
+				// declared constraint.
+				assert.Equal(t, "workspace_id", column,
+					"%s.%s has no foreign key to justify target %s", spec.Name, column, target)
+				assert.Equal(t, "workspaces", target)
+			}
+		}
 	}
 }
 

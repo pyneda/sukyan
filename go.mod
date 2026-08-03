@@ -1,9 +1,10 @@
 module github.com/pyneda/sukyan
 
-go 1.24.6
+go 1.25.0
 
 require (
 	ariga.io/atlas-provider-gorm v0.5.6
+	codeberg.org/go-pdf/fpdf v0.12.0
 	github.com/BishopFox/jsluice v0.0.0-20240110145140-0ddfab153e06
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/PaesslerAG/jsonpath v0.1.1

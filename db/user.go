@@ -9,12 +9,18 @@ import (
 
 type User struct {
 	BaseUUIDModel
-	Email        string `gorm:"type:varchar(255);not null;unique" json:"email" validate:"required,email,lte=255"`
-	PasswordHash string `json:"password_hash,omitempty"`
+	Email string `gorm:"type:varchar(255);not null;unique" json:"email" validate:"required,email,lte=255"`
+	// Never serialised: this struct is returned by the users list endpoint.
+	PasswordHash string `json:"-"`
 	Active       bool   `json:"active" validate:"required,len=1"`
+	// Superuser grants access to deployment-wide administration. Read from the
+	// database on every request rather than carried in the JWT, so a demotion
+	// takes effect immediately instead of at token renewal.
+	Superuser bool `gorm:"not null;default:false" json:"superuser"`
 	// TokensValidFrom revokes every session issued before it. Sessions are
 	// otherwise stateless, so this is the only lever that ends them early.
-	TokensValidFrom time.Time `gorm:"not null;default:'epoch'" json:"tokens_valid_from"`
+	TokensValidFrom time.Time  `gorm:"not null;default:'epoch'" json:"tokens_valid_from"`
+	LastLoginAt     *time.Time `json:"last_login_at"`
 }
 
 func (d *DatabaseConnection) CreateUser(user *User) (*User, error) {

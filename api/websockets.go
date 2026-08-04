@@ -119,6 +119,15 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 	}
 
 	urlPrefixes := c.Context().QueryArgs().PeekMulti("url_prefixes")
+	// FindWebSocketConnections builds its filter by hand and never runs it through
+	// validate.Struct, so the WebSocketConnectionFilter.URLPrefixes max=200 tag is
+	// inert here — enforce it directly, matching what HistoryFilter gets for free.
+	if len(urlPrefixes) > 200 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid url_prefixes",
+			"message": "url_prefixes accepts at most 200 values",
+		})
+	}
 	prefixes := make([]string, 0, len(urlPrefixes))
 	for _, p := range urlPrefixes {
 		if len(p) > 0 {

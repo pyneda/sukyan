@@ -7,6 +7,7 @@ import (
 	"github.com/pyneda/sukyan/lib"
 	"github.com/pyneda/sukyan/pkg/scan/options"
 	"github.com/rs/zerolog/log"
+	"gorm.io/gorm"
 )
 
 // ScanStatus represents the status of a scan
@@ -529,8 +530,7 @@ func (d *DatabaseConnection) SetScanStatus(scanID uint, status ScanStatus) error
 	}
 
 	if status == ScanStatusCrawling || status == ScanStatusScanning {
-		now := time.Now()
-		updates["started_at"] = now
+		updates["started_at"] = gorm.Expr("COALESCE(started_at, ?)", time.Now())
 	}
 
 	if status == ScanStatusCompleted || status == ScanStatusFailed || status == ScanStatusCancelled {

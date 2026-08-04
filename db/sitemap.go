@@ -192,6 +192,9 @@ func (b *sitemapBuilder) record(row sitemapRow, params []string) {
 		// it must not add a class either.
 		b.node.StatusClasses[statusClass(row.StatusCode)]++
 	}
+	if !row.WebSocket && b.node.ExampleID == 0 {
+		b.node.ExampleID = row.ID
+	}
 	for _, p := range params {
 		if len(b.params) >= maxParamsPerNode {
 			break
@@ -250,7 +253,7 @@ func buildSitemapTree(rows []sitemapRow) []*SitemapNode {
 
 		root, exists := roots[baseURL]
 		if !exists {
-			root = newBuilder(baseURL, "", 0, SitemapNodeTypeRoot, row.ID)
+			root = newBuilder(baseURL, "", 0, SitemapNodeTypeRoot, 0)
 			roots[baseURL] = root
 			rootOrder = append(rootOrder, root)
 		}
@@ -265,7 +268,7 @@ func buildSitemapTree(rows []sitemapRow) []*SitemapNode {
 			child, ok := current.kids[segment]
 			if !ok {
 				childURL := baseURL + strings.Join(segments[:i+2], "/")
-				child = newBuilder(childURL, segment, current.node.Depth+1, determineType(childURL), row.ID)
+				child = newBuilder(childURL, segment, current.node.Depth+1, determineType(childURL), 0)
 				current.kids[segment] = child
 				current.order = append(current.order, child)
 			}

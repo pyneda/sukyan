@@ -339,6 +339,38 @@ func TestInsecureWebSocketOriginJoinsTheHttpHostTree(t *testing.T) {
 	assert.Equal(t, "http://app.test", roots[0].URL)
 }
 
+// ExampleID is a history id consumed by the frontend's replay path — a
+// WebSocket connection id must never leak into it.
+func TestWebSocketOnlyNodeHasZeroExampleID(t *testing.T) {
+	roots := buildSitemapTree([]sitemapRow{wsRow(406, "https://app.test/ws/feed", true, 0)})
+
+	root := roots[0]
+	assert.Equal(t, uint(0), root.ExampleID, "the root saw only websocket rows")
+	ws := findChild(t, root, "ws")
+	assert.Equal(t, uint(0), ws.ExampleID)
+	feed := findChild(t, ws, "feed")
+	assert.Equal(t, uint(0), feed.ExampleID, "406 is a connection id, not a history id")
+}
+
+// The assignment must not depend on which row a node happened to see first —
+// otherwise reordering rows (or the DB not returning them in id order) would
+// silently start leaking connection ids into ExampleID again.
+func TestExampleIDPrefersHistoryOverConnectionRegardlessOfRowOrder(t *testing.T) {
+	rows := []sitemapRow{
+		wsRow(406, "https://app.test/ws/feed", true, 0),
+		{ID: 12, URL: "https://app.test/ws/feed", Method: "GET", StatusCode: 101},
+	}
+
+	roots := buildSitemapTree(rows)
+
+	root := roots[0]
+	assert.Equal(t, uint(12), root.ExampleID)
+	ws := findChild(t, root, "ws")
+	assert.Equal(t, uint(12), ws.ExampleID)
+	feed := findChild(t, ws, "feed")
+	assert.Equal(t, uint(12), feed.ExampleID, "the history id must win even though the connection row came first")
+}
+
 func TestWebSocketConnectionsMapToRows(t *testing.T) {
 	closed := time.Now()
 	conns := []WebSocketConnection{

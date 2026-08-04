@@ -266,9 +266,14 @@ func TestWebSocketPrefixClauseMatchesBothSchemes(t *testing.T) {
 }
 
 func TestWebSocketPrefixClauseEscapesWildcards(t *testing.T) {
-	_, args := webSocketPrefixClause([]string{"https://app.test/a_b"})
+	clause, args := webSocketPrefixClause([]string{"https://app.test/a_b"})
 
+	assert.Contains(t, clause, `ESCAPE '\'`, "an unescaped underscore in the LIKE arms would match any character")
+	// The url = ? arm must receive the raw prefix: escaping it there would break
+	// an exact match against a URL that genuinely contains an underscore.
+	assert.Contains(t, args, "https://app.test/a_b")
 	assert.Contains(t, args, `https://app.test/a\_b/%`)
+	assert.Contains(t, args, `https://app.test/a\_b?%`)
 }
 
 func TestWebSocketPrefixClauseEmpty(t *testing.T) {

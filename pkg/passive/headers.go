@@ -3,6 +3,7 @@ package passive
 import (
 	"fmt"
 	"github.com/pyneda/sukyan/db"
+	"net/textproto"
 	"regexp"
 	"strings"
 )
@@ -42,12 +43,15 @@ func (m *HeaderCheckMatcher) CheckMatcher(headerName string, headerValues []stri
 	for _, headerValue := range headerValues {
 		match := m.Match(headerValue)
 		if match {
-			description := fmt.Sprintf("Header '%s' with value '%s' matches the condition '%s' %s.\n", headerName, headerValue, m.MatcherType, m.Value)
-			matchResults = append(matchResults, MatchResult{IssueCode: m.CustomIssueCode, Matched: true, Description: description})
+			matchResults = append(matchResults, MatchResult{IssueCode: m.CustomIssueCode, Matched: true, Description: m.describeMatch(headerName, headerValue)})
 		}
 	}
 
 	return matchResults
+}
+
+func (m *HeaderCheckMatcher) describeMatch(headerName, headerValue string) string {
+	return fmt.Sprintf("Header '%s' with value '%s' matches the condition '%s' %s.\n", headerName, headerValue, m.MatcherType, m.Value)
 }
 func (m *HeaderCheckMatcher) Match(headerValue string) bool {
 	switch m.MatcherType {
@@ -80,11 +84,31 @@ type HeaderCheck struct {
 	IssueCode      db.IssueCode
 }
 
+func lookupHeader(headers map[string][]string, headerName string) ([]string, bool) {
+	if headerValues, exists := headers[headerName]; exists {
+		return headerValues, true
+	}
+
+	if canonical := textproto.CanonicalMIMEHeaderKey(headerName); canonical != headerName {
+		if headerValues, exists := headers[canonical]; exists {
+			return headerValues, true
+		}
+	}
+
+	for name, headerValues := range headers {
+		if strings.EqualFold(name, headerName) {
+			return headerValues, true
+		}
+	}
+
+	return nil, false
+}
+
 func (c *HeaderCheck) Check(headers map[string][]string) []MatchResult {
 	var matchResults []MatchResult
 
 	for _, headerName := range c.Headers {
-		headerValues, exists := headers[headerName]
+		headerValues, exists := lookupHeader(headers, headerName)
 
 		if exists && len(headerValues) > 0 {
 			results := c.CheckHeader(headerName, headerValues)
@@ -111,6 +135,10 @@ func (c *HeaderCheck) Check(headers map[string][]string) []MatchResult {
 }
 
 func (c *HeaderCheck) CheckHeader(headerName string, headerValues []string) []MatchResult {
+	if c.MatchCondition == And {
+		return c.checkHeaderAllMatchers(headerName, headerValues)
+	}
+
 	var matchResults []MatchResult
 	for _, matcher := range c.Matchers {
 		results := matcher.CheckMatcher(headerName, headerValues)
@@ -122,6 +150,40 @@ func (c *HeaderCheck) CheckHeader(headerName string, headerValues []string) []Ma
 				matchResults = append(matchResults, result)
 			}
 		}
+	}
+	return matchResults
+}
+
+// When several matchers declare a custom issue code, the first one wins.
+func (c *HeaderCheck) checkHeaderAllMatchers(headerName string, headerValues []string) []MatchResult {
+	if len(c.Matchers) == 0 {
+		return nil
+	}
+
+	var matchResults []MatchResult
+	for _, headerValue := range headerValues {
+		var description strings.Builder
+		var issueCode db.IssueCode
+		allMatched := true
+
+		for _, matcher := range c.Matchers {
+			if !matcher.Match(headerValue) {
+				allMatched = false
+				break
+			}
+			description.WriteString(matcher.describeMatch(headerName, headerValue))
+			if issueCode == "" {
+				issueCode = matcher.CustomIssueCode
+			}
+		}
+
+		if !allMatched {
+			continue
+		}
+		if issueCode == "" {
+			issueCode = c.IssueCode
+		}
+		matchResults = append(matchResults, MatchResult{IssueCode: issueCode, Matched: true, Description: description.String()})
 	}
 	return matchResults
 }

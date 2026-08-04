@@ -13,7 +13,7 @@ func getHeaderChecks() []HeaderCheck {
 		cacheControlHeaderCheck,
 		strictTransportSecurityHeaderCheck,
 		xFrameOptionsHeaderCheck,
-		xXSSProtectionHeaderCheck,
+		// xXSSProtectionHeaderCheck,
 		aspNetMvcHeaderCheck,
 		esiDetectionHeaderCheck,
 	}
@@ -27,7 +27,7 @@ var xPoweredByHeaderCheck = HeaderCheck{
 }
 
 var xAspNetVersionHeaderCheck = HeaderCheck{
-	Headers:        []string{"X-AspNet-Version"},
+	Headers:        []string{"X-Aspnet-Version"},
 	Matchers:       []HeaderCheckMatcher{headerMatchAny},
 	MatchCondition: And,
 	IssueCode:      db.XAspVersionHeaderCode,
@@ -120,7 +120,7 @@ var xFrameOptionsHeaderCheck = HeaderCheck{
 }
 
 var xXSSProtectionHeaderCheck = HeaderCheck{
-	Headers: []string{"X-XSS-Protection"},
+	Headers: []string{"X-Xss-Protection"},
 	Matchers: []HeaderCheckMatcher{
 		{
 			MatcherType: NotEquals,
@@ -132,7 +132,7 @@ var xXSSProtectionHeaderCheck = HeaderCheck{
 }
 
 var aspNetMvcHeaderCheck = HeaderCheck{
-	Headers:        []string{"X-AspNetMvc-Version"},
+	Headers:        []string{"X-Aspnetmvc-Version"},
 	Matchers:       []HeaderCheckMatcher{headerMatchAny},
 	MatchCondition: And,
 	IssueCode:      db.AspNetMvcHeaderCode,

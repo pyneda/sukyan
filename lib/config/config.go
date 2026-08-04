@@ -204,7 +204,7 @@ func SetDefaultConfig() {
 	// most a request can make the server allocate. Workspace archive uploads are
 	// the only endpoint needing more than a few megabytes; larger archives are
 	// imported with the CLI, which never goes through HTTP.
-	viper.SetDefault("api.body_limit", 512*1024*1024)
+	viper.SetDefault("api.body_limit", 32*1024*1024)
 	viper.SetDefault("api.docs.enabled", false)
 	viper.SetDefault("api.docs.path", "/docs")
 	viper.SetDefault("api.metrics.enabled", false)

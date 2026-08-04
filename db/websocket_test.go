@@ -13,12 +13,11 @@ func TestWebSocketConnectionWithProxyService(t *testing.T) {
 	require.NoError(t, err)
 
 	workspace := createTestWorkspace(t)
-	randomPort := 50000 + (int(workspace.ID) % 10000)
 
 	proxyService := &ProxyService{
 		WorkspaceID: &workspace.ID,
 		Name:        "WS Test Proxy",
-		Port:        randomPort,
+		Port:        freeTestProxyPort(t),
 	}
 	created, err := Connection().CreateProxyService(proxyService)
 	require.NoError(t, err)
@@ -50,12 +49,11 @@ func TestWebSocketConnectionProxyServiceConstraints(t *testing.T) {
 	require.NoError(t, err)
 
 	workspace := createTestWorkspace(t)
-	randomPort := 51000 + (int(workspace.ID) % 10000)
 
 	proxyService := &ProxyService{
 		WorkspaceID: &workspace.ID,
 		Name:        "WS Test Proxy Constraints",
-		Port:        randomPort,
+		Port:        freeTestProxyPort(t),
 	}
 	created, err := Connection().CreateProxyService(proxyService)
 	require.NoError(t, err)

@@ -1,61 +1,74 @@
-package db_test
+package db
 
 import (
+	"math/rand/v2"
 	"testing"
 
-	"github.com/pyneda/sukyan/db"
-	"github.com/pyneda/sukyan/lib"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// freeTestProxyPort reserves a port that is unused in the global unique index
+// on proxy_services.port and hard-deletes whatever row lands on it when the
+// test ends. The index covers soft-deleted rows too, so a scoped delete would
+// keep the port reserved and poison every later run.
+func freeTestProxyPort(t *testing.T) int {
+	t.Helper()
+	for range 50 {
+		port := 20000 + rand.IntN(40000)
+		var taken int64
+		require.NoError(t, Connection().DB().Unscoped().Model(&ProxyService{}).Where("port = ?", port).Count(&taken).Error)
+		if taken > 0 {
+			continue
+		}
+		t.Cleanup(func() {
+			Connection().DB().Unscoped().Where("port = ?", port).Delete(&ProxyService{})
+		})
+		return port
+	}
+	t.Fatal("no free proxy service port found")
+	return 0
+}
+
 func TestCreateProxyService(t *testing.T) {
 	workspace := createTestWorkspace(t)
+	port := freeTestProxyPort(t)
 
-	proxyService := &db.ProxyService{
+	proxyService := &ProxyService{
 		WorkspaceID:           &workspace.ID,
 		Name:                  "Test Proxy",
 		Host:                  "localhost",
-		Port:                  9001,
+		Port:                  port,
 		Verbose:               true,
 		LogOutOfScopeRequests: true,
 		Enabled:               false,
 	}
 
-	created, err := db.Connection().CreateProxyService(proxyService)
+	created, err := Connection().CreateProxyService(proxyService)
 	require.NoError(t, err)
 	assert.NotNil(t, created.ID)
 	assert.Equal(t, "Test Proxy", created.Name)
-	assert.Equal(t, 9001, created.Port)
+	assert.Equal(t, port, created.Port)
 }
 
 func TestProxyServicePortUniqueness(t *testing.T) {
 	workspace := createTestWorkspace(t)
+	port := freeTestProxyPort(t)
 
-	proxy1 := &db.ProxyService{
+	proxy1 := &ProxyService{
 		WorkspaceID: &workspace.ID,
 		Name:        "Proxy 1",
-		Port:        9002,
+		Port:        port,
 	}
-	_, err := db.Connection().CreateProxyService(proxy1)
+	_, err := Connection().CreateProxyService(proxy1)
 	require.NoError(t, err)
 
 	// Try to create another proxy with same port
-	proxy2 := &db.ProxyService{
+	proxy2 := &ProxyService{
 		WorkspaceID: &workspace.ID,
 		Name:        "Proxy 2",
-		Port:        9002,
+		Port:        port,
 	}
-	_, err = db.Connection().CreateProxyService(proxy2)
+	_, err = Connection().CreateProxyService(proxy2)
 	assert.Error(t, err) // Should fail due to unique constraint
-}
-
-func createTestWorkspace(t *testing.T) *db.Workspace {
-	workspace := &db.Workspace{
-		Code:  "test-proxy-" + lib.GenerateRandomLowercaseString(8),
-		Title: "Test Workspace",
-	}
-	created, err := db.Connection().CreateWorkspace(workspace)
-	require.NoError(t, err)
-	return created
 }

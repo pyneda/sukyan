@@ -508,13 +508,10 @@ func TestHistoryWithProxyService(t *testing.T) {
 
 	workspace := createTestWorkspace(t)
 
-	// Use a random high port to avoid conflicts
-	randomPort := 50000 + (int(workspace.ID) % 10000)
-
 	proxyService := &ProxyService{
 		WorkspaceID: &workspace.ID,
 		Name:        "Test Proxy",
-		Port:        randomPort,
+		Port:        freeTestProxyPort(t),
 	}
 	created, err := Connection().CreateProxyService(proxyService)
 	require.NoError(t, err)
@@ -544,12 +541,11 @@ func TestHistoryProxyServiceConstraints(t *testing.T) {
 	require.NoError(t, err)
 
 	workspace := createTestWorkspace(t)
-	randomPort := 51000 + (int(workspace.ID) % 10000)
 
 	proxyService := &ProxyService{
 		WorkspaceID: &workspace.ID,
 		Name:        "Test Proxy Constraints",
-		Port:        randomPort,
+		Port:        freeTestProxyPort(t),
 	}
 	created, err := Connection().CreateProxyService(proxyService)
 	require.NoError(t, err)

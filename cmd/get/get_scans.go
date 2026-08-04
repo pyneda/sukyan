@@ -67,5 +67,6 @@ var getScansCmd = &cobra.Command{
 func init() {
 	GetCmd.AddCommand(getScansCmd)
 	getScansCmd.Flags().UintVarP(&scanWorkspaceID, "workspace", "w", 0, "Workspace ID")
+	getScansCmd.PersistentFlags().StringVarP(&query, "query", "q", "", "Search query")
 	getScansCmd.Flags().StringVar(&scanStatusFilter, "status", "", "Comma-separated list of statuses to filter (pending,crawling,scanning,paused,completed,cancelled,failed)")
 }

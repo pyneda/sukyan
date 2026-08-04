@@ -256,7 +256,7 @@ func ListenForPageEvents(ctx context.Context, url string, page *rod.Page, worksp
 				}
 			},
 			func(e *proto.AuditsIssueAdded) {
-				issue := handleBrowserAuditIssues(url, e, workspaceID, taskID)
+				issue := handleBrowserAuditIssues(url, e, workspaceID, taskID, scanID, scanJobID)
 				if issue.ID != 0 {
 					pageEvent := PageEvent{
 						Type:        AuditsIssueAdded,

@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/pyneda/sukyan/db"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFindWebSocketConnections(t *testing.T) {
@@ -82,9 +83,11 @@ func TestFindWebSocketConnectionsFilterParams(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, get("min_messages=lots"))
 }
 
-// url_prefixes travels in the query string, which sits under fasthttp's request
-// line limit — the same max=200 tag HistoryFilter gets for free via
-// validate.Struct has to be enforced by hand here.
+// The same max=200 tag HistoryFilter gets for free via validate.Struct has to be
+// enforced by hand here. The prefixes are kept as short as possible because 201 of
+// them plus the request line must fit in fasthttp's 4096 byte ReadBufferSize, which
+// neither this app nor the real server (api/server.go) overrides — realistic length
+// prefixes are refused while the headers are read and never reach the handler.
 func TestFindWebSocketConnectionsRejectsTooManyURLPrefixes(t *testing.T) {
 	app := fiber.New()
 	app.Get("/api/v1/wsconnections", FindWebSocketConnections)
@@ -97,17 +100,17 @@ func TestFindWebSocketConnectionsRejectsTooManyURLPrefixes(t *testing.T) {
 
 	tooMany := fmt.Sprintf("workspace=%d", workspace.ID)
 	for i := 0; i < 201; i++ {
-		tooMany += fmt.Sprintf("&url_prefixes=https://app.test/%d", i)
+		tooMany += fmt.Sprintf("&url_prefixes=/%d", i)
 	}
 	req := httptest.NewRequest("GET", "/api/v1/wsconnections?"+tooMany, nil)
 	resp, err := app.Test(req, 10000)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
 	atLimit := fmt.Sprintf("workspace=%d&url_prefixes=https://app.test/only-one", workspace.ID)
 	req = httptest.NewRequest("GET", "/api/v1/wsconnections?"+atLimit, nil)
 	resp, err = app.Test(req, 10000)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 

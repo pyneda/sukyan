@@ -143,10 +143,16 @@ func New(cfg Config, dbConn *db.DatabaseConnection, interactionsManager *integra
 
 // registerExecutors sets up all the job executors.
 func (sm *ScanManager) registerExecutors() {
+	// One CORS claim store shared by every executor that probes HTTP routes, so a
+	// route reachable both from an API definition and from the crawler is probed
+	// once per scan rather than once per executor.
+	corsClaims := executor.NewScanClaims()
+
 	// Register active scan executor
 	sm.executorRegistry.Register(executor.NewActiveScanExecutor(
 		sm.interactionsManager,
 		sm.payloadGenerators,
+		corsClaims,
 	))
 
 	// Register WebSocket scan executor
@@ -170,6 +176,7 @@ func (sm *ScanManager) registerExecutors() {
 		sm.payloadGenerators,
 		sm.tokenManager,
 		sm.circuitBreaker,
+		corsClaims,
 	)
 	apiScanExec.SetOnAuthPause(func(scanID uint, reason string) error {
 		return sm.PauseScanWithReason(scanID, reason)
@@ -1482,4 +1489,3 @@ func (sm *ScanManager) scheduleAPIScanForEndpointWithAuth(
 
 	return nil
 }
-

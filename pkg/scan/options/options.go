@@ -134,7 +134,33 @@ type HistoryItemScanOptions struct {
 	MaxRetries         int               `json:"max_retries" validate:"min=0"`
 	AuditSampler       *AuditSampler     `json:"-"`
 	HTTPClient         *http.Client      `json:"-"`
+
+	// CORSRouteGate, when set, is consulted before probing a route for CORS and
+	// returns true if that route still needs probing. A CORS policy is a property
+	// of the route, not of a single history item, so without a gate the same
+	// misconfiguration is reported once per item. Nil means always probe.
+	CORSRouteGate func(route string) bool `json:"-"`
+	// CORSRouteRelease returns a claimed route when nothing was decided about it,
+	// so a transient failure does not retire the route for the whole scan.
+	CORSRouteRelease func(route string) `json:"-"`
+	// CORSSweepGate bounds how many routes per host pay for the allow-list bypass
+	// sweep. Nil means sweep every route.
+	CORSSweepGate func(host string) bool `json:"-"`
+	// CORSReportGate bounds how many issues one host files for the same policy
+	// signature. Nil means report every occurrence.
+	CORSReportGate func(signature string) bool `json:"-"`
 }
+
+const (
+	// MaxCORSSweepsPerHost bounds how many routes on one host pay for the
+	// allow-list bypass sweep. An allow-list is app-wide configuration, so
+	// sampling routes finds it without spending the sweep on every route.
+	MaxCORSSweepsPerHost = 25
+	// MaxCORSIssuesPerSignature bounds how many issues one scan files for the same
+	// host, severity and origin class, so a single host-wide CORS middleware is not
+	// reported once per route.
+	MaxCORSIssuesPerSignature = 3
+)
 
 func (o HistoryItemScanOptions) IsScopedInsertionPoint(insertionPoint string) bool {
 	if len(o.InsertionPoints) == 0 {
@@ -183,7 +209,7 @@ type APIDefinitionScanConfig struct {
 	DefinitionID  uuid.UUID            `json:"definition_id" validate:"required"`
 	EndpointIDs   []uuid.UUID          `json:"endpoint_ids,omitempty"`
 	AuthConfigID  *uuid.UUID           `json:"auth_config_id,omitempty"`
-	SchemeAuthMap map[string]uuid.UUID  `json:"scheme_auth_map,omitempty"`
+	SchemeAuthMap map[string]uuid.UUID `json:"scheme_auth_map,omitempty"`
 }
 
 type FullScanAPIScanOptions struct {

@@ -59,6 +59,10 @@ type APIScanExecutor struct {
 	tokenManager        *auth.TokenManager
 	circuitBreaker      circuitbreaker.CircuitBreaker
 	onAuthPause         func(scanID uint, reason string) error
+
+	// corsClaims is the same store ActiveScanExecutor uses, so a route reachable
+	// both by an API definition and by the crawler is probed once, not twice.
+	corsClaims *ScanClaims
 }
 
 func NewAPIScanExecutor(
@@ -66,12 +70,17 @@ func NewAPIScanExecutor(
 	payloadGenerators []*generation.PayloadGenerator,
 	tokenManager *auth.TokenManager,
 	circuitBreaker circuitbreaker.CircuitBreaker,
+	corsClaims *ScanClaims,
 ) *APIScanExecutor {
+	if corsClaims == nil {
+		corsClaims = NewScanClaims()
+	}
 	return &APIScanExecutor{
 		interactionsManager: interactionsManager,
 		payloadGenerators:   payloadGenerators,
 		tokenManager:        tokenManager,
 		circuitBreaker:      circuitBreaker,
+		corsClaims:          corsClaims,
 	}
 }
 
@@ -204,6 +213,18 @@ func (e *APIScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl *co
 			FingerprintTags: jobData.FingerprintTags,
 			MaxRetries:      jobData.MaxRetries,
 			HTTPClient:      httpClient,
+			CORSRouteGate: func(route string) bool {
+				return e.corsClaims.Claim(job.ScanID, route)
+			},
+			CORSRouteRelease: func(route string) {
+				e.corsClaims.Release(job.ScanID, route)
+			},
+			CORSSweepGate: func(host string) bool {
+				return e.corsClaims.ClaimUpTo(job.ScanID, "sweep:"+host, scan_options.MaxCORSSweepsPerHost)
+			},
+			CORSReportGate: func(signature string) bool {
+				return e.corsClaims.ClaimUpTo(job.ScanID, "report:"+signature, scan_options.MaxCORSIssuesPerSignature)
+			},
 		}
 
 		active.ScanHistoryItem(history, e.interactionsManager, e.payloadGenerators, siteBehavior, options)

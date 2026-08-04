@@ -68,6 +68,13 @@ func ScanHistoryItem(item *db.History, interactionsManager *integrations.Interac
 	if options.AuditCategories.ServerSide {
 		MethodOverrideScan(item, activeOptions)
 		MassAssignmentScan(item, activeOptions)
+		CORSScan(item, CORSScanOptions{
+			ActiveModuleOptions: activeOptions,
+			RouteGate:           options.CORSRouteGate,
+			RouteRelease:        options.CORSRouteRelease,
+			SweepGate:           options.CORSSweepGate,
+			ReportGate:          options.CORSReportGate,
+		})
 	}
 
 	// Check context after bypass scan

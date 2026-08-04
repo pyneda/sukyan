@@ -39,29 +39,46 @@ type ActiveScanExecutor struct {
 	// This ensures consistent sampling across all jobs within the same scan.
 	auditSamplersMu sync.RWMutex
 	auditSamplers   map[uint]*scan_options.AuditSampler
+
+	// corsClaims tracks CORS route, sweep and report budgets per scan. It is shared
+	// with APIScanExecutor so a route reachable both by an API definition and by the
+	// crawler is probed once, not twice.
+	corsClaims *ScanClaims
 }
 
 // NewActiveScanExecutor creates a new active scan executor
 func NewActiveScanExecutor(
 	interactionsManager *integrations.InteractionsManager,
 	payloadGenerators []*generation.PayloadGenerator,
+	corsClaims *ScanClaims,
 ) *ActiveScanExecutor {
+	if corsClaims == nil {
+		corsClaims = NewScanClaims()
+	}
 	return &ActiveScanExecutor{
 		interactionsManager: interactionsManager,
 		payloadGenerators:   payloadGenerators,
 		auditSamplers:       make(map[uint]*scan_options.AuditSampler),
+		corsClaims:          corsClaims,
 	}
 }
 
-// CleanupScan removes the AuditSampler for a completed scan to free memory.
+// CleanupScan removes the per-scan state for a completed scan to free memory.
 func (e *ActiveScanExecutor) CleanupScan(scanID uint) {
 	e.auditSamplersMu.Lock()
-	defer e.auditSamplersMu.Unlock()
-
 	if _, exists := e.auditSamplers[scanID]; exists {
 		delete(e.auditSamplers, scanID)
 		log.Debug().Uint("scan_id", scanID).Msg("Cleaned up AuditSampler for scan")
 	}
+	e.auditSamplersMu.Unlock()
+
+	e.corsClaims.ReleaseScan(scanID)
+}
+
+// claimCORSRoute reports whether a route still needs a CORS probe for this scan,
+// claiming it atomically so concurrent jobs on the same route probe it once.
+func (e *ActiveScanExecutor) claimCORSRoute(scanID uint, route string) bool {
+	return e.corsClaims.Claim(scanID, route)
 }
 
 // JobType returns the job type this executor handles
@@ -155,6 +172,18 @@ func (e *ActiveScanExecutor) Execute(ctx context.Context, job *db.ScanJob, ctrl 
 	// For now, we checkpoint before and after. In phase 3, we'll add internal checkpoints.
 	if options.AuditCategories.ServerSide || options.AuditCategories.ClientSide {
 		taskLog.Debug().Msg("Running active scan on history item")
+		options.CORSRouteGate = func(route string) bool {
+			return e.claimCORSRoute(job.ScanID, route)
+		}
+		options.CORSRouteRelease = func(route string) {
+			e.corsClaims.Release(job.ScanID, route)
+		}
+		options.CORSSweepGate = func(host string) bool {
+			return e.corsClaims.ClaimUpTo(job.ScanID, "sweep:"+host, scan_options.MaxCORSSweepsPerHost)
+		}
+		options.CORSReportGate = func(signature string) bool {
+			return e.corsClaims.ClaimUpTo(job.ScanID, "report:"+signature, scan_options.MaxCORSIssuesPerSignature)
+		}
 		active.ScanHistoryItem(&history, e.interactionsManager, e.payloadGenerators, siteBehavior, options)
 	}
 

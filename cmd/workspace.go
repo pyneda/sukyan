@@ -72,6 +72,9 @@ rest. The archive can be imported into another sukyan deployment.`,
 		fmt.Printf("\nExported workspace %q (%d rows) to %s [%s] in %s\n",
 			result.Workspace.Code, result.TotalRows, workspaceArchivePath, size,
 			result.Duration.Round(time.Millisecond))
+		for table, dropped := range result.DroppedRows {
+			fmt.Printf("  left out %d %s rows: a required reference points outside the workspace\n", dropped, table)
+		}
 		return nil
 	},
 }

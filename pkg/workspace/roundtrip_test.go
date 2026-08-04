@@ -181,7 +181,9 @@ func tableCounts(t *testing.T, workspaceID uint) map[string]int64 {
 	counts := make(map[string]int64, len(orderedTables))
 	for _, spec := range orderedTables {
 		var n int64
-		query := fmt.Sprintf("SELECT count(*) FROM (%s) AS sukyan_exported_row", spec.Query)
+		// selectionQuery, not Query: the archive is what the export selects, so
+		// source and copy have to be measured under the same definition.
+		query := fmt.Sprintf("SELECT count(*) FROM (%s) AS sukyan_exported_row", spec.selectionQuery())
 		require.NoError(t, db.Connection().DB().Raw(query, workspaceID).Scan(&n).Error)
 		counts[spec.Name] = n
 	}

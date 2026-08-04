@@ -14,14 +14,24 @@ import (
 )
 
 // craftArchive builds an archive by hand so a test can put values in it that
-// Export would never produce.
-func craftArchive(t *testing.T, rows []record) *bytes.Buffer {
+// Export would never produce. bounds declares the identifier span the manifest
+// claims per table, which is what import reserves against -- a crafted archive
+// controls that too.
+func craftArchive(t *testing.T, bounds map[string][2]int64, rows []record) *bytes.Buffer {
 	t.Helper()
+
+	bases := make(map[string]int64, len(bounds))
+	ceilings := make(map[string]int64, len(bounds))
+	for table, span := range bounds {
+		bases[table], ceilings[table] = span[0], span[1]
+	}
 
 	var buf bytes.Buffer
 	writer, err := newArchiveWriter(&buf, Manifest{
-		FormatVersion: ArchiveFormatVersion,
-		Workspace:     WorkspaceInfo{Code: "hostile", Title: "hostile"},
+		FormatVersion:      ArchiveFormatVersion,
+		Workspace:          WorkspaceInfo{Code: "hostile", Title: "hostile"},
+		IdentifierBases:    bases,
+		IdentifierCeilings: ceilings,
 	})
 	require.NoError(t, err)
 
@@ -37,6 +47,14 @@ func craftArchive(t *testing.T, rows []record) *bytes.Buffer {
 	}
 	require.NoError(t, writer.close(Summary{RowsByTable: counts, TotalRows: total}))
 	return &buf
+}
+
+func highestIdentifier(t *testing.T, table string) int64 {
+	t.Helper()
+	var highest int64
+	require.NoError(t, db.Connection().DB().
+		Raw(fmt.Sprintf("SELECT COALESCE(MAX(id), 0) FROM %s", table)).Scan(&highest).Error)
+	return highest
 }
 
 // An archive is fully attacker-controlled input. Containment of its rows must
@@ -55,18 +73,17 @@ func TestImportRejectsRowsAimedAtAnotherWorkspace(t *testing.T) {
 		conn.DeleteWorkspaceCascade(context.Background(), victim.ID, db.WorkspaceDeleteOptions{})
 	})
 
-	_, floors, err := planIdentifierOffsets(context.Background(), conn, nil)
-	require.NoError(t, err)
+	// The archive anchors its own offset, so a crafted one can pick a
+	// workspace_id that cancels the shift exactly and resolves to victim.ID.
+	aimed := int64(victim.ID) - highestIdentifier(t, "workspaces")
 
-	// The crafted archive declares no identifier base, so histories are shifted
-	// by their table's floor. This value resolves to exactly victim.ID.
-	aimed := int64(victim.ID) - floors["histories"]
-
-	archive := craftArchive(t, []record{
-		{Table: "workspaces", Row: json.RawMessage(`{"id":1,"code":"hostile","title":"hostile"}`)},
-		{Table: "histories", Row: json.RawMessage(fmt.Sprintf(
-			`{"id":1,"url":"http://attacker.example/pwned","workspace_id":%d,"status_code":200}`, aimed))},
-	})
+	archive := craftArchive(t,
+		map[string][2]int64{"workspaces": {1, 1}, "histories": {1, 1}},
+		[]record{
+			{Table: "workspaces", Row: json.RawMessage(`{"id":1,"code":"hostile","title":"hostile"}`)},
+			{Table: "histories", Row: json.RawMessage(fmt.Sprintf(
+				`{"id":1,"url":"http://attacker.example/pwned","workspace_id":%d,"status_code":200}`, aimed))},
+		})
 
 	result, err := Import(context.Background(), conn, archive, ImportOptions{})
 	if err == nil {
@@ -84,10 +101,12 @@ func TestImportRejectsRowsAimedAtAnotherWorkspace(t *testing.T) {
 // Identifiers in an archive come from bigserial columns and are always
 // positive. Anything else means the archive was tampered with.
 func TestImportRejectsNonPositiveIdentifiers(t *testing.T) {
-	archive := craftArchive(t, []record{
-		{Table: "workspaces", Row: json.RawMessage(`{"id":1,"code":"hostile","title":"hostile"}`)},
-		{Table: "scans", Row: json.RawMessage(`{"id":-5,"workspace_id":1,"status":"completed"}`)},
-	})
+	archive := craftArchive(t,
+		map[string][2]int64{"workspaces": {1, 1}, "scans": {1, 1}},
+		[]record{
+			{Table: "workspaces", Row: json.RawMessage(`{"id":1,"code":"hostile","title":"hostile"}`)},
+			{Table: "scans", Row: json.RawMessage(`{"id":-5,"workspace_id":1,"status":"completed"}`)},
+		})
 
 	_, err := Import(context.Background(), db.Connection(), archive, ImportOptions{})
 	require.Error(t, err, "a negative identifier must be rejected")
@@ -105,9 +124,7 @@ func TestRepeatedImportsDoNotInflateIdentifierSpace(t *testing.T) {
 		conn.DeleteWorkspaceCascade(context.Background(), seed.Workspace.ID, db.WorkspaceDeleteOptions{})
 	})
 
-	_, floorsBefore, err := planIdentifierOffsets(context.Background(), conn, nil)
-	require.NoError(t, err)
-	before := floorsBefore["histories"]
+	before := highestIdentifier(t, "histories")
 
 	for i := 0; i < 3; i++ {
 		archive := exportToBuffer(t, seed.Workspace.ID)
@@ -118,13 +135,9 @@ func TestRepeatedImportsDoNotInflateIdentifierSpace(t *testing.T) {
 		})
 	}
 
-	_, floorsAfter, err := planIdentifierOffsets(context.Background(), conn, nil)
-	require.NoError(t, err)
-	after := floorsAfter["histories"]
-
 	// Three copies of a workspace holding a few dozen rows should consume a few
 	// hundred identifiers, not multiply the ceiling.
-	growth := after - before
+	growth := highestIdentifier(t, "histories") - before
 	assert.Less(t, growth, int64(100_000),
 		"three imports raised the highest identifier by %d; the offset is compounding", growth)
 }
@@ -132,10 +145,12 @@ func TestRepeatedImportsDoNotInflateIdentifierSpace(t *testing.T) {
 // A value near the top of the int64 range would wrap to a negative identifier
 // once the offset is added.
 func TestImportRejectsIdentifierOverflow(t *testing.T) {
-	archive := craftArchive(t, []record{
-		{Table: "workspaces", Row: json.RawMessage(`{"id":1,"code":"hostile","title":"hostile"}`)},
-		{Table: "scans", Row: json.RawMessage(`{"id":9223372036854775807,"workspace_id":1,"status":"completed"}`)},
-	})
+	archive := craftArchive(t,
+		map[string][2]int64{"workspaces": {1, 1}, "scans": {1, 1}},
+		[]record{
+			{Table: "workspaces", Row: json.RawMessage(`{"id":1,"code":"hostile","title":"hostile"}`)},
+			{Table: "scans", Row: json.RawMessage(`{"id":9223372036854775807,"workspace_id":1,"status":"completed"}`)},
+		})
 
 	_, err := Import(context.Background(), db.Connection(), archive, ImportOptions{})
 	require.Error(t, err, "an identifier that overflows when shifted must be rejected")

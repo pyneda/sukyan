@@ -1,9 +1,19 @@
 package workspace
 
+import (
+	"fmt"
+	"strings"
+)
+
 // ArchiveFormatVersion is written into the manifest and checked on import. Bump
 // it whenever the on-disk record shape changes in a way older readers cannot
 // handle.
-const ArchiveFormatVersion = 1
+//
+// 2 added Manifest.IdentifierCeilings and made the archive closed under its own
+// references. Version 1 archives cannot be imported: they carry neither the
+// spans an import needs to reserve its identifiers before writing, nor the
+// guarantee that every reference resolves inside the archive.
+const ArchiveFormatVersion = 2
 
 // tableSpec describes how one table is exported and re-inserted.
 type tableSpec struct {
@@ -16,7 +26,7 @@ type tableSpec struct {
 	// IDColumns maps each bigint identifier column to the table whose identifier
 	// space it draws from; the table's own primary key maps to itself. Import
 	// shifts a column by the offset chosen for that table (see
-	// planIdentifierOffsets).
+	// reserveIdentifierSpace).
 	IDColumns map[string]string
 	// UUIDPrimaryKey is the uuid column holding this table's own identity, if
 	// it has one. Import always mints a fresh value for it.
@@ -33,6 +43,99 @@ type tableSpec struct {
 	SkipImport bool
 	// SkipReason explains SkipImport in the manifest.
 	SkipReason string
+	// Contained lists the IDColumns whose target Query does not itself
+	// constrain, so nothing guarantees the referenced row is in the archive.
+	// Export resolves each against the target's own selection; see
+	// selectionQuery and exportQuery.
+	Contained []containedRef
+}
+
+// containedRef is one identifier column that has to be resolved against the
+// archive rather than trusted.
+//
+// A workspace is defined two different ways across orderedTables: by attribute
+// (WHERE workspace_id = $1) and by relationship (a join up to something that
+// carries one). A row selected under one definition can carry an identifier
+// whose target is chosen under the other, and then the archive holds a reference
+// to a row it does not contain. That is what these declare.
+type containedRef struct {
+	Column string
+	// Required marks a NOT NULL column. Such a row cannot be degraded, so it is
+	// dropped from the archive instead; everything else is written as NULL.
+	// TestContainedReferencesMatchLiveSchema checks this against the catalogue.
+	Required bool
+}
+
+// Aliases are deliberately unlikely to collide with a column name: row_to_json
+// and to_jsonb resolve a bare identifier to a column before a row, and
+// histories.source is the case that catches naive aliases.
+const (
+	exportRowAlias    = "sukyan_exported_row"
+	exportSourceAlias = "sukyan_export_source"
+)
+
+func (s tableSpec) partitionContained() (required, optional []containedRef) {
+	for _, ref := range s.Contained {
+		if ref.Required {
+			required = append(required, ref)
+		} else {
+			optional = append(optional, ref)
+		}
+	}
+	return required, optional
+}
+
+// selectionQuery returns the rows this table contributes to an archive: the
+// spec's own Query, minus any row whose required reference points outside the
+// archive. Import counts and validates against this, not against Query.
+func (s tableSpec) selectionQuery() string {
+	required, _ := s.partitionContained()
+	if len(required) == 0 {
+		return s.Query
+	}
+
+	var joins strings.Builder
+	for i, ref := range required {
+		target, ok := tableByName(s.IDColumns[ref.Column])
+		if !ok {
+			continue
+		}
+		alias := fmt.Sprintf("sukyan_required_%d", i)
+		fmt.Fprintf(&joins, " JOIN (%s) AS %s ON %s.id = %s.%s",
+			target.selectionQuery(), alias, alias, exportSourceAlias, ref.Column)
+	}
+	return fmt.Sprintf("SELECT %s.* FROM (%s) AS %s%s",
+		exportSourceAlias, s.Query, exportSourceAlias, joins.String())
+}
+
+// exportQuery returns one JSON document per selected row, with every optional
+// reference that falls outside the archive rewritten to NULL. This is what makes
+// an archive closed under its own references, which is the invariant import then
+// relies on.
+func (s tableSpec) exportQuery() string {
+	selection := s.selectionQuery()
+	_, optional := s.partitionContained()
+	if len(optional) == 0 {
+		return fmt.Sprintf("SELECT to_jsonb(%s) FROM (%s) AS %s",
+			exportRowAlias, selection, exportRowAlias)
+	}
+
+	var joins, overrides strings.Builder
+	for i, ref := range optional {
+		target, ok := tableByName(s.IDColumns[ref.Column])
+		if !ok {
+			continue
+		}
+		alias := fmt.Sprintf("sukyan_optional_%d", i)
+		fmt.Fprintf(&joins, " LEFT JOIN (%s) AS %s ON %s.id = %s.%s",
+			target.selectionQuery(), alias, alias, exportRowAlias, ref.Column)
+		if overrides.Len() > 0 {
+			overrides.WriteString(", ")
+		}
+		fmt.Fprintf(&overrides, "'%s', %s.id", ref.Column, alias)
+	}
+	return fmt.Sprintf("SELECT to_jsonb(%s) || jsonb_build_object(%s) FROM (%s) AS %s%s",
+		exportRowAlias, overrides.String(), selection, exportRowAlias, joins.String())
 }
 
 // orderedTables lists every table reachable from a workspace, in an order that
@@ -108,12 +211,14 @@ var orderedTables = []tableSpec{
 		UUIDPrimaryKey:  "id",
 		UUIDReferences:  []string{"auth_config_id"},
 		DeferredColumns: []string{"source_history_id"},
+		Contained:       []containedRef{{Column: "scan_id"}, {Column: "source_history_id"}},
 	},
 	{
 		Name:            "playground_sessions",
 		Query:           `SELECT * FROM playground_sessions WHERE workspace_id = $1`,
 		IDColumns:       map[string]string{"collection_id": "playground_collections", "id": "playground_sessions", "original_request_id": "histories", "workspace_id": "workspaces"},
 		DeferredColumns: []string{"original_request_id"},
+		Contained:       []containedRef{{Column: "collection_id"}, {Column: "original_request_id"}},
 	},
 	{
 		Name: "token_refresh_configs",
@@ -148,6 +253,7 @@ var orderedTables = []tableSpec{
 		Name:      "playground_fuzz_runs",
 		Query:     `SELECT * FROM playground_fuzz_runs WHERE workspace_id = $1`,
 		IDColumns: map[string]string{"id": "playground_fuzz_runs", "playground_session_id": "playground_sessions", "workspace_id": "workspaces"},
+		Contained: []containedRef{{Column: "playground_session_id", Required: true}},
 	},
 	{
 		Name: "playground_ws_fuzz_runs",
@@ -166,6 +272,7 @@ var orderedTables = []tableSpec{
 		Name:      "tasks",
 		Query:     `SELECT * FROM tasks WHERE workspace_id = $1`,
 		IDColumns: map[string]string{"id": "tasks", "playground_session_id": "playground_sessions", "workspace_id": "workspaces"},
+		Contained: []containedRef{{Column: "playground_session_id"}},
 	},
 	{
 		Name: "api_scan_endpoints",
@@ -180,6 +287,11 @@ var orderedTables = []tableSpec{
 		IDColumns:       map[string]string{"history_id": "histories", "id": "scan_jobs", "scan_id": "scans", "web_socket_connection_id": "web_socket_connections", "workspace_id": "workspaces"},
 		UUIDReferences:  []string{"api_definition_id", "api_endpoint_id"},
 		DeferredColumns: []string{"history_id", "web_socket_connection_id"},
+		Contained: []containedRef{
+			{Column: "scan_id", Required: true},
+			{Column: "history_id"},
+			{Column: "web_socket_connection_id"},
+		},
 	},
 	{
 		Name:           "api_behavior_results",
@@ -187,42 +299,73 @@ var orderedTables = []tableSpec{
 		IDColumns:      map[string]string{"scan_id": "scans", "scan_job_id": "scan_jobs", "workspace_id": "workspaces"},
 		UUIDPrimaryKey: "id",
 		UUIDReferences: []string{"definition_id"},
+		Contained:      []containedRef{{Column: "scan_id", Required: true}, {Column: "scan_job_id"}},
 	},
 	{
 		Name:           "histories",
 		Query:          `SELECT * FROM histories WHERE workspace_id = $1`,
 		IDColumns:      map[string]string{"id": "histories", "playground_fuzz_run_id": "playground_fuzz_runs", "playground_session_id": "playground_sessions", "scan_id": "scans", "scan_job_id": "scan_jobs", "task_id": "tasks", "workspace_id": "workspaces"},
 		UUIDReferences: []string{"api_definition_id", "api_endpoint_id", "proxy_service_id"},
+		Contained: []containedRef{
+			{Column: "playground_fuzz_run_id"},
+			{Column: "playground_session_id"},
+			{Column: "scan_id"},
+			{Column: "scan_job_id"},
+			{Column: "task_id"},
+		},
 	},
 	{
 		Name:           "browser_events",
 		Query:          `SELECT * FROM browser_events WHERE workspace_id = $1`,
 		IDColumns:      map[string]string{"history_id": "histories", "scan_id": "scans", "scan_job_id": "scan_jobs", "task_id": "tasks", "workspace_id": "workspaces"},
 		UUIDPrimaryKey: "id",
+		Contained: []containedRef{
+			{Column: "history_id"},
+			{Column: "scan_id"},
+			{Column: "scan_job_id"},
+			{Column: "task_id"},
+		},
 	},
 	{
 		Name: "json_web_token_histories",
 		Query: `SELECT l.* FROM json_web_token_histories l
 			JOIN json_web_tokens t ON t.id = l.json_web_token_id WHERE t.workspace_id = $1`,
 		IDColumns: map[string]string{"history_id": "histories", "json_web_token_id": "json_web_tokens"},
+		// json_web_tokens are deduplicated globally by signature, so one token
+		// row is shared by every workspace that ever saw it and its link rows
+		// span workspaces by construction.
+		Contained: []containedRef{{Column: "history_id", Required: true}},
 	},
 	{
 		Name:           "site_behavior_results",
 		Query:          `SELECT * FROM site_behavior_results WHERE workspace_id = $1`,
 		IDColumns:      map[string]string{"base_url_sample_id": "histories", "scan_id": "scans", "scan_job_id": "scan_jobs", "workspace_id": "workspaces"},
 		UUIDPrimaryKey: "id",
+		Contained: []containedRef{
+			{Column: "scan_id", Required: true},
+			{Column: "base_url_sample_id"},
+			{Column: "scan_job_id"},
+		},
 	},
 	{
 		Name:           "web_socket_connections",
 		Query:          `SELECT * FROM web_socket_connections WHERE workspace_id = $1`,
 		IDColumns:      map[string]string{"id": "web_socket_connections", "playground_session_id": "playground_sessions", "scan_id": "scans", "scan_job_id": "scan_jobs", "task_id": "tasks", "upgrade_request_id": "histories", "workspace_id": "workspaces"},
 		UUIDReferences: []string{"proxy_service_id"},
+		Contained: []containedRef{
+			{Column: "playground_session_id"},
+			{Column: "scan_id"},
+			{Column: "scan_job_id"},
+			{Column: "task_id"},
+			{Column: "upgrade_request_id"},
+		},
 	},
 	{
 		Name: "json_web_token_websocket_connections",
 		Query: `SELECT l.* FROM json_web_token_websocket_connections l
 			JOIN json_web_tokens t ON t.id = l.json_web_token_id WHERE t.workspace_id = $1`,
 		IDColumns: map[string]string{"json_web_token_id": "json_web_tokens", "web_socket_connection_id": "web_socket_connections"},
+		Contained: []containedRef{{Column: "web_socket_connection_id", Required: true}},
 	},
 	{
 		Name: "playground_ws_fuzz_iterations",
@@ -230,12 +373,14 @@ var orderedTables = []tableSpec{
 			JOIN playground_ws_fuzz_runs r ON r.id = i.run_id
 			JOIN playground_sessions s ON s.id = r.session_id WHERE s.workspace_id = $1`,
 		IDColumns: map[string]string{"id": "playground_ws_fuzz_iterations", "run_id": "playground_ws_fuzz_runs", "web_socket_connection_id": "web_socket_connections"},
+		Contained: []containedRef{{Column: "web_socket_connection_id"}},
 	},
 	{
 		Name: "playground_ws_sessions",
 		Query: `SELECT w.* FROM playground_ws_sessions w
 			JOIN playground_sessions s ON s.id = w.playground_session_id WHERE s.workspace_id = $1`,
 		IDColumns: map[string]string{"id": "playground_ws_sessions", "imported_from_connection_id": "web_socket_connections", "playground_session_id": "playground_sessions"},
+		Contained: []containedRef{{Column: "imported_from_connection_id"}},
 	},
 	{
 		Name: "site_behavior_not_found_samples",
@@ -243,12 +388,14 @@ var orderedTables = []tableSpec{
 			JOIN site_behavior_results r ON r.id = n.site_behavior_result_id WHERE r.workspace_id = $1`,
 		IDColumns:      map[string]string{"history_id": "histories", "id": "site_behavior_not_found_samples"},
 		UUIDReferences: []string{"site_behavior_result_id"},
+		Contained:      []containedRef{{Column: "history_id", Required: true}},
 	},
 	{
 		Name: "task_jobs",
 		Query: `SELECT j.* FROM task_jobs j
 			JOIN tasks t ON t.id = j.task_id WHERE t.workspace_id = $1`,
 		IDColumns: map[string]string{"history_id": "histories", "id": "task_jobs", "task_id": "tasks", "websocket_connection_id": "web_socket_connections"},
+		Contained: []containedRef{{Column: "history_id"}, {Column: "websocket_connection_id"}},
 	},
 	{
 		Name: "web_socket_messages",
@@ -261,6 +408,13 @@ var orderedTables = []tableSpec{
 		Query:          `SELECT * FROM issues WHERE workspace_id = $1`,
 		IDColumns:      map[string]string{"id": "issues", "scan_id": "scans", "scan_job_id": "scan_jobs", "task_id": "tasks", "task_job_id": "task_jobs", "websocket_connection_id": "web_socket_connections", "workspace_id": "workspaces"},
 		UUIDReferences: []string{"api_definition_id", "api_endpoint_id"},
+		Contained: []containedRef{
+			{Column: "scan_id"},
+			{Column: "scan_job_id"},
+			{Column: "task_id"},
+			{Column: "task_job_id"},
+			{Column: "websocket_connection_id"},
+		},
 	},
 	{
 		Name: "playground_ws_runs",
@@ -268,22 +422,33 @@ var orderedTables = []tableSpec{
 			JOIN playground_ws_sessions w ON w.id = r.playground_ws_session_id
 			JOIN playground_sessions s ON s.id = w.playground_session_id WHERE s.workspace_id = $1`,
 		IDColumns: map[string]string{"id": "playground_ws_runs", "playground_ws_session_id": "playground_ws_sessions", "web_socket_connection_id": "web_socket_connections"},
+		Contained: []containedRef{{Column: "web_socket_connection_id"}},
 	},
 	{
 		Name: "issue_requests",
 		Query: `SELECT r.* FROM issue_requests r
 			JOIN issues i ON i.id = r.issue_id WHERE i.workspace_id = $1`,
 		IDColumns: map[string]string{"history_id": "histories", "issue_id": "issues"},
+		Contained: []containedRef{{Column: "history_id", Required: true}},
 	},
 	{
 		Name:      "oob_tests",
 		Query:     `SELECT * FROM oob_tests WHERE workspace_id = $1`,
 		IDColumns: map[string]string{"history_id": "histories", "id": "oob_tests", "issue_id": "issues", "scan_id": "scans", "scan_job_id": "scan_jobs", "task_id": "tasks", "task_job_id": "task_jobs", "workspace_id": "workspaces"},
+		Contained: []containedRef{
+			{Column: "history_id"},
+			{Column: "issue_id"},
+			{Column: "scan_id"},
+			{Column: "scan_job_id"},
+			{Column: "task_id"},
+			{Column: "task_job_id"},
+		},
 	},
 	{
 		Name:      "oob_interactions",
 		Query:     `SELECT * FROM oob_interactions WHERE workspace_id = $1`,
 		IDColumns: map[string]string{"id": "oob_interactions", "issue_id": "issues", "oob_test_id": "oob_tests", "workspace_id": "workspaces"},
+		Contained: []containedRef{{Column: "issue_id"}, {Column: "oob_test_id"}},
 	},
 }
 

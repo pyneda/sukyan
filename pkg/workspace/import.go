@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
+	"gorm.io/gorm"
 )
 
 // DefaultImportBatchSize is how many rows are inserted per statement.
@@ -70,20 +71,21 @@ func Import(ctx context.Context, conn *db.DatabaseConnection, r io.Reader, opts 
 	}
 	defer reader.close()
 
-	offsets, floors, err := planIdentifierOffsets(ctx, conn, reader.Manifest.IdentifierBases)
+	space, err := reserveIdentifierSpace(ctx, conn, reader.Manifest)
 	if err != nil {
 		return nil, err
 	}
 
 	started := time.Now()
 	state := &importState{
-		conn:          conn,
-		offsets:       offsets,
-		lowestAllowed: floors,
-		uuids:         make(map[string]string),
-		batchSize:     batchSize,
-		deferred:      make(map[string][]deferredPatch),
-		counts:        make(map[string]int64),
+		conn:           conn,
+		offsets:        space.offsets,
+		lowestAllowed:  space.floors,
+		highestAllowed: space.ceilings,
+		uuids:          make(map[string]string),
+		batchSize:      batchSize,
+		deferred:       make(map[string][]deferredPatch),
+		counts:         make(map[string]int64),
 	}
 
 	result = &ImportResult{
@@ -113,9 +115,6 @@ func Import(ctx context.Context, conn *db.DatabaseConnection, r io.Reader, opts 
 	if err = state.applyDeferredPatches(ctx); err != nil {
 		return nil, err
 	}
-	if err = state.advanceSequences(ctx); err != nil {
-		return nil, err
-	}
 
 	result.WorkspaceID = state.newWorkspaceID
 	result.Code = state.newWorkspaceCode
@@ -139,13 +138,14 @@ type deferredPatch struct {
 
 type importState struct {
 	conn *db.DatabaseConnection
-	// offsets shifts a table's archived identifiers into free space;
-	// lowestAllowed is that table's first unused identifier, which every shifted
-	// value must reach. Both are keyed by table name.
-	offsets       map[string]int64
-	lowestAllowed map[string]int64
-	uuids         map[string]string
-	batchSize     int
+	// offsets shifts a table's archived identifiers onto the block reserved for
+	// it; lowestAllowed and highestAllowed are the ends of that block, which
+	// every shifted value has to land between. All keyed by table name.
+	offsets        map[string]int64
+	lowestAllowed  map[string]int64
+	highestAllowed map[string]int64
+	uuids          map[string]string
+	batchSize      int
 	// deferred is keyed by "table.column"; a table may defer more than one
 	// column and each needs its own set of values.
 	deferred         map[string][]deferredPatch
@@ -400,18 +400,29 @@ func (s *importState) shift(value any, target string) (any, error) {
 		return nil, fmt.Errorf("identifier %d is not positive", parsed)
 	}
 
+	ceiling, reserved := s.highestAllowed[target]
+	if !reserved {
+		// Closure means a non-NULL reference implies its target is in the
+		// archive, so the target table cannot be empty. Reaching here means the
+		// archive is not closed, and there is no block to shift onto.
+		return nil, fmt.Errorf("reference to %s identifier %d, but the archive holds no %s rows", target, parsed, target)
+	}
 	offset := s.offsets[target]
 	floor := s.lowestAllowed[target]
 	if offset > 0 && parsed > math.MaxInt64-offset {
 		return nil, fmt.Errorf("identifier %d overflows when shifted by %d", parsed, offset)
 	}
 	shifted := parsed + offset
-	// The offset is derived from a value the archive supplied, so the result is
-	// checked rather than trusted: every imported identifier has to land above
-	// everything already stored in the table it points at, or it could collide
-	// with an unrelated row.
+	// The offset comes from bounds the archive supplied, so the result is
+	// checked rather than trusted. Both ends matter: below the block and the row
+	// could collide with an unrelated one, above it and the row escapes the
+	// range reserved for this import, where a concurrent writer may already have
+	// been handed the identifier.
 	if shifted < floor {
-		return nil, fmt.Errorf("identifier %d shifts to %d, below the first free %s identifier %d", parsed, shifted, target, floor)
+		return nil, fmt.Errorf("identifier %d shifts to %d, below the first reserved %s identifier %d", parsed, shifted, target, floor)
+	}
+	if shifted > ceiling {
+		return nil, fmt.Errorf("identifier %d shifts to %d, above the last reserved %s identifier %d", parsed, shifted, target, ceiling)
 	}
 	return json.Number(strconv.FormatInt(shifted, 10)), nil
 }
@@ -471,66 +482,101 @@ func (s *importState) applyDeferredPatches(ctx context.Context) error {
 	return nil
 }
 
-// advanceSequences moves each identity sequence past the rows just inserted, so
-// that the next natural insert does not collide with an imported identifier.
-func (s *importState) advanceSequences(ctx context.Context) error {
-	for _, spec := range orderedTables {
-		if spec.SkipImport || !spec.hasBigintPrimaryKey() {
-			continue
-		}
-		// Forward only. Another process may already have reserved identifiers
-		// beyond the highest committed row, and winding the sequence back to
-		// MAX(id) would hand those same values out a second time.
-		statement := fmt.Sprintf(`
-			SELECT setval(seq, GREATEST(
-				COALESCE(pg_sequence_last_value(seq), 1),
-				COALESCE((SELECT MAX(id) FROM %s), 1),
-				1))
-			FROM pg_get_serial_sequence('%s', 'id') AS seq
-			WHERE seq IS NOT NULL`, spec.Name, spec.Name)
-		if err := s.conn.DB().WithContext(ctx).Exec(statement).Error; err != nil {
-			return fmt.Errorf("advancing %s sequence: %w", spec.Name, err)
-		}
-	}
-	return nil
+// identifierSpace is the outcome of reserving room for an import: per table, the
+// block of identifiers it owns and the offset that moves archived identifiers
+// onto it.
+type identifierSpace struct {
+	offsets  map[string]int64
+	floors   map[string]int64
+	ceilings map[string]int64
 }
 
-// planIdentifierOffsets works out, per table, how far to shift archived
-// identifiers so they land in free space, and the first identifier they must
-// clear.
+// reserveIdentifierSpace claims, for every table the archive carries rows for, a
+// run of identifiers wide enough to hold them -- before a single row is
+// inserted. Inserting above MAX(id) instead leaves the sequence pointing at the
+// first identifier the import is about to use, so every scan running alongside
+// is handed identifiers out of the middle of the import's range.
 //
 // A table's offset is anchored to the lowest identifier the archive holds for
-// that same table. Growth is then the archive's own span rather than the target
-// database's ceiling. A single shared offset instead drags every table up to the
-// largest table's maximum, which doubles that maximum on each same-database
-// import and exhausts the bigint range within a few dozen.
-func planIdentifierOffsets(ctx context.Context, conn *db.DatabaseConnection, bases map[string]int64) (offsets, floors map[string]int64, err error) {
-	offsets = make(map[string]int64, len(orderedTables))
-	floors = make(map[string]int64, len(orderedTables))
+// that table, so growth is the archive's own span rather than the target
+// database's ceiling. A single shared offset would instead drag every table up
+// to the largest table's maximum, doubling it on each same-database import.
+func reserveIdentifierSpace(ctx context.Context, conn *db.DatabaseConnection, manifest Manifest) (*identifierSpace, error) {
+	space := &identifierSpace{
+		offsets:  make(map[string]int64, len(orderedTables)),
+		floors:   make(map[string]int64, len(orderedTables)),
+		ceilings: make(map[string]int64, len(orderedTables)),
+	}
 
 	for _, spec := range orderedTables {
 		if !spec.hasBigintPrimaryKey() {
 			continue
 		}
-		var highest *int64
-		if err := conn.DB().WithContext(ctx).
-			Raw(fmt.Sprintf("SELECT MAX(id) FROM %s", spec.Name)).
-			Scan(&highest).Error; err != nil {
-			return nil, nil, fmt.Errorf("reading highest id of %s: %w", spec.Name, err)
+		base, top := manifest.IdentifierBases[spec.Name], manifest.IdentifierCeilings[spec.Name]
+		if base <= 0 {
+			// No rows for this table in the archive, so nothing to reserve. A
+			// reference to it is rejected by shift.
+			continue
 		}
+		if top < base {
+			return nil, fmt.Errorf("archive declares %s identifiers from %d to %d", spec.Name, base, top)
+		}
+		span := top - base + 1
 
-		floor := int64(1)
-		if highest != nil {
-			floor = *highest + 1
+		first, err := reserveSequenceBlock(ctx, conn, spec.Name, span)
+		if err != nil {
+			return nil, err
 		}
-		floors[spec.Name] = floor
-
-		offsets[spec.Name] = floor
-		if base := bases[spec.Name]; base > 0 {
-			offsets[spec.Name] = floor - base
-		}
+		space.floors[spec.Name] = first
+		space.ceilings[spec.Name] = first + span - 1
+		space.offsets[spec.Name] = first - base
 	}
-	return offsets, floors, nil
+	return space, nil
+}
+
+// reserveSequenceBlock advances a table's identity sequence by span in one
+// atomic step and returns the first identifier of the run it just consumed.
+//
+// nextval is the only allocator Postgres offers that reserves atomically, so the
+// increment is widened for a single call to turn it into a block allocator.
+// Reading the sequence and setval-ing past it would leave a window in which a
+// writer is handed an identifier inside the block. ALTER SEQUENCE is
+// transactional, so an aborted reservation cannot strand the widened increment,
+// and it holds a lock that keeps concurrent writers out for the three statements
+// this takes.
+func reserveSequenceBlock(ctx context.Context, conn *db.DatabaseConnection, table string, span int64) (int64, error) {
+	var sequence *string
+	if err := conn.DB().WithContext(ctx).
+		Raw("SELECT pg_get_serial_sequence(?, 'id')", table).Scan(&sequence).Error; err != nil {
+		return 0, fmt.Errorf("locating the %s identity sequence: %w", table, err)
+	}
+	if sequence == nil || *sequence == "" {
+		return 0, fmt.Errorf("table %s has no identity sequence to reserve from", table)
+	}
+	name := *sequence
+
+	var top int64
+	err := conn.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// A database restored without its sequences would otherwise hand out
+		// identifiers that already exist. Forward only: winding a sequence back
+		// would reissue values another process may already hold.
+		if err := tx.Exec(fmt.Sprintf(
+			`SELECT setval('%s', GREATEST(COALESCE(pg_sequence_last_value('%s'), 1), COALESCE((SELECT MAX(id) FROM %s), 1), 1))`,
+			name, name, table)).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec(fmt.Sprintf("ALTER SEQUENCE %s INCREMENT BY %d", name, span)).Error; err != nil {
+			return err
+		}
+		if err := tx.Raw(fmt.Sprintf("SELECT nextval('%s')", name)).Scan(&top).Error; err != nil {
+			return err
+		}
+		return tx.Exec(fmt.Sprintf("ALTER SEQUENCE %s INCREMENT BY 1", name)).Error
+	})
+	if err != nil {
+		return 0, fmt.Errorf("reserving %d %s identifiers: %w", span, table, err)
+	}
+	return top - span + 1, nil
 }
 
 func toInt64(value any) (int64, error) {

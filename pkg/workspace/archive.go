@@ -45,7 +45,12 @@ type Manifest struct {
 	// IdentifierBases holds, per table, the lowest bigint row identifier in the
 	// archive; import anchors each table's offset to it.
 	IdentifierBases map[string]int64 `json:"identifier_bases,omitempty"`
-	Excluded        []ExcludedTable  `json:"excluded_tables,omitempty"`
+	// IdentifierCeilings holds, per table, the highest bigint row identifier in
+	// the archive. Together with IdentifierBases it gives import the span it has
+	// to reserve before it writes anything, which a streamed archive cannot
+	// otherwise know up front.
+	IdentifierCeilings map[string]int64 `json:"identifier_ceilings,omitempty"`
+	Excluded           []ExcludedTable  `json:"excluded_tables,omitempty"`
 }
 
 // Summary is the last line of an archive. Import compares it against what it
@@ -167,6 +172,11 @@ func newArchiveReader(r io.Reader) (*archiveReader, error) {
 	}
 	if ar.Manifest.FormatVersion != ArchiveFormatVersion {
 		decoder.Close()
+		if ar.Manifest.FormatVersion < ArchiveFormatVersion {
+			return nil, fmt.Errorf(
+				"archive is format version %d and cannot be imported safely; re-export the workspace with this build to get a version %d archive",
+				ar.Manifest.FormatVersion, ArchiveFormatVersion)
+		}
 		return nil, fmt.Errorf("unsupported archive format version %d (this build reads version %d)",
 			ar.Manifest.FormatVersion, ArchiveFormatVersion)
 	}

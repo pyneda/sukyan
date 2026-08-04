@@ -227,3 +227,19 @@ func TestEveryScopeQueryRunsAndReturnsOwnColumns(t *testing.T) {
 		rows.Close()
 	}
 }
+
+// The queries the export actually runs are generated from the containment
+// declarations, so a bad declaration has to fail here rather than part-way
+// through an operator's export.
+func TestGeneratedExportQueriesRun(t *testing.T) {
+	for _, spec := range orderedTables {
+		for label, query := range map[string]string{
+			"selection": fmt.Sprintf("SELECT count(*) FROM (%s) AS sukyan_probe", spec.selectionQuery()),
+			"export":    fmt.Sprintf("%s LIMIT 1", spec.exportQuery()),
+		} {
+			rows, err := db.Connection().DB().Raw(query, 0).Rows()
+			require.NoError(t, err, "%s query for %s failed", label, spec.Name)
+			rows.Close()
+		}
+	}
+}

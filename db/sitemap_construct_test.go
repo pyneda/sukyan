@@ -255,12 +255,12 @@ func itoa(i int) string {
 	return digits
 }
 
-func wsRow(id uint, rawURL string, live bool, messages int) sitemapRow {
-	return sitemapRow{ID: id, URL: rawURL, WebSocket: true, Live: live, Messages: messages}
+func wsRow(id uint, rawURL string, live bool) sitemapRow {
+	return sitemapRow{ID: id, URL: rawURL, WebSocket: true, Live: live}
 }
 
 func TestWebSocketRowMarksOnlyTheEndpointNode(t *testing.T) {
-	roots := buildSitemapTree([]sitemapRow{wsRow(1, "https://app.test/ws/feed", true, 12)})
+	roots := buildSitemapTree([]sitemapRow{wsRow(1, "https://app.test/ws/feed", true)})
 
 	require.Len(t, roots, 1)
 	assert.False(t, roots[0].WebSocket, "host row is not itself an endpoint")
@@ -273,15 +273,14 @@ func TestWebSocketRowMarksOnlyTheEndpointNode(t *testing.T) {
 
 func TestWebSocketAggregatesAreSubtreeInclusive(t *testing.T) {
 	roots := buildSitemapTree([]sitemapRow{
-		wsRow(1, "https://app.test/ws/feed", true, 12),
-		wsRow(2, "https://app.test/ws/feed", false, 8),
-		wsRow(3, "https://app.test/ws/alerts", false, 3),
+		wsRow(1, "https://app.test/ws/feed", true),
+		wsRow(2, "https://app.test/ws/feed", false),
+		wsRow(3, "https://app.test/ws/alerts", false),
 	})
 
 	root := roots[0]
 	assert.Equal(t, 3, root.Connections)
 	assert.Equal(t, 1, root.LiveConnections)
-	assert.Equal(t, 23, root.Messages)
 
 	ws := root.Children[0]
 	assert.Equal(t, 3, ws.Connections)
@@ -289,13 +288,12 @@ func TestWebSocketAggregatesAreSubtreeInclusive(t *testing.T) {
 	feed := findChild(t, ws, "feed")
 	assert.Equal(t, 2, feed.Connections)
 	assert.Equal(t, 1, feed.LiveConnections)
-	assert.Equal(t, 20, feed.Messages)
 }
 
 func TestWebSocketRowsDoNotTouchRequestsOrStatusClasses(t *testing.T) {
 	roots := buildSitemapTree([]sitemapRow{
 		{ID: 1, URL: "https://app.test/ws/feed", Method: "GET", StatusCode: 200},
-		wsRow(2, "https://app.test/ws/feed", true, 5),
+		wsRow(2, "https://app.test/ws/feed", true),
 	})
 
 	feed := findChild(t, roots[0].Children[0], "feed")
@@ -308,8 +306,8 @@ func TestWebSocketRowsDoNotTouchRequestsOrStatusClasses(t *testing.T) {
 func TestSortRanksWebSocketOnlyNodesByConnections(t *testing.T) {
 	roots := buildSitemapTree([]sitemapRow{
 		{ID: 1, URL: "https://app.test/missing", Method: "GET", StatusCode: 404},
-		wsRow(2, "https://app.test/live", false, 0),
-		wsRow(3, "https://app.test/live", false, 0),
+		wsRow(2, "https://app.test/live", false),
+		wsRow(3, "https://app.test/live", false),
 	})
 
 	children := roots[0].Children
@@ -320,7 +318,7 @@ func TestSortRanksWebSocketOnlyNodesByConnections(t *testing.T) {
 func TestWebSocketOriginJoinsTheHttpsHostTree(t *testing.T) {
 	roots := buildSitemapTree([]sitemapRow{
 		{ID: 1, URL: "https://app.test/api", Method: "GET", StatusCode: 200},
-		wsRow(2, "wss://app.test/ws/feed", true, 4),
+		wsRow(2, "wss://app.test/ws/feed", true),
 	})
 
 	require.Len(t, roots, 1, "wss:// must not spawn a second root")
@@ -333,7 +331,7 @@ func TestWebSocketOriginJoinsTheHttpsHostTree(t *testing.T) {
 }
 
 func TestInsecureWebSocketOriginJoinsTheHttpHostTree(t *testing.T) {
-	roots := buildSitemapTree([]sitemapRow{wsRow(1, "ws://app.test/socket", false, 0)})
+	roots := buildSitemapTree([]sitemapRow{wsRow(1, "ws://app.test/socket", false)})
 
 	require.Len(t, roots, 1)
 	assert.Equal(t, "http://app.test", roots[0].URL)
@@ -342,7 +340,7 @@ func TestInsecureWebSocketOriginJoinsTheHttpHostTree(t *testing.T) {
 // ExampleID is a history id consumed by the frontend's replay path — a
 // WebSocket connection id must never leak into it.
 func TestWebSocketOnlyNodeHasZeroExampleID(t *testing.T) {
-	roots := buildSitemapTree([]sitemapRow{wsRow(406, "https://app.test/ws/feed", true, 0)})
+	roots := buildSitemapTree([]sitemapRow{wsRow(406, "https://app.test/ws/feed", true)})
 
 	root := roots[0]
 	assert.Equal(t, uint(0), root.ExampleID, "the root saw only websocket rows")
@@ -357,7 +355,7 @@ func TestWebSocketOnlyNodeHasZeroExampleID(t *testing.T) {
 // silently start leaking connection ids into ExampleID again.
 func TestExampleIDPrefersHistoryOverConnectionRegardlessOfRowOrder(t *testing.T) {
 	rows := []sitemapRow{
-		wsRow(406, "https://app.test/ws/feed", true, 0),
+		wsRow(406, "https://app.test/ws/feed", true),
 		{ID: 12, URL: "https://app.test/ws/feed", Method: "GET", StatusCode: 101},
 	}
 
@@ -374,8 +372,8 @@ func TestExampleIDPrefersHistoryOverConnectionRegardlessOfRowOrder(t *testing.T)
 func TestWebSocketConnectionsMapToRows(t *testing.T) {
 	closed := time.Now()
 	conns := []WebSocketConnection{
-		{BaseModel: BaseModel{ID: 7}, URL: "wss://app.test/ws", MessageCount: 12},
-		{BaseModel: BaseModel{ID: 8}, URL: "wss://app.test/ws", MessageCount: 3, ClosedAt: &closed},
+		{BaseModel: BaseModel{ID: 7}, URL: "wss://app.test/ws"},
+		{BaseModel: BaseModel{ID: 8}, URL: "wss://app.test/ws", ClosedAt: &closed},
 	}
 
 	rows := webSocketRows(conns)
@@ -384,7 +382,6 @@ func TestWebSocketConnectionsMapToRows(t *testing.T) {
 	assert.Equal(t, uint(7), rows[0].ID)
 	assert.True(t, rows[0].WebSocket)
 	assert.True(t, rows[0].Live, "no ClosedAt means still open")
-	assert.Equal(t, 12, rows[0].Messages)
 	assert.False(t, rows[1].Live)
 }
 

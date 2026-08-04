@@ -26,12 +26,11 @@ type SitemapNode struct {
 	// Derived from the URL on read; parameter names are not persisted anywhere.
 	Params []string `json:"params,omitempty"`
 
-	// WebSocket describes this exact node; the three counts below are
+	// WebSocket describes this exact node; the two counts below are
 	// subtree-inclusive like Requests.
 	WebSocket       bool `json:"websocket"`
 	Connections     int  `json:"connections,omitempty"`
 	LiveConnections int  `json:"live_connections,omitempty"`
-	Messages        int  `json:"messages,omitempty"`
 
 	// Only meaningful on endpoints — a directory's is an arbitrary descendant.
 	ExampleID uint `json:"example_id"`
@@ -116,8 +115,7 @@ func (d *DatabaseConnection) getSitemapData(filter SitemapFilter) ([]History, er
 
 func (d *DatabaseConnection) getSitemapWebSocketData(filter SitemapFilter) ([]WebSocketConnection, error) {
 	query := d.db.Model(&WebSocketConnection{}).
-		Select("web_socket_connections.id, web_socket_connections.url, web_socket_connections.closed_at, (?) AS message_count",
-			messageCountSubquery(d.db))
+		Select("web_socket_connections.id, web_socket_connections.url, web_socket_connections.closed_at")
 	if filter.WorkspaceID != 0 {
 		query = query.Where("workspace_id = ?", filter.WorkspaceID)
 	}
@@ -142,7 +140,6 @@ func webSocketRows(connections []WebSocketConnection) []sitemapRow {
 			URL:       c.URL,
 			WebSocket: true,
 			Live:      c.ClosedAt == nil,
-			Messages:  int(c.MessageCount),
 		})
 	}
 	return rows
@@ -182,7 +179,6 @@ func (b *sitemapBuilder) record(row sitemapRow, params []string) {
 		if row.Live {
 			b.node.LiveConnections++
 		}
-		b.node.Messages += row.Messages
 	} else {
 		b.node.Requests++
 		if row.Method != "" {
@@ -231,7 +227,6 @@ type sitemapRow struct {
 	// Set only for websocket_connections rows.
 	WebSocket bool
 	Live      bool
-	Messages  int
 }
 
 func buildSitemapTree(rows []sitemapRow) []*SitemapNode {

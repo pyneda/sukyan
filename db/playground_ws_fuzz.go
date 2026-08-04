@@ -76,9 +76,11 @@ func (d *DatabaseConnection) UpdatePlaygroundWsFuzzRunProgress(runID uint, sent,
 		}).Error
 }
 
-// DeletePlaygroundWsFuzzRun removes a run (cascade-deletes its iterations).
+// DeletePlaygroundWsFuzzRun hard-deletes the row so the DB-level ON DELETE
+// CASCADE fires on playground_ws_fuzz_iterations. Soft delete would not trigger
+// the cascade and would leave child rows orphaned.
 func (d *DatabaseConnection) DeletePlaygroundWsFuzzRun(id uint) error {
-	return d.db.Delete(&PlaygroundWsFuzzRun{}, id).Error
+	return d.db.Unscoped().Delete(&PlaygroundWsFuzzRun{}, id).Error
 }
 
 // CreatePlaygroundWsFuzzIteration inserts a new iteration row.

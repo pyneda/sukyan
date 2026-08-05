@@ -308,6 +308,9 @@ definitions:
       task:
         minimum: 0
         type: integer
+      title:
+        maxLength: 255
+        type: string
       workspace:
         minimum: 0
         type: integer
@@ -740,6 +743,19 @@ definitions:
       error:
         type: string
       message:
+        type: string
+    type: object
+  api.ExampleRequest:
+    properties:
+      masked:
+        items:
+          type: string
+        type: array
+      method:
+        type: string
+      raw:
+        type: string
+      url:
         type: string
     type: object
   api.FailedJobInfo:
@@ -1295,7 +1311,7 @@ definitions:
       msg:
         type: string
       tokens:
-        $ref: '#/definitions/auth.Tokens'
+        $ref: '#/definitions/api.SignInTokens'
     type: object
   api.ReplayConfig:
     properties:
@@ -1323,12 +1339,16 @@ definitions:
     type: object
   api.ReportRequest:
     properties:
+      disable_syntax_highlight:
+        description: Omitting this highlights, matching the UI. See report.ReportOptions.
+        type: boolean
       format:
         allOf:
         - $ref: '#/definitions/report.ReportFormat'
         enum:
         - html
         - json
+        - pdf
       max_request_size:
         type: integer
       min_confidence:
@@ -1391,6 +1411,12 @@ definitions:
         items:
           $ref: '#/definitions/api.JobTypeStats'
         type: array
+      last_job_completed_at:
+        description: |-
+          When this scan's most recent job finished. Absent while no job has
+          finished yet. The overview reads it to tell a scan that is working from
+          one that is merely still marked active.
+        type: string
       pending_jobs:
         type: integer
       phase:
@@ -1833,6 +1859,17 @@ definitions:
       target_url:
         type: string
     type: object
+  api.UsersResponse:
+    properties:
+      count:
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/db.User'
+        type: array
+      summary:
+        $ref: '#/definitions/db.UserRosterSummary'
+    type: object
   api.WSDLSchemaInfo:
     properties:
       binding_count:
@@ -1938,6 +1975,21 @@ definitions:
       title:
         type: string
     type: object
+  api.endpointDetailResponse:
+    properties:
+      backfilled:
+        type: boolean
+      example_error:
+        description: |-
+          ExampleError explains why example_request is absent. A definition can parse
+          while one operation still cannot produce a request, and a silently missing
+          panel reads as a bug.
+        type: string
+      example_request:
+        $ref: '#/definitions/api.ExampleRequest'
+      operation:
+        $ref: '#/definitions/core.Operation'
+    type: object
   api.matcherPresetUpdateInput:
     properties:
       matcher_set:
@@ -1950,11 +2002,271 @@ definitions:
     - matcher_set
     - name
     type: object
-  auth.Tokens:
+  core.APIType:
+    enum:
+    - openapi
+    - graphql
+    - soap
+    type: string
+    x-enum-varnames:
+    - APITypeOpenAPI
+    - APITypeGraphQL
+    - APITypeSOAP
+  core.Constraints:
     properties:
-      access:
+      enum:
+        items: {}
+        type: array
+      exclusive_max:
+        type: boolean
+      exclusive_min:
+        type: boolean
+      format:
         type: string
-      refresh:
+      max_items:
+        type: integer
+      max_length:
+        type: integer
+      maximum:
+        type: number
+      min_items:
+        type: integer
+      min_length:
+        type: integer
+      minimum:
+        type: number
+      pattern:
+        type: string
+    type: object
+  core.DataType:
+    enum:
+    - string
+    - integer
+    - number
+    - boolean
+    - array
+    - object
+    - file
+    type: string
+    x-enum-varnames:
+    - DataTypeString
+    - DataTypeInteger
+    - DataTypeNumber
+    - DataTypeBoolean
+    - DataTypeArray
+    - DataTypeObject
+    - DataTypeFile
+  core.GraphQLMetadata:
+    properties:
+      is_deprecated:
+        type: boolean
+      operation_type:
+        type: string
+      return_type:
+        type: string
+      type_name:
+        type: string
+    type: object
+  core.OpenAPIMetadata:
+    properties:
+      external_docs:
+        type: string
+      request_body:
+        $ref: '#/definitions/core.RequestBodyInfo'
+      servers:
+        items:
+          type: string
+        type: array
+      version:
+        type: string
+    type: object
+  core.Operation:
+    properties:
+      api_type:
+        $ref: '#/definitions/core.APIType'
+      base_url:
+        type: string
+      content_types:
+        $ref: '#/definitions/core.RequestContentTypes'
+      definition_id:
+        type: string
+      deprecated:
+        type: boolean
+      description:
+        type: string
+      graphql:
+        $ref: '#/definitions/core.GraphQLMetadata'
+      id:
+        type: string
+      method:
+        type: string
+      name:
+        type: string
+      openapi:
+        $ref: '#/definitions/core.OpenAPIMetadata'
+      operation_id:
+        type: string
+      parameters:
+        items:
+          $ref: '#/definitions/core.Parameter'
+        type: array
+      path:
+        type: string
+      responses:
+        items:
+          $ref: '#/definitions/core.ResponseInfo'
+        type: array
+      security:
+        items:
+          $ref: '#/definitions/core.SecurityRequirement'
+        type: array
+      soap:
+        $ref: '#/definitions/core.SOAPMetadata'
+      summary:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  core.Parameter:
+    properties:
+      allow_empty:
+        type: boolean
+      constraints:
+        $ref: '#/definitions/core.Constraints'
+      content_type:
+        type: string
+      data_type:
+        $ref: '#/definitions/core.DataType'
+      default_value: {}
+      deprecated:
+        type: boolean
+      description:
+        type: string
+      example_value: {}
+      explode:
+        type: boolean
+      location:
+        $ref: '#/definitions/core.ParameterLocation'
+      name:
+        type: string
+      nested_params:
+        items:
+          $ref: '#/definitions/core.Parameter'
+        type: array
+      nullable:
+        type: boolean
+      required:
+        type: boolean
+      schema_ref:
+        type: string
+      style:
+        type: string
+      type_signature:
+        description: |-
+          TypeSignature is the parameter's type spelled exactly as the source schema
+          spells it (GraphQL: "[String!]!", "PostInput!"). DataType is a coarse
+          classification and cannot be turned back into a valid schema type name.
+        type: string
+    type: object
+  core.ParameterLocation:
+    enum:
+    - path
+    - query
+    - header
+    - cookie
+    - body
+    - argument
+    type: string
+    x-enum-comments:
+      ParameterLocationArgument: GraphQL
+    x-enum-descriptions:
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - GraphQL
+    x-enum-varnames:
+    - ParameterLocationPath
+    - ParameterLocationQuery
+    - ParameterLocationHeader
+    - ParameterLocationCookie
+    - ParameterLocationBody
+    - ParameterLocationArgument
+  core.RequestBodyInfo:
+    properties:
+      content_type:
+        type: string
+      description:
+        type: string
+      required:
+        type: boolean
+      schema: {}
+      structured:
+        description: |-
+          Structured reports whether the body parameters are named properties of an
+          object. When false the body is a scalar or array and the single body parameter
+          carries the entire payload, so wrapping it in an object would send a document
+          the API rejects.
+        type: boolean
+    type: object
+  core.RequestContentTypes:
+    properties:
+      request:
+        items:
+          type: string
+        type: array
+      response:
+        items:
+          type: string
+        type: array
+    type: object
+  core.ResponseInfo:
+    properties:
+      content_type:
+        type: string
+      description:
+        type: string
+      schema: {}
+      status_code:
+        type: string
+    type: object
+  core.SOAPMetadata:
+    properties:
+      binding_style:
+        type: string
+      element_form:
+        type: string
+      input_element:
+        type: string
+      input_element_ns:
+        type: string
+      input_message:
+        type: string
+      output_message:
+        type: string
+      port_name:
+        type: string
+      service_name:
+        type: string
+      soap_action:
+        type: string
+      soap_version:
+        type: string
+      target_ns:
+        type: string
+    type: object
+  core.SecurityRequirement:
+    properties:
+      name:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+      type:
         type: string
     type: object
   db.APIAuthConfig:
@@ -2220,6 +2532,64 @@ definitions:
           type: string
         type: array
     type: object
+  db.DeploymentFinding:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      severity:
+        type: string
+      title:
+        type: string
+      url:
+        type: string
+      workspace_code:
+        type: string
+      workspace_id:
+        type: integer
+      workspace_title:
+        type: string
+    type: object
+  db.DeploymentFindings:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/db.DeploymentFinding'
+        type: array
+      issues:
+        $ref: '#/definitions/db.IssuesStats'
+      since:
+        type: string
+      total:
+        type: integer
+    type: object
+  db.DeploymentPulse:
+    properties:
+      bucket_seconds:
+        type: integer
+      buckets:
+        items:
+          $ref: '#/definitions/db.DeploymentPulseBucket'
+        type: array
+      end:
+        type: string
+      start:
+        type: string
+    type: object
+  db.DeploymentPulseBucket:
+    properties:
+      issues:
+        $ref: '#/definitions/db.IssuesStats'
+      jobs_completed:
+        type: integer
+      jobs_failed:
+        type: integer
+      start:
+        type: string
+    type: object
   db.GroupedIssue:
     properties:
       code:
@@ -2367,6 +2737,17 @@ definitions:
         type: array
       task_id:
         type: integer
+      url_prefix:
+        description: Matched against clean_url, which is indexed, so this is a btree
+          prefix scan.
+        type: string
+      url_prefixes:
+        description: A selection of sitemap nodes. Folded together with URLPrefix;
+          same semantics.
+        items:
+          type: string
+        maxItems: 200
+        type: array
       workspace_id:
         type: integer
     type: object
@@ -2666,6 +3047,11 @@ definitions:
         type: string
       interaction_id:
         type: string
+      interactions_count:
+        description: |-
+          Callbacks received against this test. Derived rather than stored, so it is
+          filled in by the read paths; a zero value means none came back.
+        type: integer
       issue_id:
         type: integer
       note:
@@ -3207,26 +3593,73 @@ definitions:
       not_found_returns_404:
         type: boolean
     type: object
+  db.SitemapIssueCounts:
+    properties:
+      critical:
+        type: integer
+      high:
+        type: integer
+      info:
+        type: integer
+      low:
+        type: integer
+      medium:
+        type: integer
+    type: object
   db.SitemapNode:
     properties:
       children:
         items:
           $ref: '#/definitions/db.SitemapNode'
         type: array
+      connections:
+        type: integer
       depth:
         type: integer
-      id:
+      example_id:
+        description: Only meaningful on endpoints — a directory's is an arbitrary
+          descendant.
         type: integer
-      other_ids:
+      has_children:
+        type: boolean
+      issues:
+        allOf:
+        - $ref: '#/definitions/db.SitemapIssueCounts'
+        description: |-
+          Reserved: correlating findings and coverage needs a join through
+          issue_requests plus task correlation. Declared now so filling them in later
+          does not reshape the payload for every consumer.
+      live_connections:
+        type: integer
+      methods:
         items:
-          type: integer
+          type: string
+        type: array
+      params:
+        description: Derived from the URL on read; parameter names are not persisted
+          anywhere.
+        items:
+          type: string
         type: array
       path:
         type: string
+      requests:
+        type: integer
+      scanned:
+        type: boolean
+      status_classes:
+        additionalProperties:
+          type: integer
+        type: object
       type:
         $ref: '#/definitions/db.SitemapNodeType'
       url:
         type: string
+      websocket:
+        description: |-
+          WebSocket describes this exact node; the two counts below are
+          subtree-inclusive like Requests.
+        type: boolean
     type: object
   db.SitemapNodeType:
     enum:
@@ -3381,6 +3814,53 @@ definitions:
       updated_at:
         type: string
     type: object
+  db.User:
+    properties:
+      active:
+        type: boolean
+      created_at:
+        type: string
+      email:
+        maxLength: 255
+        type: string
+      id:
+        type: string
+      last_login_at:
+        type: string
+      superuser:
+        description: |-
+          Superuser grants access to deployment-wide administration. Read from the
+          database on every request rather than carried in the JWT, so a demotion
+          takes effect immediately instead of at token renewal.
+        type: boolean
+      tokens_valid_from:
+        description: |-
+          TokensValidFrom revokes every session issued before it. Sessions are
+          otherwise stateless, so this is the only lever that ends them early.
+        type: string
+      updated_at:
+        type: string
+    required:
+    - active
+    - email
+    type: object
+  db.UserRosterSummary:
+    properties:
+      active:
+        type: integer
+      disabled:
+        type: integer
+      dormant:
+        type: integer
+      never_signed_in:
+        type: integer
+      signed_in_last_7d:
+        type: integer
+      superusers:
+        type: integer
+      total:
+        type: integer
+    type: object
   db.WebSocketConnection:
     properties:
       closed_at:
@@ -3394,6 +3874,8 @@ definitions:
         items:
           $ref: '#/definitions/db.JsonWebToken'
         type: array
+      message_count:
+        type: integer
       messages:
         items:
           $ref: '#/definitions/db.WebSocketMessage'
@@ -4497,10 +4979,33 @@ definitions:
     enum:
     - html
     - json
+    - pdf
     type: string
     x-enum-varnames:
     - ReportFormatHTML
     - ReportFormatJSON
+    - ReportFormatPDF
+  time.Duration:
+    enum:
+    - -9223372036854775808
+    - 9223372036854775807
+    - 1
+    - 1000
+    - 1000000
+    - 1000000000
+    - 60000000000
+    - 3600000000000
+    format: int64
+    type: integer
+    x-enum-varnames:
+    - minDuration
+    - maxDuration
+    - Nanosecond
+    - Microsecond
+    - Millisecond
+    - Second
+    - Minute
+    - Hour
   web.PageEvent:
     properties:
       data:
@@ -4551,6 +5056,46 @@ definitions:
     - SecurityCertificateError
     - NetworkAuthChallenge
     - RuntimeConsoleAPICalled
+  workspace.ExcludedTable:
+    properties:
+      reason:
+        type: string
+      table:
+        type: string
+    type: object
+  workspace.ImportResult:
+    properties:
+      code:
+        type: string
+      duration:
+        $ref: '#/definitions/time.Duration'
+      rows_by_table:
+        additionalProperties:
+          format: int64
+          type: integer
+        type: object
+      skipped_tables:
+        items:
+          $ref: '#/definitions/workspace.ExcludedTable'
+        type: array
+      source:
+        $ref: '#/definitions/workspace.WorkspaceInfo'
+      total_rows:
+        type: integer
+      workspace_id:
+        type: integer
+    type: object
+  workspace.WorkspaceInfo:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      title:
+        type: string
+    type: object
   wsdl.OperationEndpoint:
     properties:
       input_parts:
@@ -5463,6 +6008,44 @@ paths:
       summary: Update API endpoint
       tags:
       - api-definitions
+  /api/v1/api-definitions/{id}/endpoints/{endpoint_id}/detail:
+    get:
+      description: Returns the normalized operation plus a freshly built example request
+      parameters:
+      - description: API Definition ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: API Endpoint ID
+        in: path
+        name: endpoint_id
+        required: true
+        type: string
+      - description: Return credentials unmasked
+        in: query
+        name: reveal
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.endpointDetailResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get full detail for one API operation
+      tags:
+      - api-definitions
   /api/v1/api-definitions/{id}/endpoints/toggle-all:
     post:
       consumes:
@@ -5605,16 +6188,40 @@ paths:
       summary: Import and scan API definition in one step
       tags:
       - api-definitions
+  /api/v1/auth/me:
+    get:
+      consumes:
+      - application/json
+      description: Returns the account behind the presented access token. Every
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved the current user
+          schema:
+            $ref: '#/definitions/db.User'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Returns the authenticated user.
+      tags:
+      - Auth
   /api/v1/auth/token/renew:
     post:
       consumes:
       - application/json
-      description: Renew access and refresh tokens.
+      description: |-
+        Renew access and refresh tokens. The refresh token is read from the
+        HttpOnly cookie set at sign-in, falling back to the request body for
+        non-browser clients. No access token is required, so a session resumes
+        even after the access token has expired.
       parameters:
-      - description: Refresh token
+      - description: Refresh token, when not supplied as a cookie
         in: body
         name: refresh_token
-        required: true
         schema:
           $ref: '#/definitions/api.Renew'
       produces:
@@ -5624,12 +6231,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/api.RenewTokensResponse'
-        "400":
-          description: Bad Request
+        "401":
+          description: Unauthorized
           schema:
             $ref: '#/definitions/api.ErrorResponse'
-      security:
-      - ApiKeyAuth: []
       summary: renew access and refresh tokens
       tags:
       - Auth
@@ -5637,7 +6242,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: Auth user and return access and refresh token.
+      description: |-
+        Auth user and return access and refresh token. The refresh token
+        is also set as an HttpOnly cookie scoped to /api/v1/auth; browser
+        clients should rely on that cookie rather than storing the token.
       parameters:
       - description: SignIn payload
         in: body
@@ -5659,7 +6267,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: De-authorize user and delete refresh token.
+      description: |-
+        Clears the refresh token cookie, ending the session. Deliberately
+        unauthenticated: clearing a cookie needs no identity, and requiring
+        a live access token would leave an expired session unable to sign out.
       produces:
       - application/json
       responses:
@@ -5667,9 +6278,7 @@ paths:
           description: ok
           schema:
             type: string
-      security:
-      - ApiKeyAuth: []
-      summary: de-authorize user and delete refresh token
+      summary: de-authorize user and clear the refresh token
       tags:
       - Auth
   /api/v1/browser-actions:
@@ -6048,6 +6657,10 @@ paths:
         in: query
         name: ids
         type: string
+      - description: Only requests at or below this URL (matched against clean_url)
+        in: query
+        name: url_prefix
+        type: string
       - description: Workspace ID to filter by
         in: query
         name: workspace
@@ -6271,6 +6884,35 @@ paths:
         in: query
         name: sources
         type: string
+      - description: Case-insensitive substring match against the connection URL
+        in: query
+        name: query
+        type: string
+      - description: Only return connections with at least this many messages
+        in: query
+        name: min_messages
+        type: integer
+      - default: '"id"'
+        description: Field to sort by
+        enum:
+        - id
+        - url
+        - status_code
+        - source
+        - message_count
+        - created_at
+        - closed_at
+        in: query
+        name: sort_by
+        type: string
+      - default: '"desc"'
+        description: Sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_order
+        type: string
       produces:
       - application/json
       responses:
@@ -6340,6 +6982,13 @@ paths:
         in: query
         name: is_binary
         type: boolean
+      - description: Filter by message direction
+        enum:
+        - sent
+        - received
+        in: query
+        name: direction
+        type: string
       produces:
       - application/json
       responses:
@@ -9109,6 +9758,11 @@ paths:
         in: query
         name: job_type
         type: string
+      - description: 'Sort field: relevance (default), id, created_at, updated_at,
+          status, priority'
+        in: query
+        name: sort_by
+        type: string
       - description: Page number
         in: query
         name: page
@@ -9399,6 +10053,65 @@ paths:
       - ApiKeyAuth: []
       summary: 'Retrieves deployment-wide state: orchestrator, workers, queue and
         scans.'
+      tags:
+      - Stats
+  /api/v1/stats/deployment/findings:
+    get:
+      consumes:
+      - application/json
+      description: Returns the newest issues recorded anywhere in the deployment,
+        plus
+      parameters:
+      - description: RFC3339 timestamp bounding the totals. Does not filter the listed
+          rows.
+        in: query
+        name: since
+        type: string
+      - description: Maximum rows to list, 1-50 (default 12).
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved deployment findings
+          schema:
+            $ref: '#/definitions/db.DeploymentFindings'
+        "400":
+          description: Invalid since or limit
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Lists the newest findings across all workspaces.
+      tags:
+      - Stats
+  /api/v1/stats/deployment/pulse:
+    get:
+      consumes:
+      - application/json
+      description: Returns a fixed-length series of 96 fifteen-minute buckets, each
+        holding
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved deployment pulse
+          schema:
+            $ref: '#/definitions/db.DeploymentPulse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Retrieves finished jobs and recorded issues bucketed over the last
+        24 hours.
       tags:
       - Stats
   /api/v1/stats/system:
@@ -9706,6 +10419,56 @@ paths:
       summary: List JWTs with filtering and sorting
       tags:
       - JWT
+  /api/v1/users:
+    get:
+      consumes:
+      - application/json
+      description: Returns one row per account with its role, status and sign-in
+      parameters:
+      - description: Page number, 1-based (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Rows per page (default 25)
+        in: query
+        name: page_size
+        type: integer
+      - description: Case-insensitive email substring
+        in: query
+        name: query
+        type: string
+      - description: email, last_login, created_at, status or superuser
+        in: query
+        name: sort_by
+        type: string
+      - description: asc or desc
+        in: query
+        name: sort_order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved users
+          schema:
+            $ref: '#/definitions/api.UsersResponse'
+        "400":
+          description: Invalid parameters
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Requires a superuser account
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Lists all user accounts.
+      tags:
+      - Users
   /api/v1/workspaces:
     get:
       consumes:
@@ -9783,7 +10546,8 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Deletes a workspace and all associated data
+      description: Hides the workspace immediately and purges all of its data in the
+        background
       parameters:
       - description: Workspace ID
         in: path
@@ -9793,8 +10557,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
-          description: 'message": "Workspace successfully deleted'
+        "202":
+          description: 'message": "Workspace deletion started'
           schema:
             additionalProperties: true
             type: object
@@ -9879,6 +10643,36 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Update a workspace
+      tags:
+      - Workspaces
+  /api/v1/workspaces/{id}/export:
+    get:
+      description: Streams a compressed archive holding every row that belongs to
+        the workspace
+      parameters:
+      - description: Workspace ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/zstd
+      responses:
+        "200":
+          description: Workspace archive
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Export a workspace
       tags:
       - Workspaces
   /api/v1/workspaces/{workspace_id}/matcher-presets:
@@ -10090,6 +10884,40 @@ paths:
       summary: Create a new proxy service
       tags:
       - Proxy Services
+  /api/v1/workspaces/import:
+    post:
+      consumes:
+      - application/zstd
+      description: Recreates an exported workspace as a new workspace in this deployment
+      parameters:
+      - description: Code for the imported workspace
+        in: query
+        name: code
+        type: string
+      - description: Title for the imported workspace
+        in: query
+        name: title
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/workspace.ImportResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Import a workspace archive
+      tags:
+      - Workspaces
   /dashboard:
     get:
       description: Returns an HTML page with real-time dashboard

@@ -941,6 +941,65 @@
                 }
             }
         },
+        "/api/v1/api-definitions/{id}/endpoints/{endpoint_id}/detail": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns the normalized operation plus a freshly built example request",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "api-definitions"
+                ],
+                "summary": "Get full detail for one API operation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API Definition ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "API Endpoint ID",
+                        "name": "endpoint_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Return credentials unmasked",
+                        "name": "reveal",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.endpointDetailResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/api-definitions/{id}/scan": {
             "post": {
                 "security": [
@@ -1055,14 +1114,43 @@
                 }
             }
         },
-        "/api/v1/auth/token/renew": {
-            "post": {
+        "/api/v1/auth/me": {
+            "get": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Renew access and refresh tokens.",
+                "description": "Returns the account behind the presented access token. Every",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Returns the authenticated user.",
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved the current user",
+                        "schema": {
+                            "$ref": "#/definitions/db.User"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/token/renew": {
+            "post": {
+                "description": "Renew access and refresh tokens. The refresh token is read from the\nHttpOnly cookie set at sign-in, falling back to the request body for\nnon-browser clients. No access token is required, so a session resumes\neven after the access token has expired.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1075,10 +1163,9 @@
                 "summary": "renew access and refresh tokens",
                 "parameters": [
                     {
-                        "description": "Refresh token",
+                        "description": "Refresh token, when not supplied as a cookie",
                         "name": "refresh_token",
                         "in": "body",
-                        "required": true,
                         "schema": {
                             "$ref": "#/definitions/api.Renew"
                         }
@@ -1091,8 +1178,8 @@
                             "$ref": "#/definitions/api.RenewTokensResponse"
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -1102,7 +1189,7 @@
         },
         "/api/v1/auth/user/sign/in": {
             "post": {
-                "description": "Auth user and return access and refresh token.",
+                "description": "Auth user and return access and refresh token. The refresh token\nis also set as an HttpOnly cookie scoped to /api/v1/auth; browser\nclients should rely on that cookie rather than storing the token.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1136,12 +1223,7 @@
         },
         "/api/v1/auth/user/sign/out": {
             "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "De-authorize user and delete refresh token.",
+                "description": "Clears the refresh token cookie, ending the session. Deliberately\nunauthenticated: clearing a cookie needs no identity, and requiring\na live access token would leave an expired session unable to sign out.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1151,7 +1233,7 @@
                 "tags": [
                     "Auth"
                 ],
-                "summary": "de-authorize user and delete refresh token",
+                "summary": "de-authorize user and clear the refresh token",
                 "responses": {
                     "204": {
                         "description": "ok",
@@ -1746,6 +1828,12 @@
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Only requests at or below this URL (matched against clean_url)",
+                        "name": "url_prefix",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Workspace ID to filter by",
                         "name": "workspace",
@@ -1978,6 +2066,45 @@
                         "description": "Comma-separated list of sources to filter by",
                         "name": "sources",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive substring match against the connection URL",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Only return connections with at least this many messages",
+                        "name": "min_messages",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "id",
+                            "url",
+                            "status_code",
+                            "source",
+                            "message_count",
+                            "created_at",
+                            "closed_at"
+                        ],
+                        "type": "string",
+                        "default": "\"id\"",
+                        "description": "Field to sort by",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "default": "\"desc\"",
+                        "description": "Sort order",
+                        "name": "sort_order",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2082,6 +2209,16 @@
                         "type": "boolean",
                         "description": "Filter by binary messages (true) or text messages (false)",
                         "name": "is_binary",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "sent",
+                            "received"
+                        ],
+                        "type": "string",
+                        "description": "Filter by message direction",
+                        "name": "direction",
                         "in": "query"
                     }
                 ],
@@ -6516,6 +6653,12 @@
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Sort field: relevance (default), id, created_at, updated_at, status, priority",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Page number",
                         "name": "page",
@@ -6885,6 +7028,94 @@
                         "description": "Successfully retrieved deployment stats",
                         "schema": {
                             "$ref": "#/definitions/api.DashboardStats"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/stats/deployment/findings": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns the newest issues recorded anywhere in the deployment, plus",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Stats"
+                ],
+                "summary": "Lists the newest findings across all workspaces.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RFC3339 timestamp bounding the totals. Does not filter the listed rows.",
+                        "name": "since",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum rows to list, 1-50 (default 12).",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved deployment findings",
+                        "schema": {
+                            "$ref": "#/definitions/db.DeploymentFindings"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid since or limit",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/stats/deployment/pulse": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns a fixed-length series of 96 fifteen-minute buckets, each holding",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Stats"
+                ],
+                "summary": "Retrieves finished jobs and recorded issues bucketed over the last 24 hours.",
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved deployment pulse",
+                        "schema": {
+                            "$ref": "#/definitions/db.DeploymentPulse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
                         }
                     }
                 }
@@ -7354,6 +7585,84 @@
                 }
             }
         },
+        "/api/v1/users": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns one row per account with its role, status and sign-in",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Lists all user accounts.",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number, 1-based (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Rows per page (default 25)",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive email substring",
+                        "name": "query",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "email, last_login, created_at, status or superuser",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "asc or desc",
+                        "name": "sort_order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully retrieved users",
+                        "schema": {
+                            "$ref": "#/definitions/api.UsersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid parameters",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Requires a superuser account",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/workspaces": {
             "get": {
                 "security": [
@@ -7451,6 +7760,60 @@
                         "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/db.Workspace"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workspaces/import": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Recreates an exported workspace as a new workspace in this deployment",
+                "consumes": [
+                    "application/zstd"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Workspaces"
+                ],
+                "summary": "Import a workspace archive",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Code for the imported workspace",
+                        "name": "code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Title for the imported workspace",
+                        "name": "title",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/workspace.ImportResult"
                         }
                     },
                     "400": {
@@ -7578,7 +7941,7 @@
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Deletes a workspace and all associated data",
+                "description": "Hides the workspace immediately and purges all of its data in the background",
                 "consumes": [
                     "application/json"
                 ],
@@ -7599,8 +7962,8 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "message\": \"Workspace successfully deleted",
+                    "202": {
+                        "description": "message\": \"Workspace deletion started",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -7620,6 +7983,52 @@
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/workspaces/{id}/export": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Streams a compressed archive holding every row that belongs to the workspace",
+                "produces": [
+                    "application/zstd"
+                ],
+                "tags": [
+                    "Workspaces"
+                ],
+                "summary": "Export a workspace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Workspace ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Workspace archive",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -8428,6 +8837,10 @@
                     "type": "integer",
                     "minimum": 0
                 },
+                "title": {
+                    "type": "string",
+                    "maxLength": 255
+                },
                 "workspace": {
                     "type": "integer",
                     "minimum": 0
@@ -9069,6 +9482,26 @@
                     "type": "string"
                 },
                 "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.ExampleRequest": {
+            "type": "object",
+            "properties": {
+                "masked": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "method": {
+                    "type": "string"
+                },
+                "raw": {
+                    "type": "string"
+                },
+                "url": {
                     "type": "string"
                 }
             }
@@ -9892,7 +10325,7 @@
                     "type": "string"
                 },
                 "tokens": {
-                    "$ref": "#/definitions/auth.Tokens"
+                    "$ref": "#/definitions/api.SignInTokens"
                 }
             }
         },
@@ -9941,10 +10374,15 @@
                 "workspace_id"
             ],
             "properties": {
+                "disable_syntax_highlight": {
+                    "description": "Omitting this highlights, matching the UI. See report.ReportOptions.",
+                    "type": "boolean"
+                },
                 "format": {
                     "enum": [
                         "html",
-                        "json"
+                        "json",
+                        "pdf"
                     ],
                     "allOf": [
                         {
@@ -10039,6 +10477,10 @@
                     "items": {
                         "$ref": "#/definitions/api.JobTypeStats"
                     }
+                },
+                "last_job_completed_at": {
+                    "description": "When this scan's most recent job finished. Absent while no job has\nfinished yet. The overview reads it to tell a scan that is working from\none that is merely still marked active.",
+                    "type": "string"
                 },
                 "pending_jobs": {
                     "type": "integer"
@@ -10701,6 +11143,23 @@
                 }
             }
         },
+        "api.UsersResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.User"
+                    }
+                },
+                "summary": {
+                    "$ref": "#/definitions/db.UserRosterSummary"
+                }
+            }
+        },
         "api.WSDLSchemaInfo": {
             "type": "object",
             "properties": {
@@ -10862,6 +11321,24 @@
                 }
             }
         },
+        "api.endpointDetailResponse": {
+            "type": "object",
+            "properties": {
+                "backfilled": {
+                    "type": "boolean"
+                },
+                "example_error": {
+                    "description": "ExampleError explains why example_request is absent. A definition can parse\nwhile one operation still cannot produce a request, and a silently missing\npanel reads as a bug.",
+                    "type": "string"
+                },
+                "example_request": {
+                    "$ref": "#/definitions/api.ExampleRequest"
+                },
+                "operation": {
+                    "$ref": "#/definitions/core.Operation"
+                }
+            }
+        },
         "api.matcherPresetUpdateInput": {
             "type": "object",
             "required": [
@@ -10879,13 +11356,378 @@
                 }
             }
         },
-        "auth.Tokens": {
+        "core.APIType": {
+            "type": "string",
+            "enum": [
+                "openapi",
+                "graphql",
+                "soap"
+            ],
+            "x-enum-varnames": [
+                "APITypeOpenAPI",
+                "APITypeGraphQL",
+                "APITypeSOAP"
+            ]
+        },
+        "core.Constraints": {
             "type": "object",
             "properties": {
-                "access": {
+                "enum": {
+                    "type": "array",
+                    "items": {}
+                },
+                "exclusive_max": {
+                    "type": "boolean"
+                },
+                "exclusive_min": {
+                    "type": "boolean"
+                },
+                "format": {
                     "type": "string"
                 },
-                "refresh": {
+                "max_items": {
+                    "type": "integer"
+                },
+                "max_length": {
+                    "type": "integer"
+                },
+                "maximum": {
+                    "type": "number"
+                },
+                "min_items": {
+                    "type": "integer"
+                },
+                "min_length": {
+                    "type": "integer"
+                },
+                "minimum": {
+                    "type": "number"
+                },
+                "pattern": {
+                    "type": "string"
+                }
+            }
+        },
+        "core.DataType": {
+            "type": "string",
+            "enum": [
+                "string",
+                "integer",
+                "number",
+                "boolean",
+                "array",
+                "object",
+                "file"
+            ],
+            "x-enum-varnames": [
+                "DataTypeString",
+                "DataTypeInteger",
+                "DataTypeNumber",
+                "DataTypeBoolean",
+                "DataTypeArray",
+                "DataTypeObject",
+                "DataTypeFile"
+            ]
+        },
+        "core.GraphQLMetadata": {
+            "type": "object",
+            "properties": {
+                "is_deprecated": {
+                    "type": "boolean"
+                },
+                "operation_type": {
+                    "type": "string"
+                },
+                "return_type": {
+                    "type": "string"
+                },
+                "type_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "core.OpenAPIMetadata": {
+            "type": "object",
+            "properties": {
+                "external_docs": {
+                    "type": "string"
+                },
+                "request_body": {
+                    "$ref": "#/definitions/core.RequestBodyInfo"
+                },
+                "servers": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "core.Operation": {
+            "type": "object",
+            "properties": {
+                "api_type": {
+                    "$ref": "#/definitions/core.APIType"
+                },
+                "base_url": {
+                    "type": "string"
+                },
+                "content_types": {
+                    "$ref": "#/definitions/core.RequestContentTypes"
+                },
+                "definition_id": {
+                    "type": "string"
+                },
+                "deprecated": {
+                    "type": "boolean"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "graphql": {
+                    "$ref": "#/definitions/core.GraphQLMetadata"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "openapi": {
+                    "$ref": "#/definitions/core.OpenAPIMetadata"
+                },
+                "operation_id": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/core.Parameter"
+                    }
+                },
+                "path": {
+                    "type": "string"
+                },
+                "responses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/core.ResponseInfo"
+                    }
+                },
+                "security": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/core.SecurityRequirement"
+                    }
+                },
+                "soap": {
+                    "$ref": "#/definitions/core.SOAPMetadata"
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "core.Parameter": {
+            "type": "object",
+            "properties": {
+                "allow_empty": {
+                    "type": "boolean"
+                },
+                "constraints": {
+                    "$ref": "#/definitions/core.Constraints"
+                },
+                "content_type": {
+                    "type": "string"
+                },
+                "data_type": {
+                    "$ref": "#/definitions/core.DataType"
+                },
+                "default_value": {},
+                "deprecated": {
+                    "type": "boolean"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "example_value": {},
+                "explode": {
+                    "type": "boolean"
+                },
+                "location": {
+                    "$ref": "#/definitions/core.ParameterLocation"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nested_params": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/core.Parameter"
+                    }
+                },
+                "nullable": {
+                    "type": "boolean"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "schema_ref": {
+                    "type": "string"
+                },
+                "style": {
+                    "type": "string"
+                },
+                "type_signature": {
+                    "description": "TypeSignature is the parameter's type spelled exactly as the source schema\nspells it (GraphQL: \"[String!]!\", \"PostInput!\"). DataType is a coarse\nclassification and cannot be turned back into a valid schema type name.",
+                    "type": "string"
+                }
+            }
+        },
+        "core.ParameterLocation": {
+            "type": "string",
+            "enum": [
+                "path",
+                "query",
+                "header",
+                "cookie",
+                "body",
+                "argument"
+            ],
+            "x-enum-comments": {
+                "ParameterLocationArgument": "GraphQL"
+            },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "GraphQL"
+            ],
+            "x-enum-varnames": [
+                "ParameterLocationPath",
+                "ParameterLocationQuery",
+                "ParameterLocationHeader",
+                "ParameterLocationCookie",
+                "ParameterLocationBody",
+                "ParameterLocationArgument"
+            ]
+        },
+        "core.RequestBodyInfo": {
+            "type": "object",
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "schema": {},
+                "structured": {
+                    "description": "Structured reports whether the body parameters are named properties of an\nobject. When false the body is a scalar or array and the single body parameter\ncarries the entire payload, so wrapping it in an object would send a document\nthe API rejects.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "core.RequestContentTypes": {
+            "type": "object",
+            "properties": {
+                "request": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "response": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "core.ResponseInfo": {
+            "type": "object",
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "schema": {},
+                "status_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "core.SOAPMetadata": {
+            "type": "object",
+            "properties": {
+                "binding_style": {
+                    "type": "string"
+                },
+                "element_form": {
+                    "type": "string"
+                },
+                "input_element": {
+                    "type": "string"
+                },
+                "input_element_ns": {
+                    "type": "string"
+                },
+                "input_message": {
+                    "type": "string"
+                },
+                "output_message": {
+                    "type": "string"
+                },
+                "port_name": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "soap_action": {
+                    "type": "string"
+                },
+                "soap_version": {
+                    "type": "string"
+                },
+                "target_ns": {
+                    "type": "string"
+                }
+            }
+        },
+        "core.SecurityRequirement": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "type": {
                     "type": "string"
                 }
             }
@@ -11276,6 +12118,95 @@
                 }
             }
         },
+        "db.DeploymentFinding": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "severity": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "workspace_code": {
+                    "type": "string"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                },
+                "workspace_title": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.DeploymentFindings": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.DeploymentFinding"
+                    }
+                },
+                "issues": {
+                    "$ref": "#/definitions/db.IssuesStats"
+                },
+                "since": {
+                    "type": "string"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "db.DeploymentPulse": {
+            "type": "object",
+            "properties": {
+                "bucket_seconds": {
+                    "type": "integer"
+                },
+                "buckets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/db.DeploymentPulseBucket"
+                    }
+                },
+                "end": {
+                    "type": "string"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.DeploymentPulseBucket": {
+            "type": "object",
+            "properties": {
+                "issues": {
+                    "$ref": "#/definitions/db.IssuesStats"
+                },
+                "jobs_completed": {
+                    "type": "integer"
+                },
+                "jobs_failed": {
+                    "type": "integer"
+                },
+                "start": {
+                    "type": "string"
+                }
+            }
+        },
         "db.GroupedIssue": {
             "type": "object",
             "properties": {
@@ -11491,6 +12422,18 @@
                 },
                 "task_id": {
                     "type": "integer"
+                },
+                "url_prefix": {
+                    "description": "Matched against clean_url, which is indexed, so this is a btree prefix scan.",
+                    "type": "string"
+                },
+                "url_prefixes": {
+                    "description": "A selection of sitemap nodes. Folded together with URLPrefix; same semantics.",
+                    "type": "array",
+                    "maxItems": 200,
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "workspace_id": {
                     "type": "integer"
@@ -11929,6 +12872,10 @@
                 },
                 "interaction_id": {
                     "type": "string"
+                },
+                "interactions_count": {
+                    "description": "Callbacks received against this test. Derived rather than stored, so it is\nfilled in by the read paths; a zero value means none came back.",
+                    "type": "integer"
                 },
                 "issue_id": {
                     "type": "integer"
@@ -12671,6 +13618,26 @@
                 }
             }
         },
+        "db.SitemapIssueCounts": {
+            "type": "object",
+            "properties": {
+                "critical": {
+                    "type": "integer"
+                },
+                "high": {
+                    "type": "integer"
+                },
+                "info": {
+                    "type": "integer"
+                },
+                "low": {
+                    "type": "integer"
+                },
+                "medium": {
+                    "type": "integer"
+                }
+            }
+        },
         "db.SitemapNode": {
             "type": "object",
             "properties": {
@@ -12680,26 +13647,67 @@
                         "$ref": "#/definitions/db.SitemapNode"
                     }
                 },
+                "connections": {
+                    "type": "integer"
+                },
                 "depth": {
                     "type": "integer"
                 },
-                "id": {
+                "example_id": {
+                    "description": "Only meaningful on endpoints — a directory's is an arbitrary descendant.",
                     "type": "integer"
                 },
-                "other_ids": {
+                "has_children": {
+                    "type": "boolean"
+                },
+                "issues": {
+                    "description": "Reserved: correlating findings and coverage needs a join through\nissue_requests plus task correlation. Declared now so filling them in later\ndoes not reshape the payload for every consumer.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.SitemapIssueCounts"
+                        }
+                    ]
+                },
+                "live_connections": {
+                    "type": "integer"
+                },
+                "methods": {
                     "type": "array",
                     "items": {
-                        "type": "integer"
+                        "type": "string"
+                    }
+                },
+                "params": {
+                    "description": "Derived from the URL on read; parameter names are not persisted anywhere.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
                     }
                 },
                 "path": {
                     "type": "string"
+                },
+                "requests": {
+                    "type": "integer"
+                },
+                "scanned": {
+                    "type": "boolean"
+                },
+                "status_classes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
                 },
                 "type": {
                     "$ref": "#/definitions/db.SitemapNodeType"
                 },
                 "url": {
                     "type": "string"
+                },
+                "websocket": {
+                    "description": "WebSocket describes this exact node; the two counts below are\nsubtree-inclusive like Requests.",
+                    "type": "boolean"
                 }
             }
         },
@@ -12911,6 +13919,68 @@
                 }
             }
         },
+        "db.User": {
+            "type": "object",
+            "required": [
+                "active",
+                "email"
+            ],
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "id": {
+                    "type": "string"
+                },
+                "last_login_at": {
+                    "type": "string"
+                },
+                "superuser": {
+                    "description": "Superuser grants access to deployment-wide administration. Read from the\ndatabase on every request rather than carried in the JWT, so a demotion\ntakes effect immediately instead of at token renewal.",
+                    "type": "boolean"
+                },
+                "tokens_valid_from": {
+                    "description": "TokensValidFrom revokes every session issued before it. Sessions are\notherwise stateless, so this is the only lever that ends them early.",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.UserRosterSummary": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "integer"
+                },
+                "disabled": {
+                    "type": "integer"
+                },
+                "dormant": {
+                    "type": "integer"
+                },
+                "never_signed_in": {
+                    "type": "integer"
+                },
+                "signed_in_last_7d": {
+                    "type": "integer"
+                },
+                "superusers": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "db.WebSocketConnection": {
             "type": "object",
             "properties": {
@@ -12929,6 +13999,9 @@
                     "items": {
                         "$ref": "#/definitions/db.JsonWebToken"
                     }
+                },
+                "message_count": {
+                    "type": "integer"
                 },
                 "messages": {
                     "type": "array",
@@ -14478,11 +15551,37 @@
             "type": "string",
             "enum": [
                 "html",
-                "json"
+                "json",
+                "pdf"
             ],
             "x-enum-varnames": [
                 "ReportFormatHTML",
-                "ReportFormatJSON"
+                "ReportFormatJSON",
+                "ReportFormatPDF"
+            ]
+        },
+        "time.Duration": {
+            "type": "integer",
+            "format": "int64",
+            "enum": [
+                -9223372036854775808,
+                9223372036854775807,
+                1,
+                1000,
+                1000000,
+                1000000000,
+                60000000000,
+                3600000000000
+            ],
+            "x-enum-varnames": [
+                "minDuration",
+                "maxDuration",
+                "Nanosecond",
+                "Microsecond",
+                "Millisecond",
+                "Second",
+                "Minute",
+                "Hour"
             ]
         },
         "web.PageEvent": {
@@ -14543,6 +15642,67 @@
                 "NetworkAuthChallenge",
                 "RuntimeConsoleAPICalled"
             ]
+        },
+        "workspace.ExcludedTable": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string"
+                },
+                "table": {
+                    "type": "string"
+                }
+            }
+        },
+        "workspace.ImportResult": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "duration": {
+                    "$ref": "#/definitions/time.Duration"
+                },
+                "rows_by_table": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                },
+                "skipped_tables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/workspace.ExcludedTable"
+                    }
+                },
+                "source": {
+                    "$ref": "#/definitions/workspace.WorkspaceInfo"
+                },
+                "total_rows": {
+                    "type": "integer"
+                },
+                "workspace_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "workspace.WorkspaceInfo": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
         },
         "wsdl.OperationEndpoint": {
             "type": "object",

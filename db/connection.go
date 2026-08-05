@@ -96,14 +96,22 @@ func initDb() *DatabaseConnection {
 		os.Exit(1)
 	}
 
-	maxIdleConns := viper.GetInt("db.max_idle_conns")
-	if maxIdleConns == 0 {
-		maxIdleConns = 5
-	}
-
 	maxOpenConns := viper.GetInt("db.max_open_conns")
 	if maxOpenConns == 0 {
-		maxOpenConns = 20
+		maxOpenConns = 50
+	}
+
+	// Keeping idle well below open makes database/sql close and reopen a
+	// connection for every request past the idle mark, and each reopen pays a
+	// full SCRAM-SHA-256 handshake. Under scan load that measured as ~10% of
+	// process CPU with every backend under 10s old, so idle tracks open and
+	// conn_max_idle_time is what releases connections when the process is quiet.
+	maxIdleConns := viper.GetInt("db.max_idle_conns")
+	if maxIdleConns == 0 {
+		maxIdleConns = 40
+	}
+	if maxIdleConns > maxOpenConns {
+		maxIdleConns = maxOpenConns
 	}
 
 	connMaxLifetime := viper.GetDuration("db.conn_max_lifetime")
@@ -111,15 +119,22 @@ func initDb() *DatabaseConnection {
 		connMaxLifetime = 1 * time.Hour
 	}
 
+	connMaxIdleTime := viper.GetDuration("db.conn_max_idle_time")
+	if connMaxIdleTime == 0 {
+		connMaxIdleTime = 5 * time.Minute
+	}
+
 	log.Debug().
 		Int("max_idle_conns", maxIdleConns).
 		Int("max_open_conns", maxOpenConns).
 		Dur("conn_max_lifetime", connMaxLifetime).
+		Dur("conn_max_idle_time", connMaxIdleTime).
 		Msg("Configuring database connection pool")
 
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetMaxOpenConns(maxOpenConns)
 	sqlDB.SetConnMaxLifetime(connMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(connMaxIdleTime)
 
 	return &DatabaseConnection{
 		db:    db,

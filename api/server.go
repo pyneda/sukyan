@@ -11,7 +11,6 @@ import (
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
-	"github.com/gofiber/fiber/v2/middleware/monitor"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/gofiber/swagger"
 	"github.com/pyneda/sukyan/db"
@@ -132,10 +131,6 @@ func StartAPI(opts ...APIServerOptions) {
 
 	if viper.GetBool("api.docs.enabled") {
 		app.Get(fmt.Sprintf("%v/*", viper.GetString("api.docs.path")), swagger.HandlerDefault)
-	}
-
-	if viper.GetBool("api.metrics.enabled") {
-		app.Get(fmt.Sprintf("%v/*", viper.GetString("api.metrics.path")), monitor.New(monitor.Config{Title: viper.GetString("api.metrics.title")}))
 	}
 
 	if viper.GetBool("api.pprof.enabled") {

@@ -31,9 +31,10 @@ func SetDefaultConfig() {
 	viper.SetDefault("logging.file.level", "info")
 
 	// Database
-	viper.SetDefault("db.max_idle_conns", 5)
+	viper.SetDefault("db.max_idle_conns", 40)
 	viper.SetDefault("db.max_open_conns", 50)
 	viper.SetDefault("db.conn_max_lifetime", "1h")
+	viper.SetDefault("db.conn_max_idle_time", "5m")
 	viper.SetDefault("db.auto_migrate", true)
 
 	// Storage
@@ -207,9 +208,6 @@ func SetDefaultConfig() {
 	viper.SetDefault("api.body_limit", 32*1024*1024)
 	viper.SetDefault("api.docs.enabled", false)
 	viper.SetDefault("api.docs.path", "/docs")
-	viper.SetDefault("api.metrics.enabled", false)
-	viper.SetDefault("api.metrics.path", "/metrics")
-	viper.SetDefault("api.metrics.title", "Sukyan Metrics")
 	viper.SetDefault("api.pprof.enabled", false)
 	viper.SetDefault("api.pprof.prefix", "")
 

@@ -337,6 +337,10 @@ func validateDigestAuth(authHeader, expectedUsername, expectedPassword, method, 
 		return false
 	}
 
+	if digestUri != uri {
+		return false
+	}
+
 	// Calculate the expected response hash
 	ha1 := md5Hash(expectedUsername + ":" + realm + ":" + expectedPassword)
 	ha2 := md5Hash(method + ":" + digestUri)

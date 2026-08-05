@@ -17,7 +17,7 @@ func TestDigestAuthBruteforce(t *testing.T) {
 	// Create a test server that accepts specific credentials for digest auth
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
-		if authHeader != "" && validateDigestAuth(authHeader, "admin", "password", "GET", r.URL.Path) {
+		if authHeader != "" && validateDigestAuth(authHeader, "admin", "password", "GET", r.URL.RequestURI()) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte("Success"))
 		} else {
@@ -172,7 +172,7 @@ func TestDigestAuthWithProperNonceManagement(t *testing.T) {
 			}
 
 			// Accept credentials for testing
-			if validateDigestAuthCredentials(authHeader, "admin", "password", "GET", r.URL.Path) {
+			if validateDigestAuthCredentials(authHeader, "admin", "password", "GET", r.URL.RequestURI()) {
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("Success"))
 				return
@@ -220,6 +220,61 @@ func TestDigestAuthWithProperNonceManagement(t *testing.T) {
 	assert.True(t, success2)
 	assert.Equal(t, http.StatusOK, statusCode2)
 	assert.Equal(t, "00000002", lastNC)
+}
+
+func TestDigestAuthURICarriesQueryString(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "" && validateDigestAuthCredentials(authHeader, "admin", "password", "GET", r.URL.RequestURI()) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("Success"))
+			return
+		}
+
+		w.Header().Set("WWW-Authenticate", `Digest realm="test", nonce="nonce1", qop="auth"`)
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Unauthorized"))
+	}))
+	defer server.Close()
+
+	target := "/protected?next=%2Fadmin&id=7"
+	historyItem := &db.History{
+		Method:      "GET",
+		URL:         server.URL + target,
+		RawRequest:  []byte("GET " + target + " HTTP/1.1\r\nHost: " + server.URL[7:] + "\r\n\r\n"),
+		WorkspaceID: func() *uint { id := uint(1); return &id }(),
+		TaskID:      func() *uint { id := uint(1); return &id }(),
+	}
+
+	digestState := &DigestState{
+		currentNonce: "nonce1",
+		nonceCount:   0,
+		lastRefresh:  time.Now(),
+	}
+
+	historyOptions := http_utils.HistoryCreationOptions{WorkspaceID: 1, TaskID: 1}
+
+	success, statusCode, _, err := attemptDigestAuth(historyItem, "admin", "password", digestState, historyOptions)
+	assert.NoError(t, err)
+	assert.True(t, success, "digest uri must be the full request-target, otherwise the server computes HA2 over a different uri")
+	assert.Equal(t, http.StatusOK, statusCode)
+}
+
+func TestDigestQuotedValueEscaping(t *testing.T) {
+	challenge := `Digest realm="say \"hi\"", nonce="abc123", qop="auth"`
+
+	params := ParseDigestParams(challenge)
+	assert.Equal(t, `say "hi"`, params["realm"], "escaped quotes in the challenge must be unescaped")
+
+	digestAuth, err := createDigestAuth(`ad"min\x`, "password", challenge, "GET", "/protected")
+	assert.NoError(t, err)
+
+	parsed := ParseDigestParams(digestAuth)
+	assert.Equal(t, `ad"min\x`, parsed["username"], "quotes and backslashes must survive the round trip")
+	assert.Equal(t, `say "hi"`, parsed["realm"])
+	assert.Equal(t, "abc123", parsed["nonce"])
+	assert.Equal(t, "/protected", parsed["uri"])
+	assert.Len(t, parsed["response"], 32)
 }
 
 func TestRequestFreshChallenge(t *testing.T) {
@@ -290,6 +345,10 @@ func validateDigestAuthCredentials(authHeader, expectedUsername, expectedPasswor
 	digestUri, hasUri := params["uri"]
 
 	if !hasRealm || !hasNonce || !hasResponse || !hasUri {
+		return false
+	}
+
+	if digestUri != uri {
 		return false
 	}
 

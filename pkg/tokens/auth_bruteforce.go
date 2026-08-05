@@ -325,7 +325,7 @@ func attemptAuth(historyItem *db.History, authHeader, username, password string,
 		auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
 		req.Header.Set("Authorization", "Basic "+auth)
 	case AuthTypeDigest:
-		digestAuth, err := createDigestAuth(username, password, authHeader, req.Method, req.URL.Path)
+		digestAuth, err := createDigestAuth(username, password, authHeader, req.Method, req.URL.RequestURI())
 		if err != nil {
 			return false, 0, nil, fmt.Errorf("failed to create digest auth: %w", err)
 		}
@@ -381,36 +381,58 @@ func createDigestAuthWithCounter(username, password, authHeader, method, uri str
 	}
 
 	var authParts []string
-	authParts = append(authParts, fmt.Sprintf(`username="%s"`, username))
-	authParts = append(authParts, fmt.Sprintf(`realm="%s"`, realm))
-	authParts = append(authParts, fmt.Sprintf(`nonce="%s"`, nonce))
-	authParts = append(authParts, fmt.Sprintf(`uri="%s"`, uri))
-	authParts = append(authParts, fmt.Sprintf(`response="%s"`, response))
+	authParts = append(authParts, "username="+quoteDigestValue(username))
+	authParts = append(authParts, "realm="+quoteDigestValue(realm))
+	authParts = append(authParts, "nonce="+quoteDigestValue(nonce))
+	authParts = append(authParts, "uri="+quoteDigestValue(uri))
+	authParts = append(authParts, "response="+quoteDigestValue(response))
 
 	if algorithm, ok := params["algorithm"]; ok {
-		authParts = append(authParts, fmt.Sprintf(`algorithm="%s"`, algorithm))
+		authParts = append(authParts, "algorithm="+quoteDigestValue(algorithm))
 	}
 
 	if qop != "" {
 		authParts = append(authParts, fmt.Sprintf(`qop=%s`, qop))
 		authParts = append(authParts, fmt.Sprintf(`nc=%s`, nc))
-		authParts = append(authParts, fmt.Sprintf(`cnonce="%s"`, cnonce))
+		authParts = append(authParts, "cnonce="+quoteDigestValue(cnonce))
 	}
 
 	return "Digest " + strings.Join(authParts, ", "), nil
 }
+
+var digestValueEscaper = strings.NewReplacer(`\`, `\\`, `"`, `\"`)
+
+func quoteDigestValue(value string) string {
+	return `"` + digestValueEscaper.Replace(value) + `"`
+}
+
+func unquoteDigestValue(value string) string {
+	if !strings.Contains(value, `\`) {
+		return value
+	}
+	var sb strings.Builder
+	sb.Grow(len(value))
+	for i := 0; i < len(value); i++ {
+		if value[i] == '\\' && i+1 < len(value) {
+			i++
+		}
+		sb.WriteByte(value[i])
+	}
+	return sb.String()
+}
+
+var digestParamPattern = regexp.MustCompile(`(\w+)=(?:"((?:[^"\\]|\\.)*)"|([^,\s]*))`)
 
 func ParseDigestParams(authHeader string) map[string]string {
 	params := make(map[string]string)
 
 	authHeader = strings.TrimPrefix(authHeader, "Digest ")
 
-	re := regexp.MustCompile(`(\w+)=(?:"([^"]*)"|([^,\s]*))`)
-	matches := re.FindAllStringSubmatch(authHeader, -1)
+	matches := digestParamPattern.FindAllStringSubmatch(authHeader, -1)
 
 	for _, match := range matches {
 		key := match[1]
-		value := match[2]
+		value := unquoteDigestValue(match[2])
 		if value == "" {
 			value = match[3]
 		}
@@ -803,7 +825,7 @@ func attemptDigestAuth(historyItem *db.History, username, password string, diges
 	}
 
 	authHeader := fmt.Sprintf(`Digest realm="", nonce="%s", qop="auth"`, currentNonce)
-	digestAuth, err := createDigestAuthWithCounter(username, password, authHeader, req.Method, req.URL.Path, currentNC)
+	digestAuth, err := createDigestAuthWithCounter(username, password, authHeader, req.Method, req.URL.RequestURI(), currentNC)
 	if err != nil {
 		return false, 0, nil, fmt.Errorf("failed to create digest auth: %w", err)
 	}

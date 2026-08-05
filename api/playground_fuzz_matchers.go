@@ -75,9 +75,9 @@ func PutFuzzRunMatchers(c *fiber.Ctx) error {
 // UI can ask "of these visible rows, which pass these body matchers?"
 // without re-fetching the whole run).
 type MatchFuzzRunInput struct {
-	Matchers       fuzz.MatcherSet `json:"matchers"`
-	HistoryIDs     []uint          `json:"history_ids,omitempty"`
-	IncludeBodies  bool            `json:"include_bodies,omitempty"`
+	Matchers      fuzz.MatcherSet `json:"matchers"`
+	HistoryIDs    []uint          `json:"history_ids,omitempty"`
+	IncludeBodies bool            `json:"include_bodies,omitempty"`
 }
 
 // MatchFuzzRunResponse is the body of the response: just the history ids

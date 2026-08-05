@@ -14,9 +14,9 @@ import (
 // is taken from the path so callers cannot create or edit presets in a
 // different workspace by manipulating the body.
 type MatcherPresetInput struct {
-	Name       string              `json:"name" validate:"required,min=1,max=128"`
+	Name       string                 `json:"name" validate:"required,min=1,max=128"`
 	Domain     db.MatcherPresetDomain `json:"domain" validate:"required,oneof=http_fuzz ws_fuzz"`
-	MatcherSet fuzz.MatcherSet     `json:"matcher_set" validate:"required"`
+	MatcherSet fuzz.MatcherSet        `json:"matcher_set" validate:"required"`
 }
 
 type matcherPresetUpdateInput struct {

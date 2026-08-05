@@ -128,15 +128,15 @@ type OrchestratorConfigInfo struct {
 
 // ScanInfo represents scan information for the dashboard
 type ScanInfo struct {
-	ID                 uint       `json:"id"`
-	Title              string     `json:"title"`
-	WorkspaceID        uint       `json:"workspace_id"`
-	WorkspaceTitle     string     `json:"workspace_title"`
-	Status             string     `json:"status"`
-	Phase              string     `json:"phase"`
-	StartedAt          *time.Time `json:"started_at,omitempty"`
-	CompletedAt        *time.Time `json:"completed_at,omitempty"`
-	Duration           string     `json:"duration,omitempty"`
+	ID             uint       `json:"id"`
+	Title          string     `json:"title"`
+	WorkspaceID    uint       `json:"workspace_id"`
+	WorkspaceTitle string     `json:"workspace_title"`
+	Status         string     `json:"status"`
+	Phase          string     `json:"phase"`
+	StartedAt      *time.Time `json:"started_at,omitempty"`
+	CompletedAt    *time.Time `json:"completed_at,omitempty"`
+	Duration       string     `json:"duration,omitempty"`
 	// When this scan's most recent job finished. Absent while no job has
 	// finished yet. The overview reads it to tell a scan that is working from
 	// one that is merely still marked active.

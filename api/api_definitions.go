@@ -597,7 +597,6 @@ func CreateAPIDefinition(c *fiber.Ctx) error {
 	})
 }
 
-
 // StartAPIDefinitionScan godoc
 // @Summary Start scan for API definition
 // @Description Creates and starts a scan for the specified API definition
@@ -840,8 +839,6 @@ func extractHost(urlStr string) string {
 	return hostPart
 }
 
-
-
 // GetAPIDefinitionSecuritySchemes godoc
 // @Summary Get security schemes for an API definition
 // @Description Returns the security schemes and global security requirements for an API definition
@@ -926,18 +923,18 @@ func GetAPIDefinitionSecuritySchemes(c *fiber.Ctx) error {
 }
 
 type ImportAndScanInput struct {
-	WorkspaceID         uint                         `json:"workspace_id" validate:"required"`
-	URL                 string                       `json:"url" validate:"omitempty,url"`
-	Content             string                       `json:"content" validate:"omitempty"`
-	Type                string                       `json:"type" validate:"omitempty,oneof=openapi graphql wsdl"`
-	BaseURL             string                       `json:"base_url" validate:"omitempty"`
-	Name                string                       `json:"name" validate:"omitempty,max=255"`
-	AuthConfigID        *uuid.UUID                   `json:"auth_config_id" validate:"omitempty"`
-	Mode                string                       `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
-	RunAPISpecificTests *bool                        `json:"run_api_specific_tests"`
-	RunStandardTests    *bool                        `json:"run_standard_tests"`
-	RunSchemaTests      *bool                        `json:"run_schema_tests"`
-	AuditCategories     *options.AuditCategories     `json:"audit_categories" validate:"omitempty"`
+	WorkspaceID         uint                     `json:"workspace_id" validate:"required"`
+	URL                 string                   `json:"url" validate:"omitempty,url"`
+	Content             string                   `json:"content" validate:"omitempty"`
+	Type                string                   `json:"type" validate:"omitempty,oneof=openapi graphql wsdl"`
+	BaseURL             string                   `json:"base_url" validate:"omitempty"`
+	Name                string                   `json:"name" validate:"omitempty,max=255"`
+	AuthConfigID        *uuid.UUID               `json:"auth_config_id" validate:"omitempty"`
+	Mode                string                   `json:"mode" validate:"omitempty,oneof=fast smart fuzz"`
+	RunAPISpecificTests *bool                    `json:"run_api_specific_tests"`
+	RunStandardTests    *bool                    `json:"run_standard_tests"`
+	RunSchemaTests      *bool                    `json:"run_schema_tests"`
+	AuditCategories     *options.AuditCategories `json:"audit_categories" validate:"omitempty"`
 }
 
 // ImportAndScanAPIDefinition godoc

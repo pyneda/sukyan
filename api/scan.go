@@ -522,4 +522,3 @@ func ActiveWebSocketScanHandler(c *fiber.Ctx) error {
 		"job_count": len(connections),
 	})
 }
-

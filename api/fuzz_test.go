@@ -77,8 +77,8 @@ func doJSON(t *testing.T, app *fiber.App, method, path string, body any) *http.R
 func TestFuzzPreviewSingleCount(t *testing.T) {
 	app := fuzzTestApp()
 	resp := doJSON(t, app, "POST", "/api/v1/playground/fuzz/preview", map[string]any{
-		"mode":      "single",
-		"positions": []map[string]any{{"start": 0, "end": 1, "originalValue": "a"}, {"start": 2, "end": 3, "originalValue": "b"}},
+		"mode":            "single",
+		"positions":       []map[string]any{{"start": 0, "end": 1, "originalValue": "a"}, {"start": 2, "end": 3, "originalValue": "b"}},
 		"shared_payloads": map[string]any{"payloads": []string{"x", "y", "z"}, "type": "list"},
 	})
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -118,13 +118,13 @@ func TestFuzzLaunchAndCancel(t *testing.T) {
 
 	app := fuzzTestApp()
 	launch := doJSON(t, app, "POST", "/api/v1/playground/fuzz", map[string]any{
-		"url":         srv.URL,
-		"raw_request": raw,
-		"session_id":  sessID,
-		"mode":        "single",
-		"positions":   []map[string]any{{"start": qIdx, "end": qIdx + 1, "originalValue": "Q"}},
+		"url":             srv.URL,
+		"raw_request":     raw,
+		"session_id":      sessID,
+		"mode":            "single",
+		"positions":       []map[string]any{{"start": qIdx, "end": qIdx + 1, "originalValue": "Q"}},
 		"shared_payloads": map[string]any{"payloads": payloads, "type": "list"},
-		"execution":   map[string]any{"concurrency": 2, "request_timeout_seconds": 30},
+		"execution":       map[string]any{"concurrency": 2, "request_timeout_seconds": 30},
 	})
 	require.Equal(t, http.StatusOK, launch.StatusCode, "launch response")
 	var launchResp PlaygroundFuzzResponse

@@ -10,30 +10,30 @@ import (
 )
 
 type CreateAPIAuthConfigInput struct {
-	WorkspaceID    uint              `json:"workspace_id" validate:"required"`
-	Name           string            `json:"name" validate:"required,max=255"`
-	Type           db.APIAuthType    `json:"type" validate:"required,oneof=none basic bearer api_key oauth2"`
-	Username       string            `json:"username" validate:"omitempty,max=255"`
-	Password       string            `json:"password" validate:"omitempty,max=500"`
-	Token          string            `json:"token" validate:"omitempty"`
-	TokenPrefix    string            `json:"token_prefix" validate:"omitempty,max=50"`
-	APIKeyName     string            `json:"api_key_name" validate:"omitempty,max=255"`
-	APIKeyValue    string            `json:"api_key_value" validate:"omitempty"`
-	APIKeyLocation db.APIKeyLocation `json:"api_key_location" validate:"omitempty,oneof=header query cookie"`
+	WorkspaceID        uint                     `json:"workspace_id" validate:"required"`
+	Name               string                   `json:"name" validate:"required,max=255"`
+	Type               db.APIAuthType           `json:"type" validate:"required,oneof=none basic bearer api_key oauth2"`
+	Username           string                   `json:"username" validate:"omitempty,max=255"`
+	Password           string                   `json:"password" validate:"omitempty,max=500"`
+	Token              string                   `json:"token" validate:"omitempty"`
+	TokenPrefix        string                   `json:"token_prefix" validate:"omitempty,max=50"`
+	APIKeyName         string                   `json:"api_key_name" validate:"omitempty,max=255"`
+	APIKeyValue        string                   `json:"api_key_value" validate:"omitempty"`
+	APIKeyLocation     db.APIKeyLocation        `json:"api_key_location" validate:"omitempty,oneof=header query cookie"`
 	CustomHeaders      []CustomHeaderInput      `json:"custom_headers" validate:"omitempty,dive"`
 	TokenRefreshConfig *TokenRefreshConfigInput `json:"token_refresh_config" validate:"omitempty"`
 }
 
 type UpdateAPIAuthConfigInput struct {
-	Name           *string              `json:"name" validate:"omitempty,max=255"`
-	Type           *db.APIAuthType      `json:"type" validate:"omitempty,oneof=none basic bearer api_key oauth2"`
-	Username       *string              `json:"username" validate:"omitempty,max=255"`
-	Password       *string              `json:"password" validate:"omitempty,max=500"`
-	Token          *string              `json:"token" validate:"omitempty"`
-	TokenPrefix    *string              `json:"token_prefix" validate:"omitempty,max=50"`
-	APIKeyName     *string              `json:"api_key_name" validate:"omitempty,max=255"`
-	APIKeyValue    *string              `json:"api_key_value" validate:"omitempty"`
-	APIKeyLocation *db.APIKeyLocation   `json:"api_key_location" validate:"omitempty,oneof=header query cookie"`
+	Name                     *string                  `json:"name" validate:"omitempty,max=255"`
+	Type                     *db.APIAuthType          `json:"type" validate:"omitempty,oneof=none basic bearer api_key oauth2"`
+	Username                 *string                  `json:"username" validate:"omitempty,max=255"`
+	Password                 *string                  `json:"password" validate:"omitempty,max=500"`
+	Token                    *string                  `json:"token" validate:"omitempty"`
+	TokenPrefix              *string                  `json:"token_prefix" validate:"omitempty,max=50"`
+	APIKeyName               *string                  `json:"api_key_name" validate:"omitempty,max=255"`
+	APIKeyValue              *string                  `json:"api_key_value" validate:"omitempty"`
+	APIKeyLocation           *db.APIKeyLocation       `json:"api_key_location" validate:"omitempty,oneof=header query cookie"`
 	CustomHeaders            []CustomHeaderInput      `json:"custom_headers" validate:"omitempty,dive"`
 	TokenRefreshConfig       *TokenRefreshConfigInput `json:"token_refresh_config,omitempty"`
 	RemoveTokenRefreshConfig *bool                    `json:"remove_token_refresh_config,omitempty"`

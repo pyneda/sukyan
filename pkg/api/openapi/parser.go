@@ -14,36 +14,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// selectBodyContentType deterministically picks one content type from an OpenAPI
-// request body. Go map iteration order is randomized, so ranging over Content and
-// taking the first entry made both the extracted body params and the Content-Type
-// header vary from run to run (and risked disagreeing with each other). Preference:
-// exact application/json, then any json-bearing type, then the lexicographically
-// smallest, so a given spec always yields the same request.
-func selectBodyContentType(content openapi3.Content) string {
-	if len(content) == 0 {
-		return ""
-	}
-	if _, ok := content["application/json"]; ok {
-		return "application/json"
-	}
-	best := ""
-	for ct := range content {
-		if strings.Contains(ct, "json") && (best == "" || ct < best) {
-			best = ct
-		}
-	}
-	if best != "" {
-		return best
-	}
-	for ct := range content {
-		if best == "" || ct < best {
-			best = ct
-		}
-	}
-	return best
-}
-
 // schemaBudget bounds one traversal. Depth alone is not enough: a schema whose allOf
 // or properties reference the previous level several times expands combinatorially
 // even though nothing is its own ancestor, so a few kilobytes of spec can otherwise
@@ -196,7 +166,7 @@ func (p *Parser) parseOperation(definitionID uuid.UUID, baseURL string, entry pk
 			Description: op.RequestBody.Value.Description,
 		}
 
-		operation.OpenAPI.RequestBody.ContentType = selectBodyContentType(op.RequestBody.Value.Content)
+		operation.OpenAPI.RequestBody.ContentType = pkgopenapi.SelectBodyContentType(op.RequestBody.Value.Content)
 		operation.OpenAPI.RequestBody.Structured = isStructuredBody(op.RequestBody.Value, budget)
 
 		// The body's own schema, alongside the parameters extracted from it: the
@@ -238,7 +208,7 @@ func (p *Parser) parseParameter(param *openapi3.Parameter, budget *documentBudge
 // isStructuredBody reports whether the body decomposes into named properties. A
 // scalar or array body yields a single "body" parameter that holds the whole payload.
 func isStructuredBody(body *openapi3.RequestBody, budget *documentBudget) bool {
-	contentType := selectBodyContentType(body.Content)
+	contentType := pkgopenapi.SelectBodyContentType(body.Content)
 	if contentType == "" {
 		return false
 	}
@@ -252,7 +222,7 @@ func isStructuredBody(body *openapi3.RequestBody, budget *documentBudget) bool {
 func (p *Parser) parseRequestBody(body *openapi3.RequestBody, budget *documentBudget) []core.Parameter {
 	var params []core.Parameter
 
-	contentType := selectBodyContentType(body.Content)
+	contentType := pkgopenapi.SelectBodyContentType(body.Content)
 	if contentType == "" {
 		return params
 	}

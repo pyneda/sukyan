@@ -5,12 +5,13 @@
 package openapifixtures
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
 )
+
+//go:embed composition_shapes.json
+var compositionShapesJSON []byte
 
 // Shape is one way a spec can describe a value indirectly. Every one of them used to
 // be understood at a request body's root and ignored one level down, because the body
@@ -24,22 +25,12 @@ type Shape struct {
 
 // CompositionShapes returns every composition spelling both parsers have to resolve.
 func CompositionShapes() ([]Shape, error) {
-	_, self, _, ok := runtime.Caller(0)
-	if !ok {
-		return nil, fmt.Errorf("cannot locate the fixture directory")
-	}
-	path := filepath.Join(filepath.Dir(self), "composition_shapes.json")
-
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", path, err)
-	}
 	var shapes []Shape
-	if err := json.Unmarshal(raw, &shapes); err != nil {
-		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	if err := json.Unmarshal(compositionShapesJSON, &shapes); err != nil {
+		return nil, fmt.Errorf("parsing composition_shapes.json: %w", err)
 	}
 	if len(shapes) == 0 {
-		return nil, fmt.Errorf("%s declares no shapes", path)
+		return nil, fmt.Errorf("composition_shapes.json declares no shapes")
 	}
 	return shapes, nil
 }

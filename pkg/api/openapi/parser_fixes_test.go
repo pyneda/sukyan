@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/api/core"
 )
@@ -126,45 +125,6 @@ func TestParse_RelativeServerURLResolvedAgainstSource(t *testing.T) {
 				t.Errorf("base url = %q, want %q", ops[0].BaseURL, tt.wantBase)
 			}
 		})
-	}
-}
-
-// D16: content-type selection must be deterministic and prefer application/json.
-func TestSelectBodyContentType(t *testing.T) {
-	jsonAndXML := openapi3.Content{
-		"application/xml":  openapi3.NewMediaType(),
-		"application/json": openapi3.NewMediaType(),
-	}
-	for i := 0; i < 50; i++ {
-		if got := selectBodyContentType(jsonAndXML); got != "application/json" {
-			t.Fatalf("iteration %d: want application/json, got %q", i, got)
-		}
-	}
-
-	vendorJSON := openapi3.Content{
-		"application/xml":          openapi3.NewMediaType(),
-		"application/vnd.api+json": openapi3.NewMediaType(),
-	}
-	if got := selectBodyContentType(vendorJSON); got != "application/vnd.api+json" {
-		t.Errorf("want vendor json, got %q", got)
-	}
-
-	noJSON := openapi3.Content{
-		"text/xml":        openapi3.NewMediaType(),
-		"application/xml": openapi3.NewMediaType(),
-	}
-	first := selectBodyContentType(noJSON)
-	if first != "application/xml" { // lexicographically smallest, deterministic
-		t.Errorf("want application/xml (smallest), got %q", first)
-	}
-	for i := 0; i < 50; i++ {
-		if got := selectBodyContentType(noJSON); got != first {
-			t.Fatalf("non-deterministic selection: %q vs %q", got, first)
-		}
-	}
-
-	if got := selectBodyContentType(openapi3.Content{}); got != "" {
-		t.Errorf("empty content should yield empty string, got %q", got)
 	}
 }
 

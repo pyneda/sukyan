@@ -60,6 +60,48 @@ func encode(t *testing.T, value any) string {
 	return string(raw)
 }
 
+// TestContentTypeSelectionAgreesWithTheGenerator holds the scanner to the same media
+// type pkg/openapi selects from the same body, against one shared list. Selecting an
+// opaque media type over a structured one costs every named body insertion point: a
+// login offered as both a form and a blob is fuzzed as a single unnamed string.
+func TestContentTypeSelectionAgreesWithTheGenerator(t *testing.T) {
+	cases, err := openapifixtures.ContentTypeCases()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			spec, err := testCase.Spec()
+			if err != nil {
+				t.Fatalf("building the %s spec: %v", testCase.Name, err)
+			}
+			operation := parseOnlyOperation(t, spec)
+			if operation.OpenAPI == nil || operation.OpenAPI.RequestBody == nil {
+				t.Fatal("operation carries no request body metadata")
+			}
+			if got := operation.OpenAPI.RequestBody.ContentType; got != testCase.Want {
+				t.Fatalf("content type = %q, want %q", got, testCase.Want)
+			}
+
+			if openapifixtures.OpaqueMediaType(testCase.Want) {
+				return
+			}
+			named := map[string]bool{}
+			for _, param := range operation.Parameters {
+				if param.Location == core.ParameterLocationBody {
+					named[param.Name] = true
+				}
+			}
+			for _, field := range openapifixtures.ContentTypeFields {
+				if !named[field] {
+					t.Errorf("%s body has no %s insertion point, only %v", testCase.Want, field, named)
+				}
+			}
+		})
+	}
+}
+
 // TestCompositionResolvesTheSameAtEveryDepth is the invariant the resolver exists for:
 // what a schema describes cannot depend on where it sits. The regressions this
 // replaces were all the same failure — a shape understood at a body root and

@@ -1,0 +1,47 @@
+[
+  {
+    "name": "exact-json-wins",
+    "offers": ["application/xml", "application/json"],
+    "want": "application/json"
+  },
+  {
+    "name": "vendor-json-beats-xml",
+    "offers": ["application/xml", "application/vnd.api+json"],
+    "want": "application/vnd.api+json"
+  },
+  {
+    "name": "json-beats-a-blob",
+    "offers": ["application/octet-stream", "application/json"],
+    "want": "application/json"
+  },
+  {
+    "name": "form-beats-a-blob",
+    "offers": ["application/x-www-form-urlencoded", "application/octet-stream"],
+    "want": "application/x-www-form-urlencoded"
+  },
+  {
+    "name": "multipart-beats-xml",
+    "offers": ["multipart/form-data", "application/xml"],
+    "want": "multipart/form-data"
+  },
+  {
+    "name": "xml-beats-an-unknown-type",
+    "offers": ["application/xml", "application/cbor"],
+    "want": "application/xml"
+  },
+  {
+    "name": "xml-family-resolves-smallest",
+    "offers": ["text/xml", "application/xml"],
+    "want": "application/xml"
+  },
+  {
+    "name": "text-beats-an-unknown-type",
+    "offers": ["text/plain", "application/cbor"],
+    "want": "text/plain"
+  },
+  {
+    "name": "a-blob-only-body-still-selects",
+    "offers": ["application/octet-stream"],
+    "want": "application/octet-stream"
+  }
+]

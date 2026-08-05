@@ -481,7 +481,7 @@ func (c *generationContext) buildBody(fuzz *FuzzTarget) (string, []byte, bool) {
 		return c.buildLegacyBody(fuzz)
 	}
 
-	contentType := selectContentType(body.Value.Content)
+	contentType := SelectBodyContentType(body.Value.Content)
 	if contentType == "" {
 		return "", nil, false
 	}
@@ -541,38 +541,6 @@ func (c *generationContext) bodyValue(schema *openapi3.SchemaRef, fuzz *FuzzTarg
 		value[name] = defaultValueFromMap(schemaToMapBelow(propRef, view.Sources))
 	}
 	return value
-}
-
-// selectContentType picks one media type deterministically. Ranging a Go map would
-// make both the body and its Content-Type vary between runs on the same spec.
-func selectContentType(content openapi3.Content) string {
-	if len(content) == 0 {
-		return ""
-	}
-	if _, ok := content["application/json"]; ok {
-		return "application/json"
-	}
-
-	types := make([]string, 0, len(content))
-	for contentType := range content {
-		types = append(types, contentType)
-	}
-	sort.Strings(types)
-
-	for _, group := range []func(string) bool{
-		func(t string) bool { return strings.Contains(t, "json") },
-		func(t string) bool { return t == "application/x-www-form-urlencoded" },
-		func(t string) bool { return strings.HasPrefix(t, "multipart/") },
-		func(t string) bool { return strings.Contains(t, "xml") },
-		func(t string) bool { return strings.HasPrefix(t, "text/") },
-	} {
-		for _, contentType := range types {
-			if group(contentType) {
-				return contentType
-			}
-		}
-	}
-	return types[0]
 }
 
 // encodeBody returns the encoded body and the content type to send with it. The two
@@ -719,7 +687,7 @@ func (c *generationContext) bodyFuzzTargets() []bodyFuzzTarget {
 func (c *generationContext) bodyFuzzSchema() *openapi3.SchemaRef {
 	body := c.entry.Operation.RequestBody
 	if body != nil && body.Value != nil && len(body.Value.Content) > 0 {
-		return bodySchema(body.Value, selectContentType(body.Value.Content))
+		return bodySchema(body.Value, SelectBodyContentType(body.Value.Content))
 	}
 	for _, param := range c.entry.Parameters {
 		if param.In == "body" && param.Schema != nil {

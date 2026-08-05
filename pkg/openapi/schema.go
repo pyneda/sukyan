@@ -2,6 +2,7 @@ package openapi
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -201,6 +202,41 @@ func isNullSchema(schema *openapi3.Schema) bool {
 		}
 	}
 	return true
+}
+
+// SelectBodyContentType picks which media type of a request body to send. The order
+// prefers the types whose schema describes named fields, because a body offered as both
+// a form and an opaque blob yields one unnamed parameter if the blob wins. Every parser
+// has to agree on this: the scanner selecting a different media type than the generator
+// means the request shown in the playground is not the request that gets tested.
+func SelectBodyContentType(content openapi3.Content) string {
+	if len(content) == 0 {
+		return ""
+	}
+	if _, ok := content["application/json"]; ok {
+		return "application/json"
+	}
+
+	types := make([]string, 0, len(content))
+	for contentType := range content {
+		types = append(types, contentType)
+	}
+	sort.Strings(types)
+
+	for _, group := range []func(string) bool{
+		func(t string) bool { return strings.Contains(t, "json") },
+		func(t string) bool { return t == "application/x-www-form-urlencoded" },
+		func(t string) bool { return strings.HasPrefix(t, "multipart/") },
+		func(t string) bool { return strings.Contains(t, "xml") },
+		func(t string) bool { return strings.HasPrefix(t, "text/") },
+	} {
+		for _, contentType := range types {
+			if group(contentType) {
+				return contentType
+			}
+		}
+	}
+	return types[0]
 }
 
 // bodySchema returns the schema describing a request body's chosen media type.

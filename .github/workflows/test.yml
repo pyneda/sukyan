@@ -40,8 +40,12 @@ jobs:
         run: go build -v ./...
       - name: Run database migrations
         run: go run . migrate apply
+      # -p 1: every package shares the one Postgres service above, and several
+      # tests legitimately run unscoped whole-table statements (the playground
+      # run recovery sweeps). Running package binaries concurrently lets those
+      # corrupt rows another package is asserting on.
       - name: Test with the Go CLI
-        run: go test -v ./...
+        run: go test -p 1 -v ./...
       - name: TruffleHog
         uses: trufflesecurity/trufflehog@main
         with:

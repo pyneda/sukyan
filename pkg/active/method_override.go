@@ -59,6 +59,15 @@ func MethodOverrideScan(history *db.History, opts ActiveModuleOptions) {
 
 	control := &baselineControl{}
 
+	// A honoured override on a permitted baseline mutates the resource, so a
+	// control taken after the probes can no longer reproduce it. Resolve it up
+	// front; sync.Once makes every probe reuse this pre-probe snapshot.
+	if probesPermittedBaseline(history.StatusCode, opts.ScanMode) {
+		if _, err := control.resolve(ctx, client, history, opts); err != nil {
+			auditLog.Warn().Err(err).Msg("Could not capture a pre-probe control for the permitted baseline")
+		}
+	}
+
 	for _, targetMethod := range overrideMethods {
 		for _, headerName := range overrideHeaderNames {
 			if runMethodOverrideProbe(ctx, history, opts, client, headerName, targetMethod, false, auditLog, control) {
@@ -124,14 +133,12 @@ func runMethodOverrideProbe(ctx context.Context, baseline *db.History, opts Acti
 	if result.History.StatusCode == baseline.StatusCode {
 		return false
 	}
-	if result.History.StatusCode == 400 || result.History.StatusCode == 405 {
+	if result.History.StatusCode < 200 || result.History.StatusCode >= 400 {
 		return false
 	}
 
-	probeSuccess := result.History.StatusCode >= 200 && result.History.StatusCode < 400
 	baselineBlocked := isMethodOverrideBaselineBlocked(baseline.StatusCode)
-
-	if !baselineBlocked || !probeSuccess {
+	if !baselineBlocked && !probesPermittedBaseline(baseline.StatusCode, opts.ScanMode) {
 		return false
 	}
 
@@ -143,13 +150,30 @@ func runMethodOverrideProbe(ctx context.Context, baseline *db.History, opts Acti
 		auditLog.Warn().Err(err).Msg("Could not re-validate baseline with a control request, suppressing method override finding")
 		return false
 	}
-	if !isMethodOverrideBaselineBlocked(controlHistory.StatusCode) {
-		if controlIsOpen(controlHistory.StatusCode) {
-			auditLog.Debug().Int("control_status", controlHistory.StatusCode).Msg("Control request no longer blocked, baseline is stale, skipping")
-		} else {
-			auditLog.Warn().Int("control_status", controlHistory.StatusCode).Msg("Control request could not confirm the blocked baseline, suppressing method override finding")
+
+	confidence := 70
+	if result.History.StatusCode < 300 {
+		confidence = 80
+	}
+	var evidence string
+
+	if baselineBlocked {
+		if !isMethodOverrideBaselineBlocked(controlHistory.StatusCode) {
+			if controlIsOpen(controlHistory.StatusCode) {
+				auditLog.Debug().Int("control_status", controlHistory.StatusCode).Msg("Control request no longer blocked, baseline is stale, skipping")
+			} else {
+				auditLog.Warn().Int("control_status", controlHistory.StatusCode).Msg("Control request could not confirm the blocked baseline, suppressing method override finding")
+			}
+			return false
 		}
-		return false
+		confidence += 10
+		evidence = "The control replay is still denied, so the override bypassed the access control on this resource."
+	} else {
+		if controlHistory.StatusCode != baseline.StatusCode {
+			auditLog.Debug().Int("control_status", controlHistory.StatusCode).Int("baseline_status", baseline.StatusCode).Msg("Control request did not reproduce the baseline status, endpoint is unstable, skipping")
+			return false
+		}
+		evidence = fmt.Sprintf("The control replay reproduced the baseline, so the %s caused the changed response.", overrideMechanismDescription(useQuery, key))
 	}
 
 	headersStr := http_utils.HeadersToString(req.Header)
@@ -167,12 +191,8 @@ Override attempt:
 - URL: %s
 - Headers sent:
 %s
-`, baseline.Method+" "+baseline.URL, baseline.StatusCode, controlHistory.StatusCode, overrideMechanismDescription(useQuery, key), value, result.History.StatusCode, result.History.URL, headersStr)
-
-	confidence := 80
-	if result.History.StatusCode >= 200 && result.History.StatusCode < 300 {
-		confidence = 90
-	}
+Evidence: %s
+`, baseline.Method+" "+baseline.URL, baseline.StatusCode, controlHistory.StatusCode, overrideMechanismDescription(useQuery, key), value, result.History.StatusCode, result.History.URL, headersStr, evidence)
 
 	db.CreateIssueFromHistoryAndTemplate(
 		result.History,
@@ -193,6 +213,14 @@ Override attempt:
 
 func isMethodOverrideBaselineBlocked(statusCode int) bool {
 	return statusCode == http.StatusMethodNotAllowed || isForbiddenStatus(statusCode)
+}
+
+// probesPermittedBaseline reports whether an already-successful baseline is
+// worth probing. A permitted endpoint that changes its answer once the override
+// is added is honouring it, but proving that costs an extra control request, so
+// it is only spent from smart mode upwards.
+func probesPermittedBaseline(statusCode int, mode options.ScanMode) bool {
+	return statusCode >= 200 && statusCode < 300 && mode.IsHigherOrEqual(options.ScanModeSmart)
 }
 
 func methodOverrideTargets(baseMethod string) []string {

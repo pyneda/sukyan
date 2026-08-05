@@ -53,6 +53,110 @@ func TestMethodOverrideScanDetectsHeaderOverride(t *testing.T) {
 	require.Greater(t, count, int64(0), "expected method override issue")
 }
 
+// An endpoint that changes its answer on its own must not be read as honouring
+// the override: the pre-probe control replay is what tells the two apart.
+func TestMethodOverrideScanUnstableBaselineNoIssue(t *testing.T) {
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{Code: "mo-unstable", Title: "mo-unstable"})
+	require.NoError(t, err)
+
+	var mu sync.Mutex
+	served := 0
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		served++
+		first := served == 1
+		mu.Unlock()
+
+		if first {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	cleanupIssues(t, db.HttpMethodOverrideCode)
+
+	req, err := http.NewRequest(http.MethodGet, srv.URL+"/item", nil)
+	require.NoError(t, err)
+
+	baseResult := http_utils.ExecuteRequest(req, http_utils.RequestExecutionOptions{
+		CreateHistory: true,
+		HistoryCreationOptions: http_utils.HistoryCreationOptions{
+			Source:      db.SourceScanner,
+			WorkspaceID: workspace.ID,
+		},
+	})
+	require.NoError(t, baseResult.Err)
+	require.Equal(t, http.StatusOK, baseResult.History.StatusCode)
+
+	MethodOverrideScan(baseResult.History, ActiveModuleOptions{
+		WorkspaceID: workspace.ID,
+		ScanMode:    scanopts.ScanModeSmart,
+		HTTPClient:  http.DefaultClient,
+	})
+
+	var count int64
+	db.Connection().DB().Model(&db.Issue{}).Where("code = ?", db.HttpMethodOverrideCode).Count(&count)
+	require.Equal(t, int64(0), count, "an unstable endpoint must not be reported as a method override")
+}
+
+// Probing a permitted baseline costs a control request, so fast mode does not
+// spend it — and therefore reports nothing for that shape.
+func TestMethodOverrideScanPermittedBaselineSkippedInFastMode(t *testing.T) {
+	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{Code: "mo-fast", Title: "mo-fast"})
+	require.NoError(t, err)
+
+	var mu sync.Mutex
+	requests := 0
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		requests++
+		mu.Unlock()
+
+		if r.Header.Get("X-HTTP-Method-Override") == "DELETE" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	cleanupIssues(t, db.HttpMethodOverrideCode)
+
+	req, err := http.NewRequest(http.MethodGet, srv.URL+"/item", nil)
+	require.NoError(t, err)
+
+	baseResult := http_utils.ExecuteRequest(req, http_utils.RequestExecutionOptions{
+		CreateHistory: true,
+		HistoryCreationOptions: http_utils.HistoryCreationOptions{
+			Source:      db.SourceScanner,
+			WorkspaceID: workspace.ID,
+		},
+	})
+	require.NoError(t, baseResult.Err)
+
+	mu.Lock()
+	requests = 0
+	mu.Unlock()
+
+	MethodOverrideScan(baseResult.History, ActiveModuleOptions{
+		WorkspaceID: workspace.ID,
+		ScanMode:    scanopts.ScanModeFast,
+		HTTPClient:  http.DefaultClient,
+	})
+
+	var count int64
+	db.Connection().DB().Model(&db.Issue{}).Where("code = ?", db.HttpMethodOverrideCode).Count(&count)
+	require.Equal(t, int64(0), count, "fast mode must not report permitted-baseline overrides")
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, 4, requests, "fast mode must not spend a control request on a permitted baseline")
+}
+
 func TestMethodOverrideScanSkipsNonGET(t *testing.T) {
 	workspace, err := db.Connection().GetOrCreateWorkspace(&db.Workspace{Code: "mo-skip", Title: "mo-skip"})
 	require.NoError(t, err)

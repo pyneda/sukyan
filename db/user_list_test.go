@@ -93,6 +93,8 @@ func TestListUsersSummaryClassifiesEveryState(t *testing.T) {
 // caller narrows the list with a search.
 func TestListUsersSummaryIgnoresTheQuery(t *testing.T) {
 	seedRoster(t)
+	// The query only narrows anything if an account outside the prefix exists.
+	seedRosterUser(t, "outside-the-roster@example.com", true, false, ago(time.Hour))
 
 	_, unfilteredCount, wide, err := Connection().ListUsers(UserListFilter{
 		Pagination: Pagination{Page: 1, PageSize: 1},

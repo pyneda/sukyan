@@ -44,7 +44,7 @@ func PlaygroundWsStreamUpgrade(c fiber.Ctx) error {
 			return nil, fmt.Errorf("unexpected signing method")
 		}
 		return []byte(secret), nil
-	})
+	}, jwt.WithExpirationRequired())
 	if err != nil || !token.Valid {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
 	}
@@ -61,19 +61,16 @@ func PlaygroundWsStreamUpgrade(c fiber.Ctx) error {
 // PlaygroundWsStream is the post-upgrade callback. It writes a snapshot frame, then pumps
 // broadcaster events to the client until either side closes the connection.
 func PlaygroundWsStream(c *websocket.Conn) {
-	sessionID := c.Locals("playgroundSessionID").(uint)
+	sessionID, ok := c.Locals("playgroundSessionID").(uint)
+	if !ok {
+		writeWsStreamErrorAndClose(c, "session id missing from the upgrade context")
+		return
+	}
 	since, _ := c.Locals("since").(int64)
 
 	wsSess, err := db.Connection().GetPlaygroundWsSessionBySessionID(sessionID)
 	if err != nil {
-		data, _ := json.Marshal(map[string]string{"message": "session not found"})
-		_ = c.WriteJSON(wsreplay.Event{
-			Type:     "error",
-			Instance: wsreplay.InteractiveInstance(),
-			Data:     data,
-			Ts:       time.Now(),
-		})
-		c.Close()
+		writeWsStreamErrorAndClose(c, "session not found")
 		return
 	}
 	mgr := wsreplay.Default()
@@ -128,4 +125,15 @@ func PlaygroundWsStream(c *websocket.Conn) {
 			return
 		}
 	}
+}
+
+func writeWsStreamErrorAndClose(c *websocket.Conn, msg string) {
+	data, _ := json.Marshal(map[string]string{"message": msg})
+	_ = c.WriteJSON(wsreplay.Event{
+		Type:     "error",
+		Instance: wsreplay.InteractiveInstance(),
+		Data:     data,
+		Ts:       time.Now(),
+	})
+	c.Close()
 }

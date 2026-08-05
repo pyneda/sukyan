@@ -47,7 +47,7 @@ func PlaygroundFuzzStreamUpgrade(c fiber.Ctx) error {
 			return nil, fmt.Errorf("unexpected signing method")
 		}
 		return []byte(secret), nil
-	})
+	}, jwt.WithExpirationRequired())
 	if err != nil || !token.Valid {
 		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "Invalid token"})
 	}
@@ -65,7 +65,11 @@ func PlaygroundFuzzStreamUpgrade(c fiber.Ctx) error {
 // pumps broadcaster events until either side disconnects or the run reaches
 // terminal status.
 func PlaygroundFuzzStream(c *websocket.Conn) {
-	runID := c.Locals("playgroundFuzzRunID").(uint)
+	runID, ok := c.Locals("playgroundFuzzRunID").(uint)
+	if !ok {
+		writeErrorAndClose(c, 0, "run id missing from the upgrade context")
+		return
+	}
 	since, _ := c.Locals("since").(int64)
 
 	run, err := db.Connection().GetPlaygroundFuzzRun(runID)

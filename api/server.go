@@ -21,6 +21,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/playground/wsreplay"
 	"github.com/pyneda/sukyan/pkg/proxy"
 	"github.com/pyneda/sukyan/pkg/scan"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
@@ -109,6 +110,90 @@ func StartAPI(opts ...APIServerOptions) {
 		apiLogger.Error().Err(err).Msg("ws_fuzz recovery sweep: runs")
 	}
 
+	app := buildAPIApp(apiDeps{
+		logger:              &apiLogger,
+		options:             options,
+		generators:          generators,
+		interactionsManager: interactionsManager,
+		proxyManager:        proxyManager,
+	})
+
+	certPath := viper.GetString("server.cert.file")
+	keyPath := viper.GetString("server.key.file")
+	caCertPath := viper.GetString("server.caCert.file")
+	caKeyPath := viper.GetString("server.caKey.file")
+
+	_, _, err = lib.EnsureCertificatesExist(certPath, keyPath, caCertPath, caKeyPath)
+	if err != nil {
+		apiLogger.Error().Err(err).Msg("Failed to load or generate certificates")
+
+	}
+
+	// Set up graceful shutdown
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start server in a goroutine
+	go func() {
+		listen_addres := fmt.Sprintf("%v:%v", viper.Get("api.listen.host"), viper.Get("api.listen.port"))
+		if err := app.ListenTLS(listen_addres, certPath, keyPath); err != nil {
+			apiLogger.Warn().Err(err).Msg("Error starting server")
+		}
+	}()
+
+	apiLogger.Info().
+		Str("host", viper.GetString("api.listen.host")).
+		Int("port", viper.GetInt("api.listen.port")).
+		Msg("API server started")
+
+	// Wait for shutdown signal
+	sig := <-sigCh
+	apiLogger.Info().Str("signal", sig.String()).Msg("Received shutdown signal, starting graceful shutdown...")
+
+	// Graceful shutdown sequence
+	// 1. Stop accepting new requests
+	if err := app.Shutdown(); err != nil {
+		apiLogger.Warn().Err(err).Msg("Error during server shutdown")
+	}
+
+	// 2. Stop the scan manager (this releases jobs and deregisters workers)
+	if sm := GetScanManager(); sm != nil {
+		apiLogger.Info().Msg("Stopping scan manager...")
+		sm.Stop()
+		apiLogger.Info().Msg("Scan manager stopped")
+	}
+
+	// 3. Stop proxy manager
+	if proxyManager != nil {
+		apiLogger.Info().Msg("Stopping proxy manager...")
+		if err := proxyManager.Shutdown(); err != nil {
+			apiLogger.Error().Err(err).Msg("Error shutting down proxy manager")
+		}
+		apiLogger.Info().Msg("Proxy manager stopped")
+	}
+
+	// 4. Stop interactions manager
+	if interactionsManager != nil {
+		apiLogger.Info().Msg("Stopping interactions manager...")
+		interactionsManager.Stop()
+		apiLogger.Info().Msg("Interactions manager stopped")
+	}
+
+	// 5. Cleanup database connections
+	db.Cleanup()
+
+	apiLogger.Info().Msg("Graceful shutdown completed")
+}
+
+type apiDeps struct {
+	logger              *zerolog.Logger
+	options             APIServerOptions
+	generators          []*generation.PayloadGenerator
+	interactionsManager *integrations.InteractionsManager
+	proxyManager        *proxy.ProxyManager
+}
+
+func buildAPIApp(deps apiDeps) *fiber.App {
 	app := fiber.New(fiber.Config{
 		// Prefork:       true,
 		// CaseSensitive: true,
@@ -123,7 +208,7 @@ func StartAPI(opts ...APIServerOptions) {
 		BodyLimit: viper.GetInt("api.body_limit"),
 	})
 
-	registerBaseMiddleware(app, &apiLogger)
+	registerBaseMiddleware(app, deps.logger)
 
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("API Running")
@@ -138,7 +223,7 @@ func StartAPI(opts ...APIServerOptions) {
 	}
 
 	api := app.Group("/api/v1")
-	apiCapabilities := BuildAPICapabilities(options)
+	apiCapabilities := BuildAPICapabilities(deps.options)
 	api.Get("/capabilities", JWTProtected(), GetAPICapabilitiesHandler(apiCapabilities))
 	api.Get("/history", JWTProtected(), FindHistory)
 	api.Post("/history", JWTProtected(), FindHistoryPost)
@@ -304,8 +389,8 @@ func StartAPI(opts ...APIServerOptions) {
 	scan_app := api.Group("/scan")
 	scan_app.Use(func(c *fiber.Ctx) error {
 		// c.Locals("engine", engine)
-		c.Locals("generators", generators)
-		c.Locals("interactionsManager", interactionsManager)
+		c.Locals("generators", deps.generators)
+		c.Locals("interactionsManager", deps.interactionsManager)
 		return c.Next()
 	})
 
@@ -333,18 +418,18 @@ func StartAPI(opts ...APIServerOptions) {
 	scans_app.Post("/:id/schedule-items", JWTProtected(), ScheduleHistoryItemScansHandler)
 
 	// Proxy services endpoints (feature-flagged)
-	if options.EnableProxyServices {
+	if deps.options.EnableProxyServices {
 		// Workspace-scoped proxy services (need proxyManager access)
 		api.Post("/workspaces/:workspaceId/proxy-services", JWTProtected(), CreateProxyService)
 		api.Get("/workspaces/:workspaceId/proxy-services", JWTProtected(), func(c *fiber.Ctx) error {
-			c.Locals("proxyManager", proxyManager)
+			c.Locals("proxyManager", deps.proxyManager)
 			return ListProxyServices(c)
 		})
 
 		// Proxy services management (with middleware for proxy manager access)
 		proxy_services := api.Group("/proxy-services")
 		proxy_services.Use(func(c *fiber.Ctx) error {
-			c.Locals("proxyManager", proxyManager)
+			c.Locals("proxyManager", deps.proxyManager)
 			return c.Next()
 		})
 		proxy_services.Get("/:id", JWTProtected(), GetProxyService)
@@ -369,69 +454,5 @@ func StartAPI(opts ...APIServerOptions) {
 		app.Get(dashboardPath+"/stats", append(dashboardMiddleware, GetDashboardStatsHandler)...)
 	}
 
-	certPath := viper.GetString("server.cert.file")
-	keyPath := viper.GetString("server.key.file")
-	caCertPath := viper.GetString("server.caCert.file")
-	caKeyPath := viper.GetString("server.caKey.file")
-
-	_, _, err = lib.EnsureCertificatesExist(certPath, keyPath, caCertPath, caKeyPath)
-	if err != nil {
-		apiLogger.Error().Err(err).Msg("Failed to load or generate certificates")
-
-	}
-
-	// Set up graceful shutdown
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	// Start server in a goroutine
-	go func() {
-		listen_addres := fmt.Sprintf("%v:%v", viper.Get("api.listen.host"), viper.Get("api.listen.port"))
-		if err := app.ListenTLS(listen_addres, certPath, keyPath); err != nil {
-			apiLogger.Warn().Err(err).Msg("Error starting server")
-		}
-	}()
-
-	apiLogger.Info().
-		Str("host", viper.GetString("api.listen.host")).
-		Int("port", viper.GetInt("api.listen.port")).
-		Msg("API server started")
-
-	// Wait for shutdown signal
-	sig := <-sigCh
-	apiLogger.Info().Str("signal", sig.String()).Msg("Received shutdown signal, starting graceful shutdown...")
-
-	// Graceful shutdown sequence
-	// 1. Stop accepting new requests
-	if err := app.Shutdown(); err != nil {
-		apiLogger.Warn().Err(err).Msg("Error during server shutdown")
-	}
-
-	// 2. Stop the scan manager (this releases jobs and deregisters workers)
-	if sm := GetScanManager(); sm != nil {
-		apiLogger.Info().Msg("Stopping scan manager...")
-		sm.Stop()
-		apiLogger.Info().Msg("Scan manager stopped")
-	}
-
-	// 3. Stop proxy manager
-	if proxyManager != nil {
-		apiLogger.Info().Msg("Stopping proxy manager...")
-		if err := proxyManager.Shutdown(); err != nil {
-			apiLogger.Error().Err(err).Msg("Error shutting down proxy manager")
-		}
-		apiLogger.Info().Msg("Proxy manager stopped")
-	}
-
-	// 4. Stop interactions manager
-	if interactionsManager != nil {
-		apiLogger.Info().Msg("Stopping interactions manager...")
-		interactionsManager.Stop()
-		apiLogger.Info().Msg("Interactions manager stopped")
-	}
-
-	// 5. Cleanup database connections
-	db.Cleanup()
-
-	apiLogger.Info().Msg("Graceful shutdown completed")
+	return app
 }

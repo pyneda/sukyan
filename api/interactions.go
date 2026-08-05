@@ -148,7 +148,7 @@ func FindInteractions(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/interactions/{id} [get]
 func GetInteractionDetail(c *fiber.Ctx) error {
-	interactionID, err := c.ParamsInt("id")
+	interactionID, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid interaction ID",

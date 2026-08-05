@@ -187,7 +187,7 @@ func FindIssuesGrouped(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/issues/{id} [get]
 func GetIssueDetail(c *fiber.Ctx) error {
-	issueID, err := c.ParamsInt("id")
+	issueID, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid issue ID",
@@ -228,7 +228,7 @@ type IssueUpdateResponse struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/issues/{id}/set-false-positive [post]
 func SetFalsePositive(c *fiber.Ctx) error {
-	issueID, err := c.ParamsInt("id")
+	issueID, err := paramInt(c, "id")
 	if err != nil {
 		log.Error().Int("id", issueID).Err(err).Msg("Failed to parse issue ID")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

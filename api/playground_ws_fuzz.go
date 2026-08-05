@@ -321,7 +321,7 @@ func ResumeWsFuzzRun(c *fiber.Ctx) error {
 
 // ListWsFuzzRunsForSession returns recent runs for the given session, paginated.
 func ListWsFuzzRunsForSession(c *fiber.Ctx) error {
-	sessID, err := c.ParamsInt("id")
+	sessID, err := paramInt(c, "id")
 	if err != nil || sessID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid session id"})
 	}
@@ -348,7 +348,7 @@ func ListWsFuzzRunsForSession(c *fiber.Ctx) error {
 // ListWsFuzzIterations returns paginated iterations of a run with optional filters.
 // Query params: page, page_size, status (csv), baseline_match (bool), payload_contains, failed_step_index.
 func ListWsFuzzIterations(c *fiber.Ctx) error {
-	runID, err := c.ParamsInt("run_id")
+	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
 	}
@@ -394,11 +394,11 @@ func ListWsFuzzIterations(c *fiber.Ctx) error {
 
 // GetWsFuzzIteration returns a single iteration row by (runID, iterationIndex).
 func GetWsFuzzIteration(c *fiber.Ctx) error {
-	runID, err := c.ParamsInt("run_id")
+	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
 	}
-	idx, err := c.ParamsInt("index")
+	idx, err := paramInt(c, "index")
 	if err != nil || idx < 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid iteration index"})
 	}
@@ -417,11 +417,11 @@ func GetWsFuzzIteration(c *fiber.Ctx) error {
 // iteration's connection. Returns 404 if the iteration doesn't exist, an empty
 // frames array if the iteration has no associated connection.
 func GetWsFuzzIterationFrames(c *fiber.Ctx) error {
-	runID, err := c.ParamsInt("run_id")
+	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
 	}
-	idx, err := c.ParamsInt("index")
+	idx, err := paramInt(c, "index")
 	if err != nil || idx < 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid iteration index"})
 	}

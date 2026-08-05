@@ -29,7 +29,7 @@ type ReplayConfig struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/replay-config [get]
 func GetReplayConfig(c *fiber.Ctx) error {
-	sessID, err := c.ParamsInt("id")
+	sessID, err := paramInt(c, "id")
 	if err != nil || sessID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid session id"})
 	}
@@ -75,7 +75,7 @@ func FlushReplayConfig(c *fiber.Ctx) error {
 }
 
 func upsertReplayConfig(c *fiber.Ctx) error {
-	sessID, err := c.ParamsInt("id")
+	sessID, err := paramInt(c, "id")
 	if err != nil || sessID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid session id"})
 	}

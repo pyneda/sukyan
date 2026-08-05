@@ -339,7 +339,7 @@ func ListAvailableWordlists(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/collections/{id} [get]
 func GetPlaygroundCollection(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid ID",
@@ -371,7 +371,7 @@ func GetPlaygroundCollection(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id} [get]
 func GetPlaygroundSession(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid ID",
@@ -409,7 +409,7 @@ type UpdatePlaygroundCollectionInput struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/collections/{id} [put]
 func UpdatePlaygroundCollection(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid ID",
@@ -470,7 +470,7 @@ type UpdatePlaygroundSessionInput struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id} [put]
 func UpdatePlaygroundSession(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid ID",

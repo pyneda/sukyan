@@ -113,7 +113,7 @@ func CreatePlaygroundWsSession(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id} [get]
 func GetPlaygroundWsSession(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id", Message: "The provided ID is not valid"})
 	}
@@ -157,7 +157,7 @@ type UpdateWsSessionInput struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id} [put]
 func UpdatePlaygroundWsSession(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id", Message: "The provided ID is not valid"})
 	}
@@ -223,7 +223,7 @@ func UpdatePlaygroundWsSession(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id} [delete]
 func DeletePlaygroundWsSession(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id", Message: "The provided ID is not valid"})
 	}
@@ -470,7 +470,7 @@ type AppendMessagesInput struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/messages-import [post]
 func AppendMessagesToWsSession(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
 	}
@@ -561,7 +561,7 @@ func AppendMessagesToWsSession(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/connect [post]
 func ConnectPlaygroundWs(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
 	}
@@ -627,7 +627,7 @@ func ConnectPlaygroundWs(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/disconnect [post]
 func DisconnectPlaygroundWs(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
 	}
@@ -662,7 +662,7 @@ type SendFrameInput struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/frames [post]
 func SendInteractiveFrame(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
 	}
@@ -703,7 +703,7 @@ func SendInteractiveFrame(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/runs [post]
 func StartPlaygroundWsRun(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
 	}
@@ -836,7 +836,7 @@ func executeRun(wsSess *db.PlaygroundWsSession, run *db.PlaygroundWsRun) {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/runs [get]
 func ListPlaygroundWsRuns(c *fiber.Ctx) error {
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
 	}
@@ -874,11 +874,11 @@ func ListPlaygroundWsRuns(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/runs/{run_id}/cancel [post]
 func CancelPlaygroundWsRun(c *fiber.Ctx) error {
-	sid, err := c.ParamsInt("id")
+	sid, err := paramInt(c, "id")
 	if err != nil || sid <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
 	}
-	rid, err := c.ParamsInt("run_id")
+	rid, err := paramInt(c, "run_id")
 	if err != nil || rid <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run_id"})
 	}

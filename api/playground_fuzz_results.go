@@ -41,7 +41,7 @@ type fuzzResultRow struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/runs/{run_id}/results [get]
 func ListFuzzRunResults(c *fiber.Ctx) error {
-	runID, err := c.ParamsInt("run_id")
+	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
 	}

@@ -100,7 +100,7 @@ func FindOOBTests(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/oob-tests/{id} [get]
 func GetOOBTestDetail(c *fiber.Ctx) error {
-	oobTestID, err := c.ParamsInt("id")
+	oobTestID, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Invalid OOB test ID",

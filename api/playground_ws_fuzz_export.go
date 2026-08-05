@@ -15,7 +15,7 @@ import (
 // Optional query params:
 //   - findings_only=true → only iterations with status="check_failed"
 func ExportWsFuzzRunCSV(c *fiber.Ctx) error {
-	runID, err := c.ParamsInt("run_id")
+	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
 	}
@@ -76,7 +76,7 @@ func ExportWsFuzzRunCSV(c *fiber.Ctx) error {
 //   - findings_only=true → only iterations with status="check_failed"
 //   - include_frames=true → also include the persisted frame messages per iteration
 func ExportWsFuzzRunJSON(c *fiber.Ctx) error {
-	runID, err := c.ParamsInt("run_id")
+	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
 	}

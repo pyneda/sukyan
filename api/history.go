@@ -378,7 +378,7 @@ func GetRootNodes(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/history/{id} [get]
 func GetHistoryDetail(c *fiber.Ctx) error {
-	historyID, err := c.ParamsInt("id")
+	historyID, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Invalid history ID",

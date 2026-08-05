@@ -51,7 +51,7 @@ func PlaygroundFuzzStreamUpgrade(c *fiber.Ctx) error {
 	if err != nil || !token.Valid {
 		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "Invalid token"})
 	}
-	runID, err := c.ParamsInt("run_id")
+	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
 	}

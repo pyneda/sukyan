@@ -255,6 +255,10 @@ func stringToSlice(input string, acceptedValues []string, silentFail bool) ([]st
 	return output, nil
 }
 
+func paramInt(c *fiber.Ctx, key string) (int, error) {
+	return c.ParamsInt(key)
+}
+
 func parseInt(input string) (int, error) {
 	return strconv.Atoi(input)
 }

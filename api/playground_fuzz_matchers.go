@@ -21,7 +21,7 @@ import (
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/runs/{run_id}/matchers [get]
 func GetFuzzRunMatchers(c *fiber.Ctx) error {
-	runID, err := c.ParamsInt("run_id")
+	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
 	}
@@ -48,7 +48,7 @@ func GetFuzzRunMatchers(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/runs/{run_id}/matchers [put]
 func PutFuzzRunMatchers(c *fiber.Ctx) error {
-	runID, err := c.ParamsInt("run_id")
+	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
 	}
@@ -104,7 +104,7 @@ type MatchFuzzRunResponse struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/runs/{run_id}/match [post]
 func MatchFuzzRun(c *fiber.Ctx) error {
-	runID, err := c.ParamsInt("run_id")
+	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
 	}

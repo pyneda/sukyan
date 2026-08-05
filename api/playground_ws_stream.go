@@ -48,7 +48,7 @@ func PlaygroundWsStreamUpgrade(c *fiber.Ctx) error {
 	if err != nil || !token.Valid {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token"})
 	}
-	idParam, err := c.ParamsInt("id")
+	idParam, err := paramInt(c, "id")
 	if err != nil || idParam <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid id"})
 	}

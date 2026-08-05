@@ -34,7 +34,7 @@ type matcherPresetUpdateInput struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{workspace_id}/matcher-presets [get]
 func ListMatcherPresets(c *fiber.Ctx) error {
-	wsID, err := c.ParamsInt("workspace_id")
+	wsID, err := paramInt(c, "workspace_id")
 	if err != nil || wsID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid workspace id"})
 	}
@@ -70,7 +70,7 @@ func ListMatcherPresets(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{workspace_id}/matcher-presets [post]
 func CreateMatcherPreset(c *fiber.Ctx) error {
-	wsID, err := c.ParamsInt("workspace_id")
+	wsID, err := paramInt(c, "workspace_id")
 	if err != nil || wsID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid workspace id"})
 	}
@@ -129,11 +129,11 @@ func CreateMatcherPreset(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{workspace_id}/matcher-presets/{id} [put]
 func UpdateMatcherPreset(c *fiber.Ctx) error {
-	wsID, err := c.ParamsInt("workspace_id")
+	wsID, err := paramInt(c, "workspace_id")
 	if err != nil || wsID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid workspace id"})
 	}
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid preset id"})
 	}
@@ -194,11 +194,11 @@ func UpdateMatcherPreset(c *fiber.Ctx) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{workspace_id}/matcher-presets/{id} [delete]
 func DeleteMatcherPreset(c *fiber.Ctx) error {
-	wsID, err := c.ParamsInt("workspace_id")
+	wsID, err := paramInt(c, "workspace_id")
 	if err != nil || wsID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid workspace id"})
 	}
-	id, err := c.ParamsInt("id")
+	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid preset id"})
 	}

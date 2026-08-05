@@ -12,7 +12,6 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/workspace"
 	"github.com/rs/zerolog/log"
-	"github.com/valyala/fasthttp"
 )
 
 // ExportWorkspace godoc
@@ -49,7 +48,7 @@ func ExportWorkspace(c fiber.Ctx) error {
 	// so the workspace id is captured by value and the export gets its own
 	// context; a client that disconnects surfaces as a write error instead.
 	workspaceID := uint(id)
-	c.RequestCtx().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+	return c.SendStreamWriter(func(w *bufio.Writer) {
 		result, err := workspace.Export(context.Background(), db.Connection(), workspaceID, w, workspace.ExportOptions{})
 		if err != nil {
 			log.Error().Err(err).Uint("workspace", workspaceID).Msg("Workspace export failed mid-stream")
@@ -60,8 +59,7 @@ func ExportWorkspace(c fiber.Ctx) error {
 			return
 		}
 		log.Info().Uint("workspace", workspaceID).Int64("rows", result.TotalRows).Msg("Workspace exported")
-	}))
-	return nil
+	})
 }
 
 // ImportWorkspace godoc

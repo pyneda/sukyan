@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/report"
 	"github.com/rs/zerolog/log"
@@ -48,10 +48,10 @@ func reportContentType(format report.ReportFormat) (contentType, extension strin
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/report [post]
-func ReportHandler(c *fiber.Ctx) error {
+func ReportHandler(c fiber.Ctx) error {
 	input := new(ReportRequest)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Cannot parse JSON",
 		})

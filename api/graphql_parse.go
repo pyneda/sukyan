@@ -3,7 +3,7 @@ package api
 import (
 	"encoding/json"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/pkg/graphql"
 	"github.com/rs/zerolog/log"
 )
@@ -66,10 +66,10 @@ type ParseGraphQLFromIntrospectionInput struct {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/graphql/parse [post]
-func ParseGraphQLSchema(c *fiber.Ctx) error {
+func ParseGraphQLSchema(c fiber.Ctx) error {
 	input := new(ParseGraphQLSchemaInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Cannot parse JSON",
 			"message": err.Error(),
@@ -90,7 +90,7 @@ func ParseGraphQLSchema(c *fiber.Ctx) error {
 	}
 
 	// Parse schema via introspection
-	schema, err := parser.ParseFromURLContext(c.UserContext(), input.URL)
+	schema, err := parser.ParseFromURLContext(c.Context(), input.URL)
 	if err != nil {
 		log.Error().Err(err).Str("url", input.URL).Msg("Failed to introspect GraphQL schema")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -155,10 +155,10 @@ func ParseGraphQLSchema(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/graphql/parse-introspection [post]
-func ParseGraphQLFromIntrospection(c *fiber.Ctx) error {
+func ParseGraphQLFromIntrospection(c fiber.Ctx) error {
 	input := new(ParseGraphQLFromIntrospectionInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Cannot parse JSON",
 			"message": err.Error(),

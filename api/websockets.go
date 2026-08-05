@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
@@ -31,7 +31,7 @@ import (
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history/websocket/connections [get]
-func FindWebSocketConnections(c *fiber.Ctx) error {
+func FindWebSocketConnections(c fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")
 	unparsedSources := c.Query("sources")
@@ -118,7 +118,7 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 		minMessages = parsed
 	}
 
-	urlPrefixes := c.Context().QueryArgs().PeekMulti("url_prefixes")
+	urlPrefixes := c.RequestCtx().QueryArgs().PeekMulti("url_prefixes")
 	// FindWebSocketConnections builds its filter by hand and never runs it through
 	// validate.Struct, so the WebSocketConnectionFilter.URLPrefixes max=200 tag is
 	// inert here — enforce it directly, matching what HistoryFilter gets for free.
@@ -173,7 +173,7 @@ func FindWebSocketConnections(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history/websocket/messages [get]
-func FindWebSocketMessages(c *fiber.Ctx) error {
+func FindWebSocketMessages(c fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")
 	unparsedConnectionID := c.Query("connection_id")
@@ -259,7 +259,7 @@ func FindWebSocketMessages(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history/websocket/connections/{id} [get]
-func FindWebSocketConnectionByID(c *fiber.Ctx) error {
+func FindWebSocketConnectionByID(c fiber.Ctx) error {
 	unparsedConnectionID := c.Params("id")
 
 	connectionID, err := strconv.ParseUint(unparsedConnectionID, 10, 64)

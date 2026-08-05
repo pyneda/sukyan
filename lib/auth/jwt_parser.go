@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
@@ -16,7 +16,7 @@ type TokenMetadata struct {
 }
 
 // ExtractTokenMetadata func to extract metadata from JWT.
-func ExtractTokenMetadata(c *fiber.Ctx) (*TokenMetadata, error) {
+func ExtractTokenMetadata(c fiber.Ctx) (*TokenMetadata, error) {
 	token, err := verifyToken(c)
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func ExtractTokenMetadata(c *fiber.Ctx) (*TokenMetadata, error) {
 	return nil, err
 }
 
-func extractToken(c *fiber.Ctx) string {
+func extractToken(c fiber.Ctx) string {
 	bearToken := c.Get("Authorization")
 
 	// Normally Authorization HTTP header.
@@ -63,7 +63,7 @@ func extractToken(c *fiber.Ctx) string {
 	return ""
 }
 
-func verifyToken(c *fiber.Ctx) (*jwt.Token, error) {
+func verifyToken(c fiber.Ctx) (*jwt.Token, error) {
 	tokenString := extractToken(c)
 
 	token, err := jwt.Parse(tokenString, jwtKeyFunc)

@@ -8,11 +8,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gofiber/contrib/websocket"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
-	"github.com/gofiber/fiber/v2/middleware/pprof"
-	"github.com/gofiber/swagger"
+	"github.com/gofiber/contrib/v3/swaggo"
+	"github.com/gofiber/contrib/v3/websocket"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/limiter"
+	"github.com/gofiber/fiber/v3/middleware/pprof"
 	"github.com/pyneda/sukyan/db"
 	_ "github.com/pyneda/sukyan/docs"
 	"github.com/pyneda/sukyan/lib"
@@ -136,7 +136,7 @@ func StartAPI(opts ...APIServerOptions) {
 	// Start server in a goroutine
 	go func() {
 		listen_addres := fmt.Sprintf("%v:%v", viper.Get("api.listen.host"), viper.Get("api.listen.port"))
-		if err := app.ListenTLS(listen_addres, certPath, keyPath); err != nil {
+		if err := app.Listen(listen_addres, fiber.ListenConfig{CertFile: certPath, CertKeyFile: keyPath}); err != nil {
 			apiLogger.Warn().Err(err).Msg("Error starting server")
 		}
 	}()
@@ -210,12 +210,12 @@ func buildAPIApp(deps apiDeps) *fiber.App {
 
 	registerBaseMiddleware(app, deps.logger)
 
-	app.Get("/", func(c *fiber.Ctx) error {
+	app.Get("/", func(c fiber.Ctx) error {
 		return c.SendString("API Running")
 	})
 
 	if viper.GetBool("api.docs.enabled") {
-		app.Get(fmt.Sprintf("%v/*", viper.GetString("api.docs.path")), swagger.HandlerDefault)
+		app.Get(fmt.Sprintf("%v/*", viper.GetString("api.docs.path")), swaggo.HandlerDefault)
 	}
 
 	if viper.GetBool("api.pprof.enabled") {
@@ -387,7 +387,7 @@ func buildAPIApp(deps apiDeps) *fiber.App {
 
 	// Make a group for all scan endpoints which require the scan engine
 	scan_app := api.Group("/scan")
-	scan_app.Use(func(c *fiber.Ctx) error {
+	scan_app.Use(func(c fiber.Ctx) error {
 		// c.Locals("engine", engine)
 		c.Locals("generators", deps.generators)
 		c.Locals("interactionsManager", deps.interactionsManager)
@@ -421,14 +421,14 @@ func buildAPIApp(deps apiDeps) *fiber.App {
 	if deps.options.EnableProxyServices {
 		// Workspace-scoped proxy services (need proxyManager access)
 		api.Post("/workspaces/:workspaceId/proxy-services", JWTProtected(), CreateProxyService)
-		api.Get("/workspaces/:workspaceId/proxy-services", JWTProtected(), func(c *fiber.Ctx) error {
+		api.Get("/workspaces/:workspaceId/proxy-services", JWTProtected(), func(c fiber.Ctx) error {
 			c.Locals("proxyManager", deps.proxyManager)
 			return ListProxyServices(c)
 		})
 
 		// Proxy services management (with middleware for proxy manager access)
 		proxy_services := api.Group("/proxy-services")
-		proxy_services.Use(func(c *fiber.Ctx) error {
+		proxy_services.Use(func(c fiber.Ctx) error {
 			c.Locals("proxyManager", deps.proxyManager)
 			return c.Next()
 		})
@@ -447,11 +447,18 @@ func buildAPIApp(deps apiDeps) *fiber.App {
 			dashboardPath = "/dashboard"
 		}
 
-		dashboardMiddleware := []fiber.Handler{DashboardBasicAuth()}
+		// Basic auth on a route reachable without credentials is a brute-force
+		// target, so it is rate limited the same way the auth endpoints are.
+		dashboardLimiter := limiter.New(limiter.Config{
+			Max:               20,
+			Expiration:        30 * time.Second,
+			LimiterMiddleware: limiter.SlidingWindow{},
+		})
+		dashboardAuth := DashboardBasicAuth()
 
 		// Register dashboard routes
-		app.Get(dashboardPath, append(dashboardMiddleware, DashboardHTMLHandler)...)
-		app.Get(dashboardPath+"/stats", append(dashboardMiddleware, GetDashboardStatsHandler)...)
+		app.Get(dashboardPath, dashboardLimiter, dashboardAuth, DashboardHTMLHandler)
+		app.Get(dashboardPath+"/stats", dashboardLimiter, dashboardAuth, GetDashboardStatsHandler)
 	}
 
 	return app

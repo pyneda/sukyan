@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/playground/fuzz"
 	"github.com/pyneda/sukyan/pkg/playground/stream"
@@ -52,9 +52,9 @@ type PlaygroundFuzzPreviewInput struct {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz [post]
-func FuzzRequest(c *fiber.Ctx) error {
+func FuzzRequest(c fiber.Ctx) error {
 	input := new(PlaygroundFuzzInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Bad Request", Message: "Cannot parse JSON body"})
 	}
 	if err := validate.Struct(input); err != nil {
@@ -306,9 +306,9 @@ func runFuzzAsync(
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/preview [post]
-func FuzzPreview(c *fiber.Ctx) error {
+func FuzzPreview(c fiber.Ctx) error {
 	input := new(PlaygroundFuzzPreviewInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Bad Request", Message: "Cannot parse JSON body"})
 	}
 	if err := validate.Struct(input); err != nil {
@@ -330,7 +330,7 @@ func FuzzPreview(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/runs/{run_id} [delete]
-func CancelFuzzRun(c *fiber.Ctx) error {
+func CancelFuzzRun(c fiber.Ctx) error {
 	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
@@ -367,7 +367,7 @@ func CancelFuzzRun(c *fiber.Ctx) error {
 // @Failure 409 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/runs/{run_id}/pause [post]
-func PauseFuzzRun(c *fiber.Ctx) error {
+func PauseFuzzRun(c fiber.Ctx) error {
 	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
@@ -415,7 +415,7 @@ func PauseFuzzRun(c *fiber.Ctx) error {
 // @Failure 409 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/runs/{run_id}/resume [post]
-func ResumeFuzzRun(c *fiber.Ctx) error {
+func ResumeFuzzRun(c fiber.Ctx) error {
 	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
@@ -464,7 +464,7 @@ func ResumeFuzzRun(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/runs/{run_id} [get]
-func GetFuzzRun(c *fiber.Ctx) error {
+func GetFuzzRun(c fiber.Ctx) error {
 	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
@@ -485,7 +485,7 @@ func GetFuzzRun(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/fuzzer-config [get]
-func GetFuzzerConfig(c *fiber.Ctx) error {
+func GetFuzzerConfig(c fiber.Ctx) error {
 	sessID, err := paramInt(c, "id")
 	if err != nil || sessID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid session id"})
@@ -512,7 +512,7 @@ func GetFuzzerConfig(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/fuzzer-config [put]
-func PutFuzzerConfig(c *fiber.Ctx) error {
+func PutFuzzerConfig(c fiber.Ctx) error {
 	sessID, err := paramInt(c, "id")
 	if err != nil || sessID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid session id"})
@@ -542,7 +542,7 @@ func PutFuzzerConfig(c *fiber.Ctx) error {
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/fuzz-runs [get]
-func ListFuzzRunsForSession(c *fiber.Ctx) error {
+func ListFuzzRunsForSession(c fiber.Ctx) error {
 	sessID, err := paramInt(c, "id")
 	if err != nil || sessID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid session id"})
@@ -580,6 +580,6 @@ func ListFuzzRunsForSession(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/fuzzer-config/flush [post]
-func FlushFuzzerConfig(c *fiber.Ctx) error {
+func FlushFuzzerConfig(c fiber.Ctx) error {
 	return PutFuzzerConfig(c)
 }

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
@@ -19,7 +19,7 @@ func superuserTestApp(t *testing.T, load userLoader) *fiber.App {
 	t.Cleanup(viper.Reset)
 
 	app := fiber.New()
-	app.Get("/admin", JWTProtected(), superuserProtectedWith(load), func(c *fiber.Ctx) error {
+	app.Get("/admin", JWTProtected(), superuserProtectedWith(load), func(c fiber.Ctx) error {
 		return c.SendString("admin")
 	})
 	return app
@@ -33,7 +33,7 @@ func superuserRequest(t *testing.T, app *fiber.App) int {
 	})
 	req := httptest.NewRequest("GET", "/admin", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}

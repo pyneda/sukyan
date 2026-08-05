@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/playground/fuzz"
 	"gorm.io/gorm"
@@ -33,7 +33,7 @@ type matcherPresetUpdateInput struct {
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{workspace_id}/matcher-presets [get]
-func ListMatcherPresets(c *fiber.Ctx) error {
+func ListMatcherPresets(c fiber.Ctx) error {
 	wsID, err := paramInt(c, "workspace_id")
 	if err != nil || wsID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid workspace id"})
@@ -69,13 +69,13 @@ func ListMatcherPresets(c *fiber.Ctx) error {
 // @Failure 409 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{workspace_id}/matcher-presets [post]
-func CreateMatcherPreset(c *fiber.Ctx) error {
+func CreateMatcherPreset(c fiber.Ctx) error {
 	wsID, err := paramInt(c, "workspace_id")
 	if err != nil || wsID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid workspace id"})
 	}
 	input := new(MatcherPresetInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Invalid JSON",
 			Message: err.Error(),
@@ -128,7 +128,7 @@ func CreateMatcherPreset(c *fiber.Ctx) error {
 // @Failure 409 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{workspace_id}/matcher-presets/{id} [put]
-func UpdateMatcherPreset(c *fiber.Ctx) error {
+func UpdateMatcherPreset(c fiber.Ctx) error {
 	wsID, err := paramInt(c, "workspace_id")
 	if err != nil || wsID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid workspace id"})
@@ -146,7 +146,7 @@ func UpdateMatcherPreset(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Preset not found"})
 	}
 	input := new(matcherPresetUpdateInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Invalid JSON",
 			Message: err.Error(),
@@ -193,7 +193,7 @@ func UpdateMatcherPreset(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{workspace_id}/matcher-presets/{id} [delete]
-func DeleteMatcherPreset(c *fiber.Ctx) error {
+func DeleteMatcherPreset(c fiber.Ctx) error {
 	wsID, err := paramInt(c, "workspace_id")
 	if err != nil || wsID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid workspace id"})

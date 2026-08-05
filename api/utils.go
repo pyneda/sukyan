@@ -5,14 +5,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
 	"github.com/rs/zerolog/log"
 )
 
-func parseWorkspaceID(c *fiber.Ctx) (uint, error) {
+func parseWorkspaceID(c fiber.Ctx) (uint, error) {
 	unparsedWorkspaceID := c.Query("workspace")
 	workspaceID64, err := strconv.ParseUint(unparsedWorkspaceID, 10, strconv.IntSize)
 	if err != nil {
@@ -29,7 +29,7 @@ func parseWorkspaceID(c *fiber.Ctx) (uint, error) {
 	return workspaceID, nil
 }
 
-func parsePlaygroundCollectionID(c *fiber.Ctx) (uint, error) {
+func parsePlaygroundCollectionID(c fiber.Ctx) (uint, error) {
 	unparsed := c.Query("collection")
 	if unparsed == "" {
 		return 0, nil
@@ -51,7 +51,7 @@ func parsePlaygroundCollectionID(c *fiber.Ctx) (uint, error) {
 	return collectionID, nil
 }
 
-func parsePlaygroundSessionID(c *fiber.Ctx) (uint, error) {
+func parsePlaygroundSessionID(c fiber.Ctx) (uint, error) {
 	unparsed := c.Query("playground_session")
 	if unparsed == "" {
 		return 0, nil
@@ -73,7 +73,7 @@ func parsePlaygroundSessionID(c *fiber.Ctx) (uint, error) {
 	return sessionID, nil
 }
 
-func parseTaskID(c *fiber.Ctx) (uint, error) {
+func parseTaskID(c fiber.Ctx) (uint, error) {
 	unparsed := c.Query("task")
 	if unparsed == "" {
 		return 0, nil
@@ -96,7 +96,7 @@ func parseTaskID(c *fiber.Ctx) (uint, error) {
 	return taskID, nil
 }
 
-func parseTaskJobID(c *fiber.Ctx) (uint, error) {
+func parseTaskJobID(c fiber.Ctx) (uint, error) {
 	unparsed := c.Query("taskjob")
 	if unparsed == "" {
 		return 0, nil
@@ -118,7 +118,7 @@ func parseTaskJobID(c *fiber.Ctx) (uint, error) {
 	return taskJobID, nil
 }
 
-func parseScanID(c *fiber.Ctx) (uint, error) {
+func parseScanID(c fiber.Ctx) (uint, error) {
 	unparsed := c.Query("scan_id")
 	if unparsed == "" {
 		return 0, nil
@@ -140,7 +140,7 @@ func parseScanID(c *fiber.Ctx) (uint, error) {
 	return scanID, nil
 }
 
-func parseScanJobID(c *fiber.Ctx) (uint, error) {
+func parseScanJobID(c fiber.Ctx) (uint, error) {
 	unparsed := c.Query("scan_job_id")
 	if unparsed == "" {
 		return 0, nil
@@ -255,8 +255,8 @@ func stringToSlice(input string, acceptedValues []string, silentFail bool) ([]st
 	return output, nil
 }
 
-func paramInt(c *fiber.Ctx, key string) (int, error) {
-	return c.ParamsInt(key)
+func paramInt(c fiber.Ctx, key string) (int, error) {
+	return strconv.Atoi(c.Params(key))
 }
 
 func parseInt(input string) (int, error) {

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/manual"
 	"github.com/rs/zerolog/log"
@@ -40,10 +40,10 @@ type ReplayErrorResponse struct {
 // @Failure 400 {object} ReplayErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/replay [post]
-func ReplayRequest(c *fiber.Ctx) error {
+func ReplayRequest(c fiber.Ctx) error {
 	input := new(PlaygroundReplayInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Bad Request",
 			Message: "Cannot parse JSON body",

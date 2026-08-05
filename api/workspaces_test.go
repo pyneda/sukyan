@@ -10,7 +10,7 @@ import (
 
 	"github.com/pyneda/sukyan/db"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -74,7 +74,7 @@ func TestDeleteWorkspace(t *testing.T) {
 	app := fiber.New()
 	app.Delete("/api/v1/workspaces/:id", DeleteWorkspace)
 	req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/v1/workspaces/%d", workspace.ID), nil)
-	resp, err := app.Test(req, 10000) // 10 second timeout
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true}) // 10 second timeout
 
 	assert.Nil(t, err)
 	assert.NotNil(t, resp, "Response should not be nil")

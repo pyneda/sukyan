@@ -7,7 +7,7 @@ import (
 
 	"github.com/pyneda/sukyan/db"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
@@ -31,7 +31,7 @@ import (
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/interactions [get]
-func FindInteractions(c *fiber.Ctx) error {
+func FindInteractions(c fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")
 	unparsedProtocols := c.Query("protocols")
@@ -147,7 +147,7 @@ func FindInteractions(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/interactions/{id} [get]
-func GetInteractionDetail(c *fiber.Ctx) error {
+func GetInteractionDetail(c fiber.Ctx) error {
 	interactionID, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

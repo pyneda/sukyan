@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/passive"
@@ -90,10 +90,10 @@ func adHocScanTitle(items []db.History) string {
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scan/active [post]
-func ActiveScanHandler(c *fiber.Ctx) error {
+func ActiveScanHandler(c fiber.Ctx) error {
 	input := new(ActiveScanInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error: "Cannot parse JSON",
 		})
@@ -265,10 +265,10 @@ func ActiveScanHandler(c *fiber.Ctx) error {
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scan/full [post]
-func FullScanHandler(c *fiber.Ctx) error {
+func FullScanHandler(c fiber.Ctx) error {
 	input := new(scan_options.FullScanOptions)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error: "Cannot parse JSON",
 		})
@@ -391,10 +391,10 @@ type ActiveWebSocketScanInput struct {
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scan/active/websocket [post]
-func ActiveWebSocketScanHandler(c *fiber.Ctx) error {
+func ActiveWebSocketScanHandler(c fiber.Ctx) error {
 	input := new(ActiveWebSocketScanInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error: "Cannot parse JSON",
 		})

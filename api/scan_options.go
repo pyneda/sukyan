@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
 )
 
@@ -16,7 +16,7 @@ import (
 // @Success 200 {object} map[string][]string "List of platforms"
 // @Security ApiKeyAuth
 // @Router /api/v1/scan/options/platforms [get]
-func GetScanOptionsPlatforms(c *fiber.Ctx) error {
+func GetScanOptionsPlatforms(c fiber.Ctx) error {
 	generators := c.Locals("generators").([]*generation.PayloadGenerator)
 	platforms := generation.GetAllPlatforms(generators)
 	return c.Status(http.StatusOK).JSON(fiber.Map{
@@ -33,7 +33,7 @@ func GetScanOptionsPlatforms(c *fiber.Ctx) error {
 // @Success 200 {object} map[string][]string "List of categories"
 // @Security ApiKeyAuth
 // @Router /api/v1/scan/options/categories [get]
-func GetScanOptionsCategories(c *fiber.Ctx) error {
+func GetScanOptionsCategories(c fiber.Ctx) error {
 	generators := c.Locals("generators").([]*generation.PayloadGenerator)
 	categories := generation.GetAllCategories(generators)
 	return c.Status(http.StatusOK).JSON(fiber.Map{

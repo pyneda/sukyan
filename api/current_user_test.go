@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
@@ -17,7 +17,7 @@ func currentUserIDTestApp(t *testing.T, capture func(uuid.UUID, error)) *fiber.A
 	t.Cleanup(viper.Reset)
 
 	app := fiber.New()
-	app.Get("/private", JWTProtected(), func(c *fiber.Ctx) error {
+	app.Get("/private", JWTProtected(), func(c fiber.Ctx) error {
 		capture(currentUserID(c))
 		return c.SendStatus(fiber.StatusOK)
 	})
@@ -34,7 +34,7 @@ func TestCurrentUserIDReadsTheIDClaim(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/private", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
-	if _, err := app.Test(req, -1); err != nil {
+	if _, err := app.Test(req, fiber.TestConfig{}); err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
 
@@ -54,7 +54,7 @@ func TestCurrentUserIDRejectsANonUUIDClaim(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/private", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
-	if _, err := app.Test(req, -1); err != nil {
+	if _, err := app.Test(req, fiber.TestConfig{}); err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
 

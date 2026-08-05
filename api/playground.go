@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/manual"
 	"github.com/rs/zerolog/log"
@@ -25,10 +25,10 @@ type CreatePlaygroundCollectionInput struct {
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/collections [post]
-func CreatePlaygroundCollection(c *fiber.Ctx) error {
+func CreatePlaygroundCollection(c fiber.Ctx) error {
 	input := new(CreatePlaygroundCollectionInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Cannot parse JSON",
 		})
@@ -94,10 +94,10 @@ type CreatePlaygroundSessionInput struct {
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions [post]
-func CreatePlaygroundSession(c *fiber.Ctx) error {
+func CreatePlaygroundSession(c fiber.Ctx) error {
 	input := new(CreatePlaygroundSessionInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Cannot parse JSON",
 		})
@@ -184,7 +184,7 @@ func CreatePlaygroundSession(c *fiber.Ctx) error {
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/collections [get]
-func ListPlaygroundCollections(c *fiber.Ctx) error {
+func ListPlaygroundCollections(c fiber.Ctx) error {
 	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -199,8 +199,8 @@ func ListPlaygroundCollections(c *fiber.Ctx) error {
 		SortBy:      c.Query("sort_by"),
 		SortOrder:   c.Query("sort_order"),
 		Pagination: db.Pagination{
-			Page:     c.QueryInt("page", 1),
-			PageSize: c.QueryInt("page_size", 10),
+			Page:     fiber.Query[int](c, "page", 1),
+			PageSize: fiber.Query[int](c, "page_size", 10),
 		},
 	}
 
@@ -242,7 +242,7 @@ func ListPlaygroundCollections(c *fiber.Ctx) error {
 // @Failure 400 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions [get]
-func ListPlaygroundSessions(c *fiber.Ctx) error {
+func ListPlaygroundSessions(c fiber.Ctx) error {
 	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -265,13 +265,13 @@ func ListPlaygroundSessions(c *fiber.Ctx) error {
 
 	input := db.PlaygroundSessionFilters{
 		Type:              db.PlaygroundSessionType(c.Query("type")),
-		OriginalRequestID: uint(c.QueryInt("original_request_id", 0)),
+		OriginalRequestID: uint(fiber.Query[int](c, "original_request_id", 0)),
 		CollectionID:      collectionID,
 		WorkspaceID:       workspaceID,
 		Query:             c.Query("query"),
 		Pagination: db.Pagination{
-			Page:     c.QueryInt("page", 1),
-			PageSize: c.QueryInt("page_size", 30),
+			Page:     fiber.Query[int](c, "page", 1),
+			PageSize: fiber.Query[int](c, "page_size", 30),
 		},
 		SortBy:    c.Query("sort_by", "id"),
 		SortOrder: c.Query("sort_order", "desc"),
@@ -309,7 +309,7 @@ func ListPlaygroundSessions(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/wordlists [get]
-func ListAvailableWordlists(c *fiber.Ctx) error {
+func ListAvailableWordlists(c fiber.Ctx) error {
 	storage := manual.NewFilesystemWordlistStorage()
 	wordlists, err := storage.GetWordlists()
 	if err != nil {
@@ -338,7 +338,7 @@ func ListAvailableWordlists(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/collections/{id} [get]
-func GetPlaygroundCollection(c *fiber.Ctx) error {
+func GetPlaygroundCollection(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -370,7 +370,7 @@ func GetPlaygroundCollection(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id} [get]
-func GetPlaygroundSession(c *fiber.Ctx) error {
+func GetPlaygroundSession(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -408,7 +408,7 @@ type UpdatePlaygroundCollectionInput struct {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/collections/{id} [put]
-func UpdatePlaygroundCollection(c *fiber.Ctx) error {
+func UpdatePlaygroundCollection(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -418,7 +418,7 @@ func UpdatePlaygroundCollection(c *fiber.Ctx) error {
 	}
 
 	input := new(UpdatePlaygroundCollectionInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Cannot parse JSON",
 		})
@@ -469,7 +469,7 @@ type UpdatePlaygroundSessionInput struct {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id} [put]
-func UpdatePlaygroundSession(c *fiber.Ctx) error {
+func UpdatePlaygroundSession(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -479,7 +479,7 @@ func UpdatePlaygroundSession(c *fiber.Ctx) error {
 	}
 
 	input := new(UpdatePlaygroundSessionInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Cannot parse JSON",
 		})

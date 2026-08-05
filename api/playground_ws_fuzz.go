@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/playground/wsfuzz"
 	"github.com/pyneda/sukyan/pkg/playground/wsreplay"
@@ -27,7 +27,7 @@ import (
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/ws-fuzzer-config [get]
-func GetWsFuzzerConfig(c *fiber.Ctx) error {
+func GetWsFuzzerConfig(c fiber.Ctx) error {
 	sessionID, err := strconv.ParseUint(c.Params("id"), 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid session id"})
@@ -58,13 +58,13 @@ func GetWsFuzzerConfig(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/ws-fuzzer-config [put]
-func PutWsFuzzerConfig(c *fiber.Ctx) error {
+func PutWsFuzzerConfig(c fiber.Ctx) error {
 	sessionID, err := strconv.ParseUint(c.Params("id"), 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid session id"})
 	}
 	var cfg wsfuzz.WsFuzzerConfig
-	if err := c.BodyParser(&cfg); err != nil {
+	if err := c.Bind().Body(&cfg); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid body: " + err.Error()})
 	}
 	cfg.TargetURL = strings.TrimSpace(cfg.TargetURL)
@@ -99,9 +99,9 @@ type previewWsFuzzResponse struct {
 // surfaces validator warnings/errors without launching anything. Always
 // returns 200 with a structured body — the caller inspects Errors to decide
 // whether to display them.
-func PreviewWsFuzz(c *fiber.Ctx) error {
+func PreviewWsFuzz(c fiber.Ctx) error {
 	var cfg wsfuzz.WsFuzzerConfig
-	if err := c.BodyParser(&cfg); err != nil {
+	if err := c.Bind().Body(&cfg); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid body: " + err.Error()})
 	}
 	cfg.TargetURL = strings.TrimSpace(cfg.TargetURL)
@@ -130,13 +130,13 @@ type scheduleWsFuzzResponse struct {
 // off the engine in a background goroutine. Returns the new run ID + planned
 // iteration count immediately; clients subscribe to the live stream for
 // progress.
-func ScheduleWsFuzzRun(c *fiber.Ctx) error {
+func ScheduleWsFuzzRun(c fiber.Ctx) error {
 	sessionID, err := strconv.ParseUint(c.Params("id"), 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid session id"})
 	}
 	var cfg wsfuzz.WsFuzzerConfig
-	if err := c.BodyParser(&cfg); err != nil {
+	if err := c.Bind().Body(&cfg); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid body: " + err.Error()})
 	}
 	cfg.TargetURL = strings.TrimSpace(cfg.TargetURL)
@@ -225,7 +225,7 @@ func isTerminalWsFuzzStatus(s string) bool {
 }
 
 // GetWsFuzzRun returns the persisted run row by ID.
-func GetWsFuzzRun(c *fiber.Ctx) error {
+func GetWsFuzzRun(c fiber.Ctx) error {
 	runID, err := strconv.ParseUint(c.Params("run_id"), 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
@@ -242,7 +242,7 @@ func GetWsFuzzRun(c *fiber.Ctx) error {
 
 // CancelWsFuzzRun cancels an in-flight run. Returns 204 on success, 200 with
 // {"status":"already_finished"} if the run is already terminal, 404 if missing.
-func CancelWsFuzzRun(c *fiber.Ctx) error {
+func CancelWsFuzzRun(c fiber.Ctx) error {
 	runID, err := strconv.ParseUint(c.Params("run_id"), 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
@@ -264,7 +264,7 @@ func CancelWsFuzzRun(c *fiber.Ctx) error {
 // PauseWsFuzzRun flips the run's gate to paused. Returns 204 on success,
 // 200 with {"status":"already_paused"} if already paused, 409 if terminal,
 // 404 if missing.
-func PauseWsFuzzRun(c *fiber.Ctx) error {
+func PauseWsFuzzRun(c fiber.Ctx) error {
 	runID, err := strconv.ParseUint(c.Params("run_id"), 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
@@ -292,7 +292,7 @@ func PauseWsFuzzRun(c *fiber.Ctx) error {
 }
 
 // ResumeWsFuzzRun flips the run's gate back to running. Mirror of PauseWsFuzzRun.
-func ResumeWsFuzzRun(c *fiber.Ctx) error {
+func ResumeWsFuzzRun(c fiber.Ctx) error {
 	runID, err := strconv.ParseUint(c.Params("run_id"), 10, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
@@ -320,7 +320,7 @@ func ResumeWsFuzzRun(c *fiber.Ctx) error {
 }
 
 // ListWsFuzzRunsForSession returns recent runs for the given session, paginated.
-func ListWsFuzzRunsForSession(c *fiber.Ctx) error {
+func ListWsFuzzRunsForSession(c fiber.Ctx) error {
 	sessID, err := paramInt(c, "id")
 	if err != nil || sessID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid session id"})
@@ -347,7 +347,7 @@ func ListWsFuzzRunsForSession(c *fiber.Ctx) error {
 
 // ListWsFuzzIterations returns paginated iterations of a run with optional filters.
 // Query params: page, page_size, status (csv), baseline_match (bool), payload_contains, failed_step_index.
-func ListWsFuzzIterations(c *fiber.Ctx) error {
+func ListWsFuzzIterations(c fiber.Ctx) error {
 	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
@@ -393,7 +393,7 @@ func ListWsFuzzIterations(c *fiber.Ctx) error {
 }
 
 // GetWsFuzzIteration returns a single iteration row by (runID, iterationIndex).
-func GetWsFuzzIteration(c *fiber.Ctx) error {
+func GetWsFuzzIteration(c fiber.Ctx) error {
 	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
@@ -416,7 +416,7 @@ func GetWsFuzzIteration(c *fiber.Ctx) error {
 // GetWsFuzzIterationFrames returns the WebSocketMessage rows persisted for an
 // iteration's connection. Returns 404 if the iteration doesn't exist, an empty
 // frames array if the iteration has no associated connection.
-func GetWsFuzzIterationFrames(c *fiber.Ctx) error {
+func GetWsFuzzIterationFrames(c fiber.Ctx) error {
 	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid run id"})
@@ -456,6 +456,6 @@ func GetWsFuzzIterationFrames(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/ws-fuzzer-config/flush [post]
-func FlushWsFuzzerConfig(c *fiber.Ctx) error {
+func FlushWsFuzzerConfig(c fiber.Ctx) error {
 	return PutWsFuzzerConfig(c)
 }

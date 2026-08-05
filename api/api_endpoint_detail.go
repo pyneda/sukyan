@@ -3,7 +3,7 @@ package api
 import (
 	"encoding/json"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	pkgapi "github.com/pyneda/sukyan/pkg/api"
@@ -39,7 +39,7 @@ type endpointDetailResponse struct {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions/{id}/endpoints/{endpoint_id}/detail [get]
-func GetAPIEndpointDetail(c *fiber.Ctx) error {
+func GetAPIEndpointDetail(c fiber.Ctx) error {
 	definitionID, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid definition ID format"))
@@ -107,7 +107,7 @@ func GetAPIEndpointDetail(c *fiber.Ctx) error {
 	response := endpointDetailResponse{Operation: operation, Backfilled: backfilled}
 
 	example, exampleErr := pkgapi.BuildExampleRequest(
-		c.Context(), definition.Type, &operation, authConfig, c.QueryBool("reveal", false),
+		c.Context(), definition.Type, &operation, authConfig, fiber.Query[bool](c, "reveal", false),
 	)
 	if exampleErr != nil {
 		response.ExampleError = exampleErr.Error()

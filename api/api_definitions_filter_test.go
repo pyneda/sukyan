@@ -7,9 +7,10 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,7 +29,7 @@ func captureAPIDefinitionFilter(t *testing.T, queryString string) (db.APIDefinit
 	)
 
 	app := fiber.New()
-	app.Get("/api-definitions", func(c *fiber.Ctx) error {
+	app.Get("/api-definitions", func(c fiber.Ctx) error {
 		filter, filterErr = buildAPIDefinitionFilter(c)
 		if filterErr != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid filter", filterErr.Error()))
@@ -228,7 +229,7 @@ func listAPIDefinitions(t *testing.T, queryString string) (*http.Response, APIDe
 	app := fiber.New()
 	app.Get("/api-definitions", ListAPIDefinitions)
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/api-definitions?"+queryString, nil), 10000)
+	resp, err := app.Test(httptest.NewRequest("GET", "/api-definitions?"+queryString, nil), fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err)
 
 	var body APIDefinitionListResponse

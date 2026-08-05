@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	pkgapi "github.com/pyneda/sukyan/pkg/api"
@@ -142,22 +142,22 @@ func joinAPIEnumValues[T ~string](values []T) string {
 // buildAPIDefinitionFilter reads every filter db.ListAPIDefinitions understands
 // off the query string. It is split out of the handler so the parsing and
 // validation rules can be exercised without a database.
-func buildAPIDefinitionFilter(c *fiber.Ctx) (db.APIDefinitionFilter, error) {
-	page := c.QueryInt("page", 1)
+func buildAPIDefinitionFilter(c fiber.Ctx) (db.APIDefinitionFilter, error) {
+	page := fiber.Query[int](c, "page", 1)
 	if page < 1 {
 		page = 1
 	}
 
 	filter := db.APIDefinitionFilter{
 		Query:       strings.TrimSpace(c.Query("query")),
-		WorkspaceID: uint(c.QueryInt("workspace_id", 0)),
+		WorkspaceID: uint(fiber.Query[int](c, "workspace_id", 0)),
 		Pagination: db.Pagination{
 			Page:     page,
-			PageSize: c.QueryInt("page_size", 20),
+			PageSize: fiber.Query[int](c, "page_size", 20),
 		},
 	}
 
-	if scanID := c.QueryInt("scan_id", 0); scanID > 0 {
+	if scanID := fiber.Query[int](c, "scan_id", 0); scanID > 0 {
 		sid := uint(scanID)
 		filter.ScanID = &sid
 	}
@@ -228,7 +228,7 @@ func buildAPIDefinitionFilter(c *fiber.Ctx) (db.APIDefinitionFilter, error) {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions [get]
-func ListAPIDefinitions(c *fiber.Ctx) error {
+func ListAPIDefinitions(c fiber.Ctx) error {
 	filter, err := buildAPIDefinitionFilter(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid filter", err.Error()))
@@ -254,7 +254,7 @@ func ListAPIDefinitions(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions/{id} [get]
-func GetAPIDefinition(c *fiber.Ctx) error {
+func GetAPIDefinition(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid ID format"))
@@ -283,14 +283,14 @@ func GetAPIDefinition(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions/{id} [patch]
-func UpdateAPIDefinition(c *fiber.Ctx) error {
+func UpdateAPIDefinition(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid ID format"))
 	}
 
 	var input UpdateAPIDefinitionInput
-	if err := c.BodyParser(&input); err != nil {
+	if err := c.Bind().Body(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid request body"))
 	}
 
@@ -304,7 +304,7 @@ func UpdateAPIDefinition(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(NewErrorResponse("API definition not found"))
 	}
 
-	workspaceID := uint(c.QueryInt("workspace_id", 0))
+	workspaceID := uint(fiber.Query[int](c, "workspace_id", 0))
 	if workspaceID > 0 && definition.WorkspaceID != workspaceID {
 		return c.Status(fiber.StatusForbidden).JSON(NewErrorResponse("API definition does not belong to the specified workspace"))
 	}
@@ -339,7 +339,7 @@ func UpdateAPIDefinition(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions/{id} [delete]
-func DeleteAPIDefinition(c *fiber.Ctx) error {
+func DeleteAPIDefinition(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid ID format"))
@@ -350,7 +350,7 @@ func DeleteAPIDefinition(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(NewErrorResponse("API definition not found"))
 	}
 
-	workspaceID := uint(c.QueryInt("workspace_id", 0))
+	workspaceID := uint(fiber.Query[int](c, "workspace_id", 0))
 	if workspaceID > 0 && definition.WorkspaceID != workspaceID {
 		return c.Status(fiber.StatusForbidden).JSON(NewErrorResponse("API definition does not belong to the specified workspace"))
 	}
@@ -378,7 +378,7 @@ func DeleteAPIDefinition(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions/{id}/endpoints [get]
-func ListAPIEndpoints(c *fiber.Ctx) error {
+func ListAPIEndpoints(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid ID format"))
@@ -387,8 +387,8 @@ func ListAPIEndpoints(c *fiber.Ctx) error {
 	filter := db.APIEndpointFilter{
 		DefinitionID: &id,
 		Pagination: db.Pagination{
-			Page:     c.QueryInt("page", 1),
-			PageSize: c.QueryInt("page_size", 50),
+			Page:     fiber.Query[int](c, "page", 1),
+			PageSize: fiber.Query[int](c, "page_size", 50),
 		},
 	}
 
@@ -422,7 +422,7 @@ func ListAPIEndpoints(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions/{id}/endpoints/{endpoint_id} [get]
-func GetAPIEndpoint(c *fiber.Ctx) error {
+func GetAPIEndpoint(c fiber.Ctx) error {
 	endpointID, err := uuid.Parse(c.Params("endpoint_id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid endpoint ID format"))
@@ -450,14 +450,14 @@ func GetAPIEndpoint(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions/{id}/endpoints/{endpoint_id} [patch]
-func UpdateAPIEndpoint(c *fiber.Ctx) error {
+func UpdateAPIEndpoint(c fiber.Ctx) error {
 	endpointID, err := uuid.Parse(c.Params("endpoint_id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid endpoint ID format"))
 	}
 
 	var input UpdateAPIEndpointInput
-	if err := c.BodyParser(&input); err != nil {
+	if err := c.Bind().Body(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid request body"))
 	}
 
@@ -470,7 +470,7 @@ func UpdateAPIEndpoint(c *fiber.Ctx) error {
 	if defErr != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(NewErrorResponse("Failed to verify endpoint ownership"))
 	}
-	workspaceID := uint(c.QueryInt("workspace_id", 0))
+	workspaceID := uint(fiber.Query[int](c, "workspace_id", 0))
 	if workspaceID > 0 && definition.WorkspaceID != workspaceID {
 		return c.Status(fiber.StatusForbidden).JSON(NewErrorResponse("API endpoint does not belong to the specified workspace"))
 	}
@@ -503,13 +503,13 @@ func UpdateAPIEndpoint(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions/{id}/endpoints/toggle-all [post]
-func ToggleAllEndpoints(c *fiber.Ctx) error {
+func ToggleAllEndpoints(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid ID format"))
 	}
 
-	enabled := c.QueryBool("enabled", true)
+	enabled := fiber.Query[bool](c, "enabled", true)
 
 	if err := db.Connection().SetAPIEndpointsEnabledByDefinition(id, enabled); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(NewErrorResponse(err.Error()))
@@ -530,9 +530,9 @@ func ToggleAllEndpoints(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions [post]
-func CreateAPIDefinition(c *fiber.Ctx) error {
+func CreateAPIDefinition(c fiber.Ctx) error {
 	var input CreateAPIDefinitionInput
-	if err := c.BodyParser(&input); err != nil {
+	if err := c.Bind().Body(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid request body"))
 	}
 
@@ -611,14 +611,14 @@ func CreateAPIDefinition(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions/{id}/scan [post]
-func StartAPIDefinitionScan(c *fiber.Ctx) error {
+func StartAPIDefinitionScan(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid ID format"))
 	}
 
 	var input StartAPIDefinitionScanInput
-	if err := c.BodyParser(&input); err != nil {
+	if err := c.Bind().Body(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid request body"))
 	}
 
@@ -851,7 +851,7 @@ func extractHost(urlStr string) string {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions/{id}/security-schemes [get]
-func GetAPIDefinitionSecuritySchemes(c *fiber.Ctx) error {
+func GetAPIDefinitionSecuritySchemes(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid ID format"))
@@ -949,9 +949,9 @@ type ImportAndScanInput struct {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-definitions/import-and-scan [post]
-func ImportAndScanAPIDefinition(c *fiber.Ctx) error {
+func ImportAndScanAPIDefinition(c fiber.Ctx) error {
 	var input ImportAndScanInput
-	if err := c.BodyParser(&input); err != nil {
+	if err := c.Bind().Body(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(NewErrorResponse("Invalid request body"))
 	}
 

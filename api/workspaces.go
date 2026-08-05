@@ -8,7 +8,7 @@ import (
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 // FindWorkspaces godoc
@@ -25,7 +25,7 @@ import (
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces [get]
-func FindWorkspaces(c *fiber.Ctx) error {
+func FindWorkspaces(c fiber.Ctx) error {
 	query := c.Query("query", "")
 	pageSize, err := parseInt(c.Query("page_size", "20"))
 	if err != nil {
@@ -72,9 +72,9 @@ type WorkspaceCreateInput struct {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces [post]
-func CreateWorkspace(c *fiber.Ctx) error {
+func CreateWorkspace(c fiber.Ctx) error {
 	input := new(WorkspaceCreateInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
 
@@ -107,7 +107,7 @@ func CreateWorkspace(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{id} [delete]
-func DeleteWorkspace(c *fiber.Ctx) error {
+func DeleteWorkspace(c fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})
@@ -159,9 +159,9 @@ type WorkspaceUpdateInput struct {
 // @Failure 422 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{id} [put]
-func UpdateWorkspace(c *fiber.Ctx) error {
+func UpdateWorkspace(c fiber.Ctx) error {
 	var updatedWorkspace db.Workspace
-	if err := c.BodyParser(&updatedWorkspace); err != nil {
+	if err := c.Bind().Body(&updatedWorkspace); err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"message": "Cannot parse JSON", "error": "Bad request"})
 	}
 
@@ -193,7 +193,7 @@ func UpdateWorkspace(c *fiber.Ctx) error {
 // @Failure 422 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{id} [get]
-func GetWorkspaceDetail(c *fiber.Ctx) error {
+func GetWorkspaceDetail(c fiber.Ctx) error {
 	id, err := parseUint(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})

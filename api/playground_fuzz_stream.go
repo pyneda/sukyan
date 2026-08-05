@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gofiber/contrib/websocket"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/contrib/v3/websocket"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/playground/fuzz"
@@ -33,7 +33,7 @@ import (
 // @Failure 404 {object} ErrorResponse
 // @Failure 426 {object} ErrorResponse
 // @Router /api/v1/playground/fuzz/runs/{run_id}/stream [get]
-func PlaygroundFuzzStreamUpgrade(c *fiber.Ctx) error {
+func PlaygroundFuzzStreamUpgrade(c fiber.Ctx) error {
 	if !websocket.IsWebSocketUpgrade(c) {
 		return c.Status(fiber.StatusUpgradeRequired).JSON(ErrorResponse{Error: "WebSocket upgrade required"})
 	}

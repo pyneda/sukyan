@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/pkg/wsdl"
 	"github.com/rs/zerolog/log"
 )
@@ -64,10 +64,10 @@ func includeOptionalOrDefault(value *bool) bool {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/wsdl/parse [post]
-func ParseWSDL(c *fiber.Ctx) error {
+func ParseWSDL(c fiber.Ctx) error {
 	input := new(ParseWSDLInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Cannot parse JSON",
 			"message": err.Error(),
@@ -82,7 +82,7 @@ func ParseWSDL(c *fiber.Ctx) error {
 	}
 
 	// Create parser with custom headers
-	parser := wsdl.NewParser().WithContext(c.UserContext())
+	parser := wsdl.NewParser().WithContext(c.Context())
 	if len(input.Headers) > 0 {
 		parser.WithHeaders(input.Headers)
 	}
@@ -163,10 +163,10 @@ func ParseWSDL(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/wsdl/parse-content [post]
-func ParseWSDLFromBytes(c *fiber.Ctx) error {
+func ParseWSDLFromBytes(c fiber.Ctx) error {
 	input := new(ParseWSDLFromBytesInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Cannot parse JSON",
 			"message": err.Error(),
@@ -181,7 +181,7 @@ func ParseWSDLFromBytes(c *fiber.Ctx) error {
 	}
 
 	// Create parser with custom headers (for resolving imports)
-	parser := wsdl.NewParser().WithContext(c.UserContext())
+	parser := wsdl.NewParser().WithContext(c.Context())
 	if len(input.Headers) > 0 {
 		parser.WithHeaders(input.Headers)
 	}

@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 )
@@ -20,7 +20,7 @@ import (
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/sitemap [get]
-func GetSitemap(c *fiber.Ctx) error {
+func GetSitemap(c fiber.Ctx) error {
 	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

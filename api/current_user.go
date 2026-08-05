@@ -4,7 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/gofiber/fiber/v2"
+	jwtMiddleware "github.com/gofiber/contrib/v3/jwt"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
@@ -15,9 +16,9 @@ var errNoAuthenticatedUser = errors.New("no authenticated user on the request")
 
 // currentUserID reads the subject of the access token JWTProtected validated.
 // The token carries the user id under a bespoke "id" claim, not "sub".
-func currentUserID(c *fiber.Ctx) (uuid.UUID, error) {
-	token, ok := c.Locals("jwt").(*jwt.Token)
-	if !ok {
+func currentUserID(c fiber.Ctx) (uuid.UUID, error) {
+	token := jwtMiddleware.FromContext(c)
+	if token == nil {
 		return uuid.Nil, errNoAuthenticatedUser
 	}
 	claims, ok := token.Claims.(jwt.MapClaims)
@@ -31,7 +32,7 @@ func currentUserID(c *fiber.Ctx) (uuid.UUID, error) {
 	return uuid.Parse(raw)
 }
 
-func currentUser(c *fiber.Ctx) (*db.User, error) {
+func currentUser(c fiber.Ctx) (*db.User, error) {
 	id, err := currentUserID(c)
 	if err != nil {
 		return nil, err
@@ -52,7 +53,7 @@ func currentUser(c *fiber.Ctx) (*db.User, error) {
 // @Failure 401 {object} ErrorResponse "Unauthorized"
 // @Security ApiKeyAuth
 // @Router /api/v1/auth/me [get]
-func GetCurrentUserHandler(c *fiber.Ctx) error {
+func GetCurrentUserHandler(c fiber.Ctx) error {
 	user, err := currentUser(c)
 	if err != nil {
 		log.Debug().Err(err).Msg("Could not resolve the authenticated user")

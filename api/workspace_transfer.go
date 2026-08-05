@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/workspace"
 	"github.com/rs/zerolog/log"
@@ -26,7 +26,7 @@ import (
 // @Failure 422 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{id}/export [get]
-func ExportWorkspace(c *fiber.Ctx) error {
+func ExportWorkspace(c fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"message": "Invalid workspace ID", "error": "Invalid workspace ID"})
@@ -49,7 +49,7 @@ func ExportWorkspace(c *fiber.Ctx) error {
 	// so the workspace id is captured by value and the export gets its own
 	// context; a client that disconnects surfaces as a write error instead.
 	workspaceID := uint(id)
-	c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+	c.RequestCtx().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 		result, err := workspace.Export(context.Background(), db.Connection(), workspaceID, w, workspace.ExportOptions{})
 		if err != nil {
 			log.Error().Err(err).Uint("workspace", workspaceID).Msg("Workspace export failed mid-stream")
@@ -77,7 +77,7 @@ func ExportWorkspace(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/import [post]
-func ImportWorkspace(c *fiber.Ctx) error {
+func ImportWorkspace(c fiber.Ctx) error {
 	// Read the buffered body rather than a stream: request streaming disables
 	// fasthttp's body limit entirely, and an unbounded upload on a shared server
 	// is the worse trade. Archives too large for api.body_limit are imported
@@ -88,7 +88,7 @@ func ImportWorkspace(c *fiber.Ctx) error {
 	}
 	body := bytes.NewReader(raw)
 
-	result, err := workspace.Import(c.UserContext(), db.Connection(), body, workspace.ImportOptions{
+	result, err := workspace.Import(c.Context(), db.Connection(), body, workspace.ImportOptions{
 		Code:  c.Query("code"),
 		Title: c.Query("title"),
 	})

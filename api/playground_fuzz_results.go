@@ -3,7 +3,7 @@ package api
 import (
 	"strconv"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/playground/fuzz"
 )
@@ -40,7 +40,7 @@ type fuzzResultRow struct {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/runs/{run_id}/results [get]
-func ListFuzzRunResults(c *fiber.Ctx) error {
+func ListFuzzRunResults(c fiber.Ctx) error {
 	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})

@@ -1,21 +1,22 @@
 package api
 
 import (
-	"errors"
-	"strings"
+	"crypto/subtle"
 
-	"github.com/gofiber/contrib/fiberzerolog"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/basicauth"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/recover"
+	fiberzerolog "github.com/gofiber/contrib/v3/zerolog"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/extractors"
+	"github.com/gofiber/fiber/v3/middleware/basicauth"
+	"github.com/gofiber/fiber/v3/middleware/cors"
+	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 
-	jwtMiddleware "github.com/gofiber/contrib/jwt"
+	jwtMiddleware "github.com/gofiber/contrib/v3/jwt"
 )
 
 // registerBaseMiddleware installs the middleware every request passes through.
@@ -23,9 +24,9 @@ import (
 // defer, so recover must sit inside it for a recovered panic to be logged.
 func registerBaseMiddleware(app *fiber.App, logger *zerolog.Logger) {
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:  strings.Join(viper.GetStringSlice("api.cors.origins"), ","),
-		AllowHeaders:  "Origin, Content-Type, Accept, Authorization",
-		ExposeHeaders: "Content-Disposition",
+		AllowOrigins:  viper.GetStringSlice("api.cors.origins"),
+		AllowHeaders:  []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders: []string{"Content-Disposition"},
 	}))
 
 	app.Use(fiberzerolog.New(fiberzerolog.Config{
@@ -36,44 +37,29 @@ func registerBaseMiddleware(app *fiber.App, logger *zerolog.Logger) {
 }
 
 // JWTProtected func for specify routes group with JWT authentication.
-// See: https://github.com/gofiber/contrib/jwt
+// See: https://github.com/gofiber/contrib/tree/main/v3/jwt
 //
-// TokenLookup also accepts the JWT from the "auth" cookie so that
+// The extractor chain also accepts the JWT from the "auth" cookie so that
 // navigator.sendBeacon and similar unload-time helpers — which cannot set a
 // custom Authorization header — can still authenticate using the cookie the
 // UI already sets at sign-in. The header is checked first, preserving the
 // existing Bearer flow for normal API clients.
-func JWTProtected() func(*fiber.Ctx) error {
-	// Create config for JWT authentication middleware.
+//
+// Expiry is mandatory: a token minted before the registered exp claim existed
+// would otherwise be honoured forever.
+func JWTProtected() fiber.Handler {
 	jwtSecret := viper.GetString("api.auth.jwt_secret_key")
 	config := jwtMiddleware.Config{
-		SigningKey:     jwtMiddleware.SigningKey{Key: []byte(jwtSecret)},
-		ContextKey:     "jwt", // used in private routes
-		TokenLookup:    "header:Authorization,cookie:auth",
-		AuthScheme:     "Bearer",
-		SuccessHandler: requireTokenExpiry,
-		ErrorHandler:   jwtError,
+		SigningKey: jwtMiddleware.SigningKey{Key: []byte(jwtSecret)},
+		Extractor: extractors.Chain(
+			extractors.FromAuthHeader("Bearer"),
+			extractors.FromCookie("auth"),
+		),
+		ParserOptions: []jwt.ParserOption{jwt.WithExpirationRequired()},
+		ErrorHandler:  jwtError,
 	}
 
 	return jwtMiddleware.New(config)
-}
-
-// requireTokenExpiry rejects tokens carrying no expiration. contrib/jwt parses
-// without parser options, so expiry cannot be made mandatory through config, and
-// a token minted before the registered claim existed would otherwise be honoured
-// forever.
-func requireTokenExpiry(c *fiber.Ctx) error {
-	token, ok := c.Locals("jwt").(*jwt.Token)
-	if !ok {
-		return jwtError(c, errors.New("invalid token"))
-	}
-
-	expires, err := token.Claims.GetExpirationTime()
-	if err != nil || expires == nil {
-		return jwtError(c, errors.New("token has no expiration"))
-	}
-
-	return c.Next()
 }
 
 // userLoader resolves the authenticated account. Injected so the superuser gate
@@ -93,7 +79,7 @@ func SuperuserProtected() fiber.Handler {
 }
 
 func superuserProtectedWith(load userLoader) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		forbidden := func() error {
 			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
 				Error:   "Forbidden",
@@ -113,35 +99,36 @@ func superuserProtectedWith(load userLoader) fiber.Handler {
 	}
 }
 
-func jwtError(c *fiber.Ctx, err error) error {
-	// Return status 401 and failed authentication error.
-	if err.Error() == "Missing or malformed JWT" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": true,
-			"msg":   err.Error(),
-		})
-	}
-
-	// Return status 401 and failed authentication error.
+func jwtError(c fiber.Ctx, err error) error {
 	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 		"error": true,
 		"msg":   err.Error(),
 	})
 }
 
-// DashboardBasicAuth creates a basic auth middleware for the dashboard
+// DashboardBasicAuth creates a basic auth middleware for the dashboard.
+//
+// The credential is configured in clear text, so the comparison happens here and
+// Users is left unset: basicauth reads every Users value as a password hash and
+// panics on anything it cannot parse. Both halves are compared before combining
+// so a wrong username costs the same as a wrong password.
 func DashboardBasicAuth() fiber.Handler {
 	username := viper.GetString("api.dashboard.basic_auth.username")
 	password := viper.GetString("api.dashboard.basic_auth.password")
 
+	authorize := func(user, pass string, _ fiber.Ctx) bool {
+		userOK := subtle.ConstantTimeCompare([]byte(user), []byte(username)) == 1
+		passOK := subtle.ConstantTimeCompare([]byte(pass), []byte(password)) == 1
+		return userOK && passOK
+	}
+
+	if username == "" || password == "" {
+		log.Error().Msg("Dashboard basic auth is not configured - every dashboard request will be rejected")
+		authorize = func(string, string, fiber.Ctx) bool { return false }
+	}
+
 	return basicauth.New(basicauth.Config{
-		Users: map[string]string{
-			username: password,
-		},
-		Realm: "Dashboard Access",
-		Unauthorized: func(c *fiber.Ctx) error {
-			c.Set("WWW-Authenticate", "Basic realm=\"Dashboard Access\"")
-			return c.Status(fiber.StatusUnauthorized).SendString("Unauthorized")
-		},
+		Realm:      "Dashboard Access",
+		Authorizer: authorize,
 	})
 }

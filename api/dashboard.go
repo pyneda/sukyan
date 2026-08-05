@@ -7,7 +7,7 @@ import (
 	"html/template"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/scan/manager"
 	"github.com/rs/zerolog/log"
@@ -215,7 +215,7 @@ type GlobalQueueStatsInfo struct {
 // @Produce json
 // @Success 200 {object} DashboardStats
 // @Router /api/v1/dashboard/stats [get]
-func GetDashboardStats(c *fiber.Ctx, scanManager *manager.ScanManager) error {
+func GetDashboardStats(c fiber.Ctx, scanManager *manager.ScanManager) error {
 	return c.JSON(buildDashboardStats(scanManager))
 }
 
@@ -744,7 +744,7 @@ func getGlobalJobStatsByType() []JobTypeStats {
 // @Tags Dashboard
 // @Produce html
 // @Router /dashboard [get]
-func DashboardHTML(c *fiber.Ctx, scanManager *manager.ScanManager) error {
+func DashboardHTML(c fiber.Ctx, scanManager *manager.ScanManager) error {
 	refreshInterval := viper.GetInt("api.dashboard.refresh_interval")
 	if refreshInterval < 1 {
 		refreshInterval = 5
@@ -781,11 +781,11 @@ func DashboardHTML(c *fiber.Ctx, scanManager *manager.ScanManager) error {
 }
 
 // GetDashboardStatsHandler is a wrapper handler that retrieves the scan manager and calls GetDashboardStats
-func GetDashboardStatsHandler(c *fiber.Ctx) error {
+func GetDashboardStatsHandler(c fiber.Ctx) error {
 	return GetDashboardStats(c, GetScanManager())
 }
 
 // DashboardHTMLHandler is a wrapper handler that retrieves the scan manager and calls DashboardHTML
-func DashboardHTMLHandler(c *fiber.Ctx) error {
+func DashboardHTMLHandler(c fiber.Ctx) error {
 	return DashboardHTML(c, GetScanManager())
 }

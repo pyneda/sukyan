@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/playground/fuzz"
 )
@@ -20,7 +20,7 @@ import (
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/runs/{run_id}/matchers [get]
-func GetFuzzRunMatchers(c *fiber.Ctx) error {
+func GetFuzzRunMatchers(c fiber.Ctx) error {
 	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
@@ -47,7 +47,7 @@ func GetFuzzRunMatchers(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/runs/{run_id}/matchers [put]
-func PutFuzzRunMatchers(c *fiber.Ctx) error {
+func PutFuzzRunMatchers(c fiber.Ctx) error {
 	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
@@ -103,7 +103,7 @@ type MatchFuzzRunResponse struct {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/fuzz/runs/{run_id}/match [post]
-func MatchFuzzRun(c *fiber.Ctx) error {
+func MatchFuzzRun(c fiber.Ctx) error {
 	runID, err := paramInt(c, "run_id")
 	if err != nil || runID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid run id"})
@@ -112,7 +112,7 @@ func MatchFuzzRun(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Run not found"})
 	}
 	var input MatchFuzzRunInput
-	if err := c.BodyParser(&input); err != nil {
+	if err := c.Bind().Body(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid JSON", Message: err.Error()})
 	}
 	if err := fuzz.ValidateSet(input.Matchers); err != nil {

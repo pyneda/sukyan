@@ -3,7 +3,7 @@ package api
 import (
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 )

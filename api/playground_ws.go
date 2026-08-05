@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/playground/wsreplay"
 	"github.com/rs/zerolog/log"
@@ -44,10 +44,10 @@ func orEmpty(raw json.RawMessage, fallback string) json.RawMessage {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions [post]
-func CreatePlaygroundWsSession(c *fiber.Ctx) error {
+func CreatePlaygroundWsSession(c fiber.Ctx) error {
 	input := new(CreateWsSessionInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Cannot parse JSON"})
 	}
 
@@ -112,7 +112,7 @@ func CreatePlaygroundWsSession(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id} [get]
-func GetPlaygroundWsSession(c *fiber.Ctx) error {
+func GetPlaygroundWsSession(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id", Message: "The provided ID is not valid"})
@@ -156,14 +156,14 @@ type UpdateWsSessionInput struct {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id} [put]
-func UpdatePlaygroundWsSession(c *fiber.Ctx) error {
+func UpdatePlaygroundWsSession(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id", Message: "The provided ID is not valid"})
 	}
 
 	input := new(UpdateWsSessionInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Cannot parse JSON"})
 	}
 
@@ -222,7 +222,7 @@ func UpdatePlaygroundWsSession(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id} [delete]
-func DeletePlaygroundWsSession(c *fiber.Ctx) error {
+func DeletePlaygroundWsSession(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id", Message: "The provided ID is not valid"})
@@ -267,9 +267,9 @@ const importMessageCap = 500
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/import-connection [post]
-func ImportConnectionToPlaygroundWs(c *fiber.Ctx) error {
+func ImportConnectionToPlaygroundWs(c fiber.Ctx) error {
 	input := new(ImportConnectionInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Cannot parse JSON"})
 	}
 	if err := validate.Struct(input); err != nil {
@@ -469,14 +469,14 @@ type AppendMessagesInput struct {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/messages-import [post]
-func AppendMessagesToWsSession(c *fiber.Ctx) error {
+func AppendMessagesToWsSession(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
 	}
 
 	input := new(AppendMessagesInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Cannot parse JSON"})
 	}
 	if err := validate.Struct(input); err != nil {
@@ -560,7 +560,7 @@ func AppendMessagesToWsSession(c *fiber.Ctx) error {
 // @Failure 502 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/connect [post]
-func ConnectPlaygroundWs(c *fiber.Ctx) error {
+func ConnectPlaygroundWs(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
@@ -626,7 +626,7 @@ func ConnectPlaygroundWs(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/disconnect [post]
-func DisconnectPlaygroundWs(c *fiber.Ctx) error {
+func DisconnectPlaygroundWs(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
@@ -661,13 +661,13 @@ type SendFrameInput struct {
 // @Failure 502 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/frames [post]
-func SendInteractiveFrame(c *fiber.Ctx) error {
+func SendInteractiveFrame(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
 	}
 	input := new(SendFrameInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Cannot parse JSON"})
 	}
 	if err := validate.Struct(input); err != nil {
@@ -702,7 +702,7 @@ func SendInteractiveFrame(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/runs [post]
-func StartPlaygroundWsRun(c *fiber.Ctx) error {
+func StartPlaygroundWsRun(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
@@ -835,7 +835,7 @@ func executeRun(wsSess *db.PlaygroundWsSession, run *db.PlaygroundWsRun) {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/runs [get]
-func ListPlaygroundWsRuns(c *fiber.Ctx) error {
+func ListPlaygroundWsRuns(c fiber.Ctx) error {
 	id, err := paramInt(c, "id")
 	if err != nil || id <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
@@ -844,11 +844,11 @@ func ListPlaygroundWsRuns(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Not found"})
 	}
-	page := c.QueryInt("page", 1)
+	page := fiber.Query[int](c, "page", 1)
 	if page < 1 {
 		page = 1
 	}
-	pageSize := c.QueryInt("page_size", 20)
+	pageSize := fiber.Query[int](c, "page_size", 20)
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
@@ -873,7 +873,7 @@ func ListPlaygroundWsRuns(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/runs/{run_id}/cancel [post]
-func CancelPlaygroundWsRun(c *fiber.Ctx) error {
+func CancelPlaygroundWsRun(c fiber.Ctx) error {
 	sid, err := paramInt(c, "id")
 	if err != nil || sid <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid id"})
@@ -906,6 +906,6 @@ func CancelPlaygroundWsRun(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/ws/sessions/{id}/flush [post]
-func FlushPlaygroundWsSession(c *fiber.Ctx) error {
+func FlushPlaygroundWsSession(c fiber.Ctx) error {
 	return UpdatePlaygroundWsSession(c)
 }

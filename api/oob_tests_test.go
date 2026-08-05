@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/stretchr/testify/assert"
 )
@@ -63,7 +63,7 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -92,7 +92,7 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -115,7 +115,7 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -138,7 +138,7 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -162,7 +162,7 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -188,7 +188,7 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -210,7 +210,7 @@ func TestFindOOBTests(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -240,7 +240,7 @@ func TestFindOOBTestsValidation(t *testing.T) {
 	t.Run("Invalid JSON body", func(t *testing.T) {
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader([]byte("invalid json")))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -267,7 +267,7 @@ func TestFindOOBTestsValidation(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -294,7 +294,7 @@ func TestFindOOBTestsValidation(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -326,7 +326,7 @@ func TestFindOOBTestsDefaults(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -364,7 +364,7 @@ func TestGetOOBTestDetail(t *testing.T) {
 	// Test successful retrieval
 	t.Run("Get existing OOB test", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/oob-tests/"+strconv.Itoa(int(createdTest.ID)), nil)
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -384,7 +384,7 @@ func TestGetOOBTestDetail(t *testing.T) {
 	t.Run("Get non-existent OOB test", func(t *testing.T) {
 		// Use a very high ID that's unlikely to exist
 		req := httptest.NewRequest("GET", "/oob-tests/999999999", nil)
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -401,7 +401,7 @@ func TestGetOOBTestDetail(t *testing.T) {
 	// Test invalid ID format
 	t.Run("Invalid ID format", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/oob-tests/invalid", nil)
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -486,7 +486,7 @@ func TestFindOOBTestsWithInteractions(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -510,7 +510,7 @@ func TestFindOOBTestsWithInteractions(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return
@@ -533,7 +533,7 @@ func TestFindOOBTestsWithInteractions(t *testing.T) {
 		body, _ := json.Marshal(filter)
 		req := httptest.NewRequest("POST", "/oob-tests", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		resp, testErr := app.Test(req, 10000)
+		resp, testErr := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.Nil(t, testErr)
 		if resp == nil {
 			return

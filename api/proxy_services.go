@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/proxy"
 	"github.com/rs/zerolog/log"
@@ -46,7 +46,7 @@ type ProxyServiceResponse struct {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{workspaceId}/proxy-services [post]
-func CreateProxyService(c *fiber.Ctx) error {
+func CreateProxyService(c fiber.Ctx) error {
 	workspaceID, err := parseUint(c.Params("workspaceId"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid workspace ID"})
@@ -59,7 +59,7 @@ func CreateProxyService(c *fiber.Ctx) error {
 	}
 
 	input := new(ProxyServiceCreateInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
 
@@ -101,7 +101,7 @@ func CreateProxyService(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/workspaces/{workspaceId}/proxy-services [get]
-func ListProxyServices(c *fiber.Ctx) error {
+func ListProxyServices(c fiber.Ctx) error {
 	workspaceID, err := parseUint(c.Params("workspaceId"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid workspace ID"})
@@ -148,7 +148,7 @@ func ListProxyServices(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/proxy-services/{id} [get]
-func GetProxyService(c *fiber.Ctx) error {
+func GetProxyService(c fiber.Ctx) error {
 	id, err := parseUUID(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid proxy service ID"})
@@ -186,7 +186,7 @@ func GetProxyService(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/proxy-services/{id} [patch]
-func UpdateProxyService(c *fiber.Ctx) error {
+func UpdateProxyService(c fiber.Ctx) error {
 	id, err := parseUUID(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid proxy service ID"})
@@ -199,7 +199,7 @@ func UpdateProxyService(c *fiber.Ctx) error {
 	}
 
 	input := new(ProxyServiceUpdateInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse JSON"})
 	}
 
@@ -268,7 +268,7 @@ func UpdateProxyService(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/proxy-services/{id} [delete]
-func DeleteProxyService(c *fiber.Ctx) error {
+func DeleteProxyService(c fiber.Ctx) error {
 	id, err := parseUUID(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid proxy service ID"})
@@ -314,7 +314,7 @@ func DeleteProxyService(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/proxy-services/{id}/start [post]
-func StartProxyService(c *fiber.Ctx) error {
+func StartProxyService(c fiber.Ctx) error {
 	id, err := parseUUID(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid proxy service ID"})
@@ -366,7 +366,7 @@ func StartProxyService(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/proxy-services/{id}/stop [post]
-func StopProxyService(c *fiber.Ctx) error {
+func StopProxyService(c fiber.Ctx) error {
 	id, err := parseUUID(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid proxy service ID"})
@@ -416,7 +416,7 @@ func StopProxyService(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/proxy-services/{id}/restart [post]
-func RestartProxyService(c *fiber.Ctx) error {
+func RestartProxyService(c fiber.Ctx) error {
 	id, err := parseUUID(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid proxy service ID"})

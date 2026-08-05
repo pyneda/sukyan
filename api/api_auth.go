@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/scan/auth"
@@ -74,8 +74,8 @@ type APIAuthConfigListResponse struct {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-auth-configs [get]
-func ListAPIAuthConfigs(c *fiber.Ctx) error {
-	workspaceID := uint(c.QueryInt("workspace_id", 0))
+func ListAPIAuthConfigs(c fiber.Ctx) error {
+	workspaceID := uint(fiber.Query[int](c, "workspace_id", 0))
 	if workspaceID == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "workspace_id is required"})
 	}
@@ -83,8 +83,8 @@ func ListAPIAuthConfigs(c *fiber.Ctx) error {
 	filter := db.APIAuthConfigFilter{
 		WorkspaceID: workspaceID,
 		Pagination: db.Pagination{
-			Page:     c.QueryInt("page", 1),
-			PageSize: c.QueryInt("page_size", 20),
+			Page:     fiber.Query[int](c, "page", 1),
+			PageSize: fiber.Query[int](c, "page_size", 20),
 		},
 	}
 
@@ -108,7 +108,7 @@ func ListAPIAuthConfigs(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-auth-configs/{id} [get]
-func GetAPIAuthConfig(c *fiber.Ctx) error {
+func GetAPIAuthConfig(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid ID format"})
@@ -134,9 +134,9 @@ func GetAPIAuthConfig(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-auth-configs [post]
-func CreateAPIAuthConfig(c *fiber.Ctx) error {
+func CreateAPIAuthConfig(c fiber.Ctx) error {
 	var input CreateAPIAuthConfigInput
-	if err := c.BodyParser(&input); err != nil {
+	if err := c.Bind().Body(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid request body"})
 	}
 
@@ -212,14 +212,14 @@ func CreateAPIAuthConfig(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-auth-configs/{id} [patch]
-func UpdateAPIAuthConfig(c *fiber.Ctx) error {
+func UpdateAPIAuthConfig(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid ID format"})
 	}
 
 	var input UpdateAPIAuthConfigInput
-	if err := c.BodyParser(&input); err != nil {
+	if err := c.Bind().Body(&input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid request body"})
 	}
 
@@ -233,7 +233,7 @@ func UpdateAPIAuthConfig(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Auth config not found"})
 	}
 
-	workspaceID := uint(c.QueryInt("workspace_id", 0))
+	workspaceID := uint(fiber.Query[int](c, "workspace_id", 0))
 	if workspaceID > 0 && config.WorkspaceID != workspaceID {
 		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
 			Error: "Auth config does not belong to the specified workspace",
@@ -334,7 +334,7 @@ func UpdateAPIAuthConfig(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-auth-configs/{id} [delete]
-func DeleteAPIAuthConfig(c *fiber.Ctx) error {
+func DeleteAPIAuthConfig(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid ID format"})
@@ -345,7 +345,7 @@ func DeleteAPIAuthConfig(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "Auth config not found"})
 	}
 
-	workspaceID := uint(c.QueryInt("workspace_id", 0))
+	workspaceID := uint(fiber.Query[int](c, "workspace_id", 0))
 	if workspaceID > 0 && config.WorkspaceID != workspaceID {
 		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{
 			Error: "Auth config does not belong to the specified workspace",
@@ -371,7 +371,7 @@ func DeleteAPIAuthConfig(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/api-auth-configs/{id}/test-refresh [post]
-func TestTokenRefresh(c *fiber.Ctx) error {
+func TestTokenRefresh(c fiber.Ctx) error {
 	id, err := uuid.Parse(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid ID format"})

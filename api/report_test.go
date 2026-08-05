@@ -11,7 +11,7 @@ import (
 	"github.com/pyneda/sukyan/pkg/report"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func TestReportHandler(t *testing.T) {

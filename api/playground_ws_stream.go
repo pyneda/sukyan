@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gofiber/contrib/websocket"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/contrib/v3/websocket"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/playground/wsreplay"
@@ -30,7 +30,7 @@ import (
 // @Failure 401 {object} map[string]string
 // @Failure 426 {object} map[string]string
 // @Router /api/v1/playground/ws/sessions/{id}/stream [get]
-func PlaygroundWsStreamUpgrade(c *fiber.Ctx) error {
+func PlaygroundWsStreamUpgrade(c fiber.Ctx) error {
 	if !websocket.IsWebSocketUpgrade(c) {
 		return c.Status(fiber.StatusUpgradeRequired).JSON(fiber.Map{"error": "WebSocket upgrade required"})
 	}

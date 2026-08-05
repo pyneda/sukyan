@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 )
 
@@ -16,7 +16,7 @@ import (
 // @Success 200 {array} db.IssueTemplate "List of issue templates"
 // @Security ApiKeyAuth
 // @Router /api/v1/kb/issues [get]
-func ListIssueTemplates(c *fiber.Ctx) error {
+func ListIssueTemplates(c fiber.Ctx) error {
 	templates := db.GetAllIssueTemplates()
 	return c.Status(http.StatusOK).JSON(templates)
 }

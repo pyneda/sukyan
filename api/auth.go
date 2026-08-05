@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 // The refresh cookie is scoped to the auth routes so it never rides along with
@@ -37,7 +37,7 @@ type SignInResponse struct {
 	Tokens SignInTokens `json:"tokens"`
 }
 
-func setRefreshCookie(c *fiber.Ctx, token string) {
+func setRefreshCookie(c fiber.Ctx, token string) {
 	c.Cookie(&fiber.Cookie{
 		Name:     refreshCookieName,
 		Value:    token,
@@ -49,7 +49,7 @@ func setRefreshCookie(c *fiber.Ctx, token string) {
 	})
 }
 
-func clearRefreshCookie(c *fiber.Ctx) {
+func clearRefreshCookie(c fiber.Ctx) {
 	c.Cookie(&fiber.Cookie{
 		Name:     refreshCookieName,
 		Value:    "",
@@ -73,10 +73,10 @@ func clearRefreshCookie(c *fiber.Ctx) {
 // @Param signIn body SignIn true "SignIn payload"
 // @Success 200 {object} SignInResponse
 // @Router /api/v1/auth/user/sign/in [post]
-func UserSignIn(c *fiber.Ctx) error {
+func UserSignIn(c fiber.Ctx) error {
 	signIn := &SignIn{}
 
-	if err := c.BodyParser(signIn); err != nil {
+	if err := c.Bind().Body(signIn); err != nil {
 		return c.JSON(fiber.Map{
 			"error": true,
 			"msg":   err.Error(),
@@ -139,7 +139,7 @@ func UserSignIn(c *fiber.Ctx) error {
 // @Produce json
 // @Success 204 {string} status "ok"
 // @Router /api/v1/auth/user/sign/out [post]
-func UserSignOut(c *fiber.Ctx) error {
+func UserSignOut(c fiber.Ctx) error {
 	clearRefreshCookie(c)
 	return c.SendStatus(fiber.StatusNoContent)
 }

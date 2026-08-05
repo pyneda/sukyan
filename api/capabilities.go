@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/spf13/viper"
 )
 
@@ -34,7 +34,7 @@ func BuildAPICapabilities(options APIServerOptions) APICapabilities {
 }
 
 func GetAPICapabilitiesHandler(capabilities APICapabilities) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"data": capabilities,
 		})

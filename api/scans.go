@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/integrations"
 	"github.com/pyneda/sukyan/pkg/payloads/generation"
@@ -249,7 +249,7 @@ func GetScanManager() *manager.ScanManager {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans [get]
-func ListScansHandler(c *fiber.Ctx) error {
+func ListScansHandler(c fiber.Ctx) error {
 	filter := db.ScanFilter{
 		Pagination: db.Pagination{
 			Page:     1,
@@ -345,7 +345,7 @@ func ListScansHandler(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans/{id} [get]
-func GetScanHandler(c *fiber.Ctx) error {
+func GetScanHandler(c fiber.Ctx) error {
 	scanID, err := parseScanIDParam(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -382,7 +382,7 @@ func GetScanHandler(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans/{id} [patch]
-func UpdateScanHandler(c *fiber.Ctx) error {
+func UpdateScanHandler(c fiber.Ctx) error {
 	scanID, err := parseScanIDParam(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -395,7 +395,7 @@ func UpdateScanHandler(c *fiber.Ctx) error {
 	validate := validator.New()
 	input := new(UpdateScanInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Invalid request body",
 			Message: err.Error(),
@@ -464,7 +464,7 @@ func UpdateScanHandler(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans/{id}/pause [post]
-func PauseScanHandler(c *fiber.Ctx) error {
+func PauseScanHandler(c fiber.Ctx) error {
 	scanID, err := parseScanIDParam(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -511,7 +511,7 @@ func PauseScanHandler(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans/{id}/resume [post]
-func ResumeScanHandler(c *fiber.Ctx) error {
+func ResumeScanHandler(c fiber.Ctx) error {
 	scanID, err := parseScanIDParam(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -558,7 +558,7 @@ func ResumeScanHandler(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans/{id}/cancel [post]
-func CancelScanHandler(c *fiber.Ctx) error {
+func CancelScanHandler(c fiber.Ctx) error {
 	scanID, err := parseScanIDParam(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -603,7 +603,7 @@ func CancelScanHandler(c *fiber.Ctx) error {
 // @Failure 503 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans/pause-all [post]
-func PauseAllScansHandler(c *fiber.Ctx) error {
+func PauseAllScansHandler(c fiber.Ctx) error {
 	if scanManager == nil {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(ErrorResponse{
 			Error:   "Scan service unavailable",
@@ -632,7 +632,7 @@ func PauseAllScansHandler(c *fiber.Ctx) error {
 // @Failure 503 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans/resume-all [post]
-func ResumeAllScansHandler(c *fiber.Ctx) error {
+func ResumeAllScansHandler(c fiber.Ctx) error {
 	if scanManager == nil {
 		return c.Status(fiber.StatusServiceUnavailable).JSON(ErrorResponse{
 			Error:   "Scan service unavailable",
@@ -663,7 +663,7 @@ func ResumeAllScansHandler(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans/{id} [delete]
-func DeleteScanHandler(c *fiber.Ctx) error {
+func DeleteScanHandler(c fiber.Ctx) error {
 	scanID, err := parseScanIDParam(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -705,7 +705,7 @@ func DeleteScanHandler(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scan-jobs/{id} [get]
-func GetScanJobHandler(c *fiber.Ctx) error {
+func GetScanJobHandler(c fiber.Ctx) error {
 	jobID, err := parseScanJobIDParam(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -731,7 +731,7 @@ func GetScanJobHandler(c *fiber.Ctx) error {
 }
 
 // parseScanJobIDParam parses the scan job ID from the URL path parameter
-func parseScanJobIDParam(c *fiber.Ctx) (uint, error) {
+func parseScanJobIDParam(c fiber.Ctx) (uint, error) {
 	idStr := c.Params("id")
 	id64, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
@@ -753,7 +753,7 @@ func parseScanJobIDParam(c *fiber.Ctx) (uint, error) {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans/{id}/jobs/{job_id}/cancel [post]
-func CancelScanJobHandler(c *fiber.Ctx) error {
+func CancelScanJobHandler(c fiber.Ctx) error {
 	scanID, err := parseScanIDParam(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -836,7 +836,7 @@ func CancelScanJobHandler(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans/{id}/jobs [get]
-func GetScanJobsHandler(c *fiber.Ctx) error {
+func GetScanJobsHandler(c fiber.Ctx) error {
 	scanID, err := parseScanIDParam(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -960,7 +960,7 @@ func GetScanJobsHandler(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans/{id}/stats [get]
-func GetScanStatsHandler(c *fiber.Ctx) error {
+func GetScanStatsHandler(c fiber.Ctx) error {
 	scanID, err := parseScanIDParam(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -1012,7 +1012,7 @@ type ScheduleScanHistoryItemsInput struct {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/scans/{id}/schedule-items [post]
-func ScheduleHistoryItemScansHandler(c *fiber.Ctx) error {
+func ScheduleHistoryItemScansHandler(c fiber.Ctx) error {
 	scanID, err := parseScanIDParam(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -1024,7 +1024,7 @@ func ScheduleHistoryItemScansHandler(c *fiber.Ctx) error {
 	validate := validator.New()
 	input := new(ScheduleScanHistoryItemsInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Invalid request body",
 			Message: err.Error(),
@@ -1099,7 +1099,7 @@ func ScheduleHistoryItemScansHandler(c *fiber.Ctx) error {
 }
 
 // parseScanIDParam parses the scan ID from the URL path parameter
-func parseScanIDParam(c *fiber.Ctx) (uint, error) {
+func parseScanIDParam(c fiber.Ctx) (uint, error) {
 	idStr := c.Params("id")
 	id64, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {

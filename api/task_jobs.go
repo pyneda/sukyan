@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 )
@@ -28,7 +28,7 @@ import (
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/tasks/jobs [get]
-func FindTaskJobs(c *fiber.Ctx) error {
+func FindTaskJobs(c fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")
 	unparsedStatuses := c.Query("status")

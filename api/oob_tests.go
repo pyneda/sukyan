@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
@@ -24,10 +24,10 @@ import (
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/oob-tests [post]
-func FindOOBTests(c *fiber.Ctx) error {
+func FindOOBTests(c fiber.Ctx) error {
 	var filters db.OOBTestsFilter
 
-	if err := c.BodyParser(&filters); err != nil {
+	if err := c.Bind().Body(&filters); err != nil {
 		log.Error().Err(err).Msg("Failed to parse request body")
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Invalid request body",
@@ -99,7 +99,7 @@ func FindOOBTests(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/oob-tests/{id} [get]
-func GetOOBTestDetail(c *fiber.Ctx) error {
+func GetOOBTestDetail(c fiber.Ctx) error {
 	oobTestID, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{

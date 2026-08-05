@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 )
@@ -37,14 +37,14 @@ type UsersResponse struct {
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /api/v1/users [get]
-func ListUsersHandler(c *fiber.Ctx) error {
+func ListUsersHandler(c fiber.Ctx) error {
 	filter := db.UserListFilter{
 		Query:     c.Query("query"),
 		SortBy:    c.Query("sort_by"),
 		SortOrder: c.Query("sort_order"),
 		Pagination: db.Pagination{
-			Page:     c.QueryInt("page", 1),
-			PageSize: c.QueryInt("page_size", 25),
+			Page:     fiber.Query[int](c, "page", 1),
+			PageSize: fiber.Query[int](c, "page_size", 25),
 		},
 	}
 

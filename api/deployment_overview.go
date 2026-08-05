@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 )
@@ -34,7 +34,7 @@ const (
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /api/v1/stats/deployment/pulse [get]
-func GetDeploymentPulseHandler(c *fiber.Ctx) error {
+func GetDeploymentPulseHandler(c fiber.Ctx) error {
 	pulse, err := db.Connection().GetDeploymentPulse(pulseBucketSeconds, pulseBucketCount)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to retrieve deployment pulse")
@@ -64,7 +64,7 @@ func GetDeploymentPulseHandler(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /api/v1/stats/deployment/findings [get]
-func GetDeploymentFindingsHandler(c *fiber.Ctx) error {
+func GetDeploymentFindingsHandler(c fiber.Ctx) error {
 	var since *time.Time
 	if raw := c.Query("since"); raw != "" {
 		parsed, err := time.Parse(time.RFC3339, raw)
@@ -77,7 +77,7 @@ func GetDeploymentFindingsHandler(c *fiber.Ctx) error {
 		since = &parsed
 	}
 
-	limit := c.QueryInt("limit", 12)
+	limit := fiber.Query[int](c, "limit", 12)
 	if limit < 1 || limit > maxDeploymentFindings {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Invalid limit",

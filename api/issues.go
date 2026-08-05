@@ -3,7 +3,7 @@ package api
 import (
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"gorm.io/gorm"
@@ -29,7 +29,7 @@ import (
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/issues [get]
-func FindIssues(c *fiber.Ctx) error {
+func FindIssues(c fiber.Ctx) error {
 	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -117,7 +117,7 @@ func FindIssues(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/issues/grouped [get]
-func FindIssuesGrouped(c *fiber.Ctx) error {
+func FindIssuesGrouped(c fiber.Ctx) error {
 	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -186,7 +186,7 @@ func FindIssuesGrouped(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/issues/{id} [get]
-func GetIssueDetail(c *fiber.Ctx) error {
+func GetIssueDetail(c fiber.Ctx) error {
 	issueID, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -227,7 +227,7 @@ type IssueUpdateResponse struct {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/issues/{id}/set-false-positive [post]
-func SetFalsePositive(c *fiber.Ctx) error {
+func SetFalsePositive(c fiber.Ctx) error {
 	issueID, err := paramInt(c, "id")
 	if err != nil {
 		log.Error().Int("id", issueID).Err(err).Msg("Failed to parse issue ID")
@@ -240,7 +240,7 @@ func SetFalsePositive(c *fiber.Ctx) error {
 	var body struct {
 		Value bool `json:"value"`
 	}
-	if err := c.BodyParser(&body); err != nil {
+	if err := c.Bind().Body(&body); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Parsing error",
 			"message": "Unable to parse body",

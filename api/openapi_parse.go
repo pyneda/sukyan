@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	pkgapi "github.com/pyneda/sukyan/pkg/api"
 	"github.com/pyneda/sukyan/pkg/http_utils"
 	"github.com/pyneda/sukyan/pkg/openapi"
@@ -37,10 +37,10 @@ type ParseOpenAPISpecResponse struct {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/openapi/parse [post]
-func ParseOpenAPISpec(c *fiber.Ctx) error {
+func ParseOpenAPISpec(c fiber.Ctx) error {
 	input := new(ParseOpenAPISpecInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Cannot parse JSON",
 			"message": err.Error(),
@@ -137,10 +137,10 @@ type ParseOpenAPISpecFromContentInput struct {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/openapi/parse-content [post]
-func ParseOpenAPISpecFromContent(c *fiber.Ctx) error {
+func ParseOpenAPISpecFromContent(c fiber.Ctx) error {
 	input := new(ParseOpenAPISpecFromContentInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Cannot parse JSON",
 			"message": err.Error(),

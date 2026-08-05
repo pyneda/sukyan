@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/playground/fuzz"
 	"github.com/stretchr/testify/require"
@@ -69,7 +69,7 @@ func doJSON(t *testing.T, app *fiber.App, method, path string, body any) *http.R
 	}
 	req := httptest.NewRequest(method, path, reader)
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{})
 	require.NoError(t, err)
 	return resp
 }
@@ -328,7 +328,7 @@ func TestFuzzerConfigPutRejectsInvalidJSON(t *testing.T) {
 	app := fuzzTestApp()
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/v1/playground/sessions/%d/fuzzer-config", sessID), bytes.NewReader([]byte("this is not json")))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }

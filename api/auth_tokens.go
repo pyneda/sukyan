@@ -1,7 +1,7 @@
 package api
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib/auth"
@@ -20,7 +20,7 @@ type RenewTokensResponse struct {
 
 // Every rejection is reported identically so the endpoint cannot be used to
 // probe which accounts exist or which sessions were revoked.
-func renewUnauthorized(c *fiber.Ctx) error {
+func renewUnauthorized(c fiber.Ctx) error {
 	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 		"error": true,
 		"msg":   "unauthorized, please sign in again",
@@ -40,11 +40,11 @@ func renewUnauthorized(c *fiber.Ctx) error {
 // @Success 200 {object} RenewTokensResponse
 // @Failure 401 {object} ErrorResponse
 // @Router /api/v1/auth/token/renew [post]
-func RenewTokens(c *fiber.Ctx) error {
+func RenewTokens(c fiber.Ctx) error {
 	refreshToken := c.Cookies(refreshCookieName)
 	if refreshToken == "" {
 		renew := &Renew{}
-		if err := c.BodyParser(renew); err == nil {
+		if err := c.Bind().Body(renew); err == nil {
 			refreshToken = renew.RefreshToken
 		}
 	}

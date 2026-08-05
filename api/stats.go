@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 )
@@ -29,7 +29,7 @@ const workerHeartbeatThreshold = 2 * time.Minute
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /api/v1/stats/workspace [get]
-func WorkspaceStats(c *fiber.Ctx) error {
+func WorkspaceStats(c fiber.Ctx) error {
 	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -60,7 +60,7 @@ func WorkspaceStats(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /api/v1/stats/system [get]
-func SystemStats(c *fiber.Ctx) error {
+func SystemStats(c fiber.Ctx) error {
 	stats, err := db.Connection().GetSystemStats()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to retrieve system statistics")
@@ -91,7 +91,7 @@ type WorkerNodesResponse struct {
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /api/v1/stats/workers [get]
-func ListWorkerNodes(c *fiber.Ctx) error {
+func ListWorkerNodes(c fiber.Ctx) error {
 	nodes, err := db.Connection().GetAllWorkerNodes()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to retrieve worker nodes")
@@ -133,7 +133,7 @@ func ListWorkerNodes(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /api/v1/stats/workers/cleanup [post]
-func CleanupStaleWorkers(c *fiber.Ctx) error {
+func CleanupStaleWorkers(c fiber.Ctx) error {
 	resetCount, affectedScanIDs, err := db.Connection().ResetJobsFromStaleWorkers(workerHeartbeatThreshold)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to cleanup stale workers")
@@ -179,14 +179,14 @@ type WorkspaceRollupsResponse struct {
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Security ApiKeyAuth
 // @Router /api/v1/stats/workspaces [get]
-func ListWorkspaceRollupsHandler(c *fiber.Ctx) error {
+func ListWorkspaceRollupsHandler(c fiber.Ctx) error {
 	filter := db.WorkspaceRollupFilter{
 		Query:     c.Query("query"),
 		SortBy:    c.Query("sort_by"),
 		SortOrder: c.Query("sort_order"),
 		Pagination: db.Pagination{
-			Page:     c.QueryInt("page", 1),
-			PageSize: c.QueryInt("page_size", 25),
+			Page:     fiber.Query[int](c, "page", 1),
+			PageSize: fiber.Query[int](c, "page_size", 25),
 		},
 	}
 
@@ -246,6 +246,6 @@ func ListWorkspaceRollupsHandler(c *fiber.Ctx) error {
 // @Success 200 {object} DashboardStats "Successfully retrieved deployment stats"
 // @Security ApiKeyAuth
 // @Router /api/v1/stats/deployment [get]
-func GetDeploymentStatsHandler(c *fiber.Ctx) error {
+func GetDeploymentStatsHandler(c fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(buildDashboardStats(GetScanManager()))
 }

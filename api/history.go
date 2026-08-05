@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/rs/zerolog/log"
 )
 
@@ -35,9 +35,9 @@ func IsValidFilterHTTPMethod(method string) bool {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history [post]
-func FindHistoryPost(c *fiber.Ctx) error {
+func FindHistoryPost(c fiber.Ctx) error {
 	var filters db.HistoryFilter
-	if err := c.BodyParser(&filters); err != nil {
+	if err := c.Bind().Body(&filters); err != nil {
 		log.Error().Err(err).Msg("Error parsing history filter")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":   "Invalid request body",
@@ -119,7 +119,7 @@ func FindHistoryPost(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history [get]
-func FindHistory(c *fiber.Ctx) error {
+func FindHistory(c fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")
 	unparsedStatusCodes := c.Query("status")
@@ -287,7 +287,7 @@ type HistorySummary struct {
 // @Failure 400,404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history/{id}/children [get]
-func GetChildren(c *fiber.Ctx) error {
+func GetChildren(c fiber.Ctx) error {
 	// get history id from path
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
@@ -339,7 +339,7 @@ type RootNode struct {
 // @Failure 400,404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history/root-nodes [get]
-func GetRootNodes(c *fiber.Ctx) error {
+func GetRootNodes(c fiber.Ctx) error {
 	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -377,7 +377,7 @@ func GetRootNodes(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/history/{id} [get]
-func GetHistoryDetail(c *fiber.Ctx) error {
+func GetHistoryDetail(c fiber.Ctx) error {
 	historyID, err := paramInt(c, "id")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{

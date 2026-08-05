@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 )
 
@@ -18,7 +18,7 @@ func usersHandlerApp() *fiber.App {
 
 func usersRequestStatus(t *testing.T, target string) int {
 	t.Helper()
-	resp, err := usersHandlerApp().Test(httptest.NewRequest("GET", target, nil), -1)
+	resp, err := usersHandlerApp().Test(httptest.NewRequest("GET", target, nil), fiber.TestConfig{})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}

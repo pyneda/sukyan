@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/browser/actions"
 	"github.com/rs/zerolog/log"
@@ -64,10 +64,10 @@ type BrowserActionsInput struct {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/browser-actions [post]
-func CreateStoredBrowserActions(c *fiber.Ctx) error {
+func CreateStoredBrowserActions(c fiber.Ctx) error {
 	input := new(BrowserActionsInput)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		log.Error().Err(err).Msg("Error parsing JSON")
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Cannot parse JSON",
@@ -127,7 +127,7 @@ func CreateStoredBrowserActions(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/browser-actions/{id} [put]
-func UpdateStoredBrowserActions(c *fiber.Ctx) error {
+func UpdateStoredBrowserActions(c fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -137,7 +137,7 @@ func UpdateStoredBrowserActions(c *fiber.Ctx) error {
 	}
 
 	input := new(BrowserActionsInput)
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		log.Error().Err(err).Msg("Error parsing JSON")
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
 			Error:   "Cannot parse JSON",
@@ -198,7 +198,7 @@ func UpdateStoredBrowserActions(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/browser-actions/{id} [get]
-func GetStoredBrowserActions(c *fiber.Ctx) error {
+func GetStoredBrowserActions(c fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -230,7 +230,7 @@ func GetStoredBrowserActions(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/browser-actions/{id} [delete]
-func DeleteStoredBrowserActions(c *fiber.Ctx) error {
+func DeleteStoredBrowserActions(c fiber.Ctx) error {
 	id, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{
@@ -267,7 +267,7 @@ func DeleteStoredBrowserActions(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/browser-actions [get]
-func ListStoredBrowserActions(c *fiber.Ctx) error {
+func ListStoredBrowserActions(c fiber.Ctx) error {
 	filter := new(db.StoredBrowserActionsFilter)
 
 	// Parse query parameters

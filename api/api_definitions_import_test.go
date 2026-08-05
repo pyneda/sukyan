@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/stretchr/testify/assert"
@@ -85,7 +86,7 @@ func postDefinition(t *testing.T, body map[string]interface{}) (int, []byte) {
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/api-definitions", bytes.NewReader(payload))
 	request.Header.Set("Content-Type", "application/json")
 
-	response, err := app.Test(request, 30000)
+	response, err := app.Test(request, fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err)
 
 	buffer := new(bytes.Buffer)

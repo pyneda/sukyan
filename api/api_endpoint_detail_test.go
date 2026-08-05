@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/discovery"
 	"github.com/stretchr/testify/require"
@@ -64,7 +64,7 @@ func getDetail(t *testing.T, definitionID, endpointID, query string) (int, endpo
 	app.Get("/api-definitions/:id/endpoints/:endpoint_id/detail", GetAPIEndpointDetail)
 
 	url := fmt.Sprintf("/api-definitions/%s/endpoints/%s/detail?%s", definitionID, endpointID, query)
-	resp, err := app.Test(httptest.NewRequest(http.MethodGet, url, nil), 10000)
+	resp, err := app.Test(httptest.NewRequest(http.MethodGet, url, nil), fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err)
 
 	var body endpointDetailResponse

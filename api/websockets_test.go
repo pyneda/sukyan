@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -66,7 +67,7 @@ func TestFindWebSocketConnectionsFilterParams(t *testing.T) {
 			fmt.Sprintf("/api/v1/wsconnections?workspace=%d&%s", workspace.ID, query),
 			nil,
 		)
-		resp, err := app.Test(req, 10000)
+		resp, err := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 		assert.NoError(t, err)
 		return resp.StatusCode
 	}
@@ -103,13 +104,13 @@ func TestFindWebSocketConnectionsRejectsTooManyURLPrefixes(t *testing.T) {
 		tooMany += fmt.Sprintf("&url_prefixes=/%d", i)
 	}
 	req := httptest.NewRequest("GET", "/api/v1/wsconnections?"+tooMany, nil)
-	resp, err := app.Test(req, 10000)
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
 	atLimit := fmt.Sprintf("workspace=%d&url_prefixes=https://app.test/only-one", workspace.ID)
 	req = httptest.NewRequest("GET", "/api/v1/wsconnections?"+atLimit, nil)
-	resp, err = app.Test(req, 10000)
+	resp, err = app.Test(req, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }

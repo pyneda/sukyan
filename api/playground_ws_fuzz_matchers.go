@@ -1,6 +1,6 @@
 package api
 
-import "github.com/gofiber/fiber/v2"
+import "github.com/gofiber/fiber/v3"
 
 // wsFuzzMatcherField is the UI-facing metadata for one matcher field.
 type wsFuzzMatcherField struct {
@@ -31,6 +31,6 @@ var wsFuzzMatcherFields = []wsFuzzMatcherField{
 }
 
 // GetWsFuzzMatcherFields returns the static matcher field metadata.
-func GetWsFuzzMatcherFields(c *fiber.Ctx) error {
+func GetWsFuzzMatcherFields(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{"fields": wsFuzzMatcherFields})
 }

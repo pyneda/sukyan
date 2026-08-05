@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
@@ -19,12 +19,12 @@ func TestRegisterBaseMiddlewareRecoversPanics(t *testing.T) {
 	app := fiber.New()
 	registerBaseMiddleware(app, &logger)
 
-	app.Get("/boom", func(c *fiber.Ctx) error {
+	app.Get("/boom", func(c fiber.Ctx) error {
 		parts := []string{"only-one"}
 		return c.SendString(parts[1])
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/boom", nil), -1)
+	resp, err := app.Test(httptest.NewRequest("GET", "/boom", nil), fiber.TestConfig{})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -38,11 +38,11 @@ func TestRegisterBaseMiddlewareServesNormalRequests(t *testing.T) {
 	app := fiber.New()
 	registerBaseMiddleware(app, &logger)
 
-	app.Get("/ok", func(c *fiber.Ctx) error {
+	app.Get("/ok", func(c fiber.Ctx) error {
 		return c.SendString("fine")
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/ok", nil), -1)
+	resp, err := app.Test(httptest.NewRequest("GET", "/ok", nil), fiber.TestConfig{})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -68,7 +68,7 @@ func protectedTestApp(t *testing.T) *fiber.App {
 	t.Cleanup(viper.Reset)
 
 	app := fiber.New()
-	app.Get("/private", JWTProtected(), func(c *fiber.Ctx) error {
+	app.Get("/private", JWTProtected(), func(c fiber.Ctx) error {
 		return c.SendString("secret")
 	})
 	return app
@@ -78,7 +78,7 @@ func requestWithToken(t *testing.T, app *fiber.App, token string) int {
 	t.Helper()
 	req := httptest.NewRequest("GET", "/private", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestJWTProtectedAcceptsTokenFromAuthCookie(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/private", nil)
 	req.AddCookie(&http.Cookie{Name: "auth", Value: token})
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestJWTProtectedPrefersHeaderOverCookie(t *testing.T) {
 	req := httptest.NewRequest("GET", "/private", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.AddCookie(&http.Cookie{Name: "auth", Value: "not-a-token"})
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -154,7 +154,7 @@ func dashboardTestApp(t *testing.T, username, password string) *fiber.App {
 	t.Cleanup(viper.Reset)
 
 	app := fiber.New()
-	app.Get("/dashboard", DashboardBasicAuth(), func(c *fiber.Ctx) error {
+	app.Get("/dashboard", DashboardBasicAuth(), func(c fiber.Ctx) error {
 		return c.SendString("dashboard")
 	})
 	return app
@@ -164,7 +164,7 @@ func dashboardRequest(t *testing.T, app *fiber.App, user, pass string) *http.Res
 	t.Helper()
 	req := httptest.NewRequest("GET", "/dashboard", nil)
 	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(user+":"+pass)))
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{})
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -196,6 +196,17 @@ func TestDashboardBasicAuthRejectsWrongUsername(t *testing.T) {
 	app := dashboardTestApp(t, "admin", "s3cret1")
 
 	resp := dashboardRequest(t, app, "intruder", "s3cret1")
+	if resp.StatusCode != fiber.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", resp.StatusCode, fiber.StatusUnauthorized)
+	}
+}
+
+// An unset credential must not authenticate anyone: comparing empty against
+// empty succeeds, so the gate has to be closed explicitly.
+func TestDashboardBasicAuthRejectsWhenUnconfigured(t *testing.T) {
+	app := dashboardTestApp(t, "admin", "")
+
+	resp := dashboardRequest(t, app, "admin", "")
 	if resp.StatusCode != fiber.StatusUnauthorized {
 		t.Errorf("status = %d, want %d", resp.StatusCode, fiber.StatusUnauthorized)
 	}

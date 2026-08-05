@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/playground/fuzz"
 	"github.com/pyneda/sukyan/pkg/playground/wsfuzz"
@@ -132,7 +132,7 @@ func TestPreviewWsFuzz_BadJSON(t *testing.T) {
 	// Send malformed JSON via direct httptest (doJSON marshals everything we hand it).
 	req := httptest.NewRequest("POST", "/api/v1/playground/ws-fuzz/preview", strings.NewReader("not-json"))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }

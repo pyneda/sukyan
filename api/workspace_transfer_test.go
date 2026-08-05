@@ -8,8 +8,9 @@ import (
 	"io"
 	"net/http/httptest"
 	"testing"
+	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -55,7 +56,7 @@ func TestWorkspaceExportImportOverHTTP(t *testing.T) {
 
 	exportResp, err := app.Test(
 		httptest.NewRequest("GET", fmt.Sprintf("/api/v1/workspaces/%d/export", source.ID), nil),
-		30000,
+		fiber.TestConfig{Timeout: 30 * time.Second, FailOnTimeout: true},
 	)
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, exportResp.StatusCode)
@@ -68,7 +69,7 @@ func TestWorkspaceExportImportOverHTTP(t *testing.T) {
 
 	importReq := httptest.NewRequest("POST", "/api/v1/workspaces/import", bytes.NewReader(archive))
 	importReq.Header.Set("Content-Type", "application/zstd")
-	importResp, err := app.Test(importReq, 60000)
+	importResp, err := app.Test(importReq, fiber.TestConfig{Timeout: 60 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusCreated, importResp.StatusCode, "import rejected a body produced by export")
 
@@ -95,7 +96,7 @@ func TestWorkspaceImportRejectsEmptyBody(t *testing.T) {
 	app := fiber.New()
 	app.Post("/api/v1/workspaces/import", ImportWorkspace)
 
-	resp, err := app.Test(httptest.NewRequest("POST", "/api/v1/workspaces/import", nil), 10000)
+	resp, err := app.Test(httptest.NewRequest("POST", "/api/v1/workspaces/import", nil), fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
 }
@@ -104,7 +105,7 @@ func TestWorkspaceExportRejectsUnknownWorkspace(t *testing.T) {
 	app := fiber.New()
 	app.Get("/api/v1/workspaces/:id/export", ExportWorkspace)
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/api/v1/workspaces/999999999/export", nil), 10000)
+	resp, err := app.Test(httptest.NewRequest("GET", "/api/v1/workspaces/999999999/export", nil), fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNotFound, resp.StatusCode)
 }

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
@@ -144,7 +144,7 @@ func GetValidBrowserEventCategories() []string {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/browser-events [get]
-func FindBrowserEvents(c *fiber.Ctx) error {
+func FindBrowserEvents(c fiber.Ctx) error {
 	unparsedPageSize := c.Query("page_size", "50")
 	unparsedPage := c.Query("page", "1")
 	unparsedEventTypes := c.Query("event_types")
@@ -304,7 +304,7 @@ func FindBrowserEvents(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/browser-events/{id} [get]
-func GetBrowserEventByID(c *fiber.Ctx) error {
+func GetBrowserEventByID(c fiber.Ctx) error {
 	idParam := c.Params("id")
 
 	eventID, err := uuid.Parse(idParam)
@@ -344,7 +344,7 @@ func GetBrowserEventByID(c *fiber.Ctx) error {
 // @Failure 500 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/browser-events/stats [get]
-func GetBrowserEventStats(c *fiber.Ctx) error {
+func GetBrowserEventStats(c fiber.Ctx) error {
 	scanID, err := parseScanID(c)
 	if err != nil || scanID == 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -391,7 +391,7 @@ func GetBrowserEventStats(c *fiber.Ctx) error {
 }
 
 // parseHistoryID parses the history_id query parameter
-func parseHistoryID(c *fiber.Ctx) (uint, error) {
+func parseHistoryID(c fiber.Ctx) (uint, error) {
 	unparsed := c.Query("history_id")
 	if unparsed == "" {
 		return 0, nil

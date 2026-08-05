@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/gorilla/websocket"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/lib"
@@ -226,7 +226,7 @@ func TestPlaygroundWsHappyPathRun(t *testing.T) {
 	// Fiber's app.Test default timeout is 1s; the run executes in a goroutine and
 	// returns 202 immediately, so the default is fine here, but we extend the
 	// deadline to be safe under loaded CI.
-	startResp, err := app.Test(startReq, 5000)
+	startResp, err := app.Test(startReq, fiber.TestConfig{Timeout: 5 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusAccepted, startResp.StatusCode)
 
@@ -299,7 +299,7 @@ func TestPlaygroundWsInteractive(t *testing.T) {
 	disconnectURL := fmt.Sprintf("/api/v1/playground/ws/sessions/%d/disconnect", created.Session.ID)
 
 	// --- Connect ---
-	connectResp, err := app.Test(httptest.NewRequest(http.MethodPost, connectURL, nil), 5000)
+	connectResp, err := app.Test(httptest.NewRequest(http.MethodPost, connectURL, nil), fiber.TestConfig{Timeout: 5 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusOK, connectResp.StatusCode)
 
@@ -309,7 +309,7 @@ func TestPlaygroundWsInteractive(t *testing.T) {
 	require.NoError(t, err)
 	frameReq := httptest.NewRequest(http.MethodPost, frameURL, strings.NewReader(string(frameBody)))
 	frameReq.Header.Set("Content-Type", "application/json")
-	frameResp, err := app.Test(frameReq, 5000)
+	frameResp, err := app.Test(frameReq, fiber.TestConfig{Timeout: 5 * time.Second, FailOnTimeout: true})
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusAccepted, frameResp.StatusCode)
 

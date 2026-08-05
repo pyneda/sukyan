@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/rs/zerolog/log"
 )
@@ -22,10 +22,10 @@ import (
 // @Success 200 {array} db.JsonWebToken
 // @Security ApiKeyAuth
 // @Router /api/v1/tokens/jwts [post]
-func JwtListHandler(c *fiber.Ctx) error {
+func JwtListHandler(c fiber.Ctx) error {
 	input := new(db.JwtFilters)
 
-	if err := c.BodyParser(input); err != nil {
+	if err := c.Bind().Body(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Cannot parse JSON",
 		})

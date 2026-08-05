@@ -3,7 +3,7 @@ package api
 import (
 	"encoding/json"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/manual"
 )
@@ -28,7 +28,7 @@ type ReplayConfig struct {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/replay-config [get]
-func GetReplayConfig(c *fiber.Ctx) error {
+func GetReplayConfig(c fiber.Ctx) error {
 	sessID, err := paramInt(c, "id")
 	if err != nil || sessID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid session id"})
@@ -55,7 +55,7 @@ func GetReplayConfig(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/replay-config [put]
-func PutReplayConfig(c *fiber.Ctx) error {
+func PutReplayConfig(c fiber.Ctx) error {
 	return upsertReplayConfig(c)
 }
 
@@ -70,11 +70,11 @@ func PutReplayConfig(c *fiber.Ctx) error {
 // @Failure 404 {object} ErrorResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/playground/sessions/{id}/replay-config/flush [post]
-func FlushReplayConfig(c *fiber.Ctx) error {
+func FlushReplayConfig(c fiber.Ctx) error {
 	return upsertReplayConfig(c)
 }
 
-func upsertReplayConfig(c *fiber.Ctx) error {
+func upsertReplayConfig(c fiber.Ctx) error {
 	sessID, err := paramInt(c, "id")
 	if err != nil || sessID <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "Invalid session id"})

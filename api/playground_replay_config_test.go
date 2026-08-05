@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pyneda/sukyan/db"
 	"github.com/pyneda/sukyan/pkg/manual"
 	"github.com/stretchr/testify/require"
@@ -92,7 +92,7 @@ func TestPutReplayConfig_InvalidJSON(t *testing.T) {
 	_, sessID := createReplayWorkspaceSession(t)
 	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/v1/playground/sessions/%d/replay-config", sessID), bytes.NewReader([]byte("not json")))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := app.Test(req, -1)
+	resp, err := app.Test(req, fiber.TestConfig{})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }

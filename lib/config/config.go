@@ -1,6 +1,8 @@
 package config
 
 import (
+	"strings"
+
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
 )
@@ -10,6 +12,12 @@ func LoadConfig() {
 	viper.SetConfigType("yaml")         // REQUIRED if the config file does not have the extension in the name
 	viper.AddConfigPath("/etc/sukyan/") // path to look for the config file in
 	viper.AddConfigPath(".")            // optionally look for config in the working directory
+
+	// Secrets should not have to live in a file on disk: every key is also
+	// settable as SUKYAN_<KEY_WITH_UNDERSCORES>, which takes precedence.
+	viper.SetEnvPrefix("SUKYAN")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
@@ -224,5 +232,7 @@ func SetDefaultConfig() {
 	viper.SetDefault("api.dashboard.title", "Sukyan Scan Dashboard")
 	viper.SetDefault("api.dashboard.refresh_interval", 5)
 	viper.SetDefault("api.dashboard.basic_auth.username", "admin")
-	viper.SetDefault("api.dashboard.basic_auth.password", "changeme")
+	// No default password: an unset credential makes the dashboard reject every
+	// request rather than ship a known one.
+	viper.SetDefault("api.dashboard.basic_auth.password", "")
 }

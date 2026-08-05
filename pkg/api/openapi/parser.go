@@ -437,6 +437,16 @@ func unmarkRefs(onPath map[string]bool, refs []string) {
 	}
 }
 
+// resolveExclusiveBound collapses the two encodings of an exclusive bound into a
+// single value: 3.0 spells it `minimum` plus a boolean `exclusiveMinimum`, while
+// 3.1 carries the bound in `exclusiveMinimum` itself and omits `minimum`.
+func resolveExclusiveBound(bound *float64, exclusive openapi3.ExclusiveBound) (*float64, bool) {
+	if exclusive.Value != nil {
+		return exclusive.Value, true
+	}
+	return bound, exclusive.IsTrue()
+}
+
 // applyConstraints copies the validation keywords one schema declares onto the
 // parameter, leaving what it does not declare untouched so later, more specific
 // sources layer over earlier ones instead of clobbering them.
@@ -445,16 +455,19 @@ func applyConstraints(schema *openapi3.Schema, param *core.Parameter) {
 		param.Constraints.Format = schema.Format
 	}
 
-	if schema.Min != nil {
-		param.Constraints.Minimum = schema.Min
+	minBound, minExclusive := resolveExclusiveBound(schema.Min, schema.ExclusiveMin)
+	if minBound != nil {
+		param.Constraints.Minimum = minBound
 	}
-	if schema.Max != nil {
-		param.Constraints.Maximum = schema.Max
-	}
-	if schema.ExclusiveMin {
+	if minExclusive {
 		param.Constraints.ExclusiveMin = true
 	}
-	if schema.ExclusiveMax {
+
+	maxBound, maxExclusive := resolveExclusiveBound(schema.Max, schema.ExclusiveMax)
+	if maxBound != nil {
+		param.Constraints.Maximum = maxBound
+	}
+	if maxExclusive {
 		param.Constraints.ExclusiveMax = true
 	}
 
@@ -644,14 +657,8 @@ func ExtractConstraintsFromSchema(schemaJSON []byte) (core.Constraints, error) {
 
 	constraints.Format = schema.Format
 
-	if schema.Min != nil {
-		constraints.Minimum = schema.Min
-	}
-	if schema.Max != nil {
-		constraints.Maximum = schema.Max
-	}
-	constraints.ExclusiveMin = schema.ExclusiveMin
-	constraints.ExclusiveMax = schema.ExclusiveMax
+	constraints.Minimum, constraints.ExclusiveMin = resolveExclusiveBound(schema.Min, schema.ExclusiveMin)
+	constraints.Maximum, constraints.ExclusiveMax = resolveExclusiveBound(schema.Max, schema.ExclusiveMax)
 
 	if schema.MinLength != 0 {
 		minLen := int(schema.MinLength)

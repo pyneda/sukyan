@@ -1128,6 +1128,68 @@ func TestExtractConstraintsFromSchema(t *testing.T) {
 	}
 }
 
+func ptr[T any](v T) *T { return &v }
+
+func TestExtractConstraintsFromSchema_ExclusiveBounds(t *testing.T) {
+	tests := []struct {
+		name          string
+		schemaJSON    string
+		wantMin       *float64
+		wantMax       *float64
+		wantExclusive bool
+	}{
+		{
+			name:          "3.0 boolean modifier",
+			schemaJSON:    `{"type":"integer","minimum":5,"maximum":10,"exclusiveMinimum":true,"exclusiveMaximum":true}`,
+			wantMin:       ptr(5.0),
+			wantMax:       ptr(10.0),
+			wantExclusive: true,
+		},
+		{
+			name:          "3.0 boolean modifier disabled",
+			schemaJSON:    `{"type":"integer","minimum":5,"maximum":10,"exclusiveMinimum":false,"exclusiveMaximum":false}`,
+			wantMin:       ptr(5.0),
+			wantMax:       ptr(10.0),
+			wantExclusive: false,
+		},
+		{
+			name:          "3.1 numeric bound",
+			schemaJSON:    `{"type":"integer","exclusiveMinimum":5,"exclusiveMaximum":10}`,
+			wantMin:       ptr(5.0),
+			wantMax:       ptr(10.0),
+			wantExclusive: true,
+		},
+		{
+			name:          "inclusive bounds only",
+			schemaJSON:    `{"type":"integer","minimum":5,"maximum":10}`,
+			wantMin:       ptr(5.0),
+			wantMax:       ptr(10.0),
+			wantExclusive: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			constraints, err := ExtractConstraintsFromSchema([]byte(tt.schemaJSON))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if constraints.Minimum == nil || *constraints.Minimum != *tt.wantMin {
+				t.Errorf("minimum: want %v, got %v", *tt.wantMin, constraints.Minimum)
+			}
+			if constraints.Maximum == nil || *constraints.Maximum != *tt.wantMax {
+				t.Errorf("maximum: want %v, got %v", *tt.wantMax, constraints.Maximum)
+			}
+			if constraints.ExclusiveMin != tt.wantExclusive {
+				t.Errorf("exclusiveMin: want %v, got %v", tt.wantExclusive, constraints.ExclusiveMin)
+			}
+			if constraints.ExclusiveMax != tt.wantExclusive {
+				t.Errorf("exclusiveMax: want %v, got %v", tt.wantExclusive, constraints.ExclusiveMax)
+			}
+		})
+	}
+}
+
 func TestExtractConstraintsFromSchema_InvalidJSON(t *testing.T) {
 	_, err := ExtractConstraintsFromSchema([]byte(`{invalid`))
 	if err == nil {
